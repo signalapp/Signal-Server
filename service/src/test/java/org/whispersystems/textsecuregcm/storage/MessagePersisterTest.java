@@ -46,7 +46,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import reactor.core.scheduler.Scheduler;
@@ -66,8 +65,6 @@ class MessagePersisterTest {
   private MessagesDynamoDb messagesDynamoDb;
   private MessagePersister messagePersister;
   private AccountsManager accountsManager;
-  private ClientPresenceManager clientPresenceManager;
-  private KeysManager keysManager;
   private MessagesManager messagesManager;
   private Account destinationAccount;
 
@@ -87,8 +84,6 @@ class MessagePersisterTest {
 
     messagesDynamoDb = mock(MessagesDynamoDb.class);
     accountsManager = mock(AccountsManager.class);
-    clientPresenceManager = mock(ClientPresenceManager.class);
-    keysManager = mock(KeysManager.class);
     destinationAccount = mock(Account.class);;
 
     when(accountsManager.getByAccountIdentifier(DESTINATION_ACCOUNT_UUID)).thenReturn(Optional.of(destinationAccount));
@@ -105,11 +100,10 @@ class MessagePersisterTest {
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService,
         messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
-    messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, clientPresenceManager,
-        keysManager, dynamicConfigurationManager, PERSIST_DELAY, 1);
+    messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
+        dynamicConfigurationManager, PERSIST_DELAY, 1);
 
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-    when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     when(messagesManager.persistMessages(any(UUID.class), any(), any())).thenAnswer(invocation -> {
       final UUID destinationUuid = invocation.getArgument(0);

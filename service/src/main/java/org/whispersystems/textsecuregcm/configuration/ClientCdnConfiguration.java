@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
@@ -15,10 +16,12 @@ public class ClientCdnConfiguration {
 
   @JsonProperty
   @NotNull
+  @Valid
   CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
   @JsonProperty
   @NotNull
+  @Valid
   RetryConfiguration retry = new RetryConfiguration();
 
   public CircuitBreakerConfiguration getCircuitBreaker() {

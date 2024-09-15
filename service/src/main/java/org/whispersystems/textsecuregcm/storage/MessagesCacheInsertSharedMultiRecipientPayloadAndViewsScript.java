@@ -23,6 +23,8 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
 
   private final ClusterLuaScript script;
 
+  static final String ERROR_KEY_EXISTS = "ERR key exists";
+
   MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(FaultTolerantRedisCluster redisCluster)
       throws IOException {
     this.script = ClusterLuaScript.fromResource(redisCluster, "lua/insert_shared_multirecipient_message_data.lua",
@@ -40,10 +42,7 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
 
     message.getRecipients().forEach((serviceId, recipient) -> {
       for (byte device : recipient.getDevices()) {
-        final byte[] key = new byte[18];
-        System.arraycopy(serviceId.toServiceIdFixedWidthBinary(), 0, key, 0, 17);
-        key[17] = device;
-        args.add(key);
+        args.add(MessagesCache.getSharedMrmViewKey(serviceId, device));
         args.add(message.serializedRecipientView(recipient));
       }
     });

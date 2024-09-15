@@ -147,7 +147,8 @@ class AccountsManagerChangeNumberIntegrationTest {
           clientPublicKeysManager,
           accountLockExecutor,
           clientPresenceExecutor,
-          mock(Clock.class));
+          mock(Clock.class),
+          dynamicConfigurationManager);
     }
   }
 

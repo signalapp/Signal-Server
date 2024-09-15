@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.configuration.dynamic;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.validation.Valid;
@@ -71,6 +72,10 @@ public class DynamicConfiguration {
   @Valid
   DynamicMessagesConfiguration messagesConfiguration = new DynamicMessagesConfiguration();
 
+  @JsonProperty
+  @Valid
+  List<String> svrStatusCodesToIgnoreForAccountDeletion = Collections.emptyList();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -127,6 +132,10 @@ public class DynamicConfiguration {
 
   public DynamicMessagesConfiguration getMessagesConfiguration() {
     return messagesConfiguration;
+  }
+
+  public List<String> getSvrStatusCodesToIgnoreForAccountDeletion() {
+    return svrStatusCodesToIgnoreForAccountDeletion;
   }
 
 }

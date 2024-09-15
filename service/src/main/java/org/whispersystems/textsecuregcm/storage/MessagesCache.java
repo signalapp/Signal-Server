@@ -11,7 +11,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
-import io.lettuce.core.ScoredValue;
 import io.lettuce.core.ZAddArgs;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
@@ -42,6 +41,7 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.reactivestreams.Publisher;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
+import org.signal.libsignal.protocol.ServiceId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -49,6 +49,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesCon
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -270,23 +271,24 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     return insertTimer.record(() -> insertScript.execute(destinationUuid, destinationDevice, messageWithGuid));
   }
 
-  public byte[] insertSharedMultiRecipientMessagePayload(UUID mrmGuid,
-      SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
-    final byte[] sharedMrmKey = getSharedMrmKey(mrmGuid);
-    insertSharedMrmPayloadTimer.record(() -> insertMrmScript.execute(sharedMrmKey, sealedSenderMultiRecipientMessage));
-    return sharedMrmKey;
+  public byte[] insertSharedMultiRecipientMessagePayload(
+      final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
+    return insertSharedMrmPayloadTimer.record(() -> {
+          final byte[] sharedMrmKey = getSharedMrmKey(UUID.randomUUID());
+          insertMrmScript.execute(sharedMrmKey, sealedSenderMultiRecipientMessage);
+          return sharedMrmKey;
+      });
   }
 
-  public CompletableFuture<Optional<RemovedMessage>> remove(final UUID destinationUuid,
-      final byte destinationDevice,
+  public CompletableFuture<Optional<RemovedMessage>> remove(final UUID destinationUuid, final byte destinationDevice,
       final UUID messageGuid) {
 
     return remove(destinationUuid, destinationDevice, List.of(messageGuid))
         .thenApply(removed -> removed.isEmpty() ? Optional.empty() : Optional.of(removed.getFirst()));
   }
 
-  public CompletableFuture<List<RemovedMessage>> remove(final UUID destinationUuid,
-      final byte destinationDevice, final List<UUID> messageGuids) {
+  public CompletableFuture<List<RemovedMessage>> remove(final UUID destinationUuid, final byte destinationDevice,
+      final List<UUID> messageGuids) {
 
     final Timer.Sample sample = Timer.start();
 
@@ -431,8 +433,9 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
       final Experiment experiment = new Experiment(MRM_VIEWS_EXPERIMENT_NAME);
 
       final byte[] key = mrmMessage.getSharedMrmKey().toByteArray();
-      final byte[] sharedMrmViewKey = MessagesCache.getSharedMrmViewKey(new AciServiceIdentifier(destinationUuid),
-          destinationDevice);
+      final byte[] sharedMrmViewKey = MessagesCache.getSharedMrmViewKey(
+          // the message might be addressed to the account's PNI, so use the service ID from the envelope
+          ServiceIdentifier.valueOf(mrmMessage.getDestinationServiceId()), destinationDevice);
 
       final Mono<MessageProtos.Envelope> mrmMessageMono = Mono.from(redisCluster.withBinaryClusterReactive(
           conn -> conn.reactive().hmget(key, "data".getBytes(StandardCharsets.UTF_8), sharedMrmViewKey)
@@ -469,8 +472,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   /**
    * Makes a best-effort attempt at asynchronously updating (and removing when empty) the MRM data structure
    */
-  void removeRecipientViewFromMrmData(final List<byte[]> sharedMrmKeys, final UUID accountUuid,
-      final byte deviceId) {
+  void removeRecipientViewFromMrmData(final List<byte[]> sharedMrmKeys, final UUID accountUuid, final byte deviceId) {
 
     if (sharedMrmKeys.isEmpty()) {
       return;
@@ -493,8 +495,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
         .subscribe();
   }
 
-  private Mono<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid,
-      final byte destinationDevice,
+  private Mono<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid, final byte destinationDevice,
       long messageId) {
 
     return getItemsScript.execute(destinationUuid, destinationDevice, PAGE_SIZE, messageId)
@@ -520,22 +521,40 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   @VisibleForTesting
   List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
       final int limit) {
-    return getMessagesTimer.record(() -> {
-      final List<ScoredValue<byte[]>> scoredMessages = redisCluster.withBinaryCluster(
-          connection -> connection.sync()
-              .zrangeWithScores(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
-      final List<MessageProtos.Envelope> envelopes = new ArrayList<>(scoredMessages.size());
 
-      for (final ScoredValue<byte[]> scoredMessage : scoredMessages) {
-        try {
-          envelopes.add(MessageProtos.Envelope.parseFrom(scoredMessage.getValue()));
-        } catch (InvalidProtocolBufferException e) {
-          logger.warn("Failed to parse envelope", e);
-        }
-      }
+    final Timer.Sample sample = Timer.start();
 
-      return envelopes;
-    });
+    final List<byte[]> messages = redisCluster.withBinaryCluster(connection ->
+        connection.sync().zrange(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
+
+    return Flux.fromIterable(messages)
+        .mapNotNull(message -> {
+          try {
+            return MessageProtos.Envelope.parseFrom(message);
+          } catch (InvalidProtocolBufferException e) {
+            logger.warn("Failed to parse envelope", e);
+            return null;
+          }
+        })
+        .concatMap(message -> {
+          final Mono<MessageProtos.Envelope> messageMono;
+          if (message.hasSharedMrmKey()) {
+            final Mono<?> experimentMono = maybeRunMrmViewExperiment(message, accountUuid, destinationDevice);
+
+            // mrm views phase 1: messageMono for sharedMrmKey is always Mono.just(), because messages always have content
+            // To avoid races, wait for the experiment to run, but ignore any errors
+            messageMono = experimentMono
+                .onErrorComplete()
+                .then(Mono.just(message.toBuilder().clearSharedMrmKey().build()));
+          } else {
+            messageMono = Mono.just(message);
+          }
+
+          return messageMono;
+        })
+        .collectList()
+        .doOnTerminate(() -> sample.stop(getMessagesTimer))
+        .block(Duration.ofSeconds(5));
   }
 
   public CompletableFuture<Void> clear(final UUID destinationUuid) {
@@ -770,9 +789,19 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     return ("user_queue_persisting::{" + accountUuid + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
   }
 
-  static byte[] getSharedMrmViewKey(final AciServiceIdentifier serviceIdentifier, final byte deviceId) {
+  static byte[] getSharedMrmViewKey(final ServiceId serviceId, final byte deviceId) {
+    return getSharedMrmViewKey(serviceId.toServiceIdFixedWidthBinary(), deviceId);
+  }
+
+  static byte[] getSharedMrmViewKey(final ServiceIdentifier serviceIdentifier, final byte deviceId) {
+    return getSharedMrmViewKey(serviceIdentifier.toFixedWidthByteArray(), deviceId);
+  }
+
+  private static byte[] getSharedMrmViewKey(final byte[] fixedWithServiceId, final byte deviceId) {
+    assert fixedWithServiceId.length == 17;
+
     final ByteBuffer keyBb = ByteBuffer.allocate(18);
-    keyBb.put(serviceIdentifier.toFixedWidthByteArray());
+    keyBb.put(fixedWithServiceId);
     keyBb.put(deviceId);
     assert !keyBb.hasRemaining();
     return keyBb.array();

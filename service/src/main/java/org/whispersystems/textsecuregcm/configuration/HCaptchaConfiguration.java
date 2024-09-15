@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
@@ -24,10 +25,12 @@ public class HCaptchaConfiguration implements HCaptchaClientFactory {
 
   @JsonProperty
   @NotNull
+  @Valid
   CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
   @JsonProperty
   @NotNull
+  @Valid
   RetryConfiguration retry = new RetryConfiguration();
 
 

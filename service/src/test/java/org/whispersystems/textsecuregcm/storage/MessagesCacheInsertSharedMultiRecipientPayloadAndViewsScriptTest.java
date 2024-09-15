@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,6 +15,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import io.lettuce.core.RedisCommandExecutionException;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -41,7 +44,8 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
     final int totalDevices = destinations.values().stream().mapToInt(List::size).sum();
     final long hashFieldCount = REDIS_CLUSTER_EXTENSION.getRedisCluster()
         .withBinaryCluster(conn -> conn.sync().hlen(sharedMrmKey));
-    assertEquals(totalDevices + 1, hashFieldCount);
+    // + 1 because of "data" field
+    assertEquals(1 + totalDevices, hashFieldCount);
   }
 
   public static List<Arguments> testInsert() {
@@ -69,6 +73,23 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
     }
 
     return testCases;
+  }
+
+  @Test
+  void testInsertDuplicateKey() throws Exception {
+    final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript = new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(
+        REDIS_CLUSTER_EXTENSION.getRedisCluster());
+
+    final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
+    insertMrmScript.execute(sharedMrmKey,
+        MessagesCacheTest.generateRandomMrmMessage(new AciServiceIdentifier(UUID.randomUUID()), Device.PRIMARY_ID));
+
+    final RedisCommandExecutionException e = assertThrows(RedisCommandExecutionException.class,
+        () -> insertMrmScript.execute(sharedMrmKey,
+            MessagesCacheTest.generateRandomMrmMessage(new AciServiceIdentifier(UUID.randomUUID()),
+                Device.PRIMARY_ID)));
+
+    assertEquals(MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript.ERROR_KEY_EXISTS, e.getMessage());
   }
 
 }

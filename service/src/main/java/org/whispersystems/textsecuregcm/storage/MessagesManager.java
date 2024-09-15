@@ -207,8 +207,8 @@ public class MessagesManager {
    * @see MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript
    */
   public byte[] insertSharedMultiRecipientMessagePayload(
-      SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
-    return messagesCache.insertSharedMultiRecipientMessagePayload(UUID.randomUUID(), sealedSenderMultiRecipientMessage);
+      final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
+    return messagesCache.insertSharedMultiRecipientMessagePayload(sealedSenderMultiRecipientMessage);
   }
 
   /**

@@ -146,7 +146,8 @@ class AccountsManagerUsernameIntegrationTest {
         mock(ClientPublicKeysManager.class),
         Executors.newSingleThreadExecutor(),
         Executors.newSingleThreadExecutor(),
-        mock(Clock.class));
+        mock(Clock.class),
+        dynamicConfigurationManager);
   }
 
   @Test

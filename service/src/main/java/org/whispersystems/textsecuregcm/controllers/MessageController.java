@@ -279,26 +279,26 @@ public class MessageController {
   @ApiResponse(
       responseCode = "410", description = "Mismatched registration ids supplied for some recipient devices",
       content = @Content(schema = @Schema(implementation = AccountStaleDevices[].class)))
-  public Response sendMessage(@ReadOnly @Auth Optional<AuthenticatedDevice> source,
+  public Response sendMessage(@ReadOnly @Auth final Optional<AuthenticatedDevice> source,
       @Parameter(description="The recipient's unidentified access key")
-      @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
+      @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) final Optional<Anonymous> accessKey,
 
       @Parameter(description="A group send endorsement token covering the recipient. Must not be combined with `Unidentified-Access-Key` or set on a story message.")
       @HeaderParam(HeaderUtils.GROUP_SEND_TOKEN)
-      @Nullable GroupSendTokenHeader groupSendToken,
+      @Nullable final GroupSendTokenHeader groupSendToken,
 
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description="If true, deliver the message only to recipients that are online when it is sent")
-      @PathParam("destination") ServiceIdentifier destinationIdentifier,
+      @PathParam("destination") final ServiceIdentifier destinationIdentifier,
 
       @Parameter(description="If true, the message is a story; access tokens are not checked and sending to nonexistent recipients is permitted")
-      @QueryParam("story") boolean isStory,
+      @QueryParam("story") final boolean isStory,
 
       @Parameter(description="The encrypted message payloads for each recipient device")
-      @NotNull @Valid IncomingMessageList messages,
+      @NotNull @Valid final IncomingMessageList messages,
 
-      @Context ContainerRequestContext context) throws RateLimitExceededException {
+      @Context final ContainerRequestContext context) throws RateLimitExceededException {
 
     final Sample sample = Timer.start();
     try {
@@ -307,7 +307,7 @@ public class MessageController {
       }
 
       if (groupSendToken != null) {
-        if (!source.isEmpty() || !accessKey.isEmpty()) {
+        if (source.isPresent() || accessKey.isPresent()) {
           throw new BadRequestException(
               "Group send endorsement tokens should not be combined with other authentication");
         } else if (isStory) {
@@ -315,24 +315,17 @@ public class MessageController {
         }
       }
 
-      final String senderType;
-      if (source.isPresent()) {
-        if (source.get().getAccount().isIdentifiedBy(destinationIdentifier)) {
-          senderType = SENDER_TYPE_SELF;
-        } else {
-          senderType = SENDER_TYPE_IDENTIFIED;
-        }
-      } else {
-        senderType = SENDER_TYPE_UNIDENTIFIED;
-      }
+      final String senderType = source.map(
+              s -> s.getAccount().isIdentifiedBy(destinationIdentifier) ? SENDER_TYPE_SELF : SENDER_TYPE_IDENTIFIED)
+          .orElse(SENDER_TYPE_UNIDENTIFIED);
 
-      boolean isSyncMessage = source.isPresent() && source.get().getAccount().isIdentifiedBy(destinationIdentifier);
+      final boolean isSyncMessage = senderType.equals(SENDER_TYPE_SELF);
 
       if (isSyncMessage && destinationIdentifier.identityType() == IdentityType.PNI) {
         throw new WebApplicationException(Status.FORBIDDEN);
       }
 
-      Optional<Account> destination;
+      final Optional<Account> destination;
       if (!isSyncMessage) {
         destination = accountsManager.getByServiceIdentifier(destinationIdentifier);
       } else {
@@ -387,7 +380,7 @@ public class MessageController {
               destinationIdentifier);
         }
 
-        boolean needsSync = !isSyncMessage && source.isPresent() && source.get().getAccount().getDevices().size() > 1;
+        final boolean needsSync = !isSyncMessage && source.isPresent() && source.get().getAccount().getDevices().size() > 1;
 
         // We return 200 when stories are sent to a non-existent account. Since story sends bypass OptionalAccess.verify
         // we leak information about whether a destination UUID exists if we return any other code (e.g. 404) from
@@ -444,34 +437,33 @@ public class MessageController {
             Tag.of(AUTH_TYPE_TAG_NAME, authType),
             Tag.of(IDENTITY_TYPE_TAG_NAME, destinationIdentifier.identityType().name()));
 
-        for (IncomingMessage incomingMessage : messages.messages()) {
-          Optional<Device> destinationDevice = destination.get().getDevice(incomingMessage.destinationDeviceId());
-
-          if (destinationDevice.isPresent()) {
-            Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
-            sendIndividualMessage(
-                source,
-                destination.get(),
-                destinationDevice.get(),
-                destinationIdentifier,
-                messages.timestamp(),
-                messages.online(),
-                isStory,
-                messages.urgent(),
-                incomingMessage,
-                userAgent,
-                spamReportToken);
-          }
+        for (final IncomingMessage incomingMessage : messages.messages()) {
+          destination.get().getDevice(incomingMessage.destinationDeviceId())
+              .ifPresent(destinationDevice -> {
+                Metrics.counter(SENT_MESSAGE_COUNTER_NAME, tags).increment();
+                sendIndividualMessage(
+                    source,
+                    destination.get(),
+                    destinationDevice,
+                    destinationIdentifier,
+                    messages.timestamp(),
+                    messages.online(),
+                    isStory,
+                    messages.urgent(),
+                    incomingMessage,
+                    userAgent,
+                    spamReportToken);
+              });
         }
 
         return Response.ok(new SendMessageResponse(needsSync)).build();
-      } catch (MismatchedDevicesException e) {
+      } catch (final MismatchedDevicesException e) {
         throw new WebApplicationException(Response.status(409)
             .type(MediaType.APPLICATION_JSON_TYPE)
             .entity(new MismatchedDevices(e.getMissingDevices(),
                 e.getExtraDevices()))
             .build());
-      } catch (StaleDevicesException e) {
+      } catch (final StaleDevicesException e) {
         throw new WebApplicationException(Response.status(410)
             .type(MediaType.APPLICATION_JSON)
             .entity(new StaleDevices(e.getStaleDevices()))

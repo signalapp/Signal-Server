@@ -140,7 +140,8 @@ public class AddRemoveDeviceIntegrationTest {
         clientPublicKeysManager,
         accountLockExecutor,
         clientPresenceExecutor,
-        CLOCK);
+        CLOCK,
+        dynamicConfigurationManager);
   }
 
   @AfterEach
