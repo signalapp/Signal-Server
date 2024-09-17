@@ -4322,10 +4322,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
