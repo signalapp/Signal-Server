@@ -167,6 +167,7 @@ import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceCl
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
+import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
@@ -1003,6 +1004,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.jersey().register(new BufferingInterceptor());
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
+    environment.jersey().register(new RateLimitByIpFilter(rateLimiters, true));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
@@ -1021,10 +1023,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             clientReleaseManager, messageDeliveryLoopMonitor));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
+    webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters, true));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
+
 
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
         .stream()

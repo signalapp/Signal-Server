@@ -22,6 +22,11 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 
 public class RateLimitByIpFilter implements ContainerRequestFilter {
 
@@ -33,11 +38,18 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
 
   private static final ExceptionMapper<RateLimitExceededException> EXCEPTION_MAPPER = new RateLimitExceededExceptionMapper();
 
-  private final RateLimiters rateLimiters;
+  private static final String NO_IP_COUNTER_NAME = MetricsUtil.name(RateLimitByIpFilter.class, "noIpAddress");
 
+  private final RateLimiters rateLimiters;
+  private final boolean softEnforcement;
+
+  public RateLimitByIpFilter(final RateLimiters rateLimiters, final boolean softEnforcement) {
+    this.rateLimiters = requireNonNull(rateLimiters);
+    this.softEnforcement = softEnforcement;
+  }
 
   public RateLimitByIpFilter(final RateLimiters rateLimiters) {
-    this.rateLimiters = requireNonNull(rateLimiters);
+    this(rateLimiters, false);
   }
 
   @Override
@@ -65,10 +77,19 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
 
       // checking if we failed to extract the most recent IP for any reason
       if (remoteAddress.isEmpty()) {
+        Metrics.counter(
+            NO_IP_COUNTER_NAME,
+            Tags.of(
+                Tag.of("limiter", handle.id()),
+                Tag.of("fail", String.valueOf(annotation.failOnUnresolvedIp()))))
+            .increment();
+
         // checking if annotation is configured to fail when the most recent IP is not resolved
         if (annotation.failOnUnresolvedIp()) {
           logger.error("Remote address was null");
-          throw INVALID_HEADER_EXCEPTION;
+          if (!softEnforcement) {
+            throw INVALID_HEADER_EXCEPTION;
+          }
         }
         // otherwise, allow request
         return;
@@ -78,7 +99,9 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
       rateLimiter.validate(remoteAddress.get());
     } catch (RateLimitExceededException e) {
       final Response response = EXCEPTION_MAPPER.toResponse(e);
-      throw new ClientErrorException(response);
+      if (!softEnforcement) {
+        throw new ClientErrorException(response);
+      }
     }
   }
 }
