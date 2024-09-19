@@ -23,6 +23,7 @@ import com.google.cloud.pubsub.v1.PublisherInterface;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.pubsub.v1.PubsubMessage;
 import io.micrometer.core.instrument.Metrics;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -39,9 +40,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
-import javax.ws.rs.ClientErrorException;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -199,8 +197,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
                     );
 
                 if (search.getMaximumSize() == 0) {
-                  return CompletableFuture.failedFuture(
-                      new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR));
+                  return CompletableFuture.failedFuture(ExceptionUtils.wrap(new IOException()));
                 }
 
                 final Transaction successfulTx = search.getFirst();
@@ -214,13 +211,12 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
               return switch (unsuccessfulTx.getProcessorResponseCode()) {
                 case GENERIC_DECLINED_PROCESSOR_CODE, PAYPAL_FUNDING_INSTRUMENT_DECLINED_PROCESSOR_CODE ->
                     CompletableFuture.failedFuture(
-                        new SubscriptionProcessorException(getProvider(), createChargeFailure(unsuccessfulTx)));
+                        new SubscriptionException.ProcessorException(getProvider(), createChargeFailure(unsuccessfulTx)));
 
                 default -> {
                   logger.info("PayPal charge unexpectedly failed: {}", unsuccessfulTx.getProcessorResponseCode());
 
-                  yield CompletableFuture.failedFuture(
-                      new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR));
+                  yield CompletableFuture.failedFuture(ExceptionUtils.wrap(new IOException()));
                 }
               };
             }, executor));
@@ -391,7 +387,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     return getDefaultPaymentMethod(customerId)
         .thenCompose(paymentMethod -> {
           if (paymentMethod == null) {
-            throw new ClientErrorException(Response.Status.CONFLICT);
+            throw ExceptionUtils.wrap(new SubscriptionException.ProcessorConflict());
           }
 
           final Optional<Subscription> maybeExistingSubscription = paymentMethod.getSubscriptions().stream()
@@ -426,7 +422,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
                   if (result.getTarget() != null) {
                     completionException = result.getTarget().getTransactions().stream().findFirst()
                         .map(transaction -> new CompletionException(
-                            new SubscriptionProcessorException(getProvider(), createChargeFailure(transaction))))
+                            new SubscriptionException.ProcessorException(getProvider(), createChargeFailure(transaction))))
                         .orElseGet(() -> new CompletionException(new BraintreeException(result.getMessage())));
                   } else {
                     completionException = new CompletionException(new BraintreeException(result.getMessage()));
@@ -460,9 +456,8 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     return cancelSubscriptionAtEndOfCurrentPeriod(subscription)
         .thenCompose(ignored -> {
 
-          final Transaction transaction = getLatestTransactionForSubscription(subscription).orElseThrow(
-              () -> new ClientErrorException(
-                  Response.Status.CONFLICT));
+          final Transaction transaction = getLatestTransactionForSubscription(subscription)
+              .orElseThrow(() -> ExceptionUtils.wrap(new SubscriptionException.ProcessorConflict()));
 
           final Customer customer = transaction.getCustomer();
 
@@ -615,10 +610,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
                 if (subscriptionStatus.equals(SubscriptionStatus.ACTIVE) || subscriptionStatus.equals(SubscriptionStatus.PAST_DUE)) {
                   throw ExceptionUtils.wrap(new SubscriptionException.ReceiptRequestedForOpenPayment());
                 }
-
-                throw new WebApplicationException(Response.status(Response.Status.PAYMENT_REQUIRED)
-                    .entity(Map.of("chargeFailure", createChargeFailure(transaction)))
-                    .build());
+                throw ExceptionUtils.wrap(new SubscriptionException.ChargeFailurePaymentRequired(createChargeFailure(transaction)));
               }
 
               final Instant paidAt = transaction.getSubscriptionDetails().getBillingPeriodStartDate().toInstant();

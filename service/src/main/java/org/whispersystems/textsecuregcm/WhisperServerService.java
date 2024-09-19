@@ -182,7 +182,6 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
-import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsHttpChannelListener;
@@ -1217,7 +1216,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ImpossiblePhoneNumberExceptionMapper(),
         new NonNormalizedPhoneNumberExceptionMapper(),
         new RegistrationServiceSenderExceptionMapper(),
-        new SubscriptionProcessorExceptionMapper(),
         new SubscriptionExceptionMapper(),
         new JsonMappingExceptionMapper()
     ).forEach(exceptionMapper -> {

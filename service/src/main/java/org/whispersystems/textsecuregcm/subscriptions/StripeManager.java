@@ -40,6 +40,7 @@ import com.stripe.param.SubscriptionRetrieveParams;
 import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.SubscriptionUpdateParams.BillingCycleAnchor;
 import com.stripe.param.SubscriptionUpdateParams.ProrationBehavior;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -55,6 +56,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -64,12 +66,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import javax.ws.rs.ClientErrorException;
-import javax.ws.rs.InternalServerErrorException;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -201,7 +197,8 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   }
 
   /**
-   * Creates a payment intent. May throw a 400 WebApplicationException if the amount is too small.
+   * Creates a payment intent. May throw a
+   * {@link SubscriptionException.AmountTooSmall} if the amount is too small.
    */
   public CompletableFuture<PaymentIntent> createPaymentIntent(final String currency,
       final long amount,
@@ -223,10 +220,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         return stripeClient.paymentIntents().create(builder.build(), commonOptions());
       } catch (StripeException e) {
         if ("amount_too_small".equalsIgnoreCase(e.getCode())) {
-          throw new WebApplicationException(Response
-              .status(Status.BAD_REQUEST)
-              .entity(Map.of("error", "amount_too_small"))
-              .build());
+          throw ExceptionUtils.wrap(new SubscriptionException.AmountTooSmall());
         } else {
           throw new CompletionException(e);
         }
@@ -303,7 +297,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
             if (e instanceof CardException ce) {
               throw new CompletionException(
-                  new SubscriptionProcessorException(getProvider(), createChargeFailureFromCardException(e, ce)));
+                  new SubscriptionException.ProcessorException(getProvider(), createChargeFailureFromCardException(e, ce)));
             }
 
             throw new CompletionException(e);
@@ -356,10 +350,10 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           } catch (StripeException e) {
 
             if (e instanceof CardException ce) {
-              throw new CompletionException(
-                  new SubscriptionProcessorException(getProvider(), createChargeFailureFromCardException(e, ce)));
+              throw ExceptionUtils.wrap(
+                  new SubscriptionException.ProcessorException(getProvider(), createChargeFailureFromCardException(e, ce)));
             }
-            throw new CompletionException(e);
+            throw ExceptionUtils.wrap(e);
           }
 
         }, executor)
@@ -385,8 +379,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   public CompletableFuture<Void> cancelAllActiveSubscriptions(String customerId) {
     return getCustomer(customerId).thenCompose(customer -> {
       if (customer == null) {
-        throw new InternalServerErrorException(
-            "no customer record found for id " + customerId);
+        throw ExceptionUtils.wrap(new IOException("no customer record found for id " + customerId));
       }
       return listNonCanceledSubscriptions(customer);
     }).thenCompose(subscriptions -> {
@@ -617,14 +610,15 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           ExceptionUtils.wrap(new SubscriptionException.ReceiptRequestedForOpenPayment()));
     }
     if (!StringUtils.equalsIgnoreCase("paid", latestSubscriptionInvoice.getStatus())) {
-      final Response.ResponseBuilder responseBuilder = Response.status(Status.PAYMENT_REQUIRED);
-      if (latestSubscriptionInvoice.getChargeObject() != null) {
-        final Charge charge = latestSubscriptionInvoice.getChargeObject();
-        if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
-          responseBuilder.entity(Map.of("chargeFailure", createChargeFailure(charge)));
-        }
-      }
-      throw new WebApplicationException(responseBuilder.build());
+      return CompletableFuture.failedFuture(ExceptionUtils.wrap(Optional
+          .ofNullable(latestSubscriptionInvoice.getChargeObject())
+
+          // If the charge object has a failure reason we can present to the user, create a detailed exception
+          .filter(charge -> charge.getFailureCode() != null || charge.getFailureMessage() != null)
+          .<SubscriptionException> map(charge -> new SubscriptionException.ChargeFailurePaymentRequired(createChargeFailure(charge)))
+
+          // Otherwise, return a generic payment required error
+          .orElseGet(() -> new SubscriptionException.PaymentRequired())));
     }
 
     return getInvoiceLineItemsForInvoice(latestSubscriptionInvoice).thenCompose(invoiceLineItems -> {
@@ -688,15 +682,15 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           // This usually indicates that the client has made requests out of order, either by not confirming
           // the SetupIntent or not having the user authorize the transaction.
           logger.debug("setupIntent {} missing expected fields", setupIntentId);
-          throw new ClientErrorException(Status.CONFLICT);
+          throw ExceptionUtils.wrap(new SubscriptionException.ProcessorConflict());
         }
         return setupIntent.getLatestAttemptObject().getPaymentMethodDetails().getIdeal().getGeneratedSepaDebit();
       } catch (StripeException e) {
         if (e.getStatusCode() == 404) {
-          throw new NotFoundException();
+          throw ExceptionUtils.wrap(new SubscriptionException.NotFound());
         }
         logger.error("unexpected error from Stripe when retrieving setupIntent {}", setupIntentId, e);
-        throw new CompletionException(e);
+        throw ExceptionUtils.wrap(e);
       }
     }, executor);
   }

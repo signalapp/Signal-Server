@@ -76,10 +76,10 @@ import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
-import org.whispersystems.textsecuregcm.mappers.SubscriptionProcessorExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
+import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
@@ -93,7 +93,6 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
@@ -133,7 +132,6 @@ class SubscriptionControllerTest {
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(CompletionExceptionMapper.class)
-      .addProvider(SubscriptionProcessorExceptionMapper.class)
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .addProvider(SubscriptionExceptionMapper.class)
       .setMapper(SystemMapper.jsonMapper())
@@ -340,7 +338,7 @@ class SubscriptionControllerTest {
 
     when(BRAINTREE_MANAGER.captureOneTimePayment(anyString(), anyString(), anyString(), anyString(), anyLong(),
         anyLong(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(PaymentProvider.BRAINTREE,
+        .thenReturn(CompletableFuture.failedFuture(new SubscriptionException.ProcessorException(PaymentProvider.BRAINTREE,
             new ChargeFailure("2046", "Declined", null, null, null))));
 
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/paypal/confirm")
@@ -351,7 +349,7 @@ class SubscriptionControllerTest {
             "currency", "usd",
             "amount", 123)));
 
-    assertThat(response.getStatus()).isEqualTo(SubscriptionProcessorExceptionMapper.EXTERNAL_SERVICE_ERROR_STATUS_CODE);
+    assertThat(response.getStatus()).isEqualTo(SubscriptionExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
 
     final Map responseMap = response.readEntity(Map.class);
     assertThat(responseMap.get("processor")).isEqualTo("BRAINTREE");
@@ -419,7 +417,7 @@ class SubscriptionControllerTest {
     @Test
     void createSubscriptionProcessorDeclined() {
       when(STRIPE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
-          .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(PaymentProvider.STRIPE,
+          .thenReturn(CompletableFuture.failedFuture(new SubscriptionException.ProcessorException(PaymentProvider.STRIPE,
               new ChargeFailure("card_declined", "Insufficient funds", null, null, null))));
 
       final String level = String.valueOf(levelId);
@@ -429,8 +427,7 @@ class SubscriptionControllerTest {
           .request()
           .put(Entity.json(""));
 
-      assertThat(response.getStatus()).isEqualTo(
-          SubscriptionProcessorExceptionMapper.EXTERNAL_SERVICE_ERROR_STATUS_CODE);
+      assertThat(response.getStatus()).isEqualTo(SubscriptionExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
 
       final Map responseMap = response.readEntity(Map.class);
       assertThat(responseMap.get("processor")).isEqualTo("STRIPE");

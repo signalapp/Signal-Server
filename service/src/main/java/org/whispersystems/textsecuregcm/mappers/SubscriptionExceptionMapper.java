@@ -5,17 +5,48 @@
 
 package org.whispersystems.textsecuregcm.mappers;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.jersey.errors.ErrorMessage;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
+import java.util.Map;
 
 public class SubscriptionExceptionMapper implements ExceptionMapper<SubscriptionException> {
+  @VisibleForTesting
+  public static final int PROCESSOR_ERROR_STATUS_CODE = 440;
 
   @Override
   public Response toResponse(final SubscriptionException exception) {
+
+    // Some exceptions have specific error body formats
+    if (exception instanceof SubscriptionException.AmountTooSmall e) {
+      return Response
+          .status(Response.Status.BAD_REQUEST)
+          .entity(Map.of("error", "amount_too_small"))
+          .type(MediaType.APPLICATION_JSON_TYPE)
+          .build();
+    }
+    if (exception instanceof SubscriptionException.ProcessorException e) {
+      return Response.status(PROCESSOR_ERROR_STATUS_CODE)
+          .entity(Map.of(
+              "processor", e.getProcessor().name(),
+              "chargeFailure", e.getChargeFailure()
+          ))
+          .type(MediaType.APPLICATION_JSON_TYPE)
+          .build();
+    }
+    if (exception instanceof SubscriptionException.ChargeFailurePaymentRequired e) {
+      return Response
+          .status(Response.Status.PAYMENT_REQUIRED)
+          .entity(Map.of("chargeFailure", e.getChargeFailure()))
+          .type(MediaType.APPLICATION_JSON_TYPE)
+          .build();
+    }
+
+    // Otherwise, we'll return a generic error message WebApplicationException, with a detailed error if one is provided
     final Response.Status status = (switch (exception) {
       case SubscriptionException.NotFound e -> Response.Status.NOT_FOUND;
       case SubscriptionException.Forbidden e -> Response.Status.FORBIDDEN;
@@ -36,5 +67,6 @@ public class SubscriptionExceptionMapper implements ExceptionMapper<Subscription
         .fromResponse(wae.getResponse())
         .type(MediaType.APPLICATION_JSON_TYPE)
         .entity(new ErrorMessage(wae.getResponse().getStatus(), wae.getLocalizedMessage())).build();
+
   }
 }
