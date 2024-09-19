@@ -50,9 +50,6 @@ public class Device {
   private String  apnId;
 
   @JsonProperty
-  private String  voipApnId;
-
-  @JsonProperty
   private long pushTimestamp;
 
   @JsonProperty
@@ -87,14 +84,6 @@ public class Device {
     if (apnId != null) {
       this.pushTimestamp = System.currentTimeMillis();
     }
-  }
-
-  public String getVoipApnId() {
-    return voipApnId;
-  }
-
-  public void setVoipApnId(String voipApnId) {
-    this.voipApnId = voipApnId;
   }
 
   public void setLastSeen(long lastSeen) {

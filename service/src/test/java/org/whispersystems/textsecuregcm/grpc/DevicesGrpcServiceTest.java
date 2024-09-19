@@ -217,7 +217,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   void setPushToken(final byte deviceId,
       final SetPushTokenRequest request,
       @Nullable final String expectedApnsToken,
-      @Nullable final String expectedApnsVoipToken,
       @Nullable final String expectedFcmToken) {
 
     mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
@@ -228,14 +227,12 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final SetPushTokenResponse ignored = authenticatedServiceStub().setPushToken(request);
 
     verify(device).setApnId(expectedApnsToken);
-    verify(device).setVoipApnId(expectedApnsVoipToken);
     verify(device).setGcmId(expectedFcmToken);
     verify(device).setFetchesMessages(false);
   }
 
   private static Stream<Arguments> setPushToken() {
     final String apnsToken = "apns-token";
-    final String apnsVoipToken = "apns-voip-token";
     final String fcmToken = "fcm-token";
 
     final Stream.Builder<Arguments> streamBuilder = Stream.builder();
@@ -245,18 +242,9 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
           SetPushTokenRequest.newBuilder()
               .setApnsTokenRequest(SetPushTokenRequest.ApnsTokenRequest.newBuilder()
                   .setApnsToken(apnsToken)
-                  .setApnsVoipToken(apnsVoipToken)
                   .build())
               .build(),
-          apnsToken, apnsVoipToken, null));
-
-      streamBuilder.add(Arguments.of(deviceId,
-          SetPushTokenRequest.newBuilder()
-              .setApnsTokenRequest(SetPushTokenRequest.ApnsTokenRequest.newBuilder()
-                  .setApnsToken(apnsToken)
-                  .build())
-              .build(),
-          apnsToken, null, null));
+          apnsToken, null));
 
       streamBuilder.add(Arguments.of(deviceId,
           SetPushTokenRequest.newBuilder()
@@ -264,7 +252,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
                   .setFcmToken(fcmToken)
                   .build())
               .build(),
-          null, null, fcmToken));
+          null, fcmToken));
     }
 
     return streamBuilder.build();
@@ -274,12 +262,10 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   @MethodSource
   void setPushTokenUnchanged(final SetPushTokenRequest request,
       @Nullable final String apnsToken,
-      @Nullable final String apnsVoipToken,
       @Nullable final String fcmToken) {
 
     final Device device = mock(Device.class);
     when(device.getApnId()).thenReturn(apnsToken);
-    when(device.getVoipApnId()).thenReturn(apnsVoipToken);
     when(device.getGcmId()).thenReturn(fcmToken);
 
     when(authenticatedAccount.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.of(device));
@@ -291,31 +277,22 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
   private static Stream<Arguments> setPushTokenUnchanged() {
     final String apnsToken = "apns-token";
-    final String apnsVoipToken = "apns-voip-token";
     final String fcmToken = "fcm-token";
 
     return Stream.of(
         Arguments.of(SetPushTokenRequest.newBuilder()
                 .setApnsTokenRequest(SetPushTokenRequest.ApnsTokenRequest.newBuilder()
                     .setApnsToken(apnsToken)
-                    .setApnsVoipToken(apnsVoipToken)
                     .build())
                 .build(),
-            apnsToken, apnsVoipToken, null, false),
-
-        Arguments.of(SetPushTokenRequest.newBuilder()
-                .setApnsTokenRequest(SetPushTokenRequest.ApnsTokenRequest.newBuilder()
-                    .setApnsToken(apnsToken)
-                    .build())
-                .build(),
-            apnsToken, null, null, false),
+            apnsToken, null, false),
 
         Arguments.of(SetPushTokenRequest.newBuilder()
                 .setFcmTokenRequest(SetPushTokenRequest.FcmTokenRequest.newBuilder()
                     .setFcmToken(fcmToken)
                     .build())
                 .build(),
-            null, null, fcmToken, false)
+            null, fcmToken, false)
     );
   }
 
@@ -346,7 +323,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   @MethodSource
   void clearPushToken(final byte deviceId,
       @Nullable final String apnsToken,
-      @Nullable final String apnsVoipToken,
       @Nullable final String fcmToken,
       @Nullable final String expectedUserAgent) {
 
@@ -356,14 +332,12 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     when(device.getId()).thenReturn(deviceId);
     when(device.isPrimary()).thenReturn(deviceId == Device.PRIMARY_ID);
     when(device.getApnId()).thenReturn(apnsToken);
-    when(device.getVoipApnId()).thenReturn(apnsVoipToken);
     when(device.getGcmId()).thenReturn(fcmToken);
     when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
 
     final ClearPushTokenResponse ignored = authenticatedServiceStub().clearPushToken(ClearPushTokenRequest.newBuilder().build());
 
     verify(device).setApnId(null);
-    verify(device).setVoipApnId(null);
     verify(device).setGcmId(null);
     verify(device).setFetchesMessages(true);
 
@@ -376,16 +350,12 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
   private static Stream<Arguments> clearPushToken() {
     return Stream.of(
-        Arguments.of(Device.PRIMARY_ID, "apns-token", null, null, "OWI"),
-        Arguments.of(Device.PRIMARY_ID, "apns-token", "apns-voip-token", null, "OWI"),
-        Arguments.of(Device.PRIMARY_ID, null, "apns-voip-token", null, "OWI"),
-        Arguments.of(Device.PRIMARY_ID, null, null, "fcm-token", "OWA"),
-        Arguments.of(Device.PRIMARY_ID, null, null, null, null),
-        Arguments.of((byte) (Device.PRIMARY_ID + 1), "apns-token", null, null, "OWP"),
-        Arguments.of((byte) (Device.PRIMARY_ID + 1), "apns-token", "apns-voip-token", null, "OWP"),
-        Arguments.of((byte) (Device.PRIMARY_ID + 1), null, "apns-voip-token", null, "OWP"),
-        Arguments.of((byte) (Device.PRIMARY_ID + 1), null, null, "fcm-token", "OWA"),
-        Arguments.of((byte) (Device.PRIMARY_ID + 1), null, null, null, null)
+        Arguments.of(Device.PRIMARY_ID, "apns-token", null, "OWI"),
+        Arguments.of(Device.PRIMARY_ID, null, "fcm-token", "OWA"),
+        Arguments.of(Device.PRIMARY_ID, null, null, null),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), "apns-token", null, "OWP"),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), null, "fcm-token", "OWA"),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), null, null, null)
     );
   }
 

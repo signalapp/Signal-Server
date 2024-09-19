@@ -182,7 +182,6 @@ public class NotifyIdleDevicesCommand extends AbstractSinglePassCrawlAccountsCom
 
   @VisibleForTesting
   static boolean hasPushToken(final Device device) {
-    // Exclude VOIP tokens since they have their own, distinct delivery mechanism
-    return !StringUtils.isAllBlank(device.getApnId(), device.getGcmId()) && StringUtils.isBlank(device.getVoipApnId());
+    return !StringUtils.isAllBlank(device.getApnId(), device.getGcmId());
   }
 }

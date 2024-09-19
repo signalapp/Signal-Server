@@ -7,6 +7,5 @@ package org.whispersystems.textsecuregcm.entities;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotEmpty;
 
-public record ApnRegistrationId(@NotEmpty String apnRegistrationId,
-                                @Nullable String voipRegistrationId) {
+public record ApnRegistrationId(@NotEmpty String apnRegistrationId) {
 }

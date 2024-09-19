@@ -107,13 +107,6 @@ message SetPushTokenRequest {
      * A "standard" APNs device token.
      */
     string apns_token = 1;
-
-    /**
-     * A VoIP APNs device token. If present, the server will prefer to send
-     * message notifications to the device using this token on a VOIP APNs
-     * topic.
-     */
-    string apns_voip_token = 2;
   }
 
   message FcmTokenRequest {

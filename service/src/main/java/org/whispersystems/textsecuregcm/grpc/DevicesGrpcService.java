@@ -110,7 +110,6 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     @Nullable final String apnsToken;
-    @Nullable final String apnsVoipToken;
     @Nullable final String fcmToken;
 
     switch (request.getTokenRequestCase()) {
@@ -118,12 +117,11 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
       case APNS_TOKEN_REQUEST -> {
         final SetPushTokenRequest.ApnsTokenRequest apnsTokenRequest = request.getApnsTokenRequest();
 
-        if (StringUtils.isAllBlank(apnsTokenRequest.getApnsToken(), apnsTokenRequest.getApnsVoipToken())) {
-          throw Status.INVALID_ARGUMENT.withDescription("APNs tokens may not both be blank").asRuntimeException();
+        if (StringUtils.isBlank(apnsTokenRequest.getApnsToken())) {
+          throw Status.INVALID_ARGUMENT.withDescription("APNs token must not be blank").asRuntimeException();
         }
 
         apnsToken = StringUtils.stripToNull(apnsTokenRequest.getApnsToken());
-        apnsVoipToken = StringUtils.stripToNull(apnsTokenRequest.getApnsVoipToken());
         fcmToken = null;
       }
 
@@ -135,7 +133,6 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
         }
 
         apnsToken = null;
-        apnsVoipToken = null;
         fcmToken = StringUtils.stripToNull(fcmTokenRequest.getFcmToken());
       }
 
@@ -150,14 +147,12 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
 
           final boolean tokenUnchanged =
               Objects.equals(device.getApnId(), apnsToken) &&
-                  Objects.equals(device.getVoipApnId(), apnsVoipToken) &&
                   Objects.equals(device.getGcmId(), fcmToken);
 
           return tokenUnchanged
               ? Mono.empty()
               : Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(), d -> {
                 d.setApnId(apnsToken);
-                d.setVoipApnId(apnsVoipToken);
                 d.setGcmId(fcmToken);
                 d.setFetchesMessages(false);
               }));
@@ -172,14 +167,13 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
     return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
         .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(), device -> {
-          if (StringUtils.isNotBlank(device.getApnId()) || StringUtils.isNotBlank(device.getVoipApnId())) {
+          if (StringUtils.isNotBlank(device.getApnId())) {
             device.setUserAgent(device.isPrimary() ? "OWI" : "OWP");
           } else if (StringUtils.isNotBlank(device.getGcmId())) {
             device.setUserAgent("OWA");
           }
 
           device.setApnId(null);
-          device.setVoipApnId(null);
           device.setGcmId(null);
           device.setFetchesMessages(true);
         })))

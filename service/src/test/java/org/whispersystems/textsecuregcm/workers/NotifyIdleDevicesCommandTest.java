@@ -364,15 +364,6 @@ class NotifyIdleDevicesCommandTest {
       arguments.add(Arguments.of(device, true));
     }
 
-    {
-      // APNs VOIP token
-      final Device device = mock(Device.class);
-      when(device.getApnId()).thenReturn("apns-token");
-      when(device.getVoipApnId()).thenReturn("apns-voip-token");
-
-      arguments.add(Arguments.of(device, false));
-    }
-
     return arguments;
   }
 }

@@ -120,7 +120,6 @@ public class AccountController {
 
     accounts.updateDevice(account, device.getId(), d -> {
       d.setApnId(null);
-      d.setVoipApnId(null);
       d.setGcmId(registrationId.gcmRegistrationId());
       d.setFetchesMessages(false);
     });
@@ -153,7 +152,6 @@ public class AccountController {
     // unconditionally
     accounts.updateDevice(account, device.getId(), d -> {
       d.setApnId(registrationId.apnRegistrationId());
-      d.setVoipApnId(registrationId.voipRegistrationId());
       d.setGcmId(null);
       d.setFetchesMessages(false);
     });
@@ -167,7 +165,6 @@ public class AccountController {
 
     accounts.updateDevice(account, device.getId(), d -> {
       d.setApnId(null);
-      d.setVoipApnId(null);
       d.setFetchesMessages(false);
       if (d.getId() == 1) {
         d.setUserAgent("OWI");

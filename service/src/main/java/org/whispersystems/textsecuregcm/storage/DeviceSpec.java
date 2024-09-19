@@ -39,13 +39,8 @@ public record DeviceSpec(
     device.setLastSeen(Util.todayInMillis());
     device.setUserAgent(signalAgent());
 
-    apnRegistrationId().ifPresent(apnRegistrationId -> {
-      device.setApnId(apnRegistrationId.apnRegistrationId());
-      device.setVoipApnId(apnRegistrationId.voipRegistrationId());
-    });
-
-    gcmRegistrationId().ifPresent(gcmRegistrationId ->
-        device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
+    apnRegistrationId().ifPresent(apnRegistrationId -> device.setApnId(apnRegistrationId.apnRegistrationId()));
+    gcmRegistrationId().ifPresent(gcmRegistrationId -> device.setGcmId(gcmRegistrationId.gcmRegistrationId()));
 
     return device;
   }

@@ -35,12 +35,6 @@ public class APNSender implements Managed, PushNotificationSender {
   private final ApnsClient apnsClient;
 
   @VisibleForTesting
-  static final String APN_VOIP_NOTIFICATION_PAYLOAD = new SimpleApnsPayloadBuilder()
-      .setSound("default")
-      .setLocalizedAlertMessage("APN_Message")
-      .build();
-
-  @VisibleForTesting
   static final String APN_NSE_NOTIFICATION_PAYLOAD = new SimpleApnsPayloadBuilder()
       .setMutableContent(true)
       .setLocalizedAlertMessage("APN_Message")
@@ -80,22 +74,8 @@ public class APNSender implements Managed, PushNotificationSender {
 
   @Override
   public CompletableFuture<SendPushNotificationResult> sendNotification(final PushNotification notification) {
-    final String topic = switch (notification.tokenType()) {
-      case APN -> bundleId;
-      case APN_VOIP -> bundleId + ".voip";
-      default -> throw new IllegalArgumentException("Unsupported token type: " + notification.tokenType());
-    };
-
-    final boolean isVoip = notification.tokenType() == PushNotification.TokenType.APN_VOIP;
-
     final String payload = switch (notification.notificationType()) {
-      case NOTIFICATION -> {
-        if (isVoip) {
-          yield APN_VOIP_NOTIFICATION_PAYLOAD;
-        } else {
-          yield notification.urgent() ? APN_NSE_NOTIFICATION_PAYLOAD : APN_BACKGROUND_PAYLOAD;
-        }
-      }
+      case NOTIFICATION -> notification.urgent() ? APN_NSE_NOTIFICATION_PAYLOAD : APN_BACKGROUND_PAYLOAD;
 
       case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> new SimpleApnsPayloadBuilder()
           .setMutableContent(true)
@@ -115,13 +95,7 @@ public class APNSender implements Managed, PushNotificationSender {
     };
 
     final PushType pushType = switch (notification.notificationType()) {
-      case NOTIFICATION -> {
-        if (isVoip) {
-          yield PushType.VOIP;
-        } else {
-          yield notification.urgent() ? PushType.ALERT : PushType.BACKGROUND;
-        }
-      }
+      case NOTIFICATION -> notification.urgent() ? PushType.ALERT : PushType.BACKGROUND;
       case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> PushType.ALERT;
       case CHALLENGE, RATE_LIMIT_CHALLENGE -> PushType.BACKGROUND;
     };
@@ -131,19 +105,17 @@ public class APNSender implements Managed, PushNotificationSender {
     if (pushType == PushType.BACKGROUND) {
       deliveryPriority = DeliveryPriority.CONSERVE_POWER;
     } else {
-      deliveryPriority = (notification.urgent() || isVoip)
-          ? DeliveryPriority.IMMEDIATE
-          : DeliveryPriority.CONSERVE_POWER;
+      deliveryPriority = notification.urgent() ? DeliveryPriority.IMMEDIATE : DeliveryPriority.CONSERVE_POWER;
     }
 
     final String collapseId =
-        (notification.notificationType() == PushNotification.NotificationType.NOTIFICATION && notification.urgent() && !isVoip)
+        (notification.notificationType() == PushNotification.NotificationType.NOTIFICATION && notification.urgent())
             ? "incoming-message" : null;
 
     final Instant start = Instant.now();
 
     return apnsClient.sendNotification(new SimpleApnsPushNotification(notification.deviceToken(),
-        topic,
+        bundleId,
         payload,
         MAX_EXPIRATION,
         deliveryPriority,

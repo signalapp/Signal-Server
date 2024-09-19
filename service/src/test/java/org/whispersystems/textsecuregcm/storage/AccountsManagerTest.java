@@ -986,7 +986,6 @@ class AccountsManagerTest {
     assertEquals(pniRegistrationId, device.getPhoneNumberIdentityRegistrationId().getAsInt());
     assertTrue(device.getFetchesMessages());
     assertNull(device.getApnId());
-    assertNull(device.getVoipApnId());
     assertNull(device.getGcmId());
   }
 

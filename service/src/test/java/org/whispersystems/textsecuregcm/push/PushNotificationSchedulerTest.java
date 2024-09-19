@@ -56,7 +56,6 @@ class PushNotificationSchedulerTest {
   private static final String ACCOUNT_NUMBER = "+18005551234";
   private static final byte DEVICE_ID = 1;
   private static final String APN_ID = RandomStringUtils.randomAlphanumeric(32);
-  private static final String VOIP_APN_ID = RandomStringUtils.randomAlphanumeric(32);
 
   @BeforeEach
   void setUp() throws Exception {
@@ -64,7 +63,6 @@ class PushNotificationSchedulerTest {
     device = mock(Device.class);
     when(device.getId()).thenReturn(DEVICE_ID);
     when(device.getApnId()).thenReturn(APN_ID);
-    when(device.getVoipApnId()).thenReturn(VOIP_APN_ID);
     when(device.getLastSeen()).thenReturn(System.currentTimeMillis());
 
     account = mock(Account.class);

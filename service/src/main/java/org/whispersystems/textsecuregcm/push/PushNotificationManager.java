@@ -90,8 +90,6 @@ public class PushNotificationManager {
 
     if (StringUtils.isNotBlank(device.getGcmId())) {
       tokenAndType = new Pair<>(device.getGcmId(), PushNotification.TokenType.FCM);
-    } else if (StringUtils.isNotBlank(device.getVoipApnId())) {
-      tokenAndType = new Pair<>(device.getVoipApnId(), PushNotification.TokenType.APN_VOIP);
     } else if (StringUtils.isNotBlank(device.getApnId())) {
       tokenAndType = new Pair<>(device.getApnId(), PushNotification.TokenType.APN);
     } else {
@@ -115,7 +113,7 @@ public class PushNotificationManager {
 
     final PushNotificationSender sender = switch (pushNotification.tokenType()) {
       case FCM -> fcmSender;
-      case APN, APN_VOIP -> apnSender;
+      case APN -> apnSender;
     };
 
     return sender.sendNotification(pushNotification).whenComplete((result, throwable) -> {
@@ -171,7 +169,7 @@ public class PushNotificationManager {
         tokenInvalidationTimestamp.isAfter(Instant.ofEpochMilli(device.getPushTimestamp()))).orElse(true);
 
     if (tokenExpired) {
-      if (tokenType == PushNotification.TokenType.APN || tokenType == PushNotification.TokenType.APN_VOIP) {
+      if (tokenType == PushNotification.TokenType.APN) {
         pushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
       }
 
@@ -203,7 +201,6 @@ public class PushNotificationManager {
                 switch (tokenType) {
                   case FCM -> d.setGcmId(null);
                   case APN -> d.setApnId(null);
-                  case APN_VOIP -> d.setVoipApnId(null);
                 }
               }
             })));
@@ -213,7 +210,6 @@ public class PushNotificationManager {
     return switch (tokenType) {
       case FCM -> device.getGcmId();
       case APN -> device.getApnId();
-      case APN_VOIP -> device.getVoipApnId();
     };
   }
 }

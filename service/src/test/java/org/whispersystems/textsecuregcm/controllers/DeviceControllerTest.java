@@ -177,7 +177,6 @@ class DeviceControllerTest {
                         final Optional<ApnRegistrationId> apnRegistrationId,
                         final Optional<GcmRegistrationId> gcmRegistrationId,
                         final Optional<String> expectedApnsToken,
-                        final Optional<String> expectedApnsVoipToken,
                         final Optional<String> expectedGcmToken) {
 
     final Device existingDevice = mock(Device.class);
@@ -240,9 +239,6 @@ class DeviceControllerTest {
     expectedApnsToken.ifPresentOrElse(expectedToken -> assertEquals(expectedToken, device.getApnId()),
         () -> assertNull(device.getApnId()));
 
-    expectedApnsVoipToken.ifPresentOrElse(expectedToken -> assertEquals(expectedToken, device.getVoipApnId()),
-        () -> assertNull(device.getVoipApnId()));
-
     expectedGcmToken.ifPresentOrElse(expectedToken -> assertEquals(expectedToken, device.getGcmId()),
         () -> assertNull(device.getGcmId()));
 
@@ -251,14 +247,13 @@ class DeviceControllerTest {
 
   private static Stream<Arguments> linkDeviceAtomic() {
     final String apnsToken = "apns-token";
-    final String apnsVoipToken = "apns-voip-token";
     final String gcmToken = "gcm-token";
 
     return Stream.of(
-        Arguments.of(true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.of(false, Optional.of(new ApnRegistrationId(apnsToken, null)), Optional.empty(), Optional.of(apnsToken), Optional.empty(), Optional.empty()),
-        Arguments.of(false, Optional.of(new ApnRegistrationId(apnsToken, apnsVoipToken)), Optional.empty(), Optional.of(apnsToken), Optional.of(apnsVoipToken), Optional.empty()),
-        Arguments.of(false, Optional.empty(), Optional.of(new GcmRegistrationId(gcmToken)), Optional.empty(), Optional.empty(), Optional.of(gcmToken))
+        Arguments.of(true, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+        Arguments.of(false, Optional.of(new ApnRegistrationId(apnsToken)), Optional.empty(), Optional.of(apnsToken), Optional.empty()),
+        Arguments.of(false, Optional.of(new ApnRegistrationId(apnsToken)), Optional.empty(), Optional.of(apnsToken), Optional.empty()),
+        Arguments.of(false, Optional.empty(), Optional.of(new GcmRegistrationId(gcmToken)), Optional.empty(), Optional.of(gcmToken))
     );
   }
 
@@ -496,10 +491,10 @@ class DeviceControllerTest {
 
   private static Stream<Arguments> linkDeviceAtomicConflictingChannel() {
     return Stream.of(
-        Arguments.of(true, Optional.of(new ApnRegistrationId("apns-token", null)), Optional.of(new GcmRegistrationId("gcm-token"))),
+        Arguments.of(true, Optional.of(new ApnRegistrationId("apns-token")), Optional.of(new GcmRegistrationId("gcm-token"))),
         Arguments.of(true, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-token"))),
-        Arguments.of(true, Optional.of(new ApnRegistrationId("apns-token", null)), Optional.empty()),
-        Arguments.of(false, Optional.of(new ApnRegistrationId("apns-token", null)), Optional.of(new GcmRegistrationId("gcm-token")))
+        Arguments.of(true, Optional.of(new ApnRegistrationId("apns-token")), Optional.empty()),
+        Arguments.of(false, Optional.of(new ApnRegistrationId("apns-token")), Optional.of(new GcmRegistrationId("gcm-token")))
     );
   }
 
@@ -737,7 +732,7 @@ class DeviceControllerTest {
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.verificationCode(),
         new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, new DeviceCapabilities(true, true, true, false, false)),
-        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.of(new ApnRegistrationId("apn", null)), Optional.empty()));
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.of(new ApnRegistrationId("apn")), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/link")

@@ -77,7 +77,7 @@ public class AccountCreationDeletionIntegrationTest {
   private KeysManager keysManager;
   private ClientPublicKeysManager clientPublicKeysManager;
 
-  record DeliveryChannels(boolean fetchesMessages, String apnsToken, String apnsVoipToken, String fcmToken) {}
+  record DeliveryChannels(boolean fetchesMessages, String apnsToken, String fcmToken) {}
 
   @BeforeEach
   void setUp() {
@@ -212,8 +212,8 @@ public class AccountCreationDeletionIntegrationTest {
     final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
     final Optional<ApnRegistrationId> maybeApnRegistrationId =
-        deliveryChannels.apnsToken() != null || deliveryChannels.apnsVoipToken() != null
-            ? Optional.of(new ApnRegistrationId(deliveryChannels.apnsToken(), deliveryChannels.apnsVoipToken()))
+        deliveryChannels.apnsToken() != null
+            ? Optional.of(new ApnRegistrationId(deliveryChannels.apnsToken()))
             : Optional.empty();
 
     final Optional<GcmRegistrationId> maybeGcmRegistrationId = deliveryChannels.fcmToken() != null
@@ -271,10 +271,10 @@ public class AccountCreationDeletionIntegrationTest {
     return ArgumentSets
         // deliveryChannels
         .argumentsForFirstParameter(
-            new DeliveryChannels(true, null, null, null),
-            new DeliveryChannels(false, "apns-token", null, null),
-            new DeliveryChannels(false, "apns-token", "apns-voip-token", null),
-            new DeliveryChannels(false, null, null, "fcm-token"))
+            new DeliveryChannels(true, null, null),
+            new DeliveryChannels(false, "apns-token", null),
+            new DeliveryChannels(false, "apns-token", null),
+            new DeliveryChannels(false, null, "fcm-token"))
 
         // discoverableByPhoneNumber
         .argumentsForNextParameter(true, false);
@@ -359,8 +359,8 @@ public class AccountCreationDeletionIntegrationTest {
     final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
     final Optional<ApnRegistrationId> maybeApnRegistrationId =
-        deliveryChannels.apnsToken() != null || deliveryChannels.apnsVoipToken() != null
-            ? Optional.of(new ApnRegistrationId(deliveryChannels.apnsToken(), deliveryChannels.apnsVoipToken()))
+        deliveryChannels.apnsToken() != null
+            ? Optional.of(new ApnRegistrationId(deliveryChannels.apnsToken()))
             : Optional.empty();
 
     final Optional<GcmRegistrationId> maybeGcmRegistrationId = deliveryChannels.fcmToken() != null
@@ -519,19 +519,13 @@ public class AccountCreationDeletionIntegrationTest {
     assertEquals(deviceCapabilities, primaryDevice.getCapabilities());
     assertEquals(badges, account.getBadges());
 
-    maybeApnRegistrationId.ifPresentOrElse(apnRegistrationId -> {
-      assertEquals(apnRegistrationId.apnRegistrationId(), primaryDevice.getApnId());
-      assertEquals(apnRegistrationId.voipRegistrationId(), primaryDevice.getVoipApnId());
-    }, () -> {
-      assertNull(primaryDevice.getApnId());
-      assertNull(primaryDevice.getVoipApnId());
-    });
+    maybeApnRegistrationId.ifPresentOrElse(
+        apnRegistrationId -> assertEquals(apnRegistrationId.apnRegistrationId(), primaryDevice.getApnId()),
+        () -> assertNull(primaryDevice.getApnId()));
 
-    maybeGcmRegistrationId.ifPresentOrElse(gcmRegistrationId -> {
-      assertEquals(deliveryChannels.fcmToken(), primaryDevice.getGcmId());
-    }, () -> {
-      assertNull(primaryDevice.getGcmId());
-    });
+    maybeGcmRegistrationId.ifPresentOrElse(
+        gcmRegistrationId -> assertEquals(deliveryChannels.fcmToken(), primaryDevice.getGcmId()),
+        () -> assertNull(primaryDevice.getGcmId()));
 
     assertTrue(account.getRegistrationLock().verify(registrationLockSecret));
     assertTrue(primaryDevice.getAuthTokenHash().verify(password));

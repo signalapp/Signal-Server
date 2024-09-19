@@ -308,29 +308,11 @@ class AccountControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION,
             AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
-        .put(Entity.json(new ApnRegistrationId("first", "second")))) {
+        .put(Entity.json(new ApnRegistrationId("first")))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
 
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
-      verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setVoipApnId(eq("second"));
-      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
-    }
-  }
-
-  @Test
-  void testSetApnIdNoVoip() {
-    try (final Response response = resources.getJerseyTest()
-        .target("/v1/accounts/apn/")
-        .request()
-        .header(HttpHeaders.AUTHORIZATION,
-            AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
-        .put(Entity.json(new ApnRegistrationId("first", null)))) {
-
-      assertThat(response.getStatus()).isEqualTo(204);
-
-      verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
-      verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setVoipApnId(null);
       verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
     }
   }
