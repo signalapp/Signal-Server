@@ -55,6 +55,7 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.InternalServerErrorException;
 import javax.ws.rs.NotAuthorizedException;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
@@ -697,13 +698,13 @@ public class MessageController {
           .get();
     } catch (InterruptedException e) {
       logger.error("interrupted while delivering multi-recipient messages", e);
-      return Response.serverError().entity("interrupted during delivery").build();
+      throw new InternalServerErrorException("interrupted during delivery");
     } catch (CancellationException e) {
       logger.error("cancelled while delivering multi-recipient messages", e);
-      return Response.serverError().entity("delivery cancelled").build();
+      throw new InternalServerErrorException("delivery cancelled");
     } catch (ExecutionException e) {
       logger.error("partial failure while delivering multi-recipient messages", e.getCause());
-      return Response.serverError().entity("failure during delivery").build();
+      throw new InternalServerErrorException("failure during delivery");
     }
     return Response.ok(new SendMultiRecipientMessageResponse(Collections.emptyList())).build();
   }
