@@ -188,32 +188,6 @@ class PushNotificationManagerTest {
     }
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testSendNotificationApnVoip(final boolean urgent) {
-    final Account account = mock(Account.class);
-    final Device device = mock(Device.class);
-
-    when(device.getId()).thenReturn(Device.PRIMARY_ID);
-    when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
-
-    final PushNotification pushNotification = new PushNotification(
-        "token", PushNotification.TokenType.APN_VOIP, PushNotification.NotificationType.NOTIFICATION, null, account, device, urgent);
-
-    when(apnSender.sendNotification(pushNotification))
-        .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
-
-    pushNotificationManager.sendNotification(pushNotification);
-
-    verify(apnSender).sendNotification(pushNotification);
-
-    verifyNoInteractions(fcmSender);
-    verify(accountsManager, never()).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
-    verify(device, never()).setGcmId(any());
-    verify(pushNotificationScheduler).scheduleRecurringApnsVoipNotification(account, device);
-    verify(pushNotificationScheduler, never()).scheduleBackgroundApnsNotification(any(), any());
-  }
-
   @Test
   void testSendNotificationUnregisteredFcm() {
     final Account account = mock(Account.class);

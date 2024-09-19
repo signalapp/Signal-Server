@@ -141,18 +141,6 @@ public class PushNotificationManager {
               result.errorCode(),
               result.unregisteredTimestamp());
         }
-
-        if (result.accepted() &&
-            pushNotification.tokenType() == PushNotification.TokenType.APN_VOIP &&
-            pushNotification.notificationType() == PushNotification.NotificationType.NOTIFICATION &&
-            pushNotification.destination() != null &&
-            pushNotification.destinationDevice() != null) {
-
-          pushNotificationScheduler.scheduleRecurringApnsVoipNotification(
-                  pushNotification.destination(),
-                  pushNotification.destinationDevice())
-              .whenComplete(logErrors());
-        }
       } else {
         logger.debug("Failed to deliver {} push notification to {} ({})",
             pushNotification.notificationType(), pushNotification.deviceToken(), pushNotification.tokenType(),
