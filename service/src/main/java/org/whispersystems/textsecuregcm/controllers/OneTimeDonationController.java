@@ -54,6 +54,7 @@ import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
@@ -324,14 +325,14 @@ public class OneTimeDonationController {
     return paymentDetailsFut.thenCompose(paymentDetails -> {
       if (paymentDetails == null) {
         throw new WebApplicationException(Response.Status.NOT_FOUND);
-      }
-      switch (paymentDetails.status()) {
-        case PROCESSING -> throw new WebApplicationException(Response.Status.NO_CONTENT);
-        case SUCCEEDED -> {
-        }
-        default -> throw new WebApplicationException(Response.status(Response.Status.PAYMENT_REQUIRED)
+      } else if (paymentDetails.status() == PaymentStatus.PROCESSING) {
+        return CompletableFuture.completedFuture(Response.noContent().build());
+      } else if (paymentDetails.status() != PaymentStatus.SUCCEEDED) {
+        throw new WebApplicationException(Response.status(Response.Status.PAYMENT_REQUIRED)
             .entity(new CreateBoostReceiptCredentialsErrorResponse(paymentDetails.chargeFailure())).build());
       }
+
+      // The payment was successful, try to issue the receipt credential
 
       long level = oneTimeDonationConfiguration.boost().level();
       if (paymentDetails.customMetadata() != null) {

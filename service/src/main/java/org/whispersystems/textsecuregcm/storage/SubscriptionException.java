@@ -76,6 +76,15 @@ public class SubscriptionException extends Exception {
     }
   }
 
+  /**
+   * Attempted to retrieve a receipt for a subscription that hasn't yet been charged or the invoice is in the open state
+   */
+  public static class ReceiptRequestedForOpenPayment extends SubscriptionException {
+    public ReceiptRequestedForOpenPayment() {
+      super(null, null);
+    }
+  }
+
   public static class ProcessorConflict extends SubscriptionException {
     public ProcessorConflict(final String message) {
       super(null, message);

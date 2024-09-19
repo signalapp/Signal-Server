@@ -74,7 +74,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
+import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.util.Conversions;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor {
@@ -607,10 +609,12 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
   private CompletableFuture<ReceiptItem> convertInvoiceToReceipt(Invoice latestSubscriptionInvoice, String subscriptionId) {
     if (latestSubscriptionInvoice == null) {
-      throw new WebApplicationException(Status.NO_CONTENT);
+      return CompletableFuture.failedFuture(
+          ExceptionUtils.wrap(new SubscriptionException.ReceiptRequestedForOpenPayment()));
     }
     if (StringUtils.equalsIgnoreCase("open", latestSubscriptionInvoice.getStatus())) {
-      throw new WebApplicationException(Status.NO_CONTENT);
+      return CompletableFuture.failedFuture(
+          ExceptionUtils.wrap(new SubscriptionException.ReceiptRequestedForOpenPayment()));
     }
     if (!StringUtils.equalsIgnoreCase("paid", latestSubscriptionInvoice.getStatus())) {
       final Response.ResponseBuilder responseBuilder = Response.status(Status.PAYMENT_REQUIRED);

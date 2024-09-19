@@ -49,6 +49,8 @@ import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
+import org.whispersystems.textsecuregcm.storage.SubscriptionException;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -611,7 +613,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
               if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
                 final SubscriptionStatus subscriptionStatus = getSubscriptionStatus(subscription.getStatus(), true);
                 if (subscriptionStatus.equals(SubscriptionStatus.ACTIVE) || subscriptionStatus.equals(SubscriptionStatus.PAST_DUE)) {
-                  throw new WebApplicationException(Response.Status.NO_CONTENT);
+                  throw ExceptionUtils.wrap(new SubscriptionException.ReceiptRequestedForOpenPayment());
                 }
 
                 throw new WebApplicationException(Response.status(Response.Status.PAYMENT_REQUIRED)
@@ -632,7 +634,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
 
               return new ReceiptItem(transaction.getId(), PaymentTime.periodStart(paidAt), metadata.level());
             })
-            .orElseThrow(() -> new WebApplicationException(Response.Status.NO_CONTENT)));
+            .orElseThrow(() -> ExceptionUtils.wrap(new SubscriptionException.ReceiptRequestedForOpenPayment())));
   }
 
   private static Subscription getSubscription(Object subscriptionObj) {
