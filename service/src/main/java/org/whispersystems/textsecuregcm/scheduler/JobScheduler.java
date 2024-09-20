@@ -153,7 +153,7 @@ public abstract class JobScheduler {
               ? item.get(ATTR_JOB_DATA).b().asByteArray()
               : null;
 
-          return Mono.fromFuture(processJob(jobData))
+          return Mono.fromFuture(() -> processJob(jobData))
               .doOnNext(outcome -> Metrics.counter(PROCESS_JOB_COUNTER_NAME,
                       SCHEDULER_NAME_TAG, getSchedulerName(),
                       OUTCOME_TAG, outcome)
