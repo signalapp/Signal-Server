@@ -70,7 +70,7 @@ public class MessageSender {
       if (clientPresent) {
         messagesManager.insert(account.getUuid(), device.getId(), message.toBuilder().setEphemeral(true).build());
       } else {
-        messagesManager.removeRecipientViewFromMrmData(account.getUuid(), device.getId(), message);
+        messagesManager.removeRecipientViewFromMrmData(device.getId(), message);
       }
     } else {
       messagesManager.insert(account.getUuid(), device.getId(), message);

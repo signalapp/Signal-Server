@@ -367,6 +367,10 @@ subscription: # configuration for Stripe subscriptions
   backupExpiration: P30D
   backupGracePeriod: P15D
   backupFreeTierMediaDuration: P30D
+  backupLevels:
+    201:
+      playProductId: EXAMPLE
+      prices: {}
   levels:
     500:
       badge: EXAMPLE

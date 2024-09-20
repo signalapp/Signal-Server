@@ -397,8 +397,9 @@ public class VerificationController {
               Tag.of(SCORE_TAG_NAME, assessmentResult.getScoreString())))
           .increment();
 
-    } catch (IOException e) {
-      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
+    } catch (final IOException e) {
+      logger.error("error assessing captcha", e);
+      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, e);
     }
 
     if (assessmentResult.isValid(captchaScoreThreshold)) {

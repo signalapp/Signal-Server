@@ -104,11 +104,13 @@ public class SubscriptionConfiguration {
   @JsonIgnore
   @ValidationMethod(message = "has a mismatch between the levels supported currencies")
   public boolean isCurrencyListSameAcrossAllLevels() {
-    final Map<Long, SubscriptionLevelConfiguration> subscriptionLevels = Stream
-        .concat(donationLevels.entrySet().stream(), backupLevels.entrySet().stream())
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    return isCurrencyListSameAccrossLevelConfigurations(donationLevels)
+        && isCurrencyListSameAccrossLevelConfigurations(backupLevels);
+  }
 
-    Optional<SubscriptionLevelConfiguration> any = subscriptionLevels.values().stream().findAny();
+  private static boolean isCurrencyListSameAccrossLevelConfigurations(
+      Map<Long, ? extends SubscriptionLevelConfiguration> subscriptionLevels) {
+    Optional<? extends SubscriptionLevelConfiguration> any = subscriptionLevels.values().stream().findAny();
     if (any.isEmpty()) {
       return true;
     }

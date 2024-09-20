@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import reactor.core.publisher.Mono;
@@ -30,8 +30,9 @@ class MessagesCacheRemoveRecipientViewFromMrmDataScript {
         "lua/remove_recipient_view_from_mrm_data.lua", ScriptOutputType.INTEGER);
   }
 
-  Mono<Long> execute(final Collection<byte[]> keysCollection, final AciServiceIdentifier serviceIdentifier,
+  Mono<Long> execute(final Collection<byte[]> keysCollection, final ServiceIdentifier serviceIdentifier,
       final byte deviceId) {
+
     final List<byte[]> keys = keysCollection instanceof List<byte[]>
         ? (List<byte[]>) keysCollection
         : new ArrayList<>(keysCollection);

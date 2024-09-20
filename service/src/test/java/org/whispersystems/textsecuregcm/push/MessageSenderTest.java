@@ -73,8 +73,7 @@ class MessageSenderTest {
         MessageProtos.Envelope.class);
 
     verify(messagesManager).insert(any(), anyByte(), envelopeArgumentCaptor.capture());
-    verify(messagesManager, never()).removeRecipientViewFromMrmData(any(), anyByte(),
-        any(MessageProtos.Envelope.class));
+    verify(messagesManager, never()).removeRecipientViewFromMrmData(anyByte(), any(MessageProtos.Envelope.class));
 
     assertTrue(envelopeArgumentCaptor.getValue().getEphemeral());
 
@@ -96,7 +95,7 @@ class MessageSenderTest {
     }
 
     verify(messagesManager, never()).insert(any(), anyByte(), any());
-    verify(messagesManager).removeRecipientViewFromMrmData(any(), anyByte(), any(MessageProtos.Envelope.class));
+    verify(messagesManager).removeRecipientViewFromMrmData(anyByte(), any(MessageProtos.Envelope.class));
 
     verifyNoInteractions(pushNotificationManager);
   }
