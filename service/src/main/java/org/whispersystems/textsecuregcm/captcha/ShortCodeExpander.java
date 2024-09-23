@@ -9,9 +9,11 @@ import io.micrometer.core.instrument.Metrics;
 import org.apache.http.HttpStatus;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
@@ -28,7 +30,7 @@ public class ShortCodeExpander {
   }
 
   public Optional<String> retrieve(final String shortCode) throws IOException {
-    final URI uri = shortenerHost.resolve(shortCode);
+    final URI uri = shortenerHost.resolve(URLEncoder.encode(shortCode, StandardCharsets.UTF_8));
     final HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
 
     try {
