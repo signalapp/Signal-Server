@@ -70,7 +70,7 @@ class AttachmentControllerTest {
   static {
     try {
       final KeyPairGenerator  keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-      keyPairGenerator.initialize(1024);
+      keyPairGenerator.initialize(2048);
       final KeyPair           keyPair          = keyPairGenerator.generateKeyPair();
 
       RSA_PRIVATE_KEY_PEM = "-----BEGIN PRIVATE KEY-----\n" +
