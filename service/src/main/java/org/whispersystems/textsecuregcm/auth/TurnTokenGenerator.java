@@ -31,7 +31,7 @@ public class TurnTokenGenerator {
 
   private final byte[] turnSecret;
 
-  private static final String ALGORITHM = "HmacSHA1";
+  private static final String ALGORITHM = "HmacSHA256";
 
   private static final String WithUrlsProtocol = "00";
 
