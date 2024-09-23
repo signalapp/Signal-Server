@@ -28,6 +28,9 @@ public class ShortCodeExpander {
   }
 
   public Optional<String> retrieve(final String shortCode) throws IOException {
+    if (!isValidShortCode(shortCode)) {
+      throw new IOException("Invalid short code");
+    }
     final URI uri = shortenerHost.resolve(shortCode);
     final HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
 
@@ -46,4 +49,9 @@ public class ShortCodeExpander {
 
 
 
+  private boolean isValidShortCode(String shortCode) {
+    // Implement validation logic here, e.g., check against a whitelist or pattern
+    // For simplicity, let's assume a basic pattern check
+    return shortCode != null && shortCode.matches("^[a-zA-Z0-9_-]{6,10}$");
+  }
 }
