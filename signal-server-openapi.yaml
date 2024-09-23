@@ -3333,6 +3333,10 @@ components:
           type: string
           description: "a hash of this account's username, if set"
           format: byte
+        usernameLinkHandle:
+          type: string
+          description: "this account's username link handle, if set"
+          format: uuid
         storageCapable:
           type: boolean
           description: whether any of this account's devices support storage
