@@ -302,7 +302,7 @@ public class BackupManagerTest {
 
     // an invalid signature
     final byte[] wrongSignature = Arrays.copyOf(signature, signature.length);
-    wrongSignature[1] += 1;
+    wrongSignature[1] = (byte) (wrongSignature[1] + 1);
 
     // shouldn't be able to set a public key with an invalid signature
     assertThatExceptionOfType(StatusRuntimeException.class)
