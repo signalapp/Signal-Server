@@ -32,6 +32,9 @@ public class ShortCodeExpander {
       throw new IOException("Invalid short code");
     }
     final URI uri = shortenerHost.resolve(shortCode);
+    if (!uri.getHost().equals(shortenerHost.getHost())) {
+      throw new IOException("Resolved URI is not within the allowed domain");
+    }
     final HttpRequest request = HttpRequest.newBuilder().uri(uri).GET().build();
 
     try {
@@ -52,6 +55,13 @@ public class ShortCodeExpander {
   private boolean isValidShortCode(String shortCode) {
     // Implement validation logic here, e.g., check against a whitelist or pattern
     // For simplicity, let's assume a basic pattern check
-    return shortCode != null && shortCode.matches("^[a-zA-Z0-9_-]{6,10}$");
+    return shortCode != null && shortCode.matches("^[a-zA-Z0-9_-]{6,10}$") && isWhitelistedShortCode(shortCode);
+  }
+
+  private boolean isWhitelistedShortCode(String shortCode) {
+    // Implement a whitelist check for valid short codes
+    // For simplicity, let's assume a static list of valid short codes
+    List<String> validShortCodes = List.of("abc123", "def456", "ghi789");
+    return validShortCodes.contains(shortCode);
   }
 }
