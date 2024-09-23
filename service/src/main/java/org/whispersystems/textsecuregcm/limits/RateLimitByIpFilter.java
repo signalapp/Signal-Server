@@ -41,15 +41,9 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
   private static final String NO_IP_COUNTER_NAME = MetricsUtil.name(RateLimitByIpFilter.class, "noIpAddress");
 
   private final RateLimiters rateLimiters;
-  private final boolean softEnforcement;
-
-  public RateLimitByIpFilter(final RateLimiters rateLimiters, final boolean softEnforcement) {
-    this.rateLimiters = requireNonNull(rateLimiters);
-    this.softEnforcement = softEnforcement;
-  }
 
   public RateLimitByIpFilter(final RateLimiters rateLimiters) {
-    this(rateLimiters, false);
+    this.rateLimiters = requireNonNull(rateLimiters);
   }
 
   @Override
@@ -87,9 +81,7 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
         // checking if annotation is configured to fail when the most recent IP is not resolved
         if (annotation.failOnUnresolvedIp()) {
           logger.error("Remote address was null");
-          if (!softEnforcement) {
-            throw INVALID_HEADER_EXCEPTION;
-          }
+          throw INVALID_HEADER_EXCEPTION;
         }
         // otherwise, allow request
         return;
@@ -99,9 +91,7 @@ public class RateLimitByIpFilter implements ContainerRequestFilter {
       rateLimiter.validate(remoteAddress.get());
     } catch (RateLimitExceededException e) {
       final Response response = EXCEPTION_MAPPER.toResponse(e);
-      if (!softEnforcement) {
-        throw new ClientErrorException(response);
-      }
+      throw new ClientErrorException(response);
     }
   }
 }

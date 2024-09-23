@@ -1003,7 +1003,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.jersey().register(new BufferingInterceptor());
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
-    environment.jersey().register(new RateLimitByIpFilter(rateLimiters, true));
+    environment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
@@ -1022,7 +1022,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             clientReleaseManager, messageDeliveryLoopMonitor));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, clientPresenceManager));
-    webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters, true));
+    webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
