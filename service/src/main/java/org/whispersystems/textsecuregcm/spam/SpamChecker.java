@@ -4,6 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.spam;
 
+import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
 import org.whispersystems.textsecuregcm.storage.Account;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
@@ -12,20 +13,39 @@ import java.util.Optional;
 public interface SpamChecker {
 
   /**
+   * A result from the spam checker that is one of:
+   * <ul>
+   *   <li>
+   *     Message is determined to be spam, and a response is returned
+   *   </li>
+   *   <li>
+   *     Message is not spam, and an optional spam token is returned
+   *   </li>
+   * </ul>
+   */
+  sealed interface SpamCheckResult {}
+
+  record Spam(Response response) implements SpamCheckResult {}
+
+  record NotSpam(Optional<byte[]> token) implements SpamCheckResult {
+    public static final NotSpam EMPTY_TOKEN = new NotSpam(Optional.empty());
+  }
+
+  /**
    * Determine if a message may be spam
    *
    * @param requestContext   The request context for a message send attempt
    * @param maybeSource      The sender of the message, could be empty if this as message sent with sealed sender
    * @param maybeDestination The destination of the message, could be empty if the destination does not exist or could
    *                         not be retrieved
-   * @return A response to return if the request is determined to be spam, otherwise empty if the message should be sent
+   * @return A {@link SpamCheckResult}
    */
-  Optional<Response> checkForSpam(
+  SpamCheckResult checkForSpam(
       final ContainerRequestContext requestContext,
-      final Optional<Account> maybeSource,
+      final Optional<? extends AccountAndAuthenticatedDeviceHolder> maybeSource,
       final Optional<Account> maybeDestination);
 
   static SpamChecker noop() {
-    return (ignoredContext, ignoredSource, ignoredDestination) -> Optional.empty();
+    return (ignoredContext, ignoredSource, ignoredDestination) -> NotSpam.EMPTY_TOKEN;
   }
 }

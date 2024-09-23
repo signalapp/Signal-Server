@@ -208,7 +208,6 @@ import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
-import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
@@ -1049,12 +1048,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     if (spamFilter.isEmpty()) {
       log.warn("No spam filters installed");
     }
-    final ReportSpamTokenProvider reportSpamTokenProvider = spamFilter
-        .map(SpamFilter::getReportSpamTokenProvider)
-        .orElseGet(() -> {
-          log.warn("No spam-reporting token providers found; using default (no-op) provider as a default");
-          return ReportSpamTokenProvider.noop();
-        });
     final SpamChecker spamChecker = spamFilter
         .map(SpamFilter::getSpamChecker)
         .orElseGet(() -> {
@@ -1123,7 +1116,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new KeyTransparencyController(keyTransparencyServiceClient),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, pushNotificationManager, pushNotificationScheduler, reportMessageManager,
-            multiRecipientMessageExecutor, messageDeliveryScheduler, reportSpamTokenProvider, clientReleaseManager,
+            multiRecipientMessageExecutor, messageDeliveryScheduler, clientReleaseManager,
             dynamicConfigurationManager, zkSecretParams, spamChecker, messageMetrics, messageDeliveryLoopMonitor,
             Clock.systemUTC()),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),

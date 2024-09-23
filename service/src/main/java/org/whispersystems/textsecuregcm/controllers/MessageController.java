@@ -116,7 +116,6 @@ import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.spam.ReportSpamTokenProvider;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -163,7 +162,6 @@ public class MessageController {
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService multiRecipientMessageExecutor;
   private final Scheduler messageDeliveryScheduler;
-  private final ReportSpamTokenProvider reportSpamTokenProvider;
   private final ClientReleaseManager clientReleaseManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ServerSecretParams serverSecretParams;
@@ -226,7 +224,6 @@ public class MessageController {
       ReportMessageManager reportMessageManager,
       @Nonnull ExecutorService multiRecipientMessageExecutor,
       Scheduler messageDeliveryScheduler,
-      @Nonnull ReportSpamTokenProvider reportSpamTokenProvider,
       final ClientReleaseManager clientReleaseManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final ServerSecretParams serverSecretParams,
@@ -245,7 +242,6 @@ public class MessageController {
     this.reportMessageManager = reportMessageManager;
     this.multiRecipientMessageExecutor = Objects.requireNonNull(multiRecipientMessageExecutor);
     this.messageDeliveryScheduler = messageDeliveryScheduler;
-    this.reportSpamTokenProvider = reportSpamTokenProvider;
     this.clientReleaseManager = clientReleaseManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.serverSecretParams = serverSecretParams;
@@ -304,7 +300,7 @@ public class MessageController {
     final Sample sample = Timer.start();
     try {
       if (source.isEmpty() && accessKey.isEmpty() && groupSendToken == null && !isStory) {
-        throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+        throw new WebApplicationException(Status.UNAUTHORIZED);
       }
 
       if (groupSendToken != null) {
@@ -333,16 +329,13 @@ public class MessageController {
         destination = source.map(AuthenticatedDevice::getAccount);
       }
 
-      final Optional<Response> spamCheck = spamChecker.checkForSpam(
-          context, source.map(AuthenticatedDevice::getAccount), destination);
-      if (spamCheck.isPresent()) {
-        return spamCheck.get();
+      final SpamChecker.SpamCheckResult spamCheck = spamChecker.checkForSpam(
+          context, source, destination);
+      final Optional<byte[]> reportSpamToken;
+      switch (spamCheck) {
+        case final SpamChecker.Spam spam: return spam.response();
+        case final SpamChecker.NotSpam notSpam: reportSpamToken = notSpam.token();
       }
-
-      final Optional<byte[]> spamReportToken = switch (senderType) {
-        case SENDER_TYPE_IDENTIFIED -> reportSpamTokenProvider.makeReportSpamToken(context, source.get(), destination);
-        default -> Optional.empty();
-      };
 
       int totalContentLength = 0;
 
@@ -453,7 +446,7 @@ public class MessageController {
                     messages.urgent(),
                     incomingMessage,
                     userAgent,
-                    spamReportToken);
+                    reportSpamToken);
               });
         }
 
@@ -555,9 +548,9 @@ public class MessageController {
 
       @Context ContainerRequestContext context) throws RateLimitExceededException {
 
-    final Optional<Response> spamCheck = spamChecker.checkForSpam(context, Optional.empty(), Optional.empty());
-    if (spamCheck.isPresent()) {
-      return spamCheck.get();
+    final SpamChecker.SpamCheckResult spamCheck = spamChecker.checkForSpam(context, Optional.empty(), Optional.empty());
+    if (spamCheck instanceof final SpamChecker.Spam spam) {
+      return spam.response();
     }
 
     if (groupSendToken == null && accessKeys == null && !isStory) {

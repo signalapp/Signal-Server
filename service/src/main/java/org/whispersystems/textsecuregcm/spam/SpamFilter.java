@@ -34,13 +34,6 @@ public interface SpamFilter extends Managed {
   void configure(String environmentName, Validator validator) throws IOException, ConfigurationValidationException;
 
   /**
-   * Builds a spam report token provider. This will generate tokens used by the spam reporting system.
-   *
-   * @return the configured spam report token provider.
-   */
-  ReportSpamTokenProvider getReportSpamTokenProvider();
-
-  /**
    * Return a reported message listener controlled by the spam filter. Listeners will be registered with the
    * {@link org.whispersystems.textsecuregcm.storage.ReportMessageManager}.
    *
