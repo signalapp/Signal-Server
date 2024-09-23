@@ -170,6 +170,7 @@ public class RegistrationController {
         account.getNumber(),
         account.getPhoneNumberIdentifier(),
         account.getUsernameHash().orElse(null),
+        account.getUsernameLinkHandle(),
         existingAccount.map(Account::isStorageSupported).orElse(false));
   }
 

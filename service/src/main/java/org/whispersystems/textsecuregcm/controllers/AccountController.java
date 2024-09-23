@@ -252,6 +252,7 @@ public class AccountController {
         auth.getAccount().getNumber(),
         auth.getAccount().getPhoneNumberIdentifier(),
         auth.getAccount().getUsernameHash().filter(h -> h.length > 0).orElse(null),
+        auth.getAccount().getUsernameLinkHandle(),
         auth.getAccount().isStorageSupported());
   }
 

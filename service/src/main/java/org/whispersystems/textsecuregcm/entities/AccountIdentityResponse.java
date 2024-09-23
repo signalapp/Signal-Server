@@ -27,6 +27,9 @@ public record AccountIdentityResponse(
     @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
     @Nullable byte[] usernameHash,
 
+    @Schema(description="this account's username link handle, if set")
+    @Nullable UUID usernameLinkHandle,
+
     @Schema(description="whether any of this account's devices support storage")
     boolean storageCapable) {
 }

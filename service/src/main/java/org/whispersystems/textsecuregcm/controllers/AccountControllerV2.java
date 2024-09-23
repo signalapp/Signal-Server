@@ -150,6 +150,7 @@ public class AccountControllerV2 {
           updatedAccount.getNumber(),
           updatedAccount.getPhoneNumberIdentifier(),
           updatedAccount.getUsernameHash().orElse(null),
+          updatedAccount.getUsernameLinkHandle(),
           updatedAccount.isStorageSupported());
     } catch (MismatchedDevicesException e) {
       throw new WebApplicationException(Response.status(409)
@@ -208,6 +209,7 @@ public class AccountControllerV2 {
           updatedAccount.getNumber(),
           updatedAccount.getPhoneNumberIdentifier(),
           updatedAccount.getUsernameHash().orElse(null),
+          updatedAccount.getUsernameLinkHandle(),
           updatedAccount.isStorageSupported());
     } catch (MismatchedDevicesException e) {
       throw new WebApplicationException(Response.status(409)
