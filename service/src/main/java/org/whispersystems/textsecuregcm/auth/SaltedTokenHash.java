@@ -58,7 +58,7 @@ public record SaltedTokenHash(String hash, String salt) {
   private static String calculateV1Hash(final String salt, final String token) {
     try {
       return HexFormat.of()
-          .formatHex(MessageDigest.getInstance("SHA1").digest((salt + token).getBytes(StandardCharsets.UTF_8)));
+          .formatHex(MessageDigest.getInstance("SHA-256").digest((salt + token).getBytes(StandardCharsets.UTF_8)));
     } catch (final NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
