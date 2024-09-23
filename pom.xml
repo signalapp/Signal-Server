@@ -63,7 +63,7 @@
     <luajava.version>3.4.0</luajava.version>
     <micrometer.version>1.13.2</micrometer.version>
     <netty.version>4.1.111.Final</netty.version>
-    <protobuf.version>3.25.2</protobuf.version> <!-- should be kept in sync with the value from Google libraries-bom -->
+    <protobuf.version>3.25.5</protobuf.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <pushy.version>0.15.4</pushy.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
     <reactor-bom.version>2023.0.8</reactor-bom.version> <!-- 3.6.x, see https://github.com/reactor/reactor#bom-versioning-scheme -->
