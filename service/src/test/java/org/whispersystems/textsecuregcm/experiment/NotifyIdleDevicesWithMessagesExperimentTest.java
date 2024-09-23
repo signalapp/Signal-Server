@@ -12,17 +12,18 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.IdleDeviceNotificationScheduler;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import reactor.core.publisher.Flux;
 
 class NotifyIdleDevicesWithMessagesExperimentTest extends IdleDevicePushNotificationExperimentTest {
 
@@ -50,11 +51,11 @@ class NotifyIdleDevicesWithMessagesExperimentTest extends IdleDevicePushNotifica
   @MethodSource
   void isDeviceEligible(final Account account,
       final Device device,
-      final boolean mayHaveMessages,
+      final boolean hasUrgentMessage,
       final boolean expectEligible) {
 
-    when(messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device))
-        .thenReturn(CompletableFuture.completedFuture(mayHaveMessages));
+    when(messagesManager.getMessagesForDeviceReactive(account.getIdentifier(IdentityType.ACI), device, false))
+        .thenReturn(Flux.just(MessageProtos.Envelope.newBuilder().setUrgent(hasUrgentMessage).build()));
 
     assertEquals(expectEligible, experiment.isDeviceEligible(account, device).join());
   }
@@ -68,8 +69,9 @@ class NotifyIdleDevicesWithMessagesExperimentTest extends IdleDevicePushNotifica
         PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164));
 
     {
-      // Idle device with push token and messages
+      // Idle primary device with push token and urgent messages
       final Device device = mock(Device.class);
+      when(device.isPrimary()).thenReturn(true);
       when(device.getApnId()).thenReturn("apns-token");
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithMessagesExperiment.MIN_IDLE_DURATION).toEpochMilli());
 
@@ -77,24 +79,37 @@ class NotifyIdleDevicesWithMessagesExperimentTest extends IdleDevicePushNotifica
     }
 
     {
-      // Idle device missing push token, but with messages
+      // Idle non-primary device with push token and urgent messages
       final Device device = mock(Device.class);
+      when(device.isPrimary()).thenReturn(false);
+      when(device.getApnId()).thenReturn("apns-token");
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithMessagesExperiment.MIN_IDLE_DURATION).toEpochMilli());
 
       arguments.add(Arguments.of(account, device, true, false));
     }
 
     {
-      // Idle device missing push token and messages
+      // Idle primary device missing push token, but with messages
       final Device device = mock(Device.class);
+      when(device.isPrimary()).thenReturn(true);
+      when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithMessagesExperiment.MIN_IDLE_DURATION).toEpochMilli());
+
+      arguments.add(Arguments.of(account, device, true, false));
+    }
+
+    {
+      // Idle primary device missing push token and with no urgent messages
+      final Device device = mock(Device.class);
+      when(device.isPrimary()).thenReturn(true);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithMessagesExperiment.MIN_IDLE_DURATION).toEpochMilli());
 
       arguments.add(Arguments.of(account, device, false, false));
     }
 
     {
-      // Idle device with push token, but no messages
+      // Idle primary device with push token, but no urgent messages
       final Device device = mock(Device.class);
+      when(device.isPrimary()).thenReturn(true);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.minus(NotifyIdleDevicesWithMessagesExperiment.MIN_IDLE_DURATION).toEpochMilli());
       when(device.getApnId()).thenReturn("apns-token");
 
@@ -102,8 +117,9 @@ class NotifyIdleDevicesWithMessagesExperimentTest extends IdleDevicePushNotifica
     }
 
     {
-      // Active device with push token and messages
+      // Active primary device with push token and urgent messages
       final Device device = mock(Device.class);
+      when(device.isPrimary()).thenReturn(true);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
       when(device.getApnId()).thenReturn("apns-token");
 
@@ -111,24 +127,27 @@ class NotifyIdleDevicesWithMessagesExperimentTest extends IdleDevicePushNotifica
     }
 
     {
-      // Active device missing push token, but with messages
+      // Active primary device missing push token, but with urgent messages
       final Device device = mock(Device.class);
+      when(device.isPrimary()).thenReturn(true);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
       arguments.add(Arguments.of(account, device, true, false));
     }
 
     {
-      // Active device missing push token and messages
+      // Active primary device missing push token and with no urgent messages
       final Device device = mock(Device.class);
+      when(device.isPrimary()).thenReturn(true);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
       arguments.add(Arguments.of(account, device, false, false));
     }
 
     {
-      // Active device with push token, but no messages
+      // Active primary device with push token, but no urgent messages
       final Device device = mock(Device.class);
+      when(device.isPrimary()).thenReturn(true);
       when(device.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
       when(device.getApnId()).thenReturn("apns-token");
 

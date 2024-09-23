@@ -1,11 +1,13 @@
 package org.whispersystems.textsecuregcm.experiment;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.IdleDeviceNotificationScheduler;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import reactor.core.publisher.Flux;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalTime;
@@ -53,6 +55,10 @@ public class NotifyIdleDevicesWithMessagesExperiment extends IdleDevicePushNotif
   @Override
   public CompletableFuture<Boolean> isDeviceEligible(final Account account, final Device device) {
 
+    if (!device.isPrimary()) {
+      return CompletableFuture.completedFuture(false);
+    }
+
     if (!hasPushToken(device)) {
       return CompletableFuture.completedFuture(false);
     }
@@ -61,7 +67,9 @@ public class NotifyIdleDevicesWithMessagesExperiment extends IdleDevicePushNotif
       return CompletableFuture.completedFuture(false);
     }
 
-    return messagesManager.mayHavePersistedMessages(account.getIdentifier(IdentityType.ACI), device);
+    return Flux.from(messagesManager.getMessagesForDeviceReactive(account.getIdentifier(IdentityType.ACI), device, false))
+        .any(MessageProtos.Envelope::getUrgent)
+        .toFuture();
   }
 
   @Override
