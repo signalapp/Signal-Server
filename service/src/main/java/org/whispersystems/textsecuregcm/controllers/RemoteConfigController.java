@@ -54,7 +54,7 @@ public class RemoteConfigController {
   @Produces(MediaType.APPLICATION_JSON)
   public UserRemoteConfigList getAll(@ReadOnly @Auth AuthenticatedDevice auth) {
     try {
-      MessageDigest digest = MessageDigest.getInstance("SHA1");
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
 
       final Stream<UserRemoteConfig> globalConfigStream = globalConfig.entrySet().stream()
           .map(entry -> new UserRemoteConfig(GLOBAL_CONFIG_PREFIX + entry.getKey(), true, entry.getValue()));
