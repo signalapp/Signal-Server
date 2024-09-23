@@ -8,15 +8,16 @@ package org.whispersystems.textsecuregcm.calls.routing;
 import com.maxmind.geoip2.DatabaseReader;
 import com.maxmind.geoip2.exception.GeoIp2Exception;
 import com.maxmind.geoip2.model.CityResponse;
+import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.Util;
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
@@ -58,6 +59,7 @@ public class TurnCallRouter {
    * @param aci aci of client
    * @param clientAddress IP address to base routing on
    * @param instanceLimit max instances to return options for
+   * @return Up to two * instanceLimit options, half in ipv4, half in ipv6
    */
   public TurnServerOptions getRoutingFor(
       @Nonnull final UUID aci,
@@ -121,8 +123,7 @@ public class TurnCallRouter {
     List<String> urlsWithIps = getUrlsForInstances(
         selectInstances(
             datacenters,
-            instanceLimit,
-            (clientAddress.get() instanceof Inet6Address)
+            instanceLimit
         ));
     return new TurnServerOptions(hostname, urlsWithIps, minimalRandomUrls());
   }
@@ -134,31 +135,41 @@ public class TurnCallRouter {
         .toList();
   }
 
-  private List<String> selectInstances(List<String> datacenters, int limit, boolean preferV6) {
-    if(datacenters.isEmpty() || limit == 0) {
+  // returns balanced number of instances across provided datacenters, prioritizing the datacenters earlier in the list
+  private List<String> selectInstances(List<String> datacenters, int instanceLimit) {
+    if(datacenters.isEmpty() || instanceLimit == 0) {
       return Collections.emptyList();
     }
-    int numV6 = preferV6 ? (limit - limit / 3) : limit / 3;
-    int numV4  = limit - numV6;
 
     CallDnsRecords dnsRecords = this.callDnsRecords.get();
-    List<InetAddress> ipv4Selection = datacenters.stream()
-        .flatMap(dc -> randomNOf(dnsRecords.aByRegion().get(dc), limit, stableSelect).stream())
+    List<List<InetAddress>> ipv4Options = datacenters.stream()
+        .map(dc -> randomNOf(dnsRecords.aByRegion().get(dc), instanceLimit, stableSelect))
         .toList();
-    List<InetAddress> ipv6Selection = datacenters.stream()
-        .flatMap(dc -> randomNOf(dnsRecords.aaaaByRegion().get(dc), limit, stableSelect).stream())
+    List<List<InetAddress>> ipv6Options = datacenters.stream()
+        .map(dc -> randomNOf(dnsRecords.aaaaByRegion().get(dc), instanceLimit, stableSelect))
         .toList();
 
-    // increase numV4 if not enough v6 options. vice-versa is also true
-    numV4 = Math.max(numV4, limit - ipv6Selection.size());
-    ipv4Selection = ipv4Selection.stream().limit(numV4).toList();
-    ipv6Selection = ipv6Selection.stream().limit(limit - ipv4Selection.size()).toList();
+    List<InetAddress> ipv4Selection = selectFromOptions(ipv4Options, instanceLimit);
+    List<InetAddress> ipv6Selection = selectFromOptions(ipv6Options, instanceLimit);
 
     return Stream.concat(
         ipv4Selection.stream().map(InetAddress::getHostAddress),
         // map ipv6 to RFC3986 format i.e. surrounded by brackets
         ipv6Selection.stream().map(i -> String.format("[%s]", i.getHostAddress()))
     ).toList();
+  }
+
+  private static List<InetAddress> selectFromOptions(List<List<InetAddress>> recordsByDc, int instanceLimit) {
+    return IntStream.range(0, recordsByDc.size())
+        .mapToObj(dcIndex -> IntStream.range(0, recordsByDc.get(dcIndex).size())
+          .mapToObj(addressIndex -> Triple.of(addressIndex, dcIndex, recordsByDc.get(dcIndex).get(addressIndex))))
+        .flatMap(i -> i)
+        .sorted(Comparator.comparingInt((Triple<Integer, Integer, InetAddress> t) -> t.getLeft())
+            .thenComparingInt(Triple::getMiddle))
+        .limit(instanceLimit)
+        .sorted(Comparator.comparingInt(Triple::getMiddle))
+        .map(Triple::getRight)
+        .toList();
   }
 
   private static <E> List<E> randomNOf(List<E> values, int n, boolean stableSelect) {

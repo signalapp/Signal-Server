@@ -35,7 +35,7 @@ import org.whispersystems.websocket.auth.ReadOnly;
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Calling")
 public class CallRoutingController {
 
-  private static final int TURN_INSTANCE_LIMIT = 3;
+  private static final int TURN_INSTANCE_LIMIT = 2;
   private static final Counter INVALID_IP_COUNTER = Metrics.counter(name(CallRoutingController.class, "invalidIP"));
   private static final Logger log = LoggerFactory.getLogger(CallRoutingController.class);
   private final RateLimiters rateLimiters;

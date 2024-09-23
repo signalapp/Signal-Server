@@ -85,7 +85,12 @@ public class TurnCallRouterTest {
                   InetAddress.getByName("9.9.9.2")
               ),
               "dc-performance2", List.of(InetAddress.getByName("9.9.9.3")),
-              "dc-performance3", List.of(InetAddress.getByName("9.9.9.4"))
+              "dc-performance3", List.of(InetAddress.getByName("9.9.9.4")),
+              "dc-performance4", List.of(
+                  InetAddress.getByName("9.9.9.5"),
+                  InetAddress.getByName("9.9.9.6"),
+                  InetAddress.getByName("9.9.9.7")
+              )
           ),
           Map.of(
               "dc-manual", List.of(InetAddress.getByName("2222:1111:0:dead::")),
@@ -94,7 +99,12 @@ public class TurnCallRouterTest {
                   InetAddress.getByName("2222:1111:0:abc1::")
               ),
               "dc-performance2", List.of(InetAddress.getByName("2222:1111:0:abc2::")),
-              "dc-performance3", List.of(InetAddress.getByName("2222:1111:0:abc3::"))
+              "dc-performance3", List.of(InetAddress.getByName("2222:1111:0:abc3::")),
+              "dc-performance4", List.of(
+                  InetAddress.getByName("2222:1111:0:abc4::"),
+                  InetAddress.getByName("2222:1111:0:abc5::"),
+                  InetAddress.getByName("2222:1111:0:abc6::")
+              )
           )
       );
     } catch (UnknownHostException e) {
@@ -205,11 +215,12 @@ public class TurnCallRouterTest {
   }
 
   @Test
-  public void testLimitReturnsPreferredProtocolAndPrioritizesPerformance() throws UnknownHostException {
+  public void testLimitPrioritizesBestDataCenters() throws UnknownHostException {
     when(performanceTable.getDatacentersFor(any(), any(), any(), any()))
-        .thenReturn(List.of("dc-performance3", "dc-performance2", "dc-performance1"));
+        .thenReturn(List.of("dc-performance3", "dc-performance2", "dc-performance3"));
 
-    assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 3))
+    // gets one instance from best two datacenters
+    assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 2))
         .isEqualTo(optionsWithUrls(List.of(
             "turn:9.9.9.4",
             "turn:9.9.9.4:80?transport=tcp",
@@ -221,10 +232,14 @@ public class TurnCallRouterTest {
 
             "turn:[2222:1111:0:abc3:0:0:0:0]",
             "turn:[2222:1111:0:abc3:0:0:0:0]:80?transport=tcp",
-            "turns:[2222:1111:0:abc3:0:0:0:0]:443?transport=tcp"
+            "turns:[2222:1111:0:abc3:0:0:0:0]:443?transport=tcp",
+
+            "turn:[2222:1111:0:abc2:0:0:0:0]",
+            "turn:[2222:1111:0:abc2:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc2:0:0:0:0]:443?transport=tcp"
         )));
 
-    assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("2222:1111:0:abc2:0:0:0:1")), 3))
+    assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("2222:1111:0:abc2:0:0:0:1")), 1))
         .isEqualTo(optionsWithUrls(List.of(
             "turn:9.9.9.4",
             "turn:9.9.9.4:80?transport=tcp",
@@ -232,11 +247,56 @@ public class TurnCallRouterTest {
 
             "turn:[2222:1111:0:abc3:0:0:0:0]",
             "turn:[2222:1111:0:abc3:0:0:0:0]:80?transport=tcp",
-            "turns:[2222:1111:0:abc3:0:0:0:0]:443?transport=tcp",
+            "turns:[2222:1111:0:abc3:0:0:0:0]:443?transport=tcp"
+        )));
+  }
+
+  @Test
+  public void testBackFillsUpToLimit() throws UnknownHostException {
+    when(performanceTable.getDatacentersFor(any(), any(), any(), any()))
+        .thenReturn(List.of("dc-performance4", "dc-performance2", "dc-performance3"));
+
+    assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 5))
+        .isEqualTo(optionsWithUrls(List.of(
+            "turn:9.9.9.5",
+            "turn:9.9.9.5:80?transport=tcp",
+            "turns:9.9.9.5:443?transport=tcp",
+
+            "turn:9.9.9.6",
+            "turn:9.9.9.6:80?transport=tcp",
+            "turns:9.9.9.6:443?transport=tcp",
+
+            "turn:9.9.9.7",
+            "turn:9.9.9.7:80?transport=tcp",
+            "turns:9.9.9.7:443?transport=tcp",
+
+            "turn:9.9.9.3",
+            "turn:9.9.9.3:80?transport=tcp",
+            "turns:9.9.9.3:443?transport=tcp",
+
+            "turn:9.9.9.4",
+            "turn:9.9.9.4:80?transport=tcp",
+            "turns:9.9.9.4:443?transport=tcp",
+
+            "turn:[2222:1111:0:abc4:0:0:0:0]",
+            "turn:[2222:1111:0:abc4:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc4:0:0:0:0]:443?transport=tcp",
+
+            "turn:[2222:1111:0:abc5:0:0:0:0]",
+            "turn:[2222:1111:0:abc5:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc5:0:0:0:0]:443?transport=tcp",
+
+            "turn:[2222:1111:0:abc6:0:0:0:0]",
+            "turn:[2222:1111:0:abc6:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc6:0:0:0:0]:443?transport=tcp",
 
             "turn:[2222:1111:0:abc2:0:0:0:0]",
             "turn:[2222:1111:0:abc2:0:0:0:0]:80?transport=tcp",
-            "turns:[2222:1111:0:abc2:0:0:0:0]:443?transport=tcp"
+            "turns:[2222:1111:0:abc2:0:0:0:0]:443?transport=tcp",
+
+            "turn:[2222:1111:0:abc3:0:0:0:0]",
+            "turn:[2222:1111:0:abc3:0:0:0:0]:80?transport=tcp",
+            "turns:[2222:1111:0:abc3:0:0:0:0]:443?transport=tcp"
         )));
   }
 
