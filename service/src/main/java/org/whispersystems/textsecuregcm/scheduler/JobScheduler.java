@@ -136,7 +136,7 @@ public abstract class JobScheduler {
    *
    * @see #processJob(byte[])
    */
-  public CompletableFuture<Void> processAvailableJobs() {
+  public Mono<Void> processAvailableJobs() {
     return Flux.from(dynamoDbAsyncClient.queryPaginator(QueryRequest.builder()
             .tableName(tableName)
             .keyConditionExpression("#schedulerName = :schedulerName AND #runAt <= :maxRunAt")
@@ -164,8 +164,7 @@ public abstract class JobScheduler {
                 return Mono.empty();
               });
         }, MAX_CONCURRENCY)
-        .then()
-        .toFuture();
+        .then();
   }
 
   private CompletableFuture<Void> deleteJob(final AttributeValue schedulerName, final AttributeValue runAt) {

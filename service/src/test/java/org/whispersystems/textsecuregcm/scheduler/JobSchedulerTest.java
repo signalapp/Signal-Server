@@ -1,14 +1,10 @@
 package org.whispersystems.textsecuregcm.scheduler;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
-import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
-import org.whispersystems.textsecuregcm.util.TestClock;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
-import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import javax.annotation.Nullable;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -16,8 +12,14 @@ import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.*;
+import javax.annotation.Nullable;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
+import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
+import org.whispersystems.textsecuregcm.util.TestClock;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 
 class JobSchedulerTest {
 
@@ -80,16 +82,16 @@ class JobSchedulerTest {
     // Clock time is before scheduled job time
     testClock.pin(CURRENT_TIME.minusMillis(1));
 
-    scheduler.processAvailableJobs().join();
+    scheduler.processAvailableJobs().block();
     assertEquals(0, scheduler.jobsProcessed.get());
 
     // Clock time is after scheduled job time
     testClock.pin(CURRENT_TIME.plusMillis(1));
 
-    scheduler.processAvailableJobs().join();
+    scheduler.processAvailableJobs().block();
     assertEquals(1, scheduler.jobsProcessed.get());
 
-    scheduler.processAvailableJobs().join();
+    scheduler.processAvailableJobs().block();
     assertEquals(1, scheduler.jobsProcessed.get(),
         "Jobs should be cleared after successful processing; job counter should not increment on second run");
   }
@@ -112,10 +114,10 @@ class JobSchedulerTest {
 
     scheduler.scheduleJob(scheduler.buildRunAtAttribute(CURRENT_TIME, 0L), CURRENT_TIME, null).join();
 
-    scheduler.processAvailableJobs().join();
+    scheduler.processAvailableJobs().block();
     assertEquals(1, jobsEncountered.get());
 
-    scheduler.processAvailableJobs().join();
+    scheduler.processAvailableJobs().block();
     assertEquals(2, jobsEncountered.get(),
         "Jobs should not be cleared after failed processing; encountered job counter should increment on second run");
   }
