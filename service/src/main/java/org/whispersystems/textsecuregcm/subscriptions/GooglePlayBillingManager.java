@@ -12,6 +12,7 @@ import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.AndroidPublisherRequest;
 import com.google.api.services.androidpublisher.AndroidPublisherScopes;
+import com.google.api.services.androidpublisher.model.AutoRenewingPlan;
 import com.google.api.services.androidpublisher.model.BasePlan;
 import com.google.api.services.androidpublisher.model.OfferDetails;
 import com.google.api.services.androidpublisher.model.RegionalBasePlanConfig;
@@ -244,13 +245,17 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
         case UNSPECIFIED -> SubscriptionStatus.UNKNOWN;
       };
 
+      final boolean autoRenewEnabled = Optional
+          .ofNullable(lineItem.getAutoRenewingPlan())
+          .map(AutoRenewingPlan::getAutoRenewEnabled) // returns null or false if auto-renew disabled
+          .orElse(false);
       return new SubscriptionInformation(
           price,
           productIdToLevel(lineItem.getProductId()),
           billingCycleAnchor.orElse(null),
           expiration.orElse(null),
           expiration.map(clock.instant()::isBefore).orElse(false),
-          lineItem.getAutoRenewingPlan() != null && lineItem.getAutoRenewingPlan().getAutoRenewEnabled(),
+          !autoRenewEnabled,
           status,
           PaymentProvider.GOOGLE_PLAY_BILLING,
           PaymentMethod.GOOGLE_PLAY_BILLING,
@@ -467,5 +472,4 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
       return s;
     }
   }
-
 }

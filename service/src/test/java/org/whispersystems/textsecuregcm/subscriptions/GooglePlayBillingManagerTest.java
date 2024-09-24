@@ -16,6 +16,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.api.services.androidpublisher.AndroidPublisher;
+import com.google.api.services.androidpublisher.model.AutoRenewingPlan;
 import com.google.api.services.androidpublisher.model.BasePlan;
 import com.google.api.services.androidpublisher.model.Money;
 import com.google.api.services.androidpublisher.model.OfferDetails;
@@ -234,6 +235,7 @@ class GooglePlayBillingManagerTest {
         .setRegionCode("US")
         .setLineItems(List.of(new SubscriptionPurchaseLineItem()
             .setExpiryTime(Instant.now().plus(Duration.ofDays(1)).toString())
+            .setAutoRenewingPlan(new AutoRenewingPlan().setAutoRenewEnabled(null))
             .setProductId(PRODUCT_ID)
             .setOfferDetails(new OfferDetails().setBasePlanId(basePlanId)))));
 
@@ -251,6 +253,8 @@ class GooglePlayBillingManagerTest {
     assertThat(info.price().currency()).isEqualTo("USD");
     assertThat(info.price().amount().compareTo(new BigDecimal("175"))).isEqualTo(0); // 175 cents
     assertThat(info.level()).isEqualTo(201L);
+    assertThat(info.cancelAtPeriodEnd()).isTrue();
+
   }
 
 }
