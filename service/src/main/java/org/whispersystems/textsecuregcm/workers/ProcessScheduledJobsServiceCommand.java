@@ -6,6 +6,10 @@ import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Environment;
 import io.dropwizard.jetty.HttpsConnectorFactory;
 import io.dropwizard.lifecycle.Managed;
+import io.dropwizard.util.Duration;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
@@ -14,9 +18,6 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.scheduler.JobScheduler;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 public class ProcessScheduledJobsServiceCommand extends ServerCommand<WhisperServerConfiguration> {
 
@@ -25,6 +26,8 @@ public class ProcessScheduledJobsServiceCommand extends ServerCommand<WhisperSer
 
   private static final String FIXED_DELAY_SECONDS_ARGUMENT = "fixedDelay";
   private static final int DEFAULT_FIXED_DELAY_SECONDS = 60;
+  private static final String SHUTDOWN_WAIT_SECONDS_ARGUMENT = "shutdownWait";
+  private static final int DEFAULT_SHUTDOWN_WAIT_SECONDS = 60;
 
   private static final Logger log = LoggerFactory.getLogger(ProcessScheduledJobsServiceCommand.class);
 
@@ -91,6 +94,12 @@ public class ProcessScheduledJobsServiceCommand extends ServerCommand<WhisperSer
         .dest(FIXED_DELAY_SECONDS_ARGUMENT)
         .setDefault(DEFAULT_FIXED_DELAY_SECONDS)
         .help("The delay, in seconds, between queries for jobs to process");
+
+    subparser.addArgument("--shutdown-wait")
+        .type(Integer.class)
+        .dest(SHUTDOWN_WAIT_SECONDS_ARGUMENT)
+        .setDefault(DEFAULT_SHUTDOWN_WAIT_SECONDS)
+        .help("The duration, in seconds, to wait for in-flight jobs to finish at shutdown");
   }
 
   @Override
@@ -104,6 +113,7 @@ public class ProcessScheduledJobsServiceCommand extends ServerCommand<WhisperSer
     final CommandDependencies commandDependencies = CommandDependencies.build(name, environment, configuration);
 
     final int fixedDelaySeconds = namespace.getInt(FIXED_DELAY_SECONDS_ARGUMENT);
+    final int shutdownWaitSeconds = namespace.getInt(SHUTDOWN_WAIT_SECONDS_ARGUMENT);
 
     MetricsUtil.configureRegistries(configuration, environment, commandDependencies.dynamicConfigurationManager());
 
@@ -120,6 +130,7 @@ public class ProcessScheduledJobsServiceCommand extends ServerCommand<WhisperSer
 
     final ScheduledExecutorService scheduledExecutorService =
         environment.lifecycle().scheduledExecutorService("scheduled-job-processor-%d", false)
+            .shutdownTime(Duration.seconds(shutdownWaitSeconds))
             .build();
 
     final JobScheduler jobScheduler = jobSchedulerFactory.buildJobScheduler(commandDependencies, configuration);
