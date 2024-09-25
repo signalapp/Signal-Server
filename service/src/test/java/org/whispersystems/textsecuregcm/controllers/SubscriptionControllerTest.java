@@ -902,6 +902,56 @@ class SubscriptionControllerTest {
         eq(now));
   }
 
+  @Test
+  public void replacePlayPurchaseToken() {
+    final String oldPurchaseToken = "oldPurchaseToken";
+    final String newPurchaseToken = "newPurchaseToken";
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final byte[] user = Arrays.copyOfRange(subscriberUserAndKey, 0, 16);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    final Instant now = Instant.now();
+    when(CLOCK.instant()).thenReturn(now);
+
+    final ProcessorCustomer oldPc = new ProcessorCustomer(oldPurchaseToken, PaymentProvider.GOOGLE_PLAY_BILLING);
+    final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+        Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+        Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID, b(oldPc.toDynamoBytes()));
+    final Subscriptions.Record record = Subscriptions.Record.from(user, dynamoItem);
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+
+    final GooglePlayBillingManager.ValidatedToken validatedToken = mock(GooglePlayBillingManager.ValidatedToken.class);
+    when(validatedToken.getLevel()).thenReturn(99L);
+    when(validatedToken.acknowledgePurchase()).thenReturn(CompletableFuture.completedFuture(null));
+
+    when(PLAY_MANAGER.validateToken(eq(newPurchaseToken))).thenReturn(CompletableFuture.completedFuture(validatedToken));
+    when(PLAY_MANAGER.cancelAllActiveSubscriptions(eq(oldPurchaseToken)))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    when(SUBSCRIPTIONS.setIapPurchase(any(), any(), anyString(), anyLong(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    final Response response = RESOURCE_EXTENSION
+        .target(String.format("/v1/subscription/%s/playbilling/%s", subscriberId, newPurchaseToken))
+        .request()
+        .post(Entity.json(""));
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class).level())
+        .isEqualTo(99L);
+
+    verify(SUBSCRIPTIONS, times(1)).setIapPurchase(
+        any(),
+        eq(new ProcessorCustomer(newPurchaseToken, PaymentProvider.GOOGLE_PLAY_BILLING)),
+        eq(newPurchaseToken),
+        eq(99L),
+        eq(now));
+
+    verify(PLAY_MANAGER, times(1)).cancelAllActiveSubscriptions(oldPurchaseToken);
+  }
+
   @ParameterizedTest
   @CsvSource({"5, P45D", "201, P13D"})
   public void createReceiptCredential(long level, Duration expectedExpirationWindow)

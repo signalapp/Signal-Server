@@ -420,6 +420,10 @@ public class SubscriptionController {
 
   After calling this method, the payment is confirmed. Callers must durably store their subscriberId before calling
   this method to ensure their payment is tracked.
+
+  Once a purchaseToken to is posted to a subscriberId, the same subscriberId must not be used with another payment
+  method. A different playbilling purchaseToken can be posted to the same subscriberId, in this case the subscription
+  associated with the old purchaseToken will be cancelled.
   """)
   @ApiResponse(responseCode = "200", description = "The purchaseToken was validated and acknowledged")
   @ApiResponse(responseCode = "402", description = "The purchaseToken payment is incomplete or invalid")

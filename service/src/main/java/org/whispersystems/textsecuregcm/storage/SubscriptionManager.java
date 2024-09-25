@@ -349,29 +349,42 @@ public class SubscriptionManager {
       final GooglePlayBillingManager googlePlayBillingManager,
       final String purchaseToken) {
 
-    return getSubscriber(subscriberCredentials).thenCompose(record -> {
-      if (record.processorCustomer != null
-          && record.processorCustomer.processor() != PaymentProvider.GOOGLE_PLAY_BILLING) {
-        return CompletableFuture.failedFuture(
-            new SubscriptionException.ProcessorConflict("existing processor does not match"));
-      }
+    // For IAP providers, the subscriptionId and the customerId are both just the purchaseToken. Changes to the
+    // subscription always just result in a new purchaseToken
+    final ProcessorCustomer pc = new ProcessorCustomer(purchaseToken, PaymentProvider.GOOGLE_PLAY_BILLING);
 
-      // For IAP providers, the subscriptionId and the customerId are both just the purchaseToken. Changes to the
-      // subscription always just result in a new purchaseToken
-      final ProcessorCustomer pc = new ProcessorCustomer(purchaseToken, PaymentProvider.GOOGLE_PLAY_BILLING);
+    return getSubscriber(subscriberCredentials)
 
-      return googlePlayBillingManager
-          // Validating ensures we don't allow a user-determined token that's totally bunk into the subscription manager,
-          // but we don't want to acknowledge it until it's successfully persisted.
-          .validateToken(purchaseToken)
-          // Store the purchaseToken with the subscriber
-          .thenCompose(validatedToken -> subscriptions.setIapPurchase(
-                  record, pc, purchaseToken, validatedToken.getLevel(), subscriberCredentials.now())
-              // Now that the purchaseToken is durable, we can acknowledge it
-              .thenCompose(ignore -> validatedToken.acknowledgePurchase())
-              .thenApply(ignore -> validatedToken.getLevel()));
-    });
+        // Check the record for an existing subscription
+        .thenCompose(record -> {
+          if (record.processorCustomer != null
+              && record.processorCustomer.processor() != PaymentProvider.GOOGLE_PLAY_BILLING) {
+            return CompletableFuture.failedFuture(
+                new SubscriptionException.ProcessorConflict("existing processor does not match"));
+          }
 
+          // If we're replacing an existing purchaseToken, cancel it first
+          return Optional.ofNullable(record.processorCustomer)
+              .map(ProcessorCustomer::customerId)
+              .filter(existingToken -> !purchaseToken.equals(existingToken))
+              .map(googlePlayBillingManager::cancelAllActiveSubscriptions)
+              .orElseGet(() -> CompletableFuture.completedFuture(null))
+              .thenApply(ignored -> record);
+        })
+
+        // Validate and set the purchaseToken
+        .thenCompose(record -> googlePlayBillingManager
+
+            // Validating ensures we don't allow a user-determined token that's totally bunk into the subscription manager,
+            // but we don't want to acknowledge it until it's successfully persisted.
+            .validateToken(purchaseToken)
+
+            // Store the purchaseToken with the subscriber
+            .thenCompose(validatedToken -> subscriptions.setIapPurchase(
+                    record, pc, purchaseToken, validatedToken.getLevel(), subscriberCredentials.now())
+                // Now that the purchaseToken is durable, we can acknowledge it
+                .thenCompose(ignore -> validatedToken.acknowledgePurchase())
+                .thenApply(ignore -> validatedToken.getLevel())));
   }
 
   private SubscriptionPaymentProcessor getProcessor(PaymentProvider provider) {
