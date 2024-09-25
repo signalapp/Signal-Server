@@ -14,6 +14,7 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -39,13 +40,14 @@ public record DynamoDbClientConfiguration(@NotBlank String region,
   }
 
   @Override
-  public DynamoDbClient buildSyncClient(final AwsCredentialsProvider credentialsProvider) {
+  public DynamoDbClient buildSyncClient(final AwsCredentialsProvider credentialsProvider, final MetricPublisher metricPublisher) {
     return DynamoDbClient.builder()
         .region(Region.of(region()))
         .credentialsProvider(credentialsProvider)
         .overrideConfiguration(ClientOverrideConfiguration.builder()
             .apiCallTimeout(clientExecutionTimeout())
             .apiCallAttemptTimeout(clientRequestTimeout())
+            .addMetricPublisher(metricPublisher)
             .build())
         .httpClientBuilder(AwsCrtHttpClient.builder()
             .maxConcurrency(maxConnections()))
@@ -53,13 +55,14 @@ public record DynamoDbClientConfiguration(@NotBlank String region,
   }
 
   @Override
-  public DynamoDbAsyncClient buildAsyncClient(final AwsCredentialsProvider credentialsProvider) {
+  public DynamoDbAsyncClient buildAsyncClient(final AwsCredentialsProvider credentialsProvider, final MetricPublisher metricPublisher) {
     return DynamoDbAsyncClient.builder()
         .region(Region.of(region()))
         .credentialsProvider(credentialsProvider)
         .overrideConfiguration(ClientOverrideConfiguration.builder()
             .apiCallTimeout(clientExecutionTimeout())
             .apiCallAttemptTimeout(clientRequestTimeout())
+            .addMetricPublisher(metricPublisher)
             .build())
         .httpClientBuilder(NettyNioAsyncHttpClient.builder()
             .maxConcurrency(maxConnections()))

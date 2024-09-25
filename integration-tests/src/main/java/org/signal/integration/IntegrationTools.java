@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import org.signal.integration.config.Config;
+import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
@@ -30,9 +31,11 @@ public class IntegrationTools {
   public static IntegrationTools create(final Config config) {
     final AwsCredentialsProvider credentialsProvider = DefaultCredentialsProvider.builder().build();
 
-    final DynamoDbAsyncClient dynamoDbAsyncClient = config.dynamoDbClient().buildAsyncClient(credentialsProvider);
+    final DynamoDbAsyncClient dynamoDbAsyncClient =
+        config.dynamoDbClient().buildAsyncClient(credentialsProvider, new NoopAwsSdkMetricPublisher());
 
-    final DynamoDbClient dynamoDbClient = config.dynamoDbClient().buildSyncClient(credentialsProvider);
+    final DynamoDbClient dynamoDbClient =
+        config.dynamoDbClient().buildSyncClient(credentialsProvider, new NoopAwsSdkMetricPublisher());
 
     final RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         config.dynamoDbTables().registrationRecovery(), Duration.ofDays(1), dynamoDbClient, dynamoDbAsyncClient);

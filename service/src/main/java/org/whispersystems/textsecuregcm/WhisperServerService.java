@@ -186,6 +186,7 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsHttpChannelListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
@@ -393,10 +394,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     BankMandateTranslator bankMandateTranslator = new BankMandateTranslator(headerControlledResourceBundleLookup);
 
     environment.lifecycle().manage(new ManagedAwsCrt());
-    DynamoDbAsyncClient dynamoDbAsyncClient = config.getDynamoDbClientConfiguration()
-        .buildAsyncClient(awsCredentialsProvider);
 
-    DynamoDbClient dynamoDbClient = config.getDynamoDbClientConfiguration().buildSyncClient(awsCredentialsProvider);
+    final ExecutorService awsSdkMetricsExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "awsSdkMetrics-%d"));
+
+    final DynamoDbAsyncClient dynamoDbAsyncClient = config.getDynamoDbClientConfiguration()
+        .buildAsyncClient(awsCredentialsProvider, new MicrometerAwsSdkMetricPublisher(awsSdkMetricsExecutor, "dynamoDbAsync"));
+
+    final DynamoDbClient dynamoDbClient = config.getDynamoDbClientConfiguration()
+        .buildSyncClient(awsCredentialsProvider, new MicrometerAwsSdkMetricPublisher(awsSdkMetricsExecutor, "dynamoDbSync"));
 
     BlockingQueue<Runnable> messageDeletionQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "messageDeletionQueueSize"), Collections.emptyList(),

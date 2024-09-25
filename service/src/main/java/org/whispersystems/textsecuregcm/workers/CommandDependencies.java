@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.workers;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
+import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.dropwizard.core.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
@@ -32,6 +33,8 @@ import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
+import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -148,11 +151,14 @@ record CommandDependencies(
     ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
         configuration.getSvr2Configuration());
 
+    final ExecutorService awsSdkMetricsExecutor = environment.lifecycle()
+        .virtualExecutorService(MetricRegistry.name(CommandDependencies.class, "awsSdkMetrics-%d"));
+
     DynamoDbAsyncClient dynamoDbAsyncClient = configuration.getDynamoDbClientConfiguration()
-        .buildAsyncClient(awsCredentialsProvider);
+        .buildAsyncClient(awsCredentialsProvider, new MicrometerAwsSdkMetricPublisher(awsSdkMetricsExecutor, "dynamoDbAsyncCommand"));
 
     DynamoDbClient dynamoDbClient = configuration.getDynamoDbClientConfiguration()
-        .buildSyncClient(awsCredentialsProvider);
+        .buildSyncClient(awsCredentialsProvider, new MicrometerAwsSdkMetricPublisher(awsSdkMetricsExecutor, "dynamoDbSyncCommand"));
 
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),

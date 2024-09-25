@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
@@ -29,12 +30,12 @@ public class LocalDynamoDbFactory implements DynamoDbClientFactory {
   }
 
   @Override
-  public DynamoDbClient buildSyncClient(final AwsCredentialsProvider awsCredentialsProvider) {
+  public DynamoDbClient buildSyncClient(final AwsCredentialsProvider awsCredentialsProvider, final MetricPublisher metricPublisher) {
     return EXTENSION.getDynamoDbClient();
   }
 
   @Override
-  public DynamoDbAsyncClient buildAsyncClient(final AwsCredentialsProvider awsCredentialsProvider) {
+  public DynamoDbAsyncClient buildAsyncClient(final AwsCredentialsProvider awsCredentialsProvider, final MetricPublisher metricPublisher) {
     return EXTENSION.getDynamoDbAsyncClient();
   }
 }

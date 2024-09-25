@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.tests.util.TestWebsocketListener;
@@ -110,7 +111,7 @@ class WhisperServerServiceTest {
         .build();
 
     try (DynamoDbClient dynamoDbClient = EXTENSION.getConfiguration().getDynamoDbClientConfiguration()
-        .buildSyncClient(awsCredentialsProvider)) {
+        .buildSyncClient(awsCredentialsProvider, new NoopAwsSdkMetricPublisher())) {
 
       final DynamoDbExtension.TableSchema numbers = DynamoDbExtensionSchema.Tables.NUMBERS;
       final AttributeValue numberAV = AttributeValues.s("+12125550001");
