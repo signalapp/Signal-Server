@@ -463,8 +463,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
             }
           });
 
-      experiment.compareFutureResult(mrmMessage.toBuilder().clearSharedMrmKey().build(),
-          mrmMessageMono.toFuture());
+      experiment.compareMonoResult(mrmMessage.toBuilder().clearSharedMrmKey().build(), mrmMessageMono);
 
       return mrmMessageMono;
     } else {
