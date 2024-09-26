@@ -34,6 +34,41 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed
   private final String awsClientName;
   private final AtomicInteger mostRecentMaxConcurrency;
 
+  // Note that these metric collection type names don't seem to appear anywhere in the AWS SDK documentation. The docs
+  // also hint at, but don't explicitly call out, the structure of a `MetricCollection` passed to the `#publish(...)`
+  // method. Empirically, for each AWS SDK operation, the SDK will call `#publish(...)` with a collection structured as
+  // follows:
+  //
+  // MetricCollection { name = "ApiCall" }
+  // +-- MetricRecord { name = "ApiCallDuration" }
+  // +-- MetricRecord { name = "ApiCallSuccessful" }
+  // +-- ...
+  // +-- MetricCollection { name = "ApiCallAttempt" }
+  //     +-- MetricRecord { name = "AwsExtendedRequestId" }
+  //     +-- MetricRecord { name = "AwsRequestId" }
+  //     +-- ...
+  //     +-- MetricCollection {name = "HttpClient" }
+  //         +-- MetricRecord { name = "AvailableConcurrency" }
+  //         +-- MetricRecord { name = "ConcurrencyAcquireDuration" }
+  //         +-- ...
+  // +-- MetricCollection { name = "ApiCallAttempt" }
+  //     +-- MetricRecord { name = "AwsExtendedRequestId" }
+  //     +-- MetricRecord { name = "AwsRequestId" }
+  //     +-- ...
+  //     +-- MetricCollection {name = "HttpClient" }
+  //         +-- MetricRecord { name = "AvailableConcurrency" }
+  //         +-- MetricRecord { name = "ConcurrencyAcquireDuration" }
+  //         +-- ...
+  // +-- ...
+  //
+  // Every `MetricCollection` passed to `#publish(...)` should have a name of "ApiCall," and the "ApiCall" collection
+  // will have a fixed collection of named metrics (which ARE documented!). The "ApiCall" collection should have one or
+  // more "ApiCallAttempt" `MetricCollection` as children, and each "ApiCallAttempt" collection should have exactly one
+  // "HttpClient" `MetricCollection` as a child.
+  private static final String METRIC_COLLECTION_TYPE_API_CALL = "ApiCall";
+  private static final String METRIC_COLLECTION_TYPE_API_CALL_ATTEMPT = "ApiCallAttempt";
+  private static final String METRIC_COLLECTION_TYPE_HTTP_METRICS = "HttpClient";
+
   private static final String API_CALL_COUNTER_NAME =
       MetricsUtil.name(MicrometerAwsSdkMetricPublisher.class, "apiCall");
 
@@ -74,7 +109,7 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed
   @Override
   public void publish(final MetricCollection metricCollection) {
 
-    if ("ApiCall".equals(metricCollection.name())) {
+    if (METRIC_COLLECTION_TYPE_API_CALL.equals(metricCollection.name())) {
       try {
         recordMetricsExecutorService.submit(() -> recordApiCallMetrics(metricCollection));
       } catch (final RejectedExecutionException ignored) {
@@ -84,7 +119,7 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed
   }
 
   private void recordApiCallMetrics(final MetricCollection apiCallMetricCollection) {
-    if (!apiCallMetricCollection.name().equals("ApiCall")) {
+    if (!apiCallMetricCollection.name().equals(METRIC_COLLECTION_TYPE_API_CALL)) {
       throw new IllegalArgumentException("Unexpected API call metric collection name: " + apiCallMetricCollection.name());
     }
 
@@ -96,6 +131,8 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed
     final Optional<String> maybeOperationName = Optional.ofNullable(metricsByName.get("OperationName"))
         .map(metricRecord -> (String) metricRecord.value());
 
+    // Both the service ID and operation name SHOULD always be present, but since the metric collection is unstructured,
+    // we don't have any compile-time guarantees and so check that they're both present as a pedantic safety check.
     if (maybeAwsServiceId.isPresent() && maybeOperationName.isPresent()) {
       final String awsServiceId = maybeAwsServiceId.get();
       final String operationName = maybeOperationName.get();
@@ -122,18 +159,20 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed
           .register(Metrics.globalRegistry)
           .record(retryCount);
 
-      apiCallMetricCollection.childrenWithName("ApiCallAttempt")
+      apiCallMetricCollection.childrenWithName(METRIC_COLLECTION_TYPE_API_CALL_ATTEMPT)
           .forEach(callAttemptMetricCollection -> recordAttemptMetrics(callAttemptMetricCollection, tags));
     }
   }
 
   private void recordAttemptMetrics(final MetricCollection apiCallAttemptMetricCollection, final Tags callTags) {
 
-    if (!apiCallAttemptMetricCollection.name().equals("ApiCallAttempt")) {
+    if (!apiCallAttemptMetricCollection.name().equals(METRIC_COLLECTION_TYPE_API_CALL_ATTEMPT)) {
       throw new IllegalArgumentException("Unexpected API call attempt metric collection name: " + apiCallAttemptMetricCollection.name());
     }
 
-    apiCallAttemptMetricCollection.childrenWithName("HttpClient").findFirst().ifPresent(httpMetricCollection -> {
+    // A "call attempt" metric collection should always have exactly one HTTP metrics child collection, but we have no
+    // compiler-level guarantees and so do a pedantic check here just to be safe.
+    apiCallAttemptMetricCollection.childrenWithName(METRIC_COLLECTION_TYPE_HTTP_METRICS).findFirst().ifPresent(httpMetricCollection -> {
       final Map<String, MetricRecord<?>> callAttemptMetricsByName = toMetricMap(apiCallAttemptMetricCollection);
       final Map<String, MetricRecord<?>> httpMetricsByName = toMetricMap(httpMetricCollection);
 
