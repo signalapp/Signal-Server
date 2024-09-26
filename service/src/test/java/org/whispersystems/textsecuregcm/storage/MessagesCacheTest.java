@@ -575,7 +575,7 @@ class MessagesCacheTest {
       if (sharedMrmKeyPresent) {
         sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm);
       } else {
-        sharedMrmDataKey = new byte[]{1};
+        sharedMrmDataKey = "{1}".getBytes(StandardCharsets.UTF_8);
       }
 
       final UUID guid = UUID.randomUUID();

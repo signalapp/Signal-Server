@@ -444,7 +444,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
               conn -> conn.reactive().hmget(key, "data".getBytes(StandardCharsets.UTF_8), sharedMrmViewKey)
                   .collectList()
                   .publishOn(messageDeliveryScheduler)))
-          .handle((mrmDataAndView, sink) -> {
+          .<MessageProtos.Envelope>handle((mrmDataAndView, sink) -> {
             try {
               assert mrmDataAndView.size() == 2;
 
@@ -461,7 +461,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
             } catch (Exception e) {
               sink.error(e);
             }
-          });
+          })
+          .share();
 
       experiment.compareMonoResult(mrmMessage.toBuilder().clearSharedMrmKey().build(), mrmMessageMono);
 
