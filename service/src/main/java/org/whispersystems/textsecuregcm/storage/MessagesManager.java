@@ -96,10 +96,6 @@ public class MessagesManager {
             });
   }
 
-  public boolean hasCachedMessages(final UUID destinationUuid, final byte destinationDevice) {
-    return messagesCache.hasMessages(destinationUuid, destinationDevice);
-  }
-
   public Mono<Pair<List<Envelope>, Boolean>> getMessagesForDevice(UUID destinationUuid, Device destinationDevice,
       boolean cachedMessagesOnly) {
 
