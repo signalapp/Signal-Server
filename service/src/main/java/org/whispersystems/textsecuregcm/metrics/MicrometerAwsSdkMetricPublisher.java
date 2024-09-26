@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
  *
  * @see <a href="https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/metrics-list.html">Service client metrics</a>
  */
-public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed {
+public class MicrometerAwsSdkMetricPublisher implements MetricPublisher {
 
   private final ExecutorService recordMetricsExecutorService;
 
@@ -90,9 +90,7 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed
 
   /**
    * Constructs a new metric publisher that uses the given executor service to record metrics and tags metrics with the
-   * given client name. Note that the given executor service will be shut down when this publisher is shut down via the
-   * {@link #close()} or {@link #stop()} methods, and as such the executor service should be used only for this
-   * publisher.
+   * given client name.
    *
    * @param recordMetricsExecutorService the executor service via which to record metrics
    * @param awsClientName the name of AWS service client to which this publisher is attached
@@ -108,7 +106,6 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed
 
   @Override
   public void publish(final MetricCollection metricCollection) {
-
     if (METRIC_COLLECTION_TYPE_API_CALL.equals(metricCollection.name())) {
       try {
         recordMetricsExecutorService.submit(() -> recordApiCallMetrics(metricCollection));
@@ -165,7 +162,6 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed
   }
 
   private void recordAttemptMetrics(final MetricCollection apiCallAttemptMetricCollection, final Tags callTags) {
-
     if (!apiCallAttemptMetricCollection.name().equals(METRIC_COLLECTION_TYPE_API_CALL_ATTEMPT)) {
       throw new IllegalArgumentException("Unexpected API call attempt metric collection name: " + apiCallAttemptMetricCollection.name());
     }
@@ -213,23 +209,5 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher, Managed
 
   @Override
   public void close() {
-    // As the upstream documentation for MetricPublisher#close() says:
-    //
-    // > Important: Implementations must block the calling thread until all pending metrics are published and any
-    // > resources acquired have been freed.
-    recordMetricsExecutorService.shutdown();
-
-    try {
-      if (!recordMetricsExecutorService.awaitTermination(1, TimeUnit.MINUTES)) {
-        logger.warn("Metric-recording executor service for {} did not shut down cleanly", awsClientName);
-      }
-    } catch (final InterruptedException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  @Override
-  public void stop() throws Exception {
-    close();
   }
 }
