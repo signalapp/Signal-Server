@@ -260,7 +260,7 @@ done < "$MAVEN_PROJECTBASEDIR/.mvn/wrapper/maven-wrapper.properties"
 if [ -n "$wrapperSha256Sum" ]; then
   wrapperSha256Result=false
   if command -v sha256sum > /dev/null; then
-    if echo "$wrapperSha256Sum  $wrapperJarPath" | sha256sum -c > /dev/null 2>&1; then
+    if echo "$wrapperSha256Sum  $wrapperJarPath" | sha256sum -c - > /dev/null 2>&1; then
       wrapperSha256Result=true
     fi
   elif command -v shasum > /dev/null; then
