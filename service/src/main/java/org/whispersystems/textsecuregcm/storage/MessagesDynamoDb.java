@@ -24,7 +24,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
@@ -118,8 +117,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   public CompletableFuture<Boolean> mayHaveMessages(final UUID accountIdentifier, final Device device) {
-    return
-        dbAsyncClient.query(QueryRequest.builder()
+    return dbAsyncClient.query(QueryRequest.builder()
             .tableName(tableName)
             .consistentRead(false)
             .limit(1)
@@ -127,6 +125,12 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
             .expressionAttributeNames(Map.of("#part", KEY_PARTITION))
             .expressionAttributeValues(Map.of(":part", convertPartitionKey(accountIdentifier, device))).build())
         .thenApply(queryResponse -> queryResponse.count() > 0);
+  }
+
+  public CompletableFuture<Boolean> mayHaveUrgentMessages(final UUID accountIdentifier, final Device device) {
+    return Flux.from(load(accountIdentifier, device, null))
+        .any(MessageProtos.Envelope::getUrgent)
+        .toFuture();
   }
 
   public Publisher<MessageProtos.Envelope> load(final UUID destinationAccountUuid, final Device device, final Integer limit) {

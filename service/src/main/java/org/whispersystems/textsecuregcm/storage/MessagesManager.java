@@ -96,6 +96,10 @@ public class MessagesManager {
             });
   }
 
+  public CompletableFuture<Boolean> mayHaveUrgentPersistedMessages(final UUID destinationUuid, final Device destinationDevice) {
+    return messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice);
+  }
+
   public Mono<Pair<List<Envelope>, Boolean>> getMessagesForDevice(UUID destinationUuid, Device destinationDevice,
       boolean cachedMessagesOnly) {
 

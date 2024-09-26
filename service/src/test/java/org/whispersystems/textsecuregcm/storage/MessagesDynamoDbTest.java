@@ -304,4 +304,37 @@ class MessagesDynamoDbTest {
 
     assertThat(messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice).join()).isTrue();
   }
+
+  @Test
+  void mayHaveUrgentMessages() {
+    final UUID destinationUuid = UUID.randomUUID();
+    final byte destinationDeviceId = (byte) (random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1);
+    final Device destinationDevice = DevicesHelper.createDevice(destinationDeviceId);
+
+    assertThat(messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice).join()).isFalse();
+
+    {
+      final MessageProtos.Envelope nonUrgentMessage = MessageProtos.Envelope.newBuilder()
+          .setUrgent(false)
+          .setServerGuid(UUID.randomUUID().toString())
+          .setDestinationServiceId(UUID.randomUUID().toString())
+          .build();
+
+      messagesDynamoDb.store(List.of(nonUrgentMessage), destinationUuid, destinationDevice);
+    }
+
+    assertThat(messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice).join()).isFalse();
+
+    {
+      final MessageProtos.Envelope urgentMessage = MessageProtos.Envelope.newBuilder()
+          .setUrgent(true)
+          .setServerGuid(UUID.randomUUID().toString())
+          .setDestinationServiceId(UUID.randomUUID().toString())
+          .build();
+
+      messagesDynamoDb.store(List.of(urgentMessage), destinationUuid, destinationDevice);
+    }
+
+    assertThat(messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice).join()).isTrue();
+  }
 }
