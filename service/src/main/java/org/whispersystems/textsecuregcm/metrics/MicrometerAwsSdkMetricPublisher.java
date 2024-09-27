@@ -100,13 +100,13 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher {
 
   @Override
   public void publish(final MetricCollection metricCollection) {
-    if (METRIC_COLLECTION_TYPE_API_CALL.equals(metricCollection.name())) {
+    /* if (METRIC_COLLECTION_TYPE_API_CALL.equals(metricCollection.name())) {
       try {
         recordMetricsExecutorService.submit(() -> recordApiCallMetrics(metricCollection));
       } catch (final RejectedExecutionException ignored) {
         // This can happen if clients make new calls to an upstream service while the server is shutting down
       }
-    }
+    } */
   }
 
   private void recordApiCallMetrics(final MetricCollection apiCallMetricCollection) {
