@@ -181,10 +181,7 @@ public class MessageController {
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
 
   private static final String REJECT_INVALID_ENVELOPE_TYPE = name(MessageController.class, "rejectInvalidEnvelopeType");
-  private static final Timer SEND_MESSAGE_LATENCY_TIMER =
-      Timer.builder(MetricsUtil.name(MessageController.class, "sendMessageLatency"))
-          .publishPercentileHistogram(true)
-          .register(Metrics.globalRegistry);
+  private static final String SEND_MESSAGE_LATENCY_TIMER_NAME = MetricsUtil.name(MessageController.class, "sendMessageLatency");
 
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
   private static final String SENDER_TYPE_TAG_NAME = "senderType";
@@ -251,7 +248,6 @@ public class MessageController {
     this.clock = clock;
   }
 
-  @Timed
   @Path("/{destination}")
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
@@ -297,25 +293,25 @@ public class MessageController {
 
       @Context final ContainerRequestContext context) throws RateLimitExceededException {
 
+    if (source.isEmpty() && accessKey.isEmpty() && groupSendToken == null && !isStory) {
+      throw new WebApplicationException(Status.UNAUTHORIZED);
+    }
+
+    if (groupSendToken != null) {
+      if (source.isPresent() || accessKey.isPresent()) {
+        throw new BadRequestException(
+            "Group send endorsement tokens should not be combined with other authentication");
+      } else if (isStory) {
+        throw new BadRequestException("Group send endorsement tokens should not be sent for story messages");
+      }
+    }
+
+    final String senderType = source.map(
+            s -> s.getAccount().isIdentifiedBy(destinationIdentifier) ? SENDER_TYPE_SELF : SENDER_TYPE_IDENTIFIED)
+        .orElse(SENDER_TYPE_UNIDENTIFIED);
+
     final Sample sample = Timer.start();
     try {
-      if (source.isEmpty() && accessKey.isEmpty() && groupSendToken == null && !isStory) {
-        throw new WebApplicationException(Status.UNAUTHORIZED);
-      }
-
-      if (groupSendToken != null) {
-        if (source.isPresent() || accessKey.isPresent()) {
-          throw new BadRequestException(
-              "Group send endorsement tokens should not be combined with other authentication");
-        } else if (isStory) {
-          throw new BadRequestException("Group send endorsement tokens should not be sent for story messages");
-        }
-      }
-
-      final String senderType = source.map(
-              s -> s.getAccount().isIdentifiedBy(destinationIdentifier) ? SENDER_TYPE_SELF : SENDER_TYPE_IDENTIFIED)
-          .orElse(SENDER_TYPE_UNIDENTIFIED);
-
       final boolean isSyncMessage = senderType.equals(SENDER_TYPE_SELF);
 
       if (isSyncMessage && destinationIdentifier.identityType() == IdentityType.PNI) {
@@ -464,7 +460,10 @@ public class MessageController {
             .build());
       }
     } finally {
-      sample.stop(SEND_MESSAGE_LATENCY_TIMER);
+      sample.stop(Timer.builder(SEND_MESSAGE_LATENCY_TIMER_NAME)
+          .tags(SENDER_TYPE_TAG_NAME, senderType)
+          .publishPercentileHistogram(true)
+          .register(Metrics.globalRegistry));
     }
   }
 
