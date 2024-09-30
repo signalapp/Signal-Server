@@ -39,10 +39,9 @@ import reactor.core.scheduler.Scheduler;
 
 public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
-  private static final String OPEN_WEBSOCKET_COUNTER_NAME =
-      name(WebSocketConnection.class, "openWebsockets");
-  private static final String CONNECTED_DURATION_TIMER_NAME = name(AuthenticatedConnectListener.class,
-      "connectedDuration");
+  private static final String OPEN_WEBSOCKET_GAUGE_NAME = name(WebSocketConnection.class, "openWebsockets");
+  private static final String CONNECTED_DURATION_TIMER_NAME =
+      name(AuthenticatedConnectListener.class, "connectedDuration");
 
   private static final String AUTHENTICATED_TAG_NAME = "authenticated";
 
@@ -105,10 +104,10 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       openUnauthenticatedWebsocketsByClientPlatform.put(clientPlatform, new AtomicInteger(0));
 
       final Tags clientPlatformTag = Tags.of(UserAgentTagUtil.PLATFORM_TAG, clientPlatform.name().toLowerCase());
-      Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, clientPlatformTag.and(authenticatedTag),
+      Metrics.gauge(OPEN_WEBSOCKET_GAUGE_NAME, clientPlatformTag.and(authenticatedTag),
           openAuthenticatedWebsocketsByClientPlatform.get(clientPlatform));
 
-      Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, clientPlatformTag.and(unauthenticatedTag),
+      Metrics.gauge(OPEN_WEBSOCKET_GAUGE_NAME, clientPlatformTag.and(unauthenticatedTag),
           openUnauthenticatedWebsocketsByClientPlatform.get(clientPlatform));
 
       durationTimersByClientPlatform.put(clientPlatform,
@@ -122,10 +121,10 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     openUnauthenticatedWebsocketsFromUnknownPlatforms = new AtomicInteger(0);
 
     final Tags unrecognizedPlatform = Tags.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized");
-    Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, unrecognizedPlatform.and(authenticatedTag),
+    Metrics.gauge(OPEN_WEBSOCKET_GAUGE_NAME, unrecognizedPlatform.and(authenticatedTag),
         openAuthenticatedWebsocketsFromUnknownPlatforms);
 
-    Metrics.gauge(OPEN_WEBSOCKET_COUNTER_NAME, unrecognizedPlatform.and(unauthenticatedTag),
+    Metrics.gauge(OPEN_WEBSOCKET_GAUGE_NAME, unrecognizedPlatform.and(unauthenticatedTag),
         openUnauthenticatedWebsocketsFromUnknownPlatforms);
 
     durationTimerForUnknownPlatforms = Metrics.timer(CONNECTED_DURATION_TIMER_NAME,
