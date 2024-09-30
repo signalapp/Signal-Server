@@ -57,6 +57,7 @@ import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
 import org.whispersystems.textsecuregcm.entities.DeviceResponse;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
+import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -146,9 +147,34 @@ public class DeviceController {
     accounts.removeDevice(auth.getAccount(), deviceId).join();
   }
 
+  /**
+   * Generates a signed device-linking token. Generally, primary devices will include the signed device-linking token in
+   * a provisioning message to a new device, and then the new device will include the token in its request to
+   * {@link #linkDevice(BasicAuthorizationHeader, String, LinkDeviceRequest, ContainerRequest)}.
+   *
+   * @param auth the authenticated account/device
+   *
+   * @return a signed device-linking token
+   *
+   * @throws RateLimitExceededException if the caller has made too many calls to this method in a set amount of time
+   * @throws DeviceLimitExceededException if the authenticated account has already reached the maximum number of linked
+   * devices
+   *
+   * @see ProvisioningController#sendProvisioningMessage(AuthenticatedDevice, String, ProvisioningMessage, String)
+   */
   @GET
   @Path("/provisioning/code")
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Generate a signed device-linking token",
+      description = """
+          Generate a signed device-linking token for transmission to a pending linked device via a provisioning message.
+          """)
+  @ApiResponse(responseCode="200", description="Token was generated successfully", useReturnTypeSchema=true)
+  @ApiResponse(responseCode = "411", description = "The authenticated account already has the maximum allowed number of linked devices")
+  @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public VerificationCode createDeviceToken(@ReadOnly @Auth AuthenticatedDevice auth)
       throws RateLimitExceededException, DeviceLimitExceededException {
 

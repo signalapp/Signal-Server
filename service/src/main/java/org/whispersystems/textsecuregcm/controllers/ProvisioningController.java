@@ -13,6 +13,9 @@ import io.dropwizard.auth.Auth;
 import io.dropwizard.util.DataSize;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Base64;
 import javax.validation.Valid;
@@ -34,6 +37,16 @@ import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 import org.whispersystems.websocket.auth.ReadOnly;
 
+/**
+ * The provisioning controller facilitates transmission of provisioning messages from the primary device associated with
+ * an existing Signal account to a new device. To send a provisioning message, a primary device generally scans a QR
+ * code displayed by the new device that contains the device's "provisioning address" and a public key. The primary
+ * device then encrypts a use-case-specific provisioning message and posts it to
+ * {@link #sendProvisioningMessage(AuthenticatedDevice, String, ProvisioningMessage, String)}, at which point the server
+ * delivers the message to the new device via an open provisioning WebSocket.
+ *
+ * @see org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener
+ */
 @Path("/v1/provisioning")
 @Tag(name = "Provisioning")
 public class ProvisioningController {
@@ -56,21 +69,34 @@ public class ProvisioningController {
   @PUT
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public void sendProvisioningMessage(@ReadOnly @Auth AuthenticatedDevice auth,
-      @PathParam("destination") String destinationName,
-      @NotNull @Valid ProvisioningMessage message,
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
+  @Operation(
+      summary = "Send a provisioning message to a new device",
+      description = """
+          Send a provisioning message from an authenticated device to a device that (presumably) is not yet associated
+          with a Signal account.
+          """)
+  @ApiResponse(responseCode="204", description="The provisioning message was delivered to the given provisioning address")
+  @ApiResponse(responseCode="400", description="The provisioning message was too large")
+  @ApiResponse(responseCode="404", description="No device with the given provisioning address was connected at the time of the request")
+  public void sendProvisioningMessage(@ReadOnly @Auth final AuthenticatedDevice auth,
+
+      @Parameter(description = "The temporary provisioning address to which to send a provisioning message")
+      @PathParam("destination") final String provisioningAddress,
+
+      @Parameter(description = "The provisioning message to send to the given provisioning address")
+      @NotNull @Valid final ProvisioningMessage message,
+
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent)
       throws RateLimitExceededException {
 
     if (message.body().length() > MAX_MESSAGE_SIZE) {
-      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
-          .increment();
+      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
     rateLimiters.getMessagesLimiter().validate(auth.getAccount().getUuid());
 
-    if (!provisioningManager.sendProvisioningMessage(ProvisioningAddress.create(destinationName),
+    if (!provisioningManager.sendProvisioningMessage(ProvisioningAddress.create(provisioningAddress),
         Base64.getMimeDecoder().decode(message.body()))) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
