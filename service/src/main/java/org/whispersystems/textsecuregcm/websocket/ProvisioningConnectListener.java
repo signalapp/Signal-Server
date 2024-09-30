@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
@@ -57,15 +56,15 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
     });
 
     context.getClient().sendRequest("PUT", "/v1/address", List.of(HeaderUtils.getTimestampHeader()),
-        Optional.of(generateProvisioningUuid().toByteArray()));
+        Optional.of(generateProvisioningAddress().toByteArray()));
   }
 
-  private static MessageProtos.ProvisioningUuid generateProvisioningUuid() {
+  private static MessageProtos.ProvisioningAddress generateProvisioningAddress() {
     final byte[] provisioningAddress = new byte[16];
     new SecureRandom().nextBytes(provisioningAddress);
 
-    return MessageProtos.ProvisioningUuid.newBuilder()
-        .setUuid(Base64.getUrlEncoder().encodeToString(provisioningAddress))
+    return MessageProtos.ProvisioningAddress.newBuilder()
+        .setAddress(Base64.getUrlEncoder().encodeToString(provisioningAddress))
         .build();
   }
 }
