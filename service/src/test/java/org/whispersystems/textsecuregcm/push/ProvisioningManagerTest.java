@@ -8,6 +8,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
 import com.google.protobuf.ByteString;
+import java.util.UUID;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +19,6 @@ import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguratio
 import org.whispersystems.textsecuregcm.redis.RedisSingletonExtension;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
-import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
 class ProvisioningManagerTest {
 
@@ -42,14 +42,13 @@ class ProvisioningManagerTest {
 
   @Test
   void sendProvisioningMessage() {
-    final ProvisioningAddress address = ProvisioningAddress.create("address");
-
+    final String provisioningAddress = UUID.randomUUID().toString();
     final byte[] content = TestRandomUtil.nextBytes(16);
 
     @SuppressWarnings("unchecked") final Consumer<PubSubProtos.PubSubMessage> subscribedConsumer = mock(Consumer.class);
 
-    provisioningManager.addListener(address, subscribedConsumer);
-    provisioningManager.sendProvisioningMessage(address, content);
+    provisioningManager.addListener(provisioningAddress, subscribedConsumer);
+    provisioningManager.sendProvisioningMessage(provisioningAddress, content);
 
     final ArgumentCaptor<PubSubProtos.PubSubMessage> messageCaptor =
         ArgumentCaptor.forClass(PubSubProtos.PubSubMessage.class);
@@ -62,15 +61,14 @@ class ProvisioningManagerTest {
 
   @Test
   void removeListener() {
-    final ProvisioningAddress address = ProvisioningAddress.create("address");
-
+    final String provisioningAddress = UUID.randomUUID().toString();
     final byte[] content = TestRandomUtil.nextBytes(16);
 
     @SuppressWarnings("unchecked") final Consumer<PubSubProtos.PubSubMessage> subscribedConsumer = mock(Consumer.class);
 
-    provisioningManager.addListener(address, subscribedConsumer);
-    provisioningManager.removeListener(address);
-    provisioningManager.sendProvisioningMessage(address, content);
+    provisioningManager.addListener(provisioningAddress, subscribedConsumer);
+    provisioningManager.removeListener(provisioningAddress);
+    provisioningManager.sendProvisioningMessage(provisioningAddress, content);
 
     // Make sure that we give the message enough time to show up (if it was going to) before declaring victory
     verify(subscribedConsumer, after(PUBSUB_TIMEOUT_MILLIS).never()).accept(any());

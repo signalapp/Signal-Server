@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -21,15 +20,14 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.UUID;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -38,7 +36,6 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ProvisioningControllerTest {
@@ -67,13 +64,13 @@ class ProvisioningControllerTest {
 
   @Test
   void sendProvisioningMessage() {
-    final String destination = UUID.randomUUID().toString();
+    final String provisioningAddress = RandomStringUtils.randomAlphanumeric(16);
     final byte[] messageBody = "test".getBytes(StandardCharsets.UTF_8);
 
     when(provisioningManager.sendProvisioningMessage(any(), any())).thenReturn(true);
 
     try (final Response response = RESOURCE_EXTENSION.getJerseyTest()
-        .target("/v1/provisioning/" + destination)
+        .target("/v1/provisioning/" + provisioningAddress)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.entity(new ProvisioningMessage(Base64.getMimeEncoder().encodeToString(messageBody)),
@@ -81,31 +78,20 @@ class ProvisioningControllerTest {
 
       assertEquals(Response.Status.NO_CONTENT.getStatusCode(), response.getStatus());
 
-      final ArgumentCaptor<ProvisioningAddress> provisioningAddressCaptor =
-          ArgumentCaptor.forClass(ProvisioningAddress.class);
-
-      final ArgumentCaptor<byte[]> provisioningMessageCaptor = ArgumentCaptor.forClass(byte[].class);
-
-      verify(provisioningManager).sendProvisioningMessage(provisioningAddressCaptor.capture(),
-          provisioningMessageCaptor.capture());
-
-      assertEquals(destination, provisioningAddressCaptor.getValue().getAddress());
-      assertEquals(ProvisioningAddress.DEVICE_ID, provisioningAddressCaptor.getValue().getDeviceId());
-
-      assertArrayEquals(messageBody, provisioningMessageCaptor.getValue());
+      verify(provisioningManager).sendProvisioningMessage(provisioningAddress, messageBody);
     }
   }
 
   @Test
   void sendProvisioningMessageRateLimited() throws RateLimitExceededException {
-    final String destination = UUID.randomUUID().toString();
+    final String provisioningAddress = RandomStringUtils.randomAlphanumeric(16);
     final byte[] messageBody = "test".getBytes(StandardCharsets.UTF_8);
 
     doThrow(new RateLimitExceededException(Duration.ZERO))
         .when(messagesRateLimiter).validate(AuthHelper.VALID_UUID);
 
     try (final Response response = RESOURCE_EXTENSION.getJerseyTest()
-        .target("/v1/provisioning/" + destination)
+        .target("/v1/provisioning/" + provisioningAddress)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.entity(new ProvisioningMessage(Base64.getMimeEncoder().encodeToString(messageBody)),

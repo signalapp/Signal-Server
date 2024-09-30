@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
@@ -13,8 +14,11 @@ import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * A "provisioning WebSocket" provides a mechanism for sending a caller-defined provisioning message from the primary
@@ -40,7 +44,7 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    final ProvisioningAddress provisioningAddress = ProvisioningAddress.generate();
+    final String provisioningAddress = UUID.randomUUID().toString();
     context.addWebsocketClosedListener((context1, statusCode, reason) -> provisioningManager.removeListener(provisioningAddress));
 
     provisioningManager.addListener(provisioningAddress, message -> {
@@ -53,9 +57,15 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
     });
 
     context.getClient().sendRequest("PUT", "/v1/address", List.of(HeaderUtils.getTimestampHeader()),
-        Optional.of(MessageProtos.ProvisioningUuid.newBuilder()
-            .setUuid(provisioningAddress.getAddress())
-            .build()
-            .toByteArray()));
+        Optional.of(generateProvisioningUuid().toByteArray()));
+  }
+
+  private static MessageProtos.ProvisioningUuid generateProvisioningUuid() {
+    final byte[] provisioningAddress = new byte[16];
+    new SecureRandom().nextBytes(provisioningAddress);
+
+    return MessageProtos.ProvisioningUuid.newBuilder()
+        .setUuid(Base64.getUrlEncoder().encodeToString(provisioningAddress))
+        .build();
   }
 }

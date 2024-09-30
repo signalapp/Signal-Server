@@ -34,7 +34,6 @@ import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
-import org.whispersystems.textsecuregcm.websocket.ProvisioningAddress;
 import org.whispersystems.websocket.auth.ReadOnly;
 
 /**
@@ -96,8 +95,10 @@ public class ProvisioningController {
 
     rateLimiters.getMessagesLimiter().validate(auth.getAccount().getUuid());
 
-    if (!provisioningManager.sendProvisioningMessage(ProvisioningAddress.create(provisioningAddress),
-        Base64.getMimeDecoder().decode(message.body()))) {
+    final boolean subscriberPresent =
+        provisioningManager.sendProvisioningMessage(provisioningAddress, Base64.getMimeDecoder().decode(message.body()));
+
+    if (!subscriberPresent) {
       throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
   }
