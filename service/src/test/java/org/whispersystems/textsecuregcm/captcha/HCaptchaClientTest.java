@@ -35,16 +35,20 @@ public class HCaptchaClientTest {
 
   static Stream<Arguments> captchaProcessed() {
     return Stream.of(
-        Arguments.of(true, 0.6f, true),
-        Arguments.of(false, 0.6f, false),
-        Arguments.of(true, 0.4f, false),
-        Arguments.of(false, 0.4f, false)
+        // hCaptcha scores are inverted compared to recaptcha scores. (low score is good)
+        Arguments.of(true, 0.4f, 0.5f, true),
+        Arguments.of(false, 0.4f, 0.5f, false),
+        Arguments.of(true, 0.6f, 0.5f, false),
+        Arguments.of(false, 0.6f, 0.5f, false),
+        Arguments.of(true, 0.6f, 0.4f, true),
+        Arguments.of(true, 0.61f, 0.4f, false),
+        Arguments.of(true, 0.7f, 0.3f, true)
     );
   }
 
   @ParameterizedTest
   @MethodSource
-  public void captchaProcessed(final boolean success, final float score, final boolean expectedResult)
+  public void captchaProcessed(final boolean success, final float hCaptchaScore, final float scoreFloor, final boolean expectedResult)
       throws IOException, InterruptedException {
 
     final FaultTolerantHttpClient client = mockResponder(200, String.format("""
@@ -54,9 +58,9 @@ public class HCaptchaClientTest {
               "score-reasons": ["great job doing this captcha"]
             }
             """,
-        success, 1 - score)); // hCaptcha scores are inverted compared to recaptcha scores. (low score is good)
+        success, hCaptchaScore));
 
-    final AssessmentResult result = new HCaptchaClient("fake", client, mockConfig(true, 0.5))
+    final AssessmentResult result = new HCaptchaClient("fake", client, mockConfig(true, scoreFloor))
         .verify(SITE_KEY, Action.CHALLENGE, TOKEN, null, USER_AGENT);
     if (!success) {
       assertThat(result).isEqualTo(AssessmentResult.invalid());
