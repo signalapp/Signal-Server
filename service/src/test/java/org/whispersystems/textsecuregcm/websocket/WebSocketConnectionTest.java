@@ -142,7 +142,7 @@ class WebSocketConnectionTest {
     // authenticated - valid user
     connectListener.onWebSocketConnect(sessionContext);
 
-    verify(sessionContext, times(2)).addWebsocketClosedListener(
+    verify(sessionContext, times(1)).addWebsocketClosedListener(
         any(WebSocketSessionContext.WebSocketEventListener.class));
 
     // unauthenticated
@@ -152,7 +152,7 @@ class WebSocketConnectionTest {
     assertFalse(account.invalidCredentialsProvided());
 
     connectListener.onWebSocketConnect(sessionContext);
-    verify(sessionContext, times(4)).addWebsocketClosedListener(
+    verify(sessionContext, times(2)).addWebsocketClosedListener(
         any(WebSocketSessionContext.WebSocketEventListener.class));
 
     verifyNoMoreInteractions(messagesManager);

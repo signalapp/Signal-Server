@@ -7,11 +7,7 @@ package org.whispersystems.textsecuregcm.websocket;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
-import io.micrometer.core.instrument.Timer;
-import java.util.EnumMap;
-import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -22,7 +18,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.OpenWebSocketCounter;
-import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
@@ -30,9 +25,6 @@ import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
 import reactor.core.scheduler.Scheduler;
@@ -63,11 +55,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final OpenWebSocketCounter openAuthenticatedWebSocketCounter;
   private final OpenWebSocketCounter openUnauthenticatedWebSocketCounter;
 
-  private final Map<ClientPlatform, Timer> durationTimersByClientPlatform;
-  private final Map<ClientPlatform, Timer> unauthenticatedDurationTimersByClientPlatform;
-  private final Timer durationTimerForUnknownPlatforms;
-  private final Timer unauthenticatedDurationTimerForUnknownPlatforms;
-
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
@@ -89,41 +76,17 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.clientReleaseManager = clientReleaseManager;
     this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
 
-    durationTimersByClientPlatform = new EnumMap<>(ClientPlatform.class);
-    unauthenticatedDurationTimersByClientPlatform = new EnumMap<>(ClientPlatform.class);
+    openAuthenticatedWebSocketCounter =
+        new OpenWebSocketCounter(OPEN_WEBSOCKET_GAUGE_NAME, CONNECTED_DURATION_TIMER_NAME, Tags.of(AUTHENTICATED_TAG_NAME, "true"));
 
-    final Tags authenticatedTag = Tags.of(AUTHENTICATED_TAG_NAME, "true");
-    final Tags unauthenticatedTag = Tags.of(AUTHENTICATED_TAG_NAME, "false");
-
-    openAuthenticatedWebSocketCounter = new OpenWebSocketCounter(OPEN_WEBSOCKET_GAUGE_NAME, authenticatedTag);
-    openUnauthenticatedWebSocketCounter = new OpenWebSocketCounter(OPEN_WEBSOCKET_GAUGE_NAME, unauthenticatedTag);
-
-    for (final ClientPlatform clientPlatform : ClientPlatform.values()) {
-      final Tags clientPlatformTag = Tags.of(UserAgentTagUtil.PLATFORM_TAG, clientPlatform.name().toLowerCase());
-
-      durationTimersByClientPlatform.put(clientPlatform,
-          Metrics.timer(CONNECTED_DURATION_TIMER_NAME, clientPlatformTag.and(authenticatedTag)));
-
-      unauthenticatedDurationTimersByClientPlatform.put(clientPlatform,
-          Metrics.timer(CONNECTED_DURATION_TIMER_NAME, clientPlatformTag.and(unauthenticatedTag)));
-    }
-
-    final Tags unrecognizedPlatform = Tags.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized");
-
-    durationTimerForUnknownPlatforms = Metrics.timer(CONNECTED_DURATION_TIMER_NAME,
-        unrecognizedPlatform.and(authenticatedTag));
-
-    unauthenticatedDurationTimerForUnknownPlatforms = Metrics.timer(CONNECTED_DURATION_TIMER_NAME,
-        unrecognizedPlatform.and(unauthenticatedTag));
+    openUnauthenticatedWebSocketCounter =
+        new OpenWebSocketCounter(OPEN_WEBSOCKET_GAUGE_NAME, CONNECTED_DURATION_TIMER_NAME, Tags.of(AUTHENTICATED_TAG_NAME, "false"));
   }
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
 
     final boolean authenticated = (context.getAuthenticated() != null);
-    final String userAgent = context.getClient().getUserAgent();
-    final Timer connectionTimer = getConnectionTimer(userAgent, authenticated);
-
     final OpenWebSocketCounter openWebSocketCounter =
         authenticated ? openAuthenticatedWebSocketCounter : openUnauthenticatedWebSocketCounter;
 
@@ -131,7 +94,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
     if (authenticated) {
       final AuthenticatedDevice auth = context.getAuthenticated(AuthenticatedDevice.class);
-      final Timer.Sample sample = Timer.start();
       final WebSocketConnection connection = new WebSocketConnection(receiptSender,
           messagesManager,
           messageMetrics,
@@ -147,8 +109,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final AtomicReference<ScheduledFuture<?>> renewPresenceFutureReference = new AtomicReference<>();
 
       context.addWebsocketClosedListener((closingContext, statusCode, reason) -> {
-        sample.stop(connectionTimer);
-
         final ScheduledFuture<?> renewPresenceFuture = renewPresenceFutureReference.get();
 
         if (renewPresenceFuture != null) {
@@ -197,23 +157,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         log.warn("Failed to initialize websocket", e);
         context.getClient().close(1011, "Unexpected error initializing connection");
       }
-    } else {
-      final Timer.Sample sample = Timer.start();
-      context.addWebsocketClosedListener((context1, statusCode, reason) -> sample.stop(connectionTimer));
-    }
-  }
-
-  private Timer getConnectionTimer(final String userAgentString,
-      final boolean authenticated) {
-    try {
-      final ClientPlatform platform = UserAgentUtil.parseUserAgentString(userAgentString).getPlatform();
-      return authenticated
-          ? durationTimersByClientPlatform.get(platform)
-          : unauthenticatedDurationTimersByClientPlatform.get(platform);
-    } catch (final UnrecognizedUserAgentException e) {
-      return authenticated
-          ? durationTimerForUnknownPlatforms
-          : unauthenticatedDurationTimerForUnknownPlatforms;
     }
   }
 }

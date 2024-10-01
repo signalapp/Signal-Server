@@ -42,7 +42,8 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
 
   public ProvisioningConnectListener(final ProvisioningManager provisioningManager) {
     this.provisioningManager = provisioningManager;
-    this.openWebSocketCounter = new OpenWebSocketCounter(MetricsUtil.name(getClass(), "openWebsockets"));
+    this.openWebSocketCounter = new OpenWebSocketCounter(MetricsUtil.name(getClass(), "openWebsockets"),
+        MetricsUtil.name(getClass(), "sessionDuration"));
   }
 
   @Override
