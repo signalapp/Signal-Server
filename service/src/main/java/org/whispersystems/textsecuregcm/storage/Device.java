@@ -25,7 +25,7 @@ public class Device {
   public static final List<Byte> ALL_POSSIBLE_DEVICE_IDS = IntStream.range(Device.PRIMARY_ID, MAXIMUM_DEVICE_ID).boxed()
       .map(Integer::byteValue).collect(Collectors.toList());
 
-  private static final long ALLOWED_LINKED_IDLE_MILLIS = Duration.ofDays(30).toMillis();
+  private static final long ALLOWED_LINKED_IDLE_MILLIS = Duration.ofDays(45).toMillis();
   private static final long ALLOWED_PRIMARY_IDLE_MILLIS = Duration.ofDays(180).toMillis();
 
   @JsonDeserialize(using = DeviceIdDeserializer.class)

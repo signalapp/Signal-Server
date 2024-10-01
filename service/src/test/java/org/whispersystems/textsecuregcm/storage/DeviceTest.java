@@ -22,8 +22,8 @@ class DeviceTest {
       "true, P180D, false",
       "true, P181D, true",
       "false, P1D, false",
-      "false, P30D, false",
-      "false, P31D, true",
+      "false, P45D, false",
+      "false, P46D, true",
       "false, P180D, true",
   })
   public void testIsExpired(final boolean primary, final Duration timeSinceLastSeen, final boolean expectExpired) {
