@@ -6,28 +6,42 @@
 package org.whispersystems.textsecuregcm.filters;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.matches;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import javax.servlet.FilterChain;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerResponseContext;
 import javax.ws.rs.core.MultivaluedMap;
-import org.glassfish.jersey.message.internal.HeaderUtils;
 import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 class TimestampResponseFilterTest {
 
-    @Test
-    void testFilter() {
-        final ContainerRequestContext        requestContext  = mock(ContainerRequestContext.class);
-        final ContainerResponseContext       responseContext = mock(ContainerResponseContext.class);
+  @Test
+  void testJerseyFilter() {
+    final ContainerRequestContext requestContext = mock(ContainerRequestContext.class);
+    final ContainerResponseContext responseContext = mock(ContainerResponseContext.class);
+    final MultivaluedMap<String, Object> headers = org.glassfish.jersey.message.internal.HeaderUtils.createOutbound();
+    when(responseContext.getHeaders()).thenReturn(headers);
 
-        final MultivaluedMap<String, Object> headers         = HeaderUtils.createOutbound();
+    new TimestampResponseFilter().filter(requestContext, responseContext);
 
-        when(responseContext.getHeaders()).thenReturn(headers);
+    assertTrue(headers.containsKey(org.whispersystems.textsecuregcm.util.HeaderUtils.TIMESTAMP_HEADER));
+  }
 
-        new TimestampResponseFilter().filter(requestContext, responseContext);
+  @Test
+  void testServletFilter() throws Exception {
+    final HttpServletRequest request = mock(HttpServletRequest.class);
+    final HttpServletResponse response = mock(HttpServletResponse.class);
 
-        assertTrue(headers.containsKey(org.whispersystems.textsecuregcm.util.HeaderUtils.TIMESTAMP_HEADER));
-    }
+    new TimestampResponseFilter().doFilter(request, response, mock(FilterChain.class));
+
+    verify(response).setHeader(eq(HeaderUtils.TIMESTAMP_HEADER), matches("\\d{10,}"));
+  }
 }

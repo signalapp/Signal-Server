@@ -13,9 +13,11 @@ import io.dropwizard.testing.junit5.DropwizardAppExtension;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.util.Resources;
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.core.Response;
+import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -27,6 +29,7 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.tests.util.TestWebsocketListener;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -92,15 +95,42 @@ class WhisperServerServiceTest {
   @Test
   void websocket() throws Exception {
     // test unauthenticated websocket
+    final long start = System.currentTimeMillis();
 
     final TestWebsocketListener testWebsocketListener = new TestWebsocketListener();
-    webSocketClient.connect(testWebsocketListener,
+
+    final Session session = webSocketClient.connect(testWebsocketListener,
             URI.create(String.format("ws://localhost:%d/v1/websocket/", EXTENSION.getLocalPort())))
         .join();
+    final long sessionTimestamp = Long.parseLong(session.getUpgradeResponse().getHeader(HeaderUtils.TIMESTAMP_HEADER));
+    assertTrue(sessionTimestamp >= start);
 
     final WebSocketResponseMessage keepAlive = testWebsocketListener.doGet("/v1/keepalive").join();
-
     assertEquals(200, keepAlive.getStatus());
+    final long keepAliveTimestamp = Long.parseLong(
+        keepAlive.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase()));
+    assertTrue(keepAliveTimestamp >= start);
+
+    final WebSocketResponseMessage whoami = testWebsocketListener.doGet("/v1/accounts/whoami").join();
+    assertEquals(401, whoami.getStatus());
+    final long whoamiTimestamp = Long.parseLong(whoami.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase()));
+    assertTrue(whoamiTimestamp >= start);
+  }
+
+  @Test
+  void rest() throws Exception {
+    // test unauthenticated rest
+    final long start = System.currentTimeMillis();
+
+    final Response whoami = EXTENSION.client().target(
+        "http://localhost:%d/v1/accounts/whoami".formatted(EXTENSION.getLocalPort())).request().get();
+
+    assertEquals(401, whoami.getStatus());
+    final List<Object> timestampValues = whoami.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase());
+    assertEquals(1, timestampValues.size());
+
+    final long whoamiTimestamp = Long.parseLong(timestampValues.getFirst().toString());
+    assertTrue(whoamiTimestamp >= start);
   }
 
   @Test
@@ -140,7 +170,6 @@ class WhisperServerServiceTest {
           .key(Map.of(numbers.hashKeyName(), numberAV))
           .build());
     }
-
   }
 
 }

@@ -113,7 +113,6 @@ import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV2;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV3;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV4;
-import org.whispersystems.textsecuregcm.controllers.OneTimeDonationController;
 import org.whispersystems.textsecuregcm.controllers.CallLinkController;
 import org.whispersystems.textsecuregcm.controllers.CallRoutingController;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
@@ -125,6 +124,7 @@ import org.whispersystems.textsecuregcm.controllers.KeepAliveController;
 import org.whispersystems.textsecuregcm.controllers.KeyTransparencyController;
 import org.whispersystems.textsecuregcm.controllers.KeysController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
+import org.whispersystems.textsecuregcm.controllers.OneTimeDonationController;
 import org.whispersystems.textsecuregcm.controllers.PaymentsController;
 import org.whispersystems.textsecuregcm.controllers.ProfileController;
 import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
@@ -192,12 +192,12 @@ import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.providers.RedisClusterHealthCheck;
 import org.whispersystems.textsecuregcm.push.APNSender;
-import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
+import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
@@ -959,6 +959,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final List<Filter> filters = new ArrayList<>();
     filters.add(remoteDeprecationFilter);
     filters.add(new RemoteAddressFilter());
+    filters.add(new TimestampResponseFilter());
 
     for (Filter filter : filters) {
       environment.servlets()
@@ -1013,7 +1014,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     webSocketEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
-
+    webSocketEnvironment.jersey().register(new TimestampResponseFilter());
 
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
         .stream()
@@ -1146,6 +1147,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     provisioningEnvironment.jersey().register(new KeepAliveController(clientPresenceManager));
+    provisioningEnvironment.jersey().register(new TimestampResponseFilter());
 
     registerCorsFilter(environment);
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);
