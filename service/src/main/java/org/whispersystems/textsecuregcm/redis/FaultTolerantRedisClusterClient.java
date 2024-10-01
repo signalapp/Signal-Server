@@ -34,6 +34,7 @@ import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
@@ -177,11 +178,20 @@ public class FaultTolerantRedisClusterClient {
     }
   }
 
-  public <T, K, V> Publisher<T> withConnectionReactive(final StatefulRedisClusterConnection<K, V> connection,
+  public <T, K, V> Publisher<T> withConnectionReactive(
+      final StatefulRedisClusterConnection<K, V> connection,
       final Function<StatefulRedisClusterConnection<K, V>, Publisher<T>> function) {
 
-    return Flux.from(function.apply(connection))
-        .transformDeferred(RetryOperator.of(retry));
+    final Publisher<T> publisher = function.apply(connection);
+
+    if (publisher instanceof Mono<T> m) {
+      return m.transformDeferred(RetryOperator.of(retry));
+    }
+    if (publisher instanceof Flux<T> f) {
+      return f.transformDeferred(RetryOperator.of(retry));
+    }
+
+    return Flux.from(publisher).transformDeferred(RetryOperator.of(retry));
   }
 
   public FaultTolerantPubSubClusterConnection<String, String> createPubSubConnection() {
