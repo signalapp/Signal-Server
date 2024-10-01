@@ -1491,14 +1491,27 @@ paths:
     get:
       tags:
       - Devices
+      summary: Generate a signed device-linking token
+      description: |
+        Generate a signed device-linking token for transmission to a pending linked device via a provisioning message.
       operationId: createDeviceToken
       responses:
-        default:
-          description: default response
+        "200":
+          description: Token was generated successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerificationCode'
+        "411":
+          description: The authenticated account already has the maximum allowed number
+            of linked devices
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
   /v1/devices:
@@ -2487,10 +2500,16 @@ paths:
     put:
       tags:
       - Provisioning
+      summary: Send a provisioning message to a new device
+      description: |
+        Send a provisioning message from an authenticated device to a device that (presumably) is not yet associated
+        with a Signal account.
       operationId: sendProvisioningMessage
       parameters:
       - name: destination
         in: path
+        description: The temporary provisioning address to which to send a provisioning
+          message
         required: true
         schema:
           type: string
@@ -2499,16 +2518,21 @@ paths:
         schema:
           type: string
       requestBody:
+        description: The provisioning message to send to the given provisioning address
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ProvisioningMessage'
         required: true
       responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
+        "204":
+          description: The provisioning message was delivered to the given provisioning
+            address
+        "400":
+          description: The provisioning message was too large
+        "404":
+          description: No device with the given provisioning address was connected
+            at the time of the request
       security:
       - authenticatedAccount: []
   /v1/registration:
@@ -3453,8 +3477,6 @@ components:
       type: object
       properties:
         apnRegistrationId:
-          type: string
-        voipRegistrationId:
           type: string
       description: |
         An APNs token set for the account's primary device. If provided, the account's primary
@@ -5002,6 +5024,8 @@ components:
       properties:
         body:
           type: string
+          description: The MIME base64-encoded body of the provisioning message to
+            send to the destination device
     RegistrationRequest:
       required:
       - accountAttributes
