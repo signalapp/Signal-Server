@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
@@ -43,7 +44,7 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
 
   @Override
   public void onWebSocketConnect(WebSocketSessionContext context) {
-    final String provisioningAddress = UUID.randomUUID().toString();
+    final String provisioningAddress = generateProvisioningAddress();
     context.addWebsocketClosedListener((context1, statusCode, reason) -> provisioningManager.removeListener(provisioningAddress));
 
     provisioningManager.addListener(provisioningAddress, message -> {
@@ -56,15 +57,16 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
     });
 
     context.getClient().sendRequest("PUT", "/v1/address", List.of(HeaderUtils.getTimestampHeader()),
-        Optional.of(generateProvisioningAddress().toByteArray()));
+        Optional.of(MessageProtos.ProvisioningAddress.newBuilder()
+            .setAddress(provisioningAddress)
+            .build().toByteArray()));
   }
 
-  private static MessageProtos.ProvisioningAddress generateProvisioningAddress() {
+  @VisibleForTesting
+  public static String generateProvisioningAddress() {
     final byte[] provisioningAddress = new byte[16];
     new SecureRandom().nextBytes(provisioningAddress);
 
-    return MessageProtos.ProvisioningAddress.newBuilder()
-        .setAddress(Base64.getUrlEncoder().encodeToString(provisioningAddress))
-        .build();
+    return Base64.getUrlEncoder().encodeToString(provisioningAddress);
   }
 }

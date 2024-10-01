@@ -36,6 +36,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ProvisioningControllerTest {
@@ -64,7 +65,7 @@ class ProvisioningControllerTest {
 
   @Test
   void sendProvisioningMessage() {
-    final String provisioningAddress = RandomStringUtils.randomAlphanumeric(16);
+    final String provisioningAddress = ProvisioningConnectListener.generateProvisioningAddress();
     final byte[] messageBody = "test".getBytes(StandardCharsets.UTF_8);
 
     when(provisioningManager.sendProvisioningMessage(any(), any())).thenReturn(true);
@@ -84,7 +85,7 @@ class ProvisioningControllerTest {
 
   @Test
   void sendProvisioningMessageRateLimited() throws RateLimitExceededException {
-    final String provisioningAddress = RandomStringUtils.randomAlphanumeric(16);
+    final String provisioningAddress = ProvisioningConnectListener.generateProvisioningAddress();
     final byte[] messageBody = "test".getBytes(StandardCharsets.UTF_8);
 
     doThrow(new RateLimitExceededException(Duration.ZERO))
