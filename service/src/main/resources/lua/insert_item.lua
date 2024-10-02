@@ -17,8 +17,8 @@ local messageId = redis.call("HINCRBY", queueMetadataKey, "counter", 1)
 redis.call("ZADD", queueKey, "NX", messageId, message)
 
 redis.call("HSET", queueMetadataKey, guid, messageId)
-redis.call("EXPIRE", queueKey, 2678400) -- 31 days
-redis.call("EXPIRE", queueMetadataKey, 2678400) -- 31 days
+redis.call("EXPIRE", queueKey, 3974400) -- 46 days
+redis.call("EXPIRE", queueMetadataKey, 3974400) -- 46 days
 
 redis.call("ZADD", queueTotalIndexKey, "NX", currentTime, queueKey)
 return messageId
