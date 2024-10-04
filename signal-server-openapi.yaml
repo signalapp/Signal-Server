@@ -2829,6 +2829,7 @@ paths:
           - SEPA_DEBIT
           - IDEAL
           - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
       - name: User-Agent
         in: header
         schema:
@@ -2997,6 +2998,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GetSubscriptionConfigurationResponse'
+  /v1/subscription/{subscriberId}/appstore/{originalTransactionId}:
+    post:
+      tags:
+      - Subscriptions
+      summary: Set app store subscription
+      description: |
+        Set an originalTransactionId that represents an IAP subscription made with the app store.
+
+        To set up an app store subscription:
+        1. Create a subscriber with `PUT subscriptions/{subscriberId}` (you must regularly refresh this subscriber)
+        2. [Create a subscription](https://developer.apple.com/documentation/storekit/in-app_purchase/) with the App Store
+           directly via StoreKit and obtain a originalTransactionId.
+        3. `POST` the purchaseToken here
+        4. Obtain a receipt at `POST /v1/subscription/{subscriberId}/receipt_credentials` which can then be used to obtain the
+           entitlement
+      operationId: setAppStoreSubscription
+      parameters:
+      - name: subscriberId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: originalTransactionId
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: The originalTransactionId was successfully validated
+        "402":
+          description: The subscription transaction is incomplete or invalid
+        "403":
+          description: subscriberId authentication failure OR account authentication
+            is present
+        "404":
+          description: No such subscriberId exists or subscriberId is malformed or
+            the specified transaction does not exist
+        "409":
+          description: subscriberId is already linked to a processor that does not
+            support appstore payments. Delete this subscriberId and use a new one.
+        "429":
+          description: Rate limit exceeded.
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/subscription/{subscriberId}/default_payment_method_for_ideal/{setupIntentId}:
     post:
       tags:
@@ -3053,6 +3100,7 @@ paths:
           - STRIPE
           - BRAINTREE
           - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
       - name: paymentMethodToken
         in: path
         required: true
@@ -4707,6 +4755,7 @@ components:
           - SEPA_DEBIT
           - IDEAL
           - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
         payerId:
           type: string
         paymentId:
@@ -4736,6 +4785,7 @@ components:
           - SEPA_DEBIT
           - IDEAL
           - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
     CreateBoostReceiptCredentialsRequest:
       required:
       - paymentIntentId
@@ -4754,6 +4804,7 @@ components:
           - STRIPE
           - BRAINTREE
           - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
     CreatePayPalBoostRequest:
       required:
       - cancelUrl
@@ -4779,6 +4830,7 @@ components:
           - SEPA_DEBIT
           - IDEAL
           - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
         returnUrl:
           type: string
         cancelUrl:
@@ -5430,6 +5482,7 @@ components:
           - STRIPE
           - BRAINTREE
           - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
         paymentMethod:
           type: string
           description: The payment method associated with the subscription
@@ -5440,6 +5493,7 @@ components:
           - SEPA_DEBIT
           - IDEAL
           - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
         paymentProcessing:
           type: boolean
           description: Whether the latest invoice for the subscription is in a non-terminal
