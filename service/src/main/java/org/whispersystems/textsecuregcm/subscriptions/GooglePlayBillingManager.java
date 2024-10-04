@@ -412,7 +412,6 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
     }
   }
 
-
   // https://developers.google.com/android-publisher/api-ref/rest/v3/purchases.subscriptionsv2#SubscriptionState
   @VisibleForTesting
   enum SubscriptionState {

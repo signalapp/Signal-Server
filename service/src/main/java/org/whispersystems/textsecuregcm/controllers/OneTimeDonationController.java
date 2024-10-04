@@ -320,6 +320,7 @@ public class OneTimeDonationController {
       case STRIPE -> stripeManager.getPaymentDetails(request.paymentIntentId);
       case BRAINTREE -> braintreeManager.getPaymentDetails(request.paymentIntentId);
       case GOOGLE_PLAY_BILLING -> throw new BadRequestException("cannot use play billing for one-time donations");
+      case APPLE_APP_STORE -> throw new BadRequestException("cannot use app store purchases for one-time donations");
     };
 
     return paymentDetailsFut.thenCompose(paymentDetails -> {

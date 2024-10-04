@@ -15,6 +15,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
+import org.whispersystems.textsecuregcm.configuration.AppleAppStoreConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsCredentialsProviderFactory;
@@ -93,6 +94,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private GooglePlayBillingConfiguration googlePlayBilling;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private AppleAppStoreConfiguration appleAppStore;
 
   @NotNull
   @Valid
@@ -366,6 +372,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public GooglePlayBillingConfiguration getGooglePlayBilling() {
     return googlePlayBilling;
+  }
+
+  public AppleAppStoreConfiguration getAppleAppStore() {
+    return appleAppStore;
   }
 
   public DynamoDbClientFactory getDynamoDbClientConfiguration() {

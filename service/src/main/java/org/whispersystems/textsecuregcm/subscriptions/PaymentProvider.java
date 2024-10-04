@@ -18,7 +18,7 @@ public enum PaymentProvider {
   STRIPE(1),
   BRAINTREE(2),
   GOOGLE_PLAY_BILLING(3),
-  ;
+  APPLE_APP_STORE(4);
 
   private static final Map<Integer, PaymentProvider> IDS_TO_PROCESSORS = new HashMap<>();
 

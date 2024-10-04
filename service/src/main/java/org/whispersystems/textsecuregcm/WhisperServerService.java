@@ -242,6 +242,7 @@ import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
+import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
@@ -570,7 +571,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .virtualExecutorService(name(getClass(), "keyTransparency-%d"));
     ExecutorService googlePlayBillingExecutor = environment.lifecycle()
         .virtualExecutorService(name(getClass(), "googlePlayBilling-%d"));
+    ExecutorService appleAppStoreExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "appleAppStore-%d"));
 
+    ScheduledExecutorService appleAppStoreRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "appleAppStoreRetry-%d")).threads(1).build();
     ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
     ScheduledExecutorService cloudflareTurnRetryExecutor = environment.lifecycle()
@@ -738,6 +743,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getGooglePlayBilling().applicationName(),
         config.getGooglePlayBilling().productIdToLevel(),
         googlePlayBillingExecutor);
+    AppleAppStoreManager appleAppStoreManager = new AppleAppStoreManager(
+        config.getAppleAppStore().env(), config.getAppleAppStore().bundleId(), config.getAppleAppStore().appAppleId(),
+        config.getAppleAppStore().issuerId(), config.getAppleAppStore().keyId(),
+        config.getAppleAppStore().encodedKey().value(), config.getAppleAppStore().subscriptionGroupId(),
+        config.getAppleAppStore().productIdToLevel(),
+        config.getAppleAppStore().appleRootCerts(),
+        config.getAppleAppStore().retry(), appleAppStoreExecutor, appleAppStoreRetryExecutor);
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(pushNotificationScheduler);
@@ -1127,7 +1139,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,
-          List.of(stripeManager, braintreeManager, googlePlayBillingManager),
+          List.of(stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager),
           zkReceiptOperations, issuedReceiptsManager);
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
           subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager,

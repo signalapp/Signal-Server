@@ -81,6 +81,18 @@ googlePlayBilling:
   applicationName: test
   productIdToLevel: {}
 
+appleAppStore:
+  env: SANDBOX
+  bundleId: bundle.name
+  appAppleId: 12345
+  issuerId: abcdefg
+  keyId: abcdefg
+  encodedKey: secret://appleAppStore.encodedKey
+  subscriptionGroupId: example_subscriptionGroupId
+  productIdToLevel: {}
+  appleRootCerts: []
+
+
 dynamoDbClient:
   region: us-west-2 # AWS Region
 

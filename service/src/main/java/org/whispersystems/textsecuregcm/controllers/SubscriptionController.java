@@ -262,8 +262,8 @@ public class SubscriptionController {
       // Today, we always choose stripe to process non-paypal payment types, however we could use braintree to process
       // other types (like CARD) in the future.
       case CARD, SEPA_DEBIT, IDEAL -> stripeManager;
-      case GOOGLE_PLAY_BILLING ->
-          throw new BadRequestException("cannot create payment methods with payment type GOOGLE_PLAY_BILLING");
+      case GOOGLE_PLAY_BILLING, APPLE_APP_STORE ->
+          throw new BadRequestException("cannot create payment methods with payment type " + paymentMethodType);
       case PAYPAL -> throw new BadRequestException("The PAYPAL payment type must use create_payment_method/paypal");
       case UNKNOWN -> throw new BadRequestException("Invalid payment method");
     };
@@ -316,7 +316,7 @@ public class SubscriptionController {
     return switch (processor) {
       case STRIPE -> stripeManager;
       case BRAINTREE -> braintreeManager;
-      case GOOGLE_PLAY_BILLING -> throw new BadRequestException("Operation cannot be performed with the GOOGLE_PLAY_BILLING payment provider");
+      case GOOGLE_PLAY_BILLING, APPLE_APP_STORE -> throw new BadRequestException("Operation cannot be performed with the " + processor + " payment provider");
     };
   }
 

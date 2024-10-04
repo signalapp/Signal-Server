@@ -52,6 +52,10 @@ public class SubscriptionException extends Exception {
     public InvalidArguments(final String message, final Exception cause) {
       super(cause, message);
     }
+
+    public InvalidArguments(final String message) {
+      this(message, null);
+    }
   }
 
   public static class InvalidLevel extends InvalidArguments {
