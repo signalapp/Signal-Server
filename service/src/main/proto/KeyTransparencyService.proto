@@ -6,17 +6,23 @@
 syntax = "proto3";
 
 option java_multiple_files = true;
+option java_package = "org.signal.keytransparency.client";
 
-package katie;
+package kt_query;
 
-service Katie {
+/**
+  * An external-facing, read-only key transparency service used by Signal's chat server
+  * to look up and monitor search keys.
+  */
+service KeyTransparencyQueryService {
   /**
-   * Provides proof that a specific version of the search key exists in the log tree.
+   * An endpoint used by clients to search for a given key in the transparency log.
+   * The server returns proof that the search key exists in the log.
    */
   rpc Search(SearchRequest) returns (SearchResponse) {}
   /**
-   * Allows users to monitor a set of search keys by providing proof that the log tree continues to be
-   * constructed correctly in later entries for those search keys. 
+   * An endpoint that allows users to monitor a set of search keys by returning proof that the log continues to be
+   * constructed correctly in later entries for those search keys.
    */
   rpc Monitor(MonitorRequest) returns (MonitorResponse) {}
 }

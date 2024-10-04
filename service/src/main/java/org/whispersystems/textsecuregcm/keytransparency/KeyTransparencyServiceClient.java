@@ -19,13 +19,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 import io.grpc.TlsChannelCredentials;
-import katie.ConsistencyParameters;
-import katie.KatieGrpc;
-import katie.MonitorKey;
-import katie.MonitorRequest;
-import katie.MonitorResponse;
-import katie.SearchRequest;
-import katie.SearchResponse;
+import org.signal.keytransparency.client.ConsistencyParameters;
+import org.signal.keytransparency.client.KeyTransparencyQueryServiceGrpc;
+import org.signal.keytransparency.client.MonitorKey;
+import org.signal.keytransparency.client.MonitorRequest;
+import org.signal.keytransparency.client.SearchRequest;
 import org.whispersystems.textsecuregcm.util.CompletableFutureUtil;
 
 public class KeyTransparencyServiceClient implements Managed {
@@ -35,7 +33,7 @@ public class KeyTransparencyServiceClient implements Managed {
   private final int port;
   private final ChannelCredentials tlsChannelCredentials;
   private ManagedChannel channel;
-  private KatieGrpc.KatieFutureStub stub;
+  private KeyTransparencyQueryServiceGrpc.KeyTransparencyQueryServiceFutureStub stub;
 
   public KeyTransparencyServiceClient(
       final String host,
@@ -100,7 +98,7 @@ public class KeyTransparencyServiceClient implements Managed {
     channel = Grpc.newChannelBuilderForAddress(host, port, tlsChannelCredentials)
         .idleTimeout(1, TimeUnit.MINUTES)
         .build();
-    stub = KatieGrpc.newFutureStub(channel);
+    stub = KeyTransparencyQueryServiceGrpc.newFutureStub(channel);
   }
 
   @Override
