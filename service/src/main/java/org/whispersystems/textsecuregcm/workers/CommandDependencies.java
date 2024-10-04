@@ -226,7 +226,7 @@ record CommandDependencies(
     ClientPublicKeysManager clientPublicKeysManager =
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        rateLimitersCluster, accountLockManager, keys, messagesManager, profilesManager,
+        accountLockManager, keys, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, clientPresenceManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, clientPresenceExecutor,
         clock, configuration.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);

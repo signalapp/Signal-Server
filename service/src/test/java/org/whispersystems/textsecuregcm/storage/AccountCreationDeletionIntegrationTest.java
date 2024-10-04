@@ -142,7 +142,6 @@ public class AccountCreationDeletionIntegrationTest {
         accounts,
         phoneNumberIdentifiers,
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
-        CACHE_CLUSTER_EXTENSION.getRedisCluster(),
         accountLockManager,
         keysManager,
         messagesManager,

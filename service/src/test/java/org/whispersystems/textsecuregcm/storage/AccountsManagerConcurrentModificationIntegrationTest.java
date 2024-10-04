@@ -124,7 +124,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           accounts,
           phoneNumberIdentifiers,
           RedisClusterHelper.builder().stringCommands(commands).build(),
-          RedisClusterHelper.builder().stringCommands(commands).build(),
           accountLockManager,
           mock(KeysManager.class),
           mock(MessagesManager.class),

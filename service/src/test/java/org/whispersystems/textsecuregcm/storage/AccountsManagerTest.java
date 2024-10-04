@@ -239,7 +239,6 @@ class AccountsManagerTest {
         accounts,
         phoneNumberIdentifiers,
         redisCluster,
-        redisCluster,
         accountLockManager,
         keysManager,
         messagesManager,

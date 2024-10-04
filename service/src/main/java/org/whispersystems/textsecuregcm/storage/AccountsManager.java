@@ -13,7 +13,6 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.lettuce.core.RedisException;
-import io.lettuce.core.SetArgs;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -109,7 +108,6 @@ public class AccountsManager {
   private final Accounts accounts;
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final FaultTolerantRedisCluster cacheCluster;
-  private final FaultTolerantRedisCluster rateLimitCluster;
   private final AccountLockManager accountLockManager;
   private final KeysManager keysManager;
   private final MessagesManager messagesManager;
@@ -160,7 +158,6 @@ public class AccountsManager {
   public AccountsManager(final Accounts accounts,
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final FaultTolerantRedisCluster cacheCluster,
-      final FaultTolerantRedisCluster rateLimitCluster,
       final AccountLockManager accountLockManager,
       final KeysManager keysManager,
       final MessagesManager messagesManager,
@@ -178,7 +175,6 @@ public class AccountsManager {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
-    this.rateLimitCluster = rateLimitCluster;
     this.accountLockManager = accountLockManager;
     this.keysManager = keysManager;
     this.messagesManager = messagesManager;
@@ -345,9 +341,6 @@ public class AccountsManager {
           return accounts.updateTransactionallyAsync(account, additionalWriteItems)
               .thenApply(ignored -> new Pair<>(account, account.getDevice(nextDeviceId).orElseThrow()));
         })
-        .thenCompose(updatedAccountAndDevice -> rateLimitCluster.withCluster(connection ->
-            connection.async().set(getUsedTokenKey(linkDeviceToken), "", new SetArgs().ex(LINK_DEVICE_TOKEN_EXPIRATION_DURATION)))
-            .thenApply(ignored -> updatedAccountAndDevice))
         .thenCompose(updatedAccountAndDevice -> redisDeleteAsync(updatedAccountAndDevice.first())
             .thenApply(ignored -> updatedAccountAndDevice))
         .exceptionallyCompose(throwable -> {
@@ -412,20 +405,13 @@ public class AccountsManager {
 
   /**
    * Checks that a device-linking token is valid and returns the account identifier from the token if so, or empty if
-   * the token was invalid or has already been used
+   * the token was invalid
    *
    * @param token the device-linking token to check
    *
-   * @return the account identifier from a valid token or empty if the token was invalid or already used
+   * @return the account identifier from a valid token or empty if the token was invalid
    */
   public Optional<UUID> checkDeviceLinkingToken(final String token) {
-    final boolean tokenUsed = rateLimitCluster.withCluster(connection ->
-        connection.sync().get(getUsedTokenKey(token)) != null);
-
-    if (tokenUsed) {
-      return Optional.empty();
-    }
-
     final String[] claimsAndSignature = token.split(":", 2);
 
     if (claimsAndSignature.length != 2) {
@@ -474,10 +460,6 @@ public class AccountsManager {
     }
 
     return Optional.of(aci);
-  }
-
-  private static String getUsedTokenKey(final String token) {
-    return "usedToken::" + token;
   }
 
   public CompletableFuture<Account> removeDevice(final Account account, final byte deviceId) {

@@ -638,7 +638,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ClientPublicKeysManager clientPublicKeysManager =
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        rateLimitersCluster, accountLockManager, keysManager, messagesManager, profilesManager,
+        accountLockManager, keysManager, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client,
         clientPresenceManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, clientPresenceExecutor,
