@@ -60,7 +60,6 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
-import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationCurrencyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
@@ -104,7 +103,6 @@ public class SubscriptionController {
   private final GooglePlayBillingManager googlePlayBillingManager;
   private final AppleAppStoreManager appleAppStoreManager;
   private final BadgeTranslator badgeTranslator;
-  private final LevelTranslator levelTranslator;
   private final BankMandateTranslator bankMandateTranslator;
   static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
   static final String PROCESSOR_TAG_NAME = "processor";
@@ -121,7 +119,6 @@ public class SubscriptionController {
       @Nonnull GooglePlayBillingManager googlePlayBillingManager,
       @Nonnull AppleAppStoreManager appleAppStoreManager,
       @Nonnull BadgeTranslator badgeTranslator,
-      @Nonnull LevelTranslator levelTranslator,
       @Nonnull BankMandateTranslator bankMandateTranslator) {
     this.subscriptionManager = subscriptionManager;
     this.clock = Objects.requireNonNull(clock);
@@ -132,7 +129,6 @@ public class SubscriptionController {
     this.googlePlayBillingManager = Objects.requireNonNull(googlePlayBillingManager);
     this.appleAppStoreManager = appleAppStoreManager;
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
-    this.levelTranslator = Objects.requireNonNull(levelTranslator);
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
   }
 
@@ -183,7 +179,7 @@ public class SubscriptionController {
 
     subscriptionConfiguration.getDonationLevels().forEach((levelId, levelConfig) -> {
       final LevelConfiguration levelConfiguration = new LevelConfiguration(
-          levelTranslator.translate(acceptableLanguages, levelConfig.badge()),
+          "" /* deprecated and unused */,
           badgeTranslator.translate(acceptableLanguages, levelConfig.badge()));
       donationLevels.put(String.valueOf(levelId), levelConfiguration);
     });
@@ -192,7 +188,7 @@ public class SubscriptionController {
         oneTimeDonationConfiguration.boost().badge());
     donationLevels.put(String.valueOf(oneTimeDonationConfiguration.boost().level()),
         new LevelConfiguration(
-            boostBadge.getName(),
+            "" /* deprecated and unused */,
             // NB: the one-time badges are PurchasableBadge, which has a `duration` field
             new PurchasableBadge(
                 boostBadge,
@@ -201,7 +197,7 @@ public class SubscriptionController {
     final Badge giftBadge = badgeTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.gift().badge());
     donationLevels.put(String.valueOf(oneTimeDonationConfiguration.gift().level()),
         new LevelConfiguration(
-            giftBadge.getName(),
+            "" /* deprecated and unused */,
             new PurchasableBadge(
                 giftBadge,
                 oneTimeDonationConfiguration.gift().expiration())));
@@ -504,6 +500,7 @@ public class SubscriptionController {
 
   @Schema(description = "Configuration for a donation level - use to present appropriate client interfaces")
   public record LevelConfiguration(
+      @Deprecated(forRemoval = true) // may be removed after 2025-01-28
       @Schema(description = "The localized name for the level")
       String name,
       @Schema(description = "The displayable badge associated with the level")

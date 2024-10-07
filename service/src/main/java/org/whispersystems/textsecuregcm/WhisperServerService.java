@@ -95,7 +95,6 @@ import org.whispersystems.textsecuregcm.backup.BackupsDb;
 import org.whispersystems.textsecuregcm.backup.Cdn3BackupCredentialGenerator;
 import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
-import org.whispersystems.textsecuregcm.badges.ResourceBundleLevelTranslator;
 import org.whispersystems.textsecuregcm.calls.routing.CallDnsRecordsManager;
 import org.whispersystems.textsecuregcm.calls.routing.CallRoutingTableManager;
 import org.whispersystems.textsecuregcm.calls.routing.DynamicConfigTurnRouter;
@@ -374,8 +373,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new HeaderControlledResourceBundleLookup();
     ConfiguredProfileBadgeConverter profileBadgeConverter = new ConfiguredProfileBadgeConverter(
         clock, config.getBadges(), headerControlledResourceBundleLookup);
-    ResourceBundleLevelTranslator resourceBundleLevelTranslator = new ResourceBundleLevelTranslator(
-        headerControlledResourceBundleLookup);
     BankMandateTranslator bankMandateTranslator = new BankMandateTranslator(headerControlledResourceBundleLookup);
 
     environment.lifecycle().manage(new ManagedAwsCrt());
@@ -1146,7 +1143,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           zkReceiptOperations, issuedReceiptsManager);
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
           subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
-          profileBadgeConverter, resourceBundleLevelTranslator, bankMandateTranslator));
+          profileBadgeConverter, bankMandateTranslator));
       commonControllers.add(new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
           zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager));
     }

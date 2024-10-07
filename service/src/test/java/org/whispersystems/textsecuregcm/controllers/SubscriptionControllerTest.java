@@ -67,7 +67,6 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
-import org.whispersystems.textsecuregcm.badges.LevelTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetBankMandateResponse;
@@ -87,14 +86,14 @@ import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager.PayPalOneTimePaymentApprovalDetails;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
+import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -123,15 +122,12 @@ class SubscriptionControllerTest {
   private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
   private static final OneTimeDonationsManager ONE_TIME_DONATIONS_MANAGER = mock(OneTimeDonationsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
-  private static final LevelTranslator LEVEL_TRANSLATOR = mock(LevelTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK,
       SUBSCRIPTION_CONFIG, ONETIME_CONFIG,
-      new SubscriptionManager(SUBSCRIPTIONS,
-          List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
-          ZK_OPS, ISSUED_RECEIPTS_MANAGER),
-      STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER,
-      BADGE_TRANSLATOR, LEVEL_TRANSLATOR, BANK_MANDATE_TRANSLATOR);
+      new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
+          ZK_OPS, ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER,
+      BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR);
   private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK,
       ONETIME_CONFIG, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
@@ -148,17 +144,14 @@ class SubscriptionControllerTest {
 
   @BeforeEach
   void setUp() {
-    reset(CLOCK, SUBSCRIPTIONS, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER,
-        BADGE_TRANSLATOR, LEVEL_TRANSLATOR);
+    reset(CLOCK, SUBSCRIPTIONS, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR);
 
     when(STRIPE_MANAGER.getProvider()).thenReturn(PaymentProvider.STRIPE);
     when(BRAINTREE_MANAGER.getProvider()).thenReturn(PaymentProvider.BRAINTREE);
 
     List.of(STRIPE_MANAGER, BRAINTREE_MANAGER)
-        .forEach(manager -> {
-          when(manager.supportsPaymentMethod(any()))
-              .thenCallRealMethod();
-        });
+        .forEach(manager -> when(manager.supportsPaymentMethod(any()))
+            .thenCallRealMethod());
     when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.SEPA_DEBIT))
@@ -512,13 +505,12 @@ class SubscriptionControllerTest {
       assertThat(response.getStatus()).isEqualTo(400);
 
       assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelErrorResponse.class))
-          .satisfies(errorResponse -> {
-            assertThat(errorResponse.errors())
-                .anySatisfy(error -> {
-                  assertThat(error.type()).isEqualTo(
-                      SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION);
-                });
-          });
+          .satisfies(errorResponse ->
+              assertThat(errorResponse.errors())
+                  .anySatisfy(error ->
+                      assertThat(error.type())
+                          .isEqualTo(
+                              SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION)));
     }
   }
 
@@ -1087,9 +1079,6 @@ class SubscriptionControllerTest {
     when(BADGE_TRANSLATOR.translate(any(), eq("GIFT"))).thenReturn(new Badge("GIFT", "gift1", "gift1", "gift1",
         List.of("l", "m", "h", "x", "xx", "xxx"), "SVG",
         List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld"))));
-    when(LEVEL_TRANSLATOR.translate(any(), eq("B1"))).thenReturn("Z1");
-    when(LEVEL_TRANSLATOR.translate(any(), eq("B2"))).thenReturn("Z2");
-    when(LEVEL_TRANSLATOR.translate(any(), eq("B3"))).thenReturn("Z3");
 
     GetSubscriptionConfigurationResponse response = RESOURCE_EXTENSION.target("/v1/subscription/configuration")
         .request()
@@ -1159,44 +1148,41 @@ class SubscriptionControllerTest {
     });
 
     assertThat(response.levels()).containsKeys("1", "5", "15", "35", "100").satisfies(levelsMap -> {
-      assertThat(levelsMap).extractingByKey("1").satisfies(level -> {
-        assertThat(level.name()).isEqualTo("boost1"); // level name is the same as badge name
-        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
-          assertThat(badge.getId()).isEqualTo("BOOST");
-          assertThat(badge.getName()).isEqualTo("boost1");
-        });
-      });
+      assertThat(levelsMap).extractingByKey("1").satisfies(
+          level -> assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+              .satisfies(badge -> {
+                assertThat(badge.getId()).isEqualTo("BOOST");
+                assertThat(badge.getName()).isEqualTo("boost1");
+              }));
 
-      assertThat(levelsMap).extractingByKey("100").satisfies(level -> {
-        assertThat(level.name()).isEqualTo("gift1"); // level name is the same as badge name
-        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
-          assertThat(badge.getId()).isEqualTo("GIFT");
-          assertThat(badge.getName()).isEqualTo("gift1");
-        });
-      });
+      assertThat(levelsMap).extractingByKey("100").satisfies(
+          level -> assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+              .satisfies(badge -> {
+                assertThat(badge.getId()).isEqualTo("GIFT");
+                assertThat(badge.getName()).isEqualTo("gift1");
+              }));
 
       assertThat(levelsMap).extractingByKey("5").satisfies(level -> {
-        assertThat(level.name()).isEqualTo("Z1");
-        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
-          assertThat(badge.getId()).isEqualTo("B1");
-          assertThat(badge.getName()).isEqualTo("name1");
-        });
+        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+            .satisfies(badge -> {
+              assertThat(badge.getId()).isEqualTo("B1");
+              assertThat(badge.getName()).isEqualTo("name1");
+            });
       });
 
-      assertThat(levelsMap).extractingByKey("15").satisfies(level -> {
-        assertThat(level.name()).isEqualTo("Z2");
-        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
-          assertThat(badge.getId()).isEqualTo("B2");
-          assertThat(badge.getName()).isEqualTo("name2");
-        });
-      });
+      assertThat(levelsMap).extractingByKey("15").satisfies(level ->
+          assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+              .satisfies(badge -> {
+                assertThat(badge.getId()).isEqualTo("B2");
+                assertThat(badge.getName()).isEqualTo("name2");
+              }));
 
       assertThat(levelsMap).extractingByKey("35").satisfies(level -> {
-        assertThat(level.name()).isEqualTo("Z3");
-        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge).satisfies(badge -> {
-          assertThat(badge.getId()).isEqualTo("B3");
-          assertThat(badge.getName()).isEqualTo("name3");
-        });
+        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+            .satisfies(badge -> {
+              assertThat(badge.getId()).isEqualTo("B3");
+              assertThat(badge.getName()).isEqualTo("name3");
+            });
       });
     });
 
@@ -1214,21 +1200,17 @@ class SubscriptionControllerTest {
 
     assertThat(genericResponse.get("levels")).satisfies(levels -> {
       final Set<String> oneTimeLevels = Set.of("1", "100");
-      oneTimeLevels.forEach(oneTimeLevel -> {
-        assertThat((Map<String, Map<String, Map<String, Object>>>) levels).extractingByKey(oneTimeLevel)
-            .satisfies(level -> {
-              assertThat(level.get("badge")).containsKeys("duration");
-            });
-      });
+      oneTimeLevels.forEach(
+          oneTimeLevel -> assertThat((Map<String, Map<String, Map<String, Object>>>) levels)
+              .extractingByKey(oneTimeLevel)
+              .satisfies(level -> assertThat(level.get("badge")).containsKeys("duration")));
 
       ((Map<String, ?>) levels).keySet().stream()
           .filter(Predicate.not(oneTimeLevels::contains))
-          .forEach(subscriptionLevel -> {
-            assertThat((Map<String, Map<String, Map<String, Object>>>) levels).extractingByKey(subscriptionLevel)
-                .satisfies(level -> {
-                  assertThat(level.get("badge")).doesNotContainKeys("duration");
-                });
-          });
+          .forEach(subscriptionLevel ->
+              assertThat((Map<String, Map<String, Map<String, Object>>>) levels)
+                  .extractingByKey(subscriptionLevel)
+                  .satisfies(level -> assertThat(level.get("badge")).doesNotContainKeys("duration")));
     });
   }
 
