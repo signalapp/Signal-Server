@@ -40,16 +40,29 @@ public class ExperimentEnrollmentManager {
     final Optional<DynamicExperimentEnrollmentConfiguration> maybeConfiguration = dynamicConfigurationManager
         .getConfiguration().getExperimentEnrollmentConfiguration(experimentName);
 
-    return maybeConfiguration.map(config -> {
+    return maybeConfiguration
+        .map(config -> isAccountEnrolled(accountUuid, config)
+            .orElse(isEnrolled(accountUuid, config.getEnrollmentPercentage(), experimentName))
+        ).orElse(false);
+  }
 
-      if (config.getUuidSelector().getUuids().contains(accountUuid)) {
-        final int r = random.nextInt(100);
-        return r < config.getUuidSelector().getUuidEnrollmentPercentage();
-      }
+  Optional<Boolean> isAccountEnrolled(final UUID accountUuid, DynamicExperimentEnrollmentConfiguration config) {
+    if (config.getUuidSelector().getUuids().contains(accountUuid)) {
+      final int r = random.nextInt(100);
+      return Optional.of(r < config.getUuidSelector().getUuidEnrollmentPercentage());
+    }
 
-      return isEnrolled(accountUuid, config.getEnrollmentPercentage(), experimentName);
+    return Optional.empty();
+  }
 
-    }).orElse(false);
+  public boolean isEnrolled(final String e164, final UUID accountUuid, final String experimentName) {
+
+    final Optional<DynamicExperimentEnrollmentConfiguration> maybeConfiguration = dynamicConfigurationManager
+        .getConfiguration().getExperimentEnrollmentConfiguration(experimentName);
+
+    return maybeConfiguration
+        .flatMap(config -> isAccountEnrolled(accountUuid, config))
+        .orElse(isEnrolled(e164, experimentName));
   }
 
   public boolean isEnrolled(final String e164, final String experimentName) {

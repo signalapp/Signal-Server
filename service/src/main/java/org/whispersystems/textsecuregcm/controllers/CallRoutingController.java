@@ -79,7 +79,7 @@ public class CallRoutingController {
     UUID aci = auth.getAccount().getUuid();
     rateLimiters.getCallEndpointLimiter().validate(aci);
 
-    if (experimentEnrollmentManager.isEnrolled(aci, "cloudflareTurn")) {
+    if (experimentEnrollmentManager.isEnrolled(auth.getAccount().getNumber(), aci, "cloudflareTurn")) {
       return cloudflareTurnCredentialsManager.retrieveFromCloudflare();
     }
 

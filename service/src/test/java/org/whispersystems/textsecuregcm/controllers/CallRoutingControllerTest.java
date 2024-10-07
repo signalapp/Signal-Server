@@ -116,7 +116,7 @@ class CallRoutingControllerTest {
 
   @Test
   void testGetTurnEndpointsCloudflare() throws IOException {
-    when(experimentEnrollmentManager.isEnrolled(AuthHelper.VALID_UUID, "cloudflareTurn"))
+    when(experimentEnrollmentManager.isEnrolled(AuthHelper.VALID_NUMBER, AuthHelper.VALID_UUID, "cloudflareTurn"))
         .thenReturn(true);
 
     when(cloudflareTurnCredentialsManager.retrieveFromCloudflare()).thenReturn(new TurnToken("ABC", "XYZ",
