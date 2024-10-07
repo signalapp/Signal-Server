@@ -66,6 +66,7 @@ braintree:
   supportedCurrenciesByPaymentMethod:
     PAYPAL:
       - usd
+      - xts
   pubSubPublisher:
     type: stub
 
@@ -375,7 +376,7 @@ subscription: # configuration for Stripe subscriptions
       prices: {}
   levels:
     500:
-      badge: EXAMPLE
+      badge: TEST
       prices:
         # list of ISO 4217 currency codes and amounts for the given badge level
         xts:
@@ -389,11 +390,11 @@ oneTimeDonations:
   boost:
     level: 1
     expiration: P90D
-    badge: EXAMPLE
+    badge: TEST
   gift:
     level: 10
     expiration: P90D
-    badge: EXAMPLE
+    badge: TEST
   currencies:
     # ISO 4217 currency codes and amounts in those currencies
     xts:
