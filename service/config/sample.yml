@@ -102,6 +102,7 @@ dynamoDbTables:
     phoneNumberTableName: Example_Accounts_PhoneNumbers
     phoneNumberIdentifierTableName: Example_Accounts_PhoneNumberIdentifiers
     usernamesTableName: Example_Accounts_Usernames
+    usedLinkDeviceTokensTableName: Example_Accounts_UsedLinkDeviceTokens
   backups:
     tableName: Example_Backups
   clientReleases:

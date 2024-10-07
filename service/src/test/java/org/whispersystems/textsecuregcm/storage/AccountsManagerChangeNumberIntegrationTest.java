@@ -98,7 +98,8 @@ class AccountsManagerChangeNumberIntegrationTest {
           Tables.NUMBERS.tableName(),
           Tables.PNI_ASSIGNMENTS.tableName(),
           Tables.USERNAMES.tableName(),
-          Tables.DELETED_ACCOUNTS.tableName());
+          Tables.DELETED_ACCOUNTS.tableName(),
+          Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
       accountLockExecutor = Executors.newSingleThreadExecutor();
       clientPresenceExecutor = Executors.newSingleThreadExecutor();
@@ -136,6 +137,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           accounts,
           phoneNumberIdentifiers,
           CACHE_CLUSTER_EXTENSION.getRedisCluster(),
+          CACHE_CLUSTER_EXTENSION.getRedisCluster(),
           accountLockManager,
           keysManager,
           messagesManager,
@@ -148,6 +150,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           accountLockExecutor,
           clientPresenceExecutor,
           mock(Clock.class),
+          "link-device-secret".getBytes(StandardCharsets.UTF_8),
           dynamicConfigurationManager);
     }
   }

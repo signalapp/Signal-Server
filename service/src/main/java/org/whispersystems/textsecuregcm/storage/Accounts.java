@@ -14,6 +14,9 @@ import com.google.common.base.Throwables;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -43,6 +46,7 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -122,6 +126,12 @@ public class Accounts extends AbstractDynamoDbStore {
   // username hash; byte[] or null
   static final String ATTR_USERNAME_HASH = "N";
 
+  // bytes, primary key
+  static final String KEY_LINK_DEVICE_TOKEN_HASH = "H";
+
+  // integer, seconds
+  static final String ATTR_LINK_DEVICE_TOKEN_TTL = "E";
+
   // unidentified access key; byte[] or null
   static final String ATTR_UAK = "UAK";
 
@@ -154,6 +164,7 @@ public class Accounts extends AbstractDynamoDbStore {
   private final String phoneNumberIdentifierConstraintTableName;
   private final String usernamesConstraintTableName;
   private final String deletedAccountsTableName;
+  private final String usedLinkDeviceTokenTableName;
   private final String accountsTableName;
 
   @VisibleForTesting
@@ -165,7 +176,8 @@ public class Accounts extends AbstractDynamoDbStore {
       final String phoneNumberConstraintTableName,
       final String phoneNumberIdentifierConstraintTableName,
       final String usernamesConstraintTableName,
-      final String deletedAccountsTableName) {
+      final String deletedAccountsTableName,
+      final String usedLinkDeviceTokenTableName) {
 
     super(client);
     this.clock = clock;
@@ -175,6 +187,7 @@ public class Accounts extends AbstractDynamoDbStore {
     this.accountsTableName = accountsTableName;
     this.usernamesConstraintTableName = usernamesConstraintTableName;
     this.deletedAccountsTableName = deletedAccountsTableName;
+    this.usedLinkDeviceTokenTableName = usedLinkDeviceTokenTableName;
   }
 
   public Accounts(
@@ -184,11 +197,12 @@ public class Accounts extends AbstractDynamoDbStore {
       final String phoneNumberConstraintTableName,
       final String phoneNumberIdentifierConstraintTableName,
       final String usernamesConstraintTableName,
-      final String deletedAccountsTableName) {
+      final String deletedAccountsTableName,
+      final String usedLinkDeviceTokenTableName) {
 
     this(Clock.systemUTC(), client, asyncClient, accountsTableName,
         phoneNumberConstraintTableName, phoneNumberIdentifierConstraintTableName, usernamesConstraintTableName,
-        deletedAccountsTableName);
+        deletedAccountsTableName, usedLinkDeviceTokenTableName);
   }
 
   static class UsernameTable {
@@ -1063,6 +1077,28 @@ public class Accounts extends AbstractDynamoDbStore {
             throw CompletableFutureUtils.errorAsCompletionException(throwable);
           });
     });
+  }
+
+  public TransactWriteItem buildTransactWriteItemForLinkDevice(final String linkDeviceToken, final Duration tokenTtl) {
+    final byte[] linkDeviceTokenHash;
+
+    try {
+      linkDeviceTokenHash = MessageDigest.getInstance("SHA-256").digest(linkDeviceToken.getBytes(StandardCharsets.UTF_8));
+    } catch (final NoSuchAlgorithmException e) {
+      throw new AssertionError("Every implementation of the Java platform is required to support the SHA-256 MessageDigest algorithm", e);
+    }
+
+    return TransactWriteItem.builder()
+        .put(Put.builder()
+            .tableName(usedLinkDeviceTokenTableName)
+            .item(Map.of(
+                KEY_LINK_DEVICE_TOKEN_HASH, AttributeValue.fromB(SdkBytes.fromByteArray(linkDeviceTokenHash)),
+                ATTR_LINK_DEVICE_TOKEN_TTL, AttributeValue.fromN(String.valueOf(clock.instant().plus(tokenTtl).getEpochSecond()))
+            ))
+            .conditionExpression("attribute_not_exists(#linkDeviceTokenHash)")
+            .expressionAttributeNames(Map.of("#linkDeviceTokenHash", KEY_LINK_DEVICE_TOKEN_HASH))
+            .build())
+        .build();
   }
 
   @Nonnull

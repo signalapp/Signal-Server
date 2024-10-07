@@ -105,7 +105,8 @@ public class AccountCreationDeletionIntegrationTest {
         DynamoDbExtensionSchema.Tables.NUMBERS.tableName(),
         DynamoDbExtensionSchema.Tables.PNI_ASSIGNMENTS.tableName(),
         DynamoDbExtensionSchema.Tables.USERNAMES.tableName(),
-        DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS.tableName());
+        DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS.tableName(),
+        DynamoDbExtensionSchema.Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
     accountLockExecutor = Executors.newSingleThreadExecutor();
     clientPresenceExecutor = Executors.newSingleThreadExecutor();
@@ -141,6 +142,7 @@ public class AccountCreationDeletionIntegrationTest {
         accounts,
         phoneNumberIdentifiers,
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
+        CACHE_CLUSTER_EXTENSION.getRedisCluster(),
         accountLockManager,
         keysManager,
         messagesManager,
@@ -153,6 +155,7 @@ public class AccountCreationDeletionIntegrationTest {
         accountLockExecutor,
         clientPresenceExecutor,
         CLOCK,
+        "link-device-secret".getBytes(StandardCharsets.UTF_8),
         dynamicConfigurationManager);
   }
 

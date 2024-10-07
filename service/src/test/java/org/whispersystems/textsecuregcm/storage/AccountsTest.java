@@ -106,6 +106,7 @@ class AccountsTest {
       Tables.PNI_ASSIGNMENTS,
       Tables.USERNAMES,
       Tables.DELETED_ACCOUNTS,
+      Tables.USED_LINK_DEVICE_TOKENS,
 
       // This is an unrelated table used to test "tag-along" transactional updates
       Tables.CLIENT_RELEASES);
@@ -132,7 +133,8 @@ class AccountsTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName());
+        Tables.DELETED_ACCOUNTS.tableName(),
+        Tables.USED_LINK_DEVICE_TOKENS.tableName());
   }
 
   @Test
@@ -560,7 +562,8 @@ class AccountsTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName());
+        Tables.DELETED_ACCOUNTS.tableName(),
+        Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
     Exception e = TransactionConflictException.builder().build();
     e = wrapException ? new CompletionException(e) : e;
@@ -648,7 +651,8 @@ class AccountsTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName());
+        Tables.DELETED_ACCOUNTS.tableName(),
+        Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
     when(dynamoDbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
         .thenReturn(CompletableFuture.failedFuture(TransactionCanceledException.builder()
@@ -1039,7 +1043,8 @@ class AccountsTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName());
+        Tables.DELETED_ACCOUNTS.tableName(),
+        Tables.USED_LINK_DEVICE_TOKENS.tableName());
     final Account account = generateAccount("+14155551111", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
@@ -1081,7 +1086,8 @@ class AccountsTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName());
+        Tables.DELETED_ACCOUNTS.tableName(),
+        Tables.USED_LINK_DEVICE_TOKENS.tableName());
     final Account account = generateAccount("+14155551111", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
@@ -1181,7 +1187,8 @@ class AccountsTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName());
+        Tables.DELETED_ACCOUNTS.tableName(),
+        Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
     final Account account = generateAccount("+14155551111", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);

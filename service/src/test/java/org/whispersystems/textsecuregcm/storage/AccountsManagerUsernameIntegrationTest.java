@@ -14,6 +14,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -105,7 +106,8 @@ class AccountsManagerUsernameIntegrationTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName()));
+        Tables.DELETED_ACCOUNTS.tableName(),
+        Tables.USED_LINK_DEVICE_TOKENS.tableName()));
 
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
@@ -135,6 +137,7 @@ class AccountsManagerUsernameIntegrationTest {
         accounts,
         phoneNumberIdentifiers,
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
+        CACHE_CLUSTER_EXTENSION.getRedisCluster(),
         accountLockManager,
         keysManager,
         messageManager,
@@ -147,6 +150,7 @@ class AccountsManagerUsernameIntegrationTest {
         Executors.newSingleThreadExecutor(),
         Executors.newSingleThreadExecutor(),
         mock(Clock.class),
+        "link-device-secret".getBytes(StandardCharsets.UTF_8),
         dynamicConfigurationManager);
   }
 

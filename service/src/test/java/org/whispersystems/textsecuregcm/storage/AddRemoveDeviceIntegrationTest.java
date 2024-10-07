@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,6 +46,7 @@ public class AddRemoveDeviceIntegrationTest {
       DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK,
+      DynamoDbExtensionSchema.Tables.USED_LINK_DEVICE_TOKENS,
       DynamoDbExtensionSchema.Tables.NUMBERS,
       DynamoDbExtensionSchema.Tables.PNI,
       DynamoDbExtensionSchema.Tables.PNI_ASSIGNMENTS,
@@ -93,7 +95,8 @@ public class AddRemoveDeviceIntegrationTest {
         DynamoDbExtensionSchema.Tables.NUMBERS.tableName(),
         DynamoDbExtensionSchema.Tables.PNI_ASSIGNMENTS.tableName(),
         DynamoDbExtensionSchema.Tables.USERNAMES.tableName(),
-        DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS.tableName());
+        DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS.tableName(),
+        DynamoDbExtensionSchema.Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
     accountLockExecutor = Executors.newSingleThreadExecutor();
     clientPresenceExecutor = Executors.newSingleThreadExecutor();
@@ -129,6 +132,7 @@ public class AddRemoveDeviceIntegrationTest {
         accounts,
         phoneNumberIdentifiers,
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
+        CACHE_CLUSTER_EXTENSION.getRedisCluster(),
         accountLockManager,
         keysManager,
         messagesManager,
@@ -141,6 +145,7 @@ public class AddRemoveDeviceIntegrationTest {
         accountLockExecutor,
         clientPresenceExecutor,
         CLOCK,
+        "link-device-secret".getBytes(StandardCharsets.UTF_8),
         dynamicConfigurationManager);
   }
 
@@ -182,7 +187,8 @@ public class AddRemoveDeviceIntegrationTest {
                 KeysHelper.signedECPreKey(1, aciKeyPair),
                 KeysHelper.signedECPreKey(2, pniKeyPair),
                 KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                KeysHelper.signedKEMPreKey(4, pniKeyPair)))
+                KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                accountsManager.generateDeviceLinkingToken(account.getIdentifier(IdentityType.ACI)))
             .join();
 
     assertEquals(2, updatedAccountAndDevice.first().getDevices().size());
@@ -197,6 +203,67 @@ public class AddRemoveDeviceIntegrationTest {
     assertTrue(keysManager.getEcSignedPreKey(updatedAccountAndDevice.first().getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
     assertTrue(keysManager.getLastResort(updatedAccountAndDevice.first().getUuid(), addedDeviceId).join().isPresent());
     assertTrue(keysManager.getLastResort(updatedAccountAndDevice.first().getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
+  }
+
+  @Test
+  void addDeviceReusedToken() throws InterruptedException {
+    final String number = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
+    final Account account = AccountsHelper.createAccount(accountsManager, number);
+    assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
+
+    final String linkDeviceToken = accountsManager.generateDeviceLinkingToken(account.getIdentifier(IdentityType.ACI));
+
+    final Pair<Account, Device> updatedAccountAndDevice =
+        accountsManager.addDevice(account, new DeviceSpec(
+                    "device-name".getBytes(StandardCharsets.UTF_8),
+                    "password",
+                    "OWT",
+                    new Device.DeviceCapabilities(true, true, true, false, false),
+                    1,
+                    2,
+                    true,
+                    Optional.empty(),
+                    Optional.empty(),
+                    KeysHelper.signedECPreKey(1, aciKeyPair),
+                    KeysHelper.signedECPreKey(2, pniKeyPair),
+                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                linkDeviceToken)
+            .join();
+
+    assertEquals(2,
+        accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getUuid()).orElseThrow().getDevices()
+            .size());
+
+    final CompletionException completionException = assertThrows(CompletionException.class,
+        () -> accountsManager.addDevice(account, new DeviceSpec(
+                "device-name".getBytes(StandardCharsets.UTF_8),
+                "password",
+                "OWT",
+                new Device.DeviceCapabilities(true, true, true, false, false),
+                1,
+                2,
+                true,
+                Optional.empty(),
+                Optional.empty(),
+                KeysHelper.signedECPreKey(1, aciKeyPair),
+                KeysHelper.signedECPreKey(2, pniKeyPair),
+                KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+            linkDeviceToken)
+        .join());
+
+    assertInstanceOf(LinkDeviceTokenAlreadyUsedException.class, completionException.getCause());
+
+    assertEquals(2,
+        accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getUuid()).orElseThrow().getDevices()
+            .size());
   }
 
   @Test
@@ -225,7 +292,8 @@ public class AddRemoveDeviceIntegrationTest {
                 KeysHelper.signedECPreKey(1, aciKeyPair),
                 KeysHelper.signedECPreKey(2, pniKeyPair),
                 KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                KeysHelper.signedKEMPreKey(4, pniKeyPair)))
+                KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                accountsManager.generateDeviceLinkingToken(account.getIdentifier(IdentityType.ACI)))
             .join();
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
@@ -278,7 +346,8 @@ public class AddRemoveDeviceIntegrationTest {
                 KeysHelper.signedECPreKey(1, aciKeyPair),
                 KeysHelper.signedECPreKey(2, pniKeyPair),
                 KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                KeysHelper.signedKEMPreKey(4, pniKeyPair)))
+                KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                accountsManager.generateDeviceLinkingToken(account.getIdentifier(IdentityType.ACI)))
             .join();
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();

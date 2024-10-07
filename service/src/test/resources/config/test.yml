@@ -97,6 +97,7 @@ dynamoDbTables:
     phoneNumberTableName: numbers_test
     phoneNumberIdentifierTableName: pni_assignment_test
     usernamesTableName: usernames_test
+    usedLinkDeviceTokensTableName: used_link_device_tokens_test
   backups:
     tableName: backups_test
   clientReleases:

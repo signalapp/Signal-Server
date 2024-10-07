@@ -37,7 +37,9 @@ import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -75,6 +77,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
@@ -89,6 +92,7 @@ import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import javax.crypto.spec.SecretKeySpec;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class AccountsManagerTest {
@@ -102,6 +106,10 @@ class AccountsManagerTest {
   private static final byte[] ENCRYPTED_USERNAME_1 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_1);
   private static final byte[] ENCRYPTED_USERNAME_2 = Base64.getUrlDecoder().decode(BASE_64_URL_ENCRYPTED_USERNAME_2);
 
+  private static final byte[] LINK_DEVICE_SECRET = "link-device-secret".getBytes(StandardCharsets.UTF_8);
+
+  private static TestClock CLOCK;
+
   private Accounts accounts;
   private KeysManager keysManager;
   private MessagesManager messagesManager;
@@ -113,7 +121,6 @@ class AccountsManagerTest {
 
   private RedisAdvancedClusterCommands<String, String> commands;
   private RedisAdvancedClusterAsyncCommands<String, String> asyncCommands;
-  private TestClock clock;
   private AccountsManager accountsManager;
   private SecureValueRecovery2Client svr2Client;
   private DynamicConfiguration dynamicConfiguration;
@@ -161,6 +168,7 @@ class AccountsManagerTest {
     asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
     when(asyncCommands.del(any(String[].class))).thenReturn(MockRedisFuture.completedFuture(0L));
     when(asyncCommands.get(any())).thenReturn(MockRedisFuture.completedFuture(null));
+    when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
     when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     when(accounts.updateAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -220,16 +228,18 @@ class AccountsManagerTest {
     when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(profilesManager.deleteAll(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    clock = TestClock.now();
+    CLOCK = TestClock.now();
 
+    final FaultTolerantRedisCluster redisCluster = RedisClusterHelper.builder()
+        .stringCommands(commands)
+        .stringAsyncCommands(asyncCommands)
+        .build();
 
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
-        RedisClusterHelper.builder()
-            .stringCommands(commands)
-            .stringAsyncCommands(asyncCommands)
-            .build(),
+        redisCluster,
+        redisCluster,
         accountLockManager,
         keysManager,
         messagesManager,
@@ -241,7 +251,8 @@ class AccountsManagerTest {
         clientPublicKeysManager,
         mock(Executor.class),
         clientPresenceExecutor,
-        clock,
+        CLOCK,
+        LINK_DEVICE_SECRET,
         dynamicConfigurationManager);
   }
 
@@ -920,7 +931,7 @@ class AccountsManagerTest {
         PhoneNumberUtil.getInstance().format(PhoneNumberUtil.getInstance().getExampleNumber("US"),
             PhoneNumberUtil.PhoneNumberFormat.E164);
 
-    final Account account = AccountsHelper.generateTestAccount(phoneNumber, List.of(generateTestDevice(clock.millis())));
+    final Account account = AccountsHelper.generateTestAccount(phoneNumber, List.of(generateTestDevice(CLOCK.millis())));
     final UUID aci = account.getIdentifier(IdentityType.ACI);
     final UUID pni = account.getIdentifier(IdentityType.PNI);
 
@@ -945,7 +956,7 @@ class AccountsManagerTest {
     when(accounts.getByAccountIdentifierAsync(aci)).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     when(accounts.updateTransactionallyAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    clock.pin(clock.instant().plusSeconds(60));
+    CLOCK.pin(CLOCK.instant().plusSeconds(60));
 
     final Pair<Account, Device> updatedAccountAndDevice = accountsManager.addDevice(account, new DeviceSpec(
             deviceNameCiphertext,
@@ -960,7 +971,8 @@ class AccountsManagerTest {
             aciSignedPreKey,
             pniSignedPreKey,
             aciPqLastResortPreKey,
-            pniPqLastResortPreKey))
+            pniPqLastResortPreKey),
+            accountsManager.generateDeviceLinkingToken(aci))
         .join();
 
     verify(keysManager).deleteSingleUsePreKeys(aci, nextDeviceId);
@@ -1588,5 +1600,60 @@ class AccountsManagerTest {
             KeysHelper.signedKEMPreKey(3, aciKeyPair),
             KeysHelper.signedKEMPreKey(4, pniKeyPair)),
         null);
+  }
+
+  @Test
+  void checkDeviceLinkingToken() {
+    final UUID aci = UUID.randomUUID();
+
+    assertEquals(Optional.of(aci),
+        accountsManager.checkDeviceLinkingToken(accountsManager.generateDeviceLinkingToken(aci)));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void checkVerificationTokenBadToken(final String token, final Instant currentTime) {
+    CLOCK.pin(currentTime);
+
+    assertEquals(Optional.empty(), accountsManager.checkDeviceLinkingToken(token));
+  }
+
+  private static Stream<Arguments> checkVerificationTokenBadToken() throws InvalidKeyException {
+    final Instant tokenTimestamp = Instant.now();
+
+    return Stream.of(
+        // Expired token
+        Arguments.of(AccountsManager.generateDeviceLinkingToken(UUID.randomUUID(),
+                new SecretKeySpec(LINK_DEVICE_SECRET, AccountsManager.LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM),
+                CLOCK),
+            tokenTimestamp.plus(AccountsManager.LINK_DEVICE_TOKEN_EXPIRATION_DURATION).plusSeconds(1)),
+
+        // Bad UUID
+        Arguments.of("not-a-valid-uuid.1691096565171:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // No UUID
+        Arguments.of(".1691096565171:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // Bad timestamp
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.not-a-valid-timestamp:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // No timestamp
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // Blank timestamp
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // No signature
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171", tokenTimestamp),
+
+        // Blank signature
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171:", tokenTimestamp),
+
+        // Incorrect signature
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171:0CKWF7q3E9fi4sB2or4q1A0Up2z_73EQlMAy7Dpel9c=", tokenTimestamp),
+
+        // Invalid signature
+        Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171:This is not valid base64", tokenTimestamp)
+    );
   }
 }

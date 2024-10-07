@@ -372,6 +372,16 @@ public final class DynamoDbExtensionSchema {
         List.of(),
         List.of()),
 
+    USED_LINK_DEVICE_TOKENS("used_link_device_tokens_test",
+        Accounts.KEY_LINK_DEVICE_TOKEN_HASH,
+        null,
+        List.of(AttributeDefinition.builder()
+            .attributeName(Accounts.KEY_LINK_DEVICE_TOKEN_HASH)
+            .attributeType(ScalarAttributeType.B)
+            .build()),
+        List.of(),
+        List.of()),
+
     USERNAMES("usernames_test",
         Accounts.ATTR_USERNAME_HASH,
         null,

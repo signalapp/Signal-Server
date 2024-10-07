@@ -93,7 +93,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
         Tables.USERNAMES.tableName(),
-        Tables.DELETED_ACCOUNTS.tableName());
+        Tables.DELETED_ACCOUNTS.tableName(),
+        Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
     {
       //noinspection unchecked
@@ -123,6 +124,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           accounts,
           phoneNumberIdentifiers,
           RedisClusterHelper.builder().stringCommands(commands).build(),
+          RedisClusterHelper.builder().stringCommands(commands).build(),
           accountLockManager,
           mock(KeysManager.class),
           mock(MessagesManager.class),
@@ -135,6 +137,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(Executor.class),
           mock(Executor.class),
           mock(Clock.class),
+          "link-device-secret".getBytes(StandardCharsets.UTF_8),
           dynamicConfigurationManager
       );
     }

@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import io.lettuce.core.RedisException;
+import io.lettuce.core.SetArgs;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -20,11 +21,18 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -43,6 +51,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -71,6 +81,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
+import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 
 public class AccountsManager {
 
@@ -98,6 +109,7 @@ public class AccountsManager {
   private final Accounts accounts;
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final FaultTolerantRedisCluster cacheCluster;
+  private final FaultTolerantRedisCluster rateLimitCluster;
   private final AccountLockManager accountLockManager;
   private final KeysManager keysManager;
   private final MessagesManager messagesManager;
@@ -112,6 +124,8 @@ public class AccountsManager {
   private final Clock clock;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
+  private final Key verificationTokenKey;
+
   private static final ObjectWriter ACCOUNT_REDIS_JSON_WRITER = SystemMapper.jsonMapper()
       .writer(SystemMapper.excludingField(Account.class, List.of("uuid")));
 
@@ -124,6 +138,12 @@ public class AccountsManager {
   private static final Duration USERNAME_HASH_RESERVATION_TTL_MINUTES = Duration.ofMinutes(5);
 
   private static final int MAX_UPDATE_ATTEMPTS = 10;
+
+  @VisibleForTesting
+  static final Duration LINK_DEVICE_TOKEN_EXPIRATION_DURATION = Duration.ofMinutes(10);
+
+  @VisibleForTesting
+  static final String LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM = "HmacSHA256";
 
   public enum DeletionReason {
     ADMIN_DELETED("admin"),
@@ -140,6 +160,7 @@ public class AccountsManager {
   public AccountsManager(final Accounts accounts,
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final FaultTolerantRedisCluster cacheCluster,
+      final FaultTolerantRedisCluster rateLimitCluster,
       final AccountLockManager accountLockManager,
       final KeysManager keysManager,
       final MessagesManager messagesManager,
@@ -152,10 +173,12 @@ public class AccountsManager {
       final Executor accountLockExecutor,
       final Executor clientPresenceExecutor,
       final Clock clock,
+      final byte[] linkDeviceSecret,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
+    this.rateLimitCluster = rateLimitCluster;
     this.accountLockManager = accountLockManager;
     this.keysManager = keysManager;
     this.messagesManager = messagesManager;
@@ -169,6 +192,15 @@ public class AccountsManager {
     this.clientPresenceExecutor = clientPresenceExecutor;
     this.clock = requireNonNull(clock);
     this.dynamicConfigurationManager = dynamicConfigurationManager;
+
+    this.verificationTokenKey = new SecretKeySpec(linkDeviceSecret, LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM);
+
+    // Fail fast: reject bad keys
+    try {
+      getInitializedMac(verificationTokenKey);
+    } catch (final InvalidKeyException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 
   public Account create(final String number,
@@ -275,44 +307,177 @@ public class AccountsManager {
     });
   }
 
-  public CompletableFuture<Pair<Account, Device>> addDevice(final Account account, final DeviceSpec deviceSpec) {
+  public CompletableFuture<Pair<Account, Device>> addDevice(final Account account, final DeviceSpec deviceSpec, final String linkDeviceToken) {
     return accountLockManager.withLockAsync(List.of(account.getNumber()),
-        () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, MAX_UPDATE_ATTEMPTS),
+        () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
         accountLockExecutor);
   }
 
-  private CompletableFuture<Pair<Account, Device>> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final int retries) {
+  private CompletableFuture<Pair<Account, Device>> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final String linkDeviceToken, final int retries) {
     return accounts.getByAccountIdentifierAsync(accountIdentifier)
         .thenApply(maybeAccount -> maybeAccount.orElseThrow(ContestedOptimisticLockException::new))
         .thenCompose(account -> {
           final byte nextDeviceId = account.getNextDeviceId();
+
+          return CompletableFuture.allOf(
+                  keysManager.deleteSingleUsePreKeys(account.getUuid(), nextDeviceId),
+                  keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier(), nextDeviceId),
+                  messagesManager.clear(account.getUuid(), nextDeviceId))
+              .thenApply(ignored -> new Pair<>(account, nextDeviceId));
+        })
+        .thenCompose(accountAndNextDeviceId -> {
+          final Account account = accountAndNextDeviceId.first();
+          final byte nextDeviceId = accountAndNextDeviceId.second();
+
           account.addDevice(deviceSpec.toDevice(nextDeviceId, clock));
 
-          final List<TransactWriteItem> additionalWriteItems = keysManager.buildWriteItemsForNewDevice(
+          final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(
               account.getIdentifier(IdentityType.ACI),
               account.getIdentifier(IdentityType.PNI),
               nextDeviceId,
               deviceSpec.aciSignedPreKey(),
               deviceSpec.pniSignedPreKey(),
               deviceSpec.aciPqLastResortPreKey(),
-              deviceSpec.pniPqLastResortPreKey());
+              deviceSpec.pniPqLastResortPreKey()));
 
-          return CompletableFuture.allOf(
-                  keysManager.deleteSingleUsePreKeys(account.getUuid(), nextDeviceId),
-                  keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier(), nextDeviceId),
-                  messagesManager.clear(account.getUuid(), nextDeviceId))
-              .thenCompose(ignored -> accounts.updateTransactionallyAsync(account, additionalWriteItems))
+          additionalWriteItems.add(accounts.buildTransactWriteItemForLinkDevice(linkDeviceToken, LINK_DEVICE_TOKEN_EXPIRATION_DURATION));
+
+          return accounts.updateTransactionallyAsync(account, additionalWriteItems)
               .thenApply(ignored -> new Pair<>(account, account.getDevice(nextDeviceId).orElseThrow()));
         })
+        .thenCompose(updatedAccountAndDevice -> rateLimitCluster.withCluster(connection ->
+            connection.async().set(getUsedTokenKey(linkDeviceToken), "", new SetArgs().ex(LINK_DEVICE_TOKEN_EXPIRATION_DURATION)))
+            .thenApply(ignored -> updatedAccountAndDevice))
         .thenCompose(updatedAccountAndDevice -> redisDeleteAsync(updatedAccountAndDevice.first())
             .thenApply(ignored -> updatedAccountAndDevice))
         .exceptionallyCompose(throwable -> {
           if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException && retries > 0) {
-            return addDevice(accountIdentifier, deviceSpec, retries - 1);
+            return addDevice(accountIdentifier, deviceSpec, linkDeviceToken, retries - 1);
+          } else if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException transactionCanceledException) {
+            // We can be confident the transaction was canceled because the linked device token was already used if the
+            // "check token" transaction write item is the only one that failed. That SHOULD be the last one in the
+            // list.
+            final long cancelledTransactions = transactionCanceledException.cancellationReasons().stream()
+                .filter(cancellationReason -> !"None".equals(cancellationReason.code()))
+                .count();
+
+            final boolean tokenReuseConditionFailed =
+                "ConditionalCheckFailed".equals(transactionCanceledException.cancellationReasons().getLast().code());
+
+            if (cancelledTransactions == 1 && tokenReuseConditionFailed) {
+              return CompletableFuture.failedFuture(new LinkDeviceTokenAlreadyUsedException());
+            }
           }
 
           return CompletableFuture.failedFuture(throwable);
         });
+  }
+
+  private Mac getInitializedMac() {
+    try {
+      return getInitializedMac(verificationTokenKey);
+    } catch (final InvalidKeyException e) {
+      // We checked the key at construction time, so this can never happen
+      throw new AssertionError("Previously valid key now invalid", e);
+    }
+  }
+
+  private static Mac getInitializedMac(final Key linkDeviceTokenKey) throws InvalidKeyException {
+    try {
+      final Mac mac = Mac.getInstance(LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM);
+      mac.init(linkDeviceTokenKey);
+
+      return mac;
+    } catch (final NoSuchAlgorithmException e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  public String generateDeviceLinkingToken(final UUID aci) {
+    final String claims = aci + "." + clock.instant().toEpochMilli();
+    final byte[] signature = getInitializedMac().doFinal(claims.getBytes(StandardCharsets.UTF_8));
+
+    return claims + ":" + Base64.getUrlEncoder().encodeToString(signature);
+  }
+
+  @VisibleForTesting
+  static String generateDeviceLinkingToken(final UUID aci, final Key linkDeviceTokenKey, final Clock clock)
+      throws InvalidKeyException {
+
+    final String claims = aci + "." + clock.instant().toEpochMilli();
+    final byte[] signature = getInitializedMac(linkDeviceTokenKey).doFinal(claims.getBytes(StandardCharsets.UTF_8));
+
+    return claims + ":" + Base64.getUrlEncoder().encodeToString(signature);
+  }
+
+  /**
+   * Checks that a device-linking token is valid and returns the account identifier from the token if so, or empty if
+   * the token was invalid or has already been used
+   *
+   * @param token the device-linking token to check
+   *
+   * @return the account identifier from a valid token or empty if the token was invalid or already used
+   */
+  public Optional<UUID> checkDeviceLinkingToken(final String token) {
+    final boolean tokenUsed = rateLimitCluster.withCluster(connection ->
+        connection.sync().get(getUsedTokenKey(token)) != null);
+
+    if (tokenUsed) {
+      return Optional.empty();
+    }
+
+    final String[] claimsAndSignature = token.split(":", 2);
+
+    if (claimsAndSignature.length != 2) {
+      return Optional.empty();
+    }
+
+    final byte[] expectedSignature = getInitializedMac().doFinal(claimsAndSignature[0].getBytes(StandardCharsets.UTF_8));
+    final byte[] providedSignature;
+
+    try {
+      providedSignature = Base64.getUrlDecoder().decode(claimsAndSignature[1]);
+    } catch (final IllegalArgumentException e) {
+      return Optional.empty();
+    }
+
+    if (!MessageDigest.isEqual(expectedSignature, providedSignature)) {
+      return Optional.empty();
+    }
+
+    final String[] aciAndTimestamp = claimsAndSignature[0].split("\\.", 2);
+
+    if (aciAndTimestamp.length != 2) {
+      return Optional.empty();
+    }
+
+    final UUID aci;
+
+    try {
+      aci = UUID.fromString(aciAndTimestamp[0]);
+    } catch (final IllegalArgumentException e) {
+      return Optional.empty();
+    }
+
+    final Instant timestamp;
+
+    try {
+      timestamp = Instant.ofEpochMilli(Long.parseLong(aciAndTimestamp[1]));
+    } catch (final NumberFormatException e) {
+      return Optional.empty();
+    }
+
+    final Instant tokenExpiration = timestamp.plus(LINK_DEVICE_TOKEN_EXPIRATION_DURATION);
+
+    if (tokenExpiration.isBefore(clock.instant())) {
+      return Optional.empty();
+    }
+
+    return Optional.of(aci);
+  }
+
+  private static String getUsedTokenKey(final String token) {
+    return "usedToken::" + token;
   }
 
   public CompletableFuture<Account> removeDevice(final Account account, final byte deviceId) {

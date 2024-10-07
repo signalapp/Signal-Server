@@ -10,19 +10,22 @@ public class AccountsTableConfiguration extends Table {
   private final String phoneNumberTableName;
   private final String phoneNumberIdentifierTableName;
   private final String usernamesTableName;
+  private final String usedLinkDeviceTokensTableName;
 
   @JsonCreator
   public AccountsTableConfiguration(
       @JsonProperty("tableName") final String tableName,
       @JsonProperty("phoneNumberTableName") final String phoneNumberTableName,
       @JsonProperty("phoneNumberIdentifierTableName") final String phoneNumberIdentifierTableName,
-      @JsonProperty("usernamesTableName") final String usernamesTableName) {
+      @JsonProperty("usernamesTableName") final String usernamesTableName,
+      @JsonProperty("usedLinkDeviceTokensTableName") final String usedLinkDeviceTokensTableName) {
 
     super(tableName);
 
     this.phoneNumberTableName = phoneNumberTableName;
     this.phoneNumberIdentifierTableName = phoneNumberIdentifierTableName;
     this.usernamesTableName = usernamesTableName;
+    this.usedLinkDeviceTokensTableName = usedLinkDeviceTokensTableName;
   }
 
   @NotBlank
@@ -38,5 +41,10 @@ public class AccountsTableConfiguration extends Table {
   @NotBlank
   public String getUsernamesTableName() {
     return usernamesTableName;
+  }
+
+  @NotBlank
+  public String getUsedLinkDeviceTokensTableName() {
+    return usedLinkDeviceTokensTableName;
   }
 }
