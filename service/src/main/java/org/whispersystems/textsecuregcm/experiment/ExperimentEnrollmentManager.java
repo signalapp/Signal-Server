@@ -5,11 +5,11 @@
 
 package org.whispersystems.textsecuregcm.experiment;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicExperimentEnrollmentConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPreRegistrationExperimentEnrollmentConfiguration;
@@ -47,6 +47,9 @@ public class ExperimentEnrollmentManager {
   }
 
   Optional<Boolean> isAccountEnrolled(final UUID accountUuid, DynamicExperimentEnrollmentConfiguration config) {
+    if (config.getExcludedUuids().contains(accountUuid)) {
+      return Optional.of(false);
+    }
     if (config.getUuidSelector().getUuids().contains(accountUuid)) {
       final int r = random.nextInt(100);
       return Optional.of(r < config.getUuidSelector().getUuidEnrollmentPercentage());

@@ -45,6 +45,7 @@ class ExperimentEnrollmentManagerTest {
   private Random random;
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
+  private static final UUID EXCLUDED_UUID = UUID.randomUUID();
   private static final String UUID_EXPERIMENT_NAME = "uuid_test";
   private static final String E164_AND_UUID_EXPERIMENT_NAME = "e164_uuid_test";
 
@@ -98,6 +99,12 @@ class ExperimentEnrollmentManagerTest {
 
     when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
     assertTrue(experimentEnrollmentManager.isEnrolled(account.getUuid(), UUID_EXPERIMENT_NAME));
+
+    when(experimentEnrollmentConfiguration.getExcludedUuids()).thenReturn(Set.of(EXCLUDED_UUID));
+    when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
+    when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(100);
+    when(uuidSelector.getUuids()).thenReturn(Set.of(EXCLUDED_UUID));
+    assertFalse(experimentEnrollmentManager.isEnrolled(EXCLUDED_UUID, UUID_EXPERIMENT_NAME));
   }
 
   @Test

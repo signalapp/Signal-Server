@@ -26,8 +26,8 @@ public class DynamicExperimentEnrollmentConfiguration {
     /**
      * What percentage of enrolled UUIDs should the experiment be enabled for.
      * <p>
-     * Unlike {@link this#enrollmentPercentage}, this is not stable by UUID. The same UUID may be
-     * enrolled/unenrolled across calls.
+     * Unlike {@link this#enrollmentPercentage}, this is not stable by UUID. The same UUID may be enrolled/unenrolled
+     * across calls.
      */
     @JsonProperty
     @Valid
@@ -49,6 +49,14 @@ public class DynamicExperimentEnrollmentConfiguration {
   @NotNull
   private final UuidSelector uuidSelector = new UuidSelector();
 
+
+  /**
+   * UUIDs that the experiment should always be disabled for. This takes precedence over uuidSelector.
+   */
+  @Valid
+  @NotNull
+  private final Set<UUID> excludedUuids = Collections.emptySet();
+
   /**
    * If the UUID is not enrolled via {@link UuidSelector#uuids}, what is the percentage chance it should be enrolled.
    * <p>
@@ -67,4 +75,9 @@ public class DynamicExperimentEnrollmentConfiguration {
   public UuidSelector getUuidSelector() {
     return uuidSelector;
   }
+
+  public Set<UUID> getExcludedUuids() {
+    return excludedUuids;
+  }
 }
+
