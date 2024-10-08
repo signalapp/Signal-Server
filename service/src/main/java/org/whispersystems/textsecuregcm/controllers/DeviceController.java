@@ -402,14 +402,6 @@ public class DeviceController {
 
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
-  @Path("/unauthenticated_delivery")
-  public void setUnauthenticatedDelivery(@Mutable @Auth AuthenticatedDevice auth) {
-    assert (auth.getAuthenticatedDevice() != null);
-    // Deprecated
-  }
-
-  @PUT
-  @Produces(MediaType.APPLICATION_JSON)
   @Path("/capabilities")
   public void setCapabilities(@Mutable @Auth final AuthenticatedDevice auth,
 
