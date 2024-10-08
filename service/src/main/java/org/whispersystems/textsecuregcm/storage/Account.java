@@ -288,10 +288,6 @@ public class Account {
         .orElse(false);
   }
 
-  public boolean isPaymentActivationSupported() {
-    return allDevicesHaveCapability(DeviceCapabilities::paymentActivation);
-  }
-
   public boolean isDeleteSyncSupported() {
     return allDevicesHaveCapability(DeviceCapabilities::deleteSync);
   }

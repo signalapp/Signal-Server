@@ -129,7 +129,6 @@ class DeviceControllerTest {
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
-    when(account.isPaymentActivationSupported()).thenReturn(false);
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
@@ -199,7 +198,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final AccountAttributes accountAttributes = new AccountAttributes(fetchesMessages, 1234, 5678, null,
-        null, true, new DeviceCapabilities(true, true, true, false, false));
+        null, true, new DeviceCapabilities(true, true, false, false));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         accountAttributes,
@@ -272,7 +271,7 @@ class DeviceControllerTest {
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-            new AccountAttributes(false, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, true, deviceSupportsDeleteSync, false)),
+            new AccountAttributes(false, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, deviceSupportsDeleteSync, false)),
             new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     try (final Response response = resources.getJerseyTest()
@@ -327,7 +326,7 @@ class DeviceControllerTest {
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, true, deviceSupportsVersionedExpirationTimer, false)),
+        new AccountAttributes(false, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, deviceSupportsVersionedExpirationTimer, false)),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     try (final Response response = resources.getJerseyTest()
@@ -416,7 +415,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final AccountAttributes accountAttributes = new AccountAttributes(true, 1234, 5678, null,
-        null, true, new DeviceCapabilities(true, true, true, false, false));
+        null, true, new DeviceCapabilities(true, true, false, false));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         accountAttributes,
@@ -750,7 +749,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, new DeviceCapabilities(true, true, true, false, false)),
+        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, new DeviceCapabilities(true, true, false, false)),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.of(new ApnRegistrationId("apn")), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -809,7 +808,7 @@ class DeviceControllerTest {
 
   @Test
   void putCapabilitiesSuccessTest() {
-    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, true, false, false);
+    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, false, false);
     final Response response = resources
         .getJerseyTest()
         .target("/v1/devices/capabilities")

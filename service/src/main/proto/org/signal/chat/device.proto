@@ -140,9 +140,8 @@ message ClearPushTokenResponse {}
 message SetCapabilitiesRequest {
   bool storage = 1;
   bool transfer = 2;
-  bool paymentActivation = 3;
-  bool deleteSync = 4;
-  bool versionedExpirationTimer = 5;
+  bool deleteSync = 3;
+  bool versionedExpirationTimer = 4;
 }
 
 message SetCapabilitiesResponse {}

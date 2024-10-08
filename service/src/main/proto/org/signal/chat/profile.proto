@@ -319,17 +319,13 @@ message ProfileAvatarUploadAttributes {
 
 message UserCapabilities {
   /**
-   * Whether all devices linked to the account support MobileCoin payments.
-   */
-  bool payment_activation = 1;
-  /**
    * Whether all devices linked to the account support delete syncing
    */
-  bool delete_sync = 2;
+  bool delete_sync = 1;
   /**
    * Whether all devices linked to the account support a versioned expiration timer
    */
-  bool versioned_expiration_timer = 3;
+  bool versioned_expiration_timer = 2;
 }
 
 message Badge {

@@ -82,7 +82,6 @@ public class ProfileGrpcHelper {
   @VisibleForTesting
   static UserCapabilities buildUserCapabilities(final org.whispersystems.textsecuregcm.entities.UserCapabilities capabilities) {
     return UserCapabilities.newBuilder()
-        .setPaymentActivation(capabilities.paymentActivation())
         .setDeleteSync(capabilities.deleteSync())
         .setVersionedExpirationTimer(capabilities.versionedExpirationTimer())
         .build();

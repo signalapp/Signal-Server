@@ -126,7 +126,7 @@ public class TestUser {
   }
 
   public AccountAttributes accountAttributes() {
-    return new AccountAttributes(true, registrationId, pniRegistrationId, "".getBytes(StandardCharsets.UTF_8), "", true, new Device.DeviceCapabilities(false, false, false, false, false))
+    return new AccountAttributes(true, registrationId, pniRegistrationId, "".getBytes(StandardCharsets.UTF_8), "", true, new Device.DeviceCapabilities(false, false, false, false))
         .withUnidentifiedAccessKey(unidentifiedAccessKey)
         .withRecoveryPassword(registrationPassword);
   }

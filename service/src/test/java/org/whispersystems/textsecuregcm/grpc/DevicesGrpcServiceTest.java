@@ -364,7 +364,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       @CartesianTest.Values(bytes = {Device.PRIMARY_ID, Device.PRIMARY_ID + 1}) final byte deviceId,
       @CartesianTest.Values(booleans = {true, false}) final boolean storage,
       @CartesianTest.Values(booleans = {true, false}) final boolean transfer,
-      @CartesianTest.Values(booleans = {true, false}) final boolean paymentActivation,
       @CartesianTest.Values(booleans = {true, false}) final boolean deleteSync,
       @CartesianTest.Values(booleans = {true, false}) final boolean versionedExpirationTimer) {
 
@@ -376,7 +375,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final SetCapabilitiesResponse ignored = authenticatedServiceStub().setCapabilities(SetCapabilitiesRequest.newBuilder()
             .setStorage(storage)
             .setTransfer(transfer)
-            .setPaymentActivation(paymentActivation)
             .setDeleteSync(deleteSync)
             .setVersionedExpirationTimer(versionedExpirationTimer)
         .build());
@@ -384,7 +382,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final Device.DeviceCapabilities expectedCapabilities = new Device.DeviceCapabilities(
         storage,
         transfer,
-        paymentActivation,
         deleteSync,
         versionedExpirationTimer);
 

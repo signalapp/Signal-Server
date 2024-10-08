@@ -40,10 +40,6 @@ class AccountTest {
   private final Device agingSecondaryDevice = mock(Device.class);
   private final Device recentSecondaryDevice = mock(Device.class);
   private final Device oldSecondaryDevice = mock(Device.class);
-
-  private final Device paymentActivationCapableDevice = mock(Device.class);
-  private final Device paymentActivationIncapableDevice = mock(Device.class);
-  private final Device paymentActivationIncapableDeviceWithoutDeliveryChannel = mock(Device.class);
   private final Device deleteSyncCapableDevice = mock(Device.class);
   private final Device deleteSyncIncapableDevice = mock(Device.class);
   private final Device versionedExpirationTimerCapableDevice = mock(Device.class);
@@ -67,33 +63,21 @@ class AccountTest {
     when(oldSecondaryDevice.getLastSeen()).thenReturn(System.currentTimeMillis() - TimeUnit.DAYS.toMillis(366));
     when(oldSecondaryDevice.getId()).thenReturn(deviceId2);
 
-    when(paymentActivationCapableDevice.getId()).thenReturn((byte) 1);
-    when(paymentActivationCapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, true, false, false));
-
-    when(paymentActivationIncapableDevice.getId()).thenReturn((byte) 2);
-    when(paymentActivationIncapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, false, false, false));
-
-    when(paymentActivationIncapableDeviceWithoutDeliveryChannel.getId()).thenReturn((byte) 3);
-    when(paymentActivationIncapableDeviceWithoutDeliveryChannel.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, false, false, false));
-
     when(deleteSyncCapableDevice.getId()).thenReturn((byte) 1);
     when(deleteSyncCapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, true, true, false));
+        .thenReturn(new DeviceCapabilities(true, true, true, false));
 
     when(deleteSyncIncapableDevice.getId()).thenReturn((byte) 2);
     when(deleteSyncIncapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, true, false, false));
+        .thenReturn(new DeviceCapabilities(true, true, false, false));
 
     when(versionedExpirationTimerCapableDevice.getId()).thenReturn((byte) 1);
     when(versionedExpirationTimerCapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, true, false, true));
+        .thenReturn(new DeviceCapabilities(true, true, false, true));
 
     when(versionedExpirationTimerIncapableDevice.getId()).thenReturn((byte) 2);
     when(versionedExpirationTimerIncapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, true, false, false));
+        .thenReturn(new DeviceCapabilities(true, true, false, false));
 
   }
 
@@ -155,19 +139,6 @@ class AccountTest {
 
     account.setDiscoverableByPhoneNumber(true);
     assertTrue(account.isDiscoverableByPhoneNumber());
-  }
-
-  @Test
-  void isPaymentActivationSupported() {
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(paymentActivationCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isTrue();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(paymentActivationIncapableDevice, paymentActivationCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isFalse();
-    assertThat(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(paymentActivationIncapableDeviceWithoutDeliveryChannel, paymentActivationCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isPaymentActivationSupported()).isFalse();
   }
 
   @Test

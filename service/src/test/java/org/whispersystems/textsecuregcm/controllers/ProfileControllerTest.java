@@ -454,7 +454,6 @@ class ProfileControllerTest {
 
     assertEquals(isDeleteSyncSupported, profile.getCapabilities().deleteSync());
     assertEquals(isVersionedExpirationTimerSupported, profile.getCapabilities().versionedExpirationTimer());
-    assertThat(profile.getCapabilities().paymentActivation()).isTrue();
   }
 
   @Test

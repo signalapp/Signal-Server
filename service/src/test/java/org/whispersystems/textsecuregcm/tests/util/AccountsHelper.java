@@ -147,7 +147,6 @@ public class AccountsHelper {
           case "getPrimaryDevice" -> when(updatedAccount.getPrimaryDevice()).thenAnswer(stubbing);
           case "isDiscoverableByPhoneNumber" -> when(updatedAccount.isDiscoverableByPhoneNumber()).thenAnswer(stubbing);
           case "getNextDeviceId" -> when(updatedAccount.getNextDeviceId()).thenAnswer(stubbing);
-          case "isPaymentActivationSupported" -> when(updatedAccount.isPaymentActivationSupported()).thenAnswer(stubbing);
           case "isDeleteSyncSupported" -> when(updatedAccount.isDeleteSyncSupported()).thenAnswer(stubbing);
           case "isVersionedExpirationTimerSupported" -> when(updatedAccount.isVersionedExpirationTimerSupported()).thenAnswer(stubbing);
           case "getRegistrationLock" -> when(updatedAccount.getRegistrationLock()).thenAnswer(stubbing);

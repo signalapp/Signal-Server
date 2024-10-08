@@ -221,7 +221,7 @@ public class Device {
     return this.userAgent;
   }
 
-  public record DeviceCapabilities(boolean storage, boolean transfer, boolean paymentActivation, boolean deleteSync,
+  public record DeviceCapabilities(boolean storage, boolean transfer, boolean deleteSync,
                                    boolean versionedExpirationTimer) {
   }
 }
