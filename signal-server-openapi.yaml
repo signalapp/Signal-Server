@@ -3513,8 +3513,6 @@ components:
           type: boolean
         transfer:
           type: boolean
-        paymentActivation:
-          type: boolean
         deleteSync:
           type: boolean
         versionedExpirationTimer:
@@ -4911,8 +4909,6 @@ components:
     UserCapabilities:
       type: object
       properties:
-        paymentActivation:
-          type: boolean
         deleteSync:
           type: boolean
         versionedExpirationTimer:
