@@ -43,7 +43,7 @@ message ConsistencyParameters {
   /**
    * The distinguished tree head size to prove consistency against.
    * This field may be omitted when the client is looking up the
-   * "distinguished" key for the very first time. 
+   * "distinguished" key for the very first time.
    */
   optional uint64 distinguished = 2;
 }
@@ -217,6 +217,11 @@ message MonitorKey {
    * in the corresponding MonitorProof.
    */
   repeated uint64 entries = 2;
+  /**
+   * The commitment index for the search key. This is derived from vrf_proof in
+   * the SearchResponse.
+   */
+  bytes commitment_index = 3;
 }
 
 
@@ -269,4 +274,3 @@ message MonitorResponse {
    */
   repeated bytes inclusion = 4;
 }
-
