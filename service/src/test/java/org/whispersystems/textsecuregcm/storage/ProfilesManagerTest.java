@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Timeout;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.tests.util.MockRedisFuture;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
@@ -50,7 +50,7 @@ public class ProfilesManagerTest {
     //noinspection unchecked
     commands = mock(RedisAdvancedClusterCommands.class);
     asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
-    final FaultTolerantRedisCluster cacheCluster = RedisClusterHelper.builder()
+    final FaultTolerantRedisClusterClient cacheCluster = RedisClusterHelper.builder()
         .stringCommands(commands)
         .stringAsyncCommands(asyncCommands)
         .build();

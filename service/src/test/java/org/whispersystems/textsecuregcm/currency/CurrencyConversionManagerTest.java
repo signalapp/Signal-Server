@@ -25,7 +25,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
 class CurrencyConversionManagerTest {
@@ -240,7 +240,7 @@ class CurrencyConversionManagerTest {
   void convertToUsd() {
     final CurrencyConversionManager currencyConversionManager = new CurrencyConversionManager(mock(FixerClient.class),
         mock(CoinMarketCapClient.class),
-        mock(FaultTolerantRedisCluster.class),
+        mock(FaultTolerantRedisClusterClient.class),
         Collections.emptyList(),
         EXECUTOR,
         Clock.systemUTC());

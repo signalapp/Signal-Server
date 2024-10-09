@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono;
 
 public class ClusterLuaScript {
 
-  private final FaultTolerantRedisCluster redisCluster;
+  private final FaultTolerantRedisClusterClient redisCluster;
   private final ScriptOutputType scriptOutputType;
   private final String script;
   private final String sha;
@@ -35,7 +35,7 @@ public class ClusterLuaScript {
 
   private static final Logger log = LoggerFactory.getLogger(ClusterLuaScript.class);
 
-  public static ClusterLuaScript fromResource(final FaultTolerantRedisCluster redisCluster,
+  public static ClusterLuaScript fromResource(final FaultTolerantRedisClusterClient redisCluster,
       final String resource,
       final ScriptOutputType scriptOutputType) throws IOException {
 
@@ -51,7 +51,7 @@ public class ClusterLuaScript {
   }
 
   @VisibleForTesting
-  ClusterLuaScript(final FaultTolerantRedisCluster redisCluster,
+  ClusterLuaScript(final FaultTolerantRedisClusterClient redisCluster,
       final String script,
       final ScriptOutputType scriptOutputType) {
 

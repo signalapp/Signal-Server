@@ -43,7 +43,7 @@ class ClusterLuaScriptTest {
   @Test
   void testExecute() {
     final RedisAdvancedClusterCommands<String, String> commands = mock(RedisAdvancedClusterCommands.class);
-    final FaultTolerantRedisCluster mockCluster = RedisClusterHelper.builder().stringCommands(commands).build();
+    final FaultTolerantRedisClusterClient mockCluster = RedisClusterHelper.builder().stringCommands(commands).build();
 
     final String script = "return redis.call(\"SET\", KEYS[1], ARGV[1])";
     final ScriptOutputType scriptOutputType = ScriptOutputType.VALUE;
@@ -62,7 +62,7 @@ class ClusterLuaScriptTest {
   @Test
   void testExecuteScriptNotLoaded() {
     final RedisAdvancedClusterCommands<String, String> commands = mock(RedisAdvancedClusterCommands.class);
-    final FaultTolerantRedisCluster mockCluster = RedisClusterHelper.builder().stringCommands(commands).build();
+    final FaultTolerantRedisClusterClient mockCluster = RedisClusterHelper.builder().stringCommands(commands).build();
 
     final String script = "return redis.call(\"SET\", KEYS[1], ARGV[1])";
     final ScriptOutputType scriptOutputType = ScriptOutputType.VALUE;
@@ -82,7 +82,7 @@ class ClusterLuaScriptTest {
   void testExecuteBinaryScriptNotLoaded() {
     final RedisAdvancedClusterCommands<String, String> stringCommands = mock(RedisAdvancedClusterCommands.class);
     final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands = mock(RedisAdvancedClusterCommands.class);
-    final FaultTolerantRedisCluster mockCluster = RedisClusterHelper.builder()
+    final FaultTolerantRedisClusterClient mockCluster = RedisClusterHelper.builder()
         .stringCommands(stringCommands)
         .binaryCommands(binaryCommands)
         .build();
@@ -106,7 +106,7 @@ class ClusterLuaScriptTest {
   void testExecuteBinaryAsyncScriptNotLoaded() throws Exception {
     final RedisAdvancedClusterAsyncCommands<byte[], byte[]> binaryAsyncCommands =
         mock(RedisAdvancedClusterAsyncCommands.class);
-    final FaultTolerantRedisCluster mockCluster =
+    final FaultTolerantRedisClusterClient mockCluster =
         RedisClusterHelper.builder().binaryAsyncCommands(binaryAsyncCommands).build();
 
     final String script = "return redis.call(\"SET\", KEYS[1], ARGV[1])";
@@ -136,7 +136,7 @@ class ClusterLuaScriptTest {
   void testExecuteBinaryReactiveScriptNotLoaded() {
     final RedisAdvancedClusterReactiveCommands<byte[], byte[]> binaryReactiveCommands =
         mock(RedisAdvancedClusterReactiveCommands.class);
-    final FaultTolerantRedisCluster mockCluster = RedisClusterHelper.builder()
+    final FaultTolerantRedisClusterClient mockCluster = RedisClusterHelper.builder()
         .binaryReactiveCommands(binaryReactiveCommands).build();
 
     final String script = "return redis.call(\"SET\", KEYS[1], ARGV[1])";

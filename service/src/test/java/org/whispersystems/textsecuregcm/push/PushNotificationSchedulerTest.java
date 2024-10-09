@@ -31,7 +31,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -247,7 +247,7 @@ class PushNotificationSchedulerTest {
   void testDedicatedProcessDynamicConfiguration(final int dedicatedThreadCount, final boolean expectActivity)
       throws Exception {
 
-    final FaultTolerantRedisCluster redisCluster = mock(FaultTolerantRedisCluster.class);
+    final FaultTolerantRedisClusterClient redisCluster = mock(FaultTolerantRedisClusterClient.class);
     when(redisCluster.withCluster(any())).thenReturn(0L);
 
     final AccountsManager accountsManager = mock(AccountsManager.class);

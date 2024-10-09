@@ -11,7 +11,7 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 public class MessageDeliveryLoopMonitor {
 
@@ -22,7 +22,7 @@ public class MessageDeliveryLoopMonitor {
 
   private static final Logger logger = LoggerFactory.getLogger(MessageDeliveryLoopMonitor.class);
 
-  public MessageDeliveryLoopMonitor(final FaultTolerantRedisCluster rateLimitCluster) {
+  public MessageDeliveryLoopMonitor(final FaultTolerantRedisClusterClient rateLimitCluster) {
     try {
       getDeliveryAttemptsScript =
           ClusterLuaScript.fromResource(rateLimitCluster, "lua/get_delivery_attempt_count.lua", ScriptOutputType.INTEGER);

@@ -27,7 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntity;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 public class CurrencyConversionManager implements Managed {
 
@@ -47,7 +47,7 @@ public class CurrencyConversionManager implements Managed {
 
   private final CoinMarketCapClient coinMarketCapClient;
 
-  private final FaultTolerantRedisCluster cacheCluster;
+  private final FaultTolerantRedisClusterClient cacheCluster;
 
   private final Clock clock;
 
@@ -67,7 +67,7 @@ public class CurrencyConversionManager implements Managed {
   public CurrencyConversionManager(
       final FixerClient fixerClient,
       final CoinMarketCapClient coinMarketCapClient,
-      final FaultTolerantRedisCluster cacheCluster,
+      final FaultTolerantRedisClusterClient cacheCluster,
       final List<String> currencies,
       final ScheduledExecutorService executor,
       final Clock clock) {

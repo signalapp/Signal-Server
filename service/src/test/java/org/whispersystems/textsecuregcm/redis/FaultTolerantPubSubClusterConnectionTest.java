@@ -40,11 +40,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.publisher.TestPublisher;
 
-class FaultTolerantPubSubConnectionTest {
+class FaultTolerantPubSubClusterConnectionTest {
 
   private StatefulRedisClusterPubSubConnection<String, String> pubSubConnection;
   private RedisClusterPubSubCommands<String, String> pubSubCommands;
-  private FaultTolerantPubSubConnection<String, String> faultTolerantPubSubConnection;
+  private FaultTolerantPubSubClusterConnection<String, String> faultTolerantPubSubConnection;
 
 
   @SuppressWarnings("unchecked")
@@ -68,7 +68,7 @@ class FaultTolerantPubSubConnectionTest {
         .build();
     final Retry resubscribeRetry = Retry.of("test-resubscribe", resubscribeRetryConfiguration);
 
-    faultTolerantPubSubConnection = new FaultTolerantPubSubConnection<>("test", pubSubConnection,
+    faultTolerantPubSubConnection = new FaultTolerantPubSubClusterConnection<>("test", pubSubConnection,
         retry, resubscribeRetry, Schedulers.newSingle("test"));
   }
 

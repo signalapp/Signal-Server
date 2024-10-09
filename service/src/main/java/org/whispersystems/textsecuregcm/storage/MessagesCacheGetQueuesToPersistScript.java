@@ -11,7 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 /**
  * Returns a list of queues that may be persisted. They will be sorted from oldest to more recent, limited by the
@@ -23,7 +23,7 @@ class MessagesCacheGetQueuesToPersistScript {
 
   private final ClusterLuaScript getQueuesToPersistScript;
 
-  MessagesCacheGetQueuesToPersistScript(final FaultTolerantRedisCluster redisCluster) throws IOException {
+  MessagesCacheGetQueuesToPersistScript(final FaultTolerantRedisClusterClient redisCluster) throws IOException {
     this.getQueuesToPersistScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_queues_to_persist.lua",
         ScriptOutputType.MULTI);
   }

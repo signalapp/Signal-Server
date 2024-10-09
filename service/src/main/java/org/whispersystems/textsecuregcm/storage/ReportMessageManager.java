@@ -21,13 +21,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class ReportMessageManager {
 
   private final ReportMessageDynamoDb reportMessageDynamoDb;
-  private final FaultTolerantRedisCluster rateLimitCluster;
+  private final FaultTolerantRedisClusterClient rateLimitCluster;
 
   private final Duration counterTtl;
 
@@ -40,7 +40,7 @@ public class ReportMessageManager {
   private static final Logger logger = LoggerFactory.getLogger(ReportMessageManager.class);
 
   public ReportMessageManager(final ReportMessageDynamoDb reportMessageDynamoDb,
-      final FaultTolerantRedisCluster rateLimitCluster,
+      final FaultTolerantRedisClusterClient rateLimitCluster,
       final Duration counterTtl) {
 
     this.reportMessageDynamoDb = reportMessageDynamoDb;

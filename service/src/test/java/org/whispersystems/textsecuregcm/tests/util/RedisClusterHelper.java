@@ -16,7 +16,7 @@ import io.lettuce.core.cluster.api.reactive.RedisAdvancedClusterReactiveCommands
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 public class RedisClusterHelper {
 
@@ -25,13 +25,13 @@ public class RedisClusterHelper {
   }
 
   @SuppressWarnings("unchecked")
-  private static FaultTolerantRedisCluster buildMockRedisCluster(
+  private static FaultTolerantRedisClusterClient buildMockRedisCluster(
       final RedisAdvancedClusterCommands<String, String> stringCommands,
       final RedisAdvancedClusterAsyncCommands<String, String> stringAsyncCommands,
       final RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands,
       final RedisAdvancedClusterAsyncCommands<byte[], byte[]> binaryAsyncCommands,
       final RedisAdvancedClusterReactiveCommands<byte[], byte[]> binaryReactiveCommands) {
-    final FaultTolerantRedisCluster cluster = mock(FaultTolerantRedisCluster.class);
+    final FaultTolerantRedisClusterClient cluster = mock(FaultTolerantRedisClusterClient.class);
     final StatefulRedisClusterConnection<String, String> stringConnection = mock(StatefulRedisClusterConnection.class);
     final StatefulRedisClusterConnection<byte[], byte[]> binaryConnection = mock(StatefulRedisClusterConnection.class);
 
@@ -107,7 +107,7 @@ public class RedisClusterHelper {
       return this;
     }
 
-    public FaultTolerantRedisCluster build() {
+    public FaultTolerantRedisClusterClient build() {
       return RedisClusterHelper.buildMockRedisCluster(stringCommands, stringAsyncCommands, binaryCommands, binaryAsyncCommands,
           binaryReactiveCommands);
     }

@@ -13,7 +13,7 @@ import java.time.Duration;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 @JsonTypeName("default")
 public class RedisClusterConfiguration implements FaultTolerantRedisClusterFactory {
@@ -58,7 +58,7 @@ public class RedisClusterConfiguration implements FaultTolerantRedisClusterFacto
   }
 
   @Override
-  public FaultTolerantRedisCluster build(final String name, final ClientResources.Builder clientResourcesBuilder) {
-    return new FaultTolerantRedisCluster(name, this, clientResourcesBuilder);
+  public FaultTolerantRedisClusterClient build(final String name, final ClientResources.Builder clientResourcesBuilder) {
+    return new FaultTolerantRedisClusterClient(name, this, clientResourcesBuilder);
   }
 }

@@ -31,7 +31,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -62,7 +62,7 @@ public class PushNotificationScheduler implements Managed {
   private final APNSender apnSender;
   private final FcmSender fcmSender;
   private final AccountsManager accountsManager;
-  private final FaultTolerantRedisCluster pushSchedulingCluster;
+  private final FaultTolerantRedisClusterClient pushSchedulingCluster;
   private final Clock clock;
 
   private final ClusterLuaScript scheduleBackgroundApnsNotificationScript;
@@ -141,7 +141,7 @@ public class PushNotificationScheduler implements Managed {
     }
   }
 
-  public PushNotificationScheduler(final FaultTolerantRedisCluster pushSchedulingCluster,
+  public PushNotificationScheduler(final FaultTolerantRedisClusterClient pushSchedulingCluster,
       final APNSender apnSender,
       final FcmSender fcmSender,
       final AccountsManager accountsManager,
@@ -158,7 +158,7 @@ public class PushNotificationScheduler implements Managed {
   }
 
   @VisibleForTesting
-  PushNotificationScheduler(final FaultTolerantRedisCluster pushSchedulingCluster,
+  PushNotificationScheduler(final FaultTolerantRedisClusterClient pushSchedulingCluster,
                             final APNSender apnSender,
                             final FcmSender fcmSender,
                             final AccountsManager accountsManager,

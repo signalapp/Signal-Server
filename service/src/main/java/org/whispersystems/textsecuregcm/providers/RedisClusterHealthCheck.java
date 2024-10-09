@@ -6,13 +6,13 @@
 package org.whispersystems.textsecuregcm.providers;
 
 import com.codahale.metrics.health.HealthCheck;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 public class RedisClusterHealthCheck extends HealthCheck {
 
-    private final FaultTolerantRedisCluster redisCluster;
+    private final FaultTolerantRedisClusterClient redisCluster;
 
-    public RedisClusterHealthCheck(final FaultTolerantRedisCluster redisCluster) {
+    public RedisClusterHealthCheck(final FaultTolerantRedisClusterClient redisCluster) {
         this.redisCluster = redisCluster;
     }
 

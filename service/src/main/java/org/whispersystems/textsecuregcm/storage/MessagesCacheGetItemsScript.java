@@ -11,7 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import reactor.core.publisher.Mono;
 
 /**
@@ -22,7 +22,7 @@ class MessagesCacheGetItemsScript {
 
   private final ClusterLuaScript getItemsScript;
 
-  MessagesCacheGetItemsScript(FaultTolerantRedisCluster redisCluster) throws IOException {
+  MessagesCacheGetItemsScript(FaultTolerantRedisClusterClient redisCluster) throws IOException {
     this.getItemsScript = ClusterLuaScript.fromResource(redisCluster, "lua/get_items.lua", ScriptOutputType.OBJECT);
   }
 

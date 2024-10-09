@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import io.lettuce.core.resource.ClientResources;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
 @JsonTypeName("local")
@@ -31,7 +31,7 @@ public class LocalFaultTolerantRedisClusterFactory implements FaultTolerantRedis
   }
 
   @Override
-  public FaultTolerantRedisCluster build(final String name, final ClientResources.Builder clientResourcesBuilder) {
+  public FaultTolerantRedisClusterClient build(final String name, final ClientResources.Builder clientResourcesBuilder) {
 
     if (shutdownHookConfigured.compareAndSet(false, true)) {
       Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -47,7 +47,7 @@ public class LocalFaultTolerantRedisClusterFactory implements FaultTolerantRedis
     final RedisClusterConfiguration config = new RedisClusterConfiguration();
     config.setConfigurationUri(RedisClusterExtension.getRedisURIs().getFirst().toString());
 
-    return new FaultTolerantRedisCluster(name, config, clientResourcesBuilder);
+    return new FaultTolerantRedisClusterClient(name, config, clientResourcesBuilder);
   }
 
 }

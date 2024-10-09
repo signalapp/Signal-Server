@@ -158,9 +158,8 @@ cacheCluster: # Redis server configuration for cache cluster
 clientPresenceCluster: # Redis server configuration for client presence cluster
   type: local
 
-provisioning:
-  pubsub: # Redis server configuration for pubsub cluster
-    type: local
+pubsub: # Redis server configuration for pubsub cluster
+  type: local
 
 pushSchedulerCluster: # Redis server configuration for push scheduler cluster
   type: local

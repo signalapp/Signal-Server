@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 /**
  * Inserts the shared multi-recipient message payload into the cache. The list of recipients and views will be set as
@@ -25,7 +25,7 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
 
   static final String ERROR_KEY_EXISTS = "ERR key exists";
 
-  MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(FaultTolerantRedisCluster redisCluster)
+  MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(FaultTolerantRedisClusterClient redisCluster)
       throws IOException {
     this.script = ClusterLuaScript.fromResource(redisCluster, "lua/insert_shared_multirecipient_message_data.lua",
         ScriptOutputType.INTEGER);

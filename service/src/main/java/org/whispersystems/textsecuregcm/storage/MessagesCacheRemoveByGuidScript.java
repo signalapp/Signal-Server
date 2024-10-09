@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 /**
  * Removes a list of message GUIDs from the queue of a destination device.
@@ -21,7 +21,7 @@ class MessagesCacheRemoveByGuidScript {
 
   private final ClusterLuaScript removeByGuidScript;
 
-  MessagesCacheRemoveByGuidScript(final FaultTolerantRedisCluster redisCluster) throws IOException {
+  MessagesCacheRemoveByGuidScript(final FaultTolerantRedisClusterClient redisCluster) throws IOException {
     this.removeByGuidScript = ClusterLuaScript.fromResource(redisCluster, "lua/remove_item_by_guid.lua",
         ScriptOutputType.OBJECT);
   }

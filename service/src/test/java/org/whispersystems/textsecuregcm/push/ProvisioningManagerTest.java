@@ -15,8 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.redis.RedisSingletonExtension;
+import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
@@ -25,13 +24,13 @@ class ProvisioningManagerTest {
   private ProvisioningManager provisioningManager;
 
   @RegisterExtension
-  static final RedisSingletonExtension REDIS_EXTENSION = RedisSingletonExtension.builder().build();
+  static final RedisServerExtension REDIS_EXTENSION = RedisServerExtension.builder().build();
 
   private static final long PUBSUB_TIMEOUT_MILLIS = 1_000;
 
   @BeforeEach
   void setUp() throws Exception {
-    provisioningManager = new ProvisioningManager(REDIS_EXTENSION.getRedisClient(), new CircuitBreakerConfiguration());
+    provisioningManager = new ProvisioningManager(REDIS_EXTENSION.getRedisClient());
     provisioningManager.start();
   }
 

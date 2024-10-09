@@ -22,7 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
@@ -39,7 +39,7 @@ public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
       final Map<String, RateLimiterConfig> configs,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final ClusterLuaScript validateScript,
-      final FaultTolerantRedisCluster cacheCluster,
+      final FaultTolerantRedisClusterClient cacheCluster,
       final Clock clock) {
     this.configs = configs;
     this.rateLimiterByDescriptor = Arrays.stream(values)
@@ -69,7 +69,7 @@ public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
     }
   }
 
-  protected static ClusterLuaScript defaultScript(final FaultTolerantRedisCluster cacheCluster) {
+  protected static ClusterLuaScript defaultScript(final FaultTolerantRedisClusterClient cacheCluster) {
     try {
       return ClusterLuaScript.fromResource(
           cacheCluster, "lua/validate_rate_limit.lua", ScriptOutputType.INTEGER);
@@ -83,7 +83,7 @@ public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
       final Map<String, RateLimiterConfig> configs,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final ClusterLuaScript validateScript,
-      final FaultTolerantRedisCluster cacheCluster,
+      final FaultTolerantRedisClusterClient cacheCluster,
       final Clock clock) {
     if (descriptor.isDynamic()) {
       final Supplier<RateLimiterConfig> configResolver = () -> {

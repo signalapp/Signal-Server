@@ -11,7 +11,7 @@ import java.time.Duration;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
@@ -81,7 +81,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
   public static RateLimiters createAndValidate(
       final Map<String, RateLimiterConfig> configs,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final FaultTolerantRedisCluster cacheCluster) {
+      final FaultTolerantRedisClusterClient cacheCluster) {
     final RateLimiters rateLimiters = new RateLimiters(
         configs, dynamicConfigurationManager, defaultScript(cacheCluster), cacheCluster, Clock.systemUTC());
     rateLimiters.validateValuesAndConfigs();
@@ -93,7 +93,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
       final Map<String, RateLimiterConfig> configs,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final ClusterLuaScript validateScript,
-      final FaultTolerantRedisCluster cacheCluster,
+      final FaultTolerantRedisClusterClient cacheCluster,
       final Clock clock) {
     super(For.values(), configs, dynamicConfigurationManager, validateScript, cacheCluster, clock);
   }

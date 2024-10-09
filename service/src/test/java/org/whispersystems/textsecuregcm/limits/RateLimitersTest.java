@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitPolicy;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
@@ -37,7 +37,7 @@ public class RateLimitersTest {
 
   private final ClusterLuaScript validateScript = mock(ClusterLuaScript.class);
 
-  private final FaultTolerantRedisCluster redisCluster = mock(FaultTolerantRedisCluster.class);
+  private final FaultTolerantRedisClusterClient redisCluster = mock(FaultTolerantRedisClusterClient.class);
 
   private final MutableClock clock = MockUtils.mutableClock(0);
 

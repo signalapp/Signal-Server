@@ -12,7 +12,7 @@ import java.util.Collection;
 import java.util.List;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import reactor.core.publisher.Mono;
 
 /**
@@ -25,7 +25,7 @@ class MessagesCacheRemoveRecipientViewFromMrmDataScript {
 
   private final ClusterLuaScript removeRecipientViewFromMrmDataScript;
 
-  MessagesCacheRemoveRecipientViewFromMrmDataScript(final FaultTolerantRedisCluster redisCluster) throws IOException {
+  MessagesCacheRemoveRecipientViewFromMrmDataScript(final FaultTolerantRedisClusterClient redisCluster) throws IOException {
     this.removeRecipientViewFromMrmDataScript = ClusterLuaScript.fromResource(redisCluster,
         "lua/remove_recipient_view_from_mrm_data.lua", ScriptOutputType.INTEGER);
   }

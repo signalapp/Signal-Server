@@ -8,10 +8,10 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.dropwizard.jackson.Discoverable;
 import io.lettuce.core.resource.ClientResources;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", defaultImpl = RedisClusterConfiguration.class)
 public interface FaultTolerantRedisClusterFactory extends Discoverable {
 
-  FaultTolerantRedisCluster build(String name, ClientResources.Builder clientResourcesBuilder);
+  FaultTolerantRedisClusterClient build(String name, ClientResources.Builder clientResourcesBuilder);
 }

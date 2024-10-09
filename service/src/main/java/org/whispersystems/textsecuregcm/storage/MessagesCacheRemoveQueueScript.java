@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import reactor.core.publisher.Mono;
 
 /**
@@ -29,7 +29,7 @@ class MessagesCacheRemoveQueueScript {
 
   private final ClusterLuaScript removeQueueScript;
 
-  MessagesCacheRemoveQueueScript(FaultTolerantRedisCluster redisCluster) throws IOException {
+  MessagesCacheRemoveQueueScript(FaultTolerantRedisClusterClient redisCluster) throws IOException {
     this.removeQueueScript = ClusterLuaScript.fromResource(redisCluster, "lua/remove_queue.lua",
         ScriptOutputType.MULTI);
   }

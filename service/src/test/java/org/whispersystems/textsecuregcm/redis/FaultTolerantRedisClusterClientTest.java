@@ -68,7 +68,7 @@ import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 // ThreadMode.SEPARATE_THREAD protects against hangs in the remote Redis calls, as this mode allows the test code to be
 // preempted by the timeout check
 @Timeout(value = 5, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-class FaultTolerantRedisClusterTest {
+class FaultTolerantRedisClusterClientTest {
 
   private static final Duration TIMEOUT = Duration.ofMillis(50);
 
@@ -85,13 +85,13 @@ class FaultTolerantRedisClusterTest {
       .timeout(TIMEOUT)
       .build();
 
-  private FaultTolerantRedisCluster cluster;
+  private FaultTolerantRedisClusterClient cluster;
 
-  private static FaultTolerantRedisCluster buildCluster(
+  private static FaultTolerantRedisClusterClient buildCluster(
       @Nullable final CircuitBreakerConfiguration circuitBreakerConfiguration,
       final ClientResources.Builder clientResourcesBuilder) {
 
-    return new FaultTolerantRedisCluster("test", clientResourcesBuilder,
+    return new FaultTolerantRedisClusterClient("test", clientResourcesBuilder,
         RedisClusterExtension.getRedisURIs(), TIMEOUT,
         Optional.ofNullable(circuitBreakerConfiguration).orElseGet(CircuitBreakerConfiguration::new),
         RETRY_CONFIGURATION);
@@ -235,7 +235,7 @@ class FaultTolerantRedisClusterTest {
     final int availableSlot = availableNode.getSlots().getFirst();
     final String availableKey = "key::{%s}".formatted(RedisClusterUtil.getMinimalHashTag(availableSlot));
 
-    final FaultTolerantPubSubConnection<String, String> pubSubConnection = cluster.createPubSubConnection();
+    final FaultTolerantPubSubClusterConnection<String, String> pubSubConnection = cluster.createPubSubConnection();
 
     // Keyspace notifications are delivered on a different thread, so we use a CountDownLatch to wait for the
     // expected number of notifications to arrive

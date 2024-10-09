@@ -163,9 +163,8 @@ cacheCluster: # Redis server configuration for cache cluster
 clientPresenceCluster: # Redis server configuration for client presence cluster
   configurationUri: redis://redis.example.com:6379/
 
-provisioning:
-  pubsub: # Redis server configuration for pubsub cluster
-    uri: redis://redis.example.com:6379/
+pubsub: # Redis server configuration for pubsub cluster
+  uri: redis://redis.example.com:6379/
 
 pushSchedulerCluster: # Redis server configuration for push scheduler cluster
   configurationUri: redis://redis.example.com:6379/

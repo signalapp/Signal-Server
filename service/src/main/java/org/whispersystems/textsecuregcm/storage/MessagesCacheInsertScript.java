@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 /**
  * Inserts an envelope into the message queue for a destination device.
@@ -23,7 +23,7 @@ class MessagesCacheInsertScript {
 
   private final ClusterLuaScript insertScript;
 
-  MessagesCacheInsertScript(FaultTolerantRedisCluster redisCluster) throws IOException {
+  MessagesCacheInsertScript(FaultTolerantRedisClusterClient redisCluster) throws IOException {
     this.insertScript = ClusterLuaScript.fromResource(redisCluster, "lua/insert_item.lua", ScriptOutputType.INTEGER);
   }
 

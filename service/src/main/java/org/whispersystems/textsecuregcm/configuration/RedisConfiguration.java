@@ -7,15 +7,16 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import io.lettuce.core.RedisClient;
+import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.resource.ClientResources;
 import java.time.Duration;
+import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
-import org.whispersystems.textsecuregcm.redis.RedisUriUtil;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 
 @JsonTypeName("default")
-public class RedisConfiguration implements SingletonRedisClientFactory {
+public class RedisConfiguration implements FaultTolerantRedisClientFactory {
 
   @JsonProperty
   @NotEmpty
@@ -25,20 +26,39 @@ public class RedisConfiguration implements SingletonRedisClientFactory {
   @NotNull
   private Duration timeout = Duration.ofSeconds(1);
 
+  @JsonProperty
+  @NotNull
+  @Valid
+  private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
+
+  @JsonProperty
+  @NotNull
+  @Valid
+  private RetryConfiguration retry = new RetryConfiguration();
+
   public String getUri() {
     return uri;
+  }
+
+  @VisibleForTesting
+  public void setUri(String uri) {
+    this.uri = uri;
   }
 
   public Duration getTimeout() {
     return timeout;
   }
 
-  @Override
-  public RedisClient build(final ClientResources clientResources) {
-    final RedisClient redisClient = RedisClient.create(clientResources,
-        RedisUriUtil.createRedisUriWithTimeout(uri, timeout));
-    redisClient.setDefaultTimeout(timeout);
+  public @NotNull @Valid CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
+    return circuitBreaker;
+  }
 
-    return redisClient;
+  public @NotNull @Valid RetryConfiguration getRetryConfiguration() {
+    return retry;
+  }
+
+  @Override
+  public FaultTolerantRedisClient build(final String name, final ClientResources clientResources) {
+    return new FaultTolerantRedisClient(name, this, clientResources.mutate());
   }
 }

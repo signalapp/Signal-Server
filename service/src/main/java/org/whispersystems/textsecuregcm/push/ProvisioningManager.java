@@ -10,12 +10,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
-import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.codec.ByteArrayCodec;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
-import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.nio.charset.StandardCharsets;
@@ -24,18 +19,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 
 public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> implements Managed {
 
-  private final RedisClient redisClient;
-  private final StatefulRedisPubSubConnection<byte[], byte[]> subscriptionConnection;
-  private final StatefulRedisConnection<byte[], byte[]> publicationConnection;
-
-  private final CircuitBreaker circuitBreaker;
+  private final FaultTolerantRedisClient pubSubClient;
+  private final FaultTolerantPubSubConnection<byte[], byte[]> pubSubConnection;
 
   private final Map<String, Consumer<PubSubProtos.PubSubMessage>> listenersByProvisioningAddress =
       new ConcurrentHashMap<>();
@@ -50,46 +42,31 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
   private static final Logger logger = LoggerFactory.getLogger(ProvisioningManager.class);
 
-  public ProvisioningManager(final RedisClient redisClient,
-      final CircuitBreakerConfiguration circuitBreakerConfiguration) {
-
-    this.redisClient = redisClient;
-
-    this.subscriptionConnection = redisClient.connectPubSub(new ByteArrayCodec());
-    this.publicationConnection = redisClient.connect(new ByteArrayCodec());
-
-    this.circuitBreaker = CircuitBreaker.of("pubsub-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
-
-    CircuitBreakerUtil.registerMetrics(circuitBreaker, ProvisioningManager.class, Tags.empty());
+  public ProvisioningManager(final FaultTolerantRedisClient pubSubClient) {
+    this.pubSubClient = pubSubClient;
+    this.pubSubConnection = pubSubClient.createBinaryPubSubConnection();
 
     Metrics.gaugeMapSize(ACTIVE_LISTENERS_GAUGE_NAME, Tags.empty(), listenersByProvisioningAddress);
   }
 
   @Override
   public void start() throws Exception {
-    subscriptionConnection.addListener(this);
+    pubSubConnection.usePubSubConnection(connection -> connection.addListener(this));
   }
 
   @Override
   public void stop() throws Exception {
-    subscriptionConnection.removeListener(this);
-
-    subscriptionConnection.close();
-    publicationConnection.close();
-
-    redisClient.shutdown();
+    pubSubConnection.usePubSubConnection(connection -> connection.removeListener(this));
   }
 
   public void addListener(final String address, final Consumer<PubSubProtos.PubSubMessage> listener) {
     listenersByProvisioningAddress.put(address, listener);
-
-    circuitBreaker.executeRunnable(
-        () -> subscriptionConnection.sync().subscribe(address.getBytes(StandardCharsets.UTF_8)));
+    pubSubConnection.usePubSubConnection(connection -> connection.sync().subscribe(address.getBytes(StandardCharsets.UTF_8)));
   }
 
   public void removeListener(final String address) {
-    RedisOperation.unchecked(() -> circuitBreaker.executeRunnable(
-        () -> subscriptionConnection.sync().unsubscribe(address.getBytes(StandardCharsets.UTF_8))));
+    RedisOperation.unchecked(() ->
+        pubSubConnection.usePubSubConnection(connection -> connection.sync().unsubscribe(address.getBytes(StandardCharsets.UTF_8))));
 
     listenersByProvisioningAddress.remove(address);
   }
@@ -100,9 +77,8 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
         .setContent(ByteString.copyFrom(body))
         .build();
 
-    final boolean receiverPresent = circuitBreaker.executeSupplier(
-        () -> publicationConnection.sync()
-            .publish(address.getBytes(StandardCharsets.UTF_8), pubSubMessage.toByteArray()) > 0);
+    final boolean receiverPresent = pubSubClient.withBinaryConnection(connection ->
+        connection.sync().publish(address.getBytes(StandardCharsets.UTF_8), pubSubMessage.toByteArray()) > 0);
 
     Metrics.counter(SEND_PROVISIONING_MESSAGE_COUNTER_NAME, "online", String.valueOf(receiverPresent)).increment();
 

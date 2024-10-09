@@ -12,7 +12,7 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.Util;
 
 /**
@@ -21,11 +21,11 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class CardinalityEstimator {
 
   private volatile double uniqueElementCount;
-  private final FaultTolerantRedisCluster redisCluster;
+  private final FaultTolerantRedisClusterClient redisCluster;
   private final String hllName;
   private final Duration period;
 
-  public CardinalityEstimator(final FaultTolerantRedisCluster redisCluster, final String name, final Duration period) {
+  public CardinalityEstimator(final FaultTolerantRedisClusterClient redisCluster, final String name, final Duration period) {
     this.redisCluster = redisCluster;
     this.hllName = "cardinality_estimator::" + name;
     this.period = period;

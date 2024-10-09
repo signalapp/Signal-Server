@@ -42,7 +42,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
   private final Duration timeout;
   private final RetryConfiguration retryConfiguration;
-  private FaultTolerantRedisCluster redisCluster;
+  private FaultTolerantRedisClusterClient redisCluster;
   private ClientResources redisClientResources;
 
   public RedisClusterExtension(final Duration timeout, final RetryConfiguration retryConfiguration) {
@@ -87,7 +87,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
     redisClientResources = ClientResources.builder().build();
     final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
     circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
-    redisCluster = new FaultTolerantRedisCluster("test-cluster",
+    redisCluster = new FaultTolerantRedisClusterClient("test-cluster",
         redisClientResources.mutate(),
         getRedisURIs(),
         timeout,
@@ -130,7 +130,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
         .toList();
   }
 
-  public FaultTolerantRedisCluster getRedisCluster() {
+  public FaultTolerantRedisClusterClient getRedisCluster() {
     return redisCluster;
   }
 

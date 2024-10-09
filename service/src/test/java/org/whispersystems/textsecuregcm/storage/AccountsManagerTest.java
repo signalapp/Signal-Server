@@ -77,7 +77,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
@@ -230,7 +230,7 @@ class AccountsManagerTest {
 
     CLOCK = TestClock.now();
 
-    final FaultTolerantRedisCluster redisCluster = RedisClusterHelper.builder()
+    final FaultTolerantRedisClusterClient redisCluster = RedisClusterHelper.builder()
         .stringCommands(commands)
         .stringAsyncCommands(asyncCommands)
         .build();

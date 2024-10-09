@@ -35,8 +35,8 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubClusterConnection;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.Device;
 
 /**
@@ -52,8 +52,8 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   private final String managerId = UUID.randomUUID().toString();
   private final String connectedClientSetKey = getConnectedClientSetKey(managerId);
 
-  private final FaultTolerantRedisCluster presenceCluster;
-  private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
+  private final FaultTolerantRedisClusterClient presenceCluster;
+  private final FaultTolerantPubSubClusterConnection<String, String> pubSubConnection;
 
   private final ClusterLuaScript clearPresenceScript;
   private final ClusterLuaScript renewPresenceScript;
@@ -80,7 +80,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
 
   private static final Logger log = LoggerFactory.getLogger(ClientPresenceManager.class);
 
-  public ClientPresenceManager(final FaultTolerantRedisCluster presenceCluster,
+  public ClientPresenceManager(final FaultTolerantRedisClusterClient presenceCluster,
       final ScheduledExecutorService scheduledExecutorService,
       final ExecutorService keyspaceNotificationExecutorService) throws IOException {
     this.presenceCluster = presenceCluster;
@@ -106,7 +106,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
   }
 
   @VisibleForTesting
-  FaultTolerantPubSubConnection<String, String> getPubSubConnection() {
+  FaultTolerantPubSubClusterConnection<String, String> getPubSubConnection() {
     return pubSubConnection;
   }
 

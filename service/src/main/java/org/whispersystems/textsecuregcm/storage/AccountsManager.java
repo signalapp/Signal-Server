@@ -67,7 +67,7 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
@@ -107,7 +107,7 @@ public class AccountsManager {
 
   private final Accounts accounts;
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
-  private final FaultTolerantRedisCluster cacheCluster;
+  private final FaultTolerantRedisClusterClient cacheCluster;
   private final AccountLockManager accountLockManager;
   private final KeysManager keysManager;
   private final MessagesManager messagesManager;
@@ -157,7 +157,7 @@ public class AccountsManager {
 
   public AccountsManager(final Accounts accounts,
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
-      final FaultTolerantRedisCluster cacheCluster,
+      final FaultTolerantRedisClusterClient cacheCluster,
       final AccountLockManager accountLockManager,
       final KeysManager keysManager,
       final MessagesManager messagesManager,

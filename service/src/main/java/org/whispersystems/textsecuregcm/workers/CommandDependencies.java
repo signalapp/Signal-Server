@@ -34,13 +34,12 @@ import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controll
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
-import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
@@ -82,8 +81,8 @@ record CommandDependencies(
     FcmSender fcmSender,
     PushNotificationManager pushNotificationManager,
     PushNotificationExperimentSamples pushNotificationExperimentSamples,
-    FaultTolerantRedisCluster cacheCluster,
-    FaultTolerantRedisCluster pushSchedulerCluster,
+    FaultTolerantRedisClusterClient cacheCluster,
+    FaultTolerantRedisClusterClient pushSchedulerCluster,
     ClientResources.Builder redisClusterClientResourcesBuilder,
     BackupManager backupManager,
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
@@ -109,9 +108,9 @@ record CommandDependencies(
 
     final ClientResources.Builder redisClientResourcesBuilder = ClientResources.builder();
 
-    FaultTolerantRedisCluster cacheCluster = configuration.getCacheClusterConfiguration()
+    FaultTolerantRedisClusterClient cacheCluster = configuration.getCacheClusterConfiguration()
         .build("main_cache", redisClientResourcesBuilder);
-    FaultTolerantRedisCluster pushSchedulerCluster = configuration.getPushSchedulerCluster()
+    FaultTolerantRedisClusterClient pushSchedulerCluster = configuration.getPushSchedulerCluster()
         .build("push_scheduler", redisClientResourcesBuilder);
 
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
@@ -197,11 +196,11 @@ record CommandDependencies(
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),
         messageDeletionExecutor);
-    FaultTolerantRedisCluster messagesCluster = configuration.getMessageCacheConfiguration()
+    FaultTolerantRedisClusterClient messagesCluster = configuration.getMessageCacheConfiguration()
         .getRedisClusterConfiguration().build("messages", redisClientResourcesBuilder);
-    FaultTolerantRedisCluster clientPresenceCluster = configuration.getClientPresenceClusterConfiguration()
+    FaultTolerantRedisClusterClient clientPresenceCluster = configuration.getClientPresenceClusterConfiguration()
         .build("client_presence", redisClientResourcesBuilder);
-    FaultTolerantRedisCluster rateLimitersCluster = configuration.getRateLimitersCluster().build("rate_limiters",
+    FaultTolerantRedisClusterClient rateLimitersCluster = configuration.getRateLimitersCluster().build("rate_limiters",
         redisClientResourcesBuilder);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(
         secureValueRecoveryCredentialsGenerator, secureValueRecoveryServiceExecutor,

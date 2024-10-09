@@ -14,7 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import javax.annotation.Nullable;
@@ -26,12 +26,12 @@ public class ProfilesManager {
   private static final String CACHE_PREFIX = "profiles::";
 
   private final Profiles profiles;
-  private final FaultTolerantRedisCluster cacheCluster;
+  private final FaultTolerantRedisClusterClient cacheCluster;
   private final ObjectMapper mapper;
 
 
   public ProfilesManager(final Profiles profiles,
-      final FaultTolerantRedisCluster cacheCluster) {
+      final FaultTolerantRedisClusterClient cacheCluster) {
     this.profiles = profiles;
     this.cacheCluster = cacheCluster;
     this.mapper = SystemMapper.jsonMapper();

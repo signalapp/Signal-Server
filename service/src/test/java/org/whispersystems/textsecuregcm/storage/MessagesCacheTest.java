@@ -72,7 +72,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesCon
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import reactor.core.publisher.Flux;
@@ -690,7 +690,7 @@ class MessagesCacheTest {
     void setup() throws Exception {
       reactiveCommands = mock(RedisAdvancedClusterReactiveCommands.class);
       asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
-      final FaultTolerantRedisCluster mockCluster = RedisClusterHelper.builder()
+      final FaultTolerantRedisClusterClient mockCluster = RedisClusterHelper.builder()
           .binaryReactiveCommands(reactiveCommands)
           .binaryAsyncCommands(asyncCommands)
           .build();

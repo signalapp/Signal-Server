@@ -20,7 +20,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -36,7 +36,7 @@ public class StaticRateLimiter implements RateLimiter {
 
   private final ClusterLuaScript validateScript;
 
-  private final FaultTolerantRedisCluster cacheCluster;
+  private final FaultTolerantRedisClusterClient cacheCluster;
 
   private final Clock clock;
 
@@ -45,7 +45,7 @@ public class StaticRateLimiter implements RateLimiter {
       final String name,
       final RateLimiterConfig config,
       final ClusterLuaScript validateScript,
-      final FaultTolerantRedisCluster cacheCluster,
+      final FaultTolerantRedisClusterClient cacheCluster,
       final Clock clock,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.name = requireNonNull(name);

@@ -200,7 +200,8 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisCluster;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
@@ -447,17 +448,20 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .build();
     ConnectionEventLogger.logConnectionEvents(sharedClientResources);
 
-    FaultTolerantRedisCluster cacheCluster = config.getCacheClusterConfiguration()
+    FaultTolerantRedisClusterClient cacheCluster = config.getCacheClusterConfiguration()
         .build("main_cache", sharedClientResources.mutate());
-    FaultTolerantRedisCluster messagesCluster =
+    FaultTolerantRedisClusterClient messagesCluster =
         config.getMessageCacheConfiguration().getRedisClusterConfiguration()
             .build("messages", sharedClientResources.mutate());
-    FaultTolerantRedisCluster clientPresenceCluster = config.getClientPresenceClusterConfiguration()
+    FaultTolerantRedisClusterClient clientPresenceCluster = config.getClientPresenceClusterConfiguration()
         .build("client_presence", sharedClientResources.mutate());
-    FaultTolerantRedisCluster pushSchedulerCluster = config.getPushSchedulerCluster().build("push_scheduler",
+    FaultTolerantRedisClusterClient pushSchedulerCluster = config.getPushSchedulerCluster().build("push_scheduler",
         sharedClientResources.mutate());
-    FaultTolerantRedisCluster rateLimitersCluster = config.getRateLimitersCluster().build("rate_limiters",
+    FaultTolerantRedisClusterClient rateLimitersCluster = config.getRateLimitersCluster().build("rate_limiters",
         sharedClientResources.mutate());
+
+    FaultTolerantRedisClient pubsubClient =
+        config.getRedisPubSubConfiguration().build("pubsub", sharedClientResources);
 
     final BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(100_000);
     Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(),
@@ -652,9 +656,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(config.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
-    ProvisioningManager provisioningManager = new ProvisioningManager(
-        config.getProvisioningConfiguration().pubsub().build(sharedClientResources),
-        config.getProvisioningConfiguration().circuitBreaker());
+    ProvisioningManager provisioningManager = new ProvisioningManager(pubsubClient);
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
         config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
