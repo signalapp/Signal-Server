@@ -1210,7 +1210,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             keysManager.deleteSingleUsePreKeys(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
             messagesManager.clear(account.getUuid()),
-            messagesManager.clear(account.getPhoneNumberIdentifier()),
             profilesManager.deleteAll(account.getUuid()),
             registrationRecoveryPasswordsManager.removeForNumber(account.getNumber()))
         .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
