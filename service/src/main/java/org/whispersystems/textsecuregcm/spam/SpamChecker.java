@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.spam;
 
 import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
@@ -43,9 +44,10 @@ public interface SpamChecker {
   SpamCheckResult checkForSpam(
       final ContainerRequestContext requestContext,
       final Optional<? extends AccountAndAuthenticatedDeviceHolder> maybeSource,
-      final Optional<Account> maybeDestination);
+      final Optional<Account> maybeDestination,
+      final Optional<ServiceIdentifier> destinationIdentifier);
 
   static SpamChecker noop() {
-    return (ignoredContext, ignoredSource, ignoredDestination) -> NotSpam.EMPTY_TOKEN;
+    return (ignoredContext, ignoredSource, ignoredDestination, ignoredDestinationIdentifier) -> NotSpam.EMPTY_TOKEN;
   }
 }

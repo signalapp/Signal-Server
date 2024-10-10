@@ -326,7 +326,7 @@ public class MessageController {
       }
 
       final SpamChecker.SpamCheckResult spamCheck = spamChecker.checkForSpam(
-          context, source, destination);
+          context, source, destination, Optional.of(destinationIdentifier));
       final Optional<byte[]> reportSpamToken;
       switch (spamCheck) {
         case final SpamChecker.Spam spam: return spam.response();
@@ -547,7 +547,7 @@ public class MessageController {
 
       @Context ContainerRequestContext context) throws RateLimitExceededException {
 
-    final SpamChecker.SpamCheckResult spamCheck = spamChecker.checkForSpam(context, Optional.empty(), Optional.empty());
+    final SpamChecker.SpamCheckResult spamCheck = spamChecker.checkForSpam(context, Optional.empty(), Optional.empty(), Optional.empty());
     if (spamCheck instanceof final SpamChecker.Spam spam) {
       return spam.response();
     }
