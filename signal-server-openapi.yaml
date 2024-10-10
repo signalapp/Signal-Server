@@ -1501,7 +1501,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationCode'
+                $ref: '#/components/schemas/LinkDeviceToken'
         "411":
           description: The authenticated account already has the maximum allowed number
             of linked devices
@@ -1647,6 +1647,51 @@ paths:
           description: default response
           content:
             application/json: {}
+      security:
+      - authenticatedAccount: []
+  /v1/devices/wait_for_linked_device/{tokenIdentifier}:
+    get:
+      tags:
+      - Devices
+      summary: Wait for a new device to be linked to an account
+      description: |
+        Waits for a new device to be linked to an account and returns basic information about the new device when
+        available.
+      operationId: waitForLinkedDevice
+      parameters:
+      - name: tokenIdentifier
+        in: path
+        required: true
+        schema:
+          maxLength: 64
+          minLength: 32
+          type: string
+          description: A 'link device' token identifier provided by the 'create link
+            device token' endpoint
+      - name: timeout
+        in: query
+        schema:
+          maximum: 3600
+          minimum: 1
+          type: integer
+          description: |2
+              The amount of time (in seconds) to wait for a response. If the expected device is not linked within the
+              given amount of time, this endpoint will return a status of HTTP/204.
+          format: int32
+          default: 30
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      responses:
+        "200":
+          description: The specified was linked to an account
+        "204":
+          description: No device was linked to the account before the call completed
+        "400":
+          description: The given token identifier or timeout was invalid
+        "429":
+          description: Rate-limited; try again after the prescribed delay
       security:
       - authenticatedAccount: []
   /v2/directory/auth:
@@ -4286,11 +4331,19 @@ components:
           type: string
       discriminator:
         propertyName: type
-    VerificationCode:
+    LinkDeviceToken:
       type: object
       properties:
+        tokenIdentifier:
+          type: string
+          description: |
+            An opaque identifier for the generated token that the caller may use to watch for a new device to complete the
+            linking process.
         verificationCode:
           type: string
+          description: |
+            An opaque token to send to a new linked device that authorizes the new device to link itself to the account that
+            requested this token.
     DeviceInfo:
       type: object
       properties:
@@ -4398,10 +4451,10 @@ components:
     WebSocketClient:
       type: object
       properties:
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
         createdTimestamp:
           type: integer
           format: int64
