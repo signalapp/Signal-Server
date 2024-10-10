@@ -492,7 +492,7 @@ public class AddRemoveDeviceIntegrationTest {
     final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
 
     final CompletableFuture<Optional<DeviceInfo>> linkedDeviceFuture =
-        accountsManager.waitForNewLinkedDevice(linkDeviceTokenIdentifier, Duration.ofMillis(10));
+        accountsManager.waitForNewLinkedDevice(linkDeviceTokenIdentifier, Duration.ofMillis(1));
 
     final Optional<DeviceInfo> maybeDeviceInfo = linkedDeviceFuture.join();
 
