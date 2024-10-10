@@ -66,6 +66,7 @@ import org.whispersystems.textsecuregcm.backup.BackupAuthTestUtil;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupUploadDescriptor;
 import org.whispersystems.textsecuregcm.backup.CopyResult;
+import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -357,7 +358,7 @@ public class ArchiveControllerTest {
         .header("X-Signal-ZK-Auth-Signature", "aaa")
         .put(Entity.json(new ArchiveController.CopyMediaBatchRequest(List.of(
             new ArchiveController.CopyMediaRequest(
-                new ArchiveController.RemoteAttachment(3, "abc"),
+                new RemoteAttachment(3, "abc"),
                 100,
                 mediaIds[0],
                 TestRandomUtil.nextBytes(32),
@@ -365,7 +366,7 @@ public class ArchiveControllerTest {
                 TestRandomUtil.nextBytes(16)),
 
             new ArchiveController.CopyMediaRequest(
-                new ArchiveController.RemoteAttachment(3, "def"),
+                new RemoteAttachment(3, "def"),
                 200,
                 mediaIds[1],
                 TestRandomUtil.nextBytes(32),
@@ -402,7 +403,7 @@ public class ArchiveControllerTest {
 
     final List<ArchiveController.CopyMediaRequest> copyRequests = Arrays.stream(mediaIds)
         .map(mediaId -> new ArchiveController.CopyMediaRequest(
-            new ArchiveController.RemoteAttachment(3, "abc"),
+            new RemoteAttachment(3, "abc"),
             100,
             mediaId,
             TestRandomUtil.nextBytes(32),
@@ -458,7 +459,7 @@ public class ArchiveControllerTest {
         .header("X-Signal-ZK-Auth-Signature", "aaa")
         .put(Entity.json(new ArchiveController.CopyMediaBatchRequest(List.of(
             new ArchiveController.CopyMediaRequest(
-                new ArchiveController.RemoteAttachment(3, "abc"),
+                new RemoteAttachment(3, "abc"),
                 1,
                 mediaIds[0],
                 TestRandomUtil.nextBytes(32),
@@ -466,7 +467,7 @@ public class ArchiveControllerTest {
                 TestRandomUtil.nextBytes(16)),
 
             new ArchiveController.CopyMediaRequest(
-                new ArchiveController.RemoteAttachment(3, "def"),
+                new RemoteAttachment(3, "def"),
                 -1,
                 mediaIds[1],
                 TestRandomUtil.nextBytes(32),
@@ -639,7 +640,7 @@ public class ArchiveControllerTest {
         .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
         .header("X-Signal-ZK-Auth-Signature", "aaa")
         .put(Entity.json(new ArchiveController.CopyMediaRequest(
-                new ArchiveController.RemoteAttachment(3, "invalid/urlBase64"),
+                new RemoteAttachment(3, "invalid/urlBase64"),
                 100,
                 TestRandomUtil.nextBytes(15),
                 TestRandomUtil.nextBytes(32),

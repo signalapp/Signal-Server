@@ -32,7 +32,6 @@ import java.util.stream.Stream;
 import javax.validation.Valid;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.PositiveOrZero;
 import javax.validation.constraints.Size;
@@ -60,13 +59,13 @@ import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.CopyParameters;
 import org.whispersystems.textsecuregcm.backup.CopyResult;
 import org.whispersystems.textsecuregcm.backup.MediaEncryptionParameters;
+import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.util.BackupAuthCredentialAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.ECPublicKeyAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.textsecuregcm.util.ValidBase64URLString;
 import org.whispersystems.websocket.auth.Mutable;
 import org.whispersystems.websocket.auth.ReadOnly;
 import reactor.core.publisher.Mono;
@@ -462,16 +461,6 @@ public class ArchiveController {
             result.signedUploadLocation()));
   }
 
-  public record RemoteAttachment(
-      @Schema(description = "The attachment cdn")
-      @NotNull
-      Integer cdn,
-
-      @NotBlank
-      @ValidBase64URLString
-      @Schema(description = "The attachment key")
-      String key) {}
-
   public record CopyMediaRequest(
       @Schema(description = "The object on the attachment CDN to copy")
       @NotNull
@@ -510,7 +499,7 @@ public class ArchiveController {
 
     CopyParameters toCopyParameters() {
       return new CopyParameters(
-          sourceAttachment.cdn, sourceAttachment.key,
+          sourceAttachment.cdn(), sourceAttachment.key(),
           objectLength,
           new MediaEncryptionParameters(encryptionKey, hmacKey, iv),
           mediaId);
