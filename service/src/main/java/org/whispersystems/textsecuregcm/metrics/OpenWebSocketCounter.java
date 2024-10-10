@@ -4,16 +4,13 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
+import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
-import java.util.Arrays;
-import java.util.EnumMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class OpenWebSocketCounter {
 
@@ -28,27 +25,13 @@ public class OpenWebSocketCounter {
   }
 
   public OpenWebSocketCounter(final String openWebSocketGaugeName, final String durationTimerName, final Tags tags) {
-    openWebsocketsByClientPlatform = Arrays.stream(ClientPlatform.values())
-            .collect(Collectors.toMap(
-                Function.identity(),
-                clientPlatform -> buildGauge(openWebSocketGaugeName, clientPlatform.name().toLowerCase(), tags),
-                (a, b) -> {
-                  throw new AssertionError("Duplicate client platform enumeration key");
-                },
-                () -> new EnumMap<>(ClientPlatform.class)
-            ));
+    openWebsocketsByClientPlatform = EnumMapUtil.toEnumMap(ClientPlatform.class,
+        clientPlatform -> buildGauge(openWebSocketGaugeName, clientPlatform.name().toLowerCase(), tags));
 
     openWebsocketsFromUnknownPlatforms = buildGauge(openWebSocketGaugeName, "unknown", tags);
 
-    durationTimersByClientPlatform = Arrays.stream(ClientPlatform.values())
-        .collect(Collectors.toMap(
-            clientPlatform -> clientPlatform,
-            clientPlatform -> buildTimer(durationTimerName, clientPlatform.name().toLowerCase(), tags),
-            (a, b) -> {
-              throw new AssertionError("Duplicate client platform enumeration key");
-            },
-            () -> new EnumMap<>(ClientPlatform.class)
-        ));
+    durationTimersByClientPlatform = EnumMapUtil.toEnumMap(ClientPlatform.class,
+        clientPlatform -> buildTimer(durationTimerName, clientPlatform.name().toLowerCase(), tags));
 
     durationTimerForUnknownPlatforms = buildTimer(durationTimerName, "unknown", tags);
   }

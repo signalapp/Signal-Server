@@ -16,15 +16,12 @@ import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.Max;
@@ -72,6 +69,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.LinkDeviceTokenAlreadyUsedException;
+import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.LinkDeviceToken;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -116,15 +114,8 @@ public class DeviceController {
     this.rateLimiters = rateLimiters;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
 
-    linkedDeviceListenersByPlatform = Arrays.stream(ClientPlatform.values())
-        .collect(Collectors.toMap(
-            Function.identity(),
-            clientPlatform -> buildGauge(clientPlatform.name().toLowerCase()),
-            (a, b) -> {
-              throw new AssertionError("Duplicate client platform enumeration key");
-            },
-            () -> new EnumMap<>(ClientPlatform.class)
-        ));
+    linkedDeviceListenersByPlatform =
+        EnumMapUtil.toEnumMap(ClientPlatform.class, clientPlatform -> buildGauge(clientPlatform.name().toLowerCase()));
 
     linkedDeviceListenersForUnrecognizedPlatforms = buildGauge("unknown");
   }
