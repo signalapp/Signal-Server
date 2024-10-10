@@ -40,6 +40,7 @@ import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
@@ -112,6 +113,8 @@ record CommandDependencies(
         .build("main_cache", redisClientResourcesBuilder);
     FaultTolerantRedisClusterClient pushSchedulerCluster = configuration.getPushSchedulerCluster()
         .build("push_scheduler", redisClientResourcesBuilder);
+    FaultTolerantRedisClient pubsubClient =
+        configuration.getRedisPubSubConfiguration().build("pubsub", redisClientResourcesBuilder.build());
 
     ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "recurringJob-%d")).threads(2).build();
@@ -225,7 +228,7 @@ record CommandDependencies(
     ClientPublicKeysManager clientPublicKeysManager =
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
-        accountLockManager, keys, messagesManager, profilesManager,
+        pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, clientPresenceManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, clientPresenceExecutor,
         clock, configuration.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);

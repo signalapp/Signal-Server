@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64WithPaddingAdapter;
 
 public record DeviceInfo(long id,
@@ -17,4 +18,8 @@ public record DeviceInfo(long id,
 
                          long lastSeen,
                          long created) {
+
+  public static DeviceInfo forDevice(final Device device) {
+    return new DeviceInfo(device.getId(), device.getName(), device.getLastSeen(), device.getCreated());
+  }
 }

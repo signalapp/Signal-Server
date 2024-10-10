@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.lettuce.core.RedisException;
+import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.io.InputStream;
@@ -78,6 +79,7 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
@@ -88,6 +90,7 @@ import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.tests.util.MockRedisFuture;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
+import org.whispersystems.textsecuregcm.tests.util.RedisServerHelper;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -119,8 +122,9 @@ class AccountsManagerTest {
 
   private Map<String, UUID> phoneNumberIdentifiersByE164;
 
-  private RedisAdvancedClusterCommands<String, String> commands;
-  private RedisAdvancedClusterAsyncCommands<String, String> asyncCommands;
+  private RedisAsyncCommands<String, String> asyncCommands;
+  private RedisAdvancedClusterCommands<String, String> clusterCommands;
+  private RedisAdvancedClusterAsyncCommands<String, String> asyncClusterCommands;
   private AccountsManager accountsManager;
   private SecureValueRecovery2Client svr2Client;
   private DynamicConfiguration dynamicConfiguration;
@@ -162,14 +166,18 @@ class AccountsManagerTest {
     }).when(clientPresenceExecutor).execute(any());
 
     //noinspection unchecked
-    commands = mock(RedisAdvancedClusterCommands.class);
+    asyncCommands = mock(RedisAsyncCommands.class);
+    when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     //noinspection unchecked
-    asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
-    when(asyncCommands.del(any(String[].class))).thenReturn(MockRedisFuture.completedFuture(0L));
-    when(asyncCommands.get(any())).thenReturn(MockRedisFuture.completedFuture(null));
-    when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
-    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    clusterCommands = mock(RedisAdvancedClusterCommands.class);
+
+    //noinspection unchecked
+    asyncClusterCommands = mock(RedisAdvancedClusterAsyncCommands.class);
+    when(asyncClusterCommands.del(any(String[].class))).thenReturn(MockRedisFuture.completedFuture(0L));
+    when(asyncClusterCommands.get(any())).thenReturn(MockRedisFuture.completedFuture(null));
+    when(asyncClusterCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     when(accounts.updateAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(accounts.updateTransactionallyAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -230,15 +238,20 @@ class AccountsManagerTest {
 
     CLOCK = TestClock.now();
 
-    final FaultTolerantRedisClusterClient redisCluster = RedisClusterHelper.builder()
-        .stringCommands(commands)
+    final FaultTolerantRedisClient pubSubClient = RedisServerHelper.builder()
         .stringAsyncCommands(asyncCommands)
+        .build();
+
+    final FaultTolerantRedisClusterClient redisCluster = RedisClusterHelper.builder()
+        .stringCommands(clusterCommands)
+        .stringAsyncCommands(asyncClusterCommands)
         .build();
 
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
         redisCluster,
+        pubSubClient,
         accountLockManager,
         keysManager,
         messagesManager,
@@ -285,8 +298,8 @@ class AccountsManagerTest {
     final UUID aci = UUID.randomUUID();
     final UUID pni = UUID.randomUUID();
 
-    when(commands.get(eq("AccountMap::" + pni))).thenReturn(aci.toString());
-    when(commands.get(eq("Account3::" + aci))).thenReturn(
+    when(clusterCommands.get(eq("AccountMap::" + pni))).thenReturn(aci.toString());
+    when(clusterCommands.get(eq("Account3::" + aci))).thenReturn(
         "{\"number\": \"+14152222222\", \"pni\": \"" + pni + "\"}");
 
     assertTrue(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(aci)).isPresent());
@@ -300,11 +313,11 @@ class AccountsManagerTest {
     final UUID aci = UUID.randomUUID();
     final UUID pni = UUID.randomUUID();
 
-    when(asyncCommands.get(eq("AccountMap::" + pni))).thenReturn(MockRedisFuture.completedFuture(aci.toString()));
-    when(asyncCommands.get(eq("Account3::" + aci))).thenReturn(MockRedisFuture.completedFuture(
+    when(asyncClusterCommands.get(eq("AccountMap::" + pni))).thenReturn(MockRedisFuture.completedFuture(aci.toString()));
+    when(asyncClusterCommands.get(eq("Account3::" + aci))).thenReturn(MockRedisFuture.completedFuture(
         "{\"number\": \"+14152222222\", \"pni\": \"" + pni + "\"}"));
 
-    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     when(accounts.getByAccountIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -323,7 +336,7 @@ class AccountsManagerTest {
   void testGetAccountByUuidInCache() {
     UUID uuid = UUID.randomUUID();
 
-    when(commands.get(eq("Account3::" + uuid))).thenReturn(
+    when(clusterCommands.get(eq("Account3::" + uuid))).thenReturn(
         "{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}");
 
     Optional<Account> account = accountsManager.getByAccountIdentifier(uuid);
@@ -333,8 +346,8 @@ class AccountsManagerTest {
     assertEquals(account.get().getUuid(), uuid);
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
-    verify(commands, times(1)).get(eq("Account3::" + uuid));
-    verifyNoMoreInteractions(commands);
+    verify(clusterCommands, times(1)).get(eq("Account3::" + uuid));
+    verifyNoMoreInteractions(clusterCommands);
 
     verifyNoInteractions(accounts);
   }
@@ -343,10 +356,10 @@ class AccountsManagerTest {
   void testGetAccountByUuidInCacheAsync() {
     UUID uuid = UUID.randomUUID();
 
-    when(asyncCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(
+    when(asyncClusterCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(
         "{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}"));
 
-    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     Optional<Account> account = accountsManager.getByAccountIdentifierAsync(uuid).join();
 
@@ -355,8 +368,8 @@ class AccountsManagerTest {
     assertEquals(account.get().getUuid(), uuid);
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
-    verify(asyncCommands, times(1)).get(eq("Account3::" + uuid));
-    verifyNoMoreInteractions(asyncCommands);
+    verify(asyncClusterCommands, times(1)).get(eq("Account3::" + uuid));
+    verifyNoMoreInteractions(asyncClusterCommands);
 
     verifyNoInteractions(accounts);
   }
@@ -366,8 +379,8 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
 
-    when(commands.get(eq("AccountMap::" + pni))).thenReturn(uuid.toString());
-    when(commands.get(eq("Account3::" + uuid))).thenReturn(
+    when(clusterCommands.get(eq("AccountMap::" + pni))).thenReturn(uuid.toString());
+    when(clusterCommands.get(eq("Account3::" + uuid))).thenReturn(
         "{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}");
 
     Optional<Account> account = accountsManager.getByPhoneNumberIdentifier(pni);
@@ -376,9 +389,9 @@ class AccountsManagerTest {
     assertEquals(account.get().getNumber(), "+14152222222");
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
-    verify(commands).get(eq("AccountMap::" + pni));
-    verify(commands).get(eq("Account3::" + uuid));
-    verifyNoMoreInteractions(commands);
+    verify(clusterCommands).get(eq("AccountMap::" + pni));
+    verify(clusterCommands).get(eq("Account3::" + uuid));
+    verifyNoMoreInteractions(clusterCommands);
 
     verifyNoInteractions(accounts);
   }
@@ -388,13 +401,13 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
 
-    when(asyncCommands.get(eq("AccountMap::" + pni)))
+    when(asyncClusterCommands.get(eq("AccountMap::" + pni)))
         .thenReturn(MockRedisFuture.completedFuture(uuid.toString()));
 
-    when(asyncCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(
+    when(asyncClusterCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(
         "{\"number\": \"+14152222222\", \"pni\": \"de24dc73-fbd8-41be-a7d5-764c70d9da7e\"}"));
 
-    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     Optional<Account> account = accountsManager.getByPhoneNumberIdentifierAsync(pni).join();
 
@@ -402,9 +415,9 @@ class AccountsManagerTest {
     assertEquals(account.get().getNumber(), "+14152222222");
     assertEquals(UUID.fromString("de24dc73-fbd8-41be-a7d5-764c70d9da7e"), account.get().getPhoneNumberIdentifier());
 
-    verify(asyncCommands).get(eq("AccountMap::" + pni));
-    verify(asyncCommands).get(eq("Account3::" + uuid));
-    verifyNoMoreInteractions(asyncCommands);
+    verify(asyncClusterCommands).get(eq("AccountMap::" + pni));
+    verify(asyncClusterCommands).get(eq("Account3::" + uuid));
+    verifyNoMoreInteractions(asyncClusterCommands);
 
     verifyNoInteractions(accounts);
   }
@@ -415,7 +428,7 @@ class AccountsManagerTest {
     UUID pni = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
+    when(clusterCommands.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.getByAccountIdentifier(eq(uuid))).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.getByAccountIdentifier(uuid);
@@ -423,10 +436,10 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(commands, times(1)).get(eq("Account3::" + uuid));
-    verify(commands, times(1)).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
-    verify(commands, times(1)).setex(eq("Account3::" + uuid), anyLong(), anyString());
-    verifyNoMoreInteractions(commands);
+    verify(clusterCommands, times(1)).get(eq("Account3::" + uuid));
+    verify(clusterCommands, times(1)).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(clusterCommands, times(1)).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(clusterCommands);
 
     verify(accounts, times(1)).getByAccountIdentifier(eq(uuid));
     verifyNoMoreInteractions(accounts);
@@ -438,8 +451,8 @@ class AccountsManagerTest {
     UUID pni = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(asyncCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(null));
-    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(asyncClusterCommands.get(eq("Account3::" + uuid))).thenReturn(MockRedisFuture.completedFuture(null));
+    when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
     when(accounts.getByAccountIdentifierAsync(eq(uuid)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
@@ -448,10 +461,10 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(asyncCommands).get(eq("Account3::" + uuid));
-    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
-    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
-    verifyNoMoreInteractions(asyncCommands);
+    verify(asyncClusterCommands).get(eq("Account3::" + uuid));
+    verify(asyncClusterCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncClusterCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncClusterCommands);
 
     verify(accounts).getByAccountIdentifierAsync(eq(uuid));
     verifyNoMoreInteractions(accounts);
@@ -464,7 +477,7 @@ class AccountsManagerTest {
 
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(commands.get(eq("AccountMap::" + pni))).thenReturn(null);
+    when(clusterCommands.get(eq("AccountMap::" + pni))).thenReturn(null);
     when(accounts.getByPhoneNumberIdentifier(pni)).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.getByPhoneNumberIdentifier(pni);
@@ -472,10 +485,10 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(commands).get(eq("AccountMap::" + pni));
-    verify(commands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
-    verify(commands).setex(eq("Account3::" + uuid), anyLong(), anyString());
-    verifyNoMoreInteractions(commands);
+    verify(clusterCommands).get(eq("AccountMap::" + pni));
+    verify(clusterCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(clusterCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(clusterCommands);
 
     verify(accounts).getByPhoneNumberIdentifier(pni);
     verifyNoMoreInteractions(accounts);
@@ -488,8 +501,8 @@ class AccountsManagerTest {
 
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(asyncCommands.get(eq("AccountMap::" + pni))).thenReturn(MockRedisFuture.completedFuture(null));
-    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(asyncClusterCommands.get(eq("AccountMap::" + pni))).thenReturn(MockRedisFuture.completedFuture(null));
+    when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
     when(accounts.getByPhoneNumberIdentifierAsync(pni))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
@@ -498,10 +511,10 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(asyncCommands).get(eq("AccountMap::" + pni));
-    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
-    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
-    verifyNoMoreInteractions(asyncCommands);
+    verify(asyncClusterCommands).get(eq("AccountMap::" + pni));
+    verify(asyncClusterCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncClusterCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncClusterCommands);
 
     verify(accounts).getByPhoneNumberIdentifierAsync(pni);
     verifyNoMoreInteractions(accounts);
@@ -528,7 +541,7 @@ class AccountsManagerTest {
     UUID pni = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(commands.get(eq("Account3::" + uuid))).thenThrow(new RedisException("Connection lost!"));
+    when(clusterCommands.get(eq("Account3::" + uuid))).thenThrow(new RedisException("Connection lost!"));
     when(accounts.getByAccountIdentifier(eq(uuid))).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.getByAccountIdentifier(uuid);
@@ -536,10 +549,10 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(commands, times(1)).get(eq("Account3::" + uuid));
-    verify(commands, times(1)).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
-    verify(commands, times(1)).setex(eq("Account3::" + uuid), anyLong(), anyString());
-    verifyNoMoreInteractions(commands);
+    verify(clusterCommands, times(1)).get(eq("Account3::" + uuid));
+    verify(clusterCommands, times(1)).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(clusterCommands, times(1)).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(clusterCommands);
 
     verify(accounts, times(1)).getByAccountIdentifier(eq(uuid));
     verifyNoMoreInteractions(accounts);
@@ -551,10 +564,10 @@ class AccountsManagerTest {
     UUID pni = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(asyncCommands.get(eq("Account3::" + uuid)))
+    when(asyncClusterCommands.get(eq("Account3::" + uuid)))
         .thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost!")));
 
-    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     when(accounts.getByAccountIdentifierAsync(eq(uuid)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
@@ -564,10 +577,10 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(asyncCommands).get(eq("Account3::" + uuid));
-    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
-    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
-    verifyNoMoreInteractions(asyncCommands);
+    verify(asyncClusterCommands).get(eq("Account3::" + uuid));
+    verify(asyncClusterCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncClusterCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncClusterCommands);
 
     verify(accounts).getByAccountIdentifierAsync(eq(uuid));
     verifyNoMoreInteractions(accounts);
@@ -580,7 +593,7 @@ class AccountsManagerTest {
 
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(commands.get(eq("AccountMap::" + pni))).thenThrow(new RedisException("OH NO"));
+    when(clusterCommands.get(eq("AccountMap::" + pni))).thenThrow(new RedisException("OH NO"));
     when(accounts.getByPhoneNumberIdentifier(pni)).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.getByPhoneNumberIdentifier(pni);
@@ -588,10 +601,10 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(commands).get(eq("AccountMap::" + pni));
-    verify(commands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
-    verify(commands).setex(eq("Account3::" + uuid), anyLong(), anyString());
-    verifyNoMoreInteractions(commands);
+    verify(clusterCommands).get(eq("AccountMap::" + pni));
+    verify(clusterCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(clusterCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(clusterCommands);
 
     verify(accounts).getByPhoneNumberIdentifier(pni);
     verifyNoMoreInteractions(accounts);
@@ -604,10 +617,10 @@ class AccountsManagerTest {
 
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(asyncCommands.get(eq("AccountMap::" + pni)))
+    when(asyncClusterCommands.get(eq("AccountMap::" + pni)))
         .thenReturn(MockRedisFuture.failedFuture(new RedisException("OH NO")));
 
-    when(asyncCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
+    when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
     when(accounts.getByPhoneNumberIdentifierAsync(pni))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
@@ -617,10 +630,10 @@ class AccountsManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), account);
 
-    verify(asyncCommands).get(eq("AccountMap::" + pni));
-    verify(asyncCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
-    verify(asyncCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
-    verifyNoMoreInteractions(asyncCommands);
+    verify(asyncClusterCommands).get(eq("AccountMap::" + pni));
+    verify(asyncClusterCommands).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
+    verify(asyncClusterCommands).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    verifyNoMoreInteractions(asyncClusterCommands);
 
     verify(accounts).getByPhoneNumberIdentifierAsync(pni);
     verifyNoMoreInteractions(accounts);
@@ -632,7 +645,7 @@ class AccountsManagerTest {
     UUID pni = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
+    when(clusterCommands.get(eq("Account3::" + uuid))).thenReturn(null);
 
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(
         Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH])));
@@ -658,7 +671,7 @@ class AccountsManagerTest {
     UUID pni = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(asyncCommands.get(eq("Account3::" + uuid))).thenReturn(null);
+    when(asyncClusterCommands.get(eq("Account3::" + uuid))).thenReturn(null);
 
     when(accounts.getByAccountIdentifierAsync(uuid)).thenReturn(CompletableFuture.completedFuture(
         Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]))));
@@ -684,7 +697,7 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(commands.get(eq("Account3::" + uuid))).thenReturn(null);
+    when(clusterCommands.get(eq("Account3::" + uuid))).thenReturn(null);
     when(accounts.getByAccountIdentifier(uuid)).thenReturn(Optional.empty())
         .thenReturn(Optional.of(account));
     when(accounts.create(any(), any())).thenThrow(ContestedOptimisticLockException.class);
@@ -971,7 +984,7 @@ class AccountsManagerTest {
             pniSignedPreKey,
             aciPqLastResortPreKey,
             pniPqLastResortPreKey),
-            accountsManager.generateDeviceLinkingToken(aci))
+            accountsManager.generateLinkDeviceToken(aci))
         .join();
 
     verify(keysManager).deleteSingleUsePreKeys(aci, nextDeviceId);
@@ -1606,7 +1619,7 @@ class AccountsManagerTest {
     final UUID aci = UUID.randomUUID();
 
     assertEquals(Optional.of(aci),
-        accountsManager.checkDeviceLinkingToken(accountsManager.generateDeviceLinkingToken(aci)));
+        accountsManager.checkDeviceLinkingToken(accountsManager.generateLinkDeviceToken(aci)));
   }
 
   @ParameterizedTest
@@ -1622,7 +1635,7 @@ class AccountsManagerTest {
 
     return Stream.of(
         // Expired token
-        Arguments.of(AccountsManager.generateDeviceLinkingToken(UUID.randomUUID(),
+        Arguments.of(AccountsManager.generateLinkDeviceToken(UUID.randomUUID(),
                 new SecretKeySpec(LINK_DEVICE_SECRET, AccountsManager.LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM),
                 CLOCK),
             tokenTimestamp.plus(AccountsManager.LINK_DEVICE_TOKEN_EXPIRATION_DURATION).plusSeconds(1)),

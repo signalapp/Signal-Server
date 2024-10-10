@@ -12,8 +12,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.RedisException;
+import io.lettuce.core.SetArgs;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
+import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -42,7 +45,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -61,13 +66,16 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
@@ -82,14 +90,13 @@ import reactor.core.scheduler.Scheduler;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 
-public class AccountsManager {
+public class AccountsManager extends RedisPubSubAdapter<String, String> implements Managed {
 
   private static final Timer createTimer = Metrics.timer(name(AccountsManager.class, "create"));
   private static final Timer updateTimer = Metrics.timer(name(AccountsManager.class, "update"));
   private static final Timer getByNumberTimer = Metrics.timer(name(AccountsManager.class, "getByNumber"));
   private static final Timer getByUsernameHashTimer = Metrics.timer(name(AccountsManager.class, "getByUsernameHash"));
-  private static final Timer getByUsernameLinkHandleTimer = Metrics.timer(
-      name(AccountsManager.class, "getByUsernameLinkHandle"));
+  private static final Timer getByUsernameLinkHandleTimer = Metrics.timer(name(AccountsManager.class, "getByUsernameLinkHandle"));
   private static final Timer getByUuidTimer = Metrics.timer(name(AccountsManager.class, "getByUuid"));
   private static final Timer deleteTimer = Metrics.timer(name(AccountsManager.class, "delete"));
 
@@ -108,6 +115,7 @@ public class AccountsManager {
   private final Accounts accounts;
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final FaultTolerantRedisClusterClient cacheCluster;
+  private final FaultTolerantRedisClient pubSubRedisSingleton;
   private final AccountLockManager accountLockManager;
   private final KeysManager keysManager;
   private final MessagesManager messagesManager;
@@ -123,6 +131,16 @@ public class AccountsManager {
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final Key verificationTokenKey;
+
+  private final FaultTolerantPubSubConnection<String, String> pubSubConnection;
+
+  private final Map<String, CompletableFuture<Optional<DeviceInfo>>> waitForDeviceFuturesByTokenIdentifier =
+      new ConcurrentHashMap<>();
+
+  private static final int SHA256_HASH_LENGTH = getSha256MessageDigest().getDigestLength();
+  private static final Duration RECENTLY_ADDED_DEVICE_TTL = Duration.ofHours(1);
+  private static final String LINKED_DEVICE_PREFIX = "linked_device::";
+  private static final String LINKED_DEVICE_KEYSPACE_PATTERN = "__keyspace@0__:" + LINKED_DEVICE_PREFIX + "*";
 
   private static final ObjectWriter ACCOUNT_REDIS_JSON_WRITER = SystemMapper.jsonMapper()
       .writer(SystemMapper.excludingField(Account.class, List.of("uuid")));
@@ -158,6 +176,7 @@ public class AccountsManager {
   public AccountsManager(final Accounts accounts,
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final FaultTolerantRedisClusterClient cacheCluster,
+      final FaultTolerantRedisClient pubSubRedisSingleton,
       final AccountLockManager accountLockManager,
       final KeysManager keysManager,
       final MessagesManager messagesManager,
@@ -175,6 +194,7 @@ public class AccountsManager {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
+    this.pubSubRedisSingleton = pubSubRedisSingleton;
     this.accountLockManager = accountLockManager;
     this.keysManager = keysManager;
     this.messagesManager = messagesManager;
@@ -197,6 +217,20 @@ public class AccountsManager {
     } catch (final InvalidKeyException e) {
       throw new IllegalArgumentException(e);
     }
+
+    this.pubSubConnection = pubSubRedisSingleton.createPubSubConnection();
+  }
+
+  @Override
+  public void start() {
+    pubSubConnection.usePubSubConnection(connection -> connection.addListener(this));
+    pubSubConnection.usePubSubConnection(connection -> connection.sync().psubscribe(LINKED_DEVICE_KEYSPACE_PATTERN));
+  }
+
+  @Override
+  public void stop() {
+    pubSubConnection.usePubSubConnection(connection -> connection.sync().punsubscribe());
+    pubSubConnection.usePubSubConnection(connection -> connection.removeListener(this));
   }
 
   public Account create(final String number,
@@ -363,6 +397,26 @@ public class AccountsManager {
           }
 
           return CompletableFuture.failedFuture(throwable);
+        })
+        .whenComplete((updatedAccountAndDevice, throwable) -> {
+          if (updatedAccountAndDevice != null) {
+            final String key = getLinkedDeviceKey(getLinkDeviceTokenIdentifier(linkDeviceToken));
+            final String deviceInfoJson;
+
+            try {
+              deviceInfoJson = SystemMapper.jsonMapper().writeValueAsString(DeviceInfo.forDevice(updatedAccountAndDevice.second()));
+            } catch (final JsonProcessingException e) {
+              throw new UncheckedIOException(e);
+            }
+
+            pubSubRedisSingleton.withConnection(connection ->
+                connection.async().set(key, deviceInfoJson, SetArgs.Builder.ex(RECENTLY_ADDED_DEVICE_TTL)))
+                .whenComplete((ignored, pubSubThrowable) -> {
+                  if (pubSubThrowable != null) {
+                    logger.warn("Failed to record recently-created device", pubSubThrowable);
+                  }
+                });
+          }
         });
   }
 
@@ -386,7 +440,7 @@ public class AccountsManager {
     }
   }
 
-  public String generateDeviceLinkingToken(final UUID aci) {
+  public String generateLinkDeviceToken(final UUID aci) {
     final String claims = aci + "." + clock.instant().toEpochMilli();
     final byte[] signature = getInitializedMac().doFinal(claims.getBytes(StandardCharsets.UTF_8));
 
@@ -394,13 +448,18 @@ public class AccountsManager {
   }
 
   @VisibleForTesting
-  static String generateDeviceLinkingToken(final UUID aci, final Key linkDeviceTokenKey, final Clock clock)
+  static String generateLinkDeviceToken(final UUID aci, final Key linkDeviceTokenKey, final Clock clock)
       throws InvalidKeyException {
 
     final String claims = aci + "." + clock.instant().toEpochMilli();
     final byte[] signature = getInitializedMac(linkDeviceTokenKey).doFinal(claims.getBytes(StandardCharsets.UTF_8));
 
     return claims + ":" + Base64.getUrlEncoder().encodeToString(signature);
+  }
+
+  public static String getLinkDeviceTokenIdentifier(final String linkDeviceToken) {
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(
+        getSha256MessageDigest().digest(linkDeviceToken.getBytes(StandardCharsets.UTF_8)));
   }
 
   /**
@@ -1339,5 +1398,76 @@ public class AccountsManager {
         .toCompletableFuture()
         .whenComplete((ignoredResult, ignoredException) -> sample.stop(redisDeleteTimer))
         .thenRun(Util.NOOP);
+  }
+
+  public CompletableFuture<Optional<DeviceInfo>> waitForNewLinkedDevice(final String linkDeviceTokenIdentifier, final Duration timeout) {
+    // Unbeknownst to callers but beknownst to us, the "link device token identifier" is the base64/url-encoded SHA256
+    // hash of a device-linking token. Before we use the string anywhere, make sure it's the right "shape" for a hash.
+    if (Base64.getUrlDecoder().decode(linkDeviceTokenIdentifier).length != SHA256_HASH_LENGTH) {
+      return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid token identifier"));
+    }
+
+    final CompletableFuture<Optional<DeviceInfo>> waitForDeviceFuture = new CompletableFuture<>();
+
+    waitForDeviceFuture
+        .completeOnTimeout(Optional.empty(), TimeUnit.MILLISECONDS.convert(timeout), TimeUnit.MILLISECONDS)
+        .whenComplete((maybeDevice, throwable) -> waitForDeviceFuturesByTokenIdentifier.compute(linkDeviceTokenIdentifier,
+            (ignored, existingFuture) -> {
+              // Only remove the future from the map if it's THIS future, and not one that later displaced this one
+              return existingFuture == waitForDeviceFuture ? null : existingFuture;
+            }));
+
+    {
+      final CompletableFuture<Optional<DeviceInfo>> displacedFuture =
+          waitForDeviceFuturesByTokenIdentifier.put(linkDeviceTokenIdentifier, waitForDeviceFuture);
+
+      if (displacedFuture != null) {
+        displacedFuture.complete(Optional.empty());
+      }
+    }
+
+    // The device may already have been linked by the time the caller started watching for it; perform an immediate
+    // check to see if the device is already there.
+    pubSubRedisSingleton.withConnection(connection -> connection.async().get(getLinkedDeviceKey(linkDeviceTokenIdentifier)))
+        .thenAccept(response -> {
+          if (StringUtils.isNotBlank(response)) {
+            handleDeviceAdded(waitForDeviceFuture, response);
+          }
+        });
+
+    return waitForDeviceFuture;
+  }
+
+  private static String getLinkedDeviceKey(final String linkDeviceTokenIdentifier) {
+    return LINKED_DEVICE_PREFIX + linkDeviceTokenIdentifier;
+  }
+
+  @Override
+  public void message(final String pattern, final String channel, final String message) {
+    if (LINKED_DEVICE_KEYSPACE_PATTERN.equals(pattern) && "set".equalsIgnoreCase(message)) {
+      // The `- 1` here compensates for the '*' in the pattern
+      final String tokenIdentifier = channel.substring(LINKED_DEVICE_KEYSPACE_PATTERN.length() - 1);
+
+      Optional.ofNullable(waitForDeviceFuturesByTokenIdentifier.remove(tokenIdentifier))
+          .ifPresent(future -> pubSubRedisSingleton.withConnection(connection -> connection.async().get(getLinkedDeviceKey(tokenIdentifier)))
+              .thenAccept(deviceInfoJson -> handleDeviceAdded(future, deviceInfoJson)));
+    }
+  }
+
+  private void handleDeviceAdded(final CompletableFuture<Optional<DeviceInfo>> future, final String deviceInfoJson) {
+    try {
+      future.complete(Optional.of(SystemMapper.jsonMapper().readValue(deviceInfoJson, DeviceInfo.class)));
+    } catch (final JsonProcessingException e) {
+      logger.error("Could not parse device json", e);
+      future.completeExceptionally(e);
+    }
+  }
+
+  private static MessageDigest getSha256MessageDigest() {
+    try {
+      return MessageDigest.getInstance("SHA-256");
+    } catch (final NoSuchAlgorithmException e) {
+      throw new AssertionError("Every implementation of the Java platform is required to support the SHA-256 MessageDigest algorithm", e);
+    }
   }
 }

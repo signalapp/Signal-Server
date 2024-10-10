@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
@@ -29,9 +30,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -58,6 +61,9 @@ public class AddRemoveDeviceIntegrationTest {
 
   @RegisterExtension
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
+
+  @RegisterExtension
+  static final RedisServerExtension PUBSUB_SERVER_EXTENSION = RedisServerExtension.builder().build();
 
   private static final Clock CLOCK = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
@@ -128,10 +134,16 @@ public class AddRemoveDeviceIntegrationTest {
     when(registrationRecoveryPasswordsManager.removeForNumber(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
+    PUBSUB_SERVER_EXTENSION.getRedisClient().useConnection(connection -> {
+      connection.sync().flushall();
+      connection.sync().configSet("notify-keyspace-events", "K$");
+    });
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
         CACHE_CLUSTER_EXTENSION.getRedisCluster(),
+        PUBSUB_SERVER_EXTENSION.getRedisClient(),
         accountLockManager,
         keysManager,
         messagesManager,
@@ -146,10 +158,14 @@ public class AddRemoveDeviceIntegrationTest {
         CLOCK,
         "link-device-secret".getBytes(StandardCharsets.UTF_8),
         dynamicConfigurationManager);
+
+    accountsManager.start();
   }
 
   @AfterEach
   void tearDown() throws InterruptedException {
+    accountsManager.stop();
+
     accountLockExecutor.shutdown();
     clientPresenceExecutor.shutdown();
 
@@ -187,7 +203,7 @@ public class AddRemoveDeviceIntegrationTest {
                 KeysHelper.signedECPreKey(2, pniKeyPair),
                 KeysHelper.signedKEMPreKey(3, aciKeyPair),
                 KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                accountsManager.generateDeviceLinkingToken(account.getIdentifier(IdentityType.ACI)))
+                accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)))
             .join();
 
     assertEquals(2, updatedAccountAndDevice.first().getDevices().size());
@@ -216,7 +232,7 @@ public class AddRemoveDeviceIntegrationTest {
     final Account account = AccountsHelper.createAccount(accountsManager, number);
     assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
 
-    final String linkDeviceToken = accountsManager.generateDeviceLinkingToken(account.getIdentifier(IdentityType.ACI));
+    final String linkDeviceToken = accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI));
 
     final Pair<Account, Device> updatedAccountAndDevice =
         accountsManager.addDevice(account, new DeviceSpec(
@@ -292,7 +308,7 @@ public class AddRemoveDeviceIntegrationTest {
                 KeysHelper.signedECPreKey(2, pniKeyPair),
                 KeysHelper.signedKEMPreKey(3, aciKeyPair),
                 KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                accountsManager.generateDeviceLinkingToken(account.getIdentifier(IdentityType.ACI)))
+                accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)))
             .join();
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
@@ -346,7 +362,7 @@ public class AddRemoveDeviceIntegrationTest {
                 KeysHelper.signedECPreKey(2, pniKeyPair),
                 KeysHelper.signedKEMPreKey(3, aciKeyPair),
                 KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                accountsManager.generateDeviceLinkingToken(account.getIdentifier(IdentityType.ACI)))
+                accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)))
             .join();
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
@@ -375,5 +391,111 @@ public class AddRemoveDeviceIntegrationTest {
     assertTrue(keysManager.getLastResort(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(keysManager.getLastResort(retrievedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(clientPublicKeysManager.findPublicKey(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
+  }
+
+  @Test
+  void waitForNewLinkedDevice() throws InterruptedException {
+    final String number = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
+    final Account account = AccountsHelper.createAccount(accountsManager, number);
+
+    final String linkDeviceToken = accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI));
+    final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
+
+    final CompletableFuture<Optional<DeviceInfo>> displacedFuture =
+        accountsManager.waitForNewLinkedDevice(linkDeviceTokenIdentifier, Duration.ofSeconds(5));
+
+    final CompletableFuture<Optional<DeviceInfo>> activeFuture =
+        accountsManager.waitForNewLinkedDevice(linkDeviceTokenIdentifier, Duration.ofSeconds(5));
+
+    assertEquals(Optional.empty(), displacedFuture.join());
+
+    final Pair<Account, Device> updatedAccountAndDevice =
+        accountsManager.addDevice(account, new DeviceSpec(
+                    "device-name".getBytes(StandardCharsets.UTF_8),
+                    "password",
+                    "OWT",
+                    new Device.DeviceCapabilities(true, true, true, false),
+                    1,
+                    2,
+                    true,
+                    Optional.empty(),
+                    Optional.empty(),
+                    KeysHelper.signedECPreKey(1, aciKeyPair),
+                    KeysHelper.signedECPreKey(2, pniKeyPair),
+                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                linkDeviceToken)
+            .join();
+
+    final Optional<DeviceInfo> maybeDeviceInfo = activeFuture.join();
+
+    assertTrue(maybeDeviceInfo.isPresent());
+    final DeviceInfo deviceInfo = maybeDeviceInfo.get();
+
+    assertEquals(updatedAccountAndDevice.second().getId(), deviceInfo.id());
+    assertEquals(updatedAccountAndDevice.second().getCreated(), deviceInfo.created());
+  }
+
+  @Test
+  void waitForNewLinkedDeviceAlreadyAdded() throws InterruptedException {
+    final String number = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+
+    final Account account = AccountsHelper.createAccount(accountsManager, number);
+
+    final String linkDeviceToken = accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI));
+    final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
+
+    final Pair<Account, Device> updatedAccountAndDevice =
+        accountsManager.addDevice(account, new DeviceSpec(
+                    "device-name".getBytes(StandardCharsets.UTF_8),
+                    "password",
+                    "OWT",
+                    new Device.DeviceCapabilities(true, true, true, false),
+                    1,
+                    2,
+                    true,
+                    Optional.empty(),
+                    Optional.empty(),
+                    KeysHelper.signedECPreKey(1, aciKeyPair),
+                    KeysHelper.signedECPreKey(2, pniKeyPair),
+                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                linkDeviceToken)
+            .join();
+
+    final CompletableFuture<Optional<DeviceInfo>> linkedDeviceFuture =
+        accountsManager.waitForNewLinkedDevice(linkDeviceTokenIdentifier, Duration.ofMinutes(1));
+
+    final Optional<DeviceInfo> maybeDeviceInfo = linkedDeviceFuture.join();
+
+    assertTrue(maybeDeviceInfo.isPresent());
+    final DeviceInfo deviceInfo = maybeDeviceInfo.get();
+
+    assertEquals(updatedAccountAndDevice.second().getId(), deviceInfo.id());
+    assertEquals(updatedAccountAndDevice.second().getCreated(), deviceInfo.created());
+  }
+
+  @Test
+  void waitForNewLinkedDeviceTimeout() {
+    final String linkDeviceToken = accountsManager.generateLinkDeviceToken(UUID.randomUUID());
+    final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
+
+    final CompletableFuture<Optional<DeviceInfo>> linkedDeviceFuture =
+        accountsManager.waitForNewLinkedDevice(linkDeviceTokenIdentifier, Duration.ofMillis(10));
+
+    final Optional<DeviceInfo> maybeDeviceInfo = linkedDeviceFuture.join();
+
+    assertTrue(maybeDeviceInfo.isEmpty());
   }
 }

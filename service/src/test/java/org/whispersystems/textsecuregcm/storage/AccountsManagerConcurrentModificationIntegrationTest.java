@@ -48,6 +48,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
@@ -124,6 +125,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           accounts,
           phoneNumberIdentifiers,
           RedisClusterHelper.builder().stringCommands(commands).build(),
+          mock(FaultTolerantRedisClient.class),
           accountLockManager,
           mock(KeysManager.class),
           mock(MessagesManager.class),
