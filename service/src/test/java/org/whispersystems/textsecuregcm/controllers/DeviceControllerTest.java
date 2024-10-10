@@ -28,7 +28,6 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisAdvancedClusterCommands;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,22 +90,24 @@ import org.whispersystems.textsecuregcm.util.LinkDeviceToken;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class DeviceControllerTest {
 
-  private static AccountsManager accountsManager = mock(AccountsManager.class);
-  private static ClientPublicKeysManager clientPublicKeysManager = mock(ClientPublicKeysManager.class);
-  private static RateLimiters rateLimiters = mock(RateLimiters.class);
-  private static RateLimiter rateLimiter = mock(RateLimiter.class);
-  private static RedisAdvancedClusterCommands<String, String> commands = mock(RedisAdvancedClusterCommands.class);
-  private static RedisAdvancedClusterAsyncCommands<String, String> asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
-  private static Account account = mock(Account.class);
-  private static Account maxedAccount = mock(Account.class);
-  private static Device primaryDevice = mock(Device.class);
-  private static ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
-  private static Map<String, Integer> deviceConfiguration = new HashMap<>();
-  private static TestClock testClock = TestClock.now();
+  private static final AccountsManager accountsManager = mock(AccountsManager.class);
+  private static final ClientPublicKeysManager clientPublicKeysManager = mock(ClientPublicKeysManager.class);
+  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static final RateLimiter rateLimiter = mock(RateLimiter.class);
+  @SuppressWarnings("unchecked")
+  private static final RedisAdvancedClusterCommands<String, String> commands = mock(RedisAdvancedClusterCommands.class);
+  @SuppressWarnings("unchecked")
+  private static final RedisAdvancedClusterAsyncCommands<String, String> asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
+  private static final Account account = mock(Account.class);
+  private static final Account maxedAccount = mock(Account.class);
+  private static final Device primaryDevice = mock(Device.class);
+  private static final ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
+  private static final Map<String, Integer> deviceConfiguration = new HashMap<>();
+  private static final TestClock testClock = TestClock.now();
 
   private static final byte NEXT_DEVICE_ID = 42;
 
-  private static DeviceController deviceController = new DeviceController(
+  private static final DeviceController deviceController = new DeviceController(
       accountsManager,
       clientPublicKeysManager,
       rateLimiters,
@@ -820,27 +821,31 @@ class DeviceControllerTest {
   @Test
   void putCapabilitiesSuccessTest() {
     final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, false, false);
-    final Response response = resources
+    try (final Response response = resources
         .getJerseyTest()
         .target("/v1/devices/capabilities")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(deviceCapabilities, MediaType.APPLICATION_JSON_TYPE));
-    assertThat(response.getStatus()).isEqualTo(204);
-    assertThat(response.hasEntity()).isFalse();
+        .put(Entity.entity(deviceCapabilities, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.hasEntity()).isFalse();
+    }
   }
 
   @Test
   void putCapabilitiesFailureTest() {
-    final Response response = resources
+    try (final Response response = resources
         .getJerseyTest()
         .target("/v1/devices/capabilities")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.json(""));
-    assertThat(response.getStatus()).isEqualTo(422);
+        .put(Entity.json(""))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
   }
 
   @Test
@@ -854,18 +859,19 @@ class DeviceControllerTest {
     when(accountsManager.removeDevice(AuthHelper.VALID_ACCOUNT, deviceId))
         .thenReturn(CompletableFuture.completedFuture(AuthHelper.VALID_ACCOUNT));
 
-    final Response response = resources
+    try (final Response response = resources
         .getJerseyTest()
         .target("/v1/devices/" + deviceId)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .delete();
+        .delete()) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
-    assertThat(response.hasEntity()).isFalse();
+      assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.hasEntity()).isFalse();
 
-    verify(accountsManager).removeDevice(AuthHelper.VALID_ACCOUNT, deviceId);
+      verify(accountsManager).removeDevice(AuthHelper.VALID_ACCOUNT, deviceId);
+    }
   }
 
   @Test
@@ -894,18 +900,19 @@ class DeviceControllerTest {
     when(accountsManager.removeDevice(AuthHelper.VALID_ACCOUNT_3, deviceId))
         .thenReturn(CompletableFuture.completedFuture(AuthHelper.VALID_ACCOUNT));
 
-    final Response response = resources
+    try (final Response response = resources
         .getJerseyTest()
         .target("/v1/devices/" + deviceId)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, deviceId, AuthHelper.VALID_PASSWORD_3_LINKED))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .delete();
+        .delete()) {
 
-    assertThat(response.getStatus()).isEqualTo(204);
-    assertThat(response.hasEntity()).isFalse();
+      assertThat(response.getStatus()).isEqualTo(204);
+      assertThat(response.hasEntity()).isFalse();
 
-    verify(accountsManager).removeDevice(AuthHelper.VALID_ACCOUNT_3, deviceId);
+      verify(accountsManager).removeDevice(AuthHelper.VALID_ACCOUNT_3, deviceId);
+    }
   }
 
   @Test
