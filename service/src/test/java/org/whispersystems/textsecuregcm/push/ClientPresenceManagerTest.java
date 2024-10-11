@@ -8,14 +8,12 @@ package org.whispersystems.textsecuregcm.push;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
-import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,10 +26,13 @@ import java.util.function.Function;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
+@Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class ClientPresenceManagerTest {
 
   @RegisterExtension
@@ -129,7 +130,7 @@ class ClientPresenceManagerTest {
         connection -> connection.sync().set(ClientPresenceManager.getPresenceKey(accountUuid, deviceId),
             UUID.randomUUID().toString()));
 
-    assertTimeoutPreemptively(Duration.ofSeconds(10), displaced::join);
+    displaced.join();
   }
 
   @Test
@@ -151,7 +152,7 @@ class ClientPresenceManagerTest {
         connection -> connection.sync().set(ClientPresenceManager.getPresenceKey(accountUuid, deviceId),
             UUID.randomUUID().toString()));
 
-    assertTimeoutPreemptively(Duration.ofSeconds(10), displaced::join);
+    displaced.join();
   }
 
   @Test
@@ -354,7 +355,7 @@ class ClientPresenceManagerTest {
 
       server2.setPresent(uuid1, deviceId, connectedElsewhere -> {});
 
-      assertTimeoutPreemptively(Duration.ofSeconds(10), displaced::join);
+      displaced.join();
     }
 
     @Test
@@ -368,7 +369,7 @@ class ClientPresenceManagerTest {
 
       server1.disconnectPresence(uuid1, deviceId);
 
-      assertTimeoutPreemptively(Duration.ofSeconds(10), displaced::join);
+      displaced.join();
     }
 
     @Test
@@ -382,7 +383,25 @@ class ClientPresenceManagerTest {
 
       server2.disconnectPresence(uuid1, deviceId);
 
+      displaced.join();
+    }
+
+    @RepeatedTest(value = 10, failureThreshold = 1)
+    void testConcurrentConnection() {
+      final UUID uuid1 = UUID.randomUUID();
+      final byte deviceId = 1;
+
+      final CompletableFuture<?> displaced = new CompletableFuture<>();
+      final DisplacedPresenceListener listener1 = connectedElsewhere -> displaced.complete(null);
+
+      final Thread server1Thread = new Thread(() -> server1.setPresent(uuid1, deviceId, listener1));
+      final Thread server2Thread = new Thread(() -> server2.setPresent(uuid1, deviceId, listener1));
+
+      server1Thread.start();
+      server2Thread.start();
+
       assertTimeoutPreemptively(Duration.ofSeconds(10), displaced::join);
     }
+
   }
 }
