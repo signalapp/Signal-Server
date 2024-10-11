@@ -51,6 +51,8 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     KEY_TRANSPARENCY_SEARCH_PER_IP("keyTransparencySearch", true, new RateLimiterConfig(100, Duration.ofSeconds(15))),
     KEY_TRANSPARENCY_MONITOR_PER_IP("keyTransparencyMonitor", true, new RateLimiterConfig(100, Duration.ofSeconds(15))),
     WAIT_FOR_LINKED_DEVICE("waitForLinkedDevice", true, new RateLimiterConfig(10, Duration.ofSeconds(30))),
+    UPLOAD_TRANSFER_ARCHIVE("uploadTransferArchive", true, new RateLimiterConfig(10, Duration.ofMinutes(1))),
+    WAIT_FOR_TRANSFER_ARCHIVE("waitForTransferArchive", true, new RateLimiterConfig(10, Duration.ofSeconds(30))),
     ;
 
     private final String id;
@@ -209,5 +211,13 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getWaitForLinkedDeviceLimiter() {
     return forDescriptor(For.WAIT_FOR_LINKED_DEVICE);
+  }
+
+  public RateLimiter getUploadTransferArchiveLimiter() {
+    return forDescriptor(For.UPLOAD_TRANSFER_ARCHIVE);
+  }
+
+  public RateLimiter getWaitForTransferArchiveLimiter() {
+    return forDescriptor(For.WAIT_FOR_TRANSFER_ARCHIVE);
   }
 }
