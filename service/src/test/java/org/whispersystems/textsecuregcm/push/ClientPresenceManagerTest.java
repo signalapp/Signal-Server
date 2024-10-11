@@ -386,8 +386,8 @@ class ClientPresenceManagerTest {
       displaced.join();
     }
 
-    @RepeatedTest(value = 10, failureThreshold = 1)
-    void testConcurrentConnection() {
+    @RepeatedTest(value = 100)
+    void testConcurrentConnection() throws Exception {
       final UUID uuid1 = UUID.randomUUID();
       final byte deviceId = 1;
 
@@ -400,7 +400,13 @@ class ClientPresenceManagerTest {
       server1Thread.start();
       server2Thread.start();
 
-      assertTimeoutPreemptively(Duration.ofSeconds(10), displaced::join);
+      displaced.join();
+      server2Thread.join();
+      server1Thread.join();
+
+      while (server1.isLocallyPresent(uuid1, deviceId) == server2.isLocallyPresent(uuid1, deviceId)) {
+        Thread.sleep(50);
+      }
     }
 
   }
