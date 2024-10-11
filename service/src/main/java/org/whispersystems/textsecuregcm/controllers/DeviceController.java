@@ -13,6 +13,7 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.time.Duration;
@@ -317,11 +318,11 @@ public class DeviceController {
           Waits for a new device to be linked to an account and returns basic information about the new device when
           available.
           """)
-  @ApiResponse(responseCode = "200", description = "The specified was linked to an account")
+  @ApiResponse(responseCode = "200", description = "The specified was linked to an account",
+      content = @Content(schema = @Schema(implementation = DeviceInfo.class)))
   @ApiResponse(responseCode = "204", description = "No device was linked to the account before the call completed")
   @ApiResponse(responseCode = "400", description = "The given token identifier or timeout was invalid")
   @ApiResponse(responseCode = "429", description = "Rate-limited; try again after the prescribed delay")
-  @Schema(description = "Basic information about the linked device", implementation = DeviceInfo.class)
   public CompletableFuture<Response> waitForLinkedDevice(
       @ReadOnly @Auth final AuthenticatedDevice authenticatedDevice,
 
