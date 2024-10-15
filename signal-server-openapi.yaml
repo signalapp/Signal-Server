@@ -1557,7 +1557,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeviceResponse'
+                $ref: '#/components/schemas/LinkDeviceResponse'
         "403":
           description: The given account was not found or the given verification code
             was incorrect
@@ -1576,6 +1576,67 @@ paths:
               description: "If present, an positive integer indicating the number\
                 \ of seconds before a subsequent attempt could succeed"
               style: simple
+  /v1/devices/transfer_archive:
+    get:
+      tags:
+      - Devices
+      summary: Wait for a new transfer archive to be uploaded
+      description: |
+        Waits for a new transfer archive to be uploaded for the authenticated device and returns the location of the
+        archive when available.
+      operationId: waitForTransferArchive
+      parameters:
+      - name: timeout
+        in: query
+        schema:
+          maximum: 3600
+          minimum: 1
+          type: integer
+          description: |2
+              The amount of time (in seconds) to wait for a response. If a transfer archive for the authenticated
+              device is not available within the given amount of time, this endpoint will return a status of HTTP/204.
+          format: int32
+          default: 30
+      responses:
+        "200":
+          description: A new transfer archive was uploaded for the authenticated device
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoteAttachment'
+        "204":
+          description: No transfer archive was uploaded before the call completed;
+            clients may repeat the call to continue waiting
+        "400":
+          description: The given timeout was invalid
+        "429":
+          description: Rate-limited; try again after the prescribed delay
+      security:
+      - authenticatedAccount: []
+    put:
+      tags:
+      - Devices
+      summary: Signals that a transfer archive has been uploaded for a specific linked
+        device
+      description: |
+        Signals that a transfer archive has been uploaded for a specific linked device. Devices waiting via the "wait
+        for transfer archive" endpoint will be notified that the new archive is available.
+      operationId: recordTransferArchiveUploaded
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferArchiveUploadedRequest'
+        required: true
+      responses:
+        "204":
+          description: Success
+        "422":
+          description: The request object could not be parsed or was otherwise invalid
+        "429":
+          description: Rate-limited; try again after the prescribed delay
+      security:
+      - authenticatedAccount: []
   /v1/devices/{device_id}:
     delete:
       tags:
@@ -1685,9 +1746,15 @@ paths:
           type: string
       responses:
         "200":
-          description: The specified was linked to an account
+          description: A device was linked to an account using the token associated
+            with the given token identifier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceInfo'
         "204":
-          description: No device was linked to the account before the call completed
+          description: No device was linked to the account before the call completed;
+            clients may repeat the call to continue waiting
         "400":
           description: The given token identifier or timeout was invalid
         "429":
@@ -2004,15 +2071,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -2251,15 +2318,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2287,15 +2354,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2323,15 +2390,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2359,15 +2426,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2839,15 +2906,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2887,15 +2954,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2928,15 +2995,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3113,15 +3180,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3159,15 +3226,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3258,15 +3325,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -4067,7 +4134,6 @@ components:
         key:
           type: string
           description: The attachment key
-      description: The object on the attachment CDN to copy
     CopyMediaResponse:
       required:
       - cdn
@@ -4366,7 +4432,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DeviceInfo'
-    DeviceResponse:
+    LinkDeviceResponse:
       type: object
       properties:
         uuid:
@@ -4436,6 +4502,21 @@ components:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
+    TransferArchiveUploadedRequest:
+      type: object
+      properties:
+        destinationDeviceId:
+          type: string
+          description: The ID of the device for which the transfer archive has been
+            prepared
+          format: byte
+        destinationDeviceCreated:
+          type: integer
+          description: "The timestamp, in milliseconds since the epoch, at which the\
+            \ destination device was created"
+          format: int64
+        transferArchive:
+          $ref: '#/components/schemas/RemoteAttachment'
     RedeemReceiptRequest:
       required:
       - receiptCredentialPresentation
