@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.captcha;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
@@ -40,4 +41,24 @@ public interface CaptchaClient {
       final String token,
       final String ip,
       final String userAgent) throws IOException;
+
+  static CaptchaClient noop() {
+    return new CaptchaClient() {
+      @Override
+      public String scheme() {
+        return "noop";
+      }
+
+      @Override
+      public Set<String> validSiteKeys(final Action action) {
+        return Set.of("noop");
+      }
+
+      @Override
+      public AssessmentResult verify(final String siteKey, final Action action, final String token, final String ip,
+          final String userAgent) throws IOException {
+        return AssessmentResult.alwaysValid();
+      }
+    };
+  }
 }

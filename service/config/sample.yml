@@ -284,9 +284,6 @@ unidentifiedDelivery:
   privateKey: secret://unidentifiedDelivery.privateKey
   expiresDays: 7
 
-hCaptcha:
-  apiKey: secret://hCaptcha.apiKey
-
 shortCode:
   baseUrl: https://example.com/shortcodes/
 

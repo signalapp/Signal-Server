@@ -37,7 +37,6 @@ import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
 import org.whispersystems.textsecuregcm.configuration.GooglePlayBillingConfiguration;
-import org.whispersystems.textsecuregcm.configuration.HCaptchaClientFactory;
 import org.whispersystems.textsecuregcm.configuration.KeyTransparencyServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
@@ -201,11 +200,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private UnidentifiedDeliveryConfiguration unidentifiedDelivery;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private HCaptchaClientFactory hCaptcha;
 
   @Valid
   @NotNull
@@ -377,10 +371,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DynamoDbTables getDynamoDbTables() {
     return dynamoDbTables;
-  }
-
-  public HCaptchaClientFactory getHCaptchaConfiguration() {
-    return hCaptcha;
   }
 
   public ShortCodeExpanderConfiguration getShortCodeRetrieverConfiguration() {

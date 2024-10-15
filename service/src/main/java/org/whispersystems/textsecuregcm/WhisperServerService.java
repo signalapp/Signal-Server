@@ -100,7 +100,7 @@ import org.whispersystems.textsecuregcm.calls.routing.CallRoutingTableManager;
 import org.whispersystems.textsecuregcm.calls.routing.DynamicConfigTurnRouter;
 import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
-import org.whispersystems.textsecuregcm.captcha.HCaptchaClient;
+import org.whispersystems.textsecuregcm.captcha.CaptchaClient;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
 import org.whispersystems.textsecuregcm.captcha.ShortCodeExpander;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -499,8 +499,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "secureValueRecoveryServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "storageServiceRetry-%d")).threads(1).build();
-    ScheduledExecutorService hcaptchaRetryExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(getClass(), "hCaptchaRetry-%d")).threads(1).build();
     ScheduledExecutorService remoteStorageRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "remoteStorageRetry-%d")).threads(1).build();
     ScheduledExecutorService registrationIdentityTokenRefreshExecutor = environment.lifecycle()
@@ -549,14 +547,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .executorService(name(getClass(), "clientPresence-%d"))
         .minThreads(8)
         .maxThreads(8)
-        .build();
-    // unbounded executor (same as cachedThreadPool)
-    ExecutorService hcaptchaHttpExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "hcaptcha-%d"))
-        .minThreads(0)
-        .maxThreads(Integer.MAX_VALUE)
-        .workQueue(new SynchronousQueue<>())
-        .keepAliveTime(io.dropwizard.util.Duration.seconds(60L))
         .build();
     // unbounded executor (same as cachedThreadPool)
     ExecutorService remoteStorageHttpExecutor = environment.lifecycle()
@@ -706,13 +696,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         "message_byte_limit",
         config.getMessageByteLimitCardinalityEstimator().period());
 
-    HCaptchaClient hCaptchaClient = config.getHCaptchaConfiguration()
-        .build(hcaptchaRetryExecutor, hcaptchaHttpExecutor, dynamicConfigurationManager);
-    HttpClient shortCodeRetrieverHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
-        .connectTimeout(Duration.ofSeconds(10)).build();
-    ShortCodeExpander shortCodeRetriever = new ShortCodeExpander(shortCodeRetrieverHttpClient, config.getShortCodeRetrieverConfiguration().baseUrl());
-    CaptchaChecker captchaChecker = new CaptchaChecker(shortCodeRetriever, List.of(hCaptchaClient));
-
     PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager,
         pushChallengeDynamoDb);
 
@@ -765,7 +748,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(virtualThreadPinEventMonitor);
     environment.lifecycle().manage(accountsManager);
 
-    final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker);
 
     AwsCredentialsProvider cdnCredentialsProvider = config.getCdnConfiguration().credentials().build();
     S3Client cdnS3Client = S3Client.builder()
@@ -1075,9 +1057,21 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           log.warn("No registration-recovery-checkers found; using default (no-op) provider as a default");
           return RegistrationRecoveryChecker.noop();
         });
-
+    final List<CaptchaClient> captchaClients = spamFilter
+        .map(SpamFilter::getCaptchaClients)
+        .orElseGet(() -> {
+          log.warn("No captcha clients found; using default (no-op) client as default");
+          return List.of(CaptchaClient.noop());
+        });
 
     spamFilter.map(SpamFilter::getReportedMessageListener).ifPresent(reportMessageManager::addListener);
+
+    final HttpClient shortCodeRetrieverHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
+        .connectTimeout(Duration.ofSeconds(10)).build();
+    final ShortCodeExpander shortCodeRetriever = new ShortCodeExpander(shortCodeRetrieverHttpClient, config.getShortCodeRetrieverConfiguration().baseUrl());
+    final CaptchaChecker captchaChecker = new CaptchaChecker(shortCodeRetriever, captchaClients);
+
+    final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker);
 
     final RateLimitChallengeManager rateLimitChallengeManager = new RateLimitChallengeManager(pushChallengeManager,
         captchaChecker, rateLimiters, spamFilter.map(SpamFilter::getRateLimitChallengeListener).stream().toList());

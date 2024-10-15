@@ -8,7 +8,10 @@ package org.whispersystems.textsecuregcm.spam;
 import io.dropwizard.configuration.ConfigurationValidationException;
 import io.dropwizard.lifecycle.Managed;
 import java.io.IOException;
+import java.util.List;
 import javax.validation.Validator;
+import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
+import org.whispersystems.textsecuregcm.captcha.CaptchaClient;
 import org.whispersystems.textsecuregcm.storage.ReportedMessageListener;
 
 /**
@@ -80,4 +83,6 @@ public interface SpamFilter extends Managed {
    * @return a {@link RegistrationRecoveryChecker} controlled by the spam filter
    */
   RegistrationRecoveryChecker getRegistrationRecoveryChecker();
+
+  List<CaptchaClient> getCaptchaClients();
 }

@@ -281,9 +281,6 @@ unidentifiedDelivery:
   privateKey: secret://unidentifiedDelivery.privateKey
   expiresDays: 7
 
-hCaptcha:
-  type: stub
-
 shortCode:
   baseUrl: https://example.com/shortcodes/
 
