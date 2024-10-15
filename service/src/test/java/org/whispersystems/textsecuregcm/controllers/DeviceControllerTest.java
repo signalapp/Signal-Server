@@ -59,7 +59,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
-import org.whispersystems.textsecuregcm.entities.DeviceResponse;
+import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -214,13 +214,13 @@ class DeviceControllerTest {
         accountAttributes,
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
 
-    final DeviceResponse response = resources.getJerseyTest()
+    final LinkDeviceResponse response = resources.getJerseyTest()
         .target("/v1/devices/link")
         .request()
         .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE), DeviceResponse.class);
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE), LinkDeviceResponse.class);
 
-    assertThat(response.getDeviceId()).isEqualTo(NEXT_DEVICE_ID);
+    assertThat(response.deviceId()).isEqualTo(NEXT_DEVICE_ID);
 
     final ArgumentCaptor<DeviceSpec> deviceSpecCaptor = ArgumentCaptor.forClass(DeviceSpec.class);
     verify(accountsManager).addDevice(eq(account), deviceSpecCaptor.capture(), any());

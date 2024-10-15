@@ -53,7 +53,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
-import org.whispersystems.textsecuregcm.entities.DeviceResponse;
+import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
@@ -222,7 +222,7 @@ public class DeviceController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public DeviceResponse linkDevice(@HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
+  public LinkDeviceResponse linkDevice(@HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable String userAgent,
       @NotNull @Valid LinkDeviceRequest linkDeviceRequest,
       @Context ContainerRequest containerRequest)
@@ -295,7 +295,7 @@ public class DeviceController {
                   deviceActivationRequest.aciPqLastResortPreKey(),
                   deviceActivationRequest.pniPqLastResortPreKey()),
               linkDeviceRequest.verificationCode())
-          .thenApply(accountAndDevice -> new DeviceResponse(
+          .thenApply(accountAndDevice -> new LinkDeviceResponse(
               accountAndDevice.first().getIdentifier(IdentityType.ACI),
               accountAndDevice.first().getIdentifier(IdentityType.PNI),
               accountAndDevice.second().getId()))
