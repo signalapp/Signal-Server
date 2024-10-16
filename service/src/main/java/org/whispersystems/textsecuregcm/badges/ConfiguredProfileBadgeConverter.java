@@ -76,22 +76,22 @@ public class ConfiguredProfileBadgeConverter implements ProfileBadgeConverter, B
     final ResourceBundle resourceBundle = headerControlledResourceBundleLookup.getResourceBundle(BASE_NAME,
         acceptableLanguages);
     List<Badge> badges = accountBadges.stream()
-        .filter(accountBadge -> (isSelf || accountBadge.isVisible())
-            && now.isBefore(accountBadge.getExpiration())
-            && knownBadges.containsKey(accountBadge.getId()))
+        .filter(accountBadge -> (isSelf || accountBadge.visible())
+            && now.isBefore(accountBadge.expiration())
+            && knownBadges.containsKey(accountBadge.id()))
         .map(accountBadge -> {
-          BadgeConfiguration configuration = knownBadges.get(accountBadge.getId());
+          BadgeConfiguration configuration = knownBadges.get(accountBadge.id());
           return newBadge(
               isSelf,
-              accountBadge.getId(),
+              accountBadge.id(),
               configuration.getCategory(),
-              resourceBundle.getString(accountBadge.getId() + "_name"),
-              resourceBundle.getString(accountBadge.getId() + "_description"),
+              resourceBundle.getString(accountBadge.id() + "_name"),
+              resourceBundle.getString(accountBadge.id() + "_description"),
               configuration.getSprites(),
               configuration.getSvg(),
               configuration.getSvgs(),
-              accountBadge.getExpiration(),
-              accountBadge.isVisible());
+              accountBadge.expiration(),
+              accountBadge.visible());
         })
         .collect(Collectors.toCollection(ArrayList::new));
     badges.addAll(badgeIdsEnabledForAll.stream().filter(knownBadges::containsKey).map(id -> {

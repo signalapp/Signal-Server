@@ -233,17 +233,17 @@ class AccountTest {
     account.addBadge(clock, new AccountBadge("foo", Instant.ofEpochSecond(50), false));
 
     assertThat(account.getBadges()).hasSize(2).element(0).satisfies(badge -> {
-      assertThat(badge.getId()).isEqualTo("foo");
-      assertThat(badge.getExpiration().getEpochSecond()).isEqualTo(50);
-      assertThat(badge.isVisible()).isFalse();
+      assertThat(badge.id()).isEqualTo("foo");
+      assertThat(badge.expiration().getEpochSecond()).isEqualTo(50);
+      assertThat(badge.visible()).isFalse();
     });
 
     account.addBadge(clock, new AccountBadge("foo", Instant.ofEpochSecond(51), true));
 
     assertThat(account.getBadges()).hasSize(2).element(0).satisfies(badge -> {
-      assertThat(badge.getId()).isEqualTo("foo");
-      assertThat(badge.getExpiration().getEpochSecond()).isEqualTo(51);
-      assertThat(badge.isVisible()).isTrue();
+      assertThat(badge.id()).isEqualTo("foo");
+      assertThat(badge.expiration().getEpochSecond()).isEqualTo(51);
+      assertThat(badge.visible()).isTrue();
     });
   }
 

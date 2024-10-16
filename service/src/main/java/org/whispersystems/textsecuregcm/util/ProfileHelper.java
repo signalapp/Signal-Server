@@ -37,7 +37,7 @@ public class ProfileHelper {
       final List<AccountBadge> accountBadges) {
     LinkedHashMap<String, AccountBadge> existingBadges = new LinkedHashMap<>(accountBadges.size());
     for (final AccountBadge accountBadge : accountBadges) {
-      existingBadges.putIfAbsent(accountBadge.getId(), accountBadge);
+      existingBadges.putIfAbsent(accountBadge.id(), accountBadge);
     }
 
     LinkedHashMap<String, AccountBadge> result = new LinkedHashMap<>(accountBadges.size());
@@ -67,7 +67,7 @@ public class ProfileHelper {
     for (final Map.Entry<String, AccountBadge> entry : existingBadges.entrySet()) {
       if (!result.containsKey(entry.getKey())) {
         AccountBadge accountBadge = entry.getValue().withVisibility(false);
-        result.put(accountBadge.getId(), accountBadge);
+        result.put(accountBadge.id(), accountBadge);
       }
     }
 

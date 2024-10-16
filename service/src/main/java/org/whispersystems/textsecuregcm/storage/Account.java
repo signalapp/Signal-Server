@@ -377,7 +377,7 @@ public class Account {
     boolean added = false;
     for (int i = 0; i < badges.size(); i++) {
       final AccountBadge badgeInList = badges.get(i);
-      if (Objects.equals(badgeInList.getId(), badge.getId())) {
+      if (Objects.equals(badgeInList.id(), badge.id())) {
         if (added) {
           badges.remove(i);
           i--;
@@ -399,14 +399,14 @@ public class Account {
     requireNotStale();
 
     // early exit if it's already the first item in the list
-    if (!badges.isEmpty() && Objects.equals(badges.get(0).getId(), badgeId)) {
+    if (!badges.isEmpty() && Objects.equals(badges.get(0).id(), badgeId)) {
       purgeStaleBadges(clock);
       return;
     }
 
     int indexOfBadge = -1;
     for (int i = 1; i < badges.size(); i++) {
-      if (Objects.equals(badgeId, badges.get(i).getId())) {
+      if (Objects.equals(badgeId, badges.get(i).id())) {
         indexOfBadge = i;
         break;
       }
@@ -422,13 +422,13 @@ public class Account {
   public void removeBadge(final Clock clock, final String id) {
     requireNotStale();
 
-    badges.removeIf(accountBadge -> Objects.equals(accountBadge.getId(), id));
+    badges.removeIf(accountBadge -> Objects.equals(accountBadge.id(), id));
     purgeStaleBadges(clock);
   }
 
   private void purgeStaleBadges(final Clock clock) {
     final Instant now = clock.instant();
-    badges.removeIf(accountBadge -> now.isAfter(accountBadge.getExpiration()));
+    badges.removeIf(accountBadge -> now.isAfter(accountBadge.expiration()));
   }
 
   public void setRegistrationLockFromAttributes(final AccountAttributes attributes) {

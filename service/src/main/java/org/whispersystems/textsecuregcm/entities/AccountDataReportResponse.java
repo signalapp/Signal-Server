@@ -114,7 +114,7 @@ public record AccountDataReportResponse(UUID reportId,
                                 boolean visible) {
 
     public BadgeDataReport(AccountBadge badge) {
-      this(badge.getId(), badge.getExpiration(), badge.isVisible());
+      this(badge.id(), badge.expiration(), badge.visible());
     }
 
   }

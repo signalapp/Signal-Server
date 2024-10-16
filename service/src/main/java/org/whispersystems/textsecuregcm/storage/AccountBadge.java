@@ -5,31 +5,14 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.Objects;
 
-public class AccountBadge {
-
-  private final String id;
-  private final Instant expiration;
-  private final boolean visible;
-
-  @JsonCreator
-  public AccountBadge(
-      @JsonProperty("id") String id,
-      @JsonProperty("expiration") Instant expiration,
-      @JsonProperty("visible") boolean visible) {
-    this.id = id;
-    this.expiration = expiration;
-    this.visible = visible;
-  }
+public record AccountBadge(String id, Instant expiration, boolean visible) {
 
   /**
    * Returns a new AccountBadge that is a merging of the two originals. IDs must match for this operation to make sense.
-   * The expiration will be the later of the two.
-   * Visibility will be set if either of the passed in objects is visible.
+   * The expiration will be the later of the two. Visibility will be set if either of the passed in objects is visible.
    */
   public AccountBadge mergeWith(AccountBadge other) {
     if (!Objects.equals(other.id, id)) {
@@ -61,44 +44,5 @@ public class AccountBadge {
           this.expiration,
           visible);
     }
-  }
-
-  public String getId() {
-    return id;
-  }
-
-  public Instant getExpiration() {
-    return expiration;
-  }
-
-  public boolean isVisible() {
-    return visible;
-  }
-
-  @Override
-  public boolean equals(final Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    AccountBadge that = (AccountBadge) o;
-    return visible == that.visible && Objects.equals(id, that.id)
-        && Objects.equals(expiration, that.expiration);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(id, expiration, visible);
-  }
-
-  @Override
-  public String toString() {
-    return "AccountBadge{" +
-        "id='" + id + '\'' +
-        ", expiration=" + expiration +
-        ", visible=" + visible +
-        '}';
   }
 }
