@@ -173,8 +173,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
       final CompletableFuture<Void> presenceFuture = new CompletableFuture<>();
       final CompletionStage<?> previousFuture = pendingPresenceSetsByPresenceKey.put(presenceKey, presenceFuture);
       if (previousFuture != null) {
-        log.warn("Unexpected pending presence");
-
+        log.debug("Another presence is already pending for {}:{}", accountUuid, deviceId);
       }
 
       subscribeForRemotePresenceChanges(presenceKey);
