@@ -95,7 +95,6 @@ class AttachmentControllerTest {
           .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
           .addResource(new AttachmentControllerV2(RATE_LIMITERS, "accessKey", "accessSecret", "us-east-1",
               "attachmentv2-bucket"))
-          .addResource(new AttachmentControllerV3(RATE_LIMITERS, gcsAttachmentGenerator))
           .addProvider(new AttachmentControllerV4(RATE_LIMITERS,
               gcsAttachmentGenerator,
               new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL)),
@@ -129,16 +128,6 @@ class AttachmentControllerTest {
         .header("Authorization", CDN3_DISABLED_CREDS)
         .get(AttachmentDescriptorV3.class);
     assertThat(descriptor.cdn()).isEqualTo(2);
-    assertValidCdn2Response(descriptor);
-  }
-
-  @Test
-  void testV3Form() {
-    AttachmentDescriptorV3 descriptor = resources.getJerseyTest()
-            .target("/v3/attachments/form/upload")
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .get(AttachmentDescriptorV3.class);
     assertValidCdn2Response(descriptor);
   }
 
