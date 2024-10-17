@@ -1240,21 +1240,6 @@ paths:
       deprecated: true
       security:
       - authenticatedAccount: []
-  /v3/attachments/form/upload:
-    get:
-      tags:
-      - Attachments
-      operationId: getAttachmentUploadForm_1
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AttachmentDescriptorV3'
-      deprecated: true
-      security:
-      - authenticatedAccount: []
   /v4/attachments/form/upload:
     get:
       tags:
@@ -1263,7 +1248,7 @@ paths:
       description: |
         Retrieve an upload form that can be used to perform a resumable upload. The response will include a cdn number
         indicating what protocol should be used to perform the upload.
-      operationId: getAttachmentUploadForm_2
+      operationId: getAttachmentUploadForm_1
       responses:
         "200":
           description: "Success, response body includes upload form"
