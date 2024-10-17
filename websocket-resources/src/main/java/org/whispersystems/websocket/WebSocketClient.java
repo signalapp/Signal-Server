@@ -7,6 +7,7 @@ package org.whispersystems.websocket;
 import com.google.common.net.HttpHeaders;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +32,7 @@ public class WebSocketClient {
   private final RemoteEndpoint remoteEndpoint;
   private final WebSocketMessageFactory messageFactory;
   private final Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper;
-  private final long created;
+  private final Instant created;
 
   public WebSocketClient(Session session, RemoteEndpoint remoteEndpoint, WebSocketMessageFactory messageFactory,
                          Map<Long, CompletableFuture<WebSocketResponseMessage>> pendingRequestMapper) {
@@ -39,7 +40,7 @@ public class WebSocketClient {
     this.remoteEndpoint = remoteEndpoint;
     this.messageFactory = messageFactory;
     this.pendingRequestMapper = pendingRequestMapper;
-    this.created = System.currentTimeMillis();
+    this.created = Instant.now();
   }
 
   public CompletableFuture<WebSocketResponseMessage> sendRequest(String verb, String path,
@@ -78,7 +79,7 @@ public class WebSocketClient {
     return session.getUpgradeRequest().getHeader(HttpHeaders.USER_AGENT);
   }
 
-  public long getCreatedTimestamp() {
+  public Instant getCreated() {
     return this.created;
   }
 
