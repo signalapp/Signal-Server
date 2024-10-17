@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -351,7 +350,7 @@ public class ProfileController {
   private void checkFingerprintAndAdd(BatchIdentityCheckRequest.Element element,
       Collection<BatchIdentityCheckResponse.Element> responseElements, MessageDigest md) {
 
-    final ServiceIdentifier identifier = Objects.requireNonNullElse(element.uuid(), element.aci());
+    final ServiceIdentifier identifier = element.uuid();
     final Optional<Account> maybeAccount = accountsManager.getByServiceIdentifier(identifier);
 
     maybeAccount.ifPresent(account -> {
@@ -365,7 +364,7 @@ public class ProfileController {
       byte[] fingerprint = Util.truncate(digest, 4);
 
       if (!Arrays.equals(fingerprint, element.fingerprint())) {
-        responseElements.add(new BatchIdentityCheckResponse.Element(element.uuid(), element.aci(), identityKey));
+        responseElements.add(new BatchIdentityCheckResponse.Element(element.uuid(), identityKey));
       }
     });
   }
