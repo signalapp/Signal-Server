@@ -336,7 +336,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     final long earliestAllowableEphemeralTimestamp =
         clock.millis() - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
 
-    final Flux<MessageProtos.Envelope> allMessages = getAllMessages(destinationUuid, destinationDevice)
+    final Flux<MessageProtos.Envelope> allMessages = getAllMessages(destinationUuid, destinationDevice,
+        earliestAllowableEphemeralTimestamp)
         .publish()
         // We expect exactly two subscribers to this base flux:
         // 1. the websocket that delivers messages to clients
@@ -375,7 +376,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   @VisibleForTesting
-  Flux<MessageProtos.Envelope> getAllMessages(final UUID destinationUuid, final byte destinationDevice) {
+  Flux<MessageProtos.Envelope> getAllMessages(final UUID destinationUuid, final byte destinationDevice,
+      final long earliestAllowableEphemeralTimestamp) {
 
     // fetch messages by page
     return getNextMessagePage(destinationUuid, destinationDevice, -1)
@@ -401,7 +403,14 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
               final Mono<MessageProtos.Envelope> messageMono;
               if (message.hasSharedMrmKey()) {
-                final Mono<?> experimentMono = maybeRunMrmViewExperiment(message, destinationUuid, destinationDevice);
+
+                final Mono<?> experimentMono;
+                if (isStaleEphemeralMessage(message, earliestAllowableEphemeralTimestamp)) {
+                  // skip fetching content for message that will be discarded
+                  experimentMono = Mono.empty();
+                } else {
+                  experimentMono = maybeRunMrmViewExperiment(message, destinationUuid, destinationDevice);
+                }
 
                 // mrm views phase 1: messageMono for sharedMrmKey is always Mono.just(), because messages always have content
                 // To avoid races, wait for the experiment to run, but ignore any errors

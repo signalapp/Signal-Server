@@ -330,7 +330,7 @@ class MessagesCacheTest {
             .get(5, TimeUnit.SECONDS);
 
         final List<MessageProtos.Envelope> messages = messagesCache.getAllMessages(DESTINATION_UUID,
-                DESTINATION_DEVICE_ID)
+                DESTINATION_DEVICE_ID, 0)
             .collectList()
             .toFuture().get(5, TimeUnit.SECONDS);
 
@@ -741,7 +741,7 @@ class MessagesCacheTest {
           .thenReturn(Flux.from(emptyFinalPagePublisher))
           .thenReturn(Flux.empty());
 
-      final Flux<?> allMessages = messagesCache.getAllMessages(UUID.randomUUID(), Device.PRIMARY_ID);
+      final Flux<?> allMessages = messagesCache.getAllMessages(UUID.randomUUID(), Device.PRIMARY_ID, 0);
 
       // Why initialValue = 3?
       // 1. messagesCache.getAllMessages() above produces the first call
