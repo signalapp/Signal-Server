@@ -51,15 +51,12 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
@@ -97,8 +94,6 @@ import org.whispersystems.websocket.auth.ReadOnly;
 @Path("/v1/subscription")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Subscriptions")
 public class SubscriptionController {
-
-  private static final Logger logger = LoggerFactory.getLogger(SubscriptionController.class);
 
   private final Clock clock;
   private final SubscriptionConfiguration subscriptionConfiguration;
