@@ -20,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import redis.embedded.RedisServer;
+import redis.embedded.exceptions.EmbeddedRedisException;
 
 public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallback, AfterAllCallback, AfterEachCallback {
 
@@ -52,7 +53,7 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
         .port(getAvailablePort())
         .build();
 
-    redisServer.start();
+    startWithRetries(3);
   }
 
   public static RedisURI getRedisURI() {
@@ -94,6 +95,18 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
     try (ServerSocket socket = new ServerSocket(0)) {
       socket.setReuseAddress(false);
       return socket.getLocalPort();
+    }
+  }
+
+  private void startWithRetries(int attemptsLeft) throws Exception {
+    try {
+      redisServer.start();
+    } catch (final EmbeddedRedisException e) {
+      if (attemptsLeft == 0) {
+        throw e;
+      }
+      Thread.sleep(500);
+      startWithRetries(attemptsLeft - 1);
     }
   }
 }
