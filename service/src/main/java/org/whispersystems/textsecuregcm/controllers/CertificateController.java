@@ -29,9 +29,7 @@ import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
@@ -41,7 +39,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.websocket.auth.ReadOnly;
 
@@ -79,10 +76,6 @@ public class CertificateController {
   public DeliveryCertificate getDeliveryCertificate(@ReadOnly @Auth AuthenticatedDevice auth,
       @QueryParam("includeE164") @DefaultValue("true") boolean includeE164)
       throws InvalidKeyException {
-
-    if (auth.getAccount().getIdentityKey(IdentityType.ACI) == null) {
-      throw new WebApplicationException(Response.Status.BAD_REQUEST);
-    }
 
     Metrics.counter(GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME, INCLUDE_E164_TAG_NAME, String.valueOf(includeE164))
         .increment();
