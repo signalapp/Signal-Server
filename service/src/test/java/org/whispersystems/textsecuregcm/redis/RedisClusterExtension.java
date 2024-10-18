@@ -202,7 +202,6 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
     final int maxIterations = 11_000;
     for (int i = 0; i < maxIterations; i++) {
       try (final ServerSocket socket = new ServerSocket(0)) {
-        socket.setReuseAddress(false);
         final int port = socket.getLocalPort();
         if (port < 55535) {
           return port;

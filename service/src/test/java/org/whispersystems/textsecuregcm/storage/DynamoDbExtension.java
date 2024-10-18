@@ -144,14 +144,10 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
   }
 
   private void startServer() throws Exception {
-    // Even though we're using AWS SDK v2, Dynamo's local implementation's canonical location
-    // is within v1 (https://github.com/aws/aws-sdk-java-v2/issues/982).  This does support
-    // v2 clients, though.
     loadLibrary();
-    ServerSocket serverSocket = new ServerSocket(0);
-    serverSocket.setReuseAddress(false);
-    port = serverSocket.getLocalPort();
-    serverSocket.close();
+    try (ServerSocket serverSocket = new ServerSocket(0)) {
+      port = serverSocket.getLocalPort();
+    }
     server = ServerRunner.createServerFromCommandLineArgs(new String[]{"-inMemory", "-port", String.valueOf(port)});
     server.start();
   }

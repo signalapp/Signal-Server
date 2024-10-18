@@ -93,7 +93,6 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
 
   private static int getAvailablePort() throws IOException {
     try (ServerSocket socket = new ServerSocket(0)) {
-      socket.setReuseAddress(false);
       return socket.getLocalPort();
     }
   }
