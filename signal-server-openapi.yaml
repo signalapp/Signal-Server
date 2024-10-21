@@ -1220,26 +1220,6 @@ paths:
                 $ref: '#/components/schemas/ExternalServiceCredentials'
       security:
       - authenticatedAccount: []
-  /v2/attachments/form/upload:
-    get:
-      tags:
-      - Attachments
-      operationId: getAttachmentUploadForm
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AttachmentDescriptorV2'
-      deprecated: true
-      security:
-      - authenticatedAccount: []
   /v4/attachments/form/upload:
     get:
       tags:
@@ -1248,7 +1228,7 @@ paths:
       description: |
         Retrieve an upload form that can be used to perform a resumable upload. The response will include a cdn number
         indicating what protocol should be used to perform the upload.
-      operationId: getAttachmentUploadForm_1
+      operationId: getAttachmentUploadForm
       responses:
         "200":
           description: "Success, response body includes upload form"
@@ -1319,6 +1299,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TurnToken'
+        "400":
+          description: Invalid get call endpoint request.
+        "401":
+          description: Account authentication check failed.
+        "422":
+          description: Invalid request format.
+        "429":
+          description: Rate limited.
+      security:
+      - authenticatedAccount: []
+  /v2/calling/relays:
+    get:
+      tags:
+      - Calling
+      summary: Get 1:1 calling relay options for the client
+      description: |
+        Get 1:1 relay addresses in IpV4, Ipv6, and URL formats.
+      operationId: getCallingRelays_1
+      responses:
+        "200":
+          description: '`JSON` with call endpoints.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetCallingRelaysResponse'
         "400":
           description: Invalid get call endpoint request.
         "401":
@@ -4244,28 +4249,6 @@ components:
           description: |
             The public key, serialized in libsignal's elliptic-curve public key format and then encoded as a standard (i.e.
             not URL-safe), padded, base64-encoded string.
-    AttachmentDescriptorV2:
-      type: object
-      properties:
-        attachmentId:
-          type: integer
-          format: int64
-        key:
-          type: string
-        credential:
-          type: string
-        acl:
-          type: string
-        algorithm:
-          type: string
-        date:
-          type: string
-        policy:
-          type: string
-        signature:
-          type: string
-        attachmentIdString:
-          type: string
     AttachmentDescriptorV3:
       type: object
       properties:
@@ -4308,6 +4291,13 @@ components:
         createCallLinkCredentialRequest:
           type: string
           format: byte
+    GetCallingRelaysResponse:
+      type: object
+      properties:
+        relays:
+          type: array
+          items:
+            $ref: '#/components/schemas/TurnToken'
     DeliveryCertificate:
       type: object
       properties:
@@ -4517,13 +4507,13 @@ components:
     WebSocketClient:
       type: object
       properties:
+        created:
+          type: string
+          format: date-time
         userAgent:
           type: string
         open:
           type: boolean
-        createdTimestamp:
-          type: integer
-          format: int64
     WebSocketSessionContext:
       type: object
       properties:
@@ -5116,15 +5106,13 @@ components:
     Element:
       required:
       - fingerprint
+      - uuid
       type: object
       properties:
         uuid:
           type: string
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
-        aci:
-          type: string
-          description: An identifier for an account based on the account's ACI
         fingerprint:
           type: string
           format: byte
