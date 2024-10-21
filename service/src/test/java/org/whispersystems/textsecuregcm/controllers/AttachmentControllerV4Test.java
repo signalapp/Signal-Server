@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +15,7 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -26,7 +28,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import org.assertj.core.api.Assertions;
-import org.assertj.core.api.Condition;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.Test;
@@ -54,8 +55,8 @@ class AttachmentControllerV4Test {
       when(rateLimiters.getAttachmentLimiter()).thenReturn(RATE_LIMITER));
 
 
-  private static String CDN3_ENABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD);
-  private static String CDN3_DISABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO);
+  private static final String CDN3_ENABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD);
+  private static final String CDN3_DISABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO);
   private static final ExperimentEnrollmentManager EXPERIMENT_MANAGER = MockUtils.buildMock(ExperimentEnrollmentManager.class, mgr -> {
     when(mgr.isEnrolled(AuthHelper.VALID_UUID, AttachmentControllerV4.CDN3_EXPERIMENT_NAME)).thenReturn(true);
     when(mgr.isEnrolled(AuthHelper.VALID_UUID_TWO, AttachmentControllerV4.CDN3_EXPERIMENT_NAME)).thenReturn(false);
@@ -118,7 +119,7 @@ class AttachmentControllerV4Test {
   }
 
   @Test
-  void testV4GcsForm() {
+  void testV4GcsForm() throws MalformedURLException {
     AttachmentDescriptorV3 descriptor = resources.getJerseyTest()
         .target("/v4/attachments/form/upload")
         .request()
@@ -128,7 +129,7 @@ class AttachmentControllerV4Test {
     assertValidCdn2Response(descriptor);
   }
 
-  private static void assertValidCdn2Response(final AttachmentDescriptorV3 descriptor) {
+  private static void assertValidCdn2Response(final AttachmentDescriptorV3 descriptor) throws MalformedURLException {
     assertThat(descriptor.key()).isNotBlank();
     assertThat(descriptor.cdn()).isEqualTo(2);
     assertThat(descriptor.headers()).hasSize(3);
@@ -137,21 +138,10 @@ class AttachmentControllerV4Test {
     assertThat(descriptor.headers()).extractingByKey("x-goog-content-length-range").isEqualTo("1,1000");
     assertThat(descriptor.signedUploadLocation()).isNotEmpty();
     assertThat(descriptor.signedUploadLocation()).contains("X-Goog-Signature");
-    assertThat(descriptor.signedUploadLocation()).is(new Condition<>(x -> {
-      try {
-        new URL(x);
-      } catch (MalformedURLException e) {
-        return false;
-      }
-      return true;
-    }, "convertible to a URL", (Object[]) null));
+    //noinspection ResultOfMethodCallIgnored
+    assertThatNoException().isThrownBy(() -> URI.create(descriptor.signedUploadLocation()));
 
-    final URL signedUploadLocation;
-    try {
-      signedUploadLocation = new URL(descriptor.signedUploadLocation());
-    } catch (MalformedURLException e) {
-      throw new AssertionError(e);
-    }
+    final URL signedUploadLocation = URI.create(descriptor.signedUploadLocation()).toURL();
     assertThat(signedUploadLocation.getHost()).isEqualTo("some-cdn.signal.org");
     assertThat(signedUploadLocation.getPath()).startsWith("/attach-here/");
     final Map<String, String> queryParamMap = new HashMap<>();
