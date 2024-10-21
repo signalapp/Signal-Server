@@ -235,13 +235,6 @@ messageCache: # Redis server configuration for message store cache
   cluster:
     type: local
 
-awsAttachments: # AWS S3 configuration
-  bucket: aws-attachments
-  credentials:
-    accessKeyId: secret://awsAttachments.accessKey
-    secretAccessKey: secret://awsAttachments.accessSecret
-  region: us-west-2
-
 gcpAttachments: # GCP Storage configuration
   domain: example.com
   email: user@example.cocm

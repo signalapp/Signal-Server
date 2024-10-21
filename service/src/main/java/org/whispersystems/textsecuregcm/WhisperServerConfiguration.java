@@ -17,7 +17,6 @@ import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppleAppStoreConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
-import org.whispersystems.textsecuregcm.configuration.AwsAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsCredentialsProviderFactory;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
@@ -108,11 +107,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private DynamoDbTables dynamoDbTables;
-
-  @NotNull
-  @Valid
-  @JsonProperty
-  private AwsAttachmentsConfiguration awsAttachments;
 
   @NotNull
   @Valid
@@ -395,10 +389,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public WebSocketConfiguration getWebSocketConfiguration() {
     return webSocket;
-  }
-
-  public AwsAttachmentsConfiguration getAwsAttachmentsConfiguration() {
-    return awsAttachments;
   }
 
   public GcpAttachmentsConfiguration getGcpAttachmentsConfiguration() {

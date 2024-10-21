@@ -30,7 +30,8 @@ import org.whispersystems.websocket.auth.ReadOnly;
 
 
 /**
- * The V4 API is identical to the {@link AttachmentControllerV3} API, but supports an additional TUS based cdn type (cdn3)
+ * The attachment controller generates "upload forms" for authenticated users that permit them to upload files
+ * (message attachments) to a remote storage location. The location may be selected by the server at runtime.
  */
 @Path("/v4/attachments")
 @Tag(name = "Attachments")

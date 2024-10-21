@@ -36,7 +36,6 @@ import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
-import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV2;
 import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -47,7 +46,7 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
-class AttachmentControllerTest {
+class AttachmentControllerV4Test {
 
   private static final RateLimiter RATE_LIMITER = mock(RateLimiter.class);
 
@@ -93,8 +92,6 @@ class AttachmentControllerTest {
           .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
           .setMapper(SystemMapper.jsonMapper())
           .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-          .addResource(new AttachmentControllerV2(RATE_LIMITERS, "accessKey", "accessSecret", "us-east-1",
-              "attachmentv2-bucket"))
           .addProvider(new AttachmentControllerV4(RATE_LIMITERS,
               gcsAttachmentGenerator,
               new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL)),
@@ -179,33 +176,4 @@ class AttachmentControllerTest {
     assertThat(credentialParts[3]).isEqualTo("storage");
     assertThat(credentialParts[4]).isEqualTo("goog4_request");
   }
-
-  @Test
-  void testV2Form() throws IOException {
-    AttachmentDescriptorV2 descriptor = resources.getJerseyTest()
-                                                 .target("/v2/attachments/form/upload")
-                                                 .request()
-                                                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                                 .get(AttachmentDescriptorV2.class);
-
-    assertThat(descriptor.key()).isEqualTo(descriptor.attachmentIdString());
-    assertThat(descriptor.acl()).isEqualTo("private");
-    assertThat(descriptor.algorithm()).isEqualTo("AWS4-HMAC-SHA256");
-    assertThat(descriptor.attachmentId()).isGreaterThan(0);
-    assertThat(String.valueOf(descriptor.attachmentId())).isEqualTo(descriptor.attachmentIdString());
-
-    String[] credentialParts = descriptor.credential().split("/");
-
-    assertThat(credentialParts[0]).isEqualTo("accessKey");
-    assertThat(credentialParts[2]).isEqualTo("us-east-1");
-    assertThat(credentialParts[3]).isEqualTo("s3");
-    assertThat(credentialParts[4]).isEqualTo("aws4_request");
-
-    assertThat(descriptor.date()).isNotBlank();
-    assertThat(descriptor.policy()).isNotBlank();
-    assertThat(descriptor.signature()).isNotBlank();
-
-    assertThat(new String(Base64.getDecoder().decode(descriptor.policy()))).contains("[\"content-length-range\", 1, 104857600]");
-  }
-
 }
