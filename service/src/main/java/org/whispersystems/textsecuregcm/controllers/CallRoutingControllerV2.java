@@ -15,6 +15,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import javax.ws.rs.GET;
@@ -23,8 +25,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
@@ -36,20 +36,19 @@ import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.websocket.auth.ReadOnly;
 
-@Path("/v1/calling")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Calling")
-public class CallRoutingController {
+@Path("/v2/calling")
+public class CallRoutingControllerV2 {
 
   private static final int TURN_INSTANCE_LIMIT = 2;
-  private static final Counter INVALID_IP_COUNTER = Metrics.counter(name(CallRoutingController.class, "invalidIP"));
-  private static final Logger log = LoggerFactory.getLogger(CallRoutingController.class);
+  private static final Counter INVALID_IP_COUNTER = Metrics.counter(name(CallRoutingControllerV2.class, "invalidIP"));
   private final RateLimiters rateLimiters;
   private final TurnCallRouter turnCallRouter;
   private final TurnTokenGenerator tokenGenerator;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager;
 
-  public CallRoutingController(
+  public CallRoutingControllerV2(
       final RateLimiters rateLimiters,
       final TurnCallRouter turnCallRouter,
       final TurnTokenGenerator tokenGenerator,
@@ -77,15 +76,16 @@ public class CallRoutingController {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
-  public TurnToken getCallingRelays(
+  public GetCallingRelaysResponse getCallingRelays(
       final @ReadOnly @Auth AuthenticatedDevice auth,
       @Context ContainerRequestContext requestContext
   ) throws RateLimitExceededException, IOException {
     UUID aci = auth.getAccount().getUuid();
     rateLimiters.getCallEndpointLimiter().validate(aci);
 
+    List<TurnToken> tokens = new ArrayList<>();
     if (experimentEnrollmentManager.isEnrolled(auth.getAccount().getNumber(), aci, "cloudflareTurn")) {
-      return cloudflareTurnCredentialsManager.retrieveFromCloudflare();
+      tokens.add(cloudflareTurnCredentialsManager.retrieveFromCloudflare());
     }
 
     Optional<InetAddress> address = Optional.empty();
@@ -98,6 +98,13 @@ public class CallRoutingController {
     }
 
     TurnServerOptions options = turnCallRouter.getRoutingFor(aci, address, TURN_INSTANCE_LIMIT);
-    return tokenGenerator.generateWithTurnServerOptions(options);
+    tokens.add(tokenGenerator.generateWithTurnServerOptions(options));
+
+    return new GetCallingRelaysResponse(tokens);
+  }
+
+  public record GetCallingRelaysResponse(
+      List<TurnToken> relays
+  ) {
   }
 }
