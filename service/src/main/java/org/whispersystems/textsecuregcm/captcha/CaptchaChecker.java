@@ -10,12 +10,9 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
-import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import javax.ws.rs.BadRequestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,14 +29,13 @@ public class CaptchaChecker {
   private static final String SHORT_SUFFIX = "-short";
 
   private final ShortCodeExpander shortCodeExpander;
-  private final Map<String, CaptchaClient> captchaClientMap;
+  private final Function<String, CaptchaClient> captchaClientSupplier;
 
   public CaptchaChecker(
       final ShortCodeExpander shortCodeRetriever,
-      final List<CaptchaClient> captchaClients) {
+      final Function<String, CaptchaClient> captchaClientSupplier) {
     this.shortCodeExpander = shortCodeRetriever;
-    this.captchaClientMap = captchaClients.stream()
-        .collect(Collectors.toMap(CaptchaClient::scheme, Function.identity()));
+    this.captchaClientSupplier = captchaClientSupplier;
   }
 
 
@@ -81,7 +77,7 @@ public class CaptchaChecker {
       token = shortCodeExpander.retrieve(token).orElseThrow(() -> new BadRequestException("invalid shortcode"));
     }
 
-    final CaptchaClient client = this.captchaClientMap.get(provider);
+    final CaptchaClient client = this.captchaClientSupplier.apply(provider);
     if (client == null) {
       throw new BadRequestException("invalid captcha scheme");
     }

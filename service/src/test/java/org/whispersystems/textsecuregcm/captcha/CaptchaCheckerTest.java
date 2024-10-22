@@ -18,6 +18,7 @@ import static org.whispersystems.textsecuregcm.captcha.CaptchaChecker.SEPARATOR;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import javax.ws.rs.BadRequestException;
@@ -79,7 +80,7 @@ public class CaptchaCheckerTest {
       final String siteKey,
       final Action expectedAction) throws IOException {
     final CaptchaClient captchaClient = mockClient(PREFIX);
-    new CaptchaChecker(null, List.of(captchaClient)).verify(expectedAction, input, null, USER_AGENT);
+    new CaptchaChecker(null, PREFIX -> captchaClient).verify(expectedAction, input, null, USER_AGENT);
     verify(captchaClient, times(1)).verify(eq(siteKey), eq(expectedAction), eq(expectedToken), any(), eq(USER_AGENT));
   }
 
@@ -106,11 +107,12 @@ public class CaptchaCheckerTest {
     String binput = String.join(SEPARATOR, PREFIX_B, CHALLENGE_SITE_KEY, "challenge", TOKEN);
     final CaptchaClient a = mockClient(PREFIX_A);
     final CaptchaClient b = mockClient(PREFIX_B);
+    final Map<String, CaptchaClient> captchaClientMap = Map.of(PREFIX_A, a, PREFIX_B, b);
 
-    new CaptchaChecker(null, List.of(a, b)).verify(Action.CHALLENGE, ainput, null, USER_AGENT);
+    new CaptchaChecker(null, captchaClientMap::get).verify(Action.CHALLENGE, ainput, null, USER_AGENT);
     verify(a, times(1)).verify(any(), any(), any(), any(), any());
 
-    new CaptchaChecker(null, List.of(a, b)).verify(Action.CHALLENGE, binput, null, USER_AGENT);
+    new CaptchaChecker(null, captchaClientMap::get).verify(Action.CHALLENGE, binput, null, USER_AGENT);
     verify(b, times(1)).verify(any(), any(), any(), any(), any());
   }
 
@@ -132,7 +134,7 @@ public class CaptchaCheckerTest {
   public void badArgs(final String input) throws IOException {
     final CaptchaClient cc = mockClient(PREFIX);
     assertThrows(BadRequestException.class,
-        () -> new CaptchaChecker(null, List.of(cc)).verify(Action.CHALLENGE, input, null, USER_AGENT));
+        () -> new CaptchaChecker(null, prefix -> PREFIX.equals(prefix) ? cc : null).verify(Action.CHALLENGE, input, null, USER_AGENT));
 
   }
 
@@ -142,7 +144,7 @@ public class CaptchaCheckerTest {
     final ShortCodeExpander retriever = mock(ShortCodeExpander.class);
     when(retriever.retrieve("abc")).thenReturn(Optional.of(TOKEN));
     final String input = String.join(SEPARATOR, PREFIX + "-short", REG_SITE_KEY, "registration", "abc");
-    new CaptchaChecker(retriever, List.of(captchaClient)).verify(Action.REGISTRATION, input, null, USER_AGENT);
+    new CaptchaChecker(retriever, ignored -> captchaClient).verify(Action.REGISTRATION, input, null, USER_AGENT);
     verify(captchaClient, times(1)).verify(eq(REG_SITE_KEY), eq(Action.REGISTRATION), eq(TOKEN), any(), any());
 
   }

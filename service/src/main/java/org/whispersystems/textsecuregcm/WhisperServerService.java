@@ -57,6 +57,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.servlet.DispatcherType;
@@ -1057,11 +1058,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           log.warn("No registration-recovery-checkers found; using default (no-op) provider as a default");
           return RegistrationRecoveryChecker.noop();
         });
-    final List<CaptchaClient> captchaClients = spamFilter
-        .map(SpamFilter::getCaptchaClients)
+    final Function<String, CaptchaClient> captchaClientSupplier = spamFilter
+        .map(SpamFilter::getCaptchaClientSupplier)
         .orElseGet(() -> {
           log.warn("No captcha clients found; using default (no-op) client as default");
-          return List.of(CaptchaClient.noop());
+          return ignored -> CaptchaClient.noop();
         });
 
     spamFilter.map(SpamFilter::getReportedMessageListener).ifPresent(reportMessageManager::addListener);
@@ -1069,7 +1070,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final HttpClient shortCodeRetrieverHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2)
         .connectTimeout(Duration.ofSeconds(10)).build();
     final ShortCodeExpander shortCodeRetriever = new ShortCodeExpander(shortCodeRetrieverHttpClient, config.getShortCodeRetrieverConfiguration().baseUrl());
-    final CaptchaChecker captchaChecker = new CaptchaChecker(shortCodeRetriever, captchaClients);
+    final CaptchaChecker captchaChecker = new CaptchaChecker(shortCodeRetriever, captchaClientSupplier);
 
     final RegistrationCaptchaManager registrationCaptchaManager = new RegistrationCaptchaManager(captchaChecker);
 
