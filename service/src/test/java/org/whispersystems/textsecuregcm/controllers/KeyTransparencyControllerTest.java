@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -129,7 +130,7 @@ public class KeyTransparencyControllerTest {
     System.arraycopy(charBytes, 0, expectedFullSearchKey, 0, charBytes.length);
     System.arraycopy(aci, 0, expectedFullSearchKey, charBytes.length, aci.length);
 
-    assertArrayEquals(expectedFullSearchKey, getFullSearchKeyByteString(KeyTransparencyController.ACI_PREFIX, aci).toByteArray());
+    assertArrayEquals(expectedFullSearchKey, getFullSearchKeyByteString(ACI_PREFIX, aci).toByteArray());
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -527,8 +528,20 @@ public class KeyTransparencyControllerTest {
       final Optional<List<Long>> e164Positions,
       final Optional<Long> lastTreeHeadSize,
       final Optional<Long> distinguishedTreeHeadSize) {
-    final KeyTransparencyMonitorRequest request = new KeyTransparencyMonitorRequest(aci, aciPositions,
-        e164, e164Positions, usernameHash, usernameHashPositions, lastTreeHeadSize, distinguishedTreeHeadSize);
+
+    final Optional<KeyTransparencyMonitorRequest.E164Monitor> e164Monitor = e164.map(
+            value -> new KeyTransparencyMonitorRequest.E164Monitor(value, e164Positions.orElse(Collections.emptyList())))
+        .or(() -> e164Positions.map(positions -> new KeyTransparencyMonitorRequest.E164Monitor(null, positions)));
+
+    final Optional<KeyTransparencyMonitorRequest.UsernameHashMonitor> usernameHashMonitor = usernameHash.map(
+            value -> new KeyTransparencyMonitorRequest.UsernameHashMonitor(value,
+                usernameHashPositions.orElse(Collections.emptyList())))
+        .or(() -> usernameHashPositions.map(
+            positions -> new KeyTransparencyMonitorRequest.UsernameHashMonitor(null, positions)));
+
+    final KeyTransparencyMonitorRequest request = new KeyTransparencyMonitorRequest(
+        new KeyTransparencyMonitorRequest.AciMonitor(aci, aciPositions), e164Monitor, usernameHashMonitor,
+        lastTreeHeadSize, distinguishedTreeHeadSize);
     try {
       return SystemMapper.jsonMapper().writeValueAsString(request);
     } catch (final JsonProcessingException e) {

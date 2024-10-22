@@ -167,19 +167,19 @@ public class KeyTransparencyController {
 
     try {
       final List<MonitorKey> monitorKeys = new ArrayList<>(List.of(
-          createMonitorKey(getFullSearchKeyByteString(ACI_PREFIX, request.aci().toCompactByteArray()),
-              request.aciPositions())
+          createMonitorKey(getFullSearchKeyByteString(ACI_PREFIX, request.aci().value().toCompactByteArray()),
+              request.aci().positions())
       ));
 
       request.usernameHash().ifPresent(usernameHash ->
-          monitorKeys.add(createMonitorKey(getFullSearchKeyByteString(USERNAME_PREFIX, usernameHash),
-              request.usernameHashPositions().get()))
+          monitorKeys.add(createMonitorKey(getFullSearchKeyByteString(USERNAME_PREFIX, usernameHash.value()),
+              usernameHash.positions()))
       );
 
       request.e164().ifPresent(e164 ->
           monitorKeys.add(
-              createMonitorKey(getFullSearchKeyByteString(E164_PREFIX, e164.getBytes(StandardCharsets.UTF_8)),
-                  request.e164Positions().get()))
+              createMonitorKey(getFullSearchKeyByteString(E164_PREFIX, e164.value().getBytes(StandardCharsets.UTF_8)),
+                  e164.positions()))
       );
 
       return new KeyTransparencyMonitorResponse(keyTransparencyServiceClient.monitor(
