@@ -1834,7 +1834,7 @@ paths:
                 $ref: '#/components/schemas/KeyTransparencyMonitorResponse'
         "404":
           description: At least one search key lookup did not find the key
-        "413":
+        "429":
           description: Ratelimited
         "422":
           description: Invalid request format
@@ -1866,7 +1866,7 @@ paths:
           description: At least one search key lookup to value mapping was invalid
         "404":
           description: At least one search key lookup did not find the key
-        "413":
+        "429":
           description: Ratelimited
         "422":
           description: Invalid request format
@@ -4609,6 +4609,7 @@ components:
     KeyTransparencySearchRequest:
       required:
       - aci
+      - aciIdentityKey
       type: object
       properties:
         aci:
@@ -4622,6 +4623,12 @@ components:
           description: "The username hash to look up, encoded in web-safe unpadded\
             \ base64."
           format: byte
+        aciIdentityKey:
+          $ref: '#/components/schemas/IdentityKey'
+        unidentifiedAccessKey:
+          type: string
+          description: The unidentified access key associated with the account
+          format: byte
         lastTreeHeadSize:
           type: integer
           description: The non-distinguished tree head size to prove consistency against.
@@ -4630,6 +4637,8 @@ components:
           type: integer
           description: The distinguished tree head size to prove consistency against.
           format: int64
+        unidentifiedAccessKeyProvidedWithE164:
+          type: boolean
     CheckKeysRequest:
       required:
       - digest
