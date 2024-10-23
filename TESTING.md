@@ -20,7 +20,7 @@ goal with the `test-server` profile activated:
 This runs [`LocalWhisperServerService`][lwss] with [test configuration][test.yml] and [secrets][test secrets]. External
 registration clients are stubbed so that:
 
-- a captcha requirement can be satisfied with `test.test.registration.test`
+- a captcha requirement can be satisfied with `noop.noop.registration.noop`
 - any string will be accepted for a phone verification code
 
 [lwss]: service/src/test/java/org/whispersystems/textsecuregcm/LocalWhisperServerService.java
