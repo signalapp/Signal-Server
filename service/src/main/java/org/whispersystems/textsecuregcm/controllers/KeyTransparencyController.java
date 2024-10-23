@@ -168,19 +168,18 @@ public class KeyTransparencyController {
     try {
       final List<MonitorKey> monitorKeys = new ArrayList<>(List.of(
           createMonitorKey(getFullSearchKeyByteString(ACI_PREFIX, request.aci().value().toCompactByteArray()),
-              request.aci().positions())
+              request.aci().positions(),
+              ByteString.copyFrom(request.aci().commitmentIndex()))
       ));
 
       request.usernameHash().ifPresent(usernameHash ->
           monitorKeys.add(createMonitorKey(getFullSearchKeyByteString(USERNAME_PREFIX, usernameHash.value()),
-              usernameHash.positions()))
-      );
+              usernameHash.positions(), ByteString.copyFrom(usernameHash.commitmentIndex()))));
 
       request.e164().ifPresent(e164 ->
           monitorKeys.add(
               createMonitorKey(getFullSearchKeyByteString(E164_PREFIX, e164.value().getBytes(StandardCharsets.UTF_8)),
-                  e164.positions()))
-      );
+                  e164.positions(), ByteString.copyFrom(e164.commitmentIndex()))));
 
       return new KeyTransparencyMonitorResponse(keyTransparencyServiceClient.monitor(
           monitorKeys,
@@ -252,10 +251,12 @@ public class KeyTransparencyController {
     throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, unwrapped);
   }
 
-  private static MonitorKey createMonitorKey(final ByteString fullSearchKey, final List<Long> positions) {
+  private static MonitorKey createMonitorKey(final ByteString fullSearchKey, final List<Long> positions,
+      final ByteString commitmentIndex) {
     return MonitorKey.newBuilder()
         .setSearchKey(fullSearchKey)
         .addAllEntries(positions)
+        .setCommitmentIndex(commitmentIndex)
         .build();
   }
 

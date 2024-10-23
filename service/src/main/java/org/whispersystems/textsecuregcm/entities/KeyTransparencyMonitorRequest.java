@@ -17,6 +17,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
+import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.ServiceIdentifierAdapter;
 
 public record KeyTransparencyMonitorRequest(
@@ -53,7 +54,14 @@ public record KeyTransparencyMonitorRequest(
       @Valid
       @NotNull
       @NotEmpty
-      List<@Positive Long> positions
+      List<@Positive Long> positions,
+
+      @Schema(description = "The commitment index derived from a previous search request")
+      @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+      @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+      @NotNull
+      @ExactlySize(32)
+      byte[] commitmentIndex
   ) {}
 
   public record E164Monitor(
@@ -65,7 +73,14 @@ public record KeyTransparencyMonitorRequest(
       @NotNull
       @NotEmpty
       @Valid
-      List<@Positive Long> positions
+      List<@Positive Long> positions,
+
+      @Schema(description = "The commitment index derived from a previous search or monitor request")
+      @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+      @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+      @NotNull
+      @ExactlySize(32)
+      byte[] commitmentIndex
   ) {}
 
   public record UsernameHashMonitor(
@@ -80,6 +95,13 @@ public record KeyTransparencyMonitorRequest(
       @Schema(description = "A list of log tree positions maintained by the client for the username hash search key.")
       @NotNull
       @NotEmpty
-      @Valid List<@Positive Long> positions
+      @Valid List<@Positive Long> positions,
+
+      @Schema(description = "The commitment index derived from a previous search or monitor request")
+      @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
+      @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+      @NotNull
+      @ExactlySize(32)
+      byte[] commitmentIndex
   ) {}
 }
