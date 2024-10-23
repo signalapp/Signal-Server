@@ -48,8 +48,6 @@ message ConsistencyParameters {
   optional uint64 distinguished = 2;
 }
 
-// TODO: add a `value` field so that the KT server can verify that the given search key is mapped
-// to the provided value.
 message SearchRequest {
   /**
    * The key to look up in the log tree.
@@ -67,6 +65,16 @@ message SearchRequest {
    * The tree head size(s) to prove consistency against.
    */
   ConsistencyParameters consistency = 3;
+  /**
+   * Clients need to prove that they know the search key to value mapping
+   * to avoid the key transparency service leaking user data.
+   * If the client is looking up the distinguished key, this field may be empty.
+   */
+  optional bytes mapped_value = 4;
+  /**
+   * Clients should only provide the unidentified_access_key if the search key is a phone number.
+   */
+  optional bytes unidentified_access_key = 5;
 }
 
 message SearchResponse {

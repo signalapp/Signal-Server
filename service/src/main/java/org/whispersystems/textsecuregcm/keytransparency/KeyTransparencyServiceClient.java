@@ -52,13 +52,19 @@ public class KeyTransparencyServiceClient implements Managed {
     this.callbackExecutor = callbackExecutor;
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public CompletableFuture<byte[]> search(
       final ByteString searchKey,
+      final ByteString mappedValue,
+      final Optional<ByteString> unidentifiedAccessKey,
       final Optional<Long> lastTreeHeadSize,
       final Optional<Long> distinguishedTreeHeadSize,
       final Duration timeout) {
     final SearchRequest.Builder searchRequestBuilder = SearchRequest.newBuilder()
-        .setSearchKey(searchKey);
+        .setSearchKey(searchKey)
+        .setMappedValue(mappedValue);
+
+    unidentifiedAccessKey.ifPresent(searchRequestBuilder::setUnidentifiedAccessKey);
 
     final ConsistencyParameters.Builder consistency = ConsistencyParameters.newBuilder();
     lastTreeHeadSize.ifPresent(consistency::setLast);
@@ -71,6 +77,7 @@ public class KeyTransparencyServiceClient implements Managed {
         .thenApply(AbstractMessageLite::toByteArray);
   }
 
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public CompletableFuture<byte[]> monitor(final List<MonitorKey> monitorKeys,
       final Optional<Long> lastTreeHeadSize,
       final Optional<Long> distinguishedTreeHeadSize,

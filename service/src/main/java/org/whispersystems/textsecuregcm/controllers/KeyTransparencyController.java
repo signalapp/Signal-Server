@@ -56,8 +56,10 @@ public class KeyTransparencyController {
   private static final Logger LOGGER = LoggerFactory.getLogger(KeyTransparencyController.class);
   @VisibleForTesting
   static final Duration KEY_TRANSPARENCY_RPC_TIMEOUT = Duration.ofSeconds(15);
-  private static final byte USERNAME_PREFIX = (byte) 'u';
-  private static final byte E164_PREFIX = (byte) 'n';
+  @VisibleForTesting
+  static final byte USERNAME_PREFIX = (byte) 'u';
+  @VisibleForTesting
+  static final byte E164_PREFIX = (byte) 'n';
   @VisibleForTesting
   static final byte ACI_PREFIX = (byte) 'a';
   private final KeyTransparencyServiceClient keyTransparencyServiceClient;
@@ -76,7 +78,7 @@ public class KeyTransparencyController {
   @ApiResponse(responseCode = "200", description = "All search key lookups were successful", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "403", description = "At least one search key lookup to value mapping was invalid")
   @ApiResponse(responseCode = "404", description = "At least one search key lookup did not find the key")
-  @ApiResponse(responseCode = "413", description = "Ratelimited")
+  @ApiResponse(responseCode = "429", description = "Ratelimited")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
   @POST
   @Path("/search")
@@ -92,6 +94,8 @@ public class KeyTransparencyController {
     try {
       final CompletableFuture<byte[]> aciSearchKeyResponseFuture = keyTransparencyServiceClient.search(
           getFullSearchKeyByteString(ACI_PREFIX, request.aci().toCompactByteArray()),
+          ByteString.copyFrom(request.aciIdentityKey().serialize()),
+          Optional.empty(),
           request.lastTreeHeadSize(),
           request.distinguishedTreeHeadSize(),
           KEY_TRANSPARENCY_RPC_TIMEOUT);
@@ -99,6 +103,8 @@ public class KeyTransparencyController {
       final CompletableFuture<byte[]> e164SearchKeyResponseFuture = request.e164()
           .map(e164 -> keyTransparencyServiceClient.search(
               getFullSearchKeyByteString(E164_PREFIX, e164.getBytes(StandardCharsets.UTF_8)),
+              ByteString.copyFrom(request.aci().toCompactByteArray()),
+              Optional.of(ByteString.copyFrom(request.unidentifiedAccessKey().get())),
               request.lastTreeHeadSize(),
               request.distinguishedTreeHeadSize(),
               KEY_TRANSPARENCY_RPC_TIMEOUT))
@@ -107,6 +113,8 @@ public class KeyTransparencyController {
       final CompletableFuture<byte[]> usernameHashSearchKeyResponseFuture = request.usernameHash()
           .map(usernameHash -> keyTransparencyServiceClient.search(
               getFullSearchKeyByteString(USERNAME_PREFIX, request.usernameHash().get()),
+              ByteString.copyFrom(request.aci().toCompactByteArray()),
+              Optional.empty(),
               request.lastTreeHeadSize(),
               request.distinguishedTreeHeadSize(),
               KEY_TRANSPARENCY_RPC_TIMEOUT))
@@ -138,7 +146,7 @@ public class KeyTransparencyController {
   )
   @ApiResponse(responseCode = "200", description = "All search keys exist in the log", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "404", description = "At least one search key lookup did not find the key")
-  @ApiResponse(responseCode = "413", description = "Ratelimited")
+  @ApiResponse(responseCode = "429", description = "Ratelimited")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
   @POST
   @Path("/monitor")
