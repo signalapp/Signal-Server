@@ -1566,6 +1566,80 @@ paths:
               description: "If present, an positive integer indicating the number\
                 \ of seconds before a subsequent attempt could succeed"
               style: simple
+  /v1/devices/restore_account/{token}:
+    get:
+      tags:
+      - Devices
+      summary: Wait for 'restore account' request
+      operationId: waitForDeviceTransferRequest
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          maximum: 64
+          maxLength: 64
+          minLength: 0
+          type: string
+          description: A randomly-generated token identifying the request for device-to-device
+            transfer.
+      - name: timeout
+        in: query
+        schema:
+          maximum: 3600
+          minimum: 1
+          type: integer
+          description: |2
+              The amount of time (in seconds) to wait for a response. If a transfer archive for the authenticated
+              device is not available within the given amount of time, this endpoint will return a status of HTTP/204.
+          format: int32
+          default: 30
+      responses:
+        "200":
+          description: A 'restore account' request was received for the given token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestoreAccountRequest'
+        "204":
+          description: No 'restore account' request for the given token was received
+            before the call completed; clients may repeat the call to continue waiting
+        "400":
+          description: The given token or timeout was invalid
+        "429":
+          description: Rate-limited; try again after the prescribed delay
+    put:
+      tags:
+      - Devices
+      summary: Signals that a new device is requesting restoration of account data
+        by some method
+      description: |
+        Signals that a new device is requesting restoration of account data by some method. Devices waiting via the
+        "wait for 'restore account' request" endpoint will be notified that the request has been issued.
+      operationId: recordRestoreAccountRequest
+      parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          maximum: 64
+          maxLength: 64
+          minLength: 0
+          type: string
+          description: A randomly-generated token identifying the request for device-to-device
+            transfer.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreAccountRequest'
+      responses:
+        "204":
+          description: Success
+        "422":
+          description: The request object could not be parsed or was otherwise invalid
+        "429":
+          description: Rate-limited; try again after the prescribed delay
   /v1/devices/transfer_archive:
     get:
       tags:
@@ -1810,6 +1884,39 @@ paths:
           description: default response
           content:
             '*/*': {}
+  /v1/key-transparency/distinguished:
+    get:
+      tags:
+      - KeyTransparency
+      summary: Get the current value of the distinguished key
+      description: |
+        Enforced unauthenticated endpoint. The response contains the distinguished tree head to prove consistency
+        against for future calls to `/search` and `/distinguished`.
+      operationId: getDistinguishedKey
+      parameters:
+      - name: lastTreeHeadSize
+        in: query
+        description: The distinguished tree head size returned by a previously verified
+          call
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: The `distinguished` search key exists in the log
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyTransparencyDistinguishedKeyResponse'
+        "400":
+          description: Invalid request. See response for any available details.
+        "422":
+          description: Invalid request format
+        "429":
+          description: Rate-limited
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/key-transparency/monitor:
     post:
       tags:
@@ -1832,10 +1939,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/KeyTransparencyMonitorResponse'
+        "400":
+          description: Invalid request. See response for any available details.
         "404":
           description: At least one search key lookup did not find the key
         "429":
-          description: Ratelimited
+          description: Rate-limited
         "422":
           description: Invalid request format
       security:
@@ -1862,12 +1971,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/KeyTransparencySearchResponse'
+        "400":
+          description: Invalid request. See response for any available details.
         "403":
           description: At least one search key lookup to value mapping was invalid
         "404":
           description: At least one search key lookup did not find the key
         "429":
-          description: Ratelimited
+          description: Rate-limited
         "422":
           description: Invalid request format
       security:
@@ -4477,6 +4588,22 @@ components:
           $ref: '#/components/schemas/ApnRegistrationId'
         gcmToken:
           $ref: '#/components/schemas/GcmRegistrationId'
+    RestoreAccountRequest:
+      required:
+      - method
+      type: object
+      properties:
+        method:
+          type: string
+          description: The method by which the new device has requested account data
+            restoration
+          enum:
+          - REMOTE_BACKUP
+          - LOCAL_BACKUP
+          - DEVICE_TRANSFER
+          - DECLINE
+      description: |
+        Represents a request from a new device to restore account data by some method.
     TransferArchiveUploadedRequest:
       type: object
       properties:
@@ -4521,6 +4648,16 @@ components:
           type: object
         client:
           $ref: '#/components/schemas/WebSocketClient'
+    KeyTransparencyDistinguishedKeyResponse:
+      required:
+      - distinguishedKeyResponse
+      type: object
+      properties:
+        distinguishedKeyResponse:
+          type: string
+          description: The response for the distinguished tree head encoded in standard
+            un-padded base64
+          format: byte
     KeyTransparencyMonitorResponse:
       required:
       - monitorResponse
