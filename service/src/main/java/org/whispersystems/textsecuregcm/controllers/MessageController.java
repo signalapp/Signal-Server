@@ -272,6 +272,9 @@ public class MessageController {
   @ApiResponse(
       responseCode = "410", description = "Mismatched registration ids supplied for some recipient devices",
       content = @Content(schema = @Schema(implementation = AccountStaleDevices[].class)))
+  @ApiResponse(
+      responseCode="428",
+      description="The sender should complete a challenge before proceeding")
   public Response sendMessage(@ReadOnly @Auth final Optional<AuthenticatedDevice> source,
       @Parameter(description="The recipient's unidentified access key")
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) final Optional<Anonymous> accessKey,
