@@ -68,6 +68,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
+import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
@@ -142,6 +143,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final Map<TimestampedDeviceIdentifier, CompletableFuture<Optional<RemoteAttachment>>> waitForTransferArchiveFuturesByDeviceIdentifier =
       new ConcurrentHashMap<>();
 
+  private final Map<String, CompletableFuture<Optional<RestoreAccountRequest>>> waitForRestoreAccountRequestFuturesByToken =
+      new ConcurrentHashMap<>();
+
   private static final int SHA256_HASH_LENGTH = getSha256MessageDigest().getDigestLength();
 
   private static final Duration RECENTLY_ADDED_DEVICE_TTL = Duration.ofHours(1);
@@ -151,6 +155,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private static final Duration RECENTLY_ADDED_TRANSFER_ARCHIVE_TTL = Duration.ofHours(1);
   private static final String TRANSFER_ARCHIVE_PREFIX = "transfer_archive::";
   private static final String TRANSFER_ARCHIVE_KEYSPACE_PATTERN = "__keyspace@0__:" + TRANSFER_ARCHIVE_PREFIX + "*";
+
+  private static final Duration RESTORE_ACCOUNT_REQUEST_TTL = Duration.ofHours(1);
+  private static final String RESTORE_ACCOUNT_REQUEST_PREFIX = "restore_account::";
+  private static final String RESTORE_ACCOUNT_REQUEST_KEYSPACE_PATTERN = "__keyspace@0__:" + RESTORE_ACCOUNT_REQUEST_PREFIX + "*";
 
   private static final ObjectWriter ACCOUNT_REDIS_JSON_WRITER = SystemMapper.jsonMapper()
       .writer(SystemMapper.excludingField(Account.class, List.of("uuid")));
@@ -238,7 +246,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   public void start() {
     pubSubConnection.usePubSubConnection(connection -> {
       connection.addListener(this);
-      connection.sync().psubscribe(LINKED_DEVICE_KEYSPACE_PATTERN, TRANSFER_ARCHIVE_KEYSPACE_PATTERN);
+      connection.sync().psubscribe(LINKED_DEVICE_KEYSPACE_PATTERN, TRANSFER_ARCHIVE_KEYSPACE_PATTERN,
+          RESTORE_ACCOUNT_REQUEST_KEYSPACE_PATTERN);
     });
   }
 
@@ -1496,6 +1505,44 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         ":" + destinationDeviceCreationTimestamp.toEpochMilli();
   }
 
+  public CompletableFuture<Optional<RestoreAccountRequest>> waitForRestoreAccountRequest(final String token, final Duration timeout) {
+    return waitForPubSubKey(waitForRestoreAccountRequestFuturesByToken,
+        token,
+        getRestoreAccountRequestKey(token),
+        timeout,
+        this::handleRestoreAccountRequest);
+  }
+
+  public CompletableFuture<Void> recordRestoreAccountRequest(final String token, final RestoreAccountRequest restoreAccountRequest) {
+    final String key = getRestoreAccountRequestKey(token);
+
+    final String requestJson;
+
+    try {
+      requestJson = SystemMapper.jsonMapper().writeValueAsString(restoreAccountRequest);
+    } catch (final JsonProcessingException e) {
+      throw new UncheckedIOException(e);
+    }
+
+    return pubSubRedisClient.withConnection(connection ->
+            connection.async().set(key, requestJson, SetArgs.Builder.ex(RESTORE_ACCOUNT_REQUEST_TTL)))
+        .thenRun(Util.NOOP)
+        .toCompletableFuture();
+  }
+
+  private void handleRestoreAccountRequest(final CompletableFuture<Optional<RestoreAccountRequest>> future, final String transferRequestJson) {
+    try {
+      future.complete(Optional.of(SystemMapper.jsonMapper().readValue(transferRequestJson, RestoreAccountRequest.class)));
+    } catch (final JsonProcessingException e) {
+      logger.error("Could not parse device transfer request JSON", e);
+      future.completeExceptionally(e);
+    }
+  }
+
+  private static String getRestoreAccountRequestKey(final String token) {
+    return RESTORE_ACCOUNT_REQUEST_PREFIX + token;
+  }
+
   private <K, T> CompletableFuture<Optional<T>> waitForPubSubKey(final Map<K, CompletableFuture<Optional<T>>> futureMap,
       final K mapKey,
       final String redisKey,
@@ -1564,6 +1611,14 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       } catch (final IllegalArgumentException e) {
         logger.error("Could not parse timestamped device identifier", e);
       }
+    } else if (RESTORE_ACCOUNT_REQUEST_KEYSPACE_PATTERN.equalsIgnoreCase(pattern) && "set".equalsIgnoreCase(message)) {
+      // The `- 1` here compensates for the '*' in the pattern
+      final String token = channel.substring(RESTORE_ACCOUNT_REQUEST_KEYSPACE_PATTERN.length() - 1);
+
+      Optional.ofNullable(waitForRestoreAccountRequestFuturesByToken.remove(token))
+          .ifPresent(future -> pubSubRedisClient.withConnection(connection -> connection.async().get(
+                  getRestoreAccountRequestKey(token)))
+              .thenAccept(requestJson -> handleRestoreAccountRequest(future, requestJson)));
     }
   }
 

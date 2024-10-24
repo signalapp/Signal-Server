@@ -51,6 +51,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
@@ -61,6 +62,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
+import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
@@ -1019,7 +1021,7 @@ class DeviceControllerTest {
   }
 
   @ParameterizedTest
-  @MethodSource
+  @ValueSource(ints = {0, -1, 3601})
   void waitForLinkedDeviceBadTimeout(final int timeoutSeconds) {
     final String tokenIdentifier = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
 
@@ -1032,10 +1034,6 @@ class DeviceControllerTest {
 
       assertEquals(400, response.getStatus());
     }
-  }
-
-  private static List<Integer> waitForLinkedDeviceBadTimeout() {
-    return List.of(0, -1, 3601);
   }
 
   @ParameterizedTest
@@ -1194,7 +1192,7 @@ class DeviceControllerTest {
   }
 
   @ParameterizedTest
-  @MethodSource
+  @ValueSource(ints = {0, -1, 3601})
   void waitForTransferArchiveBadTimeout(final int timeoutSeconds) {
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/transfer_archive/")
@@ -1205,10 +1203,6 @@ class DeviceControllerTest {
 
       assertEquals(400, response.getStatus());
     }
-  }
-
-  private static List<Integer> waitForTransferArchiveBadTimeout() {
-    return List.of(0, -1, 3601);
   }
 
   @Test
@@ -1223,6 +1217,103 @@ class DeviceControllerTest {
         .get()) {
 
       assertEquals(429, response.getStatus());
+    }
+  }
+
+  @Test
+  void recordRestoreAccountRequest() {
+    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final RestoreAccountRequest restoreAccountRequest =
+        new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP);
+
+    when(accountsManager.recordRestoreAccountRequest(token, restoreAccountRequest))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/restore_account/" + token)
+        .request()
+        .put(Entity.json(restoreAccountRequest))) {
+
+      assertEquals(204, response.getStatus());
+    }
+  }
+
+  @Test
+  void recordRestoreAccountRequestBadToken() {
+    final String token = RandomStringUtils.randomAlphanumeric(128);
+    final RestoreAccountRequest restoreAccountRequest =
+        new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP);
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/restore_account/" + token)
+        .request()
+        .put(Entity.json(restoreAccountRequest))) {
+
+      assertEquals(400, response.getStatus());
+    }
+  }
+
+  @Test
+  void recordRestoreAccountRequestInvalidRequest() {
+    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final RestoreAccountRequest restoreAccountRequest = new RestoreAccountRequest(null);
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/restore_account/" + token)
+        .request()
+        .put(Entity.json(restoreAccountRequest))) {
+
+      assertEquals(422, response.getStatus());
+    }
+  }
+
+  @Test
+  void waitForDeviceTransferRequest() {
+    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final RestoreAccountRequest restoreAccountRequest =
+        new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP);
+
+    when(accountsManager.waitForRestoreAccountRequest(eq(token), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(restoreAccountRequest)));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/restore_account/" + token)
+        .request()
+        .get()) {
+
+      assertEquals(200, response.getStatus());
+      assertEquals(restoreAccountRequest, response.readEntity(RestoreAccountRequest.class));
+    }
+  }
+
+  @Test
+  void waitForDeviceTransferRequestNoRequestIssued() {
+    final String token = RandomStringUtils.randomAlphanumeric(16);
+
+    when(accountsManager.waitForRestoreAccountRequest(eq(token), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/restore_account/" + token)
+        .request()
+        .get()) {
+
+      assertEquals(204, response.getStatus());
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, -1, 3601})
+  void waitForDeviceTransferRequestBadTimeout(final int timeoutSeconds) {
+    final String token = RandomStringUtils.randomAlphanumeric(16);
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/restore_account/" + token)
+        .queryParam("timeout", timeoutSeconds)
+        .request()
+        .get()) {
+
+      assertEquals(400, response.getStatus());
     }
   }
 }

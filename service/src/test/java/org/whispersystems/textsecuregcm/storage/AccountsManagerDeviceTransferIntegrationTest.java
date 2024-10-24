@@ -5,11 +5,13 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
@@ -34,7 +36,7 @@ import static org.mockito.Mockito.when;
 // ThreadMode.SEPARATE_THREAD protects against hangs in the remote Redis calls, as this mode allows the test code to be
 // preempted by the timeout check
 @Timeout(value = 5, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-public class AccountsManagerTransferArchiveIntegrationTest {
+public class AccountsManagerDeviceTransferIntegrationTest {
 
   @RegisterExtension
   static final RedisServerExtension PUBSUB_SERVER_EXTENSION = RedisServerExtension.builder().build();
@@ -143,5 +145,42 @@ public class AccountsManagerTransferArchiveIntegrationTest {
 
     assertEquals(Optional.empty(),
         accountsManager.waitForTransferArchive(account, device, Duration.ofMillis(1)).join());
+  }
+
+  @Test
+  void waitForRestoreAccountRequest() {
+    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final RestoreAccountRequest restoreAccountRequest =
+        new RestoreAccountRequest(RestoreAccountRequest.Method.DEVICE_TRANSFER);
+
+    final CompletableFuture<Optional<RestoreAccountRequest>> displacedFuture =
+        accountsManager.waitForRestoreAccountRequest(token, Duration.ofSeconds(5));
+
+    final CompletableFuture<Optional<RestoreAccountRequest>> activeFuture =
+        accountsManager.waitForRestoreAccountRequest(token, Duration.ofSeconds(5));
+
+    assertEquals(Optional.empty(), displacedFuture.join());
+
+    accountsManager.recordRestoreAccountRequest(token, restoreAccountRequest).join();
+
+    assertEquals(Optional.of(restoreAccountRequest), activeFuture.join());
+  }
+
+  @Test
+  void waitForRestoreAccountRequestAlreadyRequested() {
+    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final RestoreAccountRequest restoreAccountRequest =
+        new RestoreAccountRequest(RestoreAccountRequest.Method.DEVICE_TRANSFER);
+
+    accountsManager.recordRestoreAccountRequest(token, restoreAccountRequest).join();
+
+    assertEquals(Optional.of(restoreAccountRequest),
+        accountsManager.waitForRestoreAccountRequest(token, Duration.ofSeconds(5)).join());
+  }
+
+  @Test
+  void waitForRestoreAccountRequestTimeout() {
+    assertEquals(Optional.empty(),
+        accountsManager.waitForRestoreAccountRequest(RandomStringUtils.randomAlphanumeric(16), Duration.ofMillis(1)).join());
   }
 }

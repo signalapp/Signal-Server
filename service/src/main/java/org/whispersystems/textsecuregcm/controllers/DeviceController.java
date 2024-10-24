@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import javax.ws.rs.Consumes;
@@ -56,6 +57,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
+import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
@@ -64,6 +66,7 @@ import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -435,6 +438,70 @@ public class DeviceController {
     isDowngrade |= account.isDeleteSyncSupported() && !capabilities.deleteSync();
     isDowngrade |= account.isVersionedExpirationTimerSupported() && !capabilities.versionedExpirationTimer();
     return isDowngrade;
+  }
+
+  @PUT
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/restore_account/{token}")
+  @Operation(
+      summary = "Signals that a new device is requesting restoration of account data by some method",
+      description = """
+          Signals that a new device is requesting restoration of account data by some method. Devices waiting via the
+          "wait for 'restore account' request" endpoint will be notified that the request has been issued.
+          """)
+  @ApiResponse(responseCode = "204", description = "Success")
+  @ApiResponse(responseCode = "422", description = "The request object could not be parsed or was otherwise invalid")
+  @ApiResponse(responseCode = "429", description = "Rate-limited; try again after the prescribed delay")
+  @RateLimitedByIp(RateLimiters.For.RECORD_DEVICE_TRANSFER_REQUEST)
+  public CompletionStage<Void> recordRestoreAccountRequest(
+      @PathParam("token")
+      @NotBlank
+      @Size(max = 64)
+      @Schema(description = "A randomly-generated token identifying the request for device-to-device transfer.",
+          requiredMode = Schema.RequiredMode.REQUIRED,
+          maximum = "64") final String token,
+
+      @Valid
+      final RestoreAccountRequest restoreAccountRequest) {
+
+    return accounts.recordRestoreAccountRequest(token, restoreAccountRequest);
+  }
+
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/restore_account/{token}")
+  @Operation(summary = "Wait for 'restore account' request")
+  @ApiResponse(responseCode = "200", description = "A 'restore account' request was received for the given token",
+      content = @Content(schema = @Schema(implementation = RestoreAccountRequest.class)))
+  @ApiResponse(responseCode = "204", description = "No 'restore account' request for the given token was received before the call completed; clients may repeat the call to continue waiting")
+  @ApiResponse(responseCode = "400", description = "The given token or timeout was invalid")
+  @ApiResponse(responseCode = "429", description = "Rate-limited; try again after the prescribed delay")
+  @RateLimitedByIp(RateLimiters.For.WAIT_FOR_DEVICE_TRANSFER_REQUEST)
+  public CompletionStage<Response> waitForDeviceTransferRequest(
+      @PathParam("token")
+      @NotBlank
+      @Size(max = 64)
+      @Schema(description = "A randomly-generated token identifying the request for device-to-device transfer.",
+          requiredMode = Schema.RequiredMode.REQUIRED,
+          maximum = "64") final String token,
+
+      @QueryParam("timeout")
+      @DefaultValue("30")
+      @Min(1)
+      @Max(3600)
+      @Schema(requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+          minimum = "1",
+          maximum = "3600",
+          description = """
+                The amount of time (in seconds) to wait for a response. If a transfer archive for the authenticated
+                device is not available within the given amount of time, this endpoint will return a status of HTTP/204.
+              """) final int timeoutSeconds) {
+
+    return accounts.waitForRestoreAccountRequest(token, Duration.ofSeconds(timeoutSeconds))
+        .thenApply(maybeRequestReceived -> maybeRequestReceived
+            .map(restoreAccountRequest -> Response.status(Response.Status.OK).entity(restoreAccountRequest).build())
+            .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()));
   }
 
   @PUT
