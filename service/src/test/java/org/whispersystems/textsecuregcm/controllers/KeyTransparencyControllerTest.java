@@ -5,6 +5,23 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.ACI_PREFIX;
+import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.E164_PREFIX;
+import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.USERNAME_PREFIX;
+import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.getFullSearchKeyByteString;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.net.HttpHeaders;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -14,6 +31,23 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.stream.Stream;
+import javax.annotation.Nullable;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.Invocation;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.Response;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,11 +55,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.entities.KeyTransparencyDistinguishedKeyResponse;
 import org.whispersystems.textsecuregcm.entities.KeyTransparencyMonitorRequest;
 import org.whispersystems.textsecuregcm.entities.KeyTransparencyMonitorResponse;
 import org.whispersystems.textsecuregcm.entities.KeyTransparencySearchRequest;
@@ -40,39 +76,6 @@ import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
-
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.client.Invocation;
-import javax.ws.rs.core.Response;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.ACI_PREFIX;
-import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.E164_PREFIX;
-import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.USERNAME_PREFIX;
-import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.getFullSearchKeyByteString;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class KeyTransparencyControllerTest {
@@ -90,6 +93,7 @@ public class KeyTransparencyControllerTest {
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
   private static final RateLimiter searchRatelimiter = mock(RateLimiter.class);
   private static final RateLimiter monitorRatelimiter = mock(RateLimiter.class);
+  private static final RateLimiter distinguishedRatelimiter = mock(RateLimiter.class);
 
   private final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -103,9 +107,10 @@ public class KeyTransparencyControllerTest {
 
   @BeforeEach
   void setup() {
-    when(rateLimiters.forDescriptor(eq(RateLimiters.For.KEY_TRANSPARENCY_SEARCH_PER_IP))).thenReturn(searchRatelimiter);
-    when(rateLimiters.forDescriptor(eq(RateLimiters.For.KEY_TRANSPARENCY_MONITOR_PER_IP))).thenReturn(
-        monitorRatelimiter);
+    when(rateLimiters.forDescriptor(RateLimiters.For.KEY_TRANSPARENCY_DISTINGUISHED_PER_IP)).thenReturn(
+        distinguishedRatelimiter);
+    when(rateLimiters.forDescriptor(RateLimiters.For.KEY_TRANSPARENCY_SEARCH_PER_IP)).thenReturn(searchRatelimiter);
+    when(rateLimiters.forDescriptor(RateLimiters.For.KEY_TRANSPARENCY_MONITOR_PER_IP)).thenReturn(monitorRatelimiter);
   }
 
   @AfterEach
@@ -211,7 +216,7 @@ public class KeyTransparencyControllerTest {
         ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty())))) {
       assertEquals(400, response.getStatus());
     }
-    verify(keyTransparencyServiceClient, never()).search(any(), any(), any(), any(), any(), any());
+    verifyNoInteractions(keyTransparencyServiceClient);
   }
 
   @ParameterizedTest
@@ -255,7 +260,7 @@ public class KeyTransparencyControllerTest {
         createSearchRequestJson(aci,  e164, Optional.empty(),
             aciIdentityKey, unidentifiedAccessKey, lastTreeHeadSize, distinguishedTreeHeadSize)))) {
       assertEquals(422, response.getStatus());
-      verify(keyTransparencyServiceClient, never()).search(any(), any(), any(), any(), any(), any());
+      verifyNoInteractions(keyTransparencyServiceClient);
     }
   }
 
@@ -277,7 +282,7 @@ public class KeyTransparencyControllerTest {
   }
 
   @Test
-  void searchRatelimited() {
+  void searchRateLimited() {
     MockUtils.updateRateLimiterResponseToFail(
         rateLimiters, RateLimiters.For.KEY_TRANSPARENCY_SEARCH_PER_IP, "127.0.0.1", Duration.ofMinutes(10), true);
     final Invocation.Builder request = resources.getJerseyTest()
@@ -286,7 +291,7 @@ public class KeyTransparencyControllerTest {
     try (Response response = request.post(Entity.json(createSearchRequestJson(ACI, Optional.empty(), Optional.empty(),
         ACI_IDENTITY_KEY, Optional.empty(),Optional.empty(), Optional.empty())))) {
       assertEquals(429, response.getStatus());
-      verify(keyTransparencyServiceClient, never()).search(any(), any(), any(), any(), any(), any());
+      verifyNoInteractions(keyTransparencyServiceClient);
     }
   }
 
@@ -326,7 +331,7 @@ public class KeyTransparencyControllerTest {
         Entity.json(createMonitorRequestJson(ACI, List.of(3L), Optional.empty(), Optional.empty(),
             Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())))) {
       assertEquals(400, response.getStatus());
-      verify(keyTransparencyServiceClient, never()).monitor(any(), any(), any(), any());
+      verifyNoInteractions(keyTransparencyServiceClient);
     }
   }
 
@@ -364,7 +369,7 @@ public class KeyTransparencyControllerTest {
         .request();
     try (Response response = request.post(Entity.json(requestJson))) {
       assertEquals(422, response.getStatus());
-      verify(keyTransparencyServiceClient, never()).monitor(any(), any(), any(), any());
+      verifyNoInteractions(keyTransparencyServiceClient);
     }
   }
 
@@ -405,7 +410,7 @@ public class KeyTransparencyControllerTest {
   }
 
   @Test
-  void monitorRatelimited() {
+  void monitorRateLimited() {
     MockUtils.updateRateLimiterResponseToFail(
         rateLimiters, RateLimiters.For.KEY_TRANSPARENCY_MONITOR_PER_IP, "127.0.0.1", Duration.ofMinutes(10), true);
     final Invocation.Builder request = resources.getJerseyTest()
@@ -415,7 +420,100 @@ public class KeyTransparencyControllerTest {
         Entity.json(createMonitorRequestJson(ACI, List.of(3L), Optional.empty(), Optional.empty(),
             Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())))) {
       assertEquals(429, response.getStatus());
-      verify(keyTransparencyServiceClient, never()).monitor(any(), any(), any(), any());
+      verifyNoInteractions(keyTransparencyServiceClient);
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource(", 1")
+  void distinguishedSuccess(@Nullable Long lastTreeHeadSize) {
+    when(keyTransparencyServiceClient.getDistinguishedKey(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(TestRandomUtil.nextBytes(16)));
+
+    WebTarget webTarget = resources.getJerseyTest()
+        .target("/v1/key-transparency/distinguished");
+
+    if (lastTreeHeadSize != null) {
+      webTarget = webTarget.queryParam("lastTreeHeadSize", lastTreeHeadSize);
+    }
+
+    try (Response response = webTarget.request().get()) {
+      assertEquals(200, response.getStatus());
+
+      final KeyTransparencyDistinguishedKeyResponse distinguishedKeyResponse = response.readEntity(
+          KeyTransparencyDistinguishedKeyResponse.class);
+      assertNotNull(distinguishedKeyResponse.distinguishedKeyResponse());
+
+      verify(keyTransparencyServiceClient, times(1))
+          .getDistinguishedKey(eq(Optional.ofNullable(lastTreeHeadSize)),
+              eq(KeyTransparencyController.KEY_TRANSPARENCY_RPC_TIMEOUT));
+    }
+  }
+
+  @Test
+  void distinguishedAuthenticated() {
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/key-transparency/distinguished")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
+    try (Response response = request.get()) {
+      assertEquals(400, response.getStatus());
+    }
+    verifyNoInteractions(keyTransparencyServiceClient);
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void distinguishedGrpcErrors(final Status grpcStatus, final int httpStatus) {
+    when(keyTransparencyServiceClient.getDistinguishedKey(any(), any()))
+        .thenReturn(CompletableFuture.failedFuture(new CompletionException(new StatusRuntimeException(grpcStatus))));
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/key-transparency/distinguished")
+        .request();
+    try (Response response = request.get()) {
+      assertEquals(httpStatus, response.getStatus());
+      verify(keyTransparencyServiceClient).getDistinguishedKey(any(), any());
+    }
+  }
+
+  private static Stream<Arguments> distinguishedGrpcErrors() {
+    return Stream.of(
+        Arguments.of(Status.NOT_FOUND, 404),
+        Arguments.of(Status.PERMISSION_DENIED, 403),
+        Arguments.of(Status.INVALID_ARGUMENT, 422),
+        Arguments.of(Status.UNKNOWN, 500)
+    );
+  }
+
+  @Test
+  void distinguishedInvalidRequest() {
+    when(keyTransparencyServiceClient.getDistinguishedKey(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(TestRandomUtil.nextBytes(16)));
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/key-transparency/distinguished")
+        .queryParam("lastTreeHeadSize", -1)
+        .request();
+
+    try (Response response = request.get()) {
+      assertEquals(400, response.getStatus());
+
+      verifyNoInteractions(keyTransparencyServiceClient);
+    }
+  }
+
+  @Test
+  void distinguishedRateLimited() {
+    MockUtils.updateRateLimiterResponseToFail(
+        rateLimiters, RateLimiters.For.KEY_TRANSPARENCY_DISTINGUISHED_PER_IP, "127.0.0.1", Duration.ofMinutes(10),
+        true);
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/key-transparency/distinguished")
+        .request();
+    try (Response response = request.get()) {
+      assertEquals(429, response.getStatus());
+      verifyNoInteractions(keyTransparencyServiceClient);
     }
   }
 

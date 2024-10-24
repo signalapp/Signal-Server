@@ -16,6 +16,13 @@ package kt_query;
   */
 service KeyTransparencyQueryService {
   /**
+   * An endpoint used by clients to retrieve the most recent distinguished tree
+   * head, which should be used to derive consistency parameters for
+   * subsequent Search and Monitor requests. It should be the first key
+   * transparency RPC a client calls.
+   */
+  rpc Distinguished(DistinguishedRequest) returns (SearchResponse) {}
+  /**
    * An endpoint used by clients to search for a given key in the transparency log.
    * The server returns proof that the search key exists in the log.
    */
@@ -46,6 +53,19 @@ message ConsistencyParameters {
    * "distinguished" key for the very first time.
    */
   optional uint64 distinguished = 2;
+}
+
+/**
+ * DistinguishedRequest looks up the most recent distinguished key in the
+ * transparency log.
+ */
+message DistinguishedRequest {
+  /**
+   * The tree size of the client's last verified distinguished request. With the
+   * exception of a client's very first request, this field should always be
+   * set.
+   */
+  optional uint64 last = 1;
 }
 
 message SearchRequest {

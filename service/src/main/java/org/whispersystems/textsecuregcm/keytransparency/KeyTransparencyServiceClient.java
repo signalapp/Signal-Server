@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.signal.keytransparency.client.ConsistencyParameters;
+import org.signal.keytransparency.client.DistinguishedRequest;
 import org.signal.keytransparency.client.KeyTransparencyQueryServiceGrpc;
 import org.signal.keytransparency.client.MonitorKey;
 import org.signal.keytransparency.client.MonitorRequest;
@@ -150,6 +151,16 @@ public class KeyTransparencyServiceClient implements Managed {
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .monitor(monitorRequestBuilder.build()), callbackExecutor)
+        .thenApply(AbstractMessageLite::toByteArray);
+  }
+
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  public CompletableFuture<byte[]> getDistinguishedKey(final Optional<Long> lastTreeHeadSize, final Duration timeout) {
+    final DistinguishedRequest request = lastTreeHeadSize.map(
+            last -> DistinguishedRequest.newBuilder().setLast(last).build())
+        .orElseGet(DistinguishedRequest::getDefaultInstance);
+    return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout)).distinguished(request),
+            callbackExecutor)
         .thenApply(AbstractMessageLite::toByteArray);
   }
 
