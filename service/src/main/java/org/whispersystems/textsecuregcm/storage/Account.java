@@ -518,10 +518,14 @@ public class Account {
   }
 
   public @Nullable BackupVoucher getBackupVoucher() {
+    requireNotStale();
+
     return backupVoucher;
   }
 
   public void setBackupVoucher(final @Nullable BackupVoucher backupVoucher) {
+    requireNotStale();
+
     this.backupVoucher = backupVoucher;
   }
 
