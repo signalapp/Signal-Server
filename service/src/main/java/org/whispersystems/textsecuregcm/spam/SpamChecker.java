@@ -45,7 +45,7 @@ public interface SpamChecker {
       final ContainerRequestContext requestContext,
       final Optional<? extends AccountAndAuthenticatedDeviceHolder> maybeSource,
       final Optional<Account> maybeDestination,
-      final Optional<ServiceIdentifier> destinationIdentifier);
+      final Optional<ServiceIdentifier> maybeDestinationIdentifier);
 
   static SpamChecker noop() {
     return (ignoredContext, ignoredSource, ignoredDestination, ignoredDestinationIdentifier) -> NotSpam.EMPTY_TOKEN;
