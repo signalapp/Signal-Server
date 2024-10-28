@@ -512,19 +512,13 @@ public class ArchiveController {
       @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
       @NotNull
       @ExactlySize(32)
-      byte[] encryptionKey,
-
-      @Schema(description = "A 16-byte IV for AES, encoded in standard padded base64", implementation = String.class)
-      @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-      @NotNull
-      @ExactlySize(16)
-      byte[] iv) {
+      byte[] encryptionKey) {
 
     CopyParameters toCopyParameters() {
       return new CopyParameters(
           sourceAttachment.cdn(), sourceAttachment.key(),
           objectLength,
-          new MediaEncryptionParameters(encryptionKey, hmacKey, iv),
+          new MediaEncryptionParameters(encryptionKey, hmacKey),
           mediaId);
     }
   }

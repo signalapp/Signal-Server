@@ -272,8 +272,7 @@ public class ArchiveControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  public void setBackupIdException(final Exception ex, final boolean sync, final int expectedStatus)
-      throws RateLimitExceededException {
+  public void setBackupIdException(final Exception ex, final boolean sync, final int expectedStatus) {
     if (sync) {
       when(backupAuthManager.commitBackupId(any(), any(), any())).thenThrow(ex);
     } else {
@@ -393,16 +392,14 @@ public class ArchiveControllerTest {
                 100,
                 mediaIds[0],
                 TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(16)),
+                TestRandomUtil.nextBytes(32)),
 
             new ArchiveController.CopyMediaRequest(
                 new RemoteAttachment(3, "def"),
                 200,
                 mediaIds[1],
                 TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(16))
+                TestRandomUtil.nextBytes(32))
         ))));
     assertThat(r.getStatus()).isEqualTo(207);
     final ArchiveController.CopyMediaBatchResponse copyResponse = r.readEntity(
@@ -438,8 +435,7 @@ public class ArchiveControllerTest {
             100,
             mediaId,
             TestRandomUtil.nextBytes(32),
-            TestRandomUtil.nextBytes(32),
-            TestRandomUtil.nextBytes(16))
+            TestRandomUtil.nextBytes(32))
         ).toList();
 
     Response r = resources.getJerseyTest()
@@ -454,7 +450,7 @@ public class ArchiveControllerTest {
 
     assertThat(copyResponse.responses()).hasSize(4);
 
-    final ArchiveController.CopyMediaBatchResponse.Entry r1 = copyResponse.responses().get(0);
+    final ArchiveController.CopyMediaBatchResponse.Entry r1 = copyResponse.responses().getFirst();
     assertThat(r1.cdn()).isEqualTo(1);
     assertThat(r1.mediaId()).isEqualTo(mediaIds[0]);
     assertThat(r1.status()).isEqualTo(200);
@@ -494,16 +490,14 @@ public class ArchiveControllerTest {
                 1,
                 mediaIds[0],
                 TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(16)),
+                TestRandomUtil.nextBytes(32)),
 
             new ArchiveController.CopyMediaRequest(
                 new RemoteAttachment(3, "def"),
                 -1,
                 mediaIds[1],
                 TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(32),
-                TestRandomUtil.nextBytes(16))
+                TestRandomUtil.nextBytes(32))
         ))));
     assertThat(r.getStatus()).isEqualTo(422);
   }
@@ -573,7 +567,7 @@ public class ArchiveControllerTest {
   }
 
   @Test
-  public void mediaUploadForm() throws RateLimitExceededException, VerificationFailedException {
+  public void mediaUploadForm() throws VerificationFailedException {
     final BackupAuthCredentialPresentation presentation =
         backupAuthTestUtil.getPresentation(BackupLevel.PAID, messagesBackupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any()))
@@ -675,8 +669,7 @@ public class ArchiveControllerTest {
             100,
             TestRandomUtil.nextBytes(15),
             TestRandomUtil.nextBytes(32),
-            TestRandomUtil.nextBytes(32),
-            TestRandomUtil.nextBytes(16))));
+            TestRandomUtil.nextBytes(32))));
     assertThat(r.getStatus()).isEqualTo(422);
   }
 

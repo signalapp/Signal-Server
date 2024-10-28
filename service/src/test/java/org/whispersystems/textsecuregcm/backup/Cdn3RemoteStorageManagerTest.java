@@ -39,7 +39,6 @@ public class Cdn3RemoteStorageManagerTest {
 
   private static final byte[] HMAC_KEY = TestRandomUtil.nextBytes(32);
   private static final byte[] AES_KEY = TestRandomUtil.nextBytes(32);
-  private static final byte[] IV = TestRandomUtil.nextBytes(16);
 
   @RegisterExtension
   private static final WireMockExtension wireMock = WireMockExtension.newInstance()
@@ -66,7 +65,7 @@ public class Cdn3RemoteStorageManagerTest {
   @ParameterizedTest
   @ValueSource(ints = {2, 3})
   public void copy(final int sourceCdn) throws JsonProcessingException {
-    final MediaEncryptionParameters encryptionParameters = new MediaEncryptionParameters(AES_KEY, HMAC_KEY, IV);
+    final MediaEncryptionParameters encryptionParameters = new MediaEncryptionParameters(AES_KEY, HMAC_KEY);
     final String scheme = switch (sourceCdn) {
       case 2 -> "gcs";
       case 3 -> "r2";
@@ -99,7 +98,7 @@ public class Cdn3RemoteStorageManagerTest {
             2,
             "a/test/source",
             100,
-            new MediaEncryptionParameters(AES_KEY, HMAC_KEY, IV),
+            new MediaEncryptionParameters(AES_KEY, HMAC_KEY),
             "a/destination").toCompletableFuture());
   }
 
@@ -111,7 +110,7 @@ public class Cdn3RemoteStorageManagerTest {
             2,
             "a/test/source",
             100,
-            new MediaEncryptionParameters(AES_KEY, HMAC_KEY, IV),
+            new MediaEncryptionParameters(AES_KEY, HMAC_KEY),
             "a/destination").toCompletableFuture());
   }
 
@@ -122,7 +121,7 @@ public class Cdn3RemoteStorageManagerTest {
             0,
             "a/test/source",
             100,
-            new MediaEncryptionParameters(AES_KEY, HMAC_KEY, IV),
+            new MediaEncryptionParameters(AES_KEY, HMAC_KEY),
             "a/destination").toCompletableFuture());
   }
 

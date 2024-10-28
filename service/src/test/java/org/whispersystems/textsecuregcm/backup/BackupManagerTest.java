@@ -85,8 +85,7 @@ public class BackupManagerTest {
 
   private static final MediaEncryptionParameters COPY_ENCRYPTION_PARAM = new MediaEncryptionParameters(
       TestRandomUtil.nextBytes(32),
-      TestRandomUtil.nextBytes(32),
-      TestRandomUtil.nextBytes(16));
+      TestRandomUtil.nextBytes(32));
   private static final CopyParameters COPY_PARAM = new CopyParameters(
       3, "abc", 100,
       COPY_ENCRYPTION_PARAM, TestRandomUtil.nextBytes(15));
