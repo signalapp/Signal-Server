@@ -98,8 +98,7 @@ public final class MockUtils {
   public static Duration updateRateLimiterResponseToFail(
       final RateLimiter mockRateLimiter,
       final String input,
-      final Duration retryAfter,
-      final boolean legacyStatusCode) {
+      final Duration retryAfter) {
     try {
       final RateLimitExceededException exception = new RateLimitExceededException(retryAfter);
       doThrow(exception).when(mockRateLimiter).validate(eq(input));
@@ -114,8 +113,7 @@ public final class MockUtils {
   public static Duration updateRateLimiterResponseToFail(
       final RateLimiter mockRateLimiter,
       final UUID input,
-      final Duration retryAfter,
-      final boolean legacyStatusCode) {
+      final Duration retryAfter) {
     try {
       final RateLimitExceededException exception = new RateLimitExceededException(retryAfter);
       doThrow(exception).when(mockRateLimiter).validate(eq(input));
@@ -131,22 +129,20 @@ public final class MockUtils {
       final RateLimiters rateLimitersMock,
       final RateLimiters.For handle,
       final String input,
-      final Duration retryAfter,
-      final boolean legacyStatusCode) {
+      final Duration retryAfter) {
     final RateLimiter mockRateLimiter = Mockito.mock(RateLimiter.class);
     doReturn(mockRateLimiter).when(rateLimitersMock).forDescriptor(eq(handle));
-    return updateRateLimiterResponseToFail(mockRateLimiter, input, retryAfter, legacyStatusCode);
+    return updateRateLimiterResponseToFail(mockRateLimiter, input, retryAfter);
   }
 
   public static Duration updateRateLimiterResponseToFail(
       final RateLimiters rateLimitersMock,
       final RateLimiters.For handle,
       final UUID input,
-      final Duration retryAfter,
-      final boolean legacyStatusCode) {
+      final Duration retryAfter) {
     final RateLimiter mockRateLimiter = Mockito.mock(RateLimiter.class);
     doReturn(mockRateLimiter).when(rateLimitersMock).forDescriptor(eq(handle));
-    return updateRateLimiterResponseToFail(mockRateLimiter, input, retryAfter, legacyStatusCode);
+    return updateRateLimiterResponseToFail(mockRateLimiter, input, retryAfter);
   }
 
   public static SecretBytes randomSecretBytes(final int size) {

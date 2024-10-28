@@ -289,7 +289,7 @@ public class KeyTransparencyControllerTest {
   @Test
   void searchRateLimited() {
     MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.For.KEY_TRANSPARENCY_SEARCH_PER_IP, "127.0.0.1", Duration.ofMinutes(10), true);
+        rateLimiters, RateLimiters.For.KEY_TRANSPARENCY_SEARCH_PER_IP, "127.0.0.1", Duration.ofMinutes(10));
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/search")
         .request();
@@ -506,7 +506,7 @@ public class KeyTransparencyControllerTest {
   @Test
   void monitorRateLimited() {
     MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.For.KEY_TRANSPARENCY_MONITOR_PER_IP, "127.0.0.1", Duration.ofMinutes(10), true);
+        rateLimiters, RateLimiters.For.KEY_TRANSPARENCY_MONITOR_PER_IP, "127.0.0.1", Duration.ofMinutes(10));
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/monitor")
         .request();
@@ -602,8 +602,8 @@ public class KeyTransparencyControllerTest {
   @Test
   void distinguishedRateLimited() {
     MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.For.KEY_TRANSPARENCY_DISTINGUISHED_PER_IP, "127.0.0.1", Duration.ofMinutes(10),
-        true);
+        rateLimiters, RateLimiters.For.KEY_TRANSPARENCY_DISTINGUISHED_PER_IP, "127.0.0.1", Duration.ofMinutes(10)
+    );
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/distinguished")
         .request();

@@ -357,7 +357,7 @@ class AccountControllerTest {
           rateLimiters, RateLimiters.For.USERNAME_LINK_OPERATION, AuthHelper.VALID_UUID);
     } else {
       MockUtils.updateRateLimiterResponseToFail(
-          rateLimiters, RateLimiters.For.USERNAME_LINK_OPERATION, AuthHelper.VALID_UUID, Duration.ofMinutes(10), false);
+          rateLimiters, RateLimiters.For.USERNAME_LINK_OPERATION, AuthHelper.VALID_UUID, Duration.ofMinutes(10));
     }
 
     // checking if username is to be set for this test
@@ -407,7 +407,7 @@ class AccountControllerTest {
           rateLimiters, RateLimiters.For.USERNAME_LINK_OPERATION, AuthHelper.VALID_UUID);
     } else {
       MockUtils.updateRateLimiterResponseToFail(
-          rateLimiters, RateLimiters.For.USERNAME_LINK_OPERATION, AuthHelper.VALID_UUID, Duration.ofMinutes(10), false);
+          rateLimiters, RateLimiters.For.USERNAME_LINK_OPERATION, AuthHelper.VALID_UUID, Duration.ofMinutes(10));
     }
 
     final Invocation.Builder builder = resources.getJerseyTest()
@@ -451,7 +451,7 @@ class AccountControllerTest {
           rateLimiters, RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP, "127.0.0.1");
     } else {
       MockUtils.updateRateLimiterResponseToFail(
-          rateLimiters, RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP, "127.0.0.1", Duration.ofMinutes(10), false);
+          rateLimiters, RateLimiters.For.USERNAME_LINK_LOOKUP_PER_IP, "127.0.0.1", Duration.ofMinutes(10));
     }
 
     when(accountsManager.getByUsernameLinkHandle(any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -887,7 +887,7 @@ class AccountControllerTest {
     when(accountsManager.getByAccountIdentifier(accountIdentifier)).thenReturn(Optional.of(account));
 
     MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.For.CHECK_ACCOUNT_EXISTENCE, "127.0.0.1", expectedRetryAfter, true);
+        rateLimiters, RateLimiters.For.CHECK_ACCOUNT_EXISTENCE, "127.0.0.1", expectedRetryAfter);
 
     try (final Response response = resources.getJerseyTest()
         .target(String.format("/v1/accounts/account/%s", accountIdentifier))
@@ -939,7 +939,7 @@ class AccountControllerTest {
   void testLookupUsernameRateLimited() {
     final Duration expectedRetryAfter = Duration.ofSeconds(13);
     MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.For.USERNAME_LOOKUP, "127.0.0.1", expectedRetryAfter, true);
+        rateLimiters, RateLimiters.For.USERNAME_LOOKUP, "127.0.0.1", expectedRetryAfter);
     final Response response = resources.getJerseyTest()
         .target(String.format("v1/accounts/username_hash/%s", BASE_64_URL_USERNAME_HASH_1))
         .request()

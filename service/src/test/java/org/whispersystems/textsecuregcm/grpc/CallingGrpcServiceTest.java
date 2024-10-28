@@ -67,7 +67,7 @@ class CallingGrpcServiceTest extends SimpleBaseGrpcTest<CallingGrpcService, Call
   @Test
   void getTurnCredentialsRateLimited() {
     final Duration retryAfter = MockUtils.updateRateLimiterResponseToFail(
-        turnCredentialRateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(19), false);
+        turnCredentialRateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(19));
     assertRateLimitExceeded(retryAfter, () -> authenticatedServiceStub().getTurnCredentials(GetTurnCredentialsRequest.newBuilder().build()));
     verify(turnTokenGenerator, never()).generate(any());
     verifyNoInteractions(turnTokenGenerator);

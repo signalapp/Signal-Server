@@ -110,7 +110,7 @@ public class ExternalServiceCredentialsGrpcServiceTest
   @Test
   public void testRateLimitExceeded() throws Exception {
     final Duration retryAfter = MockUtils.updateRateLimiterResponseToFail(
-        rateLimiters, RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS, AUTHENTICATED_ACI, Duration.ofSeconds(100), false);
+        rateLimiters, RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS, AUTHENTICATED_ACI, Duration.ofSeconds(100));
     Mockito.reset(ART_CREDENTIALS_GENERATOR);
     assertRateLimitExceeded(
         retryAfter,

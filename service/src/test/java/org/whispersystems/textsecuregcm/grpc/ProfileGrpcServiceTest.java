@@ -564,7 +564,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
   @Test
   void getVersionedProfileRatelimited() {
-    final Duration retryAfterDuration = MockUtils.updateRateLimiterResponseToFail(rateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(7), false);
+    final Duration retryAfterDuration = MockUtils.updateRateLimiterResponseToFail(rateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(7));
 
     final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
@@ -646,7 +646,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   @Test
   void getExpiringProfileKeyCredentialRateLimited() {
     final Duration retryAfterDuration = MockUtils.updateRateLimiterResponseToFail(
-        rateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(5), false);
+        rateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(5));
     when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
     final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
