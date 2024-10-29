@@ -388,7 +388,20 @@ paths:
     put:
       tags:
       - Account
+      summary: Set a device's encrypted name
+      description: |
+        Sets the encrypted name for the specified device. Primary devices may change the name of any device associated
+        with their account, but linked devices may only change their own name. If no device ID is specified, then the
+        authenticated device's ID will be used.
       operationId: setName
+      parameters:
+      - name: deviceId
+        in: query
+        schema:
+          type: string
+          description: "The ID of the device for which to set a name; if omitted,\
+            \ the authenticated device will be targeted for a name change"
+          format: byte
       requestBody:
         content:
           '*/*':
@@ -396,10 +409,13 @@ paths:
               $ref: '#/components/schemas/DeviceName'
         required: true
       responses:
-        default:
-          description: default response
-          content:
-            '*/*': {}
+        "204":
+          description: Device name changed successfully
+        "404":
+          description: No device found with the given ID
+        "403":
+          description: Not authorized to change the name of the device with the given
+            ID
       security:
       - authenticatedAccount: []
   /v1/accounts/whoami:
@@ -1890,8 +1906,9 @@ paths:
       - KeyTransparency
       summary: Get the current value of the distinguished key
       description: |
-        Enforced unauthenticated endpoint. The response contains the distinguished tree head to prove consistency
-        against for future calls to `/search` and `/distinguished`.
+        The response contains the distinguished tree head to prove consistency
+        against for future calls to `/search`, `/monitor`, and `/distinguished`.
+        Enforced unauthenticated endpoint.
       operationId: getDistinguishedKey
       parameters:
       - name: lastTreeHeadSize
@@ -1921,10 +1938,10 @@ paths:
     post:
       tags:
       - KeyTransparency
-      summary: Monitor the given search keys in the key transparency log
+      summary: Monitor the given identifiers in the key transparency log
       description: |
-        Enforced unauthenticated endpoint. Return proofs proving that the log tree
-        has been constructed correctly in later entries for each of the given search keys .
+        Return proofs proving that the log tree has been constructed correctly in later entries for each of the given
+        identifiers. Enforced unauthenticated endpoint.
       operationId: monitor
       requestBody:
         content:
@@ -1954,9 +1971,17 @@ paths:
     post:
       tags:
       - KeyTransparency
-      summary: Search for the given search keys in the key transparency log
+      summary: Search for the given identifiers in the key transparency log
       description: |
-        Enforced unauthenticated endpoint. Returns a response if all search keys exist in the key transparency log.
+        Returns a response if the ACI exists in the transparency log and its mapped value matches the provided
+        ACI identity key.
+
+        The username hash search response field is populated if it is found in the log and its mapped value matches
+        the provided ACI. The E164 search response is populated similarly, with some additional requirements:
+        - The account associated with the provided ACI must be discoverable by phone number.
+        - The provided unidentified access key must match the one on the account.
+
+        Enforced unauthenticated endpoint.
       operationId: search
       requestBody:
         content:
@@ -1966,7 +1991,8 @@ paths:
         required: true
       responses:
         "200":
-          description: All search key lookups were successful
+          description: The ACI was found and its mapped value matched the provided
+            ACI identity key
           content:
             application/json:
               schema:
@@ -1974,13 +2000,14 @@ paths:
         "400":
           description: Invalid request. See response for any available details.
         "403":
-          description: At least one search key lookup to value mapping was invalid
+          description: The ACI was found but its mapped value did not match the provided
+            ACI identity key
         "404":
-          description: At least one search key lookup did not find the key
-        "429":
-          description: Rate-limited
+          description: The ACI was not found in the log
         "422":
           description: Invalid request format
+        "429":
+          description: Rate-limited
       security:
       - authenticatedAccount: []
       - {}
@@ -2172,15 +2199,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -2305,6 +2332,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AccountStaleDevices'
+        "428":
+          description: The sender should complete a challenge before proceeding
       security:
       - authenticatedAccount: []
       - {}
@@ -2419,15 +2448,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2455,15 +2484,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2491,15 +2520,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2527,15 +2556,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3007,15 +3036,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3055,15 +3084,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3096,15 +3125,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3281,15 +3310,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3327,15 +3356,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3426,15 +3455,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -4667,16 +4696,17 @@ components:
           type: string
           description: The monitor response encoded in standard un-padded base64
           format: byte
-    KeyTransparencyMonitorRequest:
+    AciMonitor:
       required:
-      - aci
-      - aciPositions
+      - commitmentIndex
+      - positions
+      - value
       type: object
       properties:
-        aci:
+        value:
           type: string
           description: An identifier for an account based on the account's ACI
-        aciPositions:
+        positions:
           type: array
           description: A list of log tree positions maintained by the client for the
             aci search key.
@@ -4685,10 +4715,21 @@ components:
             description: A list of log tree positions maintained by the client for
               the aci search key.
             format: int64
-        e164:
+        commitmentIndex:
+          type: string
+          description: The commitment index derived from a previous search request
+          format: byte
+    E164Monitor:
+      required:
+      - commitmentIndex
+      - positions
+      - value
+      type: object
+      properties:
+        value:
           type: string
           description: The e164-formatted phone number to monitor
-        e164Positions:
+        positions:
           type: array
           description: A list of log tree positions maintained by the client for the
             e164 search key.
@@ -4697,20 +4738,26 @@ components:
             description: A list of log tree positions maintained by the client for
               the e164 search key.
             format: int64
-        usernameHash:
+        commitmentIndex:
           type: string
-          description: "The username hash to monitor, encoded in url-safe unpadded\
-            \ base64."
+          description: The commitment index derived from a previous search or monitor
+            request
           format: byte
-        usernameHashPositions:
-          type: array
-          description: A list of log tree positions maintained by the client for the
-            username hash search key.
-          items:
-            type: integer
-            description: A list of log tree positions maintained by the client for
-              the username hash search key.
-            format: int64
+    KeyTransparencyMonitorRequest:
+      required:
+      - aci
+      - e164
+      - lastDistinguishedTreeHeadSize
+      - lastNonDistinguishedTreeHeadSize
+      - usernameHash
+      type: object
+      properties:
+        aci:
+          $ref: '#/components/schemas/AciMonitor'
+        e164:
+          $ref: '#/components/schemas/E164Monitor'
+        usernameHash:
+          $ref: '#/components/schemas/UsernameHashMonitor'
         lastNonDistinguishedTreeHeadSize:
           type: integer
           description: The tree head size to prove consistency against.
@@ -4719,28 +4766,56 @@ components:
           type: integer
           description: The distinguished tree head size to prove consistency against.
           format: int64
-        usernameHashFieldsValid:
-          type: boolean
-        e164VFieldsValid:
-          type: boolean
+    UsernameHashMonitor:
+      required:
+      - commitmentIndex
+      - positions
+      - value
+      type: object
+      properties:
+        value:
+          type: string
+          description: "The username hash to monitor, encoded in url-safe unpadded\
+            \ base64."
+          format: byte
+        positions:
+          type: array
+          description: A list of log tree positions maintained by the client for the
+            username hash search key.
+          items:
+            type: integer
+            description: A list of log tree positions maintained by the client for
+              the username hash search key.
+            format: int64
+        commitmentIndex:
+          type: string
+          description: The commitment index derived from a previous search or monitor
+            request
+          format: byte
     KeyTransparencySearchResponse:
       required:
       - aciSearchResponse
+      - fullTreeHead
       type: object
       properties:
+        fullTreeHead:
+          type: string
+          description: The `FullTreeHead` protobuf encoded in standard un-padded base64.
+            This should be used across all identifiers.
+          format: byte
         aciSearchResponse:
           type: string
-          description: The search response for the aci search key encoded in standard
-            un-padded base64
+          description: The `TreeSearchResponse` protobuf for the ACI identifier encoded
+            in standard un-padded base64
           format: byte
         e164SearchResponse:
           type: string
-          description: The search response for the e164 search key encoded in standard
+          description: The `TreeSearchResponse` protobuf for the E164 encoded in standard
             un-padded base64
           format: byte
         usernameHashSearchResponse:
           type: string
-          description: The search response for the username hash search key encoded
+          description: The `TreeSearchResponse` protobuf for the username hash encoded
             in standard un-padded base64
           format: byte
     KeyTransparencySearchRequest:
@@ -4754,7 +4829,7 @@ components:
           description: An identifier for an account based on the account's ACI
         e164:
           type: string
-          description: The e164-formatted phone number to look up
+          description: The E164-formatted phone number to look up
         usernameHash:
           type: string
           description: "The username hash to look up, encoded in web-safe unpadded\
