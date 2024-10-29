@@ -92,6 +92,7 @@ public class ProfileGrpcHelper {
           case TRANSFER -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_TRANSFER;
           case DELETE_SYNC -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC;
           case VERSIONED_EXPIRATION_TIMER -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_VERSIONED_EXPIRATION_TIMER;
+          case STORAGE_SERVICE_RECORD_KEY_ROTATION -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_STORAGE_SERVICE_RECORD_KEY_ROTATION;
         })
         .forEach(capabilitiesBuilder::addCapabilities);
 
