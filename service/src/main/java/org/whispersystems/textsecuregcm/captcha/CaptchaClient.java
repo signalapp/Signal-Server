@@ -6,9 +6,9 @@
 package org.whispersystems.textsecuregcm.captcha;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 public interface CaptchaClient {
 
@@ -27,6 +27,7 @@ public interface CaptchaClient {
   /**
    * Verify a provided captcha solution
    *
+   * @param maybeAci  optional account service identifier of the user
    * @param siteKey   identifying string for the captcha service
    * @param action    an action indicating the purpose of the captcha
    * @param token     the captcha solution that will be verified
@@ -36,6 +37,7 @@ public interface CaptchaClient {
    * @throws IOException if the underlying captcha provider returns an error
    */
   AssessmentResult verify(
+      final Optional<UUID> maybeAci,
       final String siteKey,
       final Action action,
       final String token,
@@ -55,7 +57,7 @@ public interface CaptchaClient {
       }
 
       @Override
-      public AssessmentResult verify(final String siteKey, final Action action, final String token, final String ip,
+      public AssessmentResult verify(final Optional<UUID> maybeAci, final String siteKey, final Action action, final String token, final String ip,
           final String userAgent) throws IOException {
         return AssessmentResult.alwaysValid();
       }

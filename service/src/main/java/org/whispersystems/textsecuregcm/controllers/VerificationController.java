@@ -386,6 +386,7 @@ public class VerificationController {
     try {
 
       assessmentResult = registrationCaptchaManager.assessCaptcha(
+              Optional.empty(),
               Optional.of(updateVerificationSessionRequest.captcha()), sourceHost, userAgent)
           .orElseThrow(() -> new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR));
 

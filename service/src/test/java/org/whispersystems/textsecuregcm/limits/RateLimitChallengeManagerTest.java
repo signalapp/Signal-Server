@@ -85,7 +85,7 @@ class RateLimitChallengeManagerTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());
 
-    when(captchaChecker.verify(eq(Action.CHALLENGE), any(), any(), any()))
+    when(captchaChecker.verify(any(), eq(Action.CHALLENGE), any(), any(), any()))
         .thenReturn(AssessmentResult.fromScore(actualScore, DEFAULT_SCORE_THRESHOLD));
 
     when(rateLimiters.getCaptchaChallengeAttemptLimiter()).thenReturn(mock(RateLimiter.class));

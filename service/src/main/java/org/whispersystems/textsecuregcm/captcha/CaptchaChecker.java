@@ -11,7 +11,9 @@ import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import javax.ws.rs.BadRequestException;
 import org.slf4j.Logger;
@@ -42,6 +44,7 @@ public class CaptchaChecker {
   /**
    * Check if a solved captcha should be accepted
    *
+   * @param maybeAci       optional account UUID of the user solving the captcha
    * @param expectedAction the {@link Action} for which this captcha solution is intended
    * @param input          expected to contain a prefix indicating the captcha scheme, sitekey, token, and action. The
    *                       expected format is {@code version-prefix.sitekey.action.token}
@@ -53,6 +56,7 @@ public class CaptchaChecker {
    * @throws BadRequestException if input is not in the expected format
    */
   public AssessmentResult verify(
+      final Optional<UUID> maybeAci,
       final Action expectedAction,
       final String input,
       final String ip,
@@ -100,7 +104,7 @@ public class CaptchaChecker {
       throw new BadRequestException("invalid captcha site-key");
     }
 
-    final AssessmentResult result = client.verify(siteKey, parsedAction, token, ip, userAgent);
+    final AssessmentResult result = client.verify(maybeAci, siteKey, parsedAction, token, ip, userAgent);
     Metrics.counter(ASSESSMENTS_COUNTER_NAME,
             "action", action,
             "score", result.getScoreString(),
