@@ -23,11 +23,14 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import javax.validation.Valid;
 import javax.validation.constraints.Max;
@@ -52,6 +55,7 @@ import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
+import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
@@ -89,11 +93,21 @@ public class ArchiveController {
 
   public record SetBackupIdRequest(
       @Schema(description = """
-          A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64
+          A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64.
+          This backup-id should be used for message backups only, and must have the message backup type set on the
+          credential.
           """, implementation = String.class)
       @JsonDeserialize(using = BackupAuthCredentialAdapter.CredentialRequestDeserializer.class)
       @JsonSerialize(using = BackupAuthCredentialAdapter.CredentialRequestSerializer.class)
-      @NotNull BackupAuthCredentialRequest backupAuthCredentialRequest) {}
+      @NotNull BackupAuthCredentialRequest messagesBackupAuthCredentialRequest,
+
+      @Schema(description = """
+          A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64.
+          This backup-id should be used for media only, and must have the media type set on the credential.
+          """, implementation = String.class)
+      @JsonDeserialize(using = BackupAuthCredentialAdapter.CredentialRequestDeserializer.class)
+      @JsonSerialize(using = BackupAuthCredentialAdapter.CredentialRequestSerializer.class)
+      @NotNull BackupAuthCredentialRequest mediaBackupAuthCredentialRequest) {}
 
 
   @PUT
@@ -115,8 +129,9 @@ public class ArchiveController {
   public CompletionStage<Response> setBackupId(
       @Mutable @Auth final AuthenticatedDevice account,
       @Valid @NotNull final SetBackupIdRequest setBackupIdRequest) throws RateLimitExceededException {
+
     return this.backupAuthManager
-        .commitBackupId(account.getAccount(), setBackupIdRequest.backupAuthCredentialRequest)
+        .commitBackupId(account.getAccount(), setBackupIdRequest.messagesBackupAuthCredentialRequest, setBackupIdRequest.mediaBackupAuthCredentialRequest)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
@@ -166,8 +181,8 @@ public class ArchiveController {
   }
 
   public record BackupAuthCredentialsResponse(
-      @Schema(description = "A list of BackupAuthCredentials and their validity periods")
-      List<BackupAuthCredential> credentials) {
+      @Schema(description = "A map of credential types to lists of BackupAuthCredentials and their validity periods")
+      Map<BackupCredentialType, List<BackupAuthCredential>> credentials) {
 
     public record BackupAuthCredential(
         @Schema(description = "A BackupAuthCredential, encoded in standard padded base64")
@@ -202,14 +217,21 @@ public class ArchiveController {
       @NotNull @QueryParam("redemptionStartSeconds") Long startSeconds,
       @NotNull @QueryParam("redemptionEndSeconds") Long endSeconds) {
 
-    return this.backupAuthManager.getBackupAuthCredentials(
-            auth.getAccount(),
-            Instant.ofEpochSecond(startSeconds), Instant.ofEpochSecond(endSeconds))
-        .thenApply(creds -> new BackupAuthCredentialsResponse(creds.stream()
-            .map(cred -> new BackupAuthCredentialsResponse.BackupAuthCredential(
-                cred.credential().serialize(),
-                cred.redemptionTime().getEpochSecond()))
-            .toList()));
+    final Map<BackupCredentialType, List<BackupAuthCredentialsResponse.BackupAuthCredential>> credentialsByType =
+        new ConcurrentHashMap<>();
+
+    return CompletableFuture.allOf(Arrays.stream(BackupCredentialType.values())
+            .map(credentialType -> this.backupAuthManager.getBackupAuthCredentials(
+                    auth.getAccount(),
+                    credentialType,
+                    Instant.ofEpochSecond(startSeconds), Instant.ofEpochSecond(endSeconds))
+                .thenAccept(credentials -> credentialsByType.put(credentialType, credentials.stream()
+                    .map(credential -> new BackupAuthCredentialsResponse.BackupAuthCredential(
+                        credential.credential().serialize(),
+                        credential.redemptionTime().getEpochSecond()))
+                    .toList())))
+            .toArray(CompletableFuture[]::new))
+        .thenApply(ignored -> new BackupAuthCredentialsResponse(credentialsByType));
   }
 
 
@@ -227,7 +249,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "401", description = """
       The provided backup auth credential presentation could not be verified or
       The public key signature was invalid or
-      There is no backup associated with the backup-id in the presentation""")
+      There is no backup associated with the backup-id in the presentation or
+      The credential was of the wrong type (messages/media)""")
   @ApiResponse(responseCode = "400", description = "Bad arguments. The request may have been made on an authenticated channel")
   @interface ApiResponseZkAuth {}
 
@@ -453,7 +476,7 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
     return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
-        .thenCompose(backupUser -> backupManager.createTemporaryAttachmentUploadDescriptor(backupUser))
+        .thenCompose(backupManager::createTemporaryAttachmentUploadDescriptor)
         .thenApply(result -> new UploadDescriptorResponse(
             result.cdn(),
             result.key(),

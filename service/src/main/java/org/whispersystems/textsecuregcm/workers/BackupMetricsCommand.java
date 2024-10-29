@@ -6,8 +6,6 @@
 package org.whispersystems.textsecuregcm.workers;
 
 import io.dropwizard.core.Application;
-import io.dropwizard.core.cli.Cli;
-import io.dropwizard.core.cli.EnvironmentCommand;
 import io.dropwizard.core.setup.Environment;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
@@ -18,8 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Clock;
@@ -69,13 +65,13 @@ public class BackupMetricsCommand extends AbstractCommandWithDependencies {
         Runtime.getRuntime().availableProcessors());
 
     final DistributionSummary numObjectsMediaTier = Metrics.summary(name(getClass(), "numObjects"),
-        "tier", BackupLevel.MEDIA.name());
+        "tier", BackupLevel.PAID.name());
     final DistributionSummary bytesUsedMediaTier = Metrics.summary(name(getClass(), "bytesUsed"),
-        "tier", BackupLevel.MEDIA.name());
+        "tier", BackupLevel.PAID.name());
     final DistributionSummary numObjectsMessagesTier = Metrics.summary(name(getClass(), "numObjects"),
-        "tier", BackupLevel.MESSAGES.name());
+        "tier", BackupLevel.FREE.name());
     final DistributionSummary bytesUsedMessagesTier = Metrics.summary(name(getClass(), "bytesUsed"),
-        "tier", BackupLevel.MESSAGES.name());
+        "tier", BackupLevel.FREE.name());
 
     final DistributionSummary timeSinceLastRefresh = Metrics.summary(name(getClass(),
         "timeSinceLastRefresh"));

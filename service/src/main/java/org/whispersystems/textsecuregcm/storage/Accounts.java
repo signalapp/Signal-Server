@@ -36,6 +36,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
@@ -321,7 +322,9 @@ public class Accounts extends AbstractDynamoDbStore {
       // Carry over the old backup id commitment. If the new account claimer cannot does not have the secret used to
       // generate their backup-id, this credential is useless, however if they can produce the same credential they
       // won't be rate-limited for setting their backup-id.
-      accountToCreate.setBackupCredentialRequest(existingAccount.getBackupCredentialRequest());
+      accountToCreate.setBackupCredentialRequests(
+          existingAccount.getBackupCredentialRequest(BackupCredentialType.MESSAGES).orElse(null),
+          existingAccount.getBackupCredentialRequest(BackupCredentialType.MEDIA).orElse(null));
 
       // Carry over the old SVR3 share-set. This is required for an account to restore information from SVR. The share-
       // set is not a secret, if the new account claimer does not have the SVR3 pin, it is useless.

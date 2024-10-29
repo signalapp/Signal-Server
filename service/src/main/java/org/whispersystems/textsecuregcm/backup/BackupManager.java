@@ -28,24 +28,21 @@ import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
+import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.backups.BackupLevel;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
-import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
 public class BackupManager {
-
-  private static final Logger logger = LoggerFactory.getLogger(BackupManager.class);
 
   static final String MESSAGE_BACKUP_NAME = "messageBackup";
   public static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = DataSize.gibibytes(100).toBytes();
@@ -120,8 +117,10 @@ public class BackupManager {
     // Note: this is a special case where we can't validate the presentation signature against the stored public key
     // because we are currently setting it. We check against the provided public key, but we must also verify that
     // there isn't an existing, different stored public key for the backup-id (verified with a condition expression)
-    final BackupLevel backupLevel = verifyPresentation(presentation).verifySignature(signature, publicKey);
-    return backupsDb.setPublicKey(presentation.getBackupId(), backupLevel, publicKey)
+    final Pair<BackupCredentialType, BackupLevel> credentialTypeAndBackupLevel =
+        verifyPresentation(presentation).verifySignature(signature, publicKey);
+
+    return backupsDb.setPublicKey(presentation.getBackupId(), credentialTypeAndBackupLevel.second(), publicKey)
         .exceptionally(ExceptionUtils.exceptionallyHandler(PublicKeyConflictException.class, ex -> {
           Metrics.counter(ZK_AUTHN_COUNTER_NAME,
                   SUCCESS_TAG_NAME, String.valueOf(false),
@@ -144,7 +143,8 @@ public class BackupManager {
    */
   public CompletableFuture<BackupUploadDescriptor> createMessageBackupUploadDescriptor(
       final AuthenticatedBackupUser backupUser) {
-    checkBackupLevel(backupUser, BackupLevel.MESSAGES);
+    checkBackupLevel(backupUser, BackupLevel.FREE);
+    checkBackupCredentialType(backupUser, BackupCredentialType.MESSAGES);
 
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
     return backupsDb
@@ -154,7 +154,8 @@ public class BackupManager {
 
   public CompletableFuture<BackupUploadDescriptor> createTemporaryAttachmentUploadDescriptor(
       final AuthenticatedBackupUser backupUser) {
-    checkBackupLevel(backupUser, BackupLevel.MEDIA);
+    checkBackupLevel(backupUser, BackupLevel.PAID);
+    checkBackupCredentialType(backupUser, BackupCredentialType.MEDIA);
 
     return rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT)
         .validateAsync(rateLimitKey(backupUser)).thenApply(ignored -> {
@@ -172,7 +173,7 @@ public class BackupManager {
    * @param backupUser an already ZK authenticated backup user
    */
   public CompletableFuture<Void> ttlRefresh(final AuthenticatedBackupUser backupUser) {
-    checkBackupLevel(backupUser, BackupLevel.MESSAGES);
+    checkBackupLevel(backupUser, BackupLevel.FREE);
     // update message backup TTL
     return backupsDb.ttlRefresh(backupUser);
   }
@@ -187,7 +188,7 @@ public class BackupManager {
    * @return Information about the existing backup
    */
   public CompletableFuture<BackupInfo> backupInfo(final AuthenticatedBackupUser backupUser) {
-    checkBackupLevel(backupUser, BackupLevel.MESSAGES);
+    checkBackupLevel(backupUser, BackupLevel.FREE);
     return backupsDb.describeBackup(backupUser)
         .thenApply(backupDescription -> new BackupInfo(
             backupDescription.cdn(),
@@ -210,7 +211,8 @@ public class BackupManager {
    * detailing why the object could not be copied.
    */
   public Flux<CopyResult> copyToBackup(final AuthenticatedBackupUser backupUser, List<CopyParameters> toCopy) {
-    checkBackupLevel(backupUser, BackupLevel.MEDIA);
+    checkBackupLevel(backupUser, BackupLevel.PAID);
+    checkBackupCredentialType(backupUser, BackupCredentialType.MEDIA);
 
     return Mono
         // Figure out how many objects we're allowed to copy, updating the quota usage for the amount we are allowed
@@ -349,7 +351,7 @@ public class BackupManager {
    * @return A map of headers to include with CDN requests
    */
   public Map<String, String> generateReadAuth(final AuthenticatedBackupUser backupUser, final int cdnNumber) {
-    checkBackupLevel(backupUser, BackupLevel.MESSAGES);
+    checkBackupLevel(backupUser, BackupLevel.FREE);
     if (cdnNumber != 3) {
       throw Status.INVALID_ARGUMENT.withDescription("unknown cdn").asRuntimeException();
     }
@@ -377,7 +379,7 @@ public class BackupManager {
       final AuthenticatedBackupUser backupUser,
       final Optional<String> cursor,
       final int limit) {
-    checkBackupLevel(backupUser, BackupLevel.MESSAGES);
+    checkBackupLevel(backupUser, BackupLevel.FREE);
     return remoteStorageManager.list(cdnMediaDirectory(backupUser), cursor, limit)
         .thenApply(result ->
             new ListMediaResult(
@@ -395,7 +397,7 @@ public class BackupManager {
   }
 
   public CompletableFuture<Void> deleteEntireBackup(final AuthenticatedBackupUser backupUser) {
-    checkBackupLevel(backupUser, BackupLevel.MESSAGES);
+    checkBackupLevel(backupUser, BackupLevel.FREE);
     return backupsDb
         // Try to swap out the backupDir for the user
         .scheduleBackupDeletion(backupUser)
@@ -408,7 +410,8 @@ public class BackupManager {
 
   public Flux<StorageDescriptor> deleteMedia(final AuthenticatedBackupUser backupUser,
       final List<StorageDescriptor> storageDescriptors) {
-    checkBackupLevel(backupUser, BackupLevel.MESSAGES);
+    checkBackupLevel(backupUser, BackupLevel.FREE);
+    checkBackupCredentialType(backupUser, BackupCredentialType.MEDIA);
 
     // Check for a cdn we don't know how to process
     if (storageDescriptors.stream().anyMatch(sd -> sd.cdn() != remoteStorageManager.cdnNumber())) {
@@ -492,10 +495,16 @@ public class BackupManager {
                 // There was no stored public key, use a bunk public key so that validation will fail
                 return new BackupsDb.AuthenticationData(INVALID_PUBLIC_KEY, null, null);
               });
+
+          final Pair<BackupCredentialType, BackupLevel> credentialTypeAndBackupLevel =
+              signatureVerifier.verifySignature(signature, authenticationData.publicKey());
+
           return new AuthenticatedBackupUser(
               presentation.getBackupId(),
-              signatureVerifier.verifySignature(signature, authenticationData.publicKey()),
-              authenticationData.backupDir(), authenticationData.mediaDir());
+              credentialTypeAndBackupLevel.first(),
+              credentialTypeAndBackupLevel.second(),
+              authenticationData.backupDir(),
+              authenticationData.mediaDir());
         })
         .thenApply(result -> {
           Metrics.counter(ZK_AUTHN_COUNTER_NAME, SUCCESS_TAG_NAME, String.valueOf(true)).increment();
@@ -579,7 +588,7 @@ public class BackupManager {
 
   interface PresentationSignatureVerifier {
 
-    BackupLevel verifySignature(byte[] signature, ECPublicKey publicKey);
+    Pair<BackupCredentialType, BackupLevel> verifySignature(byte[] signature, ECPublicKey publicKey);
   }
 
   /**
@@ -611,7 +620,7 @@ public class BackupManager {
             .withDescription("backup auth credential presentation signature verification failed")
             .asRuntimeException();
       }
-      return presentation.getBackupLevel();
+      return new Pair<>(presentation.getType(), presentation.getBackupLevel());
     };
   }
 
@@ -622,9 +631,34 @@ public class BackupManager {
    * @param backupLevel The authorization level to verify the backupUser has access to
    * @throws {@link Status#PERMISSION_DENIED} error if the backup user is not authorized to access {@code backupLevel}
    */
-  private static void checkBackupLevel(final AuthenticatedBackupUser backupUser, final BackupLevel backupLevel) {
+  @VisibleForTesting
+  static void checkBackupLevel(final AuthenticatedBackupUser backupUser, final BackupLevel backupLevel) {
     if (backupUser.backupLevel().compareTo(backupLevel) < 0) {
-      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME).increment();
+      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME,
+              FAILURE_REASON_TAG_NAME, "level")
+          .increment();
+
+      throw Status.PERMISSION_DENIED
+          .withDescription("credential does not support the requested operation")
+          .asRuntimeException();
+    }
+  }
+
+  /**
+   * Check that the authenticated backup user is authenticated with the given credential type
+   *
+   * @param backupUser     The backup user to check
+   * @param credentialType The credential type to require
+   * @throws {@link Status#PERMISSION_DENIED} error if the backup user is not authenticated with the given
+   * {@code credentialType}
+   */
+  @VisibleForTesting
+  static void checkBackupCredentialType(final AuthenticatedBackupUser backupUser, final BackupCredentialType credentialType) {
+    if (backupUser.credentialType() != credentialType) {
+      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME,
+              FAILURE_REASON_TAG_NAME, "credential_type")
+          .increment();
+
       throw Status.PERMISSION_DENIED
           .withDescription("credential does not support the requested operation")
           .asRuntimeException();

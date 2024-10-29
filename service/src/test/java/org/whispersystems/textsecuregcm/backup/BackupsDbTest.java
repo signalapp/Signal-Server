@@ -23,6 +23,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
@@ -51,7 +52,7 @@ public class BackupsDbTest {
 
   @Test
   public void trackMediaStats() {
-    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
     // add at least one message backup so we can describe it
     backupsDb.addMessageBackup(backupUser).join();
     int total = 0;
@@ -74,7 +75,7 @@ public class BackupsDbTest {
   @ValueSource(booleans = {false, true})
   public void setUsage(boolean mediaAlreadyExists) {
     testClock.pin(Instant.ofEpochSecond(5));
-    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
     if (mediaAlreadyExists) {
       this.backupsDb.trackMedia(backupUser, 1, 10).join();
     }
@@ -90,12 +91,12 @@ public class BackupsDbTest {
     final byte[] backupId = TestRandomUtil.nextBytes(16);
     // Refresh media/messages at t=0
     testClock.pin(Instant.ofEpochSecond(0L));
-    backupsDb.setPublicKey(backupId, BackupLevel.MEDIA, Curve.generateKeyPair().getPublicKey()).join();
-    this.backupsDb.ttlRefresh(backupUser(backupId, BackupLevel.MEDIA)).join();
+    backupsDb.setPublicKey(backupId, BackupLevel.PAID, Curve.generateKeyPair().getPublicKey()).join();
+    this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)).join();
 
     // refresh only messages at t=2
     testClock.pin(Instant.ofEpochSecond(2L));
-    this.backupsDb.ttlRefresh(backupUser(backupId, BackupLevel.MESSAGES)).join();
+    this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.FREE)).join();
 
     final Function<Instant, List<ExpiredBackup>> expiredBackups = purgeTime -> backupsDb
         .getExpiredBackups(1, Schedulers.immediate(), purgeTime)
@@ -132,13 +133,13 @@ public class BackupsDbTest {
     final byte[] backupId = TestRandomUtil.nextBytes(16);
     // Refresh media/messages at t=0
     testClock.pin(Instant.ofEpochSecond(0L));
-    backupsDb.setPublicKey(backupId, BackupLevel.MEDIA, Curve.generateKeyPair().getPublicKey()).join();
-    this.backupsDb.ttlRefresh(backupUser(backupId, BackupLevel.MEDIA)).join();
+    backupsDb.setPublicKey(backupId, BackupLevel.PAID, Curve.generateKeyPair().getPublicKey()).join();
+    this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)).join();
 
     if (expirationType == ExpiredBackup.ExpirationType.MEDIA) {
       // refresh only messages at t=2 so that we only expire media at t=1
       testClock.pin(Instant.ofEpochSecond(2L));
-      this.backupsDb.ttlRefresh(backupUser(backupId, BackupLevel.MESSAGES)).join();
+      this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.FREE)).join();
     }
 
     final Function<Instant, Optional<ExpiredBackup>> expiredBackups = purgeTime -> {
@@ -192,7 +193,7 @@ public class BackupsDbTest {
       // should be nothing to expire at t=1
       assertThat(opt).isEmpty();
       // The backup should still exist
-      backupsDb.describeBackup(backupUser(backupId, BackupLevel.MEDIA)).join();
+      backupsDb.describeBackup(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)).join();
     } else {
       // Cleaned up the failed attempt, now should tell us to clean the whole backup
       assertThat(opt.get()).matches(eb -> eb.expirationType() == ExpiredBackup.ExpirationType.ALL,
@@ -202,7 +203,7 @@ public class BackupsDbTest {
 
       // The backup entry should be gone
       assertThat(CompletableFutureTestUtil.assertFailsWithCause(StatusRuntimeException.class,
-              backupsDb.describeBackup(backupUser(backupId, BackupLevel.MEDIA)))
+              backupsDb.describeBackup(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)))
           .getStatus().getCode())
           .isEqualTo(Status.Code.NOT_FOUND);
       assertThat(expiredBackups.apply(Instant.ofEpochSecond(10))).isEmpty();
@@ -211,9 +212,9 @@ public class BackupsDbTest {
 
   @Test
   public void list() {
-    final AuthenticatedBackupUser u1 = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MESSAGES);
-    final AuthenticatedBackupUser u2 = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
-    final AuthenticatedBackupUser u3 = backupUser(TestRandomUtil.nextBytes(16), BackupLevel.MEDIA);
+    final AuthenticatedBackupUser u1 = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.FREE);
+    final AuthenticatedBackupUser u2 = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
+    final AuthenticatedBackupUser u3 = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
 
     // add at least one message backup, so we can describe it
     testClock.pin(Instant.ofEpochSecond(10));
@@ -248,7 +249,7 @@ public class BackupsDbTest {
     assertThat(sbm3.lastRefresh()).isEqualTo(sbm3.lastMediaRefresh()).isEqualTo(Instant.ofEpochSecond(30));
   }
 
-  private AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupLevel backupLevel) {
-    return new AuthenticatedBackupUser(backupId, backupLevel, "myBackupDir", "myMediaDir");
+  private AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupCredentialType credentialType, final BackupLevel backupLevel) {
+    return new AuthenticatedBackupUser(backupId, credentialType, backupLevel, "myBackupDir", "myMediaDir");
   }
 }

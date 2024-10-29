@@ -21,6 +21,7 @@ import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialResponse;
+import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
@@ -29,7 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
-import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -81,22 +81,34 @@ public class BackupAuthManager {
   }
 
   /**
-   * Store a credential request containing a blinded backup-id for future use.
+   * Store credential requests containing blinded backup-ids for future use.
    *
-   * @param account                     The account using the backup-id
-   * @param backupAuthCredentialRequest A request containing the blinded backup-id
+   * @param account                         The account using the backup-id
+   * @param messagesBackupCredentialRequest A request containing the blinded backup-id the client will use to upload
+   *                                        message backups
+   * @param mediaBackupCredentialRequest    A request containing the blinded backup-id the client will use to upload
+   *                                        media backups
    * @return A future that completes when the credentialRequest has been stored
    * @throws RateLimitExceededException If too many backup-ids have been committed
    */
   public CompletableFuture<Void> commitBackupId(final Account account,
-      final BackupAuthCredentialRequest backupAuthCredentialRequest) {
+      final BackupAuthCredentialRequest messagesBackupCredentialRequest,
+      final BackupAuthCredentialRequest mediaBackupCredentialRequest) {
     if (configuredBackupLevel(account).isEmpty()) {
       throw Status.PERMISSION_DENIED.withDescription("Backups not allowed on account").asRuntimeException();
     }
+    final byte[] serializedMessageCredentialRequest = messagesBackupCredentialRequest.serialize();
+    final byte[] serializedMediaCredentialRequest = mediaBackupCredentialRequest.serialize();
 
-    byte[] serializedRequest = backupAuthCredentialRequest.serialize();
-    byte[] existingRequest = account.getBackupCredentialRequest();
-    if (existingRequest != null && MessageDigest.isEqual(serializedRequest, existingRequest)) {
+    final boolean messageCredentialRequestMatches = account.getBackupCredentialRequest(BackupCredentialType.MESSAGES)
+        .map(storedCredentialRequest -> MessageDigest.isEqual(storedCredentialRequest, serializedMessageCredentialRequest))
+        .orElse(false);
+
+    final boolean mediaCredentialRequestMatches = account.getBackupCredentialRequest(BackupCredentialType.MEDIA)
+        .map(storedCredentialRequest -> MessageDigest.isEqual(storedCredentialRequest, serializedMediaCredentialRequest))
+        .orElse(false);
+
+    if (messageCredentialRequestMatches && mediaCredentialRequestMatches) {
       // No need to update or enforce rate limits, this is the credential that the user has already
       // committed to.
       return CompletableFuture.completedFuture(null);
@@ -105,7 +117,7 @@ public class BackupAuthManager {
     return rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID)
         .validateAsync(account.getUuid())
         .thenCompose(ignored -> this.accountsManager
-            .updateAsync(account, acc -> acc.setBackupCredentialRequest(serializedRequest))
+            .updateAsync(account, a -> a.setBackupCredentialRequests(serializedMessageCredentialRequest, serializedMediaCredentialRequest))
             .thenRun(Util.NOOP))
         .toCompletableFuture();
   }
@@ -123,12 +135,14 @@ public class BackupAuthManager {
    * method will also remove the expired voucher from the account.
    *
    * @param account         The account to create the credentials for
+   * @param credentialType  The type of backup credentials to create
    * @param redemptionStart The day (must be truncated to a day boundary) the first credential should be valid
    * @param redemptionEnd   The day (must be truncated to a day boundary) the last credential should be valid
    * @return Credentials and the day on which they may be redeemed
    */
   public CompletableFuture<List<Credential>> getBackupAuthCredentials(
       final Account account,
+      final BackupCredentialType credentialType,
       final Instant redemptionStart,
       final Instant redemptionEnd) {
 
@@ -139,7 +153,7 @@ public class BackupAuthManager {
         if (hasExpiredVoucher(a)) {
           a.setBackupVoucher(null);
         }
-      }).thenCompose(updated -> getBackupAuthCredentials(updated, redemptionStart, redemptionEnd));
+      }).thenCompose(updated -> getBackupAuthCredentials(updated, credentialType, redemptionStart, redemptionEnd));
     }
 
     // If this account isn't allowed some level of backup access via configuration, don't continue
@@ -157,23 +171,20 @@ public class BackupAuthManager {
     }
 
     // fetch the blinded backup-id the account should have previously committed to
-    final byte[] committedBytes = account.getBackupCredentialRequest();
-    if (committedBytes == null) {
-      throw Status.NOT_FOUND.withDescription("No blinded backup-id has been added to the account").asRuntimeException();
-    }
+    final byte[] committedBytes = account.getBackupCredentialRequest(credentialType)
+        .orElseThrow(() -> Status.NOT_FOUND.withDescription("No blinded backup-id has been added to the account").asRuntimeException());
 
     try {
       // create a credential for every day in the requested period
       final BackupAuthCredentialRequest credentialReq = new BackupAuthCredentialRequest(committedBytes);
       return CompletableFuture.completedFuture(Stream
-          .iterate(redemptionStart, curr -> curr.plus(Duration.ofDays(1)))
-          .takeWhile(redemptionTime -> !redemptionTime.isAfter(redemptionEnd))
+          .iterate(redemptionStart, redemptionTime -> !redemptionTime.isAfter(redemptionEnd), curr -> curr.plus(Duration.ofDays(1)))
           .map(redemptionTime -> {
             // Check if the account has a voucher that's good for a certain receiptLevel at redemption time, otherwise
             // use the default receipt level
             final BackupLevel backupLevel = storedBackupLevel(account, redemptionTime).orElse(configuredBackupLevel);
             return new Credential(
-                credentialReq.issueCredential(redemptionTime, backupLevel, serverSecretParams),
+                credentialReq.issueCredential(redemptionTime, backupLevel, credentialType, serverSecretParams),
                 redemptionTime);
           })
           .toList());
@@ -210,7 +221,7 @@ public class BackupAuthManager {
 
     final long receiptLevel = receiptCredentialPresentation.getReceiptLevel();
 
-    if (BackupLevelUtil.fromReceiptLevel(receiptLevel) != BackupLevel.MEDIA) {
+    if (BackupLevelUtil.fromReceiptLevel(receiptLevel) != BackupLevel.PAID) {
       throw Status.INVALID_ARGUMENT
           .withDescription("server does not recognize the requested receipt level")
           .asRuntimeException();
@@ -281,10 +292,10 @@ public class BackupAuthManager {
    */
   private Optional<BackupLevel> configuredBackupLevel(final Account account) {
     if (inExperiment(BACKUP_MEDIA_EXPERIMENT_NAME, account)) {
-      return Optional.of(BackupLevel.MEDIA);
+      return Optional.of(BackupLevel.PAID);
     }
     if (inExperiment(BACKUP_EXPERIMENT_NAME, account)) {
-      return Optional.of(BackupLevel.MESSAGES);
+      return Optional.of(BackupLevel.FREE);
     }
     return Optional.empty();
   }

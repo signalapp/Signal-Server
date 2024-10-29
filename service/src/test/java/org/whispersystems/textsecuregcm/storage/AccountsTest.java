@@ -53,6 +53,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
@@ -426,7 +427,7 @@ class AccountsTest {
         generateAccount(e164, existingUuid, UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
 
     // the backup credential request and share-set are always preserved across account reclaims
-    existingAccount.setBackupCredentialRequest(TestRandomUtil.nextBytes(32));
+    existingAccount.setBackupCredentialRequests(TestRandomUtil.nextBytes(32), TestRandomUtil.nextBytes(32));
     existingAccount.setSvr3ShareSet(TestRandomUtil.nextBytes(100));
     createAccount(existingAccount);
     final Account secondAccount =
@@ -435,7 +436,10 @@ class AccountsTest {
     reclaimAccount(secondAccount);
 
     final Account reclaimed = accounts.getByAccountIdentifier(existingUuid).get();
-    assertThat(reclaimed.getBackupCredentialRequest()).isEqualTo(existingAccount.getBackupCredentialRequest());
+    assertThat(reclaimed.getBackupCredentialRequest(BackupCredentialType.MESSAGES).get())
+        .isEqualTo(existingAccount.getBackupCredentialRequest(BackupCredentialType.MESSAGES).get());
+    assertThat(reclaimed.getBackupCredentialRequest(BackupCredentialType.MEDIA).get())
+        .isEqualTo(existingAccount.getBackupCredentialRequest(BackupCredentialType.MEDIA).get());
     assertThat(reclaimed.getSvr3ShareSet()).isEqualTo(existingAccount.getSvr3ShareSet());
   }
 

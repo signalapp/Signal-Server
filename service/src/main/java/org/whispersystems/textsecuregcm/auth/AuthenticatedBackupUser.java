@@ -5,6 +5,12 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
+import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.backups.BackupLevel;
 
-public record AuthenticatedBackupUser(byte[] backupId, BackupLevel backupLevel, String backupDir, String mediaDir) {}
+public record AuthenticatedBackupUser(byte[] backupId,
+                                      BackupCredentialType credentialType,
+                                      BackupLevel backupLevel,
+                                      String backupDir,
+                                      String mediaDir) {
+}

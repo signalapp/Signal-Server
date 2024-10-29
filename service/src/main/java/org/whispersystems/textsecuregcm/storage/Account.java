@@ -22,6 +22,7 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -116,7 +117,11 @@ public class Account {
 
   @JsonProperty("bcr")
   @Nullable
-  private byte[] backupCredentialRequest;
+  private byte[] messagesBackupCredentialRequest;
+
+  @JsonProperty("mbcr")
+  @Nullable
+  private byte[] mediaBackupCredentialRequest;
 
   @JsonProperty("bv")
   @Nullable
@@ -284,7 +289,7 @@ public class Account {
     requireNotStale();
 
     return Optional.ofNullable(getPrimaryDevice().getCapabilities())
-        .map(Device.DeviceCapabilities::transfer)
+        .map(DeviceCapabilities::transfer)
         .orElse(false);
   }
 
@@ -509,12 +514,22 @@ public class Account {
     this.svr3ShareSet = svr3ShareSet;
   }
 
-  public byte[] getBackupCredentialRequest() {
-    return backupCredentialRequest;
+  public void setBackupCredentialRequests(final byte[] messagesBackupCredentialRequest,
+      final byte[] mediaBackupCredentialRequest) {
+
+    requireNotStale();
+
+    this.messagesBackupCredentialRequest = messagesBackupCredentialRequest;
+    this.mediaBackupCredentialRequest = mediaBackupCredentialRequest;
   }
 
-  public void setBackupCredentialRequest(final byte[] backupCredentialRequest) {
-    this.backupCredentialRequest = backupCredentialRequest;
+  public Optional<byte[]> getBackupCredentialRequest(final BackupCredentialType credentialType) {
+    requireNotStale();
+
+    return Optional.ofNullable(switch (credentialType) {
+      case MESSAGES -> messagesBackupCredentialRequest;
+      case MEDIA -> mediaBackupCredentialRequest;
+    });
   }
 
   public @Nullable BackupVoucher getBackupVoucher() {

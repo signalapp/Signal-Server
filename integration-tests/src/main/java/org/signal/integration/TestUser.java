@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.IdentityKeyPair;
+import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.protocol.state.SignedPreKeyRecord;
 import org.signal.libsignal.protocol.util.KeyHelper;
@@ -161,15 +162,19 @@ public class TestUser {
         : aciIdentityKey;
     final TestDevice device = requireNonNull(devices.get(deviceId));
     final SignedPreKeyRecord signedPreKeyRecord = device.latestSignedPreKey(identity);
-    return new PreKeySetPublicView(
-        Collections.emptyList(),
-        identity.getPublicKey(),
-        new SignedPreKeyPublicView(
-            signedPreKeyRecord.getId(),
-            signedPreKeyRecord.getKeyPair().getPublicKey(),
-            signedPreKeyRecord.getSignature()
-        )
-    );
+    try {
+      return new PreKeySetPublicView(
+          Collections.emptyList(),
+          identity.getPublicKey(),
+          new SignedPreKeyPublicView(
+              signedPreKeyRecord.getId(),
+              signedPreKeyRecord.getKeyPair().getPublicKey(),
+              signedPreKeyRecord.getSignature()
+          )
+      );
+    } catch (InvalidKeyException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public record SignedPreKeyPublicView(

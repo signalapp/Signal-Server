@@ -87,7 +87,7 @@ public class BackupsDb {
   // garbage collection of archive objects.
   public static final String ATTR_LAST_REFRESH = "R";
   // N: Time in seconds since epoch of the last backup media refresh. This timestamp can only be updated if the client
-  // has BackupLevel.MEDIA, and must be periodically updated to avoid garbage collection of media objects.
+  // has BackupLevel.PAID, and must be periodically updated to avoid garbage collection of media objects.
   public static final String ATTR_LAST_MEDIA_REFRESH = "MR";
   // B: A 32 byte public key that should be used to sign the presentation used to authenticate requests against the
   // backup-id
@@ -265,7 +265,7 @@ public class BackupsDb {
    * Indicates that we couldn't schedule a deletion because one was already scheduled. The caller may want to delete the
    * objects directly.
    */
-  class PendingDeletionException extends IOException {}
+  static class PendingDeletionException extends IOException {}
 
   /**
    * Attempt to mark a backup as expired and swap in a new empty backupDir for the user.
@@ -285,7 +285,7 @@ public class BackupsDb {
     final byte[] hashedBackupId = hashedBackupId(backupUser);
 
     // Clear usage metadata, swap names of things we intend to delete, and record our intent to delete in attr_expired_prefix
-    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.MEDIA, hashedBackupId)
+    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.PAID, hashedBackupId)
             .clearMediaUsage(clock)
             .expireDirectoryNames(secureRandom, ExpiredBackup.ExpirationType.ALL)
             .setRefreshTimes(Instant.ofEpochSecond(0))
@@ -300,7 +300,7 @@ public class BackupsDb {
             // is toggling backups on and off. In this case, it should be pretty cheap to directly delete the backup.
             // Instead of changing the backupDir, just make sure the row has expired/ timestamps and tell the caller we
             // couldn't schedule the deletion.
-            dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.MEDIA, hashedBackupId)
+            dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.PAID, hashedBackupId)
                     .setRefreshTimes(Instant.ofEpochSecond(0))
                     .updateItemBuilder()
                     .build())
@@ -399,7 +399,7 @@ public class BackupsDb {
     }
 
     // Clear usage metadata, swap names of things we intend to delete, and record our intent to delete in attr_expired_prefix
-    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.MEDIA, expiredBackup.hashedBackupId())
+    return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.PAID, expiredBackup.hashedBackupId())
             .clearMediaUsage(clock)
             .expireDirectoryNames(secureRandom, expiredBackup.expirationType())
             .addRemoveExpression(Map.entry("#mediaRefresh", ATTR_LAST_MEDIA_REFRESH))
@@ -433,7 +433,7 @@ public class BackupsDb {
               .build())
           .thenRun(Util.NOOP);
     } else {
-      return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.MEDIA, hashedBackupId)
+      return dynamoClient.updateItem(new UpdateBuilder(backupTableName, BackupLevel.PAID, hashedBackupId)
               .addRemoveExpression(Map.entry("#expiredPrefixes", ATTR_EXPIRED_PREFIX))
               .updateItemBuilder()
               .build())
@@ -722,7 +722,7 @@ public class BackupsDb {
           Map.entry("#lastRefreshTime", ATTR_LAST_REFRESH),
           Map.entry(":lastRefreshTime", AttributeValues.n(refreshTime.getEpochSecond())));
 
-      if (backupLevel.compareTo(BackupLevel.MEDIA) >= 0) {
+      if (backupLevel.compareTo(BackupLevel.PAID) >= 0) {
         // update the media time if we have the appropriate level
         addSetExpression("#lastMediaRefreshTime = :lastMediaRefreshTime",
             Map.entry("#lastMediaRefreshTime", ATTR_LAST_MEDIA_REFRESH),
