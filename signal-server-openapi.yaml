@@ -614,7 +614,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -660,7 +661,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -702,7 +704,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -743,7 +746,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -804,7 +808,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -865,7 +870,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
       security:
       - authenticatedAccount: []
       - {}
@@ -924,7 +930,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
       security:
       - authenticatedAccount: []
       - {}
@@ -966,7 +973,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -1062,7 +1070,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -1167,7 +1176,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -1215,7 +1225,8 @@ paths:
           description: |-
             The provided backup auth credential presentation could not be verified or
             The public key signature was invalid or
-            There is no backup associated with the backup-id in the presentation
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -2199,15 +2210,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -2448,15 +2459,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2484,15 +2495,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2520,15 +2531,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2556,15 +2567,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3036,15 +3047,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3084,15 +3095,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3125,15 +3136,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3310,15 +3321,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3356,15 +3367,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3455,15 +3466,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -4307,15 +4318,21 @@ components:
           description: The day on which this credential is valid. Seconds since epoch
             truncated to day boundary
           format: int64
-      description: A list of BackupAuthCredentials and their validity periods
+      description: A map of credential types to lists of BackupAuthCredentials and
+        their validity periods
     BackupAuthCredentialsResponse:
       type: object
       properties:
         credentials:
-          type: array
-          description: A list of BackupAuthCredentials and their validity periods
-          items:
-            $ref: '#/components/schemas/BackupAuthCredential'
+          type: object
+          additionalProperties:
+            type: array
+            description: A map of credential types to lists of BackupAuthCredentials
+              and their validity periods
+            items:
+              $ref: '#/components/schemas/BackupAuthCredential'
+          description: A map of credential types to lists of BackupAuthCredentials
+            and their validity periods
     ListResponse:
       type: object
       properties:
@@ -4374,13 +4391,21 @@ components:
           description: Presentation of a ZK receipt encoded in standard padded base64
     SetBackupIdRequest:
       required:
-      - backupAuthCredentialRequest
+      - mediaBackupAuthCredentialRequest
+      - messagesBackupAuthCredentialRequest
       type: object
       properties:
-        backupAuthCredentialRequest:
+        messagesBackupAuthCredentialRequest:
           type: string
           description: |
-            A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64
+            A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64.
+            This backup-id should be used for message backups only, and must have the message backup type set on the
+            credential.
+        mediaBackupAuthCredentialRequest:
+          type: string
+          description: |
+            A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64.
+            This backup-id should be used for media only, and must have the media type set on the credential.
     SetPublicKeyRequest:
       type: object
       properties:
@@ -4684,7 +4709,7 @@ components:
       properties:
         distinguishedKeyResponse:
           type: string
-          description: The response for the distinguished tree head encoded in standard
+          description: The serialized `DistinguishedResponse` encoded in standard
             un-padded base64
           format: byte
     KeyTransparencyMonitorResponse:
@@ -4794,29 +4819,13 @@ components:
           format: byte
     KeyTransparencySearchResponse:
       required:
-      - aciSearchResponse
-      - fullTreeHead
+      - serializedResponse
       type: object
       properties:
-        fullTreeHead:
+        serializedResponse:
           type: string
-          description: The `FullTreeHead` protobuf encoded in standard un-padded base64.
-            This should be used across all identifiers.
-          format: byte
-        aciSearchResponse:
-          type: string
-          description: The `TreeSearchResponse` protobuf for the ACI identifier encoded
-            in standard un-padded base64
-          format: byte
-        e164SearchResponse:
-          type: string
-          description: The `TreeSearchResponse` protobuf for the E164 encoded in standard
-            un-padded base64
-          format: byte
-        usernameHashSearchResponse:
-          type: string
-          description: The `TreeSearchResponse` protobuf for the username hash encoded
-            in standard un-padded base64
+          description: The serialized `SearchResponse` encoded in standard un-padded
+            base64.
           format: byte
     KeyTransparencySearchRequest:
       required:
