@@ -15,6 +15,6 @@ public record KeyTransparencyDistinguishedKeyResponse(
     @NotNull
     @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
     @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-    @Schema(description = "The response for the distinguished tree head encoded in standard un-padded base64")
+    @Schema(description = "The serialized `DistinguishedResponse` encoded in standard un-padded base64")
     byte[] distinguishedKeyResponse
 ) {}

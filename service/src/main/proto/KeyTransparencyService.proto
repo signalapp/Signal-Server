@@ -152,11 +152,11 @@ message DistinguishedResponse {
    * A signed representation of the log tree's current state along with some
    * additional information necessary for validation such as a consistency proof and an auditor-signed tree head.
    */
-  FullTreeHead full_tree_head = 1;
+  FullTreeHead tree_head = 1;
   /**
    * This search response is always provided.
    */
-  TreeSearchResponse distinguished_response = 2;
+  TreeSearchResponse distinguished = 2;
 }
 
 message TreeSearchResponse {

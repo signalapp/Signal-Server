@@ -17,22 +17,6 @@ public record KeyTransparencySearchResponse(
     @NotNull
     @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
     @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-    @Schema(description = "The `FullTreeHead` protobuf encoded in standard un-padded base64. This should be used across all identifiers.")
-    byte[] fullTreeHead,
-
-    @NotNull
-    @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
-    @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-    @Schema(description = "The `TreeSearchResponse` protobuf for the ACI identifier encoded in standard un-padded base64")
-    byte[] aciSearchResponse,
-
-    @JsonSerialize(contentUsing = ByteArrayAdapter.Serializing.class)
-    @JsonDeserialize(contentUsing = ByteArrayAdapter.Deserializing.class)
-    @Schema(description = "The `TreeSearchResponse` protobuf for the E164 encoded in standard un-padded base64")
-    Optional<byte[]> e164SearchResponse,
-
-    @JsonSerialize(contentUsing = ByteArrayAdapter.Serializing.class)
-    @JsonDeserialize(contentUsing = ByteArrayAdapter.Deserializing.class)
-    @Schema(description = "The `TreeSearchResponse` protobuf for the username hash encoded in standard un-padded base64")
-    Optional<byte[]> usernameHashSearchResponse
+    @Schema(description = "The serialized `SearchResponse` encoded in standard un-padded base64.")
+    byte[] serializedResponse
 ) {}

@@ -172,13 +172,8 @@ public class KeyTransparencyControllerTest {
 
       final KeyTransparencySearchResponse keyTransparencySearchResponse = response.readEntity(
           KeyTransparencySearchResponse.class);
-      assertNotNull(keyTransparencySearchResponse.fullTreeHead());
-      assertNotNull(keyTransparencySearchResponse.aciSearchResponse());
-
-      assertEquals(aciSearchResponse, TreeSearchResponse.parseFrom(keyTransparencySearchResponse.aciSearchResponse()));
-
-      e164.ifPresent(ignored -> assertNotNull(keyTransparencySearchResponse.e164SearchResponse()));
-      usernameHash.ifPresent(ignored -> assertNotNull(keyTransparencySearchResponse.usernameHashSearchResponse()));
+      assertNotNull(keyTransparencySearchResponse.serializedResponse());
+      assertEquals(aciSearchResponse, SearchResponse.parseFrom(keyTransparencySearchResponse.serializedResponse()).getAci());
 
       ArgumentCaptor<ByteString> aciArgument = ArgumentCaptor.forClass(ByteString.class);
       ArgumentCaptor<ByteString> aciIdentityKeyArgument = ArgumentCaptor.forClass(ByteString.class);

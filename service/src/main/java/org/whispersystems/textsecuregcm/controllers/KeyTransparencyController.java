@@ -123,10 +123,7 @@ public class KeyTransparencyController {
               KEY_TRANSPARENCY_RPC_TIMEOUT)
           .thenApply(searchResponse ->
               new KeyTransparencySearchResponse(
-                  searchResponse.getTreeHead().toByteArray(),
-                  searchResponse.getAci().toByteArray(),
-                  searchResponse.hasE164() ? Optional.of(searchResponse.getE164().toByteArray()) : Optional.empty(),
-                  searchResponse.hasUsernameHash() ? Optional.of(searchResponse.getUsernameHash().toByteArray()) : Optional.empty())
+                  searchResponse.toByteArray())
           ).join();
     } catch (final CancellationException exception) {
       LOGGER.error("Unexpected cancellation from key transparency service", exception);
