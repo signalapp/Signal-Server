@@ -18,6 +18,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -63,6 +64,7 @@ import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ConfirmUsernameHashRequest;
+import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.EncryptedUsername;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
@@ -81,6 +83,7 @@ import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptio
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
@@ -999,4 +1002,72 @@ class AccountControllerTest {
     verify(AuthHelper.VALID_ACCOUNT).setUsernameLinkDetails(eq(newHandle.usernameLinkHandle()), eq(encryptedUsername));
   }
 
+  @Test
+  void testSetDeviceName() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/name/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, Device.PRIMARY_ID, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json(new DeviceName(TestRandomUtil.nextBytes(64))))) {
+
+      assertThat(response.getStatus()).isEqualTo(204);
+      verify(accountsManager).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), eq(Device.PRIMARY_ID), any());
+    }
+  }
+
+  @Test
+  void testSetLinkedDeviceNameFromPrimary() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/name/")
+        .queryParam("deviceId", AuthHelper.VALID_DEVICE_3_LINKED_ID)
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, Device.PRIMARY_ID, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json(new DeviceName(TestRandomUtil.nextBytes(64))))) {
+
+      assertThat(response.getStatus()).isEqualTo(204);
+      verify(accountsManager).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), eq(AuthHelper.VALID_DEVICE_3_LINKED_ID), any());
+    }
+  }
+
+  @Test
+  void testSetLinkedDeviceNameFromLinked() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/name/")
+        .queryParam("deviceId", AuthHelper.VALID_DEVICE_3_LINKED_ID)
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_DEVICE_3_LINKED_ID, AuthHelper.VALID_PASSWORD_3_LINKED))
+        .put(Entity.json(new DeviceName(TestRandomUtil.nextBytes(64))))) {
+
+      assertThat(response.getStatus()).isEqualTo(204);
+      verify(accountsManager).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), eq(AuthHelper.VALID_DEVICE_3_LINKED_ID), any());
+    }
+  }
+
+  @Test
+  void testSetDeviceNameDeviceNotFound() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/name/")
+        .queryParam("deviceId", Device.MAXIMUM_DEVICE_ID)
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json(new DeviceName(TestRandomUtil.nextBytes(64))))) {
+
+      assertThat(response.getStatus()).isEqualTo(404);
+      verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
+    }
+  }
+
+  @Test
+  void testSetPrimaryDeviceNameFromLinked() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/name/")
+        .queryParam("deviceId", Device.PRIMARY_ID)
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_DEVICE_3_LINKED_ID, AuthHelper.VALID_PASSWORD_3_LINKED))
+        .put(Entity.json(new DeviceName(TestRandomUtil.nextBytes(64))))) {
+
+      assertThat(response.getStatus()).isEqualTo(403);
+      verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
+    }
+  }
 }

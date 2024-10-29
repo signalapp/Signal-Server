@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import org.signal.chat.common.EcPreKey;
@@ -26,7 +25,6 @@ import reactor.util.function.Tuples;
 
 class KeysGrpcHelper {
 
-  @VisibleForTesting
   static final byte ALL_DEVICES = 0;
 
   static Mono<GetPreKeysResponse> getPreKeys(final Account targetAccount,

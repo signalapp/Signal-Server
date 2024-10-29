@@ -105,6 +105,8 @@ public class AuthHelper {
   public static Device VALID_DEVICE_3_PRIMARY = mock(Device.class);
   public static Device VALID_DEVICE_3_LINKED  = mock(Device.class);
 
+  public static final byte VALID_DEVICE_3_LINKED_ID = Device.PRIMARY_ID + 1;
+
   private static SaltedTokenHash VALID_CREDENTIALS           = mock(SaltedTokenHash.class);
   private static SaltedTokenHash VALID_CREDENTIALS_TWO       = mock(SaltedTokenHash.class);
   private static SaltedTokenHash VALID_CREDENTIALS_3_PRIMARY = mock(SaltedTokenHash.class);
@@ -136,7 +138,7 @@ public class AuthHelper {
     when(VALID_DEVICE_TWO.getId()).thenReturn(Device.PRIMARY_ID);
     when(UNDISCOVERABLE_DEVICE.getId()).thenReturn(Device.PRIMARY_ID);
     when(VALID_DEVICE_3_PRIMARY.getId()).thenReturn(Device.PRIMARY_ID);
-    when(VALID_DEVICE_3_LINKED.getId()).thenReturn((byte) 2);
+    when(VALID_DEVICE_3_LINKED.getId()).thenReturn(VALID_DEVICE_3_LINKED_ID);
 
     when(UNDISCOVERABLE_DEVICE.isPrimary()).thenReturn(true);
 

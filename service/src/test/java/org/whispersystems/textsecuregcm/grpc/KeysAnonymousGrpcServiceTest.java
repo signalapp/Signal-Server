@@ -27,8 +27,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
@@ -306,9 +304,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     verifyNoInteractions(keysManager);
   }
 
-  @ParameterizedTest
-  @ValueSource(bytes = {KeysGrpcHelper.ALL_DEVICES, 1})
-  void getPreKeysDeviceNotFound(final byte deviceId) {
+  @Test
+  void getPreKeysDeviceNotFound() {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
@@ -329,7 +326,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
             .setTargetIdentifier(ServiceIdentifier.newBuilder()
                 .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
                 .setUuid(UUIDUtil.toByteString(accountIdentifier)))
-            .setDeviceId(deviceId))
+            .setDeviceId(Device.PRIMARY_ID))
         .build());
   }
 

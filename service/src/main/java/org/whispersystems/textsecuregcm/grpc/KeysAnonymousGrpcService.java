@@ -47,7 +47,9 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
     final ServiceIdentifier serviceIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getTargetIdentifier());
 
-    final byte deviceId = DeviceIdUtil.validate(request.getRequest().getDeviceId());
+    final byte deviceId = request.getRequest().hasDeviceId()
+        ? DeviceIdUtil.validate(request.getRequest().getDeviceId())
+        : KeysGrpcHelper.ALL_DEVICES;
 
     return switch (request.getAuthorizationCase()) {
       case GROUP_SEND_TOKEN ->

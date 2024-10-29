@@ -37,7 +37,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
@@ -592,9 +591,8 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
         .build()));
   }
 
-  @ParameterizedTest
-  @ValueSource(bytes = {KeysGrpcHelper.ALL_DEVICES, 1})
-  void getPreKeysDeviceNotFound(final byte deviceId) {
+  @Test
+  void getPreKeysDeviceNotFound() {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account targetAccount = mock(Account.class);
@@ -611,7 +609,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
             .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(UUIDUtil.toByteString(accountIdentifier))
             .build())
-        .setDeviceId(deviceId)
+        .setDeviceId(Device.PRIMARY_ID)
         .build()));
   }
 

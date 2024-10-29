@@ -154,7 +154,7 @@ message GetPreKeysRequest {
    * retrieve pre-keys. If not set, pre-keys are returned for all devices
    * associated with the targeted account.
    */
-  uint32 device_id = 2;
+  optional uint32 device_id = 2;
 }
 
 message GetPreKeysAnonymousRequest {

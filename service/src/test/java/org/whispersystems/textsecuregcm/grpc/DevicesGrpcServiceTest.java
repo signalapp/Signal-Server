@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -187,10 +186,64 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final byte[] deviceName = TestRandomUtil.nextBytes(128);
 
     final SetDeviceNameResponse ignored = authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
+        .setId(deviceId)
         .setName(ByteString.copyFrom(deviceName))
         .build());
 
     verify(device).setName(deviceName);
+  }
+
+  @Test
+  void setLinkedDeviceNameFromPrimary() {
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, Device.PRIMARY_ID);
+
+    final byte deviceId = Device.PRIMARY_ID + 1;
+
+    final Device device = mock(Device.class);
+    when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
+
+    final byte[] deviceName = TestRandomUtil.nextBytes(128);
+
+    final SetDeviceNameResponse ignored = authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
+        .setId(deviceId)
+        .setName(ByteString.copyFrom(deviceName))
+        .build());
+
+    verify(device).setName(deviceName);
+  }
+
+  @Test
+  void setPrimaryDeviceNameFromLinkedDevice() {
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
+
+    final byte deviceId = Device.PRIMARY_ID;
+
+    final Device device = mock(Device.class);
+    when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
+
+    final byte[] deviceName = TestRandomUtil.nextBytes(128);
+
+    assertStatusException(Status.PERMISSION_DENIED,
+        () -> authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
+            .setId(deviceId)
+            .setName(ByteString.copyFrom(deviceName))
+            .build()));
+
+    verify(device, never()).setName(deviceName);
+  }
+
+  @Test
+  void setDeviceNameNotFound() {
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, Device.PRIMARY_ID);
+    when(authenticatedAccount.getDevice(anyByte())).thenReturn(Optional.empty());
+
+    final byte[] deviceName = TestRandomUtil.nextBytes(128);
+
+    assertStatusException(Status.NOT_FOUND,
+        () -> authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
+            .setId(Device.PRIMARY_ID + 1)
+            .setName(ByteString.copyFrom(deviceName))
+            .build()));
   }
 
   @ParameterizedTest
@@ -203,11 +256,25 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   private static Stream<Arguments> setDeviceNameIllegalArgument() {
     return Stream.of(
         // No device name
-        Arguments.of(SetDeviceNameRequest.newBuilder().build()),
+        Arguments.of(SetDeviceNameRequest.newBuilder()
+            .setId(Device.PRIMARY_ID)
+            .build()),
 
         // Excessively-long device name
         Arguments.of(SetDeviceNameRequest.newBuilder()
-            .setName(ByteString.copyFrom(RandomStringUtils.randomAlphanumeric(1024).getBytes(StandardCharsets.UTF_8)))
+            .setId(Device.PRIMARY_ID)
+            .setName(ByteString.copyFrom(TestRandomUtil.nextBytes(1024)))
+            .build()),
+
+        // No device ID
+        Arguments.of(SetDeviceNameRequest.newBuilder()
+            .setName(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
+            .build()),
+
+        // Out-of-bounds device ID
+        Arguments.of(SetDeviceNameRequest.newBuilder()
+            .setId(Device.MAXIMUM_DEVICE_ID + 1)
+            .setName(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
             .build())
     );
   }

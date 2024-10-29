@@ -89,6 +89,17 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
   public Mono<SetDeviceNameResponse> setDeviceName(final SetDeviceNameRequest request) {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
+    final byte deviceId = DeviceIdUtil.validate(request.getId());
+
+    final boolean mayChangeName = authenticatedDevice.deviceId() == Device.PRIMARY_ID ||
+        authenticatedDevice.deviceId() == deviceId;
+
+    if (!mayChangeName) {
+      throw Status.PERMISSION_DENIED
+          .withDescription("Authenticated device is not authorized to change target device name")
+          .asRuntimeException();
+    }
+
     if (request.getName().isEmpty()) {
       throw Status.INVALID_ARGUMENT.withDescription("Must specify a device name").asRuntimeException();
     }
@@ -100,7 +111,12 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
 
     return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
         .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
-        .flatMap(account -> Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(),
+        .doOnNext(account -> {
+          if (account.getDevice(deviceId).isEmpty()) {
+            throw Status.NOT_FOUND.withDescription("No device found with given ID").asRuntimeException();
+          }
+        })
+        .flatMap(account -> Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, deviceId,
             device -> device.setName(request.getName().toByteArray()))))
         .thenReturn(SetDeviceNameResponse.newBuilder().build());
   }

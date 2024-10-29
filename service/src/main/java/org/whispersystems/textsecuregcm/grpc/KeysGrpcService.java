@@ -122,7 +122,9 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
     final ServiceIdentifier targetIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier());
 
-    final byte deviceId = DeviceIdUtil.validate(request.getDeviceId());
+    final byte deviceId = request.hasDeviceId()
+        ? DeviceIdUtil.validate(request.getDeviceId())
+        : KeysGrpcHelper.ALL_DEVICES;
 
     final String rateLimitKey = authenticatedDevice.accountIdentifier() + "." +
         authenticatedDevice.deviceId() + "__" +

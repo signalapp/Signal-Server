@@ -27,6 +27,14 @@ service Devices {
    */
   rpc RemoveDevice(RemoveDeviceRequest) returns (RemoveDeviceResponse) {}
 
+  /**
+   * Sets the encrypted human-readable name for a specific devices. Primary
+   * devices may change the name of any device associated with their account,
+   * but linked devices may only change their own name. This call will fail with
+   * a status of `NOT_FOUND` if no device was found with the given identifier.
+   * It will also fail with a status of `PERMISSION_DENIED` if a linked device
+   * tries to change the name of any device other than itself.
+   */
   rpc SetDeviceName(SetDeviceNameRequest) returns (SetDeviceNameResponse) {}
 
   /**
@@ -95,6 +103,11 @@ message SetDeviceNameRequest {
    * device.
    */
   bytes name = 1;
+
+  /**
+   * The identifier for the device for which to set a name.
+   */
+  uint32 id = 2;
 }
 
 message SetDeviceNameResponse {}
