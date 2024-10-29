@@ -25,11 +25,11 @@ public record KeyTransparencySearchRequest(
     @NotNull
     @JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
     @JsonDeserialize(using = ServiceIdentifierAdapter.AciServiceIdentifierDeserializer.class)
-    @Schema(description = "The aci identifier to look up")
+    @Schema(description = "The ACI to look up")
     AciServiceIdentifier aci,
 
     @E164
-    @Schema(description = "The e164-formatted phone number to look up")
+    @Schema(description = "The E164-formatted phone number to look up")
     Optional<String> e164,
 
     @JsonSerialize(contentUsing = ByteArrayBase64UrlAdapter.Serializing.class)
@@ -40,7 +40,7 @@ public record KeyTransparencySearchRequest(
     @NotNull
     @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
     @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
-    @Schema(description="The public aci identity key associated with the provided aci")
+    @Schema(description="The public ACI identity key associated with the provided ACI")
     IdentityKey aciIdentityKey,
 
     @JsonSerialize(contentUsing = ByteArrayBase64WithPaddingAdapter.Serializing.class)

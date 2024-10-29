@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
@@ -38,6 +37,7 @@ import javax.ws.rs.ServerErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.signal.keytransparency.client.E164SearchRequest;
 import org.signal.keytransparency.client.MonitorKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,17 +74,25 @@ public class KeyTransparencyController {
   }
 
   @Operation(
-      summary = "Search for the given search keys in the key transparency log",
+      summary = "Search for the given identifiers in the key transparency log",
       description = """
-          Enforced unauthenticated endpoint. Returns a response if all search keys exist in the key transparency log.
+          Returns a response if the ACI exists in the transparency log and its mapped value matches the provided
+          ACI identity key.
+
+          The username hash search response field is populated if it is found in the log and its mapped value matches
+          the provided ACI. The E164 search response is populated similarly, with some additional requirements:
+          - The account associated with the provided ACI must be discoverable by phone number.
+          - The provided unidentified access key must match the one on the account.
+
+          Enforced unauthenticated endpoint.
           """
   )
-  @ApiResponse(responseCode = "200", description = "All search key lookups were successful", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "200", description = "The ACI was found and its mapped value matched the provided ACI identity key", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "400", description = "Invalid request. See response for any available details.")
-  @ApiResponse(responseCode = "403", description = "At least one search key lookup to value mapping was invalid")
-  @ApiResponse(responseCode = "404", description = "At least one search key lookup did not find the key")
-  @ApiResponse(responseCode = "429", description = "Rate-limited")
+  @ApiResponse(responseCode = "403", description = "The ACI was found but its mapped value did not match the provided ACI identity key")
+  @ApiResponse(responseCode = "404", description = "The ACI was not found in the log")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
+  @ApiResponse(responseCode = "429", description = "Rate-limited")
   @POST
   @Path("/search")
   @RateLimitedByIp(RateLimiters.For.KEY_TRANSPARENCY_SEARCH_PER_IP)
@@ -97,41 +105,29 @@ public class KeyTransparencyController {
     requireNotAuthenticated(authenticatedAccount);
 
     try {
-      final CompletableFuture<byte[]> aciSearchKeyResponseFuture = keyTransparencyServiceClient.search(
-          getFullSearchKeyByteString(ACI_PREFIX, request.aci().toCompactByteArray()),
-          ByteString.copyFrom(request.aciIdentityKey().serialize()),
-          Optional.empty(),
-          request.lastTreeHeadSize(),
-          request.distinguishedTreeHeadSize(),
-          KEY_TRANSPARENCY_RPC_TIMEOUT);
+      final Optional<E164SearchRequest> maybeE164SearchRequest =
+          request.e164().flatMap(e164 -> request.unidentifiedAccessKey().map(uak ->
+              E164SearchRequest.newBuilder()
+                  .setE164(e164)
+                  .setUnidentifiedAccessKey(ByteString.copyFrom(request.unidentifiedAccessKey().get()))
+                  .build()
+          ));
 
-      final CompletableFuture<byte[]> e164SearchKeyResponseFuture = request.e164()
-          .map(e164 -> keyTransparencyServiceClient.search(
-              getFullSearchKeyByteString(E164_PREFIX, e164.getBytes(StandardCharsets.UTF_8)),
+      return keyTransparencyServiceClient.search(
               ByteString.copyFrom(request.aci().toCompactByteArray()),
-              Optional.of(ByteString.copyFrom(request.unidentifiedAccessKey().get())),
+              ByteString.copyFrom(request.aciIdentityKey().serialize()),
+              request.usernameHash().map(ByteString::copyFrom),
+              maybeE164SearchRequest,
               request.lastTreeHeadSize(),
               request.distinguishedTreeHeadSize(),
-              KEY_TRANSPARENCY_RPC_TIMEOUT))
-          .orElse(CompletableFuture.completedFuture(null));
-
-      final CompletableFuture<byte[]> usernameHashSearchKeyResponseFuture = request.usernameHash()
-          .map(usernameHash -> keyTransparencyServiceClient.search(
-              getFullSearchKeyByteString(USERNAME_PREFIX, request.usernameHash().get()),
-              ByteString.copyFrom(request.aci().toCompactByteArray()),
-              Optional.empty(),
-              request.lastTreeHeadSize(),
-              request.distinguishedTreeHeadSize(),
-              KEY_TRANSPARENCY_RPC_TIMEOUT))
-          .orElse(CompletableFuture.completedFuture(null));
-
-      return CompletableFuture.allOf(aciSearchKeyResponseFuture, e164SearchKeyResponseFuture,
-              usernameHashSearchKeyResponseFuture)
-          .thenApply(ignored ->
-              new KeyTransparencySearchResponse(aciSearchKeyResponseFuture.join(),
-                  Optional.ofNullable(e164SearchKeyResponseFuture.join()),
-                  Optional.ofNullable(usernameHashSearchKeyResponseFuture.join())))
-          .join();
+              KEY_TRANSPARENCY_RPC_TIMEOUT)
+          .thenApply(searchResponse ->
+              new KeyTransparencySearchResponse(
+                  searchResponse.getTreeHead().toByteArray(),
+                  searchResponse.getAci().toByteArray(),
+                  searchResponse.hasE164() ? Optional.of(searchResponse.getE164().toByteArray()) : Optional.empty(),
+                  searchResponse.hasUsernameHash() ? Optional.of(searchResponse.getUsernameHash().toByteArray()) : Optional.empty())
+          ).join();
     } catch (final CancellationException exception) {
       LOGGER.error("Unexpected cancellation from key transparency service", exception);
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, exception);
@@ -143,10 +139,10 @@ public class KeyTransparencyController {
   }
 
   @Operation(
-      summary = "Monitor the given search keys in the key transparency log",
+      summary = "Monitor the given identifiers in the key transparency log",
       description = """
-          Enforced unauthenticated endpoint. Return proofs proving that the log tree
-          has been constructed correctly in later entries for each of the given search keys .
+          Return proofs proving that the log tree has been constructed correctly in later entries for each of the given
+          identifiers. Enforced unauthenticated endpoint.
           """
   )
   @ApiResponse(responseCode = "200", description = "All search keys exist in the log", useReturnTypeSchema = true)
@@ -199,8 +195,9 @@ public class KeyTransparencyController {
   @Operation(
       summary = "Get the current value of the distinguished key",
       description = """
-          Enforced unauthenticated endpoint. The response contains the distinguished tree head to prove consistency
-          against for future calls to `/search` and `/distinguished`.
+          The response contains the distinguished tree head to prove consistency
+          against for future calls to `/search`, `/monitor`, and `/distinguished`.
+          Enforced unauthenticated endpoint.
           """
   )
   @ApiResponse(responseCode = "200", description = "The `distinguished` search key exists in the log", useReturnTypeSchema = true)

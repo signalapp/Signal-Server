@@ -26,10 +26,12 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.signal.keytransparency.client.ConsistencyParameters;
 import org.signal.keytransparency.client.DistinguishedRequest;
+import org.signal.keytransparency.client.E164SearchRequest;
 import org.signal.keytransparency.client.KeyTransparencyQueryServiceGrpc;
 import org.signal.keytransparency.client.MonitorKey;
 import org.signal.keytransparency.client.MonitorRequest;
 import org.signal.keytransparency.client.SearchRequest;
+import org.signal.keytransparency.client.SearchResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -111,28 +113,29 @@ public class KeyTransparencyServiceClient implements Managed {
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public CompletableFuture<byte[]> search(
-      final ByteString searchKey,
-      final ByteString mappedValue,
-      final Optional<ByteString> unidentifiedAccessKey,
+  public CompletableFuture<SearchResponse> search(
+      final ByteString aci,
+      final ByteString aciIdentityKey,
+      final Optional<ByteString> usernameHash,
+      final Optional<E164SearchRequest> e164SearchRequest,
       final Optional<Long> lastTreeHeadSize,
       final Optional<Long> distinguishedTreeHeadSize,
       final Duration timeout) {
-    final SearchRequest.Builder searchRequestBuilder = SearchRequest.newBuilder()
-        .setSearchKey(searchKey)
-        .setMappedValue(mappedValue);
+    final SearchRequest.Builder searchKeysRequestBuilder = SearchRequest.newBuilder()
+        .setAci(aci)
+        .setAciIdentityKey(aciIdentityKey);
 
-    unidentifiedAccessKey.ifPresent(searchRequestBuilder::setUnidentifiedAccessKey);
+    usernameHash.ifPresent(searchKeysRequestBuilder::setUsernameHash);
+    e164SearchRequest.ifPresent(searchKeysRequestBuilder::setE164SearchRequest);
 
     final ConsistencyParameters.Builder consistency = ConsistencyParameters.newBuilder();
     lastTreeHeadSize.ifPresent(consistency::setLast);
     distinguishedTreeHeadSize.ifPresent(consistency::setDistinguished);
 
-    searchRequestBuilder.setConsistency(consistency);
+    searchKeysRequestBuilder.setConsistency(consistency.build());
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .search(searchRequestBuilder.build()), callbackExecutor)
-        .thenApply(AbstractMessageLite::toByteArray);
+        .search(searchKeysRequestBuilder.build()), callbackExecutor);
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

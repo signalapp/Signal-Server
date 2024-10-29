@@ -11,9 +11,15 @@ option java_package = "org.signal.keytransparency.client";
 package kt_query;
 
 /**
-  * An external-facing, read-only key transparency service used by Signal's chat server
-  * to look up and monitor search keys.
-  */
+ * An external-facing, read-only key transparency service used by Signal's chat server
+ * to look up and monitor identifiers.
+ * There are three types of identifier mappings stored by the key transparency log:
+ * - An ACI which maps to an ACI identity key
+ * - An E164-formatted phone number which maps to an ACI
+ * - A username hash which also maps to an ACI
+ * Separately, the log also stores and periodically updates a fixed value known as the `distinguished` key.
+ * Clients use the verified tree head from looking up this key for future calls to the Search and Monitor endpoints.
+ */
 service KeyTransparencyQueryService {
   /**
    * An endpoint used by clients to retrieve the most recent distinguished tree
@@ -21,17 +27,84 @@ service KeyTransparencyQueryService {
    * subsequent Search and Monitor requests. It should be the first key
    * transparency RPC a client calls.
    */
-  rpc Distinguished(DistinguishedRequest) returns (SearchResponse) {}
+  rpc Distinguished(DistinguishedRequest) returns (DistinguishedResponse) {}
   /**
-   * An endpoint used by clients to search for a given key in the transparency log.
-   * The server returns proof that the search key exists in the log.
+   * An endpoint used by clients to search for one or more identifiers in the transparency log.
+   * The server returns proof that the identifier(s) exist in the log.
    */
   rpc Search(SearchRequest) returns (SearchResponse) {}
   /**
-   * An endpoint that allows users to monitor a set of search keys by returning proof that the log continues to be
-   * constructed correctly in later entries for those search keys.
+   * An endpoint that allows users to monitor a set of identifiers by returning proof that the log continues to be
+   * constructed correctly in later entries for those identifiers.
    */
   rpc Monitor(MonitorRequest) returns (MonitorResponse) {}
+}
+
+message SearchRequest {
+  /**
+   * The ACI to look up in the log.
+   */
+  bytes aci = 1;
+  /**
+   * The ACI identity key that the client thinks the ACI maps to in the log.
+   */
+  bytes aci_identity_key = 2;
+  /**
+   * The username hash to look up in the log.
+   */
+  optional bytes username_hash = 3;
+  /**
+   * The E164 to look up in the log along with associated data.
+   */
+  optional E164SearchRequest e164_search_request = 4;
+  /**
+   * The tree head size(s) to prove consistency against.
+   */
+  ConsistencyParameters consistency = 5;
+}
+
+/**
+ * E164SearchRequest contains the data that the user must provide when looking up an E164.
+ */
+message E164SearchRequest {
+  /**
+   * The E164 that the client wishes to look up in the transparency log.
+   */
+  string e164 = 1;
+  /**
+   * The unidentified access key of the account associated with the provided E164.
+   */
+  bytes unidentified_access_key = 2;
+}
+
+/**
+ * SearchResponse contains search proofs for each of the requested identifiers.
+ * Callers should use the top-level `FullTreeHead` for verification;
+ * the `FullTreeHead` field on the individual `TreeSearchResponse`s will be empty.
+ */
+message SearchResponse {
+  /**
+   * A signed representation of the log tree's current state along with some
+   * additional information necessary for validation such as a consistency proof and an auditor-signed tree head.
+   */
+  FullTreeHead tree_head = 1;
+  /**
+   * The ACI search response is always provided.
+   */
+  TreeSearchResponse aci = 2;
+  /**
+   * This response is only provided if all of the conditions are met:
+   * - the E164 exists in the log
+   * - its mapped ACI matches the one provided in the request
+   * - the account associated with the ACI is discoverable
+   * - the unidentified access key provided in E164SearchRequest matches the one on the account
+   */
+  optional TreeSearchResponse e164 = 3;
+  /**
+   * This response is only provided if the username hash exists in the log and
+   * its mapped ACI matches the one provided in the request.
+   */
+  optional TreeSearchResponse username_hash = 4;
 }
 
 /**
@@ -43,7 +116,7 @@ service KeyTransparencyQueryService {
 message ConsistencyParameters {
   /**
    * The non-distinguished tree head size to prove consistency against.
-   * This field may be omitted if the client is looking up a search key
+   * This field may be omitted if the client is looking up an identifier
    * for the first time.
    */
   optional uint64 last = 1;
@@ -68,57 +141,47 @@ message DistinguishedRequest {
   optional uint64 last = 1;
 }
 
-message SearchRequest {
+/**
+ * DistinguishedResponse contains the tree head and search proof for the most
+ * recent `distinguished` key in the log. Callers should use the top-level
+ * `FullTreeHead` for verification; the `FullTreeHead` field on
+ * `TreeSearchResponse` will be empty.
+ */
+message DistinguishedResponse {
   /**
-   * The key to look up in the log tree.
-   * A key can be an ACI, an E164 phone number, or a username hash and
-   * is prefixed with a unique identifier to indicate its type.
+   * A signed representation of the log tree's current state along with some
+   * additional information necessary for validation such as a consistency proof and an auditor-signed tree head.
    */
-  bytes search_key = 1;
+  FullTreeHead full_tree_head = 1;
   /**
-   * TODO: Remove this protobuf field in the KT server
-   * The version of the key to look up. If not specified, the key transparency server
-   * defaults to returning the most recent version of the key.
+   * This search response is always provided.
    */
-  optional uint32 version = 2;
-  /**
-   * The tree head size(s) to prove consistency against.
-   */
-  ConsistencyParameters consistency = 3;
-  /**
-   * Clients need to prove that they know the search key to value mapping
-   * to avoid the key transparency service leaking user data.
-   * If the client is looking up the distinguished key, this field may be empty.
-   */
-  optional bytes mapped_value = 4;
-  /**
-   * Clients should only provide the unidentified_access_key if the search key is a phone number.
-   */
-  optional bytes unidentified_access_key = 5;
+  TreeSearchResponse distinguished_response = 2;
 }
 
-message SearchResponse {
+message TreeSearchResponse {
   /**
    * A signed representation of the log tree's current state along with some
    * additional information necessary for validation such as a consistency proof and an auditor-signed tree head.
    */
   FullTreeHead tree_head = 1;
   /**
-   * A proof that is combined with the original requested search key and the VRF public key
+   * A proof that is combined with the original requested identifier and the VRF public key
    * and outputs whether the proof is valid, and if so, the commitment index.
    */
   bytes vrf_proof = 2;
   /**
-   * A proof that the binary search for the given search key was done correctly.
+   * A proof that the binary search for the given identifier was done correctly.
    */
   SearchProof search = 3;
   /**
-   * A 32 byte value computed based on the log position and a random 32 byte key that is only known by
-   * the key transparency service. It is provided so that clients can recompute and verify the commitment.
+   * A 32-byte value computed based on the log position of the identifier
+   * and a random 32 byte key that is only known by the key transparency service.
+   * It is provided so that clients can recompute and verify the commitment.
    */
   bytes opening = 4;
   /**
-   * The new or updated value of the search key.
+   * The new or updated value that the identifier maps to.
    */
   UpdateValue value = 5;
 }
@@ -193,17 +256,17 @@ message ProofStep {
 
 message SearchProof {
   /**
-   * The position in the log tree of the first occurrence of the requested search key.
+   * The position in the log tree of the first occurrence of the requested identifier.
    */
   uint64 pos = 1;
   /**
-   * The steps of a binary search through the entries of the log tree for the given search key version.
+   * The steps of a binary search through the entries of the log tree for the given identifier version.
    * Each ProofStep corresponds to a log entry and provides the information necessary to recompute a log tree
    * leaf hash.
    */
   repeated ProofStep steps = 2;
   /**
-   * A batch inclusion proof for all log tree leaves involved in the binary search for the given search key.
+   * A batch inclusion proof for all log tree leaves involved in the binary search for the given identifier.
    */
   repeated bytes inclusion = 3;
 }
@@ -215,19 +278,19 @@ message UpdateValue {
    */
   // optional bytes signature = 1;
   /**
-   * The new value for a search key.
+   * The new value for a identifier.
    */
   bytes value = 2;
 }
 
 message PrefixSearchResult {
   /**
-   * A proof from a prefix tree that indicates a search was done correctly for a given search key.
+   * A proof from a prefix tree that indicates a search was done correctly for a given identifier.
    * The elements of this array are the copath of the prefix tree leaf node in bottom-to-top order.
    */
   repeated bytes proof = 1;
   /**
-   * The version of the requested search key in the prefix tree.
+   * The version of the requested identifier in the prefix tree.
    */
   uint32 counter = 2;
 }
@@ -238,7 +301,7 @@ message MonitorKey {
    */
   bytes search_key = 1;
   /**
-   * A list of log tree positions maintained by a client for the search key being monitored.
+   * A list of log tree positions maintained by a client for the identifier being monitored.
    * Each position is in the direct path to a key version and corresponds to a tree head
    * that has been verified to contain that version or greater.
    * The key transparency server uses this list to compute which log entries to return
@@ -246,7 +309,7 @@ message MonitorKey {
    */
   repeated uint64 entries = 2;
   /**
-   * The commitment index for the search key. This is derived from vrf_proof in
+   * The commitment index for the identifier. This is derived from vrf_proof in
    * the SearchResponse.
    */
   bytes commitment_index = 3;
@@ -259,8 +322,8 @@ message MonitorRequest {
    */
   repeated MonitorKey owned_keys = 1;
   /**
-   * The list of search keys that the client would like to monitor.
-   * All search keys *must* belong to the same user.
+   * The list of identifiers that the client would like to monitor.
+   * All identifiers *must* belong to the same user.
    */
   repeated MonitorKey contact_keys = 2;
   /**
@@ -292,8 +355,8 @@ message MonitorResponse {
    */
   repeated MonitorProof owned_proofs = 2;
   /**
-   * A list of proofs, one for each key in MonitorRequest.contact_keys, each proving that the given search key
-   * continues to be constructed correctly in later entries of hte log tree.
+   * A list of proofs, one for each identifier in MonitorRequest.contact_keys, each proving that the given identifier
+   * continues to be constructed correctly in later entries of the log tree.
    */
   repeated MonitorProof contact_proofs = 3;
   /**
