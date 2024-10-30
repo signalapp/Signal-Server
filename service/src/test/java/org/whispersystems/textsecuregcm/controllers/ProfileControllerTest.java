@@ -452,8 +452,8 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(BaseProfileResponse.class);
 
-    assertEquals(isDeleteSyncSupported, profile.getCapabilities().get(DeviceCapability.DELETE_SYNC.name()));
-    assertEquals(isVersionedExpirationTimerSupported, profile.getCapabilities().get(DeviceCapability.VERSIONED_EXPIRATION_TIMER.name()));
+    assertEquals(isDeleteSyncSupported, profile.getCapabilities().get("deleteSync"));
+    assertEquals(isVersionedExpirationTimerSupported, profile.getCapabilities().get("versionedExpirationTimer"));
   }
 
   @Test

@@ -492,6 +492,6 @@ public class ProfileController {
   private static Map<String, Boolean> getAccountCapabilities(final Account account) {
     return Arrays.stream(DeviceCapability.values())
         .filter(DeviceCapability::includeInProfile)
-        .collect(Collectors.toMap(Enum::name, account::hasCapability));
+        .collect(Collectors.toMap(DeviceCapability::getName, account::hasCapability));
   }
 }
