@@ -310,7 +310,9 @@ public class ArchiveControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(ArchiveController.BackupAuthCredentialsResponse.class);
 
-    expectedCredentialsByType.forEach((credentialType, expectedCredentials) -> {
+    expectedCredentialsByType.forEach((libsignalCredentialType, expectedCredentials) -> {
+      final ArchiveController.BackupAuthCredentialsResponse.CredentialType credentialType =
+          ArchiveController.BackupAuthCredentialsResponse.CredentialType.fromLibsignalType(libsignalCredentialType);
       assertThat(credentialResponse.credentials().get(credentialType)).size().isEqualTo(expectedCredentials.size());
       assertThat(credentialResponse.credentials().get(credentialType).getFirst().redemptionTime())
           .isEqualTo(start.getEpochSecond());

@@ -5,11 +5,14 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,11 +29,13 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.validation.Valid;
 import javax.validation.constraints.Max;
@@ -131,7 +136,8 @@ public class ArchiveController {
       @Valid @NotNull final SetBackupIdRequest setBackupIdRequest) throws RateLimitExceededException {
 
     return this.backupAuthManager
-        .commitBackupId(account.getAccount(), setBackupIdRequest.messagesBackupAuthCredentialRequest, setBackupIdRequest.mediaBackupAuthCredentialRequest)
+        .commitBackupId(account.getAccount(), setBackupIdRequest.messagesBackupAuthCredentialRequest,
+            setBackupIdRequest.mediaBackupAuthCredentialRequest)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
@@ -182,7 +188,30 @@ public class ArchiveController {
 
   public record BackupAuthCredentialsResponse(
       @Schema(description = "A map of credential types to lists of BackupAuthCredentials and their validity periods")
-      Map<BackupCredentialType, List<BackupAuthCredential>> credentials) {
+      Map<CredentialType, List<BackupAuthCredential>> credentials) {
+
+    public enum CredentialType {
+      MESSAGES,
+      MEDIA;
+
+      @JsonValue
+      public String toValue() {
+        return this.name().toLowerCase(Locale.ROOT);
+      }
+
+      @JsonCreator
+      public static CredentialType fromValue(String v) {
+        return v == null ? null : CredentialType.valueOf(v.toUpperCase(Locale.ROOT));
+      }
+
+      @VisibleForTesting
+      static CredentialType fromLibsignalType(BackupCredentialType backupCredentialType) {
+        return switch (backupCredentialType) {
+          case MESSAGES -> BackupAuthCredentialsResponse.CredentialType.MESSAGES;
+          case MEDIA -> BackupAuthCredentialsResponse.CredentialType.MEDIA;
+        };
+      }
+    }
 
     public record BackupAuthCredential(
         @Schema(description = "A BackupAuthCredential, encoded in standard padded base64")
@@ -231,7 +260,10 @@ public class ArchiveController {
                         credential.redemptionTime().getEpochSecond()))
                     .toList())))
             .toArray(CompletableFuture[]::new))
-        .thenApply(ignored -> new BackupAuthCredentialsResponse(credentialsByType));
+        .thenApply(ignored -> new BackupAuthCredentialsResponse(credentialsByType.entrySet().stream()
+            .collect(Collectors.toMap(
+                e -> BackupAuthCredentialsResponse.CredentialType.fromLibsignalType(e.getKey()),
+                Map.Entry::getValue))));
   }
 
 
