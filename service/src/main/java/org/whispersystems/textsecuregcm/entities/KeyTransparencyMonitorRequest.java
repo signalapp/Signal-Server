@@ -16,6 +16,7 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.ServiceIdentifierAdapter;
@@ -56,9 +57,9 @@ public record KeyTransparencyMonitorRequest(
       @NotEmpty
       List<@Positive Long> positions,
 
-      @Schema(description = "The commitment index derived from a previous search request")
-      @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
-      @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+      @Schema(description = "The commitment index derived from a previous search request, encoded in standard unpadded base64")
+      @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+      @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
       @NotNull
       @ExactlySize(32)
       byte[] commitmentIndex
@@ -75,9 +76,9 @@ public record KeyTransparencyMonitorRequest(
       @Valid
       List<@Positive Long> positions,
 
-      @Schema(description = "The commitment index derived from a previous search or monitor request")
-      @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
-      @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+      @Schema(description = "The commitment index derived from a previous search request, encoded in standard unpadded base64")
+      @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+      @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
       @NotNull
       @ExactlySize(32)
       byte[] commitmentIndex
@@ -97,9 +98,9 @@ public record KeyTransparencyMonitorRequest(
       @NotEmpty
       @Valid List<@Positive Long> positions,
 
-      @Schema(description = "The commitment index derived from a previous search or monitor request")
-      @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
-      @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
+      @Schema(description = "The commitment index derived from a previous search request, encoded in standard unpadded base64")
+      @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+      @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
       @NotNull
       @ExactlySize(32)
       byte[] commitmentIndex
