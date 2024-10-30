@@ -34,8 +34,7 @@ public class DeviceCapabilityAdapter {
         final SerializerProvider serializerProvider) throws IOException {
 
       jsonGenerator.writeObject(capabilities.stream()
-          .map(DeviceCapability::getName)
-          .collect(Collectors.toMap(capability -> capability, ignored -> true)));
+          .collect(Collectors.toMap(DeviceCapability::getName, ignored -> true)));
     }
   }
 
