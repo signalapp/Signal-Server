@@ -4,8 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
@@ -414,13 +412,12 @@ public class DeviceController {
   public void setCapabilities(@Mutable @Auth final AuthenticatedDevice auth,
 
       @NotNull
-      @JsonSerialize(using = DeviceCapabilityAdapter.Serializer.class)
-      @JsonDeserialize(using = DeviceCapabilityAdapter.Deserializer.class)
-      final Set<DeviceCapability> capabilities) {
+      final Map<String, Boolean> capabilities) {
 
     assert (auth.getAuthenticatedDevice() != null);
     final byte deviceId = auth.getAuthenticatedDevice().getId();
-    accounts.updateDevice(auth.getAccount(), deviceId, d -> d.setCapabilities(capabilities));
+    accounts.updateDevice(auth.getAccount(), deviceId,
+        d -> d.setCapabilities(DeviceCapabilityAdapter.mapToSet(capabilities)));
   }
 
   @PUT

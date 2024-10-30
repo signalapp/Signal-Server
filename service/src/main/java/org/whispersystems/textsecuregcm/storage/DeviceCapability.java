@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import java.util.Optional;
+
 public enum DeviceCapability {
   STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false),
   TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false),
@@ -50,13 +52,12 @@ public enum DeviceCapability {
     return includeInProfile;
   }
 
-  public static DeviceCapability forName(final String name) {
+  public static Optional<DeviceCapability> forName(final String name) {
     for (final DeviceCapability capability : DeviceCapability.values()) {
       if (capability.getName().equals(name)) {
-        return capability;
+        return Optional.of(capability);
       }
     }
-
-    throw new IllegalArgumentException("Unknown capability: " + name);
+    return Optional.empty();
   }
 }

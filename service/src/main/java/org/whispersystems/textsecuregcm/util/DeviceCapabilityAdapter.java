@@ -16,6 +16,7 @@ import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import java.io.IOException;
 import java.util.EnumSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -44,20 +45,19 @@ public class DeviceCapabilityAdapter {
     public Set<DeviceCapability> deserialize(final JsonParser jsonParser,
         final DeserializationContext deserializationContext) throws IOException {
 
-      final Map<String, Boolean> capabilitiesMap = jsonParser.readValueAs(STRING_TO_BOOLEAN_MAP_TYPE);
-      final EnumSet<DeviceCapability> capabilities = EnumSet.noneOf(DeviceCapability.class);
-
-      capabilitiesMap.forEach((capability, active) -> {
-        if (active) {
-          try {
-            capabilities.add(DeviceCapability.forName(capability));
-          } catch (final IllegalArgumentException ignored) {
-            // This most likely means we've retired a capability
-          }
-        }
-      });
-
-      return capabilities;
+      return mapToSet(jsonParser.readValueAs(STRING_TO_BOOLEAN_MAP_TYPE));
     }
+
   }
+
+  public static Set<DeviceCapability> mapToSet(Map<String, Boolean> capabilitiesMap) {
+    return capabilitiesMap.entrySet()
+        .stream()
+        .filter(Map.Entry::getValue)
+        .map(entry -> DeviceCapability.forName(entry.getKey()))
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .collect(Collectors.toCollection(() -> EnumSet.noneOf(DeviceCapability.class)));
+  }
+
 }
