@@ -1756,7 +1756,16 @@ paths:
         content:
           '*/*':
             schema:
-              $ref: '#/components/schemas/DeviceCapabilities'
+              uniqueItems: true
+              type: array
+              items:
+                type: string
+                enum:
+                - STORAGE
+                - TRANSFER
+                - DELETE_SYNC
+                - VERSIONED_EXPIRATION_TIMER
+                - STORAGE_SERVICE_RECORD_KEY_ROTATION
         required: true
       responses:
         default:
@@ -3748,7 +3757,16 @@ components:
         unrestrictedUnidentifiedAccess:
           type: boolean
         capabilities:
-          $ref: '#/components/schemas/DeviceCapabilities'
+          uniqueItems: true
+          type: array
+          items:
+            type: string
+            enum:
+            - STORAGE
+            - TRANSFER
+            - DELETE_SYNC
+            - VERSIONED_EXPIRATION_TIMER
+            - STORAGE_SERVICE_RECORD_KEY_ROTATION
         discoverableByPhoneNumber:
           type: boolean
         recoveryPassword:
@@ -3759,17 +3777,6 @@ components:
         pniRegistrationId:
           type: integer
           format: int32
-    DeviceCapabilities:
-      type: object
-      properties:
-        storage:
-          type: boolean
-        transfer:
-          type: boolean
-        deleteSync:
-          type: boolean
-        versionedExpirationTimer:
-          type: boolean
     ApnRegistrationId:
       required:
       - apnRegistrationId
@@ -4235,7 +4242,6 @@ components:
       required:
       - encryptionKey
       - hmacKey
-      - iv
       - mediaId
       - objectLength
       - sourceAttachment
@@ -4259,9 +4265,6 @@ components:
           type: string
           description: "A 32-byte encryption key for AES, encoded in standard padded\
             \ base64"
-        iv:
-          type: string
-          description: "A 16-byte IV for AES, encoded in standard padded base64"
     RemoteAttachment:
       required:
       - cdn
@@ -4742,7 +4745,8 @@ components:
             format: int64
         commitmentIndex:
           type: string
-          description: The commitment index derived from a previous search request
+          description: "The commitment index derived from a previous search request,\
+            \ encoded in standard unpadded base64"
           format: byte
     E164Monitor:
       required:
@@ -4765,8 +4769,8 @@ components:
             format: int64
         commitmentIndex:
           type: string
-          description: The commitment index derived from a previous search or monitor
-            request
+          description: "The commitment index derived from a previous search request,\
+            \ encoded in standard unpadded base64"
           format: byte
     KeyTransparencyMonitorRequest:
       required:
@@ -4814,8 +4818,8 @@ components:
             format: int64
         commitmentIndex:
           type: string
-          description: The commitment index derived from a previous search or monitor
-            request
+          description: "The commitment index derived from a previous search request,\
+            \ encoded in standard unpadded base64"
           format: byte
     KeyTransparencySearchResponse:
       required:
@@ -5236,7 +5240,9 @@ components:
         unrestrictedUnidentifiedAccess:
           type: boolean
         capabilities:
-          $ref: '#/components/schemas/UserCapabilities'
+          type: object
+          additionalProperties:
+            type: boolean
         badges:
           type: array
           items:
@@ -5245,13 +5251,6 @@ components:
           type: string
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
-    UserCapabilities:
-      type: object
-      properties:
-        deleteSync:
-          type: boolean
-        versionedExpirationTimer:
-          type: boolean
     VersionedProfileResponse:
       type: object
       properties:
@@ -5263,7 +5262,9 @@ components:
         unrestrictedUnidentifiedAccess:
           type: boolean
         capabilities:
-          $ref: '#/components/schemas/UserCapabilities'
+          type: object
+          additionalProperties:
+            type: boolean
         badges:
           type: array
           items:
@@ -5300,7 +5301,9 @@ components:
         unrestrictedUnidentifiedAccess:
           type: boolean
         capabilities:
-          $ref: '#/components/schemas/UserCapabilities'
+          type: object
+          additionalProperties:
+            type: boolean
         badges:
           type: array
           items:
