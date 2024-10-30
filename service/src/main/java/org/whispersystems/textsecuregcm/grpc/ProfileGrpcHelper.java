@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import org.signal.chat.profile.AccountCapabilities;
 import org.signal.chat.profile.Badge;
 import org.signal.chat.profile.BadgeSvg;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
@@ -81,16 +80,12 @@ public class ProfileGrpcHelper {
   }
 
   @VisibleForTesting
-  static AccountCapabilities buildAccountCapabilities(final Account account) {
-    final AccountCapabilities.Builder capabilitiesBuilder = AccountCapabilities.newBuilder();
-
-    Arrays.stream(DeviceCapability.values())
+  static List<org.signal.chat.common.DeviceCapability> buildAccountCapabilities(final Account account) {
+    return Arrays.stream(DeviceCapability.values())
         .filter(DeviceCapability::includeInProfile)
         .filter(account::hasCapability)
         .map(DeviceCapabilityUtil::toGrpcDeviceCapability)
-        .forEach(capabilitiesBuilder::addCapabilities);
-
-    return capabilitiesBuilder.build();
+        .toList();
   }
 
   private static List<BadgeSvg> buildBadgeSvgs(final List<org.whispersystems.textsecuregcm.entities.BadgeSvg> badgeSvgs) {
@@ -111,7 +106,7 @@ public class ProfileGrpcHelper {
       final ProfileBadgeConverter profileBadgeConverter) {
     final GetUnversionedProfileResponse.Builder responseBuilder = GetUnversionedProfileResponse.newBuilder()
         .setIdentityKey(ByteString.copyFrom(targetAccount.getIdentityKey(targetIdentifier.identityType()).serialize()))
-        .setCapabilities(buildAccountCapabilities(targetAccount));
+        .addAllCapabilities(buildAccountCapabilities(targetAccount));
 
     switch (targetIdentifier.identityType()) {
       case ACI -> {

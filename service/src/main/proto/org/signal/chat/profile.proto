@@ -241,7 +241,7 @@ message GetUnversionedProfileResponse {
   /**
    * A list of capabilities enabled on the account.
    */
-  AccountCapabilities capabilities = 4;
+  repeated common.DeviceCapability capabilities = 4;
   /**
    * A list of badges associated with the account.
    */
@@ -315,10 +315,6 @@ message ProfileAvatarUploadAttributes {
    * A digital signature on the S3 policy.
    */
   bytes signature = 7;
-}
-
-message AccountCapabilities {
-  repeated common.DeviceCapability capabilities = 1;
 }
 
 message Badge {

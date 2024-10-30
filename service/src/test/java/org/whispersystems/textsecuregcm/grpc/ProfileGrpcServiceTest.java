@@ -50,7 +50,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
-import org.signal.chat.profile.AccountCapabilities;
 import org.signal.chat.profile.CredentialType;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
@@ -439,9 +438,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
         .setUnidentifiedAccess(ByteString.copyFrom(unidentifiedAccessChecksum))
         .setUnrestrictedUnidentifiedAccess(true)
-        .setCapabilities(AccountCapabilities.newBuilder()
-            .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC)
-            .build())
+        .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC)
         .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
         .build();
 

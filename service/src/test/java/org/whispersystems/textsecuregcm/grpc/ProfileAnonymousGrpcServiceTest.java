@@ -36,7 +36,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
-import org.signal.chat.profile.AccountCapabilities;
 import org.signal.chat.profile.CredentialType;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
@@ -161,9 +160,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
         .setUnidentifiedAccess(ByteString.copyFrom(unidentifiedAccessChecksum))
         .setUnrestrictedUnidentifiedAccess(false)
-        .setCapabilities(AccountCapabilities.newBuilder()
-            .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC)
-            .build())
+        .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC)
         .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
         .build();
 
@@ -215,7 +212,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final GetUnversionedProfileResponse expectedResponse = GetUnversionedProfileResponse.newBuilder()
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
         .setUnrestrictedUnidentifiedAccess(false)
-        .setCapabilities(ProfileGrpcHelper.buildAccountCapabilities(account))
+        .addAllCapabilities(ProfileGrpcHelper.buildAccountCapabilities(account))
         .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
         .build();
 
