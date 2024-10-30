@@ -204,13 +204,7 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     final Set<DeviceCapability> capabilities = request.getCapabilitiesList().stream()
-        .map(capability -> switch (capability) {
-          case DEVICE_CAPABILITY_STORAGE -> DeviceCapability.STORAGE;
-          case DEVICE_CAPABILITY_TRANSFER -> DeviceCapability.TRANSFER;
-          case DEVICE_CAPABILITY_DELETE_SYNC -> DeviceCapability.DELETE_SYNC;
-          case DEVICE_CAPABILITY_VERSIONED_EXPIRATION_TIMER -> DeviceCapability.VERSIONED_EXPIRATION_TIMER;
-          default -> throw Status.INVALID_ARGUMENT.withDescription("Unrecognized device capability").asRuntimeException();
-        })
+        .map(DeviceCapabilityUtil::fromGrpcDeviceCapability)
         .collect(Collectors.toSet());
 
     return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))

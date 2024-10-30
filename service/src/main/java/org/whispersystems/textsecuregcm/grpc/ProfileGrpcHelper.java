@@ -87,13 +87,7 @@ public class ProfileGrpcHelper {
     Arrays.stream(DeviceCapability.values())
         .filter(DeviceCapability::includeInProfile)
         .filter(account::hasCapability)
-        .map(capability -> switch (capability) {
-          case STORAGE -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_STORAGE;
-          case TRANSFER -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_TRANSFER;
-          case DELETE_SYNC -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC;
-          case VERSIONED_EXPIRATION_TIMER -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_VERSIONED_EXPIRATION_TIMER;
-          case STORAGE_SERVICE_RECORD_KEY_ROTATION -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_STORAGE_SERVICE_RECORD_KEY_ROTATION;
-        })
+        .map(DeviceCapabilityUtil::toGrpcDeviceCapability)
         .forEach(capabilitiesBuilder::addCapabilities);
 
     return capabilitiesBuilder.build();
