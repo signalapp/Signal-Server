@@ -9,12 +9,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
+import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
+import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
 import org.whispersystems.textsecuregcm.util.DeviceNameByteArrayAdapter;
 
 public class Device {
@@ -72,7 +77,9 @@ public class Device {
   private String userAgent;
 
   @JsonProperty
-  private DeviceCapabilities capabilities;
+  @JsonSerialize(using = DeviceCapabilityAdapter.Serializer.class)
+  @JsonDeserialize(using = DeviceCapabilityAdapter.Deserializer.class)
+  private Set<DeviceCapability> capabilities = Collections.emptySet();
 
   public String getApnId() {
     return apnId;
@@ -166,13 +173,19 @@ public class Device {
     return new SaltedTokenHash(authToken, salt);
   }
 
-  @Nullable
-  public DeviceCapabilities getCapabilities() {
+  @VisibleForTesting
+  public Set<DeviceCapability> getCapabilities() {
     return capabilities;
   }
 
-  public void setCapabilities(DeviceCapabilities capabilities) {
-    this.capabilities = capabilities;
+  public void setCapabilities(@Nullable final Set<DeviceCapability> capabilities) {
+    this.capabilities = (capabilities == null || capabilities.isEmpty())
+        ? Collections.emptySet()
+        : EnumSet.copyOf(capabilities);
+  }
+
+  public boolean hasCapability(final DeviceCapability capability) {
+    return capabilities.contains(capability);
   }
 
   public boolean isExpired() {
@@ -219,9 +232,5 @@ public class Device {
 
   public String getUserAgent() {
     return this.userAgent;
-  }
-
-  public record DeviceCapabilities(boolean storage, boolean transfer, boolean deleteSync,
-                                   boolean versionedExpirationTimer) {
   }
 }

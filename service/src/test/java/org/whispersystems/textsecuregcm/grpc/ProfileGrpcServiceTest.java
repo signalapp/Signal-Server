@@ -50,6 +50,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
+import org.signal.chat.profile.AccountCapabilities;
 import org.signal.chat.profile.CredentialType;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
@@ -86,7 +87,6 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPaymentsCon
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
-import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -95,6 +95,7 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
@@ -426,6 +427,8 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(true);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.getBadges()).thenReturn(Collections.emptyList());
+    when(account.hasCapability(any())).thenReturn(false);
+    when(account.hasCapability(DeviceCapability.DELETE_SYNC)).thenReturn(true);
     when(profileBadgeConverter.convert(any(), any(), anyBoolean())).thenReturn(badges);
     when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
@@ -436,7 +439,9 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
         .setUnidentifiedAccess(ByteString.copyFrom(unidentifiedAccessChecksum))
         .setUnrestrictedUnidentifiedAccess(true)
-        .setCapabilities(ProfileGrpcHelper.buildUserCapabilities(UserCapabilities.createForAccount(account)))
+        .setCapabilities(AccountCapabilities.newBuilder()
+            .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC)
+            .build())
         .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
         .build();
 

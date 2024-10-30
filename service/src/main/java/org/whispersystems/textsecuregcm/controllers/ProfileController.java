@@ -73,7 +73,6 @@ import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.CredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
-import org.whispersystems.textsecuregcm.entities.UserCapabilities;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -85,6 +84,7 @@ import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
@@ -431,7 +431,7 @@ public class ProfileController {
     return new BaseProfileResponse(account.getIdentityKey(IdentityType.ACI),
         account.getUnidentifiedAccessKey().map(UnidentifiedAccessChecksum::generateFor).orElse(null),
         account.isUnrestrictedUnidentifiedAccess(),
-        UserCapabilities.createForAccount(account),
+        getAccountCapabilities(account),
         profileBadgeConverter.convert(
             HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext),
             account.getBadges(),
@@ -443,7 +443,7 @@ public class ProfileController {
     return new BaseProfileResponse(account.getIdentityKey(IdentityType.PNI),
         null,
         false,
-        UserCapabilities.createForAccount(account),
+        getAccountCapabilities(account),
         Collections.emptyList(),
         new PniServiceIdentifier(account.getPhoneNumberIdentifier()));
   }
@@ -489,4 +489,9 @@ public class ProfileController {
         now.format(PostPolicyGenerator.AWS_DATE_TIME), policy.second(), signature);
   }
 
+  private static Map<String, Boolean> getAccountCapabilities(final Account account) {
+    return Arrays.stream(DeviceCapability.values())
+        .filter(DeviceCapability::includeInProfile)
+        .collect(Collectors.toMap(Enum::name, account::hasCapability));
+  }
 }

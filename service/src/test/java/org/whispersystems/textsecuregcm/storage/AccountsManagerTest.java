@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -57,6 +58,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -78,13 +80,12 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager.UsernameReservation;
-import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -95,7 +96,6 @@ import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
-import javax.crypto.spec.SecretKeySpec;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class AccountsManagerTest {
@@ -930,11 +930,11 @@ class AccountsManagerTest {
   @ValueSource(booleans = {true, false})
   void testCreateWithStorageCapability(final boolean hasStorage) throws InterruptedException {
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null,
-            true, new DeviceCapabilities(hasStorage, false, false, false));
+            true, hasStorage ? Set.of(DeviceCapability.STORAGE) : Set.of());
 
     final Account account = createAccount("+18005550123", attributes);
 
-    assertEquals(hasStorage, account.isStorageSupported());
+    assertEquals(hasStorage, account.hasCapability(DeviceCapability.STORAGE));
   }
 
   @Test
@@ -955,7 +955,7 @@ class AccountsManagerTest {
     final byte[] deviceNameCiphertext = "device-name".getBytes(StandardCharsets.UTF_8);
     final String password = "password";
     final String signalAgent = "OWT";
-    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, false, false);
+    final Set<DeviceCapability> deviceCapabilities = Set.of();
     final int aciRegistrationId = 17;
     final int pniRegistrationId = 19;
     final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciKeyPair);
@@ -1005,7 +1005,7 @@ class AccountsManagerTest {
     assertEquals(deviceNameCiphertext, device.getName());
     assertTrue(device.getAuthTokenHash().verify(password));
     assertEquals(signalAgent, device.getUserAgent());
-    assertEquals(deviceCapabilities, device.getCapabilities());
+    assertEquals(Collections.emptySet(), device.getCapabilities());
     assertEquals(aciRegistrationId, device.getRegistrationId());
     assertEquals(pniRegistrationId, device.getPhoneNumberIdentityRegistrationId().getAsInt());
     assertTrue(device.getFetchesMessages());

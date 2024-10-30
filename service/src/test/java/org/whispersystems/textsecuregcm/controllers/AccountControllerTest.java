@@ -84,6 +84,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
@@ -185,7 +186,7 @@ class AccountControllerTest {
         new StoredRegistrationLock(Optional.empty(), Optional.empty(), Instant.ofEpochMilli(System.currentTimeMillis())));
 
     when(senderHasStorage.getUuid()).thenReturn(UUID.randomUUID());
-    when(senderHasStorage.isStorageSupported()).thenReturn(true);
+    when(senderHasStorage.hasCapability(DeviceCapability.STORAGE)).thenReturn(true);
     when(senderHasStorage.getRegistrationLock()).thenReturn(
         new StoredRegistrationLock(Optional.empty(), Optional.empty(), Instant.ofEpochMilli(System.currentTimeMillis())));
 

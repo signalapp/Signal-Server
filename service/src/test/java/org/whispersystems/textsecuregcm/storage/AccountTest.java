@@ -29,7 +29,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 
@@ -64,21 +63,16 @@ class AccountTest {
     when(oldSecondaryDevice.getId()).thenReturn(deviceId2);
 
     when(deleteSyncCapableDevice.getId()).thenReturn((byte) 1);
-    when(deleteSyncCapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, true, false));
+    when(deleteSyncCapableDevice.hasCapability(DeviceCapability.DELETE_SYNC)).thenReturn(true);
 
     when(deleteSyncIncapableDevice.getId()).thenReturn((byte) 2);
-    when(deleteSyncIncapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, false, false));
+    when(deleteSyncIncapableDevice.hasCapability(DeviceCapability.DELETE_SYNC)).thenReturn(false);
 
     when(versionedExpirationTimerCapableDevice.getId()).thenReturn((byte) 1);
-    when(versionedExpirationTimerCapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, false, true));
+    when(versionedExpirationTimerCapableDevice.hasCapability(DeviceCapability.VERSIONED_EXPIRATION_TIMER)).thenReturn(true);
 
     when(versionedExpirationTimerIncapableDevice.getId()).thenReturn((byte) 2);
-    when(versionedExpirationTimerIncapableDevice.getCapabilities())
-        .thenReturn(new DeviceCapabilities(true, true, false, false));
-
+    when(versionedExpirationTimerIncapableDevice.hasCapability(DeviceCapability.VERSIONED_EXPIRATION_TIMER)).thenReturn(false);
   }
 
   @Test
@@ -87,42 +81,36 @@ class AccountTest {
     final Device nonTransferCapablePrimaryDevice = mock(Device.class);
     final Device transferCapableLinkedDevice = mock(Device.class);
 
-    final DeviceCapabilities transferCapabilities = mock(DeviceCapabilities.class);
-    final DeviceCapabilities nonTransferCapabilities = mock(DeviceCapabilities.class);
-
     when(transferCapablePrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(transferCapablePrimaryDevice.isPrimary()).thenReturn(true);
-    when(transferCapablePrimaryDevice.getCapabilities()).thenReturn(transferCapabilities);
+    when(transferCapablePrimaryDevice.hasCapability(DeviceCapability.TRANSFER)).thenReturn(true);
 
     when(nonTransferCapablePrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(nonTransferCapablePrimaryDevice.isPrimary()).thenReturn(true);
-    when(nonTransferCapablePrimaryDevice.getCapabilities()).thenReturn(nonTransferCapabilities);
+    when(nonTransferCapablePrimaryDevice.hasCapability(DeviceCapability.TRANSFER)).thenReturn(false);
 
     when(transferCapableLinkedDevice.getId()).thenReturn((byte) 2);
     when(transferCapableLinkedDevice.isPrimary()).thenReturn(false);
-    when(transferCapableLinkedDevice.getCapabilities()).thenReturn(transferCapabilities);
-
-    when(transferCapabilities.transfer()).thenReturn(true);
-    when(nonTransferCapabilities.transfer()).thenReturn(false);
+    when(transferCapableLinkedDevice.hasCapability(DeviceCapability.TRANSFER)).thenReturn(true);
 
     {
       final Account transferablePrimaryAccount =
               AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(transferCapablePrimaryDevice), "1234".getBytes());
 
-      assertTrue(transferablePrimaryAccount.isTransferSupported());
+      assertTrue(transferablePrimaryAccount.hasCapability(DeviceCapability.TRANSFER));
     }
 
     {
       final Account nonTransferablePrimaryAccount =
               AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(nonTransferCapablePrimaryDevice), "1234".getBytes());
 
-      assertFalse(nonTransferablePrimaryAccount.isTransferSupported());
+      assertFalse(nonTransferablePrimaryAccount.hasCapability(DeviceCapability.TRANSFER));
     }
 
     {
       final Account transferableLinkedAccount = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), List.of(nonTransferCapablePrimaryDevice, transferCapableLinkedDevice), "1234".getBytes());
 
-      assertFalse(transferableLinkedAccount.isTransferSupported());
+      assertFalse(transferableLinkedAccount.hasCapability(DeviceCapability.TRANSFER));
     }
   }
 
@@ -145,20 +133,20 @@ class AccountTest {
   void isDeleteSyncSupported() {
     assertTrue(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         List.of(deleteSyncCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isDeleteSyncSupported());
+        "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.DELETE_SYNC));
     assertFalse(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         List.of(deleteSyncIncapableDevice, deleteSyncCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isDeleteSyncSupported());
+        "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.DELETE_SYNC));
   }
 
   @Test
   void isVersionedExpirationTimerSupported() {
     assertTrue(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         List.of(versionedExpirationTimerCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isVersionedExpirationTimerSupported());
+        "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.VERSIONED_EXPIRATION_TIMER));
     assertFalse(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         List.of(versionedExpirationTimerIncapableDevice, versionedExpirationTimerCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).isVersionedExpirationTimerSupported());
+        "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.VERSIONED_EXPIRATION_TIMER));
   }
 
   @Test
@@ -248,7 +236,7 @@ class AccountTest {
   }
 
   @Test
-  public void testAccountClassJsonFilterIdMatchesClassName() throws Exception {
+  public void testAccountClassJsonFilterIdMatchesClassName() {
     // Some logic relies on the @JsonFilter name being equal to the class name.
     // This test is just making sure that annotation is there and that the ID matches class name.
     final Optional<Annotation> maybeJsonFilterAnnotation = Arrays.stream(Account.class.getAnnotations())

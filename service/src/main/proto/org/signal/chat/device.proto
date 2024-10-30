@@ -9,6 +9,8 @@ option java_multiple_files = true;
 
 package org.signal.chat.device;
 
+import "org/signal/chat/common.proto";
+
 /**
  * Provides methods for working with devices attached to a Signal account.
  */
@@ -151,10 +153,7 @@ message ClearPushTokenRequest {}
 message ClearPushTokenResponse {}
 
 message SetCapabilitiesRequest {
-  bool storage = 1;
-  bool transfer = 2;
-  bool deleteSync = 3;
-  bool versionedExpirationTimer = 4;
+  repeated common.DeviceCapability capabilities = 1;
 }
 
 message SetCapabilitiesResponse {}

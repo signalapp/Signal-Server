@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -30,7 +29,6 @@ import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
-import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 
@@ -279,33 +277,14 @@ public class Account {
     return devices.stream().filter(device -> device.getId() == deviceId).findFirst();
   }
 
-  public boolean isStorageSupported() {
+  public boolean hasCapability(final DeviceCapability capability) {
     requireNotStale();
 
-    return devices.stream().anyMatch(device -> device.getCapabilities() != null && device.getCapabilities().storage());
-  }
-
-  public boolean isTransferSupported() {
-    requireNotStale();
-
-    return Optional.ofNullable(getPrimaryDevice().getCapabilities())
-        .map(DeviceCapabilities::transfer)
-        .orElse(false);
-  }
-
-  public boolean isDeleteSyncSupported() {
-    return allDevicesHaveCapability(DeviceCapabilities::deleteSync);
-  }
-
-  public boolean isVersionedExpirationTimerSupported() {
-    return allDevicesHaveCapability(DeviceCapabilities::versionedExpirationTimer);
-  }
-
-  private boolean allDevicesHaveCapability(final Predicate<DeviceCapabilities> predicate) {
-    requireNotStale();
-
-    return devices.stream()
-        .allMatch(device -> device.getCapabilities() != null && predicate.test(device.getCapabilities()));
+    return switch (capability.getAccountCapabilityMode()) {
+      case PRIMARY_DEVICE -> getPrimaryDevice().hasCapability(capability);
+      case ANY_DEVICE -> devices.stream().anyMatch(device -> device.hasCapability(capability));
+      case ALL_DEVICES -> devices.stream().allMatch(device -> device.hasCapability(capability));
+    };
   }
 
   public byte getNextDeviceId() {

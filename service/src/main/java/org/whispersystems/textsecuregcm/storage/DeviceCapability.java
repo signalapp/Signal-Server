@@ -1,0 +1,61 @@
+/*
+ * Copyright 2024 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+package org.whispersystems.textsecuregcm.storage;
+
+public enum DeviceCapability {
+  STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false),
+  TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false),
+  DELETE_SYNC("deleteSync", AccountCapabilityMode.ALL_DEVICES, true, true),
+  VERSIONED_EXPIRATION_TIMER("versionedExpirationTimer", AccountCapabilityMode.ALL_DEVICES, true, true);
+
+  public enum AccountCapabilityMode {
+    PRIMARY_DEVICE,
+    ANY_DEVICE,
+    ALL_DEVICES,
+  }
+
+  private final String name;
+  private final AccountCapabilityMode accountCapabilityMode;
+  private final boolean preventDowngrade;
+  private final boolean includeInProfile;
+
+  DeviceCapability(final String name,
+      final AccountCapabilityMode accountCapabilityMode,
+      final boolean preventDowngrade,
+      final boolean includeInProfile) {
+
+    this.name = name;
+    this.accountCapabilityMode = accountCapabilityMode;
+    this.preventDowngrade = preventDowngrade;
+    this.includeInProfile = includeInProfile;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+  public AccountCapabilityMode getAccountCapabilityMode() {
+    return accountCapabilityMode;
+  }
+
+  public boolean preventDowngrade() {
+    return preventDowngrade;
+  }
+
+  public boolean includeInProfile() {
+    return includeInProfile;
+  }
+
+  public static DeviceCapability forName(final String name) {
+    for (final DeviceCapability capability : DeviceCapability.values()) {
+      if (capability.getName().equals(name)) {
+        return capability;
+      }
+    }
+
+    throw new IllegalArgumentException("Unknown capability: " + name);
+  }
+}

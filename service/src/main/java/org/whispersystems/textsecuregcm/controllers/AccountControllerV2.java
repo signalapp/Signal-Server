@@ -54,6 +54,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.websocket.auth.Mutable;
 import org.whispersystems.websocket.auth.ReadOnly;
 
@@ -151,7 +152,7 @@ public class AccountControllerV2 {
           updatedAccount.getPhoneNumberIdentifier(),
           updatedAccount.getUsernameHash().orElse(null),
           updatedAccount.getUsernameLinkHandle(),
-          updatedAccount.isStorageSupported());
+          updatedAccount.hasCapability(DeviceCapability.STORAGE));
     } catch (MismatchedDevicesException e) {
       throw new WebApplicationException(Response.status(409)
           .type(MediaType.APPLICATION_JSON_TYPE)
@@ -210,7 +211,7 @@ public class AccountControllerV2 {
           updatedAccount.getPhoneNumberIdentifier(),
           updatedAccount.getUsernameHash().orElse(null),
           updatedAccount.getUsernameLinkHandle(),
-          updatedAccount.isStorageSupported());
+          updatedAccount.hasCapability(DeviceCapability.STORAGE));
     } catch (MismatchedDevicesException e) {
       throw new WebApplicationException(Response.status(409)
           .type(MediaType.APPLICATION_JSON_TYPE)

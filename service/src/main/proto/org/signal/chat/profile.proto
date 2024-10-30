@@ -241,7 +241,7 @@ message GetUnversionedProfileResponse {
   /**
    * A list of capabilities enabled on the account.
    */
-  UserCapabilities capabilities = 4;
+  AccountCapabilities capabilities = 4;
   /**
    * A list of badges associated with the account.
    */
@@ -317,15 +317,8 @@ message ProfileAvatarUploadAttributes {
   bytes signature = 7;
 }
 
-message UserCapabilities {
-  /**
-   * Whether all devices linked to the account support delete syncing
-   */
-  bool delete_sync = 1;
-  /**
-   * Whether all devices linked to the account support a versioned expiration timer
-   */
-  bool versioned_expiration_timer = 2;
+message AccountCapabilities {
+  repeated common.DeviceCapability capabilities = 1;
 }
 
 message Badge {

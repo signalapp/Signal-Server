@@ -11,12 +11,14 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
-import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class AccountAttributes {
@@ -47,7 +49,10 @@ public class AccountAttributes {
   private boolean unrestrictedUnidentifiedAccess;
 
   @JsonProperty
-  private DeviceCapabilities capabilities;
+  @JsonSerialize(using = DeviceCapabilityAdapter.Serializer.class)
+  @JsonDeserialize(using = DeviceCapabilityAdapter.Deserializer.class)
+  @Nullable
+  private Set<DeviceCapability> capabilities;
 
   @JsonProperty
   private boolean discoverableByPhoneNumber = true;
@@ -68,7 +73,7 @@ public class AccountAttributes {
       final byte[] name,
       final String registrationLock,
       final boolean discoverableByPhoneNumber,
-      final DeviceCapabilities capabilities) {
+      final Set<DeviceCapability> capabilities) {
     this.fetchesMessages = fetchesMessages;
     this.registrationId = registrationId;
     this.phoneNumberIdentityRegistrationId = phoneNumberIdentifierRegistrationId;
@@ -106,7 +111,8 @@ public class AccountAttributes {
     return unrestrictedUnidentifiedAccess;
   }
 
-  public DeviceCapabilities getCapabilities() {
+  @Nullable
+  public Set<DeviceCapability> getCapabilities() {
     return capabilities;
   }
 
@@ -128,11 +134,6 @@ public class AccountAttributes {
   public AccountAttributes withRecoveryPassword(final byte[] recoveryPassword) {
     this.recoveryPassword = recoveryPassword;
     return this;
-  }
-
-  @VisibleForTesting
-  public void setPhoneNumberIdentityRegistrationId(final Integer phoneNumberIdentityRegistrationId) {
-    this.phoneNumberIdentityRegistrationId = phoneNumberIdentityRegistrationId;
   }
 
   @AssertTrue

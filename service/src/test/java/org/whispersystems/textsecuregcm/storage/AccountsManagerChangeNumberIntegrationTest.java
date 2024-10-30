@@ -18,6 +18,7 @@ import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -198,7 +199,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final int rotatedPniRegistrationId = 17;
     final ECKeyPair rotatedPniIdentityKeyPair = Curve.generateKeyPair();
     final ECSignedPreKey rotatedSignedPreKey = KeysHelper.signedECPreKey(1L, rotatedPniIdentityKeyPair);
-    final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, rotatedPniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
+    final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, rotatedPniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of());
     final Account account = AccountsHelper.createAccount(accountsManager, originalNumber, accountAttributes);
 
     keysManager.storeEcSignedPreKeys(account.getIdentifier(IdentityType.ACI),

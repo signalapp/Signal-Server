@@ -20,8 +20,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -49,6 +51,7 @@ import org.signal.chat.device.SetPushTokenResponse;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, DevicesGrpc.DevicesBlockingStub> {
@@ -439,18 +442,43 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final Device device = mock(Device.class);
     when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
 
-    final SetCapabilitiesResponse ignored = authenticatedServiceStub().setCapabilities(SetCapabilitiesRequest.newBuilder()
-            .setStorage(storage)
-            .setTransfer(transfer)
-            .setDeleteSync(deleteSync)
-            .setVersionedExpirationTimer(versionedExpirationTimer)
-        .build());
+    final SetCapabilitiesRequest.Builder requestBuilder = SetCapabilitiesRequest.newBuilder();
 
-    final Device.DeviceCapabilities expectedCapabilities = new Device.DeviceCapabilities(
-        storage,
-        transfer,
-        deleteSync,
-        versionedExpirationTimer);
+    if (storage) {
+      requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_STORAGE);
+    }
+
+    if (transfer) {
+      requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_TRANSFER);
+    }
+
+    if (deleteSync) {
+      requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC);
+    }
+
+    if (versionedExpirationTimer) {
+      requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_VERSIONED_EXPIRATION_TIMER);
+    }
+
+    final SetCapabilitiesResponse ignored = authenticatedServiceStub().setCapabilities(requestBuilder.build());
+
+    final Set<DeviceCapability> expectedCapabilities = new HashSet<>();
+
+    if (storage) {
+      expectedCapabilities.add(DeviceCapability.STORAGE);
+    }
+
+    if (transfer) {
+      expectedCapabilities.add(DeviceCapability.TRANSFER);
+    }
+
+    if (deleteSync) {
+      expectedCapabilities.add(DeviceCapability.DELETE_SYNC);
+    }
+
+    if (versionedExpirationTimer) {
+      expectedCapabilities.add(DeviceCapability.VERSIONED_EXPIRATION_TIMER);
+    }
 
     verify(device).setCapabilities(expectedCapabilities);
   }

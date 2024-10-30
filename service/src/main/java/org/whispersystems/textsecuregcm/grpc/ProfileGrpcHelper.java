@@ -9,14 +9,15 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import org.signal.chat.profile.AccountCapabilities;
 import org.signal.chat.profile.Badge;
 import org.signal.chat.profile.BadgeSvg;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileResponse;
-import org.signal.chat.profile.UserCapabilities;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -24,9 +25,9 @@ import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialRespons
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
-import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
@@ -80,11 +81,21 @@ public class ProfileGrpcHelper {
   }
 
   @VisibleForTesting
-  static UserCapabilities buildUserCapabilities(final org.whispersystems.textsecuregcm.entities.UserCapabilities capabilities) {
-    return UserCapabilities.newBuilder()
-        .setDeleteSync(capabilities.deleteSync())
-        .setVersionedExpirationTimer(capabilities.versionedExpirationTimer())
-        .build();
+  static AccountCapabilities buildAccountCapabilities(final Account account) {
+    final AccountCapabilities.Builder capabilitiesBuilder = AccountCapabilities.newBuilder();
+
+    Arrays.stream(DeviceCapability.values())
+        .filter(DeviceCapability::includeInProfile)
+        .filter(account::hasCapability)
+        .map(capability -> switch (capability) {
+          case STORAGE -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_STORAGE;
+          case TRANSFER -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_TRANSFER;
+          case DELETE_SYNC -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC;
+          case VERSIONED_EXPIRATION_TIMER -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_VERSIONED_EXPIRATION_TIMER;
+        })
+        .forEach(capabilitiesBuilder::addCapabilities);
+
+    return capabilitiesBuilder.build();
   }
 
   private static List<BadgeSvg> buildBadgeSvgs(final List<org.whispersystems.textsecuregcm.entities.BadgeSvg> badgeSvgs) {
@@ -105,7 +116,7 @@ public class ProfileGrpcHelper {
       final ProfileBadgeConverter profileBadgeConverter) {
     final GetUnversionedProfileResponse.Builder responseBuilder = GetUnversionedProfileResponse.newBuilder()
         .setIdentityKey(ByteString.copyFrom(targetAccount.getIdentityKey(targetIdentifier.identityType()).serialize()))
-        .setCapabilities(buildUserCapabilities(org.whispersystems.textsecuregcm.entities.UserCapabilities.createForAccount(targetAccount)));
+        .setCapabilities(buildAccountCapabilities(targetAccount));
 
     switch (targetIdentifier.identityType()) {
       case ACI -> {
@@ -113,7 +124,7 @@ public class ProfileGrpcHelper {
             .addAllBadges(buildBadges(profileBadgeConverter.convert(
                 RequestAttributesUtil.getAvailableAcceptedLocales(),
                 targetAccount.getBadges(),
-                ProfileHelper.isSelfProfileRequest(requesterUuid, (AciServiceIdentifier) targetIdentifier))));
+                ProfileHelper.isSelfProfileRequest(requesterUuid, targetIdentifier))));
 
         targetAccount.getUnidentifiedAccessKey()
             .map(UnidentifiedAccessChecksum::generateFor)

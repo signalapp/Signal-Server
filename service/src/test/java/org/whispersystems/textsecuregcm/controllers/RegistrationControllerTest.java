@@ -74,8 +74,9 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
+import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -309,7 +310,7 @@ class RegistrationControllerTest {
   }
 
   @Test
-  void recoveryPasswordManagerVerificationFalse() throws InterruptedException {
+  void recoveryPasswordManagerVerificationFalse() {
     when(registrationRecoveryPasswordsManager.verify(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(false));
 
@@ -380,7 +381,7 @@ class RegistrationControllerTest {
 
     final Account account = mock(Account.class);
     when(accountsManager.getByE164(any())).thenReturn(Optional.of(account));
-    when(account.isTransferSupported()).thenReturn(deviceTransferSupported);
+    when(account.hasCapability(DeviceCapability.TRANSFER)).thenReturn(deviceTransferSupported);
 
     final int expectedStatus;
     if (deviceTransferSupported) {
@@ -441,7 +442,7 @@ class RegistrationControllerTest {
     final Optional<Account> maybeAccount;
     if (existingAccount) {
       final Account account = mock(Account.class);
-      when(account.isTransferSupported()).thenReturn(transferSupported);
+      when(account.hasCapability(DeviceCapability.TRANSFER)).thenReturn(transferSupported);
       maybeAccount = Optional.of(account);
     } else {
       maybeAccount = Optional.empty();
@@ -526,10 +527,10 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of());
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of());
 
     return Stream.of(
         // "Fetches messages" is true, but an APNs token is provided
@@ -615,7 +616,7 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes accountAttributes =
-        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of());
 
     return Stream.of(
         // Signed PNI EC pre-key is missing
@@ -786,13 +787,13 @@ class RegistrationControllerTest {
     final int registrationId = 1;
     final int pniRegistrationId = 2;
 
-    final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(false, false, false, false);
+    final Set<DeviceCapability> deviceCapabilities = Set.of();
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities);
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, new Device.DeviceCapabilities(false, false, false, false));
+        new AccountAttributes(false, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities);
 
     final String apnsToken = "apns-token";
     final String gcmToken = "gcm-token";
@@ -906,7 +907,7 @@ class RegistrationControllerTest {
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
     final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId, "name".getBytes(StandardCharsets.UTF_8), "reglock",
-            true, new Device.DeviceCapabilities(true, true, false, false));
+            true, Set.of());
 
     final RegistrationRequest request = new RegistrationRequest(
         Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8)),

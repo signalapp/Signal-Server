@@ -30,10 +30,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -52,6 +54,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
@@ -62,13 +65,13 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
-import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
-import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
+import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
+import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -81,17 +84,17 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.LinkDeviceTokenAlreadyUsedException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.tests.util.MockRedisFuture;
+import org.whispersystems.textsecuregcm.util.LinkDeviceToken;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
-import org.whispersystems.textsecuregcm.util.LinkDeviceToken;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class DeviceControllerTest {
@@ -216,7 +219,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final AccountAttributes accountAttributes = new AccountAttributes(fetchesMessages, 1234, 5678, null,
-        null, true, new DeviceCapabilities(true, true, false, false));
+        null, true, Set.of());
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         accountAttributes,
@@ -256,64 +259,11 @@ class DeviceControllerTest {
     );
   }
 
-  @ParameterizedTest
-  @MethodSource
-  void deviceDowngradeDeleteSync(final boolean accountSupportsDeleteSync, final boolean deviceSupportsDeleteSync, final int expectedStatus) {
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
-    when(accountsManager.addDevice(any(), any(), any()))
-            .thenReturn(CompletableFuture.completedFuture(new Pair<>(mock(Account.class), mock(Device.class))));
+  @CartesianTest
+  void deviceDowngrade(@CartesianTest.Enum final DeviceCapability capability,
+      @CartesianTest.Values(booleans = {true, false}) final boolean accountHasCapability,
+      @CartesianTest.Values(booleans = {true, false}) final boolean requestHasCapability) {
 
-    final Device primaryDevice = mock(Device.class);
-    when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(primaryDevice));
-
-    final ECSignedPreKey aciSignedPreKey;
-    final ECSignedPreKey pniSignedPreKey;
-    final KEMSignedPreKey aciPqLastResortPreKey;
-    final KEMSignedPreKey pniPqLastResortPreKey;
-
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-
-    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
-    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
-    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
-    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
-
-    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
-    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
-    when(account.isDeleteSyncSupported()).thenReturn(accountSupportsDeleteSync);
-
-    when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
-
-    when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
-
-    final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-            new AccountAttributes(false, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, deviceSupportsDeleteSync, false)),
-            new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
-
-    try (final Response response = resources.getJerseyTest()
-            .target("/v1/devices/link")
-            .request()
-            .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
-            .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
-
-      assertEquals(expectedStatus, response.getStatus());
-    }
-  }
-
-  private static List<Arguments> deviceDowngradeDeleteSync() {
-    return List.of(
-            Arguments.of(true, true, 200),
-            Arguments.of(true, false, 409),
-            Arguments.of(false, true, 200),
-            Arguments.of(false, false, 200));
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void deviceDowngradeVersionedExpirationTimer(final boolean accountSupportsVersionedExpirationTimer,
-      final boolean deviceSupportsVersionedExpirationTimer, final int expectedStatus) {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(accountsManager.addDevice(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(new Pair<>(mock(Account.class), mock(Device.class))));
@@ -337,15 +287,24 @@ class DeviceControllerTest {
 
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
-    when(account.isDeleteSyncSupported()).thenReturn(accountSupportsVersionedExpirationTimer);
+    when(account.hasCapability(capability)).thenReturn(accountHasCapability);
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
+    final Set<DeviceCapability> requestCapabilities = EnumSet.allOf(DeviceCapability.class);
+
+    if (!requestHasCapability) {
+      requestCapabilities.remove(capability);
+    }
+
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, 1234, 5678, null, null, true, new DeviceCapabilities(true, true, deviceSupportsVersionedExpirationTimer, false)),
+        new AccountAttributes(false, 1234, 5678, null, null, true, requestCapabilities),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
+
+    final int expectedStatus =
+        capability.preventDowngrade() && accountHasCapability && !requestHasCapability ? 409 : 200;
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/link")
@@ -355,14 +314,6 @@ class DeviceControllerTest {
 
       assertEquals(expectedStatus, response.getStatus());
     }
-  }
-
-  private static List<Arguments> deviceDowngradeVersionedExpirationTimer() {
-    return List.of(
-        Arguments.of(true, true, 200),
-        Arguments.of(true, false, 409),
-        Arguments.of(false, true, 200),
-        Arguments.of(false, false, 200));
   }
 
   @Test
@@ -433,7 +384,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final AccountAttributes accountAttributes = new AccountAttributes(true, 1234, 5678, null,
-        null, true, new DeviceCapabilities(true, true, false, false));
+        null, true, Set.of());
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         accountAttributes,
@@ -769,7 +720,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, new DeviceCapabilities(true, true, false, false)),
+        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, Set.of()),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.of(new ApnRegistrationId("apn")), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -828,14 +779,13 @@ class DeviceControllerTest {
 
   @Test
   void putCapabilitiesSuccessTest() {
-    final DeviceCapabilities deviceCapabilities = new DeviceCapabilities(true, true, false, false);
     try (final Response response = resources
         .getJerseyTest()
         .target("/v1/devices/capabilities")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.entity(deviceCapabilities, MediaType.APPLICATION_JSON_TYPE))) {
+        .put(Entity.entity(Set.of(), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
       assertThat(response.hasEntity()).isFalse();

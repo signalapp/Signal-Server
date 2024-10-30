@@ -60,6 +60,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
@@ -282,7 +283,7 @@ public class AccountController {
         auth.getAccount().getPhoneNumberIdentifier(),
         auth.getAccount().getUsernameHash().filter(h -> h.length > 0).orElse(null),
         auth.getAccount().getUsernameLinkHandle(),
-        auth.getAccount().isStorageSupported());
+        auth.getAccount().hasCapability(DeviceCapability.STORAGE));
   }
 
   @DELETE

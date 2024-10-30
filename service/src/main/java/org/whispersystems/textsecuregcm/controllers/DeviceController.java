@@ -4,6 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
@@ -16,15 +18,19 @@ import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.validation.Valid;
 import javax.validation.constraints.Max;
@@ -47,22 +53,21 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.glassfish.jersey.server.ContainerRequest;
-import org.whispersystems.textsecuregcm.auth.LinkedDeviceRefreshRequirementProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesLinkedDevices;
+import org.whispersystems.textsecuregcm.auth.LinkedDeviceRefreshRequirementProvider;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
-import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
-import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
+import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
+import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -74,9 +79,10 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.Device.DeviceCapabilities;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.LinkDeviceTokenAlreadyUsedException;
+import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.LinkDeviceToken;
@@ -270,7 +276,7 @@ public class DeviceController {
       throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
     }
 
-    final DeviceCapabilities capabilities = accountAttributes.getCapabilities();
+    final Set<DeviceCapability> capabilities = accountAttributes.getCapabilities();
 
     if (capabilities == null) {
       throw new WebApplicationException(Response.status(422, "Missing device capabilities").build());
@@ -405,7 +411,13 @@ public class DeviceController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/capabilities")
-  public void setCapabilities(@Mutable @Auth AuthenticatedDevice auth, @NotNull @Valid DeviceCapabilities capabilities) {
+  public void setCapabilities(@Mutable @Auth final AuthenticatedDevice auth,
+
+      @NotNull
+      @JsonSerialize(using = DeviceCapabilityAdapter.Serializer.class)
+      @JsonDeserialize(using = DeviceCapabilityAdapter.Deserializer.class)
+      final Set<DeviceCapability> capabilities) {
+
     assert (auth.getAuthenticatedDevice() != null);
     final byte deviceId = auth.getAuthenticatedDevice().getId();
     accounts.updateDevice(auth.getAccount(), deviceId, d -> d.setCapabilities(capabilities));
@@ -433,11 +445,13 @@ public class DeviceController {
         setPublicKeyRequest.publicKey());
   }
 
-  private static boolean isCapabilityDowngrade(Account account, DeviceCapabilities capabilities) {
-    boolean isDowngrade = false;
-    isDowngrade |= account.isDeleteSyncSupported() && !capabilities.deleteSync();
-    isDowngrade |= account.isVersionedExpirationTimerSupported() && !capabilities.versionedExpirationTimer();
-    return isDowngrade;
+  private static boolean isCapabilityDowngrade(final Account account, final Set<DeviceCapability> capabilities) {
+    final Set<DeviceCapability> requiredCapabilities = Arrays.stream(DeviceCapability.values())
+        .filter(DeviceCapability::preventDowngrade)
+        .filter(account::hasCapability)
+        .collect(Collectors.toSet());
+
+    return !capabilities.containsAll(requiredCapabilities);
   }
 
   @PUT

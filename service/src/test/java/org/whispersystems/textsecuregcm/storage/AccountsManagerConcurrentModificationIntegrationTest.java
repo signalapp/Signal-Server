@@ -25,6 +25,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -161,7 +162,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
                   null,
                   "password",
                   null,
-                  new Device.DeviceCapabilities(false, false, false, false),
+                  Set.of(),
                   1,
                   2,
                   true,

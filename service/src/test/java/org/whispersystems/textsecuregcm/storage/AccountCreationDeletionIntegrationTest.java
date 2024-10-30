@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -188,18 +189,15 @@ public class AccountCreationDeletionIntegrationTest {
     final byte[] deviceName = RandomStringUtils.randomAlphabetic(16).getBytes(StandardCharsets.UTF_8);
     final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
 
-    final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(
-        ThreadLocalRandom.current().nextBoolean(),
-        ThreadLocalRandom.current().nextBoolean(),
-        ThreadLocalRandom.current().nextBoolean(),
-        ThreadLocalRandom.current().nextBoolean());
+    final Set<DeviceCapability> deviceCapabilities = Set.of();
 
     final AccountAttributes accountAttributes = new AccountAttributes(deliveryChannels.fetchesMessages(),
         registrationId,
         pniRegistrationId,
         deviceName,
         registrationLockSecret,
-        discoverableByPhoneNumber, deviceCapabilities);
+        discoverableByPhoneNumber,
+        deviceCapabilities);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
         RandomStringUtils.randomAlphabetic(8),
@@ -303,15 +301,14 @@ public class AccountCreationDeletionIntegrationTest {
       final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
       final Account originalAccount = accountsManager.create(number,
-          new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false,
-              new Device.DeviceCapabilities(false, false, false, false)),
+          new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false, Set.of()),
           Collections.emptyList(),
           new IdentityKey(aciKeyPair.getPublicKey()),
           new IdentityKey(pniKeyPair.getPublicKey()),
           new DeviceSpec(null,
               "password?",
               "OWI",
-              new Device.DeviceCapabilities(false, false, false, false),
+              Set.of(),
               1,
               2,
               true,
@@ -333,11 +330,7 @@ public class AccountCreationDeletionIntegrationTest {
     final byte[] deviceName = RandomStringUtils.randomAlphabetic(16).getBytes(StandardCharsets.UTF_8);
     final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
 
-    final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(
-        ThreadLocalRandom.current().nextBoolean(),
-        ThreadLocalRandom.current().nextBoolean(),
-        ThreadLocalRandom.current().nextBoolean(),
-        ThreadLocalRandom.current().nextBoolean());
+    final Set<DeviceCapability> deviceCapabilities = Set.of();
 
     final AccountAttributes accountAttributes = new AccountAttributes(deliveryChannels.fetchesMessages(),
         registrationId,
@@ -424,11 +417,7 @@ public class AccountCreationDeletionIntegrationTest {
     final byte[] deviceName = RandomStringUtils.randomAlphabetic(16).getBytes(StandardCharsets.UTF_8);
     final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
 
-    final Device.DeviceCapabilities deviceCapabilities = new Device.DeviceCapabilities(
-        ThreadLocalRandom.current().nextBoolean(),
-        ThreadLocalRandom.current().nextBoolean(),
-        ThreadLocalRandom.current().nextBoolean(),
-        ThreadLocalRandom.current().nextBoolean());
+    final Set<DeviceCapability> deviceCapabilities = Set.of();
 
     final AccountAttributes accountAttributes = new AccountAttributes(true,
         registrationId,
@@ -498,7 +487,7 @@ public class AccountCreationDeletionIntegrationTest {
       final int pniRegistrationId,
       final byte[] deviceName,
       final boolean discoverableByPhoneNumber,
-      final Device.DeviceCapabilities deviceCapabilities,
+      final Set<DeviceCapability> deviceCapabilities,
       final List<AccountBadge> badges,
       final Optional<ApnRegistrationId> maybeApnRegistrationId,
       final Optional<GcmRegistrationId> maybeGcmRegistrationId,

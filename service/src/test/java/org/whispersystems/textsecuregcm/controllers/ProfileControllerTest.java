@@ -100,6 +100,7 @@ import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
@@ -443,16 +444,16 @@ class ProfileControllerTest {
   void testProfileCapabilities(
       @CartesianTest.Values(booleans = {true, false}) final boolean isDeleteSyncSupported,
       @CartesianTest.Values(booleans = {true, false}) final boolean isVersionedExpirationTimerSupported) {
-    when(capabilitiesAccount.isDeleteSyncSupported()).thenReturn(isDeleteSyncSupported);
-    when(capabilitiesAccount.isVersionedExpirationTimerSupported()).thenReturn(isVersionedExpirationTimerSupported);
+    when(capabilitiesAccount.hasCapability(DeviceCapability.DELETE_SYNC)).thenReturn(isDeleteSyncSupported);
+    when(capabilitiesAccount.hasCapability(DeviceCapability.VERSIONED_EXPIRATION_TIMER)).thenReturn(isVersionedExpirationTimerSupported);
     final BaseProfileResponse profile = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(BaseProfileResponse.class);
 
-    assertEquals(isDeleteSyncSupported, profile.getCapabilities().deleteSync());
-    assertEquals(isVersionedExpirationTimerSupported, profile.getCapabilities().versionedExpirationTimer());
+    assertEquals(isDeleteSyncSupported, profile.getCapabilities().get(DeviceCapability.DELETE_SYNC.name()));
+    assertEquals(isVersionedExpirationTimerSupported, profile.getCapabilities().get(DeviceCapability.VERSIONED_EXPIRATION_TIMER.name()));
   }
 
   @Test

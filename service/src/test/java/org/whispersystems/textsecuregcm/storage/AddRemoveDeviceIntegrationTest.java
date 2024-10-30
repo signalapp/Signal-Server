@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -190,19 +191,19 @@ public class AddRemoveDeviceIntegrationTest {
 
     final Pair<Account, Device> updatedAccountAndDevice =
         accountsManager.addDevice(account, new DeviceSpec(
-                "device-name".getBytes(StandardCharsets.UTF_8),
-                "password",
-                "OWT",
-                new Device.DeviceCapabilities(true, true, false, false),
-                1,
-                2,
-                true,
-                Optional.empty(),
-                Optional.empty(),
-                KeysHelper.signedECPreKey(1, aciKeyPair),
-                KeysHelper.signedECPreKey(2, pniKeyPair),
-                KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    "device-name".getBytes(StandardCharsets.UTF_8),
+                    "password",
+                    "OWT",
+                    Set.of(),
+                    1,
+                    2,
+                    true,
+                    Optional.empty(),
+                    Optional.empty(),
+                    KeysHelper.signedECPreKey(1, aciKeyPair),
+                    KeysHelper.signedECPreKey(2, pniKeyPair),
+                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
                 accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)))
             .join();
 
@@ -239,7 +240,7 @@ public class AddRemoveDeviceIntegrationTest {
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
-                    new Device.DeviceCapabilities(true, true, false, false),
+                    Set.of(),
                     1,
                     2,
                     true,
@@ -258,21 +259,21 @@ public class AddRemoveDeviceIntegrationTest {
 
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> accountsManager.addDevice(account, new DeviceSpec(
-                "device-name".getBytes(StandardCharsets.UTF_8),
-                "password",
-                "OWT",
-                new Device.DeviceCapabilities(true, true, false, false),
-                1,
-                2,
-                true,
-                Optional.empty(),
-                Optional.empty(),
-                KeysHelper.signedECPreKey(1, aciKeyPair),
-                KeysHelper.signedECPreKey(2, pniKeyPair),
-                KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-            linkDeviceToken)
-        .join());
+                    "device-name".getBytes(StandardCharsets.UTF_8),
+                    "password",
+                    "OWT",
+                    Set.of(),
+                    1,
+                    2,
+                    true,
+                    Optional.empty(),
+                    Optional.empty(),
+                    KeysHelper.signedECPreKey(1, aciKeyPair),
+                    KeysHelper.signedECPreKey(2, pniKeyPair),
+                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                linkDeviceToken)
+            .join());
 
     assertInstanceOf(LinkDeviceTokenAlreadyUsedException.class, completionException.getCause());
 
@@ -295,19 +296,19 @@ public class AddRemoveDeviceIntegrationTest {
 
     final Pair<Account, Device> updatedAccountAndDevice =
         accountsManager.addDevice(account, new DeviceSpec(
-                "device-name".getBytes(StandardCharsets.UTF_8),
-                "password",
-                "OWT",
-                new Device.DeviceCapabilities(true, true, false, false),
-                1,
-                2,
-                true,
-                Optional.empty(),
-                Optional.empty(),
-                KeysHelper.signedECPreKey(1, aciKeyPair),
-                KeysHelper.signedECPreKey(2, pniKeyPair),
-                KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    "device-name".getBytes(StandardCharsets.UTF_8),
+                    "password",
+                    "OWT",
+                    Set.of(),
+                    1,
+                    2,
+                    true,
+                    Optional.empty(),
+                    Optional.empty(),
+                    KeysHelper.signedECPreKey(1, aciKeyPair),
+                    KeysHelper.signedECPreKey(2, pniKeyPair),
+                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
                 accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)))
             .join();
 
@@ -349,19 +350,19 @@ public class AddRemoveDeviceIntegrationTest {
 
     final Pair<Account, Device> updatedAccountAndDevice =
         accountsManager.addDevice(account, new DeviceSpec(
-                "device-name".getBytes(StandardCharsets.UTF_8),
-                "password",
-                "OWT",
-                new Device.DeviceCapabilities(true, true, false, false),
-                1,
-                2,
-                true,
-                Optional.empty(),
-                Optional.empty(),
-                KeysHelper.signedECPreKey(1, aciKeyPair),
-                KeysHelper.signedECPreKey(2, pniKeyPair),
-                KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+                    "device-name".getBytes(StandardCharsets.UTF_8),
+                    "password",
+                    "OWT",
+                    Set.of(),
+                    1,
+                    2,
+                    true,
+                    Optional.empty(),
+                    Optional.empty(),
+                    KeysHelper.signedECPreKey(1, aciKeyPair),
+                    KeysHelper.signedECPreKey(2, pniKeyPair),
+                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
+                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
                 accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)))
             .join();
 
@@ -420,7 +421,7 @@ public class AddRemoveDeviceIntegrationTest {
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
-                    new Device.DeviceCapabilities(true, true, true, false),
+                    Set.of(),
                     1,
                     2,
                     true,
@@ -461,7 +462,7 @@ public class AddRemoveDeviceIntegrationTest {
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
-                    new Device.DeviceCapabilities(true, true, true, false),
+                    Set.of(),
                     1,
                     2,
                     true,

@@ -8,6 +8,8 @@ package org.whispersystems.textsecuregcm.grpc;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.chat.device.ClearPushTokenRequest;
@@ -27,6 +29,7 @@ import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -200,15 +203,21 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
   public Mono<SetCapabilitiesResponse> setCapabilities(final SetCapabilitiesRequest request) {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
+    final Set<DeviceCapability> capabilities = request.getCapabilitiesList().stream()
+        .map(capability -> switch (capability) {
+          case DEVICE_CAPABILITY_STORAGE -> DeviceCapability.STORAGE;
+          case DEVICE_CAPABILITY_TRANSFER -> DeviceCapability.TRANSFER;
+          case DEVICE_CAPABILITY_DELETE_SYNC -> DeviceCapability.DELETE_SYNC;
+          case DEVICE_CAPABILITY_VERSIONED_EXPIRATION_TIMER -> DeviceCapability.VERSIONED_EXPIRATION_TIMER;
+          default -> throw Status.INVALID_ARGUMENT.withDescription("Unrecognized device capability").asRuntimeException();
+        })
+        .collect(Collectors.toSet());
+
     return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
         .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
         .flatMap(account ->
             Mono.fromFuture(() -> accountsManager.updateDeviceAsync(account, authenticatedDevice.deviceId(),
-                d -> d.setCapabilities(new Device.DeviceCapabilities(
-                    request.getStorage(),
-                    request.getTransfer(),
-                    request.getDeleteSync(),
-                    request.getVersionedExpirationTimer())))))
+                d -> d.setCapabilities(capabilities))))
         .thenReturn(SetCapabilitiesResponse.newBuilder().build());
   }
 }

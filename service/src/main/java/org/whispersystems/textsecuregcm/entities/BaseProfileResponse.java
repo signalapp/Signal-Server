@@ -15,6 +15,7 @@ import org.whispersystems.textsecuregcm.util.ServiceIdentifierAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 
 import java.util.List;
+import java.util.Map;
 
 public class BaseProfileResponse {
 
@@ -32,7 +33,7 @@ public class BaseProfileResponse {
   private boolean unrestrictedUnidentifiedAccess;
 
   @JsonProperty
-  private UserCapabilities capabilities;
+  private Map<String, Boolean> capabilities;
 
   @JsonProperty
   private List<Badge> badges;
@@ -48,7 +49,7 @@ public class BaseProfileResponse {
   public BaseProfileResponse(final IdentityKey identityKey,
       final byte[] unidentifiedAccess,
       final boolean unrestrictedUnidentifiedAccess,
-      final UserCapabilities capabilities,
+      final Map<String, Boolean> capabilities,
       final List<Badge> badges,
       final ServiceIdentifier uuid) {
 
@@ -72,7 +73,7 @@ public class BaseProfileResponse {
     return unrestrictedUnidentifiedAccess;
   }
 
-  public UserCapabilities getCapabilities() {
+  public Map<String, Boolean> getCapabilities() {
     return capabilities;
   }
 

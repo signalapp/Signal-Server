@@ -1,21 +1,22 @@
 package org.whispersystems.textsecuregcm.storage;
 
+import java.time.Clock;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.util.Util;
-import java.time.Clock;
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.Optional;
 
 public record DeviceSpec(
     byte[] deviceNameCiphertext,
     String password,
     String signalAgent,
-    Device.DeviceCapabilities capabilities,
+    Set<DeviceCapability> capabilities,
     int aciRegistrationId,
     int pniRegistrationId,
     boolean fetchesMessages,
