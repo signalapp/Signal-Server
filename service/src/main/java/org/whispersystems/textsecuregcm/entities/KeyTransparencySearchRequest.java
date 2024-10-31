@@ -51,7 +51,6 @@ public record KeyTransparencySearchRequest(
     @Schema(description = "The non-distinguished tree head size to prove consistency against.")
     Optional<@Positive Long> lastTreeHeadSize,
 
-    @NotNull
     @Schema(description = "The distinguished tree head size to prove consistency against.")
     @Positive long distinguishedTreeHeadSize
 ) {
