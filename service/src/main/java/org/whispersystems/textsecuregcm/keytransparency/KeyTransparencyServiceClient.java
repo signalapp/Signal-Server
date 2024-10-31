@@ -119,7 +119,7 @@ public class KeyTransparencyServiceClient implements Managed {
       final Optional<ByteString> usernameHash,
       final Optional<E164SearchRequest> e164SearchRequest,
       final Optional<Long> lastTreeHeadSize,
-      final Optional<Long> distinguishedTreeHeadSize,
+      final long distinguishedTreeHeadSize,
       final Duration timeout) {
     final SearchRequest.Builder searchKeysRequestBuilder = SearchRequest.newBuilder()
         .setAci(aci)
@@ -128,9 +128,9 @@ public class KeyTransparencyServiceClient implements Managed {
     usernameHash.ifPresent(searchKeysRequestBuilder::setUsernameHash);
     e164SearchRequest.ifPresent(searchKeysRequestBuilder::setE164SearchRequest);
 
-    final ConsistencyParameters.Builder consistency = ConsistencyParameters.newBuilder();
+    final ConsistencyParameters.Builder consistency = ConsistencyParameters.newBuilder()
+        .setDistinguished(distinguishedTreeHeadSize);
     lastTreeHeadSize.ifPresent(consistency::setLast);
-    distinguishedTreeHeadSize.ifPresent(consistency::setDistinguished);
 
     searchKeysRequestBuilder.setConsistency(consistency.build());
 
@@ -138,17 +138,17 @@ public class KeyTransparencyServiceClient implements Managed {
         .search(searchKeysRequestBuilder.build()), callbackExecutor);
   }
 
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public CompletableFuture<byte[]> monitor(final List<MonitorKey> monitorKeys,
-      final Optional<Long> lastTreeHeadSize,
-      final Optional<Long> distinguishedTreeHeadSize,
+      final long lastTreeHeadSize,
+      final long distinguishedTreeHeadSize,
       final Duration timeout) {
     final MonitorRequest.Builder monitorRequestBuilder = MonitorRequest.newBuilder()
         .addAllContactKeys(monitorKeys);
 
-    final ConsistencyParameters.Builder consistency = ConsistencyParameters.newBuilder();
-    lastTreeHeadSize.ifPresent(consistency::setLast);
-    distinguishedTreeHeadSize.ifPresent(consistency::setDistinguished);
+    final ConsistencyParameters consistency = ConsistencyParameters.newBuilder()
+        .setLast(lastTreeHeadSize)
+        .setDistinguished(distinguishedTreeHeadSize)
+        .build();
 
     monitorRequestBuilder.setConsistency(consistency);
 

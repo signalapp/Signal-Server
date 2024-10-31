@@ -36,12 +36,10 @@ public record KeyTransparencyMonitorRequest(
     Optional<@Valid UsernameHashMonitor> usernameHash,
 
     @Schema(description = "The tree head size to prove consistency against.")
-    @NotNull
-    Optional<@Positive Long> lastNonDistinguishedTreeHeadSize,
+    @Positive long lastNonDistinguishedTreeHeadSize,
 
     @Schema(description = "The distinguished tree head size to prove consistency against.")
-    @NotNull
-    Optional<@Positive Long> lastDistinguishedTreeHeadSize
+    @Positive long lastDistinguishedTreeHeadSize
 ) {
 
   public record AciMonitor(

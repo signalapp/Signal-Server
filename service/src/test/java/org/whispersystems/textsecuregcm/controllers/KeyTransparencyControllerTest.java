@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
@@ -154,7 +155,7 @@ public class KeyTransparencyControllerTest {
     e164.ifPresent(ignored -> searchResponseBuilder.setE164(TreeSearchResponse.getDefaultInstance()));
     usernameHash.ifPresent(ignored -> searchResponseBuilder.setUsernameHash(TreeSearchResponse.getDefaultInstance()));
 
-    when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), any(), any()))
+    when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), anyLong(), any()))
         .thenReturn(CompletableFuture.completedFuture(searchResponseBuilder.build()));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -164,7 +165,7 @@ public class KeyTransparencyControllerTest {
     final Optional<byte[]> unidentifiedAccessKey = e164.isPresent() ? Optional.of(UNIDENTIFIED_ACCESS_KEY) : Optional.empty();
     final String searchJson = createRequestJson(
         new KeyTransparencySearchRequest(ACI, e164, usernameHash, ACI_IDENTITY_KEY,
-            unidentifiedAccessKey, Optional.of(3L), Optional.of(4L)));
+            unidentifiedAccessKey, Optional.of(3L), 4L));
 
     try (Response response = request.post(Entity.json(searchJson))) {
       assertEquals(200, response.getStatus());
@@ -180,7 +181,7 @@ public class KeyTransparencyControllerTest {
       ArgumentCaptor<Optional<E164SearchRequest>> e164Argument = ArgumentCaptor.forClass(Optional.class);
 
       verify(keyTransparencyServiceClient).search(aciArgument.capture(), aciIdentityKeyArgument.capture(),
-          usernameHashArgument.capture(), e164Argument.capture(), eq(Optional.of(3L)), eq(Optional.of(4L)),
+          usernameHashArgument.capture(), e164Argument.capture(), eq(Optional.of(3L)), eq(4L),
           eq(KeyTransparencyController.KEY_TRANSPARENCY_RPC_TIMEOUT));
 
       assertArrayEquals(ACI.toCompactByteArray(), aciArgument.getValue().toByteArray());
@@ -222,7 +223,7 @@ public class KeyTransparencyControllerTest {
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
     try (Response response = request.post(
         Entity.json(createRequestJson(new KeyTransparencySearchRequest(ACI, Optional.empty(), Optional.empty(),
-            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty()))))) {
+            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), 4L))))) {
       assertEquals(400, response.getStatus());
     }
     verifyNoInteractions(keyTransparencyServiceClient);
@@ -231,7 +232,7 @@ public class KeyTransparencyControllerTest {
   @ParameterizedTest
   @MethodSource
   void searchGrpcErrors(final Status grpcStatus, final int httpStatus) {
-    when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), any(), any()))
+    when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), anyLong(), any()))
         .thenReturn(CompletableFuture.failedFuture(new CompletionException(new StatusRuntimeException(grpcStatus))));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -239,9 +240,9 @@ public class KeyTransparencyControllerTest {
         .request();
     try (Response response = request.post(
         Entity.json(createRequestJson(new KeyTransparencySearchRequest(ACI, Optional.empty(), Optional.empty(),
-            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty()))))) {
+            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), 4L))))) {
       assertEquals(httpStatus, response.getStatus());
-      verify(keyTransparencyServiceClient, times(1)).search(any(), any(), any(), any(), any(), any(), any());
+      verify(keyTransparencyServiceClient, times(1)).search(any(), any(), any(), any(), any(), anyLong(), any());
     }
   }
 
@@ -262,7 +263,7 @@ public class KeyTransparencyControllerTest {
       final Optional<String> e164,
       final Optional<byte[]> unidentifiedAccessKey,
       final Optional<Long> lastTreeHeadSize,
-      final Optional<Long> distinguishedTreeHeadSize) {
+      final long distinguishedTreeHeadSize) {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/search")
         .request();
@@ -277,17 +278,17 @@ public class KeyTransparencyControllerTest {
   private static Stream<Arguments> searchInvalidRequest() {
     return Stream.of(
         // ACI can't be null
-        Arguments.of(null, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+        Arguments.of(null, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty(), 4L),
         // ACI identity key can't be null
-        Arguments.of(ACI, null, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+        Arguments.of(ACI, null, Optional.empty(), Optional.empty(), Optional.empty(), 4L),
         // lastNonDistinguishedTreeHeadSize must be positive
-        Arguments.of(ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.of(0L), Optional.empty()),
+        Arguments.of(ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.of(0L), 4L),
         // lastDistinguishedTreeHeadSize must be positive
-        Arguments.of(ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(0L)),
+        Arguments.of(ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty(), 0L),
         // E164 can't be provided without an unidentified access key
-        Arguments.of(ACI, ACI_IDENTITY_KEY, Optional.of(NUMBER), Optional.empty(), Optional.empty(), Optional.empty()),
+        Arguments.of(ACI, ACI_IDENTITY_KEY, Optional.of(NUMBER), Optional.empty(), Optional.empty(), 4L),
         // ...and an unidentified access key can't be provided without an E164
-        Arguments.of(ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), Optional.empty())
+        Arguments.of(ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), 4L)
         );
   }
 
@@ -300,7 +301,7 @@ public class KeyTransparencyControllerTest {
         .request();
     try (Response response = request.post(
         Entity.json(createRequestJson(new KeyTransparencySearchRequest(ACI, Optional.empty(), Optional.empty(),
-            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty()))))) {
+            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), 4L))))) {
       assertEquals(429, response.getStatus());
       verifyNoInteractions(keyTransparencyServiceClient);
     }
@@ -308,7 +309,7 @@ public class KeyTransparencyControllerTest {
 
   @Test
   void monitorSuccess() {
-    when(keyTransparencyServiceClient.monitor(any(), any(), any(), any()))
+    when(keyTransparencyServiceClient.monitor(any(), anyLong(), anyLong(), any()))
         .thenReturn(CompletableFuture.completedFuture(TestRandomUtil.nextBytes(16)));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -319,7 +320,7 @@ public class KeyTransparencyControllerTest {
         createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(3L), COMMITMENT_INDEX),
-                Optional.empty(), Optional.empty(), Optional.of(3L), Optional.of(4L)))))) {
+                Optional.empty(), Optional.empty(), 3L, 4L))))) {
       assertEquals(200, response.getStatus());
 
       final KeyTransparencyMonitorResponse keyTransparencyMonitorResponse = response.readEntity(
@@ -327,7 +328,7 @@ public class KeyTransparencyControllerTest {
       assertNotNull(keyTransparencyMonitorResponse.monitorResponse());
 
       verify(keyTransparencyServiceClient, times(1)).monitor(
-          any(), eq(Optional.of(3L)), eq(Optional.of(4L)), eq(KeyTransparencyController.KEY_TRANSPARENCY_RPC_TIMEOUT));
+          any(), eq(3L), eq(4L), eq(KeyTransparencyController.KEY_TRANSPARENCY_RPC_TIMEOUT));
     }
   }
 
@@ -341,7 +342,7 @@ public class KeyTransparencyControllerTest {
         Entity.json(createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(3L), COMMITMENT_INDEX),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))))) {
+                Optional.empty(), Optional.empty(), 3L, 4L))))) {
       assertEquals(400, response.getStatus());
       verifyNoInteractions(keyTransparencyServiceClient);
     }
@@ -350,7 +351,7 @@ public class KeyTransparencyControllerTest {
   @ParameterizedTest
   @MethodSource
   void monitorGrpcErrors(final Status grpcStatus, final int httpStatus) {
-    when(keyTransparencyServiceClient.monitor(any(), any(), any(), any()))
+    when(keyTransparencyServiceClient.monitor(any(), anyLong(), anyLong(), any()))
         .thenReturn(CompletableFuture.failedFuture(new CompletionException(new StatusRuntimeException(grpcStatus))));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -360,9 +361,9 @@ public class KeyTransparencyControllerTest {
         Entity.json(createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(3L), COMMITMENT_INDEX),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))))) {
+                Optional.empty(), Optional.empty(), 3L, 4L))))) {
       assertEquals(httpStatus, response.getStatus());
-      verify(keyTransparencyServiceClient, times(1)).monitor(any(), any(), any(), any());
+      verify(keyTransparencyServiceClient, times(1)).monitor(any(), anyLong(), anyLong(), any());
     }
   }
 
@@ -391,120 +392,119 @@ public class KeyTransparencyControllerTest {
     return Stream.of(
         // aci monitor cannot be null
         Arguments.of(createRequestJson(
-            new KeyTransparencyMonitorRequest(null, Optional.empty(), Optional.empty(), Optional.empty(),
-                Optional.empty()))),
+            new KeyTransparencyMonitorRequest(null, Optional.empty(), Optional.empty(), 3L, 4L))),
         // aci monitor fields can't be null
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(null, null, null),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))),
+                Optional.empty(), Optional.empty(), 3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(null, List.of(4L), COMMITMENT_INDEX),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))),
+                Optional.empty(), Optional.empty(), 3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, null, COMMITMENT_INDEX),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))),
+                Optional.empty(), Optional.empty(), 3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), null),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))),
+                Optional.empty(), Optional.empty(), 3L, 4L))),
         // aciPositions list can't be empty
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, Collections.emptyList(), COMMITMENT_INDEX),
-            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))),
+            Optional.empty(), Optional.empty(), 3L, 4L))),
         // aci commitment index must be the correct size
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), new byte[0]),
-            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))),
+            Optional.empty(), Optional.empty(), 3L, 4L))),
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, Collections.emptyList(), new byte[33]),
-            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))),
+            Optional.empty(), Optional.empty(), 3L, 4L))),
         // username monitor fields cannot be null
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(null, null, null)),
-                Optional.empty(), Optional.empty()))),
+                3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(null, List.of(5L), COMMITMENT_INDEX)),
-                Optional.empty(), Optional.empty()))),
+                3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
                 Optional.of(
                     new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH, null, COMMITMENT_INDEX)),
-                Optional.empty(), Optional.empty()))),
+                3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH, List.of(5L), null)),
-                Optional.empty(), Optional.empty()))),
+                3L, 4L))),
         // usernameHashPositions list cannot be empty
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
                 Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH,
-                    Collections.emptyList(), COMMITMENT_INDEX)), Optional.empty(), Optional.empty()))),
+                    Collections.emptyList(), COMMITMENT_INDEX)), 3L, 4L))),
         // username commitment index must be the correct size
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), new byte[0]),
                 Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH,
-                    List.of(5L), new byte[0])), Optional.empty(), Optional.empty()))),
+                    List.of(5L), new byte[0])), 3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), null),
                 Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH,
-                    List.of(5L), new byte[33])), Optional.empty(), Optional.empty()))),
+                    List.of(5L), new byte[33])), 3L, 4L))),
         // e164 fields cannot be null
         Arguments.of(
             createRequestJson(new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
                 Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(null, null, null)),
-                Optional.empty(), Optional.empty(), Optional.empty()))),
+                Optional.empty(), 3L, 4L))),
         Arguments.of(
             createRequestJson(new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
                 Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(null, List.of(5L), COMMITMENT_INDEX)),
-                Optional.empty(), Optional.empty(), Optional.empty()))),
+                Optional.empty(), 3L, 4L))),
         Arguments.of(
             createRequestJson(new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
                 Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, null, COMMITMENT_INDEX)),
-                Optional.empty(), Optional.empty(), Optional.empty()))),
+                Optional.empty(), 3L, 4L))),
         Arguments.of(
             createRequestJson(new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
                 Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, List.of(5L), null)),
-                Optional.empty(), Optional.empty(), Optional.empty()))),
+                Optional.empty(), 3L, 4L))),
         // e164Positions list cannot empty
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
             Optional.of(
                 new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, Collections.emptyList(), COMMITMENT_INDEX)),
-            Optional.empty(), Optional.empty(), Optional.empty()))),
+            Optional.empty(), 3L, 4L))),
         // e164 commitment index must be the correct size
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
             Optional.of(
                 new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, List.of(5L), new byte[0])),
-            Optional.empty(), Optional.empty(), Optional.empty()))),
+            Optional.empty(), 3L, 4L))),
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
             Optional.of(
                 new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, List.of(5L), new byte[33])),
-            Optional.empty(), Optional.empty(), Optional.empty()))),
+            Optional.empty(), 3L, 4L))),
         // lastNonDistinguishedTreeHeadSize must be positive
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
-            Optional.empty(), Optional.of(0L), Optional.empty()))),
+            Optional.empty(), 0L, 4L))),
         // lastDistinguishedTreeHeadSize must be positive
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
-            Optional.empty(), Optional.empty(), Optional.of(-1L))))
+            Optional.empty(), 3L, 0L)))
     );
   }
 
@@ -519,7 +519,7 @@ public class KeyTransparencyControllerTest {
         Entity.json(createRequestJson(
             new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(3L), null),
                 Optional.empty(), Optional.empty(),
-                Optional.empty(), Optional.empty()))))) {
+                3L, 4L))))) {
       assertEquals(429, response.getStatus());
       verifyNoInteractions(keyTransparencyServiceClient);
     }
