@@ -1756,16 +1756,9 @@ paths:
         content:
           '*/*':
             schema:
-              uniqueItems: true
-              type: array
-              items:
-                type: string
-                enum:
-                - STORAGE
-                - TRANSFER
-                - DELETE_SYNC
-                - VERSIONED_EXPIRATION_TIMER
-                - STORAGE_SERVICE_RECORD_KEY_ROTATION
+              type: object
+              additionalProperties:
+                type: boolean
         required: true
       responses:
         default:
@@ -4776,8 +4769,6 @@ components:
       required:
       - aci
       - e164
-      - lastDistinguishedTreeHeadSize
-      - lastNonDistinguishedTreeHeadSize
       - usernameHash
       type: object
       properties:
