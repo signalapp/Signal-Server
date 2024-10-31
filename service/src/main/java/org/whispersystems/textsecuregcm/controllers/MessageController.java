@@ -957,7 +957,7 @@ public class MessageController {
     if (sharedMrmKey != null) {
       messageBuilder.setSharedMrmKey(ByteString.copyFrom(sharedMrmKey));
     }
-    // mrm views phase 1: always set content
+    // mrm views phase 2: always set content
     messageBuilder.setContent(ByteString.copyFrom(payload));
 
     messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);

@@ -62,6 +62,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.reactivestreams.Publisher;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.ServiceId;
@@ -96,6 +97,7 @@ class MessagesCacheTest {
     private MessagesCache messagesCache;
 
     private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+    private DynamicConfiguration dynamicConfiguration;
 
     private static final UUID DESTINATION_UUID = UUID.randomUUID();
 
@@ -103,8 +105,9 @@ class MessagesCacheTest {
 
     @BeforeEach
     void setUp() throws Exception {
-      final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-      when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(new DynamicMessagesConfiguration(true, true));
+      dynamicConfiguration = mock(DynamicConfiguration.class);
+      when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(
+          new DynamicMessagesConfiguration(true, true, true));
       dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
       when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
@@ -399,9 +402,13 @@ class MessagesCacheTest {
       assertEquals(DESTINATION_DEVICE_ID, MessagesCache.getDeviceIdFromQueueName(queues.getFirst()));
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testMultiRecipientMessage(final boolean sharedMrmKeyPresent) throws Exception {
+    @CartesianTest
+    void testMultiRecipientMessage(@CartesianTest.Values(booleans = {true, false}) final boolean sharedMrmKeyPresent,
+        @CartesianTest.Values(booleans = {true, false}) final boolean useSharedMrmData) {
+
+      when(dynamicConfiguration.getMessagesConfiguration())
+          .thenReturn(new DynamicMessagesConfiguration(true, true, useSharedMrmData));
+
       final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(UUID.randomUUID());
       final byte deviceId = 1;
 
@@ -419,7 +426,7 @@ class MessagesCacheTest {
           .toBuilder()
           // clear some things added by the helper
           .clearServerGuid()
-          // mrm views phase 1: messages have content
+          // mrm views phase 2: messages have content
           .setContent(
               ByteString.copyFrom(mrm.messageForRecipient(mrm.getRecipients().get(destinationServiceId.toLibsignal()))))
           .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
@@ -430,10 +437,70 @@ class MessagesCacheTest {
           .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey)));
 
       final List<MessageProtos.Envelope> messages = get(destinationServiceId.uuid(), deviceId, 1);
+      if (useSharedMrmData && !sharedMrmKeyPresent) {
+        assertTrue(messages.isEmpty());
+      } else {
+
+        assertEquals(1, messages.size());
+        assertEquals(guid, UUID.fromString(messages.getFirst().getServerGuid()));
+        assertFalse(messages.getFirst().hasSharedMrmKey());
+        final SealedSenderMultiRecipientMessage.Recipient recipient = mrm.getRecipients()
+            .get(destinationServiceId.toLibsignal());
+        assertArrayEquals(mrm.messageForRecipient(recipient), messages.getFirst().getContent().toByteArray());
+      }
+
+      final Optional<RemovedMessage> removedMessage = messagesCache.remove(destinationServiceId.uuid(), deviceId, guid)
+          .join();
+
+      assertTrue(removedMessage.isPresent());
+      assertEquals(guid, UUID.fromString(removedMessage.get().serverGuid().toString()));
+      assertTrue(get(destinationServiceId.uuid(), deviceId, 1).isEmpty());
+
+      // updating the shared MRM data is purely async, so we just wait for it
+      assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
+        boolean exists;
+        do {
+          exists = 1 == REDIS_CLUSTER_EXTENSION.getRedisCluster()
+              .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey));
+        } while (exists);
+      }, "Shared MRM data should be deleted asynchronously");
+    }
+
+    @CartesianTest
+    void testMultiRecipientMessagePhase2MissingContentSafeguard(
+        @CartesianTest.Values(booleans = {true, false}) final boolean useSharedMrmData,
+        @CartesianTest.Values(booleans = {true, false}) final boolean fetchSharedMrmData) {
+
+      when(dynamicConfiguration.getMessagesConfiguration())
+          .thenReturn(new DynamicMessagesConfiguration(true, fetchSharedMrmData, useSharedMrmData));
+
+      final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(UUID.randomUUID());
+      final byte deviceId = 1;
+
+      final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(destinationServiceId, deviceId);
+
+      final byte[] sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm);
+
+      final UUID guid = UUID.randomUUID();
+      final MessageProtos.Envelope message = generateRandomMessage(guid, destinationServiceId, true)
+          .toBuilder()
+          // clear some things added by the helper
+          .clearServerGuid()
+          // mrm views phase 2: there is a safeguard against missing content, even if the dynamic configuration
+          //   is to not fetch or use shared MRM data
+          .clearContent()
+          .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
+          .build();
+      messagesCache.insert(guid, destinationServiceId.uuid(), deviceId, message);
+
+      assertEquals(1, (long) REDIS_CLUSTER_EXTENSION.getRedisCluster()
+          .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey)));
+
+      final List<MessageProtos.Envelope> messages = get(destinationServiceId.uuid(), deviceId, 1);
+
       assertEquals(1, messages.size());
       assertEquals(guid, UUID.fromString(messages.getFirst().getServerGuid()));
       assertFalse(messages.getFirst().hasSharedMrmKey());
-
       final SealedSenderMultiRecipientMessage.Recipient recipient = mrm.getRecipients()
           .get(destinationServiceId.toLibsignal());
       assertArrayEquals(mrm.messageForRecipient(recipient), messages.getFirst().getContent().toByteArray());
@@ -455,19 +522,24 @@ class MessagesCacheTest {
       }, "Shared MRM data should be deleted asynchronously");
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void testGetMessagesToPersist(final boolean sharedMrmKeyPresent) {
+    @CartesianTest
+    void testGetMessagesToPersist(@CartesianTest.Values(booleans = {true, false}) final boolean sharedMrmKeyPresent,
+        @CartesianTest.Values(booleans = {true, false}) final boolean useSharedMrmData) {
+
+      when(dynamicConfiguration.getMessagesConfiguration())
+          .thenReturn(new DynamicMessagesConfiguration(true, true, useSharedMrmData));
+
       final UUID destinationUuid = UUID.randomUUID();
+      final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(destinationUuid);
       final byte deviceId = 1;
 
       final UUID messageGuid = UUID.randomUUID();
-      final MessageProtos.Envelope message = generateRandomMessage(destinationUuid, true);
+      final MessageProtos.Envelope message = generateRandomMessage(messageGuid,
+          new AciServiceIdentifier(destinationUuid), true);
 
       messagesCache.insert(messageGuid, destinationUuid, deviceId, message);
 
-      final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(
-          new AciServiceIdentifier(destinationUuid), deviceId);
+      final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(destinationServiceId, deviceId);
 
       final byte[] sharedMrmDataKey;
       if (sharedMrmKeyPresent) {
@@ -477,31 +549,35 @@ class MessagesCacheTest {
       }
 
       final UUID mrmMessageGuid = UUID.randomUUID();
-      final MessageProtos.Envelope mrmMessage = generateRandomMessage(mrmMessageGuid, true)
+      final MessageProtos.Envelope mrmMessage = generateRandomMessage(mrmMessageGuid, destinationServiceId, true)
           .toBuilder()
           // clear some things added by the helper
           .clearServerGuid()
-          // mrm views phase 1: messages have content
+          // mrm views phase 2: messages have content
           .setContent(
               ByteString.copyFrom(mrm.messageForRecipient(mrm.getRecipients().get(new ServiceId.Aci(destinationUuid)))))
           .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
           .build();
       messagesCache.insert(mrmMessageGuid, destinationUuid, deviceId, mrmMessage);
 
-      final List<MessageProtos.Envelope> messages = get(destinationUuid, deviceId, 100);
+      final List<MessageProtos.Envelope> messages = messagesCache.getMessagesToPersist(destinationUuid, deviceId, 100);
 
-      assertEquals(2, messages.size());
+      if (useSharedMrmData && !sharedMrmKeyPresent) {
+        assertEquals(1, messages.size());
+      } else {
+        assertEquals(2, messages.size());
+
+        assertEquals(mrmMessage.toBuilder().
+                clearSharedMrmKey().
+                setServerGuid(mrmMessageGuid.toString())
+                .build(),
+            messages.getLast());
+      }
 
       assertEquals(message.toBuilder()
               .setServerGuid(messageGuid.toString())
               .build(),
           messages.getFirst());
-
-      assertEquals(mrmMessage.toBuilder().
-              clearSharedMrmKey().
-              setServerGuid(mrmMessageGuid.toString())
-              .build(),
-          messages.getLast());
     }
 
     private List<MessageProtos.Envelope> get(final UUID destinationUuid, final byte destinationDeviceId,

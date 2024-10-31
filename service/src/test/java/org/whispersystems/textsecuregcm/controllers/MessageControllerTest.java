@@ -252,7 +252,8 @@ class MessageControllerTest {
 
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfiguration.getInboundMessageByteLimitConfiguration()).thenReturn(inboundMessageByteLimitConfiguration);
-    when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(new DynamicMessagesConfiguration(true, true));
+    when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(
+            new DynamicMessagesConfiguration(true, true, true));
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
