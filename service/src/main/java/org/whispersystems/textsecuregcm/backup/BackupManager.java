@@ -649,7 +649,7 @@ public class BackupManager {
    *
    * @param backupUser     The backup user to check
    * @param credentialType The credential type to require
-   * @throws {@link Status#PERMISSION_DENIED} error if the backup user is not authenticated with the given
+   * @throws {@link Status#UNAUTHENTICATED} error if the backup user is not authenticated with the given
    * {@code credentialType}
    */
   @VisibleForTesting
@@ -659,8 +659,8 @@ public class BackupManager {
               FAILURE_REASON_TAG_NAME, "credential_type")
           .increment();
 
-      throw Status.PERMISSION_DENIED
-          .withDescription("credential does not support the requested operation")
+      throw Status.UNAUTHENTICATED
+          .withDescription("wrong credential type for the requested operation")
           .asRuntimeException();
     }
   }

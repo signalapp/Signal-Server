@@ -176,7 +176,7 @@ public class BackupManagerTest {
           .isThrownBy(checkCredentialType)
           .extracting(StatusRuntimeException::getStatus)
           .extracting(Status::getCode)
-          .isEqualTo(Status.Code.PERMISSION_DENIED);
+          .isEqualTo(Status.Code.UNAUTHENTICATED);
     } else {
       assertThatNoException().isThrownBy(checkCredentialType);
     }
@@ -215,7 +215,7 @@ public class BackupManagerTest {
 
     assertThatExceptionOfType(StatusRuntimeException.class)
         .isThrownBy(() -> backupManager.createMessageBackupUploadDescriptor(backupUser).join())
-        .matches(exception -> exception.getStatus().getCode() == Status.PERMISSION_DENIED.getCode());
+        .matches(exception -> exception.getStatus().getCode() == Status.UNAUTHENTICATED.getCode());
   }
 
   @Test
@@ -245,7 +245,7 @@ public class BackupManagerTest {
         .isThrownBy(() -> backupManager.createTemporaryAttachmentUploadDescriptor(backupUser))
         .extracting(StatusRuntimeException::getStatus)
         .extracting(Status::getCode)
-        .isEqualTo(Status.Code.PERMISSION_DENIED);
+        .isEqualTo(Status.Code.UNAUTHENTICATED);
   }
 
   @ParameterizedTest
@@ -502,7 +502,7 @@ public class BackupManagerTest {
         .isThrownBy(() -> copy(backupUser))
         .extracting(StatusRuntimeException::getStatus)
         .extracting(Status::getCode)
-        .isEqualTo(Status.Code.PERMISSION_DENIED);
+        .isEqualTo(Status.Code.UNAUTHENTICATED);
   }
 
   @Test
@@ -675,7 +675,7 @@ public class BackupManagerTest {
     assertThatThrownBy(() ->
         backupManager.deleteMedia(backupUser, List.of(new BackupManager.StorageDescriptor(5, mediaId))).then().block())
         .isInstanceOf(StatusRuntimeException.class)
-        .matches(e -> ((StatusRuntimeException) e).getStatus().getCode() == Status.PERMISSION_DENIED.getCode());
+        .matches(e -> ((StatusRuntimeException) e).getStatus().getCode() == Status.UNAUTHENTICATED.getCode());
   }
 
   @Test
