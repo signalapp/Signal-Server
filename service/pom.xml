@@ -365,14 +365,6 @@
       <artifactId>dynamodb</artifactId>
     </dependency>
     <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>appconfig</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>appconfigdata</artifactId>
-    </dependency>
-    <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>dynamodb-lock-client</artifactId>
       <version>1.2.0</version>

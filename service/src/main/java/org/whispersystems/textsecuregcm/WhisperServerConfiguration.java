@@ -27,7 +27,6 @@ import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DefaultAwsCredentialsFactory;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DynamicConfigurationManagerFactory;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientFactory;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.ExternalRequestFilterConfiguration;
@@ -244,7 +243,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private DynamicConfigurationManagerFactory appConfig;
+  private S3ObjectMonitorFactory dynamicConfig;
 
   @Valid
   @NotNull
@@ -487,8 +486,8 @@ public class WhisperServerConfiguration extends Configuration {
     return remoteConfig;
   }
 
-  public DynamicConfigurationManagerFactory getAppConfig() {
-    return appConfig;
+  public S3ObjectMonitorFactory getDynamicConfig() {
+    return dynamicConfig;
   }
 
   public BadgesConfiguration getBadges() {

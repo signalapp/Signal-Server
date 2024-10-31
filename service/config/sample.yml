@@ -324,10 +324,12 @@ callingZkConfig:
 backupsZkConfig:
   serverSecret: secret://backupsZkConfig.serverSecret
 
-appConfig:
-  application: example
-  environment: example
-  configuration: example
+dynamicConfig:
+  s3Region: a-region
+  s3Bucket: a-bucket
+  objectKey: dynamic-config.yaml
+  maxSize: 100000
+  refreshInterval: PT10S
 
 remoteConfig:
   globalConfig: # keys and values that are given to clients on GET /v1/config

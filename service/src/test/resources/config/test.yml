@@ -321,12 +321,11 @@ callingZkConfig:
 backupsZkConfig:
   serverSecret: secret://backupsZkConfig.serverSecret
 
-appConfig:
-  type: local
-  application: test
-  environment: test
-  configuration: test
-  configPath: test-dynamic.yml
+dynamicConfig:
+  type: static
+  object: |
+    captcha:
+      scoreFloor: 1.0
 
 remoteConfig:
   globalConfig: # keys and values that are given to clients on GET /v1/config

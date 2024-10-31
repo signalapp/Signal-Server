@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.workers;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.dropwizard.core.cli.Command;
 import io.dropwizard.core.setup.Bootstrap;
 import java.nio.file.Files;
@@ -37,12 +36,7 @@ public class CheckDynamicConfigurationCommand extends Command {
   }
 
   private boolean isValid(final Class<?> configurationClass, final String yamlConfig) {
-    try {
-      return DynamicConfigurationManager.parseConfiguration(yamlConfig, configurationClass).isPresent();
-    } catch (JsonProcessingException e) {
-      System.err.println(e.getMessage());
-      return false;
-    }
+    return DynamicConfigurationManager.parseConfiguration(yamlConfig, configurationClass).isPresent();
   }
 
   /**

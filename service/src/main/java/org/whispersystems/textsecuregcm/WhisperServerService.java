@@ -351,8 +351,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ScheduledExecutorService dynamicConfigurationExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "dynamicConfiguration-%d")).threads(1).build();
 
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = config.getAppConfig()
-        .build(DynamicConfiguration.class, dynamicConfigurationExecutor, awsCredentialsProvider);
+    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        new DynamicConfigurationManager<>(
+            config.getDynamicConfig().build(awsCredentialsProvider, dynamicConfigurationExecutor), DynamicConfiguration.class);
     dynamicConfigurationManager.start();
 
     MetricsUtil.configureRegistries(config, environment, dynamicConfigurationManager);

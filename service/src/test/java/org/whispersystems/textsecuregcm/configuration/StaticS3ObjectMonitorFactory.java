@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 public class StaticS3ObjectMonitorFactory implements S3ObjectMonitorFactory {
 
   @JsonProperty
-  private byte[] object = new byte[0];
+  private String object = "";
 
   @Override
   public S3ObjectMonitor build(final AwsCredentialsProvider awsCredentialsProvider,
@@ -28,9 +28,9 @@ public class StaticS3ObjectMonitorFactory implements S3ObjectMonitorFactory {
 
   private static class StaticS3ObjectMonitor extends S3ObjectMonitor {
 
-    private final byte[] object;
+    private final String object;
 
-    public StaticS3ObjectMonitor(final byte[] object, final AwsCredentialsProvider awsCredentialsProvider) {
+    public StaticS3ObjectMonitor(final String object, final AwsCredentialsProvider awsCredentialsProvider) {
       super(awsCredentialsProvider, "local-test-region", "test-bucket", null, 0L, null, null);
 
       this.object = object;
@@ -38,7 +38,7 @@ public class StaticS3ObjectMonitorFactory implements S3ObjectMonitorFactory {
 
     @Override
     public synchronized void start(final Consumer<InputStream> changeListener) {
-      changeListener.accept(new ByteArrayInputStream(object));
+      changeListener.accept(new ByteArrayInputStream(object.getBytes()));
     }
   }
 }
