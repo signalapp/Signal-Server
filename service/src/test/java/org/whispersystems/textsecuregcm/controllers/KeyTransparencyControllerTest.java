@@ -141,7 +141,6 @@ public class KeyTransparencyControllerTest {
   void searchSuccess(final Optional<String> e164, final Optional<byte[]> usernameHash) {
     final TreeSearchResponse aciSearchResponse = TreeSearchResponse.newBuilder()
         .setOpening(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))
-        .setTreeHead(FullTreeHead.getDefaultInstance())
         .setSearch(SearchProof.getDefaultInstance())
         .setValue(UpdateValue.newBuilder()
             .setValue(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))

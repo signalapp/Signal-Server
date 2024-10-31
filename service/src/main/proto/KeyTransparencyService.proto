@@ -79,8 +79,6 @@ message E164SearchRequest {
 
 /**
  * SearchResponse contains search proofs for each of the requested identifiers.
- * Callers should use the top-level `FullTreeHead` for verification;
- * the `FullTreeHead` field on the individual `TreeSearchResponse`s will be empty.
  */
 message SearchResponse {
   /**
@@ -143,9 +141,7 @@ message DistinguishedRequest {
 
 /**
  * DistinguishedResponse contains the tree head and search proof for the most
- * recent `distinguished` key in the log. Callers should use the top-level
- * `FullTreeHead` for verification; the `FullTreeHead` field on
- * `TreeSearchResponse` will be empty.
+ * recent `distinguished` key in the log. 
  */
 message DistinguishedResponse {
   /**
@@ -161,29 +157,24 @@ message DistinguishedResponse {
 
 message TreeSearchResponse {
   /**
-   * A signed representation of the log tree's current state along with some
-   * additional information necessary for validation such as a consistency proof and an auditor-signed tree head.
-   */
-  FullTreeHead tree_head = 1;
-  /**
    * A proof that is combined with the original requested identifier and the VRF public key
    * and outputs whether the proof is valid, and if so, the commitment index.
    */
-  bytes vrf_proof = 2;
+  bytes vrf_proof = 1;
   /**
    * A proof that the binary search for the given identifier was done correctly.
    */
-  SearchProof search = 3;
+  SearchProof search = 2;
   /**
    * A 32-byte value computed based on the log position of the identifier
    * and a random 32 byte key that is only known by the key transparency service.
    * It is provided so that clients can recompute and verify the commitment.
    */
-  bytes opening = 4;
+  bytes opening = 3;
   /**
    * The new or updated value that the identifier maps to.
    */
-  UpdateValue value = 5;
+  UpdateValue value = 4;
 }
 
 message FullTreeHead {
