@@ -21,11 +21,10 @@ public class FaultTolerantPubSubClusterConnection<K, V> extends AbstractFaultTol
 
   protected FaultTolerantPubSubClusterConnection(final String name,
       final StatefulRedisClusterPubSubConnection<K, V> pubSubConnection,
-      final Retry retry,
       final Retry resubscribeRetry,
       final Scheduler topologyChangedEventScheduler) {
 
-    super(name, pubSubConnection, retry);
+    super(name, pubSubConnection);
 
     pubSubConnection.setNodeMessagePropagation(true);
 

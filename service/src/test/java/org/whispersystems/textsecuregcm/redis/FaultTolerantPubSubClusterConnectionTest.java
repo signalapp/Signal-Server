@@ -5,11 +5,8 @@
 
 package org.whispersystems.textsecuregcm.redis;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
@@ -20,7 +17,6 @@ import static org.mockito.Mockito.when;
 import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
-import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
@@ -60,8 +56,6 @@ class FaultTolerantPubSubClusterConnectionTest {
     retryConfiguration.setMaxAttempts(3);
     retryConfiguration.setWaitDuration(10);
 
-    final Retry retry = Retry.of("test", retryConfiguration.toRetryConfig());
-
     final RetryConfig resubscribeRetryConfiguration = RetryConfig.custom()
         .maxAttempts(Integer.MAX_VALUE)
         .intervalFunction(IntervalFunction.ofExponentialBackoff(5))
@@ -69,27 +63,7 @@ class FaultTolerantPubSubClusterConnectionTest {
     final Retry resubscribeRetry = Retry.of("test-resubscribe", resubscribeRetryConfiguration);
 
     faultTolerantPubSubConnection = new FaultTolerantPubSubClusterConnection<>("test", pubSubConnection,
-        retry, resubscribeRetry, Schedulers.newSingle("test"));
-  }
-
-  @Test
-  void testRetry() {
-    when(pubSubCommands.get(anyString()))
-        .thenThrow(new RedisCommandTimeoutException())
-        .thenThrow(new RedisCommandTimeoutException())
-        .thenReturn("value");
-
-    assertEquals("value",
-        faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("key")));
-
-    when(pubSubCommands.get(anyString()))
-        .thenThrow(new RedisCommandTimeoutException())
-        .thenThrow(new RedisCommandTimeoutException())
-        .thenThrow(new RedisCommandTimeoutException())
-        .thenReturn("value");
-
-    assertThrows(RedisCommandTimeoutException.class,
-        () -> faultTolerantPubSubConnection.withPubSubConnection(connection -> connection.sync().get("key")));
+        resubscribeRetry, Schedulers.newSingle("test"));
   }
 
   @Nested

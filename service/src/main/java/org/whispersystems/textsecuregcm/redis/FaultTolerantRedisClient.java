@@ -147,13 +147,13 @@ public class FaultTolerantRedisClient {
     final StatefulRedisPubSubConnection<String, String> pubSubConnection = redisClient.connectPubSub();
     pubSubConnections.add(pubSubConnection);
 
-    return new FaultTolerantPubSubConnection<>(name, pubSubConnection, retry);
+    return new FaultTolerantPubSubConnection<>(name, pubSubConnection);
   }
 
   public FaultTolerantPubSubConnection<byte[], byte[]> createBinaryPubSubConnection() {
     final StatefulRedisPubSubConnection<byte[], byte[]> pubSubConnection = redisClient.connectPubSub(ByteArrayCodec.INSTANCE);
     pubSubConnections.add(pubSubConnection);
 
-    return new FaultTolerantPubSubConnection<>(name, pubSubConnection, retry);
+    return new FaultTolerantPubSubConnection<>(name, pubSubConnection);
   }
 }

@@ -198,7 +198,7 @@ public class FaultTolerantRedisClusterClient {
     final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection = clusterClient.connectPubSub();
     pubSubConnections.add(pubSubConnection);
 
-    return new FaultTolerantPubSubClusterConnection<>(name, pubSubConnection, retry, topologyChangedEventRetry,
+    return new FaultTolerantPubSubClusterConnection<>(name, pubSubConnection, topologyChangedEventRetry,
         Schedulers.newSingle(name + "-redisPubSubEvents", true));
   }
 
