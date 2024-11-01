@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.time.Duration;
@@ -178,6 +179,7 @@ public class Device {
     return capabilities;
   }
 
+  @JsonSetter
   public void setCapabilities(@Nullable final Set<DeviceCapability> capabilities) {
     this.capabilities = (capabilities == null || capabilities.isEmpty())
         ? Collections.emptySet()
