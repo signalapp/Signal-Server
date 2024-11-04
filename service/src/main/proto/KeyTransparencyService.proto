@@ -183,13 +183,13 @@ message FullTreeHead {
    */
   TreeHead tree_head = 1;
   /**
-   * A consistency proof between the current tree size and the requested distinguished tree size.
-   */
-  repeated bytes distinguished = 2;
-  /**
    * A consistency proof between the current tree size and the requested tree size.
    */
-  repeated bytes consistency = 3;
+  repeated bytes last = 2;
+  /**
+   * A consistency proof between the current tree size and the requested distinguished tree size.
+   */
+  repeated bytes distinguished = 3;
   /**
    * A tree head signed by a third-party auditor.
    */
