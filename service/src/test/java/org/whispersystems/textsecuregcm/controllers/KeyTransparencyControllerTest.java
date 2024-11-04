@@ -59,7 +59,7 @@ import org.signal.keytransparency.client.E164SearchRequest;
 import org.signal.keytransparency.client.FullTreeHead;
 import org.signal.keytransparency.client.SearchProof;
 import org.signal.keytransparency.client.SearchResponse;
-import org.signal.keytransparency.client.TreeSearchResponse;
+import org.signal.keytransparency.client.CondensedTreeSearchResponse;
 import org.signal.keytransparency.client.UpdateValue;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
@@ -140,7 +140,7 @@ public class KeyTransparencyControllerTest {
   @ParameterizedTest
   @MethodSource
   void searchSuccess(final Optional<String> e164, final Optional<byte[]> usernameHash) {
-    final TreeSearchResponse aciSearchResponse = TreeSearchResponse.newBuilder()
+    final CondensedTreeSearchResponse aciSearchResponse = CondensedTreeSearchResponse.newBuilder()
         .setOpening(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))
         .setSearch(SearchProof.getDefaultInstance())
         .setValue(UpdateValue.newBuilder()
@@ -152,11 +152,11 @@ public class KeyTransparencyControllerTest {
         .setTreeHead(FullTreeHead.getDefaultInstance())
         .setAci(aciSearchResponse);
 
-    e164.ifPresent(ignored -> searchResponseBuilder.setE164(TreeSearchResponse.getDefaultInstance()));
-    usernameHash.ifPresent(ignored -> searchResponseBuilder.setUsernameHash(TreeSearchResponse.getDefaultInstance()));
+    e164.ifPresent(ignored -> searchResponseBuilder.setE164(CondensedTreeSearchResponse.getDefaultInstance()));
+    usernameHash.ifPresent(ignored -> searchResponseBuilder.setUsernameHash(CondensedTreeSearchResponse.getDefaultInstance()));
 
     when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), anyLong(), any()))
-        .thenReturn(CompletableFuture.completedFuture(searchResponseBuilder.build()));
+        .thenReturn(CompletableFuture.completedFuture(searchResponseBuilder.build().toByteArray()));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/search")

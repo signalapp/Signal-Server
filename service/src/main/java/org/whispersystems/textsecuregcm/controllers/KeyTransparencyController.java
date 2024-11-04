@@ -121,10 +121,7 @@ public class KeyTransparencyController {
               request.lastTreeHeadSize(),
               request.distinguishedTreeHeadSize(),
               KEY_TRANSPARENCY_RPC_TIMEOUT)
-          .thenApply(searchResponse ->
-              new KeyTransparencySearchResponse(
-                  searchResponse.toByteArray())
-          ).join();
+          .thenApply(KeyTransparencySearchResponse::new).join();
     } catch (final CancellationException exception) {
       LOGGER.error("Unexpected cancellation from key transparency service", exception);
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, exception);

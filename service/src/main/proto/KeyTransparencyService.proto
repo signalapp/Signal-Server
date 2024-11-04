@@ -89,7 +89,7 @@ message SearchResponse {
   /**
    * The ACI search response is always provided.
    */
-  TreeSearchResponse aci = 2;
+  CondensedTreeSearchResponse aci = 2;
   /**
    * This response is only provided if all of the conditions are met:
    * - the E164 exists in the log
@@ -97,12 +97,12 @@ message SearchResponse {
    * - the account associated with the ACI is discoverable
    * - the unidentified access key provided in E164SearchRequest matches the one on the account
    */
-  optional TreeSearchResponse e164 = 3;
+  optional CondensedTreeSearchResponse e164 = 3;
   /**
    * This response is only provided if the username hash exists in the log and
    * its mapped ACI matches the one provided in the request.
    */
-  optional TreeSearchResponse username_hash = 4;
+  optional CondensedTreeSearchResponse username_hash = 4;
 }
 
 /**
@@ -152,10 +152,10 @@ message DistinguishedResponse {
   /**
    * This search response is always provided.
    */
-  TreeSearchResponse distinguished = 2;
+  CondensedTreeSearchResponse distinguished = 2;
 }
 
-message TreeSearchResponse {
+message CondensedTreeSearchResponse {
   /**
    * A proof that is combined with the original requested identifier and the VRF public key
    * and outputs whether the proof is valid, and if so, the commitment index.

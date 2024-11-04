@@ -31,7 +31,6 @@ import org.signal.keytransparency.client.KeyTransparencyQueryServiceGrpc;
 import org.signal.keytransparency.client.MonitorKey;
 import org.signal.keytransparency.client.MonitorRequest;
 import org.signal.keytransparency.client.SearchRequest;
-import org.signal.keytransparency.client.SearchResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -113,7 +112,7 @@ public class KeyTransparencyServiceClient implements Managed {
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public CompletableFuture<SearchResponse> search(
+  public CompletableFuture<byte[]> search(
       final ByteString aci,
       final ByteString aciIdentityKey,
       final Optional<ByteString> usernameHash,
@@ -121,21 +120,22 @@ public class KeyTransparencyServiceClient implements Managed {
       final Optional<Long> lastTreeHeadSize,
       final long distinguishedTreeHeadSize,
       final Duration timeout) {
-    final SearchRequest.Builder searchKeysRequestBuilder = SearchRequest.newBuilder()
+    final SearchRequest.Builder searchRequestBuilder = SearchRequest.newBuilder()
         .setAci(aci)
         .setAciIdentityKey(aciIdentityKey);
 
-    usernameHash.ifPresent(searchKeysRequestBuilder::setUsernameHash);
-    e164SearchRequest.ifPresent(searchKeysRequestBuilder::setE164SearchRequest);
+    usernameHash.ifPresent(searchRequestBuilder::setUsernameHash);
+    e164SearchRequest.ifPresent(searchRequestBuilder::setE164SearchRequest);
 
     final ConsistencyParameters.Builder consistency = ConsistencyParameters.newBuilder()
         .setDistinguished(distinguishedTreeHeadSize);
     lastTreeHeadSize.ifPresent(consistency::setLast);
 
-    searchKeysRequestBuilder.setConsistency(consistency.build());
+    searchRequestBuilder.setConsistency(consistency.build());
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .search(searchKeysRequestBuilder.build()), callbackExecutor);
+        .search(searchRequestBuilder.build()), callbackExecutor)
+        .thenApply(AbstractMessageLite::toByteArray);
   }
 
   public CompletableFuture<byte[]> monitor(final List<MonitorKey> monitorKeys,
