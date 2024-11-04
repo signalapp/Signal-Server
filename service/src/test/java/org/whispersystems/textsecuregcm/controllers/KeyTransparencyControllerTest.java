@@ -325,7 +325,7 @@ public class KeyTransparencyControllerTest {
 
       final KeyTransparencyMonitorResponse keyTransparencyMonitorResponse = response.readEntity(
           KeyTransparencyMonitorResponse.class);
-      assertNotNull(keyTransparencyMonitorResponse.monitorResponse());
+      assertNotNull(keyTransparencyMonitorResponse.serializedResponse());
 
       verify(keyTransparencyServiceClient, times(1)).monitor(
           any(), eq(3L), eq(4L), eq(KeyTransparencyController.KEY_TRANSPARENCY_RPC_TIMEOUT));
@@ -543,7 +543,7 @@ public class KeyTransparencyControllerTest {
 
       final KeyTransparencyDistinguishedKeyResponse distinguishedKeyResponse = response.readEntity(
           KeyTransparencyDistinguishedKeyResponse.class);
-      assertNotNull(distinguishedKeyResponse.distinguishedKeyResponse());
+      assertNotNull(distinguishedKeyResponse.serializedResponse());
 
       verify(keyTransparencyServiceClient, times(1))
           .getDistinguishedKey(eq(Optional.ofNullable(lastTreeHeadSize)),

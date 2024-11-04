@@ -16,6 +16,6 @@ public record KeyTransparencyMonitorResponse(
     @NotNull
     @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
     @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-    @Schema(description = "The monitor response encoded in standard un-padded base64")
-    byte[] monitorResponse
+    @Schema(description = "The serialized `MonitorResponse` encoded in standard un-padded base64")
+    byte[] serializedResponse
 ) {}
