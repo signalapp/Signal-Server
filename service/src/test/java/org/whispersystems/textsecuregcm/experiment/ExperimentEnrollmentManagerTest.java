@@ -133,6 +133,7 @@ class ExperimentEnrollmentManagerTest {
     when(preRegistrationExperimentEnrollmentConfiguration.getExcludedE164s()).thenReturn(Collections.emptySet());
     when(preRegistrationExperimentEnrollmentConfiguration.getExcludedCountryCodes()).thenReturn(Collections.emptySet());
 
+    // test UUID enrollment is prioritized
     when(uuidSelector.getUuids()).thenReturn(Set.of(ACCOUNT_UUID));
     when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(100);
     assertTrue(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
@@ -140,7 +141,14 @@ class ExperimentEnrollmentManagerTest {
     assertFalse(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
     assertFalse(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
 
+    // test fallback from UUID enrollment to general enrollment percentage
     when(uuidSelector.getUuids()).thenReturn(Collections.emptySet());
+    when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
+    assertTrue(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
+    assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
+
+    // test fallback from UUID/general enrollment to e164 enrollment
+    when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
     assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
     assertFalse(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
     when(preRegistrationExperimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);

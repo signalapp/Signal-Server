@@ -41,18 +41,21 @@ public class ExperimentEnrollmentManager {
         .getConfiguration().getExperimentEnrollmentConfiguration(experimentName);
 
     return maybeConfiguration
-        .map(config -> isAccountEnrolled(accountUuid, config)
-            .orElse(isEnrolled(accountUuid, config.getEnrollmentPercentage(), experimentName))
-        ).orElse(false);
+        .map(config -> isAccountEnrolled(accountUuid, config, experimentName).orElse(false))
+        .orElse(false);
   }
 
-  Optional<Boolean> isAccountEnrolled(final UUID accountUuid, DynamicExperimentEnrollmentConfiguration config) {
+  private Optional<Boolean> isAccountEnrolled(final UUID accountUuid, DynamicExperimentEnrollmentConfiguration config, String experimentName) {
     if (config.getExcludedUuids().contains(accountUuid)) {
       return Optional.of(false);
     }
     if (config.getUuidSelector().getUuids().contains(accountUuid)) {
       final int r = random.nextInt(100);
       return Optional.of(r < config.getUuidSelector().getUuidEnrollmentPercentage());
+    }
+
+    if (isEnrolled(accountUuid, config.getEnrollmentPercentage(), experimentName)) {
+      return Optional.of(true);
     }
 
     return Optional.empty();
@@ -64,7 +67,7 @@ public class ExperimentEnrollmentManager {
         .getConfiguration().getExperimentEnrollmentConfiguration(experimentName);
 
     return maybeConfiguration
-        .flatMap(config -> isAccountEnrolled(accountUuid, config))
+        .flatMap(config -> isAccountEnrolled(accountUuid, config, experimentName))
         .orElse(isEnrolled(e164, experimentName));
   }
 
