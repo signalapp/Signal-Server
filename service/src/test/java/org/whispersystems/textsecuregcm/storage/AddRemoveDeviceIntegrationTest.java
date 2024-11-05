@@ -33,7 +33,6 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
@@ -70,7 +69,6 @@ public class AddRemoveDeviceIntegrationTest {
   private static final Clock CLOCK = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
   private ExecutorService accountLockExecutor;
-  private ExecutorService clientPresenceExecutor;
 
   private KeysManager keysManager;
   private ClientPublicKeysManager clientPublicKeysManager;
@@ -107,7 +105,6 @@ public class AddRemoveDeviceIntegrationTest {
         DynamoDbExtensionSchema.Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
     accountLockExecutor = Executors.newSingleThreadExecutor();
-    clientPresenceExecutor = Executors.newSingleThreadExecutor();
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK.tableName());
@@ -152,12 +149,10 @@ public class AddRemoveDeviceIntegrationTest {
         profilesManager,
         secureStorageClient,
         svr2Client,
-        mock(ClientPresenceManager.class),
         mock(PubSubClientEventManager.class),
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         accountLockExecutor,
-        clientPresenceExecutor,
         CLOCK,
         "link-device-secret".getBytes(StandardCharsets.UTF_8),
         dynamicConfigurationManager);
@@ -170,13 +165,9 @@ public class AddRemoveDeviceIntegrationTest {
     accountsManager.stop();
 
     accountLockExecutor.shutdown();
-    clientPresenceExecutor.shutdown();
 
     //noinspection ResultOfMethodCallIgnored
     accountLockExecutor.awaitTermination(1, TimeUnit.SECONDS);
-
-    //noinspection ResultOfMethodCallIgnored
-    clientPresenceExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test

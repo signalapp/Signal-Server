@@ -36,7 +36,6 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -67,10 +66,8 @@ class AccountsManagerChangeNumberIntegrationTest {
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private KeysManager keysManager;
-  private ClientPresenceManager clientPresenceManager;
   private PubSubClientEventManager pubSubClientEventManager;
   private ExecutorService accountLockExecutor;
-  private ExecutorService clientPresenceExecutor;
 
   private AccountsManager accountsManager;
 
@@ -106,7 +103,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
       accountLockExecutor = Executors.newSingleThreadExecutor();
-      clientPresenceExecutor = Executors.newSingleThreadExecutor();
 
       final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS_LOCK.tableName());
@@ -120,7 +116,6 @@ class AccountsManagerChangeNumberIntegrationTest {
       final SecureValueRecovery2Client svr2Client = mock(SecureValueRecovery2Client.class);
       when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-      clientPresenceManager = mock(ClientPresenceManager.class);
       pubSubClientEventManager = mock(PubSubClientEventManager.class);
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
@@ -149,12 +144,10 @@ class AccountsManagerChangeNumberIntegrationTest {
           profilesManager,
           secureStorageClient,
           svr2Client,
-          clientPresenceManager,
           pubSubClientEventManager,
           registrationRecoveryPasswordsManager,
           clientPublicKeysManager,
           accountLockExecutor,
-          clientPresenceExecutor,
           mock(Clock.class),
           "link-device-secret".getBytes(StandardCharsets.UTF_8),
           dynamicConfigurationManager);
@@ -164,13 +157,9 @@ class AccountsManagerChangeNumberIntegrationTest {
   @AfterEach
   void tearDown() throws InterruptedException {
     accountLockExecutor.shutdown();
-    clientPresenceExecutor.shutdown();
 
     //noinspection ResultOfMethodCallIgnored
     accountLockExecutor.awaitTermination(1, TimeUnit.SECONDS);
-
-    //noinspection ResultOfMethodCallIgnored
-    clientPresenceExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test
@@ -285,7 +274,6 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
-    verify(clientPresenceManager).disconnectAllPresencesForUuid(existingAccountUuid);
     verify(pubSubClientEventManager).requestDisconnection(existingAccountUuid);
 
     assertEquals(Optional.of(existingAccountUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));

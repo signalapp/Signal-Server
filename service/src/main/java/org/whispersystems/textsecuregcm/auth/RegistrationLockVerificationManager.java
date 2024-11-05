@@ -25,7 +25,6 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.Svr3Credentials;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -55,7 +54,6 @@ public class RegistrationLockVerificationManager {
   private static final String PHONE_VERIFICATION_TYPE_TAG_NAME = "phoneVerificationType";
 
   private final AccountsManager accounts;
-  private final ClientPresenceManager clientPresenceManager;
   private final PubSubClientEventManager pubSubClientEventManager;
   private final ExternalServiceCredentialsGenerator svr2CredentialGenerator;
   private final ExternalServiceCredentialsGenerator svr3CredentialGenerator;
@@ -65,7 +63,6 @@ public class RegistrationLockVerificationManager {
 
   public RegistrationLockVerificationManager(
       final AccountsManager accounts,
-      final ClientPresenceManager clientPresenceManager,
       final PubSubClientEventManager pubSubClientEventManager,
       final ExternalServiceCredentialsGenerator svr2CredentialGenerator,
       final ExternalServiceCredentialsGenerator svr3CredentialGenerator,
@@ -73,7 +70,6 @@ public class RegistrationLockVerificationManager {
       final PushNotificationManager pushNotificationManager,
       final RateLimiters rateLimiters) {
     this.accounts = accounts;
-    this.clientPresenceManager = clientPresenceManager;
     this.pubSubClientEventManager = pubSubClientEventManager;
     this.svr2CredentialGenerator = svr2CredentialGenerator;
     this.svr3CredentialGenerator = svr3CredentialGenerator;
@@ -165,7 +161,6 @@ public class RegistrationLockVerificationManager {
       }
 
       final List<Byte> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
-      clientPresenceManager.disconnectAllPresences(updatedAccount.getUuid(), deviceIds);
       pubSubClientEventManager.requestDisconnection(updatedAccount.getUuid(), deviceIds);
 
       try {

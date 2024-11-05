@@ -59,7 +59,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -96,7 +95,6 @@ class LinkedDeviceRefreshRequirementProviderTest {
       .build();
 
   private AccountsManager accountsManager;
-  private ClientPresenceManager clientPresenceManager;
   private PubSubClientEventManager pubSubClientEventManager;
 
   private LinkedDeviceRefreshRequirementProvider provider;
@@ -104,13 +102,12 @@ class LinkedDeviceRefreshRequirementProviderTest {
   @BeforeEach
   void setup() {
     accountsManager = mock(AccountsManager.class);
-    clientPresenceManager = mock(ClientPresenceManager.class);
     pubSubClientEventManager = mock(PubSubClientEventManager.class);
 
     provider = new LinkedDeviceRefreshRequirementProvider(accountsManager);
 
     final WebsocketRefreshRequestEventListener listener =
-        new WebsocketRefreshRequestEventListener(clientPresenceManager, pubSubClientEventManager, provider);
+        new WebsocketRefreshRequestEventListener(pubSubClientEventManager, provider);
 
     when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
@@ -121,9 +118,6 @@ class LinkedDeviceRefreshRequirementProviderTest {
         .forEach(deviceId -> account.addDevice(DevicesHelper.createDevice((byte) deviceId)));
 
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
-
-    account.getDevices()
-        .forEach(device -> when(clientPresenceManager.isPresent(uuid, device.getId())).thenReturn(true));
   }
 
   @Test
@@ -144,10 +138,6 @@ class LinkedDeviceRefreshRequirementProviderTest {
     assertEquals(200, response.getStatus());
 
     assertEquals(initialDeviceCount + addedDeviceNames.size(), account.getDevices().size());
-
-    verify(clientPresenceManager).disconnectPresence(account.getUuid(), (byte) 1);
-    verify(clientPresenceManager).disconnectPresence(account.getUuid(), (byte) 2);
-    verify(clientPresenceManager).disconnectPresence(account.getUuid(), (byte) 3);
 
     verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of((byte) 1));
     verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of((byte) 2));
@@ -180,11 +170,10 @@ class LinkedDeviceRefreshRequirementProviderTest {
     assertEquals(200, response.getStatus());
 
     initialDeviceIds.forEach(deviceId -> {
-      verify(clientPresenceManager).disconnectPresence(account.getUuid(), deviceId);
       verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of(deviceId));
     });
 
-    verifyNoMoreInteractions(clientPresenceManager);
+    verifyNoMoreInteractions(pubSubClientEventManager);
   }
 
   @Test

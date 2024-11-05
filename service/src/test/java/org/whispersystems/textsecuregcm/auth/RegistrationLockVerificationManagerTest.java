@@ -33,7 +33,6 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -47,7 +46,6 @@ import org.whispersystems.textsecuregcm.util.Pair;
 class RegistrationLockVerificationManagerTest {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
-  private final ClientPresenceManager clientPresenceManager = mock(ClientPresenceManager.class);
   private final PubSubClientEventManager pubSubClientEventManager = mock(PubSubClientEventManager.class);
   private final ExternalServiceCredentialsGenerator svr2CredentialsGenerator = mock(
       ExternalServiceCredentialsGenerator.class);
@@ -58,7 +56,7 @@ class RegistrationLockVerificationManagerTest {
   private static PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-      accountsManager, clientPresenceManager, pubSubClientEventManager, svr2CredentialsGenerator, svr3CredentialsGenerator,
+      accountsManager, pubSubClientEventManager, svr2CredentialsGenerator, svr3CredentialsGenerator,
       registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
 
   private final RateLimiter pinLimiter = mock(RateLimiter.class);
@@ -109,7 +107,6 @@ class RegistrationLockVerificationManagerTest {
             } else {
               verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
             }
-            verify(clientPresenceManager).disconnectAllPresences(account.getUuid(), List.of(Device.PRIMARY_ID));
             verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of(Device.PRIMARY_ID));
             try {
               verify(pushNotificationManager).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
@@ -133,7 +130,6 @@ class RegistrationLockVerificationManagerTest {
             verify(pushNotificationManager, never()).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
           } catch (NotPushRegisteredException npre) {}
           verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
-          verify(clientPresenceManager, never()).disconnectAllPresences(account.getUuid(), List.of(Device.PRIMARY_ID));
           verify(pubSubClientEventManager, never()).requestDisconnection(any(), any());
         });
       }
@@ -172,7 +168,6 @@ class RegistrationLockVerificationManagerTest {
 
     verify(account, never()).lockAuthTokenHash();
     verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
-    verify(clientPresenceManager, never()).disconnectAllPresences(account.getUuid(), List.of(Device.PRIMARY_ID));
     verify(pubSubClientEventManager, never()).requestDisconnection(any(), any());
   }
 

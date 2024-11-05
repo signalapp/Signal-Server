@@ -9,7 +9,6 @@ import org.glassfish.jersey.server.monitoring.ApplicationEvent;
 import org.glassfish.jersey.server.monitoring.ApplicationEventListener;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
@@ -21,11 +20,9 @@ public class WebsocketRefreshApplicationEventListener implements ApplicationEven
   private final WebsocketRefreshRequestEventListener websocketRefreshRequestEventListener;
 
   public WebsocketRefreshApplicationEventListener(final AccountsManager accountsManager,
-      final ClientPresenceManager clientPresenceManager,
       final PubSubClientEventManager pubSubClientEventManager) {
 
-    this.websocketRefreshRequestEventListener = new WebsocketRefreshRequestEventListener(clientPresenceManager,
-        pubSubClientEventManager,
+    this.websocketRefreshRequestEventListener = new WebsocketRefreshRequestEventListener(pubSubClientEventManager,
         new LinkedDeviceRefreshRequirementProvider(accountsManager),
         new PhoneNumberChangeRefreshRequirementProvider(accountsManager));
   }

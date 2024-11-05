@@ -68,19 +68,17 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
-import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
+import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
-import org.whispersystems.textsecuregcm.redis.RedisOperation;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
@@ -126,12 +124,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final ProfilesManager profilesManager;
   private final SecureStorageClient secureStorageClient;
   private final SecureValueRecovery2Client secureValueRecovery2Client;
-  private final ClientPresenceManager clientPresenceManager;
   private final PubSubClientEventManager pubSubClientEventManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final ClientPublicKeysManager clientPublicKeysManager;
   private final Executor accountLockExecutor;
-  private final Executor clientPresenceExecutor;
   private final Clock clock;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
@@ -206,12 +202,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final ProfilesManager profilesManager,
       final SecureStorageClient secureStorageClient,
       final SecureValueRecovery2Client secureValueRecovery2Client,
-      final ClientPresenceManager clientPresenceManager,
       final PubSubClientEventManager pubSubClientEventManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final ClientPublicKeysManager clientPublicKeysManager,
       final Executor accountLockExecutor,
-      final Executor clientPresenceExecutor,
       final Clock clock,
       final byte[] linkDeviceSecret,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
@@ -225,12 +219,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.profilesManager = profilesManager;
     this.secureStorageClient = secureStorageClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
-    this.clientPresenceManager = clientPresenceManager;
     this.pubSubClientEventManager = pubSubClientEventManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.clientPublicKeysManager = clientPublicKeysManager;
     this.accountLockExecutor = accountLockExecutor;
-    this.clientPresenceExecutor = clientPresenceExecutor;
     this.clock = requireNonNull(clock);
     this.dynamicConfigurationManager = dynamicConfigurationManager;
 
@@ -333,10 +325,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                   keysManager.deleteSingleUsePreKeys(pni),
                   messagesManager.clear(aci),
                   profilesManager.deleteAll(aci))
-              .thenRunAsync(() -> {
-                clientPresenceManager.disconnectAllPresencesForUuid(aci);
-                pubSubClientEventManager.requestDisconnection(aci);
-              }, clientPresenceExecutor)
+              .thenCompose(ignored -> pubSubClientEventManager.requestDisconnection(aci))
               .thenCompose(ignored -> accounts.reclaimAccount(e.getExistingAccount(), account, additionalWriteItems))
               .thenCompose(ignored -> {
                 // We should have cleared all messages before overwriting the old account, but more may have arrived
@@ -598,12 +587,11 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
           return CompletableFuture.failedFuture(throwable);
         })
-        .whenCompleteAsync((ignored, throwable) -> {
+        .whenComplete((ignored, throwable) -> {
           if (throwable == null) {
-            RedisOperation.unchecked(() -> clientPresenceManager.disconnectPresence(accountIdentifier, deviceId));
             pubSubClientEventManager.requestDisconnection(accountIdentifier, List.of(deviceId));
           }
-        }, clientPresenceExecutor);
+        });
   }
 
   public Account changeNumber(final Account account,
@@ -1248,11 +1236,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             registrationRecoveryPasswordsManager.removeForNumber(account.getNumber()))
         .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
         .thenCompose(ignored -> redisDeleteAsync(account))
-        .thenRunAsync(() -> {
-          RedisOperation.unchecked(() -> clientPresenceManager.disconnectAllPresencesForUuid(account.getUuid()));
-
-          pubSubClientEventManager.requestDisconnection(account.getUuid());
-        }, clientPresenceExecutor);
+        .thenRun(() -> pubSubClientEventManager.requestDisconnection(account.getUuid()));
   }
 
   private String getAccountMapKey(String key) {

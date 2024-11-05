@@ -43,7 +43,6 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -74,7 +73,6 @@ public class AccountCreationDeletionIntegrationTest {
   private static final Clock CLOCK = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
   private ExecutorService accountLockExecutor;
-  private ExecutorService clientPresenceExecutor;
 
   private AccountsManager accountsManager;
   private KeysManager keysManager;
@@ -112,7 +110,6 @@ public class AccountCreationDeletionIntegrationTest {
         DynamoDbExtensionSchema.Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
     accountLockExecutor = Executors.newSingleThreadExecutor();
-    clientPresenceExecutor = Executors.newSingleThreadExecutor();
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK.tableName());
@@ -141,6 +138,10 @@ public class AccountCreationDeletionIntegrationTest {
     when(registrationRecoveryPasswordsManager.removeForNumber(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
+    final PubSubClientEventManager pubSubClientEventManager = mock(PubSubClientEventManager.class);
+    when(pubSubClientEventManager.requestDisconnection(any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -152,12 +153,10 @@ public class AccountCreationDeletionIntegrationTest {
         profilesManager,
         secureStorageClient,
         svr2Client,
-        mock(ClientPresenceManager.class),
-        mock(PubSubClientEventManager.class),
+        pubSubClientEventManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         accountLockExecutor,
-        clientPresenceExecutor,
         CLOCK,
         "link-device-secret".getBytes(StandardCharsets.UTF_8),
         dynamicConfigurationManager);
@@ -166,13 +165,9 @@ public class AccountCreationDeletionIntegrationTest {
   @AfterEach
   void tearDown() throws InterruptedException {
     accountLockExecutor.shutdown();
-    clientPresenceExecutor.shutdown();
 
     //noinspection ResultOfMethodCallIgnored
     accountLockExecutor.awaitTermination(1, TimeUnit.SECONDS);
-
-    //noinspection ResultOfMethodCallIgnored
-    clientPresenceExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @CartesianTest

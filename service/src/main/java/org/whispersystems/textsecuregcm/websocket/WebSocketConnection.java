@@ -46,7 +46,6 @@ import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientEventListener;
-import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -64,7 +63,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
-public class WebSocketConnection implements MessageAvailabilityListener, DisplacedPresenceListener, ClientEventListener {
+public class WebSocketConnection implements MessageAvailabilityListener, ClientEventListener {
 
   private static final DistributionSummary messageTime = Metrics.summary(
       name(MessageController.class, "messageDeliveryDuration"));
@@ -514,23 +513,10 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   }
 
   @Override
-  public void handleDisplacement(final boolean connectedElsewhere) {
-    final Tags tags = Tags.of(
-        UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)),
-        Tag.of(PRESENCE_MANAGER_TAG, "legacy")
-    );
-
-    Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
-  }
-
-  @Override
   public void handleConnectionDisplaced(final boolean connectedElsewhere) {
     final Tags tags = Tags.of(
         UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)),
-        Tag.of(PRESENCE_MANAGER_TAG, "pubsub")
-    );
+        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)));
 
     Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
 

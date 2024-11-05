@@ -48,7 +48,6 @@ import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -134,11 +133,9 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(ProfilesManager.class),
           mock(SecureStorageClient.class),
           mock(SecureValueRecovery2Client.class),
-          mock(ClientPresenceManager.class),
           mock(PubSubClientEventManager.class),
           mock(RegistrationRecoveryPasswordsManager.class),
           mock(ClientPublicKeysManager.class),
-          mock(Executor.class),
           mock(Executor.class),
           mock(Clock.class),
           "link-device-secret".getBytes(StandardCharsets.UTF_8),

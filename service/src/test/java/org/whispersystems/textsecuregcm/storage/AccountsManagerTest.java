@@ -79,7 +79,6 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -118,7 +117,6 @@ class AccountsManagerTest {
   private KeysManager keysManager;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
-  private ClientPresenceManager clientPresenceManager;
   private PubSubClientEventManager pubSubClientEventManager;
   private ClientPublicKeysManager clientPublicKeysManager;
 
@@ -154,19 +152,9 @@ class AccountsManagerTest {
     keysManager = mock(KeysManager.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
-    clientPresenceManager = mock(ClientPresenceManager.class);
     pubSubClientEventManager = mock(PubSubClientEventManager.class);
     clientPublicKeysManager = mock(ClientPublicKeysManager.class);
     dynamicConfiguration = mock(DynamicConfiguration.class);
-
-    final Executor clientPresenceExecutor = mock(Executor.class);
-
-    doAnswer(invocation -> {
-      final Runnable runnable = invocation.getArgument(0);
-      runnable.run();
-
-      return null;
-    }).when(clientPresenceExecutor).execute(any());
 
     //noinspection unchecked
     asyncCommands = mock(RedisAsyncCommands.class);
@@ -250,6 +238,9 @@ class AccountsManagerTest {
         .stringAsyncCommands(asyncClusterCommands)
         .build();
 
+    when(pubSubClientEventManager.requestDisconnection(any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -261,12 +252,10 @@ class AccountsManagerTest {
         profilesManager,
         storageClient,
         svr2Client,
-        clientPresenceManager,
         pubSubClientEventManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         mock(Executor.class),
-        clientPresenceExecutor,
         CLOCK,
         LINK_DEVICE_SECRET,
         dynamicConfigurationManager);
@@ -802,7 +791,6 @@ class AccountsManagerTest {
     verify(keysManager, times(2)).deleteSingleUsePreKeys(account.getUuid(), linkedDevice.getId());
     verify(keysManager).buildWriteItemsForRemovedDevice(account.getUuid(), account.getPhoneNumberIdentifier(), linkedDevice.getId());
     verify(clientPublicKeysManager).buildTransactWriteItemForDeletion(account.getUuid(), linkedDevice.getId());
-    verify(clientPresenceManager).disconnectPresence(account.getUuid(), linkedDevice.getId());
     verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of(linkedDevice.getId()));
   }
 
@@ -821,7 +809,6 @@ class AccountsManagerTest {
     assertDoesNotThrow(account::getPrimaryDevice);
     verify(messagesManager, never()).clear(any(), anyByte());
     verify(keysManager, never()).deleteSingleUsePreKeys(any(), anyByte());
-    verify(clientPresenceManager, never()).disconnectPresence(any(), anyByte());
     verify(pubSubClientEventManager, never()).requestDisconnection(any(), any());
   }
 
@@ -891,7 +878,6 @@ class AccountsManagerTest {
     verify(keysManager, times(2)).deleteSingleUsePreKeys(phoneNumberIdentifiersByE164.get(e164));
     verify(messagesManager, times(2)).clear(existingUuid);
     verify(profilesManager, times(2)).deleteAll(existingUuid);
-    verify(clientPresenceManager).disconnectAllPresencesForUuid(existingUuid);
     verify(pubSubClientEventManager).requestDisconnection(existingUuid);
   }
 

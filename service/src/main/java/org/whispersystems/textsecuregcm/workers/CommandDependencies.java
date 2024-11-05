@@ -35,7 +35,6 @@ import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSam
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.push.APNSender;
-import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -77,7 +76,6 @@ record CommandDependencies(
     ReportMessageManager reportMessageManager,
     MessagesCache messagesCache,
     MessagesManager messagesManager,
-    ClientPresenceManager clientPresenceManager,
     KeysManager keysManager,
     APNSender apnSender,
     FcmSender fcmSender,
@@ -118,8 +116,6 @@ record CommandDependencies(
     FaultTolerantRedisClient pubsubClient =
         configuration.getRedisPubSubConfiguration().build("pubsub", redisClientResourcesBuilder.build());
 
-    ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(name, "recurringJob-%d")).threads(2).build();
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         environment.lifecycle().executorService("messageDelivery").minThreads(4).maxThreads(4).build());
     ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle()
@@ -132,8 +128,6 @@ record CommandDependencies(
         .executorService(name(name, "storageService-%d")).maxThreads(8).minThreads(8).build();
     ExecutorService accountLockExecutor = environment.lifecycle()
         .executorService(name(name, "accountLock-%d")).minThreads(8).maxThreads(8).build();
-    ExecutorService clientPresenceExecutor = environment.lifecycle()
-        .executorService(name(name, "clientPresence-%d")).minThreads(8).maxThreads(8).build();
     ExecutorService remoteStorageHttpExecutor = environment.lifecycle()
         .executorService(name(name, "remoteStorage-%d"))
         .minThreads(0).maxThreads(Integer.MAX_VALUE).workQueue(new SynchronousQueue<>())
@@ -215,8 +209,6 @@ record CommandDependencies(
         configuration.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
-    ClientPresenceManager clientPresenceManager = new ClientPresenceManager(clientPresenceCluster,
-        recurringJobExecutor, keyspaceNotificationDispatchExecutor);
     PubSubClientEventManager pubSubClientEventManager = new PubSubClientEventManager(messagesCluster, clientEventExecutor);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, keyspaceNotificationDispatchExecutor,
         messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC(), dynamicConfigurationManager);
@@ -234,8 +226,8 @@ record CommandDependencies(
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, clientPresenceManager, pubSubClientEventManager,
-        registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, clientPresenceExecutor,
+        secureStorageClient, secureValueRecovery2Client, pubSubClientEventManager,
+        registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor,
         clock, configuration.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(configuration.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
@@ -272,7 +264,6 @@ record CommandDependencies(
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(messagesCache);
-    environment.lifecycle().manage(clientPresenceManager);
     environment.lifecycle().manage(pubSubClientEventManager);
     environment.lifecycle().manage(new ManagedAwsCrt());
 
@@ -282,7 +273,6 @@ record CommandDependencies(
         reportMessageManager,
         messagesCache,
         messagesManager,
-        clientPresenceManager,
         keys,
         apnSender,
         fcmSender,
