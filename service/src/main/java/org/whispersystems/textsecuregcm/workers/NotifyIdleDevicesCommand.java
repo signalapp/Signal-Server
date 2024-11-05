@@ -42,10 +42,10 @@ public class NotifyIdleDevicesCommand extends AbstractSinglePassCrawlAccountsCom
   static final Duration MAX_SHORT_IDLE_DURATION = Duration.ofDays(30);
 
   @VisibleForTesting
-  static final Duration MIN_LONG_IDLE_DURATION = Duration.ofDays(30);
+  static final Duration MIN_LONG_IDLE_DURATION = Duration.ofDays(60);
 
   @VisibleForTesting
-  static final Duration MAX_LONG_IDLE_DURATION = Duration.ofDays(45);
+  static final Duration MAX_LONG_IDLE_DURATION = Duration.ofDays(75);
 
   private static final Counter DEVICE_INSPECTED_COUNTER =
       Metrics.counter(MetricsUtil.name(NotifyIdleDevicesCommand.class, "deviceInspected"));
