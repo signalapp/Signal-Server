@@ -27,7 +27,7 @@ message NewMessageAvailableEvent {
  * Indicates that a client has connected to the presence system.
  */
 message ClientConnectedEvent {
-  bytes connection_id = 1;
+  bytes server_id = 1;
 }
 
 /**

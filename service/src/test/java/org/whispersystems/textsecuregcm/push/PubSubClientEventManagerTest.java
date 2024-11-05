@@ -175,13 +175,12 @@ class PubSubClientEventManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
 
-    final UUID connectionId =
-        localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter())
-            .toCompletableFuture().join();
+    localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter())
+        .toCompletableFuture().join();
 
     assertTrue(localPresenceManager.handleNewMessageAvailable(accountIdentifier, deviceId).toCompletableFuture().join());
 
-    localPresenceManager.handleClientDisconnected(accountIdentifier, deviceId, connectionId).toCompletableFuture().join();
+    localPresenceManager.handleClientDisconnected(accountIdentifier, deviceId).toCompletableFuture().join();
 
     assertFalse(localPresenceManager.handleNewMessageAvailable(accountIdentifier, deviceId).toCompletableFuture().join());
   }
@@ -194,15 +193,14 @@ class PubSubClientEventManagerTest {
     assertFalse(localPresenceManager.isLocallyPresent(accountIdentifier, deviceId));
     assertFalse(remotePresenceManager.isLocallyPresent(accountIdentifier, deviceId));
 
-    final UUID connectionId =
-        localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter())
-            .toCompletableFuture()
-            .join();
+    localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter())
+        .toCompletableFuture()
+        .join();
 
     assertTrue(localPresenceManager.isLocallyPresent(accountIdentifier, deviceId));
     assertFalse(remotePresenceManager.isLocallyPresent(accountIdentifier, deviceId));
 
-    localPresenceManager.handleClientDisconnected(accountIdentifier, deviceId, connectionId)
+    localPresenceManager.handleClientDisconnected(accountIdentifier, deviceId)
         .toCompletableFuture()
         .join();
 

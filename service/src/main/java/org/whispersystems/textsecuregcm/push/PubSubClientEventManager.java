@@ -45,13 +45,22 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
   private final FaultTolerantRedisClusterClient clusterClient;
   private final Executor listenerEventExecutor;
 
+  private final UUID serverId = UUID.randomUUID();
+
+  private final byte[] CLIENT_CONNECTED_EVENT_BYTES = ClientEvent.newBuilder()
+      .setClientConnected(ClientConnectedEvent.newBuilder()
+          .setServerId(UUIDUtil.toByteString(serverId))
+          .build())
+      .build()
+      .toByteArray();
+
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
   static final String EXPERIMENT_NAME = "pubSubPresenceManager";
 
   @Nullable
   private FaultTolerantPubSubClusterConnection<byte[], byte[]> pubSubConnection;
 
-  private final Map<AccountAndDeviceIdentifier, ConnectionIdAndListener> listenersByAccountAndDeviceIdentifier;
+  private final Map<AccountAndDeviceIdentifier, ClientEventListener> listenersByAccountAndDeviceIdentifier;
 
   private static final byte[] NEW_MESSAGE_EVENT_BYTES = ClientEvent.newBuilder()
       .setNewMessageAvailable(NewMessageAvailableEvent.getDefaultInstance())
@@ -78,9 +87,6 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
   private static final Logger logger = LoggerFactory.getLogger(PubSubClientEventManager.class);
 
   private record AccountAndDeviceIdentifier(UUID accountIdentifier, byte deviceId) {
-  }
-
-  private record ConnectionIdAndListener(UUID connectionIdentifier, ClientEventListener listener) {
   }
 
   public PubSubClientEventManager(final FaultTolerantRedisClusterClient clusterClient,
@@ -154,15 +160,15 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     // as adding/removing listeners from the map and helps us avoid races and conflicts. Note that the enqueued
     // operation is asynchronous; we're not blocking on it in the scope of the `compute` operation.
     listenersByAccountAndDeviceIdentifier.compute(new AccountAndDeviceIdentifier(accountIdentifier, deviceId),
-        (key, existingIdAndListener) -> {
+        (key, existingListener) -> {
           subscribeFuture.set(pubSubConnection.withPubSubConnection(connection ->
               connection.async().ssubscribe(clientPresenceKey)));
 
-          if (existingIdAndListener != null) {
-            displacedListener.set(existingIdAndListener.listener());
+          if (existingListener != null) {
+            displacedListener.set(existingListener);
           }
 
-          return new ConnectionIdAndListener(connectionId, listener);
+          return listener;
         });
 
     if (displacedListener.get() != null) {
@@ -171,7 +177,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
 
     return subscribeFuture.get()
         .thenCompose(ignored -> clusterClient.withBinaryCluster(connection -> connection.async()
-            .spublish(clientPresenceKey, buildClientConnectedMessage(connectionId))))
+            .spublish(clientPresenceKey, CLIENT_CONNECTED_EVENT_BYTES)))
         .handle((ignored, throwable) -> {
           if (throwable != null) {
             PUBLISH_CLIENT_CONNECTION_EVENT_ERROR_COUNTER.increment();
@@ -182,17 +188,15 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
   }
 
   /**
-   * Removes the "presence" for the given device. The presence is removed if and only if the given connection ID matches
-   * the connection ID for the currently-registered presence. Callers should call this method when they have closed or
-   * intend to close the client's underlying network connection.
+   * Removes the "presence" for the given device. Callers should call this method when they have been notified that
+   * the client's underlying network connection has been closed.
    *
    * @param accountIdentifier the identifier of the account for the disconnected device
    * @param deviceId the ID of the disconnected device within the given account
-   * @param connectionId the ID of the connection that has been closed (or will be closed)
    *
    * @return a future that completes when the presence has been removed
    */
-  public CompletionStage<Void> handleClientDisconnected(final UUID accountIdentifier, final byte deviceId, final UUID connectionId) {
+  public CompletionStage<Void> handleClientDisconnected(final UUID accountIdentifier, final byte deviceId) {
     if (pubSubConnection == null) {
       throw new IllegalStateException("Presence manager not started");
     }
@@ -214,35 +218,19 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     // as adding/removing listeners from the map and helps us avoid races and conflicts. Note that the enqueued
     // operation is asynchronous; we're not blocking on it in the scope of the `compute` operation.
     listenersByAccountAndDeviceIdentifier.compute(new AccountAndDeviceIdentifier(accountIdentifier, deviceId),
-        (ignored, existingIdAndListener) -> {
-          final ConnectionIdAndListener remainingIdAndListener;
+        (ignored, existingListener) -> {
+          unsubscribeFuture.set(pubSubConnection.withPubSubConnection(connection ->
+                  connection.async().sunsubscribe(getClientPresenceKey(accountIdentifier, deviceId)))
+              .thenRun(Util.NOOP));
 
-          if (existingIdAndListener == null) {
-            remainingIdAndListener = null;
-          } else if (existingIdAndListener.connectionIdentifier().equals(connectionId)) {
-            remainingIdAndListener = null;
-          } else {
-            remainingIdAndListener = existingIdAndListener;
-          }
-
-          if (remainingIdAndListener == null) {
-            // Only unsubscribe if there's no listener remaining
-            unsubscribeFuture.set(pubSubConnection.withPubSubConnection(connection ->
-                    connection.async().sunsubscribe(getClientPresenceKey(accountIdentifier, deviceId)))
-                .thenRun(Util.NOOP));
-          } else {
-            unsubscribeFuture.set(CompletableFuture.completedFuture(null));
-          }
-
-          return remainingIdAndListener;
+          return null;
         });
 
-    return unsubscribeFuture.get()
-            .whenComplete((ignored, throwable) -> {
-              if (throwable != null) {
-                UNSUBSCRIBE_ERROR_COUNTER.increment();
-              }
-            });
+    return unsubscribeFuture.get().whenComplete((ignored, throwable) -> {
+      if (throwable != null) {
+        UNSUBSCRIBE_ERROR_COUNTER.increment();
+      }
+    });
   }
 
   /**
@@ -355,39 +343,28 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
 
     final AccountAndDeviceIdentifier accountAndDeviceIdentifier = parseClientPresenceKey(shardChannel);
 
-    @Nullable final ConnectionIdAndListener connectionIdAndListener =
+    @Nullable final ClientEventListener listener =
         listenersByAccountAndDeviceIdentifier.get(accountAndDeviceIdentifier);
 
-    if (connectionIdAndListener != null) {
+    if (listener != null) {
       switch (clientEvent.getEventCase()) {
-        case NEW_MESSAGE_AVAILABLE -> connectionIdAndListener.listener().handleNewMessageAvailable();
+        case NEW_MESSAGE_AVAILABLE -> listener.handleNewMessageAvailable();
 
         case CLIENT_CONNECTED -> {
-          final UUID connectionId = UUIDUtil.fromByteString(clientEvent.getClientConnected().getConnectionId());
-
-          if (!connectionIdAndListener.connectionIdentifier().equals(connectionId)) {
-            listenerEventExecutor.execute(() ->
-                    connectionIdAndListener.listener().handleConnectionDisplaced(true));
+          // Only act on new connections to other presence manager instances; we'll learn about displacements in THIS
+          // instance when we update the listener map in `handleClientConnected`
+          if (!this.serverId.equals(UUIDUtil.fromByteString(clientEvent.getClientConnected().getServerId()))) {
+            listenerEventExecutor.execute(() -> listener.handleConnectionDisplaced(true));
           }
         }
 
-        case DISCONNECT_REQUESTED -> listenerEventExecutor.execute(() ->
-                connectionIdAndListener.listener().handleConnectionDisplaced(false));
+        case DISCONNECT_REQUESTED -> listenerEventExecutor.execute(() -> listener.handleConnectionDisplaced(false));
 
         default -> logger.warn("Unexpected client event type: {}", clientEvent.getClass());
       }
     } else {
       MESSAGE_WITHOUT_LISTENER_COUNTER.increment();
     }
-  }
-
-  private static byte[] buildClientConnectedMessage(final UUID connectionId) {
-    return ClientEvent.newBuilder()
-        .setClientConnected(ClientConnectedEvent.newBuilder()
-            .setConnectionId(UUIDUtil.toByteString(connectionId))
-            .build())
-        .build()
-        .toByteArray();
   }
 
   @VisibleForTesting
