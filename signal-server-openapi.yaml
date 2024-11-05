@@ -4700,22 +4700,23 @@ components:
           $ref: '#/components/schemas/WebSocketClient'
     KeyTransparencyDistinguishedKeyResponse:
       required:
-      - distinguishedKeyResponse
+      - serializedResponse
       type: object
       properties:
-        distinguishedKeyResponse:
+        serializedResponse:
           type: string
           description: The serialized `DistinguishedResponse` encoded in standard
             un-padded base64
           format: byte
     KeyTransparencyMonitorResponse:
       required:
-      - monitorResponse
+      - serializedResponse
       type: object
       properties:
-        monitorResponse:
+        serializedResponse:
           type: string
-          description: The monitor response encoded in standard un-padded base64
+          description: The serialized `MonitorResponse` encoded in standard un-padded
+            base64
           format: byte
     AciMonitor:
       required:
