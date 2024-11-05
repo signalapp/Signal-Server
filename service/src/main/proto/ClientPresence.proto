@@ -1,0 +1,38 @@
+/**
+ * Copyright 2024 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+syntax = "proto3";
+
+package org.signal.chat.presence;
+
+option java_package = "org.whispersystems.textsecuregcm.push";
+option java_multiple_files = true;
+
+message ClientEvent {
+  oneof event {
+    NewMessageAvailableEvent new_message_available = 1;
+    ClientConnectedEvent client_connected = 2;
+    DisconnectRequested disconnect_requested = 3;
+  }
+}
+
+/**
+ * Indicates that a new message is available for the client to retrieve.
+ */
+message NewMessageAvailableEvent {
+}
+
+/**
+ * Indicates that a client has connected to the presence system.
+ */
+message ClientConnectedEvent {
+  bytes connection_id = 1;
+}
+
+/**
+ * Indicates that the server has requested that the client disconnect due to
+ * (for example) account lifecycle events.
+ */
+message DisconnectRequested {
+}

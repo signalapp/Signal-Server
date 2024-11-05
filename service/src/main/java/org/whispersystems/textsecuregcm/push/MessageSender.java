@@ -8,9 +8,11 @@ import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 import io.micrometer.core.instrument.Metrics;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import java.util.Objects;
 
 /**
  * A MessageSender sends Signal messages to destination devices. Messages may be "normal" user-to-user messages,
@@ -28,6 +30,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 public class MessageSender {
 
   private final ClientPresenceManager clientPresenceManager;
+  private final PubSubClientEventManager pubSubClientEventManager;
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
 
@@ -35,15 +38,18 @@ public class MessageSender {
   private static final String CHANNEL_TAG_NAME = "channel";
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
   private static final String CLIENT_ONLINE_TAG_NAME = "clientOnline";
+  private static final String PUB_SUB_CLIENT_ONLINE_TAG_NAME = "pubSubClientOnline";
   private static final String URGENT_TAG_NAME = "urgent";
   private static final String STORY_TAG_NAME = "story";
   private static final String SEALED_SENDER_TAG_NAME = "sealedSender";
 
   public MessageSender(final ClientPresenceManager clientPresenceManager,
+      final PubSubClientEventManager pubSubClientEventManager,
       final MessagesManager messagesManager,
       final PushNotificationManager pushNotificationManager) {
 
     this.clientPresenceManager = clientPresenceManager;
+    this.pubSubClientEventManager = pubSubClientEventManager;
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
   }
@@ -88,13 +94,15 @@ public class MessageSender {
       }
     }
 
-    Metrics.counter(SEND_COUNTER_NAME,
-            CHANNEL_TAG_NAME, channel,
-            EPHEMERAL_TAG_NAME, String.valueOf(online),
-            CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent),
-            URGENT_TAG_NAME, String.valueOf(message.getUrgent()),
-            STORY_TAG_NAME, String.valueOf(message.getStory()),
-            SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceServiceId()))
-        .increment();
+    pubSubClientEventManager.handleNewMessageAvailable(account.getIdentifier(IdentityType.ACI), device.getId())
+        .whenComplete((present, throwable) -> Metrics.counter(SEND_COUNTER_NAME,
+                CHANNEL_TAG_NAME, channel,
+                EPHEMERAL_TAG_NAME, String.valueOf(online),
+                CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent),
+                PUB_SUB_CLIENT_ONLINE_TAG_NAME, String.valueOf(Objects.requireNonNullElse(present, false)),
+                URGENT_TAG_NAME, String.valueOf(message.getUrgent()),
+                STORY_TAG_NAME, String.valueOf(message.getStory()),
+                SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceServiceId()))
+            .increment());
   }
 }

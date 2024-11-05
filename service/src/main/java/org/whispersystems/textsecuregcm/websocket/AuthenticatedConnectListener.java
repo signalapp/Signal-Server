@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.websocket;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Tags;
+import java.util.UUID;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -19,6 +20,7 @@ import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.OpenWebSocketCounter;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -47,6 +49,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final PushNotificationManager pushNotificationManager;
   private final PushNotificationScheduler pushNotificationScheduler;
   private final ClientPresenceManager clientPresenceManager;
+  private final PubSubClientEventManager pubSubClientEventManager;
   private final ScheduledExecutorService scheduledExecutorService;
   private final Scheduler messageDeliveryScheduler;
   private final ClientReleaseManager clientReleaseManager;
@@ -55,12 +58,15 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final OpenWebSocketCounter openAuthenticatedWebSocketCounter;
   private final OpenWebSocketCounter openUnauthenticatedWebSocketCounter;
 
+  private transient UUID connectionId;
+
   public AuthenticatedConnectListener(ReceiptSender receiptSender,
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
       PushNotificationScheduler pushNotificationScheduler,
       ClientPresenceManager clientPresenceManager,
+      PubSubClientEventManager pubSubClientEventManager,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
       ClientReleaseManager clientReleaseManager,
@@ -71,6 +77,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.pushNotificationManager = pushNotificationManager;
     this.pushNotificationScheduler = pushNotificationScheduler;
     this.clientPresenceManager = clientPresenceManager;
+    this.pubSubClientEventManager = pubSubClientEventManager;
     this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
@@ -121,6 +128,12 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         // It's preferable to start sending push notifications as soon as possible.
         RedisOperation.unchecked(() -> clientPresenceManager.clearPresence(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection));
 
+        if (connectionId != null) {
+          pubSubClientEventManager.handleClientDisconnected(auth.getAccount().getUuid(),
+              auth.getAuthenticatedDevice().getId(),
+              connectionId);
+        }
+
         // Next, we stop listening for inbound messages. If a message arrives after this call, the websocket connection
         // will not be notified and will not change its state, but that's okay because it has already closed and
         // attempts to deliver mesages via this connection will not succeed.
@@ -147,6 +160,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         // Finally, we register this client's presence, which suppresses push notifications. We do this last because
         // receiving extra push notifications is generally preferable to missing out on a push notification.
         clientPresenceManager.setPresent(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection);
+        pubSubClientEventManager.handleClientConnected(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), null)
+            .thenAccept(connectionId -> this.connectionId = connectionId);
 
         renewPresenceFutureReference.set(scheduledExecutorService.scheduleAtFixedRate(() -> RedisOperation.unchecked(() ->
                 clientPresenceManager.renewPresence(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId())),

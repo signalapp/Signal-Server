@@ -34,6 +34,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -152,6 +153,7 @@ public class AddRemoveDeviceIntegrationTest {
         secureStorageClient,
         svr2Client,
         mock(ClientPresenceManager.class),
+        mock(PubSubClientEventManager.class),
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         accountLockExecutor,

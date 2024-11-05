@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -61,6 +60,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -97,6 +97,7 @@ class LinkedDeviceRefreshRequirementProviderTest {
 
   private AccountsManager accountsManager;
   private ClientPresenceManager clientPresenceManager;
+  private PubSubClientEventManager pubSubClientEventManager;
 
   private LinkedDeviceRefreshRequirementProvider provider;
 
@@ -104,11 +105,12 @@ class LinkedDeviceRefreshRequirementProviderTest {
   void setup() {
     accountsManager = mock(AccountsManager.class);
     clientPresenceManager = mock(ClientPresenceManager.class);
+    pubSubClientEventManager = mock(PubSubClientEventManager.class);
 
     provider = new LinkedDeviceRefreshRequirementProvider(accountsManager);
 
     final WebsocketRefreshRequestEventListener listener =
-        new WebsocketRefreshRequestEventListener(clientPresenceManager, provider);
+        new WebsocketRefreshRequestEventListener(clientPresenceManager, pubSubClientEventManager, provider);
 
     when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
@@ -146,6 +148,10 @@ class LinkedDeviceRefreshRequirementProviderTest {
     verify(clientPresenceManager).disconnectPresence(account.getUuid(), (byte) 1);
     verify(clientPresenceManager).disconnectPresence(account.getUuid(), (byte) 2);
     verify(clientPresenceManager).disconnectPresence(account.getUuid(), (byte) 3);
+
+    verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of((byte) 1));
+    verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of((byte) 2));
+    verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of((byte) 3));
   }
 
   @ParameterizedTest
@@ -173,8 +179,10 @@ class LinkedDeviceRefreshRequirementProviderTest {
 
     assertEquals(200, response.getStatus());
 
-    initialDeviceIds.forEach(deviceId ->
-        verify(clientPresenceManager).disconnectPresence(account.getUuid(), deviceId));
+    initialDeviceIds.forEach(deviceId -> {
+      verify(clientPresenceManager).disconnectPresence(account.getUuid(), deviceId);
+      verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of(deviceId));
+    });
 
     verifyNoMoreInteractions(clientPresenceManager);
   }

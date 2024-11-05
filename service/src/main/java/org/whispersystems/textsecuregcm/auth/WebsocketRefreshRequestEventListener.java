@@ -10,6 +10,7 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.ws.rs.container.ResourceInfo;
 import javax.ws.rs.core.Context;
@@ -19,10 +20,12 @@ import org.glassfish.jersey.server.monitoring.RequestEventListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 
 public class WebsocketRefreshRequestEventListener implements RequestEventListener {
 
   private final ClientPresenceManager clientPresenceManager;
+  private final PubSubClientEventManager pubSubClientEventManager;
   private final WebsocketRefreshRequirementProvider[] providers;
 
   private static final Counter DISPLACED_ACCOUNTS = Metrics.counter(
@@ -35,9 +38,11 @@ public class WebsocketRefreshRequestEventListener implements RequestEventListene
 
   public WebsocketRefreshRequestEventListener(
       final ClientPresenceManager clientPresenceManager,
+      final PubSubClientEventManager pubSubClientEventManager,
       final WebsocketRefreshRequirementProvider... providers) {
 
     this.clientPresenceManager = clientPresenceManager;
+    this.pubSubClientEventManager = pubSubClientEventManager;
     this.providers = providers;
   }
 
@@ -60,6 +65,7 @@ public class WebsocketRefreshRequestEventListener implements RequestEventListene
             try {
               displacedDevices.incrementAndGet();
               clientPresenceManager.disconnectPresence(pair.first(), pair.second());
+              pubSubClientEventManager.requestDisconnection(pair.first(), List.of(pair.second()));
             } catch (final Exception e) {
               logger.error("Could not displace device presence", e);
             }

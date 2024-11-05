@@ -11,6 +11,7 @@ import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.scheduler.Scheduler;
+import java.util.function.Consumer;
 
 public class FaultTolerantPubSubClusterConnection<K, V> extends AbstractFaultTolerantPubSubConnection<K, V, StatefulRedisClusterPubSubConnection<K, V>> {
 
@@ -32,7 +33,7 @@ public class FaultTolerantPubSubClusterConnection<K, V> extends AbstractFaultTol
     this.topologyChangedEventScheduler = topologyChangedEventScheduler;
   }
 
-  public void subscribeToClusterTopologyChangedEvents(final Runnable eventHandler) {
+  public void subscribeToClusterTopologyChangedEvents(final Consumer<ClusterTopologyChangedEvent> eventHandler) {
 
     usePubSubConnection(connection -> connection.getResources().eventBus().get()
         .filter(event -> {
@@ -53,7 +54,7 @@ public class FaultTolerantPubSubClusterConnection<K, V> extends AbstractFaultTol
 
           resubscribeRetry.executeRunnable(() -> {
             try {
-              eventHandler.run();
+              eventHandler.accept((ClusterTopologyChangedEvent) event);
             } catch (final RuntimeException e) {
               logger.warn("Resubscribe for {} failed", getName(), e);
               throw e;

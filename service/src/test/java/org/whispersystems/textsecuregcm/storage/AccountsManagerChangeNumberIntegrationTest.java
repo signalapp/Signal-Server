@@ -37,6 +37,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -67,6 +68,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
   private KeysManager keysManager;
   private ClientPresenceManager clientPresenceManager;
+  private PubSubClientEventManager pubSubClientEventManager;
   private ExecutorService accountLockExecutor;
   private ExecutorService clientPresenceExecutor;
 
@@ -119,6 +121,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
       clientPresenceManager = mock(ClientPresenceManager.class);
+      pubSubClientEventManager = mock(PubSubClientEventManager.class);
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
           new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
@@ -147,6 +150,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           secureStorageClient,
           svr2Client,
           clientPresenceManager,
+          pubSubClientEventManager,
           registrationRecoveryPasswordsManager,
           clientPublicKeysManager,
           accountLockExecutor,
@@ -281,7 +285,8 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
-    verify(clientPresenceManager).disconnectPresence(existingAccountUuid, Device.PRIMARY_ID);
+    verify(clientPresenceManager).disconnectAllPresencesForUuid(existingAccountUuid);
+    verify(pubSubClientEventManager).requestDisconnection(existingAccountUuid);
 
     assertEquals(Optional.of(existingAccountUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondNumber));

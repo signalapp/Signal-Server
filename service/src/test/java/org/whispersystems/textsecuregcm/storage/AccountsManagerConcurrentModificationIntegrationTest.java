@@ -49,6 +49,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
@@ -134,6 +135,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(SecureStorageClient.class),
           mock(SecureValueRecovery2Client.class),
           mock(ClientPresenceManager.class),
+          mock(PubSubClientEventManager.class),
           mock(RegistrationRecoveryPasswordsManager.class),
           mock(ClientPublicKeysManager.class),
           mock(Executor.class),

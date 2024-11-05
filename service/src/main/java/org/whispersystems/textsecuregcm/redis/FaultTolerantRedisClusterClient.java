@@ -202,4 +202,11 @@ public class FaultTolerantRedisClusterClient {
         Schedulers.newSingle(name + "-redisPubSubEvents", true));
   }
 
+  public FaultTolerantPubSubClusterConnection<byte[], byte[]> createBinaryPubSubConnection() {
+    final StatefulRedisClusterPubSubConnection<byte[], byte[]> pubSubConnection = clusterClient.connectPubSub(ByteArrayCodec.INSTANCE);
+    pubSubConnections.add(pubSubConnection);
+
+    return new FaultTolerantPubSubClusterConnection<>(name, pubSubConnection, topologyChangedEventRetry,
+        Schedulers.newSingle(name + "-redisPubSubEvents", true));
+  }
 }

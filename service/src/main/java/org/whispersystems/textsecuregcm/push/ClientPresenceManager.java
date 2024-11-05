@@ -14,6 +14,7 @@ import io.lettuce.core.RedisFuture;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
+import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.micrometer.core.instrument.Counter;
@@ -277,7 +278,7 @@ public class ClientPresenceManager extends RedisClusterPubSubAdapter<String, Str
             .subscribe(getKeyspaceNotificationChannel(presenceKey)));
   }
 
-  private void resubscribeAll() {
+  private void resubscribeAll(final ClusterTopologyChangedEvent event) {
     for (final String presenceKey : displacementListenersByPresenceKey.keySet()) {
       subscribeForRemotePresenceChanges(presenceKey);
     }

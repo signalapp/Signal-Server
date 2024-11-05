@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,7 @@ class MessageSenderTest {
   private MessageProtos.Envelope message;
 
   private ClientPresenceManager clientPresenceManager;
+  private PubSubClientEventManager pubSubClientEventManager;
   private MessagesManager messagesManager;
   private PushNotificationManager pushNotificationManager;
   private MessageSender messageSender;
@@ -54,9 +56,14 @@ class MessageSenderTest {
     message = generateRandomMessage();
 
     clientPresenceManager = mock(ClientPresenceManager.class);
+    pubSubClientEventManager = mock(PubSubClientEventManager.class);
     messagesManager = mock(MessagesManager.class);
     pushNotificationManager = mock(PushNotificationManager.class);
-    messageSender = new MessageSender(clientPresenceManager, messagesManager, pushNotificationManager);
+
+    when(pubSubClientEventManager.handleNewMessageAvailable(any(), anyByte()))
+        .thenReturn(CompletableFuture.completedFuture(true));
+
+    messageSender = new MessageSender(clientPresenceManager, pubSubClientEventManager, messagesManager, pushNotificationManager);
 
     when(account.getUuid()).thenReturn(ACCOUNT_UUID);
     when(device.getId()).thenReturn(DEVICE_ID);

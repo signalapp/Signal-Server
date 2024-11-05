@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import javax.servlet.DispatcherType;
@@ -47,6 +48,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -74,6 +76,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
   private static final AccountAuthenticator AUTHENTICATOR = mock(AccountAuthenticator.class);
   private static final AccountsManager ACCOUNTS_MANAGER = mock(AccountsManager.class);
   private static final ClientPresenceManager CLIENT_PRESENCE = mock(ClientPresenceManager.class);
+  private static final PubSubClientEventManager PUBSUB_CLIENT_PRESENCE = mock(PubSubClientEventManager.class);
 
   private WebSocketClient client;
   private final Account account1 = new Account();
@@ -122,9 +125,9 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
       webSocketEnvironment.jersey().register(new RemoteAddressFilter());
       webSocketEnvironment.jersey()
-          .register(new WebsocketRefreshApplicationEventListener(ACCOUNTS_MANAGER, CLIENT_PRESENCE));
+          .register(new WebsocketRefreshApplicationEventListener(ACCOUNTS_MANAGER, CLIENT_PRESENCE, PUBSUB_CLIENT_PRESENCE));
       environment.jersey()
-          .register(new WebsocketRefreshApplicationEventListener(ACCOUNTS_MANAGER, CLIENT_PRESENCE));
+          .register(new WebsocketRefreshApplicationEventListener(ACCOUNTS_MANAGER, CLIENT_PRESENCE, PUBSUB_CLIENT_PRESENCE));
       webSocketEnvironment.setConnectListener(webSocketSessionContext -> {
       });
 
@@ -215,6 +218,10 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
     verify(CLIENT_PRESENCE, timeout(5000))
         .disconnectPresence(eq(account1.getUuid()), eq(authenticatedDevice.getId()));
     verifyNoMoreInteractions(CLIENT_PRESENCE);
+
+    verify(PUBSUB_CLIENT_PRESENCE, timeout(5000))
+        .requestDisconnection(account1.getUuid(), List.of(authenticatedDevice.getId()));
+    verifyNoMoreInteractions(PUBSUB_CLIENT_PRESENCE);
   }
 
   @Test
@@ -231,6 +238,10 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
     verify(CLIENT_PRESENCE, timeout(5000))
         .disconnectPresence(eq(account1.getUuid()), eq(authenticatedDevice.getId()));
     verifyNoMoreInteractions(CLIENT_PRESENCE);
+
+    verify(PUBSUB_CLIENT_PRESENCE, timeout(5000))
+        .requestDisconnection(account1.getUuid(), List.of(authenticatedDevice.getId()));
+    verifyNoMoreInteractions(PUBSUB_CLIENT_PRESENCE);
   }
 
   @ParameterizedTest

@@ -80,6 +80,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -118,6 +119,7 @@ class AccountsManagerTest {
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
   private ClientPresenceManager clientPresenceManager;
+  private PubSubClientEventManager pubSubClientEventManager;
   private ClientPublicKeysManager clientPublicKeysManager;
 
   private Map<String, UUID> phoneNumberIdentifiersByE164;
@@ -153,6 +155,7 @@ class AccountsManagerTest {
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
     clientPresenceManager = mock(ClientPresenceManager.class);
+    pubSubClientEventManager = mock(PubSubClientEventManager.class);
     clientPublicKeysManager = mock(ClientPublicKeysManager.class);
     dynamicConfiguration = mock(DynamicConfiguration.class);
 
@@ -259,6 +262,7 @@ class AccountsManagerTest {
         storageClient,
         svr2Client,
         clientPresenceManager,
+        pubSubClientEventManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         mock(Executor.class),
@@ -799,6 +803,7 @@ class AccountsManagerTest {
     verify(keysManager).buildWriteItemsForRemovedDevice(account.getUuid(), account.getPhoneNumberIdentifier(), linkedDevice.getId());
     verify(clientPublicKeysManager).buildTransactWriteItemForDeletion(account.getUuid(), linkedDevice.getId());
     verify(clientPresenceManager).disconnectPresence(account.getUuid(), linkedDevice.getId());
+    verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of(linkedDevice.getId()));
   }
 
   @Test
@@ -817,6 +822,7 @@ class AccountsManagerTest {
     verify(messagesManager, never()).clear(any(), anyByte());
     verify(keysManager, never()).deleteSingleUsePreKeys(any(), anyByte());
     verify(clientPresenceManager, never()).disconnectPresence(any(), anyByte());
+    verify(pubSubClientEventManager, never()).requestDisconnection(any(), any());
   }
 
   @Test
@@ -886,6 +892,7 @@ class AccountsManagerTest {
     verify(messagesManager, times(2)).clear(existingUuid);
     verify(profilesManager, times(2)).deleteAll(existingUuid);
     verify(clientPresenceManager).disconnectAllPresencesForUuid(existingUuid);
+    verify(pubSubClientEventManager).requestDisconnection(existingUuid);
   }
 
   @Test

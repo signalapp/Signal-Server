@@ -45,6 +45,7 @@ import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.push.ClientEventListener;
 import org.whispersystems.textsecuregcm.push.DisplacedPresenceListener;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
@@ -63,15 +64,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
-public class WebSocketConnection implements MessageAvailabilityListener, DisplacedPresenceListener {
+public class WebSocketConnection implements MessageAvailabilityListener, DisplacedPresenceListener, ClientEventListener {
 
   private static final DistributionSummary messageTime = Metrics.summary(
       name(MessageController.class, "messageDeliveryDuration"));
   private static final DistributionSummary primaryDeviceMessageTime = Metrics.summary(
       name(MessageController.class, "primaryDeviceMessageDeliveryDuration"));
   private static final Counter sendMessageCounter = Metrics.counter(name(WebSocketConnection.class, "sendMessage"));
-  private static final Counter messageAvailableCounter = Metrics.counter(
-      name(WebSocketConnection.class, "messagesAvailable"));
   private static final Counter messagesPersistedCounter = Metrics.counter(
       name(WebSocketConnection.class, "messagesPersisted"));
   private static final Counter bytesSentCounter = Metrics.counter(name(WebSocketConnection.class, "bytesSent"));
@@ -91,6 +90,9 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       "sendMessages");
   private static final String SEND_MESSAGE_ERROR_COUNTER = MetricsUtil.name(WebSocketConnection.class,
       "sendMessageError");
+  private static final String MESSAGE_AVAILABLE_COUNTER_NAME = name(WebSocketConnection.class, "messagesAvailable");
+
+  private static final String PRESENCE_MANAGER_TAG = "presenceManager";
   private static final String STATUS_CODE_TAG = "status";
   private static final String STATUS_MESSAGE_TAG = "message";
   private static final String ERROR_TYPE_TAG = "errorType";
@@ -468,13 +470,22 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       return false;
     }
 
-    messageAvailableCounter.increment();
+    Metrics.counter(MESSAGE_AVAILABLE_COUNTER_NAME,
+        PRESENCE_MANAGER_TAG, "legacy")
+        .increment();
 
     storedMessageState.compareAndSet(StoredMessageState.EMPTY, StoredMessageState.CACHED_NEW_MESSAGES_AVAILABLE);
 
     processStoredMessages();
 
     return true;
+  }
+
+  @Override
+  public void handleNewMessageAvailable() {
+    Metrics.counter(MESSAGE_AVAILABLE_COUNTER_NAME,
+            PRESENCE_MANAGER_TAG, "pubsub")
+        .increment();
   }
 
   @Override
@@ -497,7 +508,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   public void handleDisplacement(final boolean connectedElsewhere) {
     final Tags tags = Tags.of(
         UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere))
+        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)),
+        Tag.of(PRESENCE_MANAGER_TAG, "legacy")
     );
 
     Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
@@ -520,6 +532,17 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
       client.hardDisconnectQuietly();
     }
+  }
+
+  @Override
+  public void handleConnectionDisplaced(final boolean connectedElsewhere) {
+    final Tags tags = Tags.of(
+        UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
+        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)),
+        Tag.of(PRESENCE_MANAGER_TAG, "pubsub")
+    );
+
+    Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
   }
 
   private record StoredMessageInfo(UUID guid, long serverTimestamp) {

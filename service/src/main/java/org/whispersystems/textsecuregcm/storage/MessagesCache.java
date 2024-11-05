@@ -13,6 +13,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.ZAddArgs;
 import io.lettuce.core.cluster.SlotHash;
+import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.micrometer.core.instrument.Counter;
@@ -247,7 +248,7 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     pubSubConnection.usePubSubConnection(connection -> connection.sync().upstream().commands().unsubscribe());
   }
 
-  private void resubscribeAll() {
+  private void resubscribeAll(final ClusterTopologyChangedEvent event) {
 
     final Set<String> queueNames;
 

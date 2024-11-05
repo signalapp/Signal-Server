@@ -44,6 +44,7 @@ import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -152,6 +153,7 @@ public class AccountCreationDeletionIntegrationTest {
         secureStorageClient,
         svr2Client,
         mock(ClientPresenceManager.class),
+        mock(PubSubClientEventManager.class),
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         accountLockExecutor,

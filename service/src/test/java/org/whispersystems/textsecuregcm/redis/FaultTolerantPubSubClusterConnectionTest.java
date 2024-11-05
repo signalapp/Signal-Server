@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
@@ -46,7 +47,7 @@ class FaultTolerantPubSubClusterConnectionTest {
 
   private TestPublisher<Event> eventPublisher;
 
-  private Runnable resubscribe;
+  private Consumer<ClusterTopologyChangedEvent> resubscribe;
 
   private AtomicInteger resubscribeCounter;
   private CountDownLatch resubscribeFailure;
@@ -93,7 +94,7 @@ class FaultTolerantPubSubClusterConnectionTest {
 
     resubscribeCounter = new AtomicInteger();
 
-    resubscribe = () -> {
+    resubscribe = event -> {
       try {
         resubscribeCounter.incrementAndGet();
         pubSubConnection.sync().nodes((ignored) -> true);
@@ -137,7 +138,7 @@ class FaultTolerantPubSubClusterConnectionTest {
   void testFilterClusterTopologyChangeEvents() throws InterruptedException {
     final CountDownLatch topologyEventLatch = new CountDownLatch(1);
 
-    faultTolerantPubSubConnection.subscribeToClusterTopologyChangedEvents(topologyEventLatch::countDown);
+    faultTolerantPubSubConnection.subscribeToClusterTopologyChangedEvents(event -> topologyEventLatch.countDown());
 
     final RedisClusterNode nodeFromDifferentCluster = mock(RedisClusterNode.class);
 
