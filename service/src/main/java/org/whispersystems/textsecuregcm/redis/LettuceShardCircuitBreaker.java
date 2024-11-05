@@ -23,6 +23,7 @@ import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import java.net.SocketAddress;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -195,9 +196,6 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
 
       logger.trace("Breaker state is {}", breaker.getState());
 
-      // Note: io.lettuce.core.protocol.CommandHandler also supports batches (List/Collection<RedisCommand>),
-      // but we do not use that feature, so we can just check for single commands
-      //
       // There are two types of RedisCommands that are not CompleteableCommand:
       // - io.lettuce.core.protocol.Command
       // - io.lettuce.core.protocol.PristineFallbackCommand
@@ -206,36 +204,55 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
       // to consume responses.
       if (msg instanceof RedisCommand<?, ?, ?> rc && rc instanceof CompleteableCommand<?> command) {
         try {
-          breaker.acquirePermission();
-
-          // state can change in acquirePermission()
-          logger.trace("Breaker is permitted: {}", breaker.getState());
-
-          final long startNanos = System.nanoTime();
-
-          command.onComplete((ignored, throwable) -> {
-            final long durationNanos = System.nanoTime() - startNanos;
-
-            // RedisNoScriptException doesn’t indicate a fault the breaker can protect
-            if (throwable != null && !(throwable instanceof RedisNoScriptException)) {
-              breaker.onError(durationNanos, TimeUnit.NANOSECONDS, throwable);
-              logger.warn("Command completed with error", throwable);
-            } else {
-              breaker.onSuccess(durationNanos, TimeUnit.NANOSECONDS);
-            }
-          });
-
+          instrumentCommand(command);
         } catch (final CallNotPermittedException e) {
           rc.completeExceptionally(e);
           promise.tryFailure(e);
           return;
         }
 
+      } else if (msg instanceof Collection<?> collection &&
+          !collection.isEmpty() &&
+          collection.stream().allMatch(obj -> obj instanceof RedisCommand && obj instanceof CompleteableCommand<?>)) {
+
+        @SuppressWarnings("unchecked") final Collection<RedisCommand<?, ?, ?>> commandCollection =
+            (Collection<RedisCommand<?, ?, ?>>) collection;
+
+        try {
+          // If we have a collection of commands, we only acquire a single permit for the whole batch (since there's
+          // only a single write promise to fail). We choose a single command from the collection to sample for failure.
+          instrumentCommand((CompleteableCommand<?>) commandCollection.iterator().next());
+        } catch (final CallNotPermittedException e) {
+          commandCollection.forEach(redisCommand -> redisCommand.completeExceptionally(e));
+          promise.tryFailure(e);
+          return;
+        }
       } else {
         logger.warn("Unexpected msg type: {}", msg.getClass());
       }
 
       super.write(ctx, msg, promise);
+    }
+
+    private void instrumentCommand(final CompleteableCommand<?> command) throws CallNotPermittedException {
+      breaker.acquirePermission();
+
+      // state can change in acquirePermission()
+      logger.trace("Breaker is permitted: {}", breaker.getState());
+
+      final long startNanos = System.nanoTime();
+
+      command.onComplete((ignored, throwable) -> {
+        final long durationNanos = System.nanoTime() - startNanos;
+
+        // RedisNoScriptException doesn’t indicate a fault the breaker can protect
+        if (throwable != null && !(throwable instanceof RedisNoScriptException)) {
+          breaker.onError(durationNanos, TimeUnit.NANOSECONDS, throwable);
+          logger.warn("Command completed with error", throwable);
+        } else {
+          breaker.onSuccess(durationNanos, TimeUnit.NANOSECONDS);
+        }
+      });
     }
   }
 }

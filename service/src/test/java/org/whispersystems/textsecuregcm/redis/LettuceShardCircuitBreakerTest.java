@@ -44,6 +44,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
@@ -103,8 +104,8 @@ class LettuceShardCircuitBreakerTest {
   }
 
   @ParameterizedTest
-  @MethodSource
-  void testHandlerWriteBreakerClosed(@Nullable final Throwable t) throws Exception {
+  @ValueSource(booleans = {true, false})
+  void testHandlerWriteBreakerClosed(final boolean completeExceptionally) throws Exception {
     final CircuitBreaker breaker = mock(CircuitBreaker.class);
     channelCircuitBreakerHandler.breaker = breaker;
 
@@ -116,9 +117,11 @@ class LettuceShardCircuitBreakerTest {
 
     verify(breaker).acquirePermission();
 
-    if (t != null) {
-      command.completeExceptionally(t);
-      verify(breaker).onError(anyLong(), eq(TimeUnit.NANOSECONDS), eq(t));
+    if (completeExceptionally) {
+      final Throwable throwable = new IOException("timeout");
+
+      command.completeExceptionally(throwable);
+      verify(breaker).onError(anyLong(), eq(TimeUnit.NANOSECONDS), eq(throwable));
     } else {
       command.complete("PONG");
       verify(breaker).onSuccess(anyLong(), eq(TimeUnit.NANOSECONDS));
@@ -128,12 +131,36 @@ class LettuceShardCircuitBreakerTest {
     verify(channelHandlerContext).write(command, channelPromise);
   }
 
-  static List<Throwable> testHandlerWriteBreakerClosed() {
-    final List<Throwable> errors = new ArrayList<>();
-    errors.add(null);
-    errors.add(new IOException("timeout"));
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testHandlerWriteBatchBreakerClosed(final boolean completeExceptionally) throws Exception {
+    final CircuitBreaker breaker = mock(CircuitBreaker.class);
+    channelCircuitBreakerHandler.breaker = breaker;
 
-    return errors;
+    final AsyncCommand<String, String, String> firstCommand = new AsyncCommand<>(
+        new Command<>(CommandType.PING, new StatusOutput<>(StringCodec.ASCII)));
+    final AsyncCommand<String, String, String> secondCommand = new AsyncCommand<>(
+        new Command<>(CommandType.PING, new StatusOutput<>(StringCodec.ASCII)));
+    final ChannelHandlerContext channelHandlerContext = mock(ChannelHandlerContext.class);
+    final ChannelPromise channelPromise = mock(ChannelPromise.class);
+    channelCircuitBreakerHandler.write(channelHandlerContext, List.of(firstCommand, secondCommand), channelPromise);
+
+    verify(breaker).acquirePermission();
+
+    if (completeExceptionally) {
+      final Throwable throwable = new IOException("timeout");
+
+      firstCommand.completeExceptionally(throwable);
+      secondCommand.completeExceptionally(throwable);
+      verify(breaker).onError(anyLong(), eq(TimeUnit.NANOSECONDS), eq(throwable));
+    } else {
+      firstCommand.complete("PONG");
+      secondCommand.complete("PONG");
+      verify(breaker).onSuccess(anyLong(), eq(TimeUnit.NANOSECONDS));
+    }
+
+    // write should always be forwarded when the breaker is closed
+    verify(channelHandlerContext).write(List.of(firstCommand, secondCommand), channelPromise);
   }
 
   @Test
@@ -155,4 +182,24 @@ class LettuceShardCircuitBreakerTest {
     verifyNoInteractions(channelHandlerContext);
   }
 
+  @Test
+  void testHandlerWriteBatchBreakerOpen() throws Exception {
+    final CircuitBreaker breaker = mock(CircuitBreaker.class);
+    channelCircuitBreakerHandler.breaker = breaker;
+
+    final CallNotPermittedException callNotPermittedException = mock(CallNotPermittedException.class);
+    doThrow(callNotPermittedException).when(breaker).acquirePermission();
+
+    @SuppressWarnings("unchecked") final AsyncCommand<String, String, String> firstCommand = mock(AsyncCommand.class);
+    @SuppressWarnings("unchecked") final AsyncCommand<String, String, String> secondCommand = mock(AsyncCommand.class);
+    final ChannelHandlerContext channelHandlerContext = mock(ChannelHandlerContext.class);
+    final ChannelPromise channelPromise = mock(ChannelPromise.class);
+    channelCircuitBreakerHandler.write(channelHandlerContext, List.of(firstCommand, secondCommand), channelPromise);
+
+    verify(firstCommand).completeExceptionally(callNotPermittedException);
+    verify(secondCommand).completeExceptionally(callNotPermittedException);
+    verify(channelPromise).tryFailure(callNotPermittedException);
+
+    verifyNoInteractions(channelHandlerContext);
+  }
 }
