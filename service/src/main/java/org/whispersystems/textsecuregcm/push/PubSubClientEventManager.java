@@ -15,9 +15,21 @@ import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubClusterConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -25,14 +37,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
-import javax.annotation.Nullable;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The pub/sub-based client presence manager uses the Redis 7 sharded pub/sub system to notify connected clients that
@@ -53,9 +57,6 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
           .build())
       .build()
       .toByteArray();
-
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
-  static final String EXPERIMENT_NAME = "pubSubPresenceManager";
 
   @Nullable
   private FaultTolerantPubSubClusterConnection<byte[], byte[]> pubSubConnection;
@@ -90,12 +91,10 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
   }
 
   public PubSubClientEventManager(final FaultTolerantRedisClusterClient clusterClient,
-                                  final Executor listenerEventExecutor,
-                                  final ExperimentEnrollmentManager experimentEnrollmentManager) {
+                                  final Executor listenerEventExecutor) {
 
     this.clusterClient = clusterClient;
     this.listenerEventExecutor = listenerEventExecutor;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
 
     this.listenersByAccountAndDeviceIdentifier =
         Metrics.gaugeMapSize(LISTENER_GAUGE_NAME, Tags.empty(), new ConcurrentHashMap<>());
@@ -138,10 +137,6 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
   public CompletionStage<UUID> handleClientConnected(final UUID accountIdentifier, final byte deviceId, final ClientEventListener listener) {
     if (pubSubConnection == null) {
       throw new IllegalStateException("Presence manager not started");
-    }
-
-    if (!experimentEnrollmentManager.isEnrolled(accountIdentifier, EXPERIMENT_NAME)) {
-      return CompletableFuture.completedFuture(UUID.randomUUID());
     }
 
     final UUID connectionId = UUID.randomUUID();
@@ -201,10 +196,6 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
       throw new IllegalStateException("Presence manager not started");
     }
 
-    if (!experimentEnrollmentManager.isEnrolled(accountIdentifier, EXPERIMENT_NAME)) {
-      return CompletableFuture.completedFuture(null);
-    }
-
     final AtomicReference<CompletionStage<Void>> unsubscribeFuture = new AtomicReference<>();
 
     // Note that we're relying on some specific implementation details of `ConcurrentHashMap#compute(...)`. In
@@ -246,10 +237,6 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
   public CompletionStage<Boolean> handleNewMessageAvailable(final UUID accountIdentifier, final byte deviceId) {
     if (pubSubConnection == null) {
       throw new IllegalStateException("Presence manager not started");
-    }
-
-    if (!experimentEnrollmentManager.isEnrolled(accountIdentifier, EXPERIMENT_NAME)) {
-      return CompletableFuture.completedFuture(false);
     }
 
     return pubSubConnection.withPubSubConnection(connection ->

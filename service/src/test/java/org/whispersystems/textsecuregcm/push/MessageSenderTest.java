@@ -7,55 +7,41 @@ package org.whispersystems.textsecuregcm.push;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 
 class MessageSenderTest {
 
-  private Account account;
-  private Device device;
-  private MessageProtos.Envelope message;
-
-  private ClientPresenceManager clientPresenceManager;
   private PubSubClientEventManager pubSubClientEventManager;
   private MessagesManager messagesManager;
   private PushNotificationManager pushNotificationManager;
   private MessageSender messageSender;
 
-  private static final UUID ACCOUNT_UUID = UUID.randomUUID();
-  private static final byte DEVICE_ID = 1;
-
   @BeforeEach
   void setUp() {
-
-    account = mock(Account.class);
-    device = mock(Device.class);
-    message = generateRandomMessage();
-
-    clientPresenceManager = mock(ClientPresenceManager.class);
     pubSubClientEventManager = mock(PubSubClientEventManager.class);
     messagesManager = mock(MessagesManager.class);
     pushNotificationManager = mock(PushNotificationManager.class);
@@ -63,109 +49,85 @@ class MessageSenderTest {
     when(pubSubClientEventManager.handleNewMessageAvailable(any(), anyByte()))
         .thenReturn(CompletableFuture.completedFuture(true));
 
-    messageSender = new MessageSender(clientPresenceManager, pubSubClientEventManager, messagesManager, pushNotificationManager);
-
-    when(account.getUuid()).thenReturn(ACCOUNT_UUID);
-    when(device.getId()).thenReturn(DEVICE_ID);
+    messageSender = new MessageSender(pubSubClientEventManager, messagesManager, pushNotificationManager);
   }
 
-  @Test
-  void testSendOnlineMessageClientPresent() throws Exception {
-    when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(true);
-    when(device.getGcmId()).thenReturn("gcm-id");
+  @CartesianTest
+  void sendMessage(@CartesianTest.Values(booleans = {true, false}) final boolean clientPresent,
+      @CartesianTest.Values(booleans = {true, false}) final boolean onlineMessage,
+      @CartesianTest.Values(booleans = {true, false}) final boolean hasPushToken) throws NotPushRegisteredException {
 
-    messageSender.sendMessage(account, device, message, true);
+    final boolean expectPushNotificationAttempt = !clientPresent && !onlineMessage;
 
-    ArgumentCaptor<MessageProtos.Envelope> envelopeArgumentCaptor = ArgumentCaptor.forClass(
-        MessageProtos.Envelope.class);
+    final UUID accountIdentifier = UUID.randomUUID();
+    final byte deviceId = Device.PRIMARY_ID;
 
-    verify(messagesManager).insert(any(), anyByte(), envelopeArgumentCaptor.capture());
-    verify(messagesManager, never()).removeRecipientViewFromMrmData(anyByte(), any(MessageProtos.Envelope.class));
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+    final MessageProtos.Envelope message = generateRandomMessage();
 
-    assertTrue(envelopeArgumentCaptor.getValue().getEphemeral());
+    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(device.getId()).thenReturn(deviceId);
 
-    verifyNoInteractions(pushNotificationManager);
+    if (hasPushToken) {
+      when(device.getApnId()).thenReturn("apns-token");
+    } else {
+      doThrow(NotPushRegisteredException.class)
+          .when(pushNotificationManager).sendNewMessageNotification(any(), anyByte(), anyBoolean());
+    }
+
+    when(pubSubClientEventManager.handleNewMessageAvailable(accountIdentifier, deviceId))
+        .thenReturn(CompletableFuture.completedFuture(clientPresent));
+
+    assertDoesNotThrow(() -> messageSender.sendMessage(account, device, message, onlineMessage).join());
+
+    final MessageProtos.Envelope expectedMessage = onlineMessage
+        ? message.toBuilder().setEphemeral(true).build()
+        : message.toBuilder().build();
+
+    verify(messagesManager).insert(accountIdentifier, deviceId, expectedMessage);
+
+    if (expectPushNotificationAttempt) {
+      verify(pushNotificationManager).sendNewMessageNotification(account, deviceId, expectedMessage.getUrgent());
+    } else {
+      verifyNoInteractions(pushNotificationManager);
+    }
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testSendOnlineMessageClientNotPresent(final boolean hasSharedMrmKey) throws Exception {
+  @MethodSource
+  void getDeliveryChannelName(final Device device, final String expectedChannelName) {
+    assertEquals(expectedChannelName, MessageSender.getDeliveryChannelName(device));
+  }
 
-    when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
-    when(device.getGcmId()).thenReturn("gcm-id");
+  private static List<Arguments> getDeliveryChannelName() {
+    final List<Arguments> arguments = new ArrayList<>();
 
-    if (hasSharedMrmKey) {
-      messageSender.sendMessage(account, device,
-          message.toBuilder().setSharedMrmKey(ByteString.copyFromUtf8("sharedMrmKey")).build(), true);
-    } else {
-      messageSender.sendMessage(account, device, message, true);
+    {
+      final Device apnDevice = mock(Device.class);
+      when(apnDevice.getApnId()).thenReturn("apns-token");
+
+      arguments.add(Arguments.of(apnDevice, "apn"));
     }
 
-    verify(messagesManager, never()).insert(any(), anyByte(), any());
-    verify(messagesManager).removeRecipientViewFromMrmData(anyByte(), any(MessageProtos.Envelope.class));
+    {
+      final Device fcmDevice = mock(Device.class);
+      when(fcmDevice.getGcmId()).thenReturn("fcm-token");
 
-    verifyNoInteractions(pushNotificationManager);
-  }
+      arguments.add(Arguments.of(fcmDevice, "gcm"));
+    }
 
-  @Test
-  void testSendMessageClientPresent() throws Exception {
-    when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(true);
-    when(device.getGcmId()).thenReturn("gcm-id");
+    {
+      final Device fetchesMessagesDevice = mock(Device.class);
+      when(fetchesMessagesDevice.getFetchesMessages()).thenReturn(true);
 
-    messageSender.sendMessage(account, device, message, false);
+      arguments.add(Arguments.of(fetchesMessagesDevice, "websocket"));
+    }
 
-    final ArgumentCaptor<MessageProtos.Envelope> envelopeArgumentCaptor = ArgumentCaptor.forClass(
-        MessageProtos.Envelope.class);
+    arguments.add(Arguments.of(mock(Device.class), "none"));
 
-    verify(messagesManager).insert(eq(ACCOUNT_UUID), eq(DEVICE_ID), envelopeArgumentCaptor.capture());
-
-    assertFalse(envelopeArgumentCaptor.getValue().getEphemeral());
-    assertEquals(message, envelopeArgumentCaptor.getValue());
-    verifyNoInteractions(pushNotificationManager);
-  }
-
-  @Test
-  void testSendMessageGcmClientNotPresent() throws Exception {
-    when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
-    when(device.getGcmId()).thenReturn("gcm-id");
-
-    messageSender.sendMessage(account, device, message, false);
-
-    verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
-    verify(pushNotificationManager).sendNewMessageNotification(account, device.getId(), message.getUrgent());
-  }
-
-  @Test
-  void testSendMessageApnClientNotPresent() throws Exception {
-    when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
-    when(device.getApnId()).thenReturn("apn-id");
-
-    messageSender.sendMessage(account, device, message, false);
-
-    verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
-    verify(pushNotificationManager).sendNewMessageNotification(account, device.getId(), message.getUrgent());
-  }
-
-  @Test
-  void testSendMessageFetchClientNotPresent() throws Exception {
-    when(clientPresenceManager.isPresent(ACCOUNT_UUID, DEVICE_ID)).thenReturn(false);
-    when(device.getFetchesMessages()).thenReturn(true);
-
-    doThrow(NotPushRegisteredException.class)
-        .when(pushNotificationManager).sendNewMessageNotification(account, DEVICE_ID, message.getUrgent());
-
-    assertDoesNotThrow(() -> messageSender.sendMessage(account, device, message, false));
-    verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
-  }
-
-  @Test
-  void testSendMessageNoChannel() {
-    when(device.getGcmId()).thenReturn(null);
-    when(device.getApnId()).thenReturn(null);
-    when(device.getFetchesMessages()).thenReturn(false);
-
-    assertDoesNotThrow(() -> messageSender.sendMessage(account, device, message, false));
-    verify(messagesManager).insert(ACCOUNT_UUID, DEVICE_ID, message);
+    return arguments;
   }
 
   private MessageProtos.Envelope generateRandomMessage() {

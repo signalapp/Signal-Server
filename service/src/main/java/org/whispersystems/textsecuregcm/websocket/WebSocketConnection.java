@@ -513,6 +513,17 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
     );
 
     Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
+  }
+
+  @Override
+  public void handleConnectionDisplaced(final boolean connectedElsewhere) {
+    final Tags tags = Tags.of(
+        UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
+        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)),
+        Tag.of(PRESENCE_MANAGER_TAG, "pubsub")
+    );
+
+    Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
 
     final int code;
     final String message;
@@ -532,17 +543,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
 
       client.hardDisconnectQuietly();
     }
-  }
-
-  @Override
-  public void handleConnectionDisplaced(final boolean connectedElsewhere) {
-    final Tags tags = Tags.of(
-        UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)),
-        Tag.of(PRESENCE_MANAGER_TAG, "pubsub")
-    );
-
-    Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
   }
 
   private record StoredMessageInfo(UUID guid, long serverTimestamp) {

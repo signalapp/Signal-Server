@@ -33,7 +33,6 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -69,11 +68,8 @@ class PubSubClientEventManagerTest {
 
   @BeforeEach
   void setUp() {
-    final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
-    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), any())).thenReturn(true);
-
-    localPresenceManager = new PubSubClientEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutor, experimentEnrollmentManager);
-    remotePresenceManager = new PubSubClientEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutor, experimentEnrollmentManager);
+    localPresenceManager = new PubSubClientEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutor);
+    remotePresenceManager = new PubSubClientEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutor);
 
     localPresenceManager.start();
     remotePresenceManager.start();
@@ -264,9 +260,6 @@ class PubSubClientEventManagerTest {
 
   @Test
   void resubscribe() {
-    final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
-    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), any())).thenReturn(true);
-
     @SuppressWarnings("unchecked") final RedisClusterPubSubCommands<byte[], byte[]> pubSubCommands =
         mock(RedisClusterPubSubCommands.class);
 
@@ -280,8 +273,7 @@ class PubSubClientEventManagerTest {
         .binaryPubSubAsyncCommands(pubSubAsyncCommands)
         .build();
 
-    final PubSubClientEventManager presenceManager =
-        new PubSubClientEventManager(clusterClient, Runnable::run, experimentEnrollmentManager);
+    final PubSubClientEventManager presenceManager = new PubSubClientEventManager(clusterClient, Runnable::run);
 
     presenceManager.start();
 

@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ClientPresenceManager;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.websocket.auth.ReadOnly;
 import org.whispersystems.websocket.session.WebSocketSession;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
@@ -34,14 +35,14 @@ public class KeepAliveController {
 
   private final Logger logger = LoggerFactory.getLogger(KeepAliveController.class);
 
-  private final ClientPresenceManager clientPresenceManager;
+  private final PubSubClientEventManager pubSubClientEventManager;
 
   private static final String CLOSED_CONNECTION_AGE_DISTRIBUTION_NAME = name(KeepAliveController.class,
       "closedConnectionAge");
 
 
-  public KeepAliveController(final ClientPresenceManager clientPresenceManager) {
-    this.clientPresenceManager = clientPresenceManager;
+  public KeepAliveController(final PubSubClientEventManager pubSubClientEventManager) {
+    this.pubSubClientEventManager = pubSubClientEventManager;
   }
 
   @GET
@@ -49,7 +50,7 @@ public class KeepAliveController {
       @WebSocketSession WebSocketSessionContext context) {
 
     maybeAuth.ifPresent(auth -> {
-      if (!clientPresenceManager.isLocallyPresent(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId())) {
+      if (!pubSubClientEventManager.isLocallyPresent(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId())) {
 
         final Duration age = Duration.between(context.getClient().getCreated(), Instant.now());
 
