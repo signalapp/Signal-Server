@@ -156,9 +156,6 @@ dynamoDbTables:
 cacheCluster: # Redis server configuration for cache cluster
   type: local
 
-clientPresenceCluster: # Redis server configuration for client presence cluster
-  type: local
-
 pubsub: # Redis server configuration for pubsub cluster
   type: local
 

@@ -451,8 +451,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FaultTolerantRedisClusterClient messagesCluster =
         config.getMessageCacheConfiguration().getRedisClusterConfiguration()
             .build("messages", sharedClientResources.mutate());
-    FaultTolerantRedisClusterClient clientPresenceCluster = config.getClientPresenceClusterConfiguration()
-        .build("client_presence", sharedClientResources.mutate());
     FaultTolerantRedisClusterClient pushSchedulerCluster = config.getPushSchedulerCluster().build("push_scheduler",
         sharedClientResources.mutate());
     FaultTolerantRedisClusterClient rateLimitersCluster = config.getRateLimitersCluster().build("rate_limiters",
