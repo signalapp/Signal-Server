@@ -15,10 +15,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
@@ -37,8 +34,10 @@ import javax.ws.rs.ServerErrorException;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import org.signal.keytransparency.client.AciMonitorRequest;
+import org.signal.keytransparency.client.E164MonitorRequest;
 import org.signal.keytransparency.client.E164SearchRequest;
-import org.signal.keytransparency.client.MonitorKey;
+import org.signal.keytransparency.client.UsernameHashMonitorRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -60,12 +59,6 @@ public class KeyTransparencyController {
   private static final Logger LOGGER = LoggerFactory.getLogger(KeyTransparencyController.class);
   @VisibleForTesting
   static final Duration KEY_TRANSPARENCY_RPC_TIMEOUT = Duration.ofSeconds(15);
-  @VisibleForTesting
-  static final byte USERNAME_PREFIX = (byte) 'u';
-  @VisibleForTesting
-  static final byte E164_PREFIX = (byte) 'n';
-  @VisibleForTesting
-  static final byte ACI_PREFIX = (byte) 'a';
   private final KeyTransparencyServiceClient keyTransparencyServiceClient;
 
   public KeyTransparencyController(
@@ -139,9 +132,10 @@ public class KeyTransparencyController {
           identifiers. Enforced unauthenticated endpoint.
           """
   )
-  @ApiResponse(responseCode = "200", description = "All search keys exist in the log", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "200", description = "All identifiers exist in the log", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "400", description = "Invalid request. See response for any available details.")
-  @ApiResponse(responseCode = "404", description = "At least one search key lookup did not find the key")
+  @ApiResponse(responseCode = "403", description = "One or more of the provided commitment indexes did not match")
+  @ApiResponse(responseCode = "404", description = "At least one identifier was not found")
   @ApiResponse(responseCode = "429", description = "Rate-limited")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
   @POST
@@ -156,26 +150,34 @@ public class KeyTransparencyController {
     requireNotAuthenticated(authenticatedAccount);
 
     try {
-      final List<MonitorKey> monitorKeys = new ArrayList<>(List.of(
-          createMonitorKey(getFullSearchKeyByteString(ACI_PREFIX, request.aci().value().toCompactByteArray()),
-              request.aci().positions(),
-              ByteString.copyFrom(request.aci().commitmentIndex()))
-      ));
+      final AciMonitorRequest aciMonitorRequest = AciMonitorRequest.newBuilder()
+          .setAci(ByteString.copyFrom(request.aci().value().toCompactByteArray()))
+          .addAllEntries(request.aci().positions())
+          .setCommitmentIndex(ByteString.copyFrom(request.aci().commitmentIndex()))
+          .build();
 
-      request.usernameHash().ifPresent(usernameHash ->
-          monitorKeys.add(createMonitorKey(getFullSearchKeyByteString(USERNAME_PREFIX, usernameHash.value()),
-              usernameHash.positions(), ByteString.copyFrom(usernameHash.commitmentIndex()))));
+      final Optional<UsernameHashMonitorRequest> usernameHashMonitorRequest = request.usernameHash().map(usernameHash ->
+          UsernameHashMonitorRequest.newBuilder()
+              .setUsernameHash(ByteString.copyFrom(usernameHash.value()))
+              .addAllEntries(usernameHash.positions())
+              .setCommitmentIndex(ByteString.copyFrom(usernameHash.commitmentIndex()))
+              .build());
 
-      request.e164().ifPresent(e164 ->
-          monitorKeys.add(
-              createMonitorKey(getFullSearchKeyByteString(E164_PREFIX, e164.value().getBytes(StandardCharsets.UTF_8)),
-                  e164.positions(), ByteString.copyFrom(e164.commitmentIndex()))));
+      final Optional<E164MonitorRequest> e164MonitorRequest = request.e164().map(e164 ->
+          E164MonitorRequest.newBuilder()
+              .setE164(e164.value())
+              .addAllEntries(e164.positions())
+              .setCommitmentIndex(ByteString.copyFrom(e164.commitmentIndex()))
+              .build());
 
       return new KeyTransparencyMonitorResponse(keyTransparencyServiceClient.monitor(
-          monitorKeys,
+          aciMonitorRequest,
+          usernameHashMonitorRequest,
+          e164MonitorRequest,
           request.lastNonDistinguishedTreeHeadSize(),
           request.lastDistinguishedTreeHeadSize(),
           KEY_TRANSPARENCY_RPC_TIMEOUT).join());
+
     } catch (final CancellationException exception) {
       LOGGER.error("Unexpected cancellation from key transparency service", exception);
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, exception);
@@ -242,28 +244,10 @@ public class KeyTransparencyController {
     throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, unwrapped);
   }
 
-  private static MonitorKey createMonitorKey(final ByteString fullSearchKey, final List<Long> positions,
-      final ByteString commitmentIndex) {
-    return MonitorKey.newBuilder()
-        .setSearchKey(fullSearchKey)
-        .addAllEntries(positions)
-        .setCommitmentIndex(commitmentIndex)
-        .build();
-  }
-
   private void requireNotAuthenticated(final Optional<AuthenticatedDevice> authenticatedAccount) {
     if (authenticatedAccount.isPresent()) {
       throw new BadRequestException("Endpoint requires unauthenticated access");
     }
   }
 
-  @VisibleForTesting
-  static ByteString getFullSearchKeyByteString(final byte prefix, final byte[] searchKeyBytes) {
-    final ByteBuffer fullSearchKeyBuffer = ByteBuffer.allocate(searchKeyBytes.length + 1);
-    fullSearchKeyBuffer.put(prefix);
-    fullSearchKeyBuffer.put(searchKeyBytes);
-    fullSearchKeyBuffer.flip();
-
-    return ByteString.copyFrom(fullSearchKeyBuffer.array());
-  }
 }

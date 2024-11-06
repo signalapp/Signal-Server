@@ -34,7 +34,7 @@ service KeyTransparencyQueryService {
    */
   rpc Search(SearchRequest) returns (SearchResponse) {}
   /**
-   * An endpoint that allows users to monitor a set of identifiers by returning proof that the log continues to be
+   * An endpoint that allows users to monitor a group of identifiers by returning proof that the log continues to be
    * constructed correctly in later entries for those identifiers.
    */
   rpc Monitor(MonitorRequest) returns (MonitorResponse) {}
@@ -141,7 +141,7 @@ message DistinguishedRequest {
 
 /**
  * DistinguishedResponse contains the tree head and search proof for the most
- * recent `distinguished` key in the log. 
+ * recent `distinguished` key in the log.
  */
 message DistinguishedResponse {
   /**
@@ -286,46 +286,34 @@ message PrefixSearchResult {
   uint32 counter = 2;
 }
 
-message MonitorKey {
-  /**
-   * The key to search for in the log tree.
-   */
-  bytes search_key = 1;
-  /**
-   * A list of log tree positions maintained by a client for the identifier being monitored.
-   * Each position is in the direct path to a key version and corresponds to a tree head
-   * that has been verified to contain that version or greater.
-   * The key transparency server uses this list to compute which log entries to return
-   * in the corresponding MonitorProof.
-   */
+message MonitorRequest {
+  AciMonitorRequest aci = 1;
+  optional UsernameHashMonitorRequest username_hash = 2;
+  optional E164MonitorRequest e164 = 3;
+  ConsistencyParameters consistency = 4;
+}
+
+message AciMonitorRequest {
+  bytes aci = 1;
   repeated uint64 entries = 2;
-  /**
-   * The commitment index for the identifier. This is derived from vrf_proof in
-   * the SearchResponse.
-   */
   bytes commitment_index = 3;
 }
 
+message UsernameHashMonitorRequest {
+  bytes username_hash = 1;
+  repeated uint64 entries = 2;
+  bytes commitment_index = 3;
+}
 
-message MonitorRequest {
-  /**
-   * TODO: Remove this protobuf field in the KT server
-   */
-  repeated MonitorKey owned_keys = 1;
-  /**
-   * The list of identifiers that the client would like to monitor.
-   * All identifiers *must* belong to the same user.
-   */
-  repeated MonitorKey contact_keys = 2;
-  /**
-   * The tree head size(s) to prove consistency against.
-   */
-  ConsistencyParameters consistency = 3;
+message E164MonitorRequest {
+  string e164 = 1;
+  repeated uint64 entries = 2;
+  bytes commitment_index = 3;
 }
 
 message MonitorProof {
   /**
-   * Generated based on the monitored entries provided in MonitorKey.entries. Each ProofStep
+   * Generated based on the monitored entry provided in MonitorRequest.entries. Each ProofStep
    * corresponds to a log tree entry that exists in the search path to each monitored entry
    * and that came *after* that monitored entry. It proves that the log tree has been constructed
    * correctly at that later entry. This list also includes any remaining entries
@@ -342,17 +330,22 @@ message MonitorResponse {
    */
   FullTreeHead tree_head = 1;
   /**
-   * TODO: Remove this protobuf field in the KT server
+   * A proof that the MonitorRequest's ACI continues to be constructed correctly in later entries of the log tree.
    */
-  repeated MonitorProof owned_proofs = 2;
+  MonitorProof aci = 2;
   /**
-   * A list of proofs, one for each identifier in MonitorRequest.contact_keys, each proving that the given identifier
-   * continues to be constructed correctly in later entries of the log tree.
+   * A proof that the username hash continues to be constructed correctly in later entries of the log tree.
+   * Will be absent if the request did not include a UsernameHashMonitorRequest.
    */
-  repeated MonitorProof contact_proofs = 3;
+  optional MonitorProof username_hash = 3;
+  /**
+   * A proof that the e164 continues to be constructed correctly in later entries of the log tree.
+   * Will be absent if the request did not include a E164MonitorRequest.
+   */
+  optional MonitorProof e164 = 4;
   /**
    * A batch inclusion proof that the log entries involved in the binary search for each of the entries
-   * being monitored in MonitorKey.entries are included in the current log tree.
+   * being monitored in the request are included in the current log tree.
    */
-  repeated bytes inclusion = 4;
+  repeated bytes inclusion = 5;
 }

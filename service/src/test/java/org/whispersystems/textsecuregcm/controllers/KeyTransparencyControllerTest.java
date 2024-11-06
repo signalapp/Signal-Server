@@ -18,8 +18,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.ACI_PREFIX;
-import static org.whispersystems.textsecuregcm.controllers.KeyTransparencyController.getFullSearchKeyByteString;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.net.HttpHeaders;
@@ -122,18 +120,6 @@ public class KeyTransparencyControllerTest {
     reset(rateLimiters,
         searchRatelimiter,
         monitorRatelimiter);
-  }
-
-  @Test
-  void getFullSearchKey() {
-    final byte[] charBytes = new byte[]{ACI_PREFIX};
-    final byte[] aci = ACI.toCompactByteArray();
-
-    final byte[] expectedFullSearchKey = new byte[aci.length + 1];
-    System.arraycopy(charBytes, 0, expectedFullSearchKey, 0, charBytes.length);
-    System.arraycopy(aci, 0, expectedFullSearchKey, charBytes.length, aci.length);
-
-    assertArrayEquals(expectedFullSearchKey, getFullSearchKeyByteString(ACI_PREFIX, aci).toByteArray());
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -309,7 +295,7 @@ public class KeyTransparencyControllerTest {
 
   @Test
   void monitorSuccess() {
-    when(keyTransparencyServiceClient.monitor(any(), anyLong(), anyLong(), any()))
+    when(keyTransparencyServiceClient.monitor(any(), any(), any(), anyLong(), anyLong(), any()))
         .thenReturn(CompletableFuture.completedFuture(TestRandomUtil.nextBytes(16)));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -328,7 +314,7 @@ public class KeyTransparencyControllerTest {
       assertNotNull(keyTransparencyMonitorResponse.serializedResponse());
 
       verify(keyTransparencyServiceClient, times(1)).monitor(
-          any(), eq(3L), eq(4L), eq(KeyTransparencyController.KEY_TRANSPARENCY_RPC_TIMEOUT));
+          any(), any(), any(), eq(3L), eq(4L), eq(KeyTransparencyController.KEY_TRANSPARENCY_RPC_TIMEOUT));
     }
   }
 
@@ -351,7 +337,7 @@ public class KeyTransparencyControllerTest {
   @ParameterizedTest
   @MethodSource
   void monitorGrpcErrors(final Status grpcStatus, final int httpStatus) {
-    when(keyTransparencyServiceClient.monitor(any(), anyLong(), anyLong(), any()))
+    when(keyTransparencyServiceClient.monitor(any(), any(), any(), anyLong(), anyLong(), any()))
         .thenReturn(CompletableFuture.failedFuture(new CompletionException(new StatusRuntimeException(grpcStatus))));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -363,7 +349,7 @@ public class KeyTransparencyControllerTest {
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(3L), COMMITMENT_INDEX),
                 Optional.empty(), Optional.empty(), 3L, 4L))))) {
       assertEquals(httpStatus, response.getStatus());
-      verify(keyTransparencyServiceClient, times(1)).monitor(any(), anyLong(), anyLong(), any());
+      verify(keyTransparencyServiceClient, times(1)).monitor(any(), any(), any(), anyLong(), anyLong(), any());
     }
   }
 

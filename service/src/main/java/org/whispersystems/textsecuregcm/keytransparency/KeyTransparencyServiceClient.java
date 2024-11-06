@@ -19,18 +19,19 @@ import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import org.signal.keytransparency.client.AciMonitorRequest;
 import org.signal.keytransparency.client.ConsistencyParameters;
 import org.signal.keytransparency.client.DistinguishedRequest;
+import org.signal.keytransparency.client.E164MonitorRequest;
 import org.signal.keytransparency.client.E164SearchRequest;
 import org.signal.keytransparency.client.KeyTransparencyQueryServiceGrpc;
-import org.signal.keytransparency.client.MonitorKey;
 import org.signal.keytransparency.client.MonitorRequest;
 import org.signal.keytransparency.client.SearchRequest;
+import org.signal.keytransparency.client.UsernameHashMonitorRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -138,19 +139,22 @@ public class KeyTransparencyServiceClient implements Managed {
         .thenApply(AbstractMessageLite::toByteArray);
   }
 
-  public CompletableFuture<byte[]> monitor(final List<MonitorKey> monitorKeys,
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  public CompletableFuture<byte[]> monitor(final AciMonitorRequest aciMonitorRequest,
+      final Optional<UsernameHashMonitorRequest> usernameHashMonitorRequest,
+      final Optional<E164MonitorRequest> e164MonitorRequest,
       final long lastTreeHeadSize,
       final long distinguishedTreeHeadSize,
       final Duration timeout) {
     final MonitorRequest.Builder monitorRequestBuilder = MonitorRequest.newBuilder()
-        .addAllContactKeys(monitorKeys);
+        .setAci(aciMonitorRequest)
+        .setConsistency(ConsistencyParameters.newBuilder()
+            .setLast(lastTreeHeadSize)
+            .setDistinguished(distinguishedTreeHeadSize)
+            .build());
 
-    final ConsistencyParameters consistency = ConsistencyParameters.newBuilder()
-        .setLast(lastTreeHeadSize)
-        .setDistinguished(distinguishedTreeHeadSize)
-        .build();
-
-    monitorRequestBuilder.setConsistency(consistency);
+    usernameHashMonitorRequest.ifPresent(monitorRequestBuilder::setUsernameHash);
+    e164MonitorRequest.ifPresent(monitorRequestBuilder::setE164);
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .monitor(monitorRequestBuilder.build()), callbackExecutor)
