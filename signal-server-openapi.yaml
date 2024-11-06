@@ -1964,15 +1964,17 @@ paths:
         required: true
       responses:
         "200":
-          description: All search keys exist in the log
+          description: All identifiers exist in the log
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/KeyTransparencyMonitorResponse'
         "400":
           description: Invalid request. See response for any available details.
+        "403":
+          description: One or more of the provided commitment indexes did not match
         "404":
-          description: At least one search key lookup did not find the key
+          description: At least one identifier was not found
         "429":
           description: Rate-limited
         "422":
