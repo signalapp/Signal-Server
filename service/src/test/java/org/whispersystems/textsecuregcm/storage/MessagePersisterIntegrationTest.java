@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -53,6 +55,7 @@ class MessagePersisterIntegrationTest {
   private ExecutorService messageDeletionExecutorService;
   private MessagesCache messagesCache;
   private MessagesManager messagesManager;
+  private PubSubClientEventManager pubSubClientEventManager;
   private MessagePersister messagePersister;
   private Account account;
 
@@ -82,8 +85,10 @@ class MessagePersisterIntegrationTest {
         messageDeliveryScheduler, messageDeletionExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
         messageDeletionExecutorService);
+    pubSubClientEventManager = mock(PubSubClientEventManager.class);
+
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        dynamicConfigurationManager, PERSIST_DELAY, 1);
+        pubSubClientEventManager, dynamicConfigurationManager, PERSIST_DELAY, 1);
 
     account = mock(Account.class);
 
@@ -178,6 +183,8 @@ class MessagePersisterIntegrationTest {
               .toList();
 
       assertEquals(expectedMessages, persistedMessages);
+
+      verify(pubSubClientEventManager).handleMessagesPersisted(account.getUuid(), Device.PRIMARY_ID);
     });
   }
 

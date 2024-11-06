@@ -46,6 +46,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import reactor.core.scheduler.Scheduler;
@@ -66,6 +67,7 @@ class MessagePersisterTest {
   private MessagePersister messagePersister;
   private AccountsManager accountsManager;
   private MessagesManager messagesManager;
+  private PubSubClientEventManager pubSubClientEventManager;
   private Account destinationAccount;
 
   private static final UUID DESTINATION_ACCOUNT_UUID = UUID.randomUUID();
@@ -100,7 +102,8 @@ class MessagePersisterTest {
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService,
         messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
-    messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
+    pubSubClientEventManager = mock(PubSubClientEventManager.class);
+    messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager, pubSubClientEventManager,
         dynamicConfigurationManager, PERSIST_DELAY, 1);
 
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
@@ -154,6 +157,8 @@ class MessagePersisterTest {
     verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), eq(DESTINATION_ACCOUNT_UUID),
         eq(DESTINATION_DEVICE));
     assertEquals(messageCount, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
+
+    verify(pubSubClientEventManager).handleMessagesPersisted(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID);
   }
 
   @Test
@@ -223,6 +228,8 @@ class MessagePersisterTest {
     assertEquals(List.of(queueName),
         messagesCache.getQueuesToPersist(SlotHash.getSlot(queueName),
             Instant.now().plus(messagePersister.getPersistDelay()), 1));
+
+    verify(pubSubClientEventManager).handleMessagesPersisted(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID);
   }
 
   @Test
@@ -241,6 +248,8 @@ class MessagePersisterTest {
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         assertThrows(MessagePersistenceException.class,
             () -> messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE)));
+
+    verify(pubSubClientEventManager).handleMessagesPersisted(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID);
   }
 
   @Test
