@@ -71,8 +71,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final DistributionSummary primaryDeviceMessageTime = Metrics.summary(
       name(MessageController.class, "primaryDeviceMessageDeliveryDuration"));
   private static final Counter sendMessageCounter = Metrics.counter(name(WebSocketConnection.class, "sendMessage"));
-  private static final Counter messagesPersistedCounter = Metrics.counter(
-      name(WebSocketConnection.class, "messagesPersisted"));
   private static final Counter bytesSentCounter = Metrics.counter(name(WebSocketConnection.class, "bytesSent"));
   private static final Counter sendFailuresCounter = Metrics.counter(name(WebSocketConnection.class, "sendFailures"));
 
@@ -91,6 +89,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
   private static final String SEND_MESSAGE_ERROR_COUNTER = MetricsUtil.name(WebSocketConnection.class,
       "sendMessageError");
   private static final String MESSAGE_AVAILABLE_COUNTER_NAME = name(WebSocketConnection.class, "messagesAvailable");
+  private static final String MESSAGES_PERSISTED_COUNTER_NAME = name(WebSocketConnection.class, "messagesPersisted");
 
   private static final String PRESENCE_MANAGER_TAG = "presenceManager";
   private static final String STATUS_CODE_TAG = "status";
@@ -495,13 +494,23 @@ public class WebSocketConnection implements MessageAvailabilityListener, Displac
       Metrics.counter(CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME).increment();
       return false;
     }
-    messagesPersistedCounter.increment();
+
+    Metrics.counter(MESSAGES_PERSISTED_COUNTER_NAME,
+        PRESENCE_MANAGER_TAG, "legacy")
+        .increment();
 
     storedMessageState.set(StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
 
     processStoredMessages();
 
     return true;
+  }
+
+  @Override
+  public void handleMessagesPersistedPubSub() {
+    Metrics.counter(MESSAGES_PERSISTED_COUNTER_NAME,
+            PRESENCE_MANAGER_TAG, "pubsub")
+        .increment();
   }
 
   @Override

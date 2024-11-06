@@ -57,6 +57,10 @@ class PubSubClientEventManagerTest {
     }
 
     @Override
+    public void handleMessagesPersistedPubSub() {
+    }
+
+    @Override
     public void handleConnectionDisplaced(final boolean connectedElsewhere) {
     }
   }

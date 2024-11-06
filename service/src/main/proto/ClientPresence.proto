@@ -14,6 +14,7 @@ message ClientEvent {
     NewMessageAvailableEvent new_message_available = 1;
     ClientConnectedEvent client_connected = 2;
     DisconnectRequested disconnect_requested = 3;
+    MessagesPersistedEvent messages_persisted = 4;
   }
 }
 
@@ -35,4 +36,11 @@ message ClientConnectedEvent {
  * (for example) account lifecycle events.
  */
 message DisconnectRequested {
+}
+
+/**
+ * Indicates that messages for the client have been persisted from short-term
+ * storage to long-term storage.
+ */
+message MessagesPersistedEvent {
 }

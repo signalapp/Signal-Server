@@ -17,6 +17,11 @@ public interface ClientEventListener {
   void handleNewMessageAvailable();
 
   /**
+   * Indicates that messages for the client have been persisted from short-term storage to long-term storage.
+   */
+  void handleMessagesPersistedPubSub();
+
+  /**
    * Indicates that the client's presence has been displaced and the listener should close the client's underlying
    * network connection.
    *
