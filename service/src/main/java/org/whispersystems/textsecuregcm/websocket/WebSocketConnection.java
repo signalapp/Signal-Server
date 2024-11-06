@@ -472,10 +472,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, ClientE
         PRESENCE_MANAGER_TAG, "legacy")
         .increment();
 
-    storedMessageState.compareAndSet(StoredMessageState.EMPTY, StoredMessageState.CACHED_NEW_MESSAGES_AVAILABLE);
-
-    processStoredMessages();
-
     return true;
   }
 
@@ -484,6 +480,10 @@ public class WebSocketConnection implements MessageAvailabilityListener, ClientE
     Metrics.counter(MESSAGE_AVAILABLE_COUNTER_NAME,
             PRESENCE_MANAGER_TAG, "pubsub")
         .increment();
+
+    storedMessageState.compareAndSet(StoredMessageState.EMPTY, StoredMessageState.CACHED_NEW_MESSAGES_AVAILABLE);
+
+    processStoredMessages();
   }
 
   @Override
@@ -498,10 +498,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, ClientE
         PRESENCE_MANAGER_TAG, "legacy")
         .increment();
 
-    storedMessageState.set(StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
-
-    processStoredMessages();
-
     return true;
   }
 
@@ -510,6 +506,10 @@ public class WebSocketConnection implements MessageAvailabilityListener, ClientE
     Metrics.counter(MESSAGES_PERSISTED_COUNTER_NAME,
             PRESENCE_MANAGER_TAG, "pubsub")
         .increment();
+
+    storedMessageState.set(StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
+
+    processStoredMessages();
   }
 
   @Override

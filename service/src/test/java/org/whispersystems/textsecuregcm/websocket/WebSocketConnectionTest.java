@@ -268,7 +268,7 @@ class WebSocketConnectionTest {
       // or wait for anything.
       connection.start();
 
-      connection.handleNewMessagesAvailable();
+      connection.handleNewMessageAvailable();
 
       synchronized (sendCounter) {
         while (sendCounter.get() < 1) {
@@ -276,7 +276,7 @@ class WebSocketConnectionTest {
         }
       }
 
-      connection.handleNewMessagesAvailable();
+      connection.handleNewMessageAvailable();
 
       synchronized (sendCounter) {
         while (sendCounter.get() < 2) {
@@ -693,7 +693,7 @@ class WebSocketConnectionTest {
 
     when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), any(List.class), any(Optional.class)))
         .thenAnswer(invocation -> {
-          connection.handleNewMessagesAvailable();
+          connection.handleNewMessageAvailable();
 
           return CompletableFuture.completedFuture(successResponse);
         });
@@ -741,7 +741,7 @@ class WebSocketConnectionTest {
 
     verify(messagesManager).getMessagesForDeviceReactive(account.getUuid(), device, false);
 
-    connection.handleNewMessagesAvailable();
+    connection.handleNewMessageAvailable();
 
     verify(messagesManager).getMessagesForDeviceReactive(account.getUuid(), device, true);
   }
@@ -769,7 +769,7 @@ class WebSocketConnectionTest {
     // whenComplete method will get called immediately on THIS thread, so we don't need to synchronize or wait for
     // anything.
     connection.processStoredMessages();
-    connection.handleMessagesPersisted();
+    connection.handleMessagesPersistedPubSub();
 
     verify(messagesManager, times(2)).getMessagesForDeviceReactive(account.getUuid(), device, false);
   }
