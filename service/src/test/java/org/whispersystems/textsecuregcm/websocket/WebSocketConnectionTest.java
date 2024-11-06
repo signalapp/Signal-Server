@@ -769,7 +769,7 @@ class WebSocketConnectionTest {
     // whenComplete method will get called immediately on THIS thread, so we don't need to synchronize or wait for
     // anything.
     connection.processStoredMessages();
-    connection.handleMessagesPersistedPubSub();
+    connection.handleMessagesPersisted();
 
     verify(messagesManager, times(2)).getMessagesForDeviceReactive(account.getUuid(), device, false);
   }

@@ -24,7 +24,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
-import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.observability.micrometer.Micrometer;
@@ -128,10 +127,6 @@ public class MessagesManager {
         .tap(Micrometer.metrics(Metrics.globalRegistry));
   }
 
-  public Mono<Long> getEarliestUndeliveredTimestampForDevice(UUID destinationUuid, Device destinationDevice) {
-    return Mono.from(messagesDynamoDb.load(destinationUuid, destinationDevice, 1)).map(Envelope::getServerTimestamp);
-  }
-
   public CompletableFuture<Void> clear(UUID destinationUuid) {
     return messagesCache.clear(destinationUuid);
   }
@@ -190,17 +185,6 @@ public class MessagesManager {
     return messagesRemovedFromCache;
   }
 
-  public void addMessageAvailabilityListener(
-      final UUID destinationUuid,
-      final byte destinationDeviceId,
-      final MessageAvailabilityListener listener) {
-    messagesCache.addMessageAvailabilityListener(destinationUuid, destinationDeviceId, listener);
-  }
-
-  public void removeMessageAvailabilityListener(final MessageAvailabilityListener listener) {
-    messagesCache.removeMessageAvailabilityListener(listener);
-  }
-
   /**
    * Inserts the shared multi-recipient message payload to storage.
    *
@@ -210,16 +194,5 @@ public class MessagesManager {
   public byte[] insertSharedMultiRecipientMessagePayload(
       final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
     return messagesCache.insertSharedMultiRecipientMessagePayload(sealedSenderMultiRecipientMessage);
-  }
-
-  /**
-   * Removes the recipient's view from shared MRM data if necessary
-   */
-  public void removeRecipientViewFromMrmData(final byte destinationDeviceId, final Envelope message) {
-    if (message.hasSharedMrmKey()) {
-      messagesCache.removeRecipientViewFromMrmData(List.of(message.getSharedMrmKey().toByteArray()),
-          ServiceIdentifier.valueOf(message.getDestinationServiceId()),
-          destinationDeviceId);
-    }
   }
 }

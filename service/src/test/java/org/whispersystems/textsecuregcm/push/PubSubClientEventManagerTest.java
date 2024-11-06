@@ -59,7 +59,7 @@ class PubSubClientEventManagerTest {
     }
 
     @Override
-    public void handleMessagesPersistedPubSub() {
+    public void handleMessagesPersisted() {
     }
 
     @Override
@@ -174,7 +174,7 @@ class PubSubClientEventManagerTest {
 
     localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter() {
       @Override
-      public void handleMessagesPersistedPubSub() {
+      public void handleMessagesPersisted() {
         messagesPersistedLatch.countDown();
       }
     }).toCompletableFuture().join();

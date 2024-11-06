@@ -19,7 +19,6 @@ import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
@@ -109,23 +108,12 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         pubSubClientEventManager.handleClientDisconnected(auth.getAccount().getUuid(),
             auth.getAuthenticatedDevice().getId());
 
-        // Next, we stop listening for inbound messages. If a message arrives after this call, the websocket connection
-        // will not be notified and will not change its state, but that's okay because it has already closed and
-        // attempts to deliver mesages via this connection will not succeed.
-        RedisOperation.unchecked(() -> messagesManager.removeMessageAvailabilityListener(connection));
-
         // Finally, stop trying to deliver messages and send a push notification if the connection is aware of any
         // undelivered messages.
         connection.stop();
       });
 
       try {
-        // Once we add this connection as a message availability listener, it will be notified any time a new message
-        // arrives in the message cache. This updates the connection's "may have messages" state. It's important that
-        // we do this first because we want to make sure we're accurately tracking message availability in the
-        // connection's internal state.
-        messagesManager.addMessageAvailabilityListener(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection);
-
         // Once we "start" the websocket connection, we'll cancel any scheduled "you may have new messages" push
         // notifications and begin delivering any stored messages for the connected device. We have not yet declared the
         // client as "present" yet. If a message arrives at this point, we will update the message availability state

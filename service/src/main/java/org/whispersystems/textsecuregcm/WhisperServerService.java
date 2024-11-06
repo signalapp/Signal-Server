@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -459,9 +458,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FaultTolerantRedisClient pubsubClient =
         config.getRedisPubSubConfiguration().build("pubsub", sharedClientResources);
 
-    final BlockingQueue<Runnable> keyspaceNotificationDispatchQueue = new ArrayBlockingQueue<>(100_000);
-    Metrics.gaugeCollectionSize(name(getClass(), "keyspaceNotificationDispatchQueueSize"), Collections.emptyList(),
-        keyspaceNotificationDispatchQueue);
     final BlockingQueue<Runnable> receiptSenderQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "receiptSenderQueue"), Collections.emptyList(), receiptSenderQueue);
     final BlockingQueue<Runnable> fcmSenderQueue = new LinkedBlockingQueue<>();
@@ -474,14 +470,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "recurringJob-%d")).threads(6).build();
     ScheduledExecutorService websocketScheduledExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "websocket-%d")).threads(8).build();
-    ExecutorService keyspaceNotificationDispatchExecutor = ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
-        environment.lifecycle()
-            .executorService(name(getClass(), "keyspaceNotification-%d"))
-            .maxThreads(16)
-            .workQueue(keyspaceNotificationDispatchQueue)
-            .build(),
-        MetricsUtil.name(getClass(), "keyspaceNotificationExecutor"),
-        MetricsUtil.PREFIX);
     ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(getClass(), "apnSender-%d"))
         .maxThreads(1).minThreads(1).build();
     ExecutorService fcmSenderExecutor = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d"))
@@ -611,8 +599,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
     PubSubClientEventManager pubSubClientEventManager = new PubSubClientEventManager(messagesCluster, clientEventExecutor);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
-    MessagesCache messagesCache = new MessagesCache(messagesCluster, keyspaceNotificationDispatchExecutor,
-        messageDeliveryScheduler, messageDeletionAsyncExecutor, clock, dynamicConfigurationManager);
+    MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
+        messageDeletionAsyncExecutor, clock, dynamicConfigurationManager);
     ClientReleaseManager clientReleaseManager = new ClientReleaseManager(clientReleases,
         recurringJobExecutor,
         config.getClientReleaseConfiguration().refreshInterval(),
@@ -733,7 +721,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(pushNotificationScheduler);
     environment.lifecycle().manage(provisioningManager);
-    environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(pubSubClientEventManager);
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(registrationServiceClient);

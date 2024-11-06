@@ -22,9 +22,6 @@ public class LocalFaultTolerantRedisClusterFactory implements FaultTolerantRedis
     try {
       redisClusterExtension.beforeAll(null);
       redisClusterExtension.beforeEach(null);
-
-      redisClusterExtension.getRedisCluster().useCluster(connection ->
-          connection.sync().upstream().commands().configSet("notify-keyspace-events", "K$glz"));
     } catch (final Exception e) {
       throw new RuntimeException(e);
     }

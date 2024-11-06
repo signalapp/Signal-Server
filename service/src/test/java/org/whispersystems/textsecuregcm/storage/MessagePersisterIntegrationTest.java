@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
@@ -33,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.push.ClientEventListener;
 import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
@@ -50,9 +50,9 @@ class MessagePersisterIntegrationTest {
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
-  private ExecutorService notificationExecutorService;
   private Scheduler messageDeliveryScheduler;
   private ExecutorService messageDeletionExecutorService;
+  private ExecutorService clientEventExecutorService;
   private MessagesCache messagesCache;
   private MessagesManager messagesManager;
   private PubSubClientEventManager pubSubClientEventManager;
@@ -65,7 +65,6 @@ class MessagePersisterIntegrationTest {
   void setUp() throws Exception {
     REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection -> {
       connection.sync().flushall();
-      connection.sync().upstream().commands().configSet("notify-keyspace-events", "K$glz");
     });
 
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
@@ -80,12 +79,14 @@ class MessagePersisterIntegrationTest {
         messageDeletionExecutorService);
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
-    notificationExecutorService = Executors.newSingleThreadExecutor();
-    messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), notificationExecutorService,
+    messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         messageDeliveryScheduler, messageDeletionExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
         messageDeletionExecutorService);
-    pubSubClientEventManager = mock(PubSubClientEventManager.class);
+
+    clientEventExecutorService = Executors.newVirtualThreadPerTaskExecutor();
+    pubSubClientEventManager = new PubSubClientEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutorService);
+    pubSubClientEventManager.start();
 
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         pubSubClientEventManager, dynamicConfigurationManager, PERSIST_DELAY, 1);
@@ -100,19 +101,19 @@ class MessagePersisterIntegrationTest {
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(DevicesHelper.createDevice(Device.PRIMARY_ID)));
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
-
-    messagesCache.start();
   }
 
   @AfterEach
   void tearDown() throws Exception {
-    notificationExecutorService.shutdown();
-    notificationExecutorService.awaitTermination(15, TimeUnit.SECONDS);
-
     messageDeletionExecutorService.shutdown();
     messageDeletionExecutorService.awaitTermination(15, TimeUnit.SECONDS);
 
+    clientEventExecutorService.shutdown();
+    clientEventExecutorService.awaitTermination(15, TimeUnit.SECONDS);
+
     messageDeliveryScheduler.dispose();
+
+    pubSubClientEventManager.stop();
   }
 
   @Test
@@ -141,20 +142,21 @@ class MessagePersisterIntegrationTest {
 
       final AtomicBoolean messagesPersisted = new AtomicBoolean(false);
 
-      messagesManager.addMessageAvailabilityListener(account.getUuid(), Device.PRIMARY_ID,
-          new MessageAvailabilityListener() {
+      pubSubClientEventManager.handleClientConnected(account.getUuid(), Device.PRIMARY_ID, new ClientEventListener() {
         @Override
-        public boolean handleNewMessagesAvailable() {
-          return true;
+        public void handleNewMessageAvailable() {
         }
 
         @Override
-        public boolean handleMessagesPersisted() {
+        public void handleMessagesPersisted() {
           synchronized (messagesPersisted) {
             messagesPersisted.set(true);
             messagesPersisted.notifyAll();
-            return true;
           }
+        }
+
+        @Override
+        public void handleConnectionDisplaced(final boolean connectedElsewhere) {
         }
       });
 
@@ -183,8 +185,6 @@ class MessagePersisterIntegrationTest {
               .toList();
 
       assertEquals(expectedMessages, persistedMessages);
-
-      verify(pubSubClientEventManager).handleMessagesPersisted(account.getUuid(), Device.PRIMARY_ID);
     });
   }
 

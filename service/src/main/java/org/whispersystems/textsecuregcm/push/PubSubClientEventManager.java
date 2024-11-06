@@ -371,7 +371,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
 
         case DISCONNECT_REQUESTED -> listenerEventExecutor.execute(() -> listener.handleConnectionDisplaced(false));
 
-        case MESSAGES_PERSISTED -> listenerEventExecutor.execute(listener::handleMessagesPersistedPubSub);
+        case MESSAGES_PERSISTED -> listenerEventExecutor.execute(listener::handleMessagesPersisted);
 
         default -> logger.warn("Unexpected client event type: {}", clientEvent.getClass());
       }

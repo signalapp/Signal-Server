@@ -68,7 +68,6 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
         Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
         namespace.getInt(WORKER_COUNT));
 
-    environment.lifecycle().manage(deps.messagesCache());
     environment.lifecycle().manage(messagePersister);
 
     MetricsUtil.registerSystemResourceMetrics(environment);

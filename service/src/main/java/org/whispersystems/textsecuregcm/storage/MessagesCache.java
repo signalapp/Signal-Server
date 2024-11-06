@@ -10,12 +10,8 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.ZAddArgs;
 import io.lettuce.core.cluster.SlotHash;
-import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
-import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
-import io.lettuce.core.cluster.pubsub.RedisClusterPubSubAdapter;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
@@ -28,18 +24,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
 import org.reactivestreams.Publisher;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.ServiceId;
@@ -51,11 +42,9 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubClusterConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
-import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -118,13 +107,11 @@ import reactor.core.scheduler.Schedulers;
  * @see MessagesCacheRemoveRecipientViewFromMrmDataScript
  * @see MessagesCacheRemoveQueueScript
  */
-public class MessagesCache extends RedisClusterPubSubAdapter<String, String> implements Managed {
+public class MessagesCache {
 
   private final FaultTolerantRedisClusterClient redisCluster;
-  private final FaultTolerantPubSubClusterConnection<String, String> pubSubConnection;
   private final Clock clock;
 
-  private final ExecutorService notificationExecutorService;
   private final Scheduler messageDeliveryScheduler;
   private final ExecutorService messageDeletionExecutorService;
   // messageDeletionExecutorService wrapped into a reactor Scheduler
@@ -140,10 +127,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   private final MessagesCacheGetQueuesToPersistScript getQueuesToPersistScript;
   private final MessagesCacheRemoveRecipientViewFromMrmDataScript removeRecipientViewFromMrmDataScript;
 
-  private final ReentrantLock messageListenersLock = new ReentrantLock();
-  private final Map<String, MessageAvailabilityListener> messageListenersByQueueName = new HashMap<>();
-  private final Map<MessageAvailabilityListener, String> queueNamesByMessageListener = new IdentityHashMap<>();
-
   private final Timer insertTimer = Metrics.timer(name(MessagesCache.class, "insert"));
   private final Timer insertSharedMrmPayloadTimer = Metrics.timer(name(MessagesCache.class, "insertSharedMrmPayload"));
   private final Timer getMessagesTimer = Metrics.timer(name(MessagesCache.class, "get"));
@@ -151,26 +134,14 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   private final Timer removeByGuidTimer = Metrics.timer(name(MessagesCache.class, "removeByGuid"));
   private final Timer removeRecipientViewTimer = Metrics.timer(name(MessagesCache.class, "removeRecipientView"));
   private final Timer clearQueueTimer = Metrics.timer(name(MessagesCache.class, "clear"));
-  private final Counter pubSubMessageCounter = Metrics.counter(name(MessagesCache.class, "pubSubMessage"));
-  private final Counter newMessageNotificationCounter = Metrics.counter(
-      name(MessagesCache.class, "newMessageNotification"));
-  private final Counter queuePersistedNotificationCounter = Metrics.counter(
-      name(MessagesCache.class, "queuePersisted"));
   private final Counter staleEphemeralMessagesCounter = Metrics.counter(
       name(MessagesCache.class, "staleEphemeralMessages"));
-  private final Counter messageAvailabilityListenerRemovedAfterAddCounter = Metrics.counter(
-      name(MessagesCache.class, "messageAvailabilityListenerRemovedAfterAdd"));
-  private final Counter prunedStaleSubscriptionCounter = Metrics.counter(
-      name(MessagesCache.class, "prunedStaleSubscription"));
   private final Counter mrmContentRetrievedCounter = Metrics.counter(name(MessagesCache.class, "mrmViewRetrieved"));
   private final Counter sharedMrmDataKeyRemovedCounter = Metrics.counter(
       name(MessagesCache.class, "sharedMrmKeyRemoved"));
 
   static final String NEXT_SLOT_TO_PERSIST_KEY = "user_queue_persist_slot";
   private static final byte[] LOCK_VALUE = "1".getBytes(StandardCharsets.UTF_8);
-
-  private static final String QUEUE_KEYSPACE_PREFIX = "__keyspace@0__:user_queue::";
-  private static final String PERSISTING_KEYSPACE_PREFIX = "__keyspace@0__:user_queue_persisting::";
 
   private static final String MRM_VIEWS_EXPERIMENT_NAME = "mrmViews";
 
@@ -184,13 +155,15 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesCache.class);
 
-  public MessagesCache(final FaultTolerantRedisClusterClient redisCluster, final ExecutorService notificationExecutorService,
-                       final Scheduler messageDeliveryScheduler, final ExecutorService messageDeletionExecutorService, final Clock clock,
-                       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager)
+  public MessagesCache(final FaultTolerantRedisClusterClient redisCluster,
+      final Scheduler messageDeliveryScheduler,
+      final ExecutorService messageDeletionExecutorService,
+      final Clock clock,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager)
       throws IOException {
+
     this(
         redisCluster,
-        notificationExecutorService,
         messageDeliveryScheduler,
         messageDeletionExecutorService,
         clock,
@@ -206,8 +179,9 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   }
 
   @VisibleForTesting
-  MessagesCache(final FaultTolerantRedisClusterClient redisCluster, final ExecutorService notificationExecutorService,
-                final Scheduler messageDeliveryScheduler, final ExecutorService messageDeletionExecutorService, final Clock clock,
+  MessagesCache(final FaultTolerantRedisClusterClient redisCluster,
+                final Scheduler messageDeliveryScheduler,
+                final ExecutorService messageDeletionExecutorService, final Clock clock,
                 final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
                 final MessagesCacheInsertScript insertScript,
                 final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript,
@@ -218,10 +192,8 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
       throws IOException {
 
     this.redisCluster = redisCluster;
-    this.pubSubConnection = redisCluster.createPubSubConnection();
     this.clock = clock;
 
-    this.notificationExecutorService = notificationExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.messageDeletionExecutorService = messageDeletionExecutorService;
     this.messageDeletionScheduler = Schedulers.fromExecutorService(messageDeletionExecutorService, "messageDeletion");
@@ -235,34 +207,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
     this.removeQueueScript = removeQueueScript;
     this.getQueuesToPersistScript = getQueuesToPersistScript;
     this.removeRecipientViewFromMrmDataScript = removeRecipientViewFromMrmDataScript;
-  }
-
-  @Override
-  public void start() {
-    pubSubConnection.usePubSubConnection(connection -> connection.addListener(this));
-    pubSubConnection.subscribeToClusterTopologyChangedEvents(this::resubscribeAll);
-  }
-
-  @Override
-  public void stop() {
-    pubSubConnection.usePubSubConnection(connection -> connection.sync().upstream().commands().unsubscribe());
-  }
-
-  private void resubscribeAll(final ClusterTopologyChangedEvent event) {
-
-    final Set<String> queueNames;
-
-    messageListenersLock.lock();
-    try {
-      queueNames = new HashSet<>(messageListenersByQueueName.keySet());
-    } finally {
-      messageListenersLock.unlock();
-    }
-
-    for (final String queueName : queueNames) {
-      // avoid overwhelming a newly recovered node by processing synchronously, rather than using CompletableFuture.allOf()
-      subscribeForKeyspaceNotifications(queueName).join();
-    }
   }
 
   public long insert(final UUID guid, final UUID destinationUuid, final byte destinationDevice,
@@ -640,146 +584,6 @@ public class MessagesCache extends RedisClusterPubSubAdapter<String, String> imp
   void unlockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
     redisCluster.useBinaryCluster(
         connection -> connection.sync().del(getPersistInProgressKey(accountUuid, deviceId)));
-  }
-
-  public void addMessageAvailabilityListener(final UUID destinationUuid, final byte deviceId,
-      final MessageAvailabilityListener listener) {
-    final String queueName = getQueueName(destinationUuid, deviceId);
-
-    final CompletableFuture<Void> subscribeFuture;
-    messageListenersLock.lock();
-    try {
-      messageListenersByQueueName.put(queueName, listener);
-      queueNamesByMessageListener.put(listener, queueName);
-      // Submit to the Redis queue while holding the lock, but don’t wait until exiting
-      subscribeFuture = subscribeForKeyspaceNotifications(queueName);
-    } finally {
-      messageListenersLock.unlock();
-    }
-
-    subscribeFuture.join();
-  }
-
-  public void removeMessageAvailabilityListener(final MessageAvailabilityListener listener) {
-    @Nullable final String queueName;
-    messageListenersLock.lock();
-    try {
-      queueName = queueNamesByMessageListener.get(listener);
-    } finally {
-      messageListenersLock.unlock();
-    }
-
-    if (queueName != null) {
-
-      final CompletableFuture<Void> unsubscribeFuture;
-      messageListenersLock.lock();
-      try {
-        queueNamesByMessageListener.remove(listener);
-        if (messageListenersByQueueName.remove(queueName, listener)) {
-          // Submit to the Redis queue holding the lock, but don’t wait until exiting
-          unsubscribeFuture = unsubscribeFromKeyspaceNotifications(queueName);
-        } else {
-          messageAvailabilityListenerRemovedAfterAddCounter.increment();
-          unsubscribeFuture = CompletableFuture.completedFuture(null);
-        }
-      } finally {
-        messageListenersLock.unlock();
-      }
-
-      unsubscribeFuture.join();
-    }
-  }
-
-  private void pruneStaleSubscription(final String channel) {
-    unsubscribeFromKeyspaceNotifications(getQueueNameFromKeyspaceChannel(channel))
-        .thenRun(prunedStaleSubscriptionCounter::increment);
-  }
-
-  private CompletableFuture<Void> subscribeForKeyspaceNotifications(final String queueName) {
-    final int slot = SlotHash.getSlot(queueName);
-
-    return pubSubConnection.withPubSubConnection(
-            connection -> connection.async()
-                .nodes(node -> node.is(RedisClusterNode.NodeFlag.UPSTREAM) && node.hasSlot(slot))
-            .commands()
-                .subscribe(getKeyspaceChannels(queueName))).toCompletableFuture()
-        .thenRun(Util.NOOP);
-  }
-
-  private CompletableFuture<Void> unsubscribeFromKeyspaceNotifications(final String queueName) {
-    final int slot = SlotHash.getSlot(queueName);
-
-    return pubSubConnection.withPubSubConnection(
-            connection -> connection.async()
-                .nodes(node -> node.is(RedisClusterNode.NodeFlag.UPSTREAM) && node.hasSlot(slot))
-            .commands()
-                .unsubscribe(getKeyspaceChannels(queueName)))
-        .toCompletableFuture()
-        .thenRun(Util.NOOP);
-  }
-
-  private static String[] getKeyspaceChannels(final String queueName) {
-    return new String[]{
-        QUEUE_KEYSPACE_PREFIX + "{" + queueName + "}",
-        PERSISTING_KEYSPACE_PREFIX + "{" + queueName + "}"
-    };
-  }
-
-  @Override
-  public void message(final RedisClusterNode node, final String channel, final String message) {
-    pubSubMessageCounter.increment();
-
-    if (channel.startsWith(QUEUE_KEYSPACE_PREFIX) && "zadd".equals(message)) {
-      newMessageNotificationCounter.increment();
-      notificationExecutorService.execute(() -> {
-        try {
-          findListener(channel).ifPresentOrElse(listener -> {
-            if (!listener.handleNewMessagesAvailable()) {
-              removeMessageAvailabilityListener(listener);
-            }
-          }, () -> pruneStaleSubscription(channel));
-        } catch (final Exception e) {
-          logger.warn("Unexpected error handling new message", e);
-        }
-      });
-    } else if (channel.startsWith(PERSISTING_KEYSPACE_PREFIX) && "del".equals(message)) {
-      queuePersistedNotificationCounter.increment();
-      notificationExecutorService.execute(() -> {
-        try {
-          findListener(channel).ifPresentOrElse(listener -> {
-            if (!listener.handleMessagesPersisted()) {
-              removeMessageAvailabilityListener(listener);
-            }
-          }, () -> pruneStaleSubscription(channel));
-        } catch (final Exception e) {
-          logger.warn("Unexpected error handling messages persisted", e);
-        }
-      });
-    }
-  }
-
-  private Optional<MessageAvailabilityListener> findListener(final String keyspaceChannel) {
-    final String queueName = getQueueNameFromKeyspaceChannel(keyspaceChannel);
-
-    messageListenersLock.lock();
-    try {
-      return Optional.ofNullable(messageListenersByQueueName.get(queueName));
-    } finally {
-      messageListenersLock.unlock();
-    }
-  }
-
-  @VisibleForTesting
-  static String getQueueName(final UUID accountUuid, final byte deviceId) {
-    return accountUuid + "::" + deviceId;
-  }
-
-  @VisibleForTesting
-  static String getQueueNameFromKeyspaceChannel(final String channel) {
-    final int startOfHashTag = channel.indexOf('{');
-    final int endOfHashTag = channel.lastIndexOf('}');
-
-    return channel.substring(startOfHashTag + 1, endOfHashTag);
   }
 
   static byte[] getMessageQueueKey(final UUID accountUuid, final byte deviceId) {

@@ -119,8 +119,6 @@ record CommandDependencies(
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         environment.lifecycle().executorService("messageDelivery").minThreads(4).maxThreads(4).build());
-    ExecutorService keyspaceNotificationDispatchExecutor = environment.lifecycle()
-        .executorService(name(name, "keyspaceNotification-%d")).minThreads(4).maxThreads(4).build();
     ExecutorService messageDeletionExecutor = environment.lifecycle()
         .executorService(name(name, "messageDeletion-%d")).minThreads(4).maxThreads(4).build();
     ExecutorService secureValueRecoveryServiceExecutor = environment.lifecycle()
@@ -209,7 +207,7 @@ record CommandDependencies(
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
     PubSubClientEventManager pubSubClientEventManager = new PubSubClientEventManager(messagesCluster, clientEventExecutor);
-    MessagesCache messagesCache = new MessagesCache(messagesCluster, keyspaceNotificationDispatchExecutor,
+    MessagesCache messagesCache = new MessagesCache(messagesCluster,
         messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC(), dynamicConfigurationManager);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
@@ -262,7 +260,6 @@ record CommandDependencies(
             Clock.systemUTC());
 
     environment.lifecycle().manage(apnSender);
-    environment.lifecycle().manage(messagesCache);
     environment.lifecycle().manage(pubSubClientEventManager);
     environment.lifecycle().manage(new ManagedAwsCrt());
 

@@ -51,7 +51,6 @@ import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.WebSocketClient;
@@ -63,7 +62,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
-public class WebSocketConnection implements MessageAvailabilityListener, ClientEventListener {
+public class WebSocketConnection implements ClientEventListener {
 
   private static final DistributionSummary messageTime = Metrics.summary(
       name(MessageController.class, "messageDeliveryDuration"));
@@ -81,8 +80,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, ClientE
   private static final String DISPLACEMENT_COUNTER_NAME = name(WebSocketConnection.class, "displacement");
   private static final String NON_SUCCESS_RESPONSE_COUNTER_NAME = name(WebSocketConnection.class,
       "clientNonSuccessResponse");
-  private static final String CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME = name(WebSocketConnection.class,
-      "messageAvailableAfterClientClosed");
   private static final String SEND_MESSAGES_FLUX_NAME = MetricsUtil.name(WebSocketConnection.class,
       "sendMessages");
   private static final String SEND_MESSAGE_ERROR_COUNTER = MetricsUtil.name(WebSocketConnection.class,
@@ -461,21 +458,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, ClientE
   }
 
   @Override
-  public boolean handleNewMessagesAvailable() {
-    if (!client.isOpen()) {
-      // The client may become closed without successful removal of references to the `MessageAvailabilityListener`
-      Metrics.counter(CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME).increment();
-      return false;
-    }
-
-    Metrics.counter(MESSAGE_AVAILABLE_COUNTER_NAME,
-        PRESENCE_MANAGER_TAG, "legacy")
-        .increment();
-
-    return true;
-  }
-
-  @Override
   public void handleNewMessageAvailable() {
     Metrics.counter(MESSAGE_AVAILABLE_COUNTER_NAME,
             PRESENCE_MANAGER_TAG, "pubsub")
@@ -487,22 +469,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, ClientE
   }
 
   @Override
-  public boolean handleMessagesPersisted() {
-    if (!client.isOpen()) {
-      // The client may become without successful removal of references to the `MessageAvailabilityListener`
-      Metrics.counter(CLIENT_CLOSED_MESSAGE_AVAILABLE_COUNTER_NAME).increment();
-      return false;
-    }
-
-    Metrics.counter(MESSAGES_PERSISTED_COUNTER_NAME,
-        PRESENCE_MANAGER_TAG, "legacy")
-        .increment();
-
-    return true;
-  }
-
-  @Override
-  public void handleMessagesPersistedPubSub() {
+  public void handleMessagesPersisted() {
     Metrics.counter(MESSAGES_PERSISTED_COUNTER_NAME,
             PRESENCE_MANAGER_TAG, "pubsub")
         .increment();

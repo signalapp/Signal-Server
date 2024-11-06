@@ -98,7 +98,7 @@ class WebSocketConnectionIntegrationTest {
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
-    messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService,
+    messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
     messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(7),
