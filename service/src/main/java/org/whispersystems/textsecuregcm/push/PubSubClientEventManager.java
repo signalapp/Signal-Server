@@ -369,7 +369,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
 
   @VisibleForTesting
   static byte[] getClientPresenceKey(final UUID accountIdentifier, final byte deviceId) {
-    return ("client_presence::{" + accountIdentifier + ":" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
+    return ("client_presence::{" + accountIdentifier + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
   }
 
   private static AccountAndDeviceIdentifier parseClientPresenceKey(final byte[] clientPresenceKeyBytes) {
@@ -377,7 +377,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     final int uuidStart = "client_presence::{".length();
 
     final UUID accountIdentifier = UUID.fromString(clientPresenceKey.substring(uuidStart, uuidStart + 36));
-    final byte deviceId = Byte.parseByte(clientPresenceKey.substring(uuidStart + 37, clientPresenceKey.length() - 1));
+    final byte deviceId = Byte.parseByte(clientPresenceKey.substring(uuidStart + 38, clientPresenceKey.length() - 1));
 
     return new AccountAndDeviceIdentifier(accountIdentifier, deviceId);
   }
