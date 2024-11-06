@@ -154,7 +154,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         // Finally, we register this client's presence, which suppresses push notifications. We do this last because
         // receiving extra push notifications is generally preferable to missing out on a push notification.
         clientPresenceManager.setPresent(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection);
-        pubSubClientEventManager.handleClientConnected(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), null);
+        pubSubClientEventManager.handleClientConnected(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection);
 
         renewPresenceFutureReference.set(scheduledExecutorService.scheduleAtFixedRate(() -> RedisOperation.unchecked(() ->
                 clientPresenceManager.renewPresence(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId())),
