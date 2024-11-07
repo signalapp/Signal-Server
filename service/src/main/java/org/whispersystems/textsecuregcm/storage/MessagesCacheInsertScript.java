@@ -27,7 +27,7 @@ class MessagesCacheInsertScript {
     this.insertScript = ClusterLuaScript.fromResource(redisCluster, "lua/insert_item.lua", ScriptOutputType.INTEGER);
   }
 
-  long execute(final UUID destinationUuid, final byte destinationDevice, final MessageProtos.Envelope envelope) {
+  void execute(final UUID destinationUuid, final byte destinationDevice, final MessageProtos.Envelope envelope) {
     assert envelope.hasServerGuid();
     assert envelope.hasServerTimestamp();
 
@@ -43,6 +43,6 @@ class MessagesCacheInsertScript {
         envelope.getServerGuid().getBytes(StandardCharsets.UTF_8) // guid
     ));
 
-    return (long) insertScript.executeBinary(keys, args);
+    insertScript.executeBinary(keys, args);
   }
 }

@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -132,8 +133,8 @@ class MessagesCacheTest {
     @ValueSource(booleans = {true, false})
     void testInsert(final boolean sealedSender) {
       final UUID messageGuid = UUID.randomUUID();
-      assertTrue(messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
-          generateRandomMessage(messageGuid, sealedSender)) > 0);
+      assertDoesNotThrow(() -> messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
+          generateRandomMessage(messageGuid, sealedSender)));
     }
 
     @Test
@@ -141,12 +142,13 @@ class MessagesCacheTest {
       final UUID duplicateGuid = UUID.randomUUID();
       final MessageProtos.Envelope duplicateMessage = generateRandomMessage(duplicateGuid, false);
 
-      final long firstId = messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
-          duplicateMessage);
-      final long secondId = messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
-          duplicateMessage);
+      messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage);
+      messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage);
 
-      assertEquals(firstId, secondId);
+      assertEquals(1, messagesCache.getAllMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID, 0)
+          .count()
+          .blockOptional()
+          .orElse(0L));
     }
 
     @ParameterizedTest

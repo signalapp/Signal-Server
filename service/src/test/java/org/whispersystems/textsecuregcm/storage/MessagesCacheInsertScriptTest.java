@@ -7,8 +7,14 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -21,8 +27,8 @@ class MessagesCacheInsertScriptTest {
 
   @Test
   void testCacheInsertScript() throws Exception {
-    final MessagesCacheInsertScript insertScript = new MessagesCacheInsertScript(
-        REDIS_CLUSTER_EXTENSION.getRedisCluster());
+    final MessagesCacheInsertScript insertScript =
+        new MessagesCacheInsertScript(REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
     final UUID destinationUuid = UUID.randomUUID();
     final byte deviceId = 1;
@@ -31,15 +37,43 @@ class MessagesCacheInsertScriptTest {
         .setServerGuid(UUID.randomUUID().toString())
         .build();
 
-    assertEquals(1, insertScript.execute(destinationUuid, deviceId, envelope1));
+    insertScript.execute(destinationUuid, deviceId, envelope1);
+
+    assertEquals(List.of(envelope1), getStoredMessages(destinationUuid, deviceId));
 
     final MessageProtos.Envelope envelope2 = MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())
         .setServerGuid(UUID.randomUUID().toString())
         .build();
-    assertEquals(2, insertScript.execute(destinationUuid, deviceId, envelope2));
 
-    assertEquals(1, insertScript.execute(destinationUuid, deviceId, envelope1),
-        "Repeated with same guid should have same message ID");
+    insertScript.execute(destinationUuid, deviceId, envelope2);
+
+    assertEquals(List.of(envelope1, envelope2), getStoredMessages(destinationUuid, deviceId));
+
+    insertScript.execute(destinationUuid, deviceId, envelope1);
+
+    assertEquals(List.of(envelope1, envelope2), getStoredMessages(destinationUuid, deviceId),
+        "Messages with same GUID should be deduplicated");
+  }
+
+  private List<MessageProtos.Envelope> getStoredMessages(final UUID destinationUuid, final byte deviceId) throws IOException {
+    final MessagesCacheGetItemsScript getItemsScript =
+        new MessagesCacheGetItemsScript(REDIS_CLUSTER_EXTENSION.getRedisCluster());
+
+    final List<byte[]> queueItems = getItemsScript.execute(destinationUuid, deviceId, 1024, 0)
+        .blockOptional()
+        .orElseGet(Collections::emptyList);
+
+    final List<MessageProtos.Envelope> messages = new ArrayList<>(queueItems.size() / 2);
+
+    for (int i = 0; i < queueItems.size(); i += 2) {
+      try {
+        messages.add(MessageProtos.Envelope.parseFrom(queueItems.get(i)));
+      } catch (final InvalidProtocolBufferException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
+
+    return messages;
   }
 }
