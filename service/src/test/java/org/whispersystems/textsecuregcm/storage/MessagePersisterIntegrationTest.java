@@ -89,7 +89,7 @@ class MessagePersisterIntegrationTest {
     pubSubClientEventManager.start();
 
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        pubSubClientEventManager, dynamicConfigurationManager, PERSIST_DELAY, 1);
+        dynamicConfigurationManager, PERSIST_DELAY, 1);
 
     account = mock(Account.class);
 

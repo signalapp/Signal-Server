@@ -22,7 +22,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
 import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
 
@@ -31,7 +30,6 @@ public class MessagePersister implements Managed {
   private final MessagesCache messagesCache;
   private final MessagesManager messagesManager;
   private final AccountsManager accountsManager;
-  private final PubSubClientEventManager pubSubClientEventManager;
 
   private final Duration persistDelay;
 
@@ -63,9 +61,9 @@ public class MessagePersister implements Managed {
 
   private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
-  public MessagePersister(final MessagesCache messagesCache, final MessagesManager messagesManager,
+  public MessagePersister(final MessagesCache messagesCache,
+      final MessagesManager messagesManager,
       final AccountsManager accountsManager,
-      final PubSubClientEventManager pubSubClientEventManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Duration persistDelay,
       final int dedicatedProcessWorkerThreadCount
@@ -74,7 +72,6 @@ public class MessagePersister implements Managed {
     this.messagesCache = messagesCache;
     this.messagesManager = messagesManager;
     this.accountsManager = accountsManager;
-    this.pubSubClientEventManager = pubSubClientEventManager;
     this.persistDelay = persistDelay;
     this.workerThreads = new Thread[dedicatedProcessWorkerThreadCount];
 
@@ -211,7 +208,6 @@ public class MessagePersister implements Managed {
       maybeUnlink(account, deviceId); // may throw, in which case we'll retry later by the usual mechanism
     } finally {
       messagesCache.unlockQueueForPersistence(accountUuid, deviceId);
-      pubSubClientEventManager.handleMessagesPersisted(accountUuid, deviceId);
       sample.stop(persistQueueTimer);
     }
 

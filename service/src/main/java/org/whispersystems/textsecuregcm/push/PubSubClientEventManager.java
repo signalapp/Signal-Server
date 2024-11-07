@@ -58,11 +58,6 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
       .build()
       .toByteArray();
 
-  private final byte[] MESSAGES_PERSISTED_EVENT_BYTES = ClientEvent.newBuilder()
-      .setMessagesPersisted(MessagesPersistedEvent.getDefaultInstance())
-      .build()
-      .toByteArray();
-
   @Nullable
   private FaultTolerantPubSubClusterConnection<byte[], byte[]> pubSubConnection;
 
@@ -222,25 +217,6 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
         UNSUBSCRIBE_ERROR_COUNTER.increment();
       }
     });
-  }
-
-  /**
-   * Publishes an event notifying a specific device that messages have been persisted from short-term to long-term
-   * storage.
-   *
-   * @param accountIdentifier the account identifier for which messages have been persisted
-   * @param deviceId the ID of the device within the target account
-   *
-   * @return a future that completes when the event has been published
-   */
-  public CompletionStage<Void> handleMessagesPersisted(final UUID accountIdentifier, final byte deviceId) {
-    if (pubSubConnection == null) {
-      throw new IllegalStateException("Presence manager not started");
-    }
-
-    return pubSubConnection.withPubSubConnection(connection ->
-            connection.async().spublish(getClientEventChannel(accountIdentifier, deviceId), MESSAGES_PERSISTED_EVENT_BYTES))
-        .thenRun(Util.NOOP);
   }
 
   /**

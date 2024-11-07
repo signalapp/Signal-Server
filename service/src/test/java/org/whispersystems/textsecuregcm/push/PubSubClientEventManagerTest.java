@@ -20,10 +20,8 @@ import io.lettuce.core.cluster.pubsub.api.async.RedisClusterPubSubAsyncCommands;
 import io.lettuce.core.cluster.pubsub.api.sync.RedisClusterPubSubCommands;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterAll;
@@ -138,30 +136,6 @@ class PubSubClientEventManagerTest {
     assertFalse(secondListenerDisplaced.get());
 
     assertTrue(firstListenerConnectedElsewhere.get());
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void handleMessagesPersisted(final boolean messagesPersistedRemotely) throws InterruptedException {
-    final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = Device.PRIMARY_ID;
-
-    final CountDownLatch messagesPersistedLatch = new CountDownLatch(1);
-
-    localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter() {
-      @Override
-      public void handleMessagesPersisted() {
-        messagesPersistedLatch.countDown();
-      }
-    }).toCompletableFuture().join();
-
-    final PubSubClientEventManager persistingPresenceManager =
-        messagesPersistedRemotely ? remotePresenceManager : localPresenceManager;
-
-    persistingPresenceManager.handleMessagesPersisted(accountIdentifier, deviceId).toCompletableFuture().join();
-
-    assertTrue(messagesPersistedLatch.await(2, TimeUnit.SECONDS),
-        "Message persistence event not received within time limit");
   }
 
   @Test

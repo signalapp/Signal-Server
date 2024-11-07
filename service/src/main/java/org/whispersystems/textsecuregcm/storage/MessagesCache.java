@@ -125,6 +125,7 @@ public class MessagesCache {
   private final MessagesCacheRemoveQueueScript removeQueueScript;
   private final MessagesCacheGetQueuesToPersistScript getQueuesToPersistScript;
   private final MessagesCacheRemoveRecipientViewFromMrmDataScript removeRecipientViewFromMrmDataScript;
+  private final MessagesCacheUnlockQueueScript unlockQueueScript;
 
   private final Timer insertTimer = Metrics.timer(name(MessagesCache.class, "insert"));
   private final Timer insertSharedMrmPayloadTimer = Metrics.timer(name(MessagesCache.class, "insertSharedMrmPayload"));
@@ -176,7 +177,8 @@ public class MessagesCache {
         new MessagesCacheRemoveByGuidScript(redisCluster),
         new MessagesCacheRemoveQueueScript(redisCluster),
         new MessagesCacheGetQueuesToPersistScript(redisCluster),
-        new MessagesCacheRemoveRecipientViewFromMrmDataScript(redisCluster)
+        new MessagesCacheRemoveRecipientViewFromMrmDataScript(redisCluster),
+        new MessagesCacheUnlockQueueScript(redisCluster)
     );
   }
 
@@ -190,8 +192,8 @@ public class MessagesCache {
                 final MessagesCacheGetItemsScript getItemsScript, final MessagesCacheRemoveByGuidScript removeByGuidScript,
                 final MessagesCacheRemoveQueueScript removeQueueScript,
                 final MessagesCacheGetQueuesToPersistScript getQueuesToPersistScript,
-                final MessagesCacheRemoveRecipientViewFromMrmDataScript removeRecipientViewFromMrmDataScript)
-      throws IOException {
+                final MessagesCacheRemoveRecipientViewFromMrmDataScript removeRecipientViewFromMrmDataScript,
+                final MessagesCacheUnlockQueueScript unlockQueueScript) throws IOException {
 
     this.redisCluster = redisCluster;
     this.clock = clock;
@@ -209,6 +211,7 @@ public class MessagesCache {
     this.removeQueueScript = removeQueueScript;
     this.getQueuesToPersistScript = getQueuesToPersistScript;
     this.removeRecipientViewFromMrmDataScript = removeRecipientViewFromMrmDataScript;
+    this.unlockQueueScript = unlockQueueScript;
   }
 
   public boolean insert(final UUID messageGuid,
@@ -599,8 +602,7 @@ public class MessagesCache {
   }
 
   void unlockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
-    redisCluster.useBinaryCluster(
-        connection -> connection.sync().del(getPersistInProgressKey(accountUuid, deviceId)));
+    unlockQueueScript.execute(accountUuid, deviceId);
   }
 
   static byte[] getMessageQueueKey(final UUID accountUuid, final byte deviceId) {
