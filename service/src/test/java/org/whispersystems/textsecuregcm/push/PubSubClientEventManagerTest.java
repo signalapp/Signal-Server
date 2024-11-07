@@ -301,7 +301,7 @@ class PubSubClientEventManagerTest {
 
     final UUID firstAccountIdentifier = UUID.randomUUID();
     final byte firstDeviceId = Device.PRIMARY_ID;
-    final int firstSlot = SlotHash.getSlot(PubSubClientEventManager.getClientPresenceKey(firstAccountIdentifier, firstDeviceId));
+    final int firstSlot = SlotHash.getSlot(PubSubClientEventManager.getClientEventChannel(firstAccountIdentifier, firstDeviceId));
 
     final UUID secondAccountIdentifier;
     final byte secondDeviceId = firstDeviceId + 1;
@@ -312,7 +312,7 @@ class PubSubClientEventManagerTest {
 
       do {
         candidateIdentifier = UUID.randomUUID();
-      } while (SlotHash.getSlot(PubSubClientEventManager.getClientPresenceKey(candidateIdentifier, secondDeviceId)) == firstSlot);
+      } while (SlotHash.getSlot(PubSubClientEventManager.getClientEventChannel(candidateIdentifier, secondDeviceId)) == firstSlot);
 
       secondAccountIdentifier = candidateIdentifier;
     }
@@ -320,7 +320,7 @@ class PubSubClientEventManagerTest {
     presenceManager.handleClientConnected(firstAccountIdentifier, firstDeviceId, new ClientEventAdapter()).toCompletableFuture().join();
     presenceManager.handleClientConnected(secondAccountIdentifier, secondDeviceId, new ClientEventAdapter()).toCompletableFuture().join();
 
-    final int secondSlot = SlotHash.getSlot(PubSubClientEventManager.getClientPresenceKey(secondAccountIdentifier, secondDeviceId));
+    final int secondSlot = SlotHash.getSlot(PubSubClientEventManager.getClientEventChannel(secondAccountIdentifier, secondDeviceId));
 
     final String firstNodeId = UUID.randomUUID().toString();
 
@@ -343,7 +343,7 @@ class PubSubClientEventManagerTest {
         List.of(firstBeforeNode),
         List.of(firstAfterNode, secondAfterNode)));
 
-    verify(pubSubCommands).ssubscribe(PubSubClientEventManager.getClientPresenceKey(secondAccountIdentifier, secondDeviceId));
-    verify(pubSubCommands, never()).ssubscribe(PubSubClientEventManager.getClientPresenceKey(firstAccountIdentifier, firstDeviceId));
+    verify(pubSubCommands).ssubscribe(PubSubClientEventManager.getClientEventChannel(secondAccountIdentifier, secondDeviceId));
+    verify(pubSubCommands, never()).ssubscribe(PubSubClientEventManager.getClientEventChannel(firstAccountIdentifier, firstDeviceId));
   }
 }

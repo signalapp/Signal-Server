@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -18,6 +20,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubClusterConnection;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
 class MessagesCacheInsertScriptTest {
@@ -75,5 +79,30 @@ class MessagesCacheInsertScriptTest {
     }
 
     return messages;
+  }
+
+  @Test
+  void returnPresence() throws IOException {
+    final UUID destinationUuid = UUID.randomUUID();
+    final byte deviceId = 1;
+
+    final MessagesCacheInsertScript insertScript =
+        new MessagesCacheInsertScript(REDIS_CLUSTER_EXTENSION.getRedisCluster());
+
+    assertFalse(insertScript.execute(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
+        .setServerTimestamp(Instant.now().getEpochSecond())
+        .setServerGuid(UUID.randomUUID().toString())
+        .build()));
+
+    final FaultTolerantPubSubClusterConnection<byte[], byte[]> pubSubClusterConnection =
+        REDIS_CLUSTER_EXTENSION.getRedisCluster().createBinaryPubSubConnection();
+
+    pubSubClusterConnection.usePubSubConnection(connection ->
+        connection.sync().ssubscribe(PubSubClientEventManager.getClientEventChannel(destinationUuid, deviceId)));
+
+    assertTrue(insertScript.execute(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
+        .setServerTimestamp(Instant.now().getEpochSecond())
+        .setServerGuid(UUID.randomUUID().toString())
+        .build()));
   }
 }

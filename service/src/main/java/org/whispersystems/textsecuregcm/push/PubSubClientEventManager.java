@@ -145,7 +145,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     }
 
     final UUID connectionId = UUID.randomUUID();
-    final byte[] clientPresenceKey = getClientPresenceKey(accountIdentifier, deviceId);
+    final byte[] clientPresenceKey = getClientEventChannel(accountIdentifier, deviceId);
     final AtomicReference<ClientEventListener> displacedListener = new AtomicReference<>();
     final AtomicReference<CompletionStage<Void>> subscribeFuture = new AtomicReference<>();
 
@@ -216,7 +216,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     listenersByAccountAndDeviceIdentifier.compute(new AccountAndDeviceIdentifier(accountIdentifier, deviceId),
         (ignored, existingListener) -> {
           unsubscribeFuture.set(pubSubConnection.withPubSubConnection(connection ->
-                  connection.async().sunsubscribe(getClientPresenceKey(accountIdentifier, deviceId)))
+                  connection.async().sunsubscribe(getClientEventChannel(accountIdentifier, deviceId)))
               .thenRun(Util.NOOP));
 
           return null;
@@ -245,7 +245,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     }
 
     return pubSubConnection.withPubSubConnection(connection ->
-            connection.async().spublish(getClientPresenceKey(accountIdentifier, deviceId), NEW_MESSAGE_EVENT_BYTES))
+            connection.async().spublish(getClientEventChannel(accountIdentifier, deviceId), NEW_MESSAGE_EVENT_BYTES))
         .thenApply(listeners -> listeners > 0);
   }
 
@@ -264,7 +264,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     }
 
     return pubSubConnection.withPubSubConnection(connection ->
-            connection.async().spublish(getClientPresenceKey(accountIdentifier, deviceId), MESSAGES_PERSISTED_EVENT_BYTES))
+            connection.async().spublish(getClientEventChannel(accountIdentifier, deviceId), MESSAGES_PERSISTED_EVENT_BYTES))
         .thenRun(Util.NOOP);
   }
 
@@ -305,7 +305,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
   public CompletableFuture<Void> requestDisconnection(final UUID accountIdentifier, final Collection<Byte> deviceIds) {
     return CompletableFuture.allOf(deviceIds.stream()
         .map(deviceId -> {
-          final byte[] clientPresenceKey = getClientPresenceKey(accountIdentifier, deviceId);
+          final byte[] clientPresenceKey = getClientEventChannel(accountIdentifier, deviceId);
 
           return clusterClient.withBinaryCluster(connection -> connection.async()
                   .spublish(clientPresenceKey, DISCONNECT_REQUESTED_EVENT_BYTES))
@@ -323,12 +323,12 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     // Organize subscriptions by slot so we can issue a smaller number of larger resubscription commands
     listenersByAccountAndDeviceIdentifier.keySet()
             .stream()
-            .map(accountAndDeviceIdentifier -> getClientPresenceKey(accountAndDeviceIdentifier.accountIdentifier(), accountAndDeviceIdentifier.deviceId()))
-            .forEach(clientPresenceKey -> {
-              final int slot = SlotHash.getSlot(clientPresenceKey);
+            .map(accountAndDeviceIdentifier -> getClientEventChannel(accountAndDeviceIdentifier.accountIdentifier(), accountAndDeviceIdentifier.deviceId()))
+            .forEach(clientEventChannel -> {
+              final int slot = SlotHash.getSlot(clientEventChannel);
 
               if (changedSlots[slot]) {
-                clientPresenceKeysBySlot.computeIfAbsent(slot, ignored -> new ArrayList<>()).add(clientPresenceKey);
+                clientPresenceKeysBySlot.computeIfAbsent(slot, ignored -> new ArrayList<>()).add(clientEventChannel);
               }
             });
 
@@ -380,8 +380,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     }
   }
 
-  @VisibleForTesting
-  static byte[] getClientPresenceKey(final UUID accountIdentifier, final byte deviceId) {
+  public static byte[] getClientEventChannel(final UUID accountIdentifier, final byte deviceId) {
     return ("client_presence::{" + accountIdentifier + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
   }
 
