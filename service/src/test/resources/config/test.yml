@@ -370,6 +370,7 @@ subscription: # configuration for Stripe subscriptions
   backupLevels:
     201:
       playProductId: EXAMPLE
+      mediaTtl: P30D
       prices: {}
   levels:
     500:

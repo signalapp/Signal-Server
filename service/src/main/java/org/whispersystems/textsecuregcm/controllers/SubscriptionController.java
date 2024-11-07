@@ -206,7 +206,10 @@ public class SubscriptionController {
         .entrySet().stream()
         .collect(Collectors.toMap(
             e -> String.valueOf(e.getKey()),
-            e -> new BackupLevelConfiguration(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES, e.getValue().playProductId())));
+            e -> new BackupLevelConfiguration(
+                BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES,
+                e.getValue().playProductId(),
+                e.getValue().mediaTtl().toDays())));
 
     return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(), donationLevels,
         new BackupConfiguration(backupLevels, subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays()),
@@ -517,7 +520,9 @@ public class SubscriptionController {
       @Schema(description = "The amount of media storage in bytes that a paying subscriber may store")
       long storageAllowanceBytes,
       @Schema(description = "The play billing productID associated with this backup level")
-      String playProductId) {}
+      String playProductId,
+      @Schema(description = "The duration, in days, for which your backed up media is retained on the server after you stop refreshing with a paid credential")
+      long mediaTtlDays) {}
 
   @GET
   @Path("/configuration")

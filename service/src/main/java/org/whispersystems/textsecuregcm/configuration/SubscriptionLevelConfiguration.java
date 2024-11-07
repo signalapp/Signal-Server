@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Duration;
 import java.util.Map;
 import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
@@ -30,6 +31,7 @@ public sealed interface SubscriptionLevelConfiguration permits
 
   record Backup(
       @JsonProperty("playProductId") @NotEmpty String playProductId,
+      @JsonProperty("mediaTtl") @NotNull Duration mediaTtl,
       @JsonProperty("prices") @Valid Map<@NotEmpty String, @NotNull @Valid SubscriptionPriceConfiguration> prices)
       implements SubscriptionLevelConfiguration {}
 

@@ -1189,6 +1189,7 @@ class SubscriptionControllerTest {
     assertThat(response.backup().levels()).containsOnlyKeys("201").extractingByKey("201").satisfies(configuration -> {
       assertThat(configuration.storageAllowanceBytes()).isEqualTo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES);
       assertThat(configuration.playProductId()).isEqualTo("testPlayProductId");
+      assertThat(configuration.mediaTtlDays()).isEqualTo(40);
     });
     assertThat(response.backup().freeTierMediaDays()).isEqualTo(30);
 
@@ -1244,6 +1245,7 @@ class SubscriptionControllerTest {
         backupLevels:
           201:
             playProductId: testPlayProductId
+            mediaTtl: P40D
             prices:
               usd:
                 amount: '5'
