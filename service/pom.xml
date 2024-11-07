@@ -11,11 +11,11 @@
   <artifactId>service</artifactId>
 
   <properties>
-    <firebase-admin.version>9.2.0</firebase-admin.version>
+    <firebase-admin.version>9.4.1</firebase-admin.version>
     <java-uuid-generator.version>5.1.0</java-uuid-generator.version>
     <sqlite4java.version>1.0.392</sqlite4java.version>
-    <google-androidpublisher.version>v3-rev20240820-2.0.0</google-androidpublisher.version>
-    <storekit.version>3.1.0</storekit.version>
+    <google-androidpublisher.version>v3-rev20241016-2.0.0</google-androidpublisher.version>
+    <storekit.version>3.2.0</storekit.version>
   </properties>
 
   <dependencies>
@@ -236,24 +236,27 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <exclusions>
-        <!-- Conflicts with our direct Guava dependency -->
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>failureaccess</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
       <groupId>com.google.firebase</groupId>
       <artifactId>firebase-admin</artifactId>
       <version>${firebase-admin.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry.semconv</groupId>
+      <artifactId>opentelemetry-semconv</artifactId>
+      <version>1.25.0-alpha</version>
+    </dependency>
+    <!-- resolve opentelemetry-semconv conflict from lower in firebase-admin dependency tree -->
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-firestore</artifactId>
+      <version>3.28.0</version>
       <exclusions>
         <exclusion>
-          <!-- fix dependency convergence from older 1.0.1 -->
-          <groupId>com.google.guava</groupId>
-          <artifactId>failureaccess</artifactId>
+          <groupId>io.opentelemetry.semconv</groupId>
+          <artifactId>opentelemetry-semconv</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -279,13 +282,6 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-netty</artifactId>
-      <exclusions>
-        <!-- fix dependency convergence from older 0.26.0 -->
-        <exclusion>
-          <groupId>io.perfmark</groupId>
-          <artifactId>perfmark-api</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
@@ -530,7 +526,6 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-shade-plugin</artifactId>
-            <version>3.6.0</version>
             <configuration>
               <createDependencyReducedPom>true</createDependencyReducedPom>
               <filters>
@@ -585,7 +580,6 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>properties-maven-plugin</artifactId>
-            <version>1.2.1</version>
             <executions>
               <execution>
                 <id>read-deploy-configuration</id>
@@ -680,7 +674,6 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.1.0</version>
             <executions>
               <execution>
                 <id>start-test-server</id>
@@ -720,7 +713,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.3.0</version>
         <configuration>
           <!-- work around PATCH not being a supported method on HttpUrlConnection -->
           <argLine>--add-opens=java.base/java.net=ALL-UNNAMED</argLine>
@@ -742,7 +734,6 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>3.3.0</version>
         <executions>
           <execution>
             <id>check-all-service-config</id>
