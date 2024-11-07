@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -20,7 +21,6 @@ import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,21 +35,16 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 
 class MessageSenderTest {
 
-  private PubSubClientEventManager pubSubClientEventManager;
   private MessagesManager messagesManager;
   private PushNotificationManager pushNotificationManager;
   private MessageSender messageSender;
 
   @BeforeEach
   void setUp() {
-    pubSubClientEventManager = mock(PubSubClientEventManager.class);
     messagesManager = mock(MessagesManager.class);
     pushNotificationManager = mock(PushNotificationManager.class);
 
-    when(pubSubClientEventManager.handleNewMessageAvailable(any(), anyByte()))
-        .thenReturn(CompletableFuture.completedFuture(true));
-
-    messageSender = new MessageSender(pubSubClientEventManager, messagesManager, pushNotificationManager);
+    messageSender = new MessageSender(messagesManager, pushNotificationManager);
   }
 
   @CartesianTest
@@ -77,10 +72,9 @@ class MessageSenderTest {
           .when(pushNotificationManager).sendNewMessageNotification(any(), anyByte(), anyBoolean());
     }
 
-    when(pubSubClientEventManager.handleNewMessageAvailable(accountIdentifier, deviceId))
-        .thenReturn(CompletableFuture.completedFuture(clientPresent));
+    when(messagesManager.insert(eq(accountIdentifier), eq(deviceId), any())).thenReturn(clientPresent);
 
-    assertDoesNotThrow(() -> messageSender.sendMessage(account, device, message, onlineMessage).join());
+    assertDoesNotThrow(() -> messageSender.sendMessage(account, device, message, onlineMessage));
 
     final MessageProtos.Envelope expectedMessage = onlineMessage
         ? message.toBuilder().setEphemeral(true).build()

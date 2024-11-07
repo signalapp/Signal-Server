@@ -654,8 +654,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final AccountAuthenticator accountAuthenticator = new AccountAuthenticator(accountsManager);
 
-    final MessageSender messageSender =
-        new MessageSender(pubSubClientEventManager, messagesManager, pushNotificationManager);
+    final MessageSender messageSender = new MessageSender(messagesManager, pushNotificationManager);
     final ReceiptSender receiptSender = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
     final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
         config.getTurnConfiguration().secret().value());

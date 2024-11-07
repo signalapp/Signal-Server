@@ -211,13 +211,13 @@ public class MessagesCache {
     this.removeRecipientViewFromMrmDataScript = removeRecipientViewFromMrmDataScript;
   }
 
-  public void insert(final UUID messageGuid,
+  public boolean insert(final UUID messageGuid,
       final UUID destinationAccountIdentifier,
       final byte destinationDeviceId,
       final MessageProtos.Envelope message) {
 
     final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(messageGuid.toString()).build();
-    insertTimer.record(() -> insertScript.execute(destinationAccountIdentifier, destinationDeviceId, messageWithGuid));
+    return insertTimer.record(() -> insertScript.execute(destinationAccountIdentifier, destinationDeviceId, messageWithGuid));
   }
 
   public byte[] insertSharedMultiRecipientMessagePayload(

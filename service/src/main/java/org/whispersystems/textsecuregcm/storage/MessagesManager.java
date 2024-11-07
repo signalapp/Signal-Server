@@ -59,14 +59,16 @@ public class MessagesManager {
     this.messageDeletionExecutor = messageDeletionExecutor;
   }
 
-  public void insert(UUID destinationUuid, byte destinationDevice, Envelope message) {
+  public boolean insert(UUID destinationUuid, byte destinationDevice, Envelope message) {
     final UUID messageGuid = UUID.randomUUID();
 
-    messagesCache.insert(messageGuid, destinationUuid, destinationDevice, message);
+    final boolean destinationPresent = messagesCache.insert(messageGuid, destinationUuid, destinationDevice, message);
 
     if (message.hasSourceServiceId() && !destinationUuid.toString().equals(message.getSourceServiceId())) {
       reportMessageManager.store(message.getSourceServiceId(), messageGuid);
     }
+
+    return destinationPresent;
   }
 
   public CompletableFuture<Boolean> mayHavePersistedMessages(final UUID destinationUuid, final Device destinationDevice) {

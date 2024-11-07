@@ -142,30 +142,6 @@ class PubSubClientEventManagerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void handleNewMessageAvailable(final boolean messageAvailableRemotely) throws InterruptedException {
-    final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = Device.PRIMARY_ID;
-
-    final CountDownLatch messageReceivedLatch = new CountDownLatch(1);
-
-    localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter() {
-      @Override
-      public void handleNewMessageAvailable() {
-        messageReceivedLatch.countDown();
-      }
-    }).toCompletableFuture().join();
-
-    final PubSubClientEventManager messagePresenceManager =
-        messageAvailableRemotely ? remotePresenceManager : localPresenceManager;
-
-    assertTrue(messagePresenceManager.handleNewMessageAvailable(accountIdentifier, deviceId).toCompletableFuture().join());
-
-    assertTrue(messageReceivedLatch.await(2, TimeUnit.SECONDS),
-        "Message not received within time limit");
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
   void handleMessagesPersisted(final boolean messagesPersistedRemotely) throws InterruptedException {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
@@ -186,21 +162,6 @@ class PubSubClientEventManagerTest {
 
     assertTrue(messagesPersistedLatch.await(2, TimeUnit.SECONDS),
         "Message persistence event not received within time limit");
-  }
-
-  @Test
-  void handleClientDisconnected() {
-    final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = Device.PRIMARY_ID;
-
-    localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter())
-        .toCompletableFuture().join();
-
-    assertTrue(localPresenceManager.handleNewMessageAvailable(accountIdentifier, deviceId).toCompletableFuture().join());
-
-    localPresenceManager.handleClientDisconnected(accountIdentifier, deviceId).toCompletableFuture().join();
-
-    assertFalse(localPresenceManager.handleNewMessageAvailable(accountIdentifier, deviceId).toCompletableFuture().join());
   }
 
   @Test

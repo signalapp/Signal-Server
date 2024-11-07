@@ -68,11 +68,6 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
 
   private final Map<AccountAndDeviceIdentifier, ClientEventListener> listenersByAccountAndDeviceIdentifier;
 
-  private static final byte[] NEW_MESSAGE_EVENT_BYTES = ClientEvent.newBuilder()
-      .setNewMessageAvailable(NewMessageAvailableEvent.getDefaultInstance())
-      .build()
-      .toByteArray();
-
   private static final byte[] DISCONNECT_REQUESTED_EVENT_BYTES = ClientEvent.newBuilder()
       .setDisconnectRequested(DisconnectRequested.getDefaultInstance())
       .build()
@@ -227,26 +222,6 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
         UNSUBSCRIBE_ERROR_COUNTER.increment();
       }
     });
-  }
-
-  /**
-   * Publishes an event notifying a specific device that a new message is available for retrieval. This method indicates
-   * whether the target device is "present" (i.e. has an active listener). Callers may choose to take follow-up action
-   * (like sending a push notification) if the target device is not present.
-   *
-   * @param accountIdentifier the account identifier of the receiving device
-   * @param deviceId the ID of the receiving device within the target account
-   *
-   * @return a future that yields {@code true} if the target device had an active listener or {@code false} otherwise
-   */
-  public CompletionStage<Boolean> handleNewMessageAvailable(final UUID accountIdentifier, final byte deviceId) {
-    if (pubSubConnection == null) {
-      throw new IllegalStateException("Presence manager not started");
-    }
-
-    return pubSubConnection.withPubSubConnection(connection ->
-            connection.async().spublish(getClientEventChannel(accountIdentifier, deviceId), NEW_MESSAGE_EVENT_BYTES))
-        .thenApply(listeners -> listeners > 0);
   }
 
   /**
