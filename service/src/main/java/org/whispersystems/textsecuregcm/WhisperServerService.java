@@ -559,6 +559,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
     ScheduledExecutorService cloudflareTurnRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "cloudflareTurnRetry-%d")).threads(1).build();
+    ScheduledExecutorService messagePollExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "messagePollExecutor-%d")).threads(1).build();
 
     final ManagedNioEventLoopGroup dnsResolutionEventLoopGroup = new ManagedNioEventLoopGroup();
     final DnsNameResolver cloudflareDnsResolver = new DnsNameResolverBuilder(dnsResolutionEventLoopGroup.next())
@@ -620,7 +622,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keysManager, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager, webSocketConnectionEventManager,
-        registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor,
+        registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, messagePollExecutor,
         clock, config.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());

@@ -919,7 +919,8 @@ class DeviceControllerTest {
 
     final String tokenIdentifier = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
 
-    when(accountsManager.waitForNewLinkedDevice(eq(tokenIdentifier), any()))
+    when(accountsManager
+        .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), eq(tokenIdentifier), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(deviceInfo)));
 
     try (final Response response = resources.getJerseyTest()
@@ -942,7 +943,8 @@ class DeviceControllerTest {
   void waitForLinkedDeviceNoDeviceLinked() {
     final String tokenIdentifier = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
 
-    when(accountsManager.waitForNewLinkedDevice(eq(tokenIdentifier), any()))
+    when(accountsManager
+        .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), eq(tokenIdentifier), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -959,7 +961,8 @@ class DeviceControllerTest {
   void waitForLinkedDeviceBadTokenIdentifier() {
     final String tokenIdentifier = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
 
-    when(accountsManager.waitForNewLinkedDevice(eq(tokenIdentifier), any()))
+    when(accountsManager
+        .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), eq(tokenIdentifier), any()))
         .thenReturn(CompletableFuture.failedFuture(new IllegalArgumentException()));
 
     try (final Response response = resources.getJerseyTest()

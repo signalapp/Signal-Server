@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -74,7 +75,7 @@ public class AccountCreationDeletionIntegrationTest {
 
   private static final Clock CLOCK = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
-  private ExecutorService accountLockExecutor;
+  private ScheduledExecutorService executor;
 
   private AccountsManager accountsManager;
   private KeysManager keysManager;
@@ -113,12 +114,12 @@ public class AccountCreationDeletionIntegrationTest {
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS.tableName(),
         DynamoDbExtensionSchema.Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
-    accountLockExecutor = Executors.newSingleThreadExecutor();
+    executor = Executors.newSingleThreadScheduledExecutor();
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK.tableName());
 
-    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
+    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys, accountLockManager, executor);
 
     final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
     when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -164,7 +165,8 @@ public class AccountCreationDeletionIntegrationTest {
         webSocketConnectionEventManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
-        accountLockExecutor,
+        executor,
+        executor,
         CLOCK,
         "link-device-secret".getBytes(StandardCharsets.UTF_8),
         dynamicConfigurationManager);
@@ -172,10 +174,10 @@ public class AccountCreationDeletionIntegrationTest {
 
   @AfterEach
   void tearDown() throws InterruptedException {
-    accountLockExecutor.shutdown();
+    executor.shutdown();
 
     //noinspection ResultOfMethodCallIgnored
-    accountLockExecutor.awaitTermination(1, TimeUnit.SECONDS);
+    executor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @CartesianTest

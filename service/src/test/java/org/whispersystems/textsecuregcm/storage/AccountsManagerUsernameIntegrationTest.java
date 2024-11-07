@@ -157,6 +157,7 @@ class AccountsManagerUsernameIntegrationTest {
         mock(RegistrationRecoveryPasswordsManager.class),
         mock(ClientPublicKeysManager.class),
         Executors.newSingleThreadExecutor(),
+        Executors.newSingleThreadScheduledExecutor(),
         mock(Clock.class),
         "link-device-secret".getBytes(StandardCharsets.UTF_8),
         dynamicConfigurationManager);

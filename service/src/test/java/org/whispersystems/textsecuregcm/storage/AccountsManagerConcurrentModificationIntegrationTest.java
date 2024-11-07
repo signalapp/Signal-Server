@@ -30,6 +30,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -139,6 +140,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(RegistrationRecoveryPasswordsManager.class),
           mock(ClientPublicKeysManager.class),
           mock(Executor.class),
+          mock(ScheduledExecutorService.class),
           mock(Clock.class),
           "link-device-secret".getBytes(StandardCharsets.UTF_8),
           dynamicConfigurationManager

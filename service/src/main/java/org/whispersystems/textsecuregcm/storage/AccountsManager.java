@@ -47,6 +47,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -130,6 +131,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final ClientPublicKeysManager clientPublicKeysManager;
   private final Executor accountLockExecutor;
+  private final ScheduledExecutorService messagesPollExecutor;
   private final Clock clock;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
@@ -162,6 +164,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
   private static final ObjectWriter ACCOUNT_REDIS_JSON_WRITER = SystemMapper.jsonMapper()
       .writer(SystemMapper.excludingField(Account.class, List.of("uuid")));
+
+  private static Duration MESSAGE_POLL_INTERVAL = Duration.ofSeconds(1);
+  private static Duration MAX_SERVER_CLOCK_DRIFT = Duration.ofSeconds(5);
 
   // An account that's used at least daily will get reset in the cache at least once per day when its "last seen"
   // timestamp updates; expiring entries after two days will help clear out "zombie" cache entries that are read
@@ -209,6 +214,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final ClientPublicKeysManager clientPublicKeysManager,
       final Executor accountLockExecutor,
+      final ScheduledExecutorService messagesPollExecutor,
       final Clock clock,
       final byte[] linkDeviceSecret,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
@@ -227,6 +233,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.clientPublicKeysManager = clientPublicKeysManager;
     this.accountLockExecutor = accountLockExecutor;
+    this.messagesPollExecutor = messagesPollExecutor;
     this.clock = requireNonNull(clock);
     this.dynamicConfigurationManager = dynamicConfigurationManager;
 
@@ -1428,19 +1435,89 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         .thenRun(Util.NOOP);
   }
 
-  public CompletableFuture<Optional<DeviceInfo>> waitForNewLinkedDevice(final String linkDeviceTokenIdentifier, final Duration timeout) {
+  public CompletableFuture<Optional<DeviceInfo>> waitForNewLinkedDevice(
+      final UUID accountIdentifier,
+      final Device linkingDevice,
+      final String linkDeviceTokenIdentifier,
+      final Duration timeout) {
+    if (!linkingDevice.isPrimary()) {
+      throw new IllegalArgumentException("Only primary devices can link devices");
+    }
+
     // Unbeknownst to callers but beknownst to us, the "link device token identifier" is the base64/url-encoded SHA256
     // hash of a device-linking token. Before we use the string anywhere, make sure it's the right "shape" for a hash.
     if (Base64.getUrlDecoder().decode(linkDeviceTokenIdentifier).length != SHA256_HASH_LENGTH) {
       return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid token identifier"));
     }
 
-    return waitForPubSubKey(waitForDeviceFuturesByTokenIdentifier,
-        linkDeviceTokenIdentifier,
-        getLinkedDeviceKey(linkDeviceTokenIdentifier),
-        timeout,
-        this::handleDeviceAdded);
+    final Instant deadline = clock.instant().plus(timeout);
+    final CompletableFuture<Optional<DeviceInfo>> deviceAdded = waitForPubSubKey(waitForDeviceFuturesByTokenIdentifier,
+        linkDeviceTokenIdentifier, getLinkedDeviceKey(linkDeviceTokenIdentifier), timeout, this::handleDeviceAdded);
+
+    return deviceAdded.thenCompose(maybeDeviceInfo -> maybeDeviceInfo.map(deviceInfo -> {
+          // The device finished linking, we now want to make sure the client has fetched messages that could
+          // have come in before the device's mailbox was set up.
+
+          // A worst case estimate of the wall clock time at which the linked device was added to the account record
+          Instant deviceLinked = Instant.ofEpochMilli(deviceInfo.created()).plus(MAX_SERVER_CLOCK_DRIFT);
+
+          Instant now = clock.instant();
+
+          // We know at `now` the device finished linking, so if we waited for all the messages before now it would be
+          // sufficient. However, now might be much later that the device was linked, so we don't want to force
+          // the client to wait for messages that are past our worst case estimate of when the device was linked
+          Instant messageEpoch = Collections.min(List.of(deviceLinked, now));
+
+          // We assume that any message with a timestamp after the messageEpoch made it into the linked device's queues
+          return waitForPreLinkMessagesToBeFetched(accountIdentifier, linkingDevice, deviceInfo, messageEpoch, deadline);
+        })
+        .orElseGet(() -> CompletableFuture.completedFuture(maybeDeviceInfo)));
   }
+
+  /**
+   * Wait until there are no pending messages for the authenticatedDevice that have a timestamp lower than the provided
+   * messageEpoch.
+   *
+   * @param aci              The account identifier of the device doing the linking
+   * @param linkingDevice    The device doing the linking
+   * @param linkedDeviceInfo Information about the newly linked device
+   * @param messageEpoch     A time at which the device was linked
+   * @param deadline         The time at which the method will stop waiting
+   * @return A future that completes when there are no pending messages for the linking device with a timestamp earlier
+   * the provided messageEpoch, or after the deadline is reached. If the deadline was exceeded, the future will be empty.
+   */
+  private CompletableFuture<Optional<DeviceInfo>> waitForPreLinkMessagesToBeFetched(
+      final UUID aci,
+      final Device linkingDevice,
+      final DeviceInfo linkedDeviceInfo,
+      final Instant messageEpoch,
+      final Instant deadline) {
+    return messagesManager.getEarliestUndeliveredTimestampForDevice(aci, linkingDevice)
+        .thenCompose(maybeEarliestTimestamp -> {
+
+          final boolean clientHasOldMessages = maybeEarliestTimestamp
+              .map(earliestTimestamp -> earliestTimestamp.isBefore(messageEpoch))
+              .orElse(false);
+
+          if (!clientHasOldMessages) {
+            // The client has fetched all messages before the messageEpoch
+            return CompletableFuture.completedFuture(Optional.of(linkedDeviceInfo));
+          }
+
+          final Instant now = clock.instant();
+          if (now.plus(MESSAGE_POLL_INTERVAL).isAfter(deadline)) {
+            // Not enough time to try again before the deadline
+            return CompletableFuture.completedFuture(Optional.empty());
+          }
+
+          // Schedule a retry
+          return CompletableFuture.supplyAsync(
+                  () -> waitForPreLinkMessagesToBeFetched(aci, linkingDevice, linkedDeviceInfo, messageEpoch, deadline),
+                  r -> messagesPollExecutor.schedule(r, MESSAGE_POLL_INTERVAL.toMillis(), TimeUnit.MILLISECONDS))
+              .thenCompose(Function.identity());
+        });
+  }
+
 
   private void handleDeviceAdded(final CompletableFuture<Optional<DeviceInfo>> future, final String deviceInfoJson) {
     try {

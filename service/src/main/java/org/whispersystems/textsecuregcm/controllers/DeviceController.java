@@ -362,9 +362,9 @@ public class DeviceController {
     linkedDeviceListenerCounter.incrementAndGet();
 
     final Timer.Sample sample = Timer.start();
-
     try {
-      return accounts.waitForNewLinkedDevice(tokenIdentifier, Duration.ofSeconds(timeoutSeconds))
+      return accounts.waitForNewLinkedDevice(authenticatedDevice.getAccount().getUuid(),
+              authenticatedDevice.getAuthenticatedDevice(), tokenIdentifier, Duration.ofSeconds(timeoutSeconds))
           .thenApply(maybeDeviceInfo -> maybeDeviceInfo
               .map(deviceInfo -> Response.status(Response.Status.OK).entity(deviceInfo).build())
               .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))

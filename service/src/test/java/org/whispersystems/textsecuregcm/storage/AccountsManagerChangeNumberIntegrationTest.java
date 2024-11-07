@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,7 +70,7 @@ class AccountsManagerChangeNumberIntegrationTest {
   private KeysManager keysManager;
   private DisconnectionRequestManager disconnectionRequestManager;
   private WebSocketConnectionEventManager webSocketConnectionEventManager;
-  private ExecutorService accountLockExecutor;
+  private ScheduledExecutorService executor;
 
   private AccountsManager accountsManager;
 
@@ -104,13 +105,13 @@ class AccountsManagerChangeNumberIntegrationTest {
           Tables.DELETED_ACCOUNTS.tableName(),
           Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
-      accountLockExecutor = Executors.newSingleThreadExecutor();
+      executor = Executors.newSingleThreadScheduledExecutor();
 
       final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS_LOCK.tableName());
 
       final ClientPublicKeysManager clientPublicKeysManager =
-          new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
+          new ClientPublicKeysManager(clientPublicKeys, accountLockManager, executor);
 
       final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
       when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -151,7 +152,8 @@ class AccountsManagerChangeNumberIntegrationTest {
           webSocketConnectionEventManager,
           registrationRecoveryPasswordsManager,
           clientPublicKeysManager,
-          accountLockExecutor,
+          executor,
+          executor,
           mock(Clock.class),
           "link-device-secret".getBytes(StandardCharsets.UTF_8),
           dynamicConfigurationManager);
@@ -160,10 +162,10 @@ class AccountsManagerChangeNumberIntegrationTest {
 
   @AfterEach
   void tearDown() throws InterruptedException {
-    accountLockExecutor.shutdown();
+    executor.shutdown();
 
     //noinspection ResultOfMethodCallIgnored
-    accountLockExecutor.awaitTermination(1, TimeUnit.SECONDS);
+    executor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test

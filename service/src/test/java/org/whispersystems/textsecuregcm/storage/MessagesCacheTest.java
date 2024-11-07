@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -145,7 +146,7 @@ class MessagesCacheTest {
       messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage);
       messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage);
 
-      assertEquals(1, messagesCache.getAllMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID, 0)
+      assertEquals(1, messagesCache.getAllMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID, 0, 10)
           .count()
           .blockOptional()
           .orElse(0L));
@@ -225,6 +226,31 @@ class MessagesCacheTest {
       assertTrue(messagesCache.hasMessagesAsync(DESTINATION_UUID, DESTINATION_DEVICE_ID).join());
     }
 
+    @Test
+    void getOldestTimestamp() {
+      final int messageCount = 100;
+
+      final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(messageCount);
+
+      long expectedOldestTimestamp = serialTimestamp;
+      for (int i = 0; i < messageCount; i++) {
+        final UUID messageGuid = UUID.randomUUID();
+        final MessageProtos.Envelope message = generateRandomMessage(messageGuid, i % 2 == 0);
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+        assertEquals(expectedOldestTimestamp,
+            messagesCache.getEarliestUndeliveredTimestamp(DESTINATION_UUID, DESTINATION_DEVICE_ID).block());
+        expectedMessages.add(message);
+      }
+
+      for (final MessageProtos.Envelope message : expectedMessages) {
+        assertEquals(expectedOldestTimestamp,
+            messagesCache.getEarliestUndeliveredTimestamp(DESTINATION_UUID, DESTINATION_DEVICE_ID).block());
+        messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID, UUID.fromString(message.getServerGuid())).join();
+        expectedOldestTimestamp += 1;
+      }
+      assertNull(messagesCache.getEarliestUndeliveredTimestamp(DESTINATION_UUID, DESTINATION_DEVICE_ID).block());
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testGetMessages(final boolean sealedSender) throws Exception {
@@ -236,7 +262,6 @@ class MessagesCacheTest {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
         messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
-
         expectedMessages.add(message);
       }
 
@@ -322,7 +347,7 @@ class MessagesCacheTest {
             .get(5, TimeUnit.SECONDS);
 
         final List<MessageProtos.Envelope> messages = messagesCache.getAllMessages(DESTINATION_UUID,
-                DESTINATION_DEVICE_ID, 0)
+                DESTINATION_DEVICE_ID, 0, 10)
             .collectList()
             .toFuture().get(5, TimeUnit.SECONDS);
 
@@ -655,7 +680,7 @@ class MessagesCacheTest {
           .thenReturn(Flux.from(emptyFinalPagePublisher))
           .thenReturn(Flux.empty());
 
-      final Flux<?> allMessages = messagesCache.getAllMessages(UUID.randomUUID(), Device.PRIMARY_ID, 0);
+      final Flux<?> allMessages = messagesCache.getAllMessages(UUID.randomUUID(), Device.PRIMARY_ID, 0, 10);
 
       // Why initialValue = 3?
       // 1. messagesCache.getAllMessages() above produces the first call

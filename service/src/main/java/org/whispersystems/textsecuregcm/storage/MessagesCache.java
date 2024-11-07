@@ -290,7 +290,7 @@ public class MessagesCache {
         clock.millis() - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
 
     final Flux<MessageProtos.Envelope> allMessages = getAllMessages(destinationUuid, destinationDevice,
-        earliestAllowableEphemeralTimestamp)
+        earliestAllowableEphemeralTimestamp, PAGE_SIZE)
         .publish()
         // We expect exactly two subscribers to this base flux:
         // 1. the websocket that delivers messages to clients
@@ -309,6 +309,12 @@ public class MessagesCache {
 
     return messagesToPublish.name(GET_FLUX_NAME)
         .tap(Micrometer.metrics(Metrics.globalRegistry));
+  }
+
+  public Mono<Long> getEarliestUndeliveredTimestamp(final UUID destinationUuid, final byte destinationDevice) {
+    return getAllMessages(destinationUuid, destinationDevice, -1, 1)
+        .next()
+        .map(MessageProtos.Envelope::getServerTimestamp);
   }
 
   private static boolean isStaleEphemeralMessage(final MessageProtos.Envelope message,
@@ -330,17 +336,17 @@ public class MessagesCache {
 
   @VisibleForTesting
   Flux<MessageProtos.Envelope> getAllMessages(final UUID destinationUuid, final byte destinationDevice,
-      final long earliestAllowableEphemeralTimestamp) {
+      final long earliestAllowableEphemeralTimestamp, final int pageSize) {
 
     // fetch messages by page
-    return getNextMessagePage(destinationUuid, destinationDevice, -1)
+    return getNextMessagePage(destinationUuid, destinationDevice, -1, pageSize)
         .expand(queueItemsAndLastMessageId -> {
           // expand() is breadth-first, so each page will be published in order
           if (queueItemsAndLastMessageId.first().isEmpty()) {
             return Mono.empty();
           }
 
-          return getNextMessagePage(destinationUuid, destinationDevice, queueItemsAndLastMessageId.second());
+          return getNextMessagePage(destinationUuid, destinationDevice, queueItemsAndLastMessageId.second(), pageSize);
         })
         .limitRate(1)
         // we want to ensure we don’t accidentally block the Lettuce/netty i/o executors
@@ -478,9 +484,9 @@ public class MessagesCache {
   }
 
   private Mono<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid, final byte destinationDevice,
-      long messageId) {
+      long messageId, int pageSize) {
 
-    return getItemsScript.execute(destinationUuid, destinationDevice, PAGE_SIZE, messageId)
+    return getItemsScript.execute(destinationUuid, destinationDevice, pageSize, messageId)
         .map(queueItems -> {
           logger.trace("Processing page: {}", messageId);
 

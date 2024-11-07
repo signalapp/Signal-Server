@@ -54,6 +54,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -262,6 +263,7 @@ class AccountsManagerTest {
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         mock(Executor.class),
+        mock(ScheduledExecutorService.class),
         CLOCK,
         LINK_DEVICE_SECRET,
         dynamicConfigurationManager);
@@ -1535,6 +1537,21 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
     assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setUsernameHash(USERNAME_HASH_1)));
+  }
+
+  @Test
+  void testOnlyPrimaryCanWaitForDeviceLinked() {
+    final Device primaryDevice = new Device();
+    primaryDevice.setId(Device.PRIMARY_ID);
+
+    final Device linkedDevice = new Device();
+    linkedDevice.setId((byte) (Device.PRIMARY_ID + 1));
+
+    final Account account = AccountsHelper.generateTestAccount("+14152222222", List.of(primaryDevice, linkedDevice));
+
+    assertThrows(IllegalArgumentException.class,
+        () -> accountsManager.waitForNewLinkedDevice(account.getUuid(), linkedDevice, "", Duration.ofSeconds(1)));
+
   }
 
   @Test

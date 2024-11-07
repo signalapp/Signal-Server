@@ -8,6 +8,7 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -198,6 +199,16 @@ public class MessagesManager {
       logger.warn("Failed to remove messages from cache", e);
     }
     return messagesRemovedFromCache;
+  }
+
+  public CompletableFuture<Optional<Instant>> getEarliestUndeliveredTimestampForDevice(UUID destinationUuid, Device destinationDevice) {
+    // If there's any message in the persisted layer, return the oldest
+    return Mono.from(messagesDynamoDb.load(destinationUuid, destinationDevice, 1)).map(Envelope::getServerTimestamp)
+        // If not, return the oldest message in the cache
+        .switchIfEmpty(messagesCache.getEarliestUndeliveredTimestamp(destinationUuid, destinationDevice.getId()))
+        .map(epochMilli -> Optional.of(Instant.ofEpochMilli(epochMilli)))
+        .switchIfEmpty(Mono.just(Optional.empty()))
+        .toFuture();
   }
 
   /**

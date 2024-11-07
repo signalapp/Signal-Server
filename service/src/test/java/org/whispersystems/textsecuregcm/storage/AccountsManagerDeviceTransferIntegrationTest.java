@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
@@ -68,6 +69,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(RegistrationRecoveryPasswordsManager.class),
         mock(ClientPublicKeysManager.class),
         mock(ExecutorService.class),
+        mock(ScheduledExecutorService.class),
         Clock.systemUTC(),
         "link-device-secret".getBytes(StandardCharsets.UTF_8),
         mock(DynamicConfigurationManager.class));

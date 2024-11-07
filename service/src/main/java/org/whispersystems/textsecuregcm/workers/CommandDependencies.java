@@ -146,6 +146,8 @@ record CommandDependencies(
         .scheduledExecutorService(name(name, "remoteStorageRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(name, "storageServiceRetry-%d")).threads(1).build();
+    ScheduledExecutorService messagePollExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(name, "messagePollExecutor-%d")).threads(1).build();
 
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
         configuration.getSecureStorageServiceConfiguration());
@@ -227,7 +229,7 @@ record CommandDependencies(
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager, webSocketConnectionEventManager,
-        registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor,
+        registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, messagePollExecutor,
         clock, configuration.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(configuration.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
