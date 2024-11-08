@@ -62,9 +62,6 @@ public class WebSocketClient {
           pendingRequestMapper.remove(requestId);
           future.completeExceptionally(x);
         }
-
-        @Override
-        public void writeSuccess() {}
       });
     } catch (WebSocketException e) {
       logger.debug("Write", e);
@@ -87,8 +84,17 @@ public class WebSocketClient {
     return session.isOpen();
   }
 
-  public void close(int code, String message) {
-    session.close(code, message);
+  public void close(final int code, final String message) {
+    session.close(code, message, new WriteCallback() {
+      @Override
+      public void writeFailed(final Throwable throwable) {
+        try {
+          session.disconnect();
+        } catch (final Exception e) {
+          logger.warn("Failed to disconnect session", e);
+        }
+      }
+    });
   }
 
   public boolean shouldDeliverStories() {
@@ -96,16 +102,7 @@ public class WebSocketClient {
     return Stories.parseReceiveStoriesHeader(value);
   }
 
-  public void hardDisconnectQuietly() {
-    try {
-      session.disconnect();
-    } catch (Exception e) {
-      // quietly we said
-    }
-  }
-
   private long generateRequestId() {
     return Math.abs(SECURE_RANDOM.nextLong());
   }
-
 }

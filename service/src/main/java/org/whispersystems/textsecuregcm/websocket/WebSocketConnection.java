@@ -508,13 +508,7 @@ public class WebSocketConnection implements ClientEventListener {
       message = "OK";
     }
 
-    try {
-      client.close(code, message);
-    } catch (final Exception e) {
-      logger.warn("Orderly close failed", e);
-
-      client.hardDisconnectQuietly();
-    }
+    client.close(code, message);
   }
 
   private record StoredMessageInfo(UUID guid, long serverTimestamp) {
