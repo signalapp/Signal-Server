@@ -54,8 +54,7 @@ import reactor.core.scheduler.Schedulers;
 /**
  * Manages short-term storage of messages in Redis. Messages are frequently delivered to their destination and deleted
  * shortly after they reach the server, and this cache acts as a low-latency holding area for new messages, reducing
- * load on higher-latency, longer-term storage systems. Redis in particular provides keyspace notifications, which act
- * as a form of pub-sub notifications to alert listeners when new messages arrive.
+ * load on higher-latency, longer-term storage systems.
  * <p>
  * The following structures are used:
  * <dl>
