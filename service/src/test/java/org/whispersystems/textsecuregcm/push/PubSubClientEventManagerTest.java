@@ -281,4 +281,42 @@ class PubSubClientEventManagerTest {
     verify(pubSubCommands).ssubscribe(PubSubClientEventManager.getClientEventChannel(secondAccountIdentifier, secondDeviceId));
     verify(pubSubCommands, never()).ssubscribe(PubSubClientEventManager.getClientEventChannel(firstAccountIdentifier, firstDeviceId));
   }
+
+  @Test
+  void smessageWithoutListener() {
+    @SuppressWarnings("unchecked") final RedisClusterPubSubAsyncCommands<byte[], byte[]> pubSubAsyncCommands =
+        mock(RedisClusterPubSubAsyncCommands.class);
+
+    when(pubSubAsyncCommands.ssubscribe(any())).thenReturn(MockRedisFuture.completedFuture(null));
+
+    final FaultTolerantRedisClusterClient clusterClient = RedisClusterHelper.builder()
+        .binaryPubSubAsyncCommands(pubSubAsyncCommands)
+        .build();
+
+    final PubSubClientEventManager eventManager = new PubSubClientEventManager(clusterClient, Runnable::run);
+
+    eventManager.start();
+
+    final UUID listenerAccountIdentifier = UUID.randomUUID();
+    final byte listenerDeviceId = Device.PRIMARY_ID;
+
+    final UUID noListenerAccountIdentifier = UUID.randomUUID();
+    final byte noListenerDeviceId = listenerDeviceId + 1;
+
+    eventManager.handleClientConnected(listenerAccountIdentifier, listenerDeviceId, new ClientEventAdapter())
+        .toCompletableFuture()
+        .join();
+
+    eventManager.unsubscribeIfMissingListener(
+        new PubSubClientEventManager.AccountAndDeviceIdentifier(listenerAccountIdentifier, listenerDeviceId));
+
+    eventManager.unsubscribeIfMissingListener(
+        new PubSubClientEventManager.AccountAndDeviceIdentifier(noListenerAccountIdentifier, noListenerDeviceId));
+
+    verify(pubSubAsyncCommands, never())
+        .sunsubscribe(PubSubClientEventManager.getClientPresenceKey(listenerAccountIdentifier, listenerDeviceId));
+
+    verify(pubSubAsyncCommands)
+        .sunsubscribe(PubSubClientEventManager.getClientPresenceKey(noListenerAccountIdentifier, noListenerDeviceId));
+  }
 }

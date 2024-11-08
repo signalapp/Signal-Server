@@ -82,7 +82,8 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
 
   private static final Logger logger = LoggerFactory.getLogger(PubSubClientEventManager.class);
 
-  private record AccountAndDeviceIdentifier(UUID accountIdentifier, byte deviceId) {
+  @VisibleForTesting
+  record AccountAndDeviceIdentifier(UUID accountIdentifier, byte deviceId) {
   }
 
   public PubSubClientEventManager(final FaultTolerantRedisClusterClient clusterClient,
@@ -292,6 +293,26 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
     });
   }
 
+  /**
+   * Unsubscribes for notifications for the given account and device identifier if and only if no listener is registered
+   * for that account and device identifier.
+   *
+   * @param accountAndDeviceIdentifier the account and device identifier for which to stop receiving notifications
+   */
+  void unsubscribeIfMissingListener(final AccountAndDeviceIdentifier accountAndDeviceIdentifier) {
+    listenersByAccountAndDeviceIdentifier.compute(accountAndDeviceIdentifier, (ignored, existingListener) -> {
+      if (existingListener == null && pubSubConnection != null) {
+        // Enqueue, but do not block on, an "unsubscribe" operation
+        pubSubConnection.usePubSubConnection(connection ->
+            connection.async().sunsubscribe(getClientPresenceKey(accountAndDeviceIdentifier.accountIdentifier(),
+                accountAndDeviceIdentifier.deviceId())));
+      }
+
+      // Make no change to the existing listener whether present or absent
+      return existingListener;
+    });
+  }
+
   @Override
   public void smessage(final RedisClusterNode node, final byte[] shardChannel, final byte[] message) {
     final ClientEvent clientEvent;
@@ -328,6 +349,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
       }
     } else {
       MESSAGE_WITHOUT_LISTENER_COUNTER.increment();
+      listenerEventExecutor.execute(() -> unsubscribeIfMissingListener(accountAndDeviceIdentifier));
     }
   }
 
