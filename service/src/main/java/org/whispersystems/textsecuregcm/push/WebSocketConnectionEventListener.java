@@ -6,10 +6,10 @@
 package org.whispersystems.textsecuregcm.push;
 
 /**
- * A client event listener handles events related to a client's message-retrieval presence. Handler methods are run on
- * dedicated threads and may safely perform blocking operations.
+ * A WebSocket connection event listener handles message availability and presence events related to a client's open
+ * WebSocket connection. Handler methods are run on dedicated threads and may safely perform blocking operations.
  */
-public interface ClientEventListener {
+public interface WebSocketConnectionEventListener {
 
   /**
    * Indicates that a new message is available in the connected client's message queue.

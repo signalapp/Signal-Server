@@ -43,7 +43,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -138,8 +138,8 @@ public class AccountCreationDeletionIntegrationTest {
     when(registrationRecoveryPasswordsManager.removeForNumber(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
-    final PubSubClientEventManager pubSubClientEventManager = mock(PubSubClientEventManager.class);
-    when(pubSubClientEventManager.requestDisconnection(any()))
+    final WebSocketConnectionEventManager webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
+    when(webSocketConnectionEventManager.requestDisconnection(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     accountsManager = new AccountsManager(
@@ -153,7 +153,7 @@ public class AccountCreationDeletionIntegrationTest {
         profilesManager,
         secureStorageClient,
         svr2Client,
-        pubSubClientEventManager,
+        webSocketConnectionEventManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         accountLockExecutor,

@@ -36,7 +36,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.FcmSender;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
@@ -205,7 +205,7 @@ record CommandDependencies(
         configuration.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
-    PubSubClientEventManager pubSubClientEventManager = new PubSubClientEventManager(messagesCluster, clientEventExecutor);
+    WebSocketConnectionEventManager webSocketConnectionEventManager = new WebSocketConnectionEventManager(messagesCluster, clientEventExecutor);
     MessagesCache messagesCache = new MessagesCache(messagesCluster,
         messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC(), dynamicConfigurationManager);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
@@ -222,7 +222,7 @@ record CommandDependencies(
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, pubSubClientEventManager,
+        secureStorageClient, secureValueRecovery2Client, webSocketConnectionEventManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor,
         clock, configuration.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(configuration.getLimitsConfiguration(),
@@ -259,7 +259,7 @@ record CommandDependencies(
             Clock.systemUTC());
 
     environment.lifecycle().manage(apnSender);
-    environment.lifecycle().manage(pubSubClientEventManager);
+    environment.lifecycle().manage(webSocketConnectionEventManager);
     environment.lifecycle().manage(new ManagedAwsCrt());
 
     return new CommandDependencies(

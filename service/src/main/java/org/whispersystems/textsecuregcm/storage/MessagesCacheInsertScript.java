@@ -15,7 +15,7 @@ import java.util.UUID;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.ClientEvent;
 import org.whispersystems.textsecuregcm.push.NewMessageAvailableEvent;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
@@ -52,7 +52,7 @@ class MessagesCacheInsertScript {
         MessagesCache.getMessageQueueKey(destinationUuid, destinationDevice), // queueKey
         MessagesCache.getMessageQueueMetadataKey(destinationUuid, destinationDevice), // queueMetadataKey
         MessagesCache.getQueueIndexKey(destinationUuid, destinationDevice), // queueTotalIndexKey
-        PubSubClientEventManager.getClientEventChannel(destinationUuid, destinationDevice) // eventChannelKey
+        WebSocketConnectionEventManager.getClientEventChannel(destinationUuid, destinationDevice) // eventChannelKey
     );
 
     final List<byte[]> args = new ArrayList<>(Arrays.asList(

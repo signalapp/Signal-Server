@@ -59,10 +59,23 @@ public class MessagesManager {
     this.messageDeletionExecutor = messageDeletionExecutor;
   }
 
-  public boolean insert(UUID destinationUuid, byte destinationDevice, Envelope message) {
+  /**
+   * Inserts a message into a target device's message queue and notifies registered listeners that a new message is
+   * available.
+   *
+   * @param destinationUuid the account identifier for the destination queue
+   * @param destinationDeviceId the device ID for the destination queue
+   * @param message the message to insert into the queue
+   *
+   * @return {@code true} if the destination device is "present" (i.e. has an active event listener) or {@code false}
+   * otherwise
+   *
+   * @see org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager
+   */
+  public boolean insert(final UUID destinationUuid, final byte destinationDeviceId, final Envelope message) {
     final UUID messageGuid = UUID.randomUUID();
 
-    final boolean destinationPresent = messagesCache.insert(messageGuid, destinationUuid, destinationDevice, message);
+    final boolean destinationPresent = messagesCache.insert(messageGuid, destinationUuid, destinationDeviceId, message);
 
     if (message.hasSourceServiceId() && !destinationUuid.toString().equals(message.getSourceServiceId())) {
       reportMessageManager.store(message.getSourceServiceId(), messageGuid);

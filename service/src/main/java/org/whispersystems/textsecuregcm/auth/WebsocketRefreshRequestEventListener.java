@@ -19,11 +19,11 @@ import org.glassfish.jersey.server.monitoring.RequestEvent.Type;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 
 public class WebsocketRefreshRequestEventListener implements RequestEventListener {
 
-  private final PubSubClientEventManager pubSubClientEventManager;
+  private final WebSocketConnectionEventManager webSocketConnectionEventManager;
   private final WebsocketRefreshRequirementProvider[] providers;
 
   private static final Counter DISPLACED_ACCOUNTS = Metrics.counter(
@@ -35,10 +35,10 @@ public class WebsocketRefreshRequestEventListener implements RequestEventListene
   private static final Logger logger = LoggerFactory.getLogger(WebsocketRefreshRequestEventListener.class);
 
   public WebsocketRefreshRequestEventListener(
-      final PubSubClientEventManager pubSubClientEventManager,
+      final WebSocketConnectionEventManager webSocketConnectionEventManager,
       final WebsocketRefreshRequirementProvider... providers) {
 
-    this.pubSubClientEventManager = pubSubClientEventManager;
+    this.webSocketConnectionEventManager = webSocketConnectionEventManager;
     this.providers = providers;
   }
 
@@ -60,7 +60,7 @@ public class WebsocketRefreshRequestEventListener implements RequestEventListene
           .forEach(pair -> {
             try {
               displacedDevices.incrementAndGet();
-              pubSubClientEventManager.requestDisconnection(pair.first(), List.of(pair.second()));
+              webSocketConnectionEventManager.requestDisconnection(pair.first(), List.of(pair.second()));
             } catch (final Exception e) {
               logger.error("Could not displace device presence", e);
             }

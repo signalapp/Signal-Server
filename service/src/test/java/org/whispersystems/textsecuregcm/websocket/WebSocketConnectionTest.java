@@ -57,7 +57,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -124,7 +124,7 @@ class WebSocketConnectionTest {
         new WebSocketAccountAuthenticator(accountAuthenticator, mock(PrincipalSupplier.class));
     AuthenticatedConnectListener connectListener = new AuthenticatedConnectListener(receiptSender, messagesManager,
         new MessageMetrics(), mock(PushNotificationManager.class), mock(PushNotificationScheduler.class),
-        mock(PubSubClientEventManager.class), retrySchedulingExecutor,
+        mock(WebSocketConnectionEventManager.class), retrySchedulingExecutor,
         messageDeliveryScheduler, clientReleaseManager, mock(MessageDeliveryLoopMonitor.class));
     WebSocketSessionContext sessionContext = mock(WebSocketSessionContext.class);
 

@@ -47,7 +47,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -74,7 +74,7 @@ class PhoneNumberChangeRefreshRequirementProviderTest {
 
   private static final AccountAuthenticator AUTHENTICATOR = mock(AccountAuthenticator.class);
   private static final AccountsManager ACCOUNTS_MANAGER = mock(AccountsManager.class);
-  private static final PubSubClientEventManager PUBSUB_CLIENT_PRESENCE = mock(PubSubClientEventManager.class);
+  private static final WebSocketConnectionEventManager PUBSUB_CLIENT_PRESENCE = mock(WebSocketConnectionEventManager.class);
 
   private WebSocketClient client;
   private final Account account1 = new Account();

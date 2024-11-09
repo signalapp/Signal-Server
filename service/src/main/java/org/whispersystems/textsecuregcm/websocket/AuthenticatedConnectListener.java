@@ -15,7 +15,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.OpenWebSocketCounter;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -40,7 +40,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
   private final PushNotificationScheduler pushNotificationScheduler;
-  private final PubSubClientEventManager pubSubClientEventManager;
+  private final WebSocketConnectionEventManager webSocketConnectionEventManager;
   private final ScheduledExecutorService scheduledExecutorService;
   private final Scheduler messageDeliveryScheduler;
   private final ClientReleaseManager clientReleaseManager;
@@ -54,7 +54,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
       PushNotificationScheduler pushNotificationScheduler,
-      PubSubClientEventManager pubSubClientEventManager,
+      WebSocketConnectionEventManager webSocketConnectionEventManager,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
       ClientReleaseManager clientReleaseManager,
@@ -64,7 +64,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.messageMetrics = messageMetrics;
     this.pushNotificationManager = pushNotificationManager;
     this.pushNotificationScheduler = pushNotificationScheduler;
-    this.pubSubClientEventManager = pubSubClientEventManager;
+    this.webSocketConnectionEventManager = webSocketConnectionEventManager;
     this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
@@ -105,7 +105,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         // receive push notifications for inbound messages. We should do this first because, at this point, the
         // connection has already closed and attempts to actually deliver a message via the connection will not succeed.
         // It's preferable to start sending push notifications as soon as possible.
-        pubSubClientEventManager.handleClientDisconnected(auth.getAccount().getUuid(),
+        webSocketConnectionEventManager.handleClientDisconnected(auth.getAccount().getUuid(),
             auth.getAuthenticatedDevice().getId());
 
         // Finally, stop trying to deliver messages and send a push notification if the connection is aware of any
@@ -122,7 +122,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
         // Finally, we register this client's presence, which suppresses push notifications. We do this last because
         // receiving extra push notifications is generally preferable to missing out on a push notification.
-        pubSubClientEventManager.handleClientConnected(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection);
+        webSocketConnectionEventManager.handleClientConnected(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection);
       } catch (final Exception e) {
         log.warn("Failed to initialize websocket", e);
         context.getClient().close(1011, "Unexpected error initializing connection");

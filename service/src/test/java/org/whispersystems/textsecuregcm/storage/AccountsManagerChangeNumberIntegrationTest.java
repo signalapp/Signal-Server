@@ -36,7 +36,7 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -66,7 +66,7 @@ class AccountsManagerChangeNumberIntegrationTest {
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private KeysManager keysManager;
-  private PubSubClientEventManager pubSubClientEventManager;
+  private WebSocketConnectionEventManager webSocketConnectionEventManager;
   private ExecutorService accountLockExecutor;
 
   private AccountsManager accountsManager;
@@ -116,7 +116,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       final SecureValueRecovery2Client svr2Client = mock(SecureValueRecovery2Client.class);
       when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-      pubSubClientEventManager = mock(PubSubClientEventManager.class);
+      webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
           new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
@@ -144,7 +144,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           profilesManager,
           secureStorageClient,
           svr2Client,
-          pubSubClientEventManager,
+          webSocketConnectionEventManager,
           registrationRecoveryPasswordsManager,
           clientPublicKeysManager,
           accountLockExecutor,
@@ -274,7 +274,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
-    verify(pubSubClientEventManager).requestDisconnection(existingAccountUuid);
+    verify(webSocketConnectionEventManager).requestDisconnection(existingAccountUuid);
 
     assertEquals(Optional.of(existingAccountUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondNumber));

@@ -26,7 +26,7 @@ import org.whispersystems.textsecuregcm.entities.Svr3Credentials;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -54,7 +54,7 @@ public class RegistrationLockVerificationManager {
   private static final String PHONE_VERIFICATION_TYPE_TAG_NAME = "phoneVerificationType";
 
   private final AccountsManager accounts;
-  private final PubSubClientEventManager pubSubClientEventManager;
+  private final WebSocketConnectionEventManager webSocketConnectionEventManager;
   private final ExternalServiceCredentialsGenerator svr2CredentialGenerator;
   private final ExternalServiceCredentialsGenerator svr3CredentialGenerator;
   private final RateLimiters rateLimiters;
@@ -63,14 +63,14 @@ public class RegistrationLockVerificationManager {
 
   public RegistrationLockVerificationManager(
       final AccountsManager accounts,
-      final PubSubClientEventManager pubSubClientEventManager,
+      final WebSocketConnectionEventManager webSocketConnectionEventManager,
       final ExternalServiceCredentialsGenerator svr2CredentialGenerator,
       final ExternalServiceCredentialsGenerator svr3CredentialGenerator,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final PushNotificationManager pushNotificationManager,
       final RateLimiters rateLimiters) {
     this.accounts = accounts;
-    this.pubSubClientEventManager = pubSubClientEventManager;
+    this.webSocketConnectionEventManager = webSocketConnectionEventManager;
     this.svr2CredentialGenerator = svr2CredentialGenerator;
     this.svr3CredentialGenerator = svr3CredentialGenerator;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
@@ -161,7 +161,7 @@ public class RegistrationLockVerificationManager {
       }
 
       final List<Byte> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
-      pubSubClientEventManager.requestDisconnection(updatedAccount.getUuid(), deviceIds);
+      webSocketConnectionEventManager.requestDisconnection(updatedAccount.getUuid(), deviceIds);
 
       try {
         // Send a push notification that prompts the client to attempt login and fail due to locked credentials

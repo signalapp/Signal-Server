@@ -33,7 +33,7 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -149,7 +149,7 @@ public class AddRemoveDeviceIntegrationTest {
         profilesManager,
         secureStorageClient,
         svr2Client,
-        mock(PubSubClientEventManager.class),
+        mock(WebSocketConnectionEventManager.class),
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         accountLockExecutor,

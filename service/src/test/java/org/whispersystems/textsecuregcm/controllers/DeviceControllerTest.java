@@ -79,7 +79,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
@@ -110,7 +110,7 @@ class DeviceControllerTest {
   private static final Account account = mock(Account.class);
   private static final Account maxedAccount = mock(Account.class);
   private static final Device primaryDevice = mock(Device.class);
-  private static final PubSubClientEventManager pubSubClientEventManager = mock(PubSubClientEventManager.class);
+  private static final WebSocketConnectionEventManager webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
   private static final Map<String, Integer> deviceConfiguration = new HashMap<>();
   private static final TestClock testClock = TestClock.now();
 
@@ -131,7 +131,7 @@ class DeviceControllerTest {
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .addProvider(new RateLimitExceededExceptionMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, pubSubClientEventManager))
+      .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, webSocketConnectionEventManager))
       .addProvider(new DeviceLimitExceededExceptionMapper())
       .addResource(deviceController)
       .build();

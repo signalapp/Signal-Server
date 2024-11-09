@@ -32,8 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.push.ClientEventListener;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventListener;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -55,7 +55,7 @@ class MessagePersisterIntegrationTest {
   private ExecutorService clientEventExecutorService;
   private MessagesCache messagesCache;
   private MessagesManager messagesManager;
-  private PubSubClientEventManager pubSubClientEventManager;
+  private WebSocketConnectionEventManager webSocketConnectionEventManager;
   private MessagePersister messagePersister;
   private Account account;
 
@@ -85,8 +85,8 @@ class MessagePersisterIntegrationTest {
         messageDeletionExecutorService);
 
     clientEventExecutorService = Executors.newVirtualThreadPerTaskExecutor();
-    pubSubClientEventManager = new PubSubClientEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutorService);
-    pubSubClientEventManager.start();
+    webSocketConnectionEventManager = new WebSocketConnectionEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutorService);
+    webSocketConnectionEventManager.start();
 
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY, 1);
@@ -113,7 +113,7 @@ class MessagePersisterIntegrationTest {
 
     messageDeliveryScheduler.dispose();
 
-    pubSubClientEventManager.stop();
+    webSocketConnectionEventManager.stop();
   }
 
   @Test
@@ -142,7 +142,7 @@ class MessagePersisterIntegrationTest {
 
       final AtomicBoolean messagesPersisted = new AtomicBoolean(false);
 
-      pubSubClientEventManager.handleClientConnected(account.getUuid(), Device.PRIMARY_ID, new ClientEventListener() {
+      webSocketConnectionEventManager.handleClientConnected(account.getUuid(), Device.PRIMARY_ID, new WebSocketConnectionEventListener() {
         @Override
         public void handleNewMessageAvailable() {
         }

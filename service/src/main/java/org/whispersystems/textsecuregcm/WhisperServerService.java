@@ -193,7 +193,7 @@ import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -597,7 +597,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
-    PubSubClientEventManager pubSubClientEventManager = new PubSubClientEventManager(messagesCluster, clientEventExecutor);
+    WebSocketConnectionEventManager webSocketConnectionEventManager = new WebSocketConnectionEventManager(messagesCluster, clientEventExecutor);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
         messageDeletionAsyncExecutor, clock, dynamicConfigurationManager);
@@ -615,7 +615,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keysManager, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, pubSubClientEventManager,
+        secureStorageClient, secureValueRecovery2Client, webSocketConnectionEventManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor,
         clock, config.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
@@ -645,7 +645,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new MessageDeliveryLoopMonitor(rateLimitersCluster);
 
     final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-        accountsManager, pubSubClientEventManager, svr2CredentialsGenerator, svr3CredentialsGenerator,
+        accountsManager, webSocketConnectionEventManager, svr2CredentialsGenerator, svr3CredentialsGenerator,
         registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
 
     final ReportedMessageMetricsListener reportedMessageMetricsListener = new ReportedMessageMetricsListener(
@@ -720,7 +720,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(pushNotificationScheduler);
     environment.lifecycle().manage(provisioningManager);
-    environment.lifecycle().manage(pubSubClientEventManager);
+    environment.lifecycle().manage(webSocketConnectionEventManager);
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(registrationServiceClient);
     environment.lifecycle().manage(keyTransparencyServiceClient);
@@ -972,7 +972,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
     environment.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class));
-    environment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, pubSubClientEventManager));
+    environment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager,
+        webSocketConnectionEventManager));
     environment.jersey().register(new TimestampResponseFilter());
 
     ///
@@ -982,15 +983,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator, new AccountPrincipalSupplier(accountsManager)));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, messageMetrics, pushNotificationManager,
-            pushNotificationScheduler, pubSubClientEventManager, websocketScheduledExecutor,
+            pushNotificationScheduler, webSocketConnectionEventManager, websocketScheduledExecutor,
             messageDeliveryScheduler, clientReleaseManager, messageDeliveryLoopMonitor));
     webSocketEnvironment.jersey()
-        .register(new WebsocketRefreshApplicationEventListener(accountsManager, pubSubClientEventManager));
+        .register(new WebsocketRefreshApplicationEventListener(accountsManager, webSocketConnectionEventManager));
     webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
-    webSocketEnvironment.jersey().register(new KeepAliveController(pubSubClientEventManager));
+    webSocketEnvironment.jersey().register(new KeepAliveController(webSocketConnectionEventManager));
     webSocketEnvironment.jersey().register(new TimestampResponseFilter());
 
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
@@ -1127,10 +1128,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     WebSocketEnvironment<AuthenticatedDevice> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), Duration.ofMillis(60000));
-    provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager, pubSubClientEventManager));
+    provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager,
+        webSocketConnectionEventManager));
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
-    provisioningEnvironment.jersey().register(new KeepAliveController(pubSubClientEventManager));
+    provisioningEnvironment.jersey().register(new KeepAliveController(webSocketConnectionEventManager));
     provisioningEnvironment.jersey().register(new TimestampResponseFilter());
 
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);

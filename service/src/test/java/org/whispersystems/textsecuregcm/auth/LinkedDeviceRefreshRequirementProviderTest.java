@@ -59,7 +59,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -95,19 +95,19 @@ class LinkedDeviceRefreshRequirementProviderTest {
       .build();
 
   private AccountsManager accountsManager;
-  private PubSubClientEventManager pubSubClientEventManager;
+  private WebSocketConnectionEventManager webSocketConnectionEventManager;
 
   private LinkedDeviceRefreshRequirementProvider provider;
 
   @BeforeEach
   void setup() {
     accountsManager = mock(AccountsManager.class);
-    pubSubClientEventManager = mock(PubSubClientEventManager.class);
+    webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
 
     provider = new LinkedDeviceRefreshRequirementProvider(accountsManager);
 
     final WebsocketRefreshRequestEventListener listener =
-        new WebsocketRefreshRequestEventListener(pubSubClientEventManager, provider);
+        new WebsocketRefreshRequestEventListener(webSocketConnectionEventManager, provider);
 
     when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
@@ -139,9 +139,9 @@ class LinkedDeviceRefreshRequirementProviderTest {
 
     assertEquals(initialDeviceCount + addedDeviceNames.size(), account.getDevices().size());
 
-    verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of((byte) 1));
-    verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of((byte) 2));
-    verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of((byte) 3));
+    verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of((byte) 1));
+    verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of((byte) 2));
+    verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of((byte) 3));
   }
 
   @ParameterizedTest
@@ -170,10 +170,10 @@ class LinkedDeviceRefreshRequirementProviderTest {
     assertEquals(200, response.getStatus());
 
     initialDeviceIds.forEach(deviceId -> {
-      verify(pubSubClientEventManager).requestDisconnection(account.getUuid(), List.of(deviceId));
+      verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of(deviceId));
     });
 
-    verifyNoMoreInteractions(pubSubClientEventManager);
+    verifyNoMoreInteractions(webSocketConnectionEventManager);
   }
 
   @Test

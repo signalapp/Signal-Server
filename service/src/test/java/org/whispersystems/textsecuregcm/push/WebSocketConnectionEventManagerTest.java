@@ -40,17 +40,17 @@ import org.whispersystems.textsecuregcm.tests.util.MockRedisFuture;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-class PubSubClientEventManagerTest {
+class WebSocketConnectionEventManagerTest {
 
-  private PubSubClientEventManager localPresenceManager;
-  private PubSubClientEventManager remotePresenceManager;
+  private WebSocketConnectionEventManager localEventManager;
+  private WebSocketConnectionEventManager remoteEventManager;
 
   private static ExecutorService clientEventExecutor;
 
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
-  private static class ClientEventAdapter implements ClientEventListener {
+  private static class WebSocketConnectionEventAdapter implements WebSocketConnectionEventListener {
 
     @Override
     public void handleNewMessageAvailable() {
@@ -72,17 +72,17 @@ class PubSubClientEventManagerTest {
 
   @BeforeEach
   void setUp() {
-    localPresenceManager = new PubSubClientEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutor);
-    remotePresenceManager = new PubSubClientEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutor);
+    localEventManager = new WebSocketConnectionEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutor);
+    remoteEventManager = new WebSocketConnectionEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutor);
 
-    localPresenceManager.start();
-    remotePresenceManager.start();
+    localEventManager.start();
+    remoteEventManager.start();
   }
 
   @AfterEach
   void tearDown() {
-    localPresenceManager.stop();
-    remotePresenceManager.stop();
+    localEventManager.stop();
+    remoteEventManager.stop();
   }
 
   @AfterAll
@@ -101,7 +101,7 @@ class PubSubClientEventManagerTest {
     final AtomicBoolean secondListenerDisplaced = new AtomicBoolean(false);
     final AtomicBoolean firstListenerConnectedElsewhere = new AtomicBoolean(false);
 
-    localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter() {
+    localEventManager.handleClientConnected(accountIdentifier, deviceId, new WebSocketConnectionEventAdapter() {
       @Override
       public void handleConnectionDisplaced(final boolean connectedElsewhere) {
         synchronized (firstListenerDisplaced) {
@@ -116,10 +116,10 @@ class PubSubClientEventManagerTest {
     assertFalse(firstListenerDisplaced.get());
     assertFalse(secondListenerDisplaced.get());
 
-    final PubSubClientEventManager displacingManager =
-        displaceRemotely ? remotePresenceManager : localPresenceManager;
+    final WebSocketConnectionEventManager displacingManager =
+        displaceRemotely ? remoteEventManager : localEventManager;
 
-    displacingManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter() {
+    displacingManager.handleClientConnected(accountIdentifier, deviceId, new WebSocketConnectionEventAdapter() {
       @Override
       public void handleConnectionDisplaced(final boolean connectedElsewhere) {
         secondListenerDisplaced.set(true);
@@ -143,22 +143,22 @@ class PubSubClientEventManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
 
-    assertFalse(localPresenceManager.isLocallyPresent(accountIdentifier, deviceId));
-    assertFalse(remotePresenceManager.isLocallyPresent(accountIdentifier, deviceId));
+    assertFalse(localEventManager.isLocallyPresent(accountIdentifier, deviceId));
+    assertFalse(remoteEventManager.isLocallyPresent(accountIdentifier, deviceId));
 
-    localPresenceManager.handleClientConnected(accountIdentifier, deviceId, new ClientEventAdapter())
+    localEventManager.handleClientConnected(accountIdentifier, deviceId, new WebSocketConnectionEventAdapter())
         .toCompletableFuture()
         .join();
 
-    assertTrue(localPresenceManager.isLocallyPresent(accountIdentifier, deviceId));
-    assertFalse(remotePresenceManager.isLocallyPresent(accountIdentifier, deviceId));
+    assertTrue(localEventManager.isLocallyPresent(accountIdentifier, deviceId));
+    assertFalse(remoteEventManager.isLocallyPresent(accountIdentifier, deviceId));
 
-    localPresenceManager.handleClientDisconnected(accountIdentifier, deviceId)
+    localEventManager.handleClientDisconnected(accountIdentifier, deviceId)
         .toCompletableFuture()
         .join();
 
-    assertFalse(localPresenceManager.isLocallyPresent(accountIdentifier, deviceId));
-    assertFalse(remotePresenceManager.isLocallyPresent(accountIdentifier, deviceId));
+    assertFalse(localEventManager.isLocallyPresent(accountIdentifier, deviceId));
+    assertFalse(remoteEventManager.isLocallyPresent(accountIdentifier, deviceId));
   }
 
   @ParameterizedTest
@@ -173,7 +173,7 @@ class PubSubClientEventManagerTest {
 
     final AtomicBoolean firstListenerConnectedElsewhere = new AtomicBoolean(false);
 
-    localPresenceManager.handleClientConnected(accountIdentifier, firstDeviceId, new ClientEventAdapter() {
+    localEventManager.handleClientConnected(accountIdentifier, firstDeviceId, new WebSocketConnectionEventAdapter() {
       @Override
       public void handleConnectionDisplaced(final boolean connectedElsewhere) {
         synchronized (firstListenerDisplaced) {
@@ -185,7 +185,7 @@ class PubSubClientEventManagerTest {
       }
     }).toCompletableFuture().join();
 
-    localPresenceManager.handleClientConnected(accountIdentifier, secondDeviceId, new ClientEventAdapter() {
+    localEventManager.handleClientConnected(accountIdentifier, secondDeviceId, new WebSocketConnectionEventAdapter() {
       @Override
       public void handleConnectionDisplaced(final boolean connectedElsewhere) {
         synchronized (secondListenerDisplaced) {
@@ -198,8 +198,8 @@ class PubSubClientEventManagerTest {
     assertFalse(firstListenerDisplaced.get());
     assertFalse(secondListenerDisplaced.get());
 
-    final PubSubClientEventManager displacingManager =
-        requestDisconnectionRemotely ? remotePresenceManager : localPresenceManager;
+    final WebSocketConnectionEventManager displacingManager =
+        requestDisconnectionRemotely ? remoteEventManager : localEventManager;
 
     displacingManager.requestDisconnection(accountIdentifier, List.of(firstDeviceId)).toCompletableFuture().join();
 
@@ -230,13 +230,13 @@ class PubSubClientEventManagerTest {
         .binaryPubSubAsyncCommands(pubSubAsyncCommands)
         .build();
 
-    final PubSubClientEventManager presenceManager = new PubSubClientEventManager(clusterClient, Runnable::run);
+    final WebSocketConnectionEventManager eventManager = new WebSocketConnectionEventManager(clusterClient, Runnable::run);
 
-    presenceManager.start();
+    eventManager.start();
 
     final UUID firstAccountIdentifier = UUID.randomUUID();
     final byte firstDeviceId = Device.PRIMARY_ID;
-    final int firstSlot = SlotHash.getSlot(PubSubClientEventManager.getClientEventChannel(firstAccountIdentifier, firstDeviceId));
+    final int firstSlot = SlotHash.getSlot(WebSocketConnectionEventManager.getClientEventChannel(firstAccountIdentifier, firstDeviceId));
 
     final UUID secondAccountIdentifier;
     final byte secondDeviceId = firstDeviceId + 1;
@@ -247,15 +247,15 @@ class PubSubClientEventManagerTest {
 
       do {
         candidateIdentifier = UUID.randomUUID();
-      } while (SlotHash.getSlot(PubSubClientEventManager.getClientEventChannel(candidateIdentifier, secondDeviceId)) == firstSlot);
+      } while (SlotHash.getSlot(WebSocketConnectionEventManager.getClientEventChannel(candidateIdentifier, secondDeviceId)) == firstSlot);
 
       secondAccountIdentifier = candidateIdentifier;
     }
 
-    presenceManager.handleClientConnected(firstAccountIdentifier, firstDeviceId, new ClientEventAdapter()).toCompletableFuture().join();
-    presenceManager.handleClientConnected(secondAccountIdentifier, secondDeviceId, new ClientEventAdapter()).toCompletableFuture().join();
+    eventManager.handleClientConnected(firstAccountIdentifier, firstDeviceId, new WebSocketConnectionEventAdapter()).toCompletableFuture().join();
+    eventManager.handleClientConnected(secondAccountIdentifier, secondDeviceId, new WebSocketConnectionEventAdapter()).toCompletableFuture().join();
 
-    final int secondSlot = SlotHash.getSlot(PubSubClientEventManager.getClientEventChannel(secondAccountIdentifier, secondDeviceId));
+    final int secondSlot = SlotHash.getSlot(WebSocketConnectionEventManager.getClientEventChannel(secondAccountIdentifier, secondDeviceId));
 
     final String firstNodeId = UUID.randomUUID().toString();
 
@@ -274,12 +274,12 @@ class PubSubClientEventManagerTest {
     when(secondAfterNode.getNodeId()).thenReturn(UUID.randomUUID().toString());
     when(secondAfterNode.getSlots()).thenReturn(List.of(secondSlot));
 
-    presenceManager.resubscribe(new ClusterTopologyChangedEvent(
+    eventManager.resubscribe(new ClusterTopologyChangedEvent(
         List.of(firstBeforeNode),
         List.of(firstAfterNode, secondAfterNode)));
 
-    verify(pubSubCommands).ssubscribe(PubSubClientEventManager.getClientEventChannel(secondAccountIdentifier, secondDeviceId));
-    verify(pubSubCommands, never()).ssubscribe(PubSubClientEventManager.getClientEventChannel(firstAccountIdentifier, firstDeviceId));
+    verify(pubSubCommands).ssubscribe(WebSocketConnectionEventManager.getClientEventChannel(secondAccountIdentifier, secondDeviceId));
+    verify(pubSubCommands, never()).ssubscribe(WebSocketConnectionEventManager.getClientEventChannel(firstAccountIdentifier, firstDeviceId));
   }
 
   @Test
@@ -293,7 +293,7 @@ class PubSubClientEventManagerTest {
         .binaryPubSubAsyncCommands(pubSubAsyncCommands)
         .build();
 
-    final PubSubClientEventManager eventManager = new PubSubClientEventManager(clusterClient, Runnable::run);
+    final WebSocketConnectionEventManager eventManager = new WebSocketConnectionEventManager(clusterClient, Runnable::run);
 
     eventManager.start();
 
@@ -303,20 +303,20 @@ class PubSubClientEventManagerTest {
     final UUID noListenerAccountIdentifier = UUID.randomUUID();
     final byte noListenerDeviceId = listenerDeviceId + 1;
 
-    eventManager.handleClientConnected(listenerAccountIdentifier, listenerDeviceId, new ClientEventAdapter())
+    eventManager.handleClientConnected(listenerAccountIdentifier, listenerDeviceId, new WebSocketConnectionEventAdapter())
         .toCompletableFuture()
         .join();
 
     eventManager.unsubscribeIfMissingListener(
-        new PubSubClientEventManager.AccountAndDeviceIdentifier(listenerAccountIdentifier, listenerDeviceId));
+        new WebSocketConnectionEventManager.AccountAndDeviceIdentifier(listenerAccountIdentifier, listenerDeviceId));
 
     eventManager.unsubscribeIfMissingListener(
-        new PubSubClientEventManager.AccountAndDeviceIdentifier(noListenerAccountIdentifier, noListenerDeviceId));
+        new WebSocketConnectionEventManager.AccountAndDeviceIdentifier(noListenerAccountIdentifier, noListenerDeviceId));
 
     verify(pubSubAsyncCommands, never())
-        .sunsubscribe(PubSubClientEventManager.getClientEventChannel(listenerAccountIdentifier, listenerDeviceId));
+        .sunsubscribe(WebSocketConnectionEventManager.getClientEventChannel(listenerAccountIdentifier, listenerDeviceId));
 
     verify(pubSubAsyncCommands)
-        .sunsubscribe(PubSubClientEventManager.getClientEventChannel(noListenerAccountIdentifier, noListenerDeviceId));
+        .sunsubscribe(WebSocketConnectionEventManager.getClientEventChannel(noListenerAccountIdentifier, noListenerDeviceId));
   }
 }

@@ -14,7 +14,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.PubSubClientEventManager;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -62,7 +62,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(ProfilesManager.class),
         mock(SecureStorageClient.class),
         mock(SecureValueRecovery2Client.class),
-        mock(PubSubClientEventManager.class),
+        mock(WebSocketConnectionEventManager.class),
         mock(RegistrationRecoveryPasswordsManager.class),
         mock(ClientPublicKeysManager.class),
         mock(ExecutorService.class),
