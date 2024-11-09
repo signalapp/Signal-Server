@@ -109,7 +109,7 @@ class MessagesCacheTest {
     void setUp() throws Exception {
       dynamicConfiguration = mock(DynamicConfiguration.class);
       when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(
-          new DynamicMessagesConfiguration(true, true, true));
+          new DynamicMessagesConfiguration(true));
       dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
       when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
@@ -434,7 +434,7 @@ class MessagesCacheTest {
         @CartesianTest.Values(booleans = {true, false}) final boolean useSharedMrmData) {
 
       when(dynamicConfiguration.getMessagesConfiguration())
-          .thenReturn(new DynamicMessagesConfiguration(true, true, useSharedMrmData));
+          .thenReturn(new DynamicMessagesConfiguration(useSharedMrmData));
 
       final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(UUID.randomUUID());
       final byte deviceId = 1;
@@ -493,13 +493,12 @@ class MessagesCacheTest {
       }, "Shared MRM data should be deleted asynchronously");
     }
 
-    @CartesianTest
-    void testMultiRecipientMessagePhase2MissingContentSafeguard(
-        @CartesianTest.Values(booleans = {true, false}) final boolean useSharedMrmData,
-        @CartesianTest.Values(booleans = {true, false}) final boolean fetchSharedMrmData) {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testMultiRecipientMessagePhase2MissingContentSafeguard(final boolean useSharedMrmData) {
 
       when(dynamicConfiguration.getMessagesConfiguration())
-          .thenReturn(new DynamicMessagesConfiguration(true, fetchSharedMrmData, useSharedMrmData));
+          .thenReturn(new DynamicMessagesConfiguration(useSharedMrmData));
 
       final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(UUID.randomUUID());
       final byte deviceId = 1;
@@ -554,7 +553,7 @@ class MessagesCacheTest {
         @CartesianTest.Values(booleans = {true, false}) final boolean useSharedMrmData) {
 
       when(dynamicConfiguration.getMessagesConfiguration())
-          .thenReturn(new DynamicMessagesConfiguration(true, true, useSharedMrmData));
+          .thenReturn(new DynamicMessagesConfiguration(useSharedMrmData));
 
       final UUID destinationUuid = UUID.randomUUID();
       final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(destinationUuid);

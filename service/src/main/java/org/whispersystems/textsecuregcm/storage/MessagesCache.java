@@ -370,8 +370,8 @@ public class MessagesCache {
                   messageMono = Mono.just(message.toBuilder().clearSharedMrmKey().build());
                   skippedStaleEphemeralMrmCounter.increment();
                 } else {
-                  // mrm views phase 2: fetch shared MRM data -- internally depends on dynamic config that
-                  // enables fetching and using it (the stored messages still always have `content` set upstream)
+                  // mrm views phase 3: fetch shared MRM data -- internally depends on dynamic config that
+                  // enables using it (the stored messages still always have `content` set upstream)
                   messageMono = getMessageWithSharedMrmData(message, destinationDevice);
                 }
 
@@ -393,7 +393,6 @@ public class MessagesCache {
   /**
    * Returns the given message with its shared MRM data.
    *
-   * @see DynamicMessagesConfiguration#fetchSharedMrmData()
    * @see DynamicMessagesConfiguration#useSharedMrmData()
    */
   private Mono<MessageProtos.Envelope> getMessageWithSharedMrmData(final MessageProtos.Envelope mrmMessage,
@@ -406,53 +405,49 @@ public class MessagesCache {
       mrmPhaseTwoMissingContentCounter.increment();
     }
 
-    if (dynamicConfigurationManager.getConfiguration().getMessagesConfiguration().fetchSharedMrmData()
+    final Experiment experiment = new Experiment(MRM_VIEWS_EXPERIMENT_NAME);
+
+    final byte[] key = mrmMessage.getSharedMrmKey().toByteArray();
+    final byte[] sharedMrmViewKey = MessagesCache.getSharedMrmViewKey(
+        // the message might be addressed to the account's PNI, so use the service ID from the envelope
+        ServiceIdentifier.valueOf(mrmMessage.getDestinationServiceId()), destinationDevice);
+
+    final Mono<MessageProtos.Envelope> messageFromRedisMono = Mono.from(redisCluster.withBinaryClusterReactive(
+            conn -> conn.reactive().hmget(key, "data".getBytes(StandardCharsets.UTF_8), sharedMrmViewKey)
+                .collectList()
+                .publishOn(messageDeliveryScheduler)))
+        .<MessageProtos.Envelope>handle((mrmDataAndView, sink) -> {
+          try {
+            assert mrmDataAndView.size() == 2;
+
+            final byte[] content = SealedSenderMultiRecipientMessage.messageForRecipient(
+                mrmDataAndView.getFirst().getValue(),
+                mrmDataAndView.getLast().getValue());
+
+            sink.next(mrmMessage.toBuilder()
+                .clearSharedMrmKey()
+                .setContent(ByteString.copyFrom(content))
+                .build());
+
+            mrmContentRetrievedCounter.increment();
+          } catch (Exception e) {
+            sink.error(e);
+          }
+        })
+        .onErrorResume(throwable -> {
+          logger.warn("Failed to retrieve shared mrm data", throwable);
+          mrmRetrievalErrorCounter.increment();
+          return Mono.empty();
+        })
+        .share();
+
+    if (mrmMessage.hasContent()) {
+      experiment.compareMonoResult(mrmMessage.toBuilder().clearSharedMrmKey().build(), messageFromRedisMono);
+    }
+
+    if (dynamicConfigurationManager.getConfiguration().getMessagesConfiguration().useSharedMrmData()
         || !mrmMessage.hasContent()) {
-
-      final Experiment experiment = new Experiment(MRM_VIEWS_EXPERIMENT_NAME);
-
-      final byte[] key = mrmMessage.getSharedMrmKey().toByteArray();
-      final byte[] sharedMrmViewKey = MessagesCache.getSharedMrmViewKey(
-          // the message might be addressed to the account's PNI, so use the service ID from the envelope
-          ServiceIdentifier.valueOf(mrmMessage.getDestinationServiceId()), destinationDevice);
-
-      final Mono<MessageProtos.Envelope> messageFromRedisMono = Mono.from(redisCluster.withBinaryClusterReactive(
-              conn -> conn.reactive().hmget(key, "data".getBytes(StandardCharsets.UTF_8), sharedMrmViewKey)
-                  .collectList()
-                  .publishOn(messageDeliveryScheduler)))
-          .<MessageProtos.Envelope>handle((mrmDataAndView, sink) -> {
-            try {
-              assert mrmDataAndView.size() == 2;
-
-              final byte[] content = SealedSenderMultiRecipientMessage.messageForRecipient(
-                  mrmDataAndView.getFirst().getValue(),
-                  mrmDataAndView.getLast().getValue());
-
-              sink.next(mrmMessage.toBuilder()
-                  .clearSharedMrmKey()
-                  .setContent(ByteString.copyFrom(content))
-                  .build());
-
-              mrmContentRetrievedCounter.increment();
-            } catch (Exception e) {
-              sink.error(e);
-            }
-          })
-          .onErrorResume(throwable -> {
-            logger.warn("Failed to retrieve shared mrm data", throwable);
-            mrmRetrievalErrorCounter.increment();
-            return Mono.empty();
-          })
-          .share();
-
-      if (mrmMessage.hasContent()) {
-        experiment.compareMonoResult(mrmMessage.toBuilder().clearSharedMrmKey().build(), messageFromRedisMono);
-      }
-
-      if (dynamicConfigurationManager.getConfiguration().getMessagesConfiguration().useSharedMrmData()
-          || !mrmMessage.hasContent()) {
-        return messageFromRedisMono;
-      }
+      return messageFromRedisMono;
     }
 
     // if fetching or using shared data is disabled, fallback to just() with the existing message

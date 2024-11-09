@@ -82,12 +82,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
+import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicInboundMessageByteLimitConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountStaleDevices;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -252,8 +252,6 @@ class MessageControllerTest {
 
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfiguration.getInboundMessageByteLimitConfiguration()).thenReturn(inboundMessageByteLimitConfiguration);
-    when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(
-            new DynamicMessagesConfiguration(true, true, true));
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
@@ -1141,6 +1139,10 @@ class MessageControllerTest {
 
   @Test
   void testManyRecipientMessage() throws Exception {
+
+    when(messagesManager.insertSharedMultiRecipientMessagePayload(any(SealedSenderMultiRecipientMessage.class)))
+        .thenReturn(new byte[]{1});
+
     final int nRecipients = 999;
     final int devicesPerRecipient = 5;
     final List<Recipient> recipients = new ArrayList<>();
@@ -1152,8 +1154,8 @@ class MessageControllerTest {
               d -> generateTestDevice(
                   (byte) d, 100 + d, 10 * d, true))
           .collect(Collectors.toList());
-      final UUID aci = new UUID(0L, (long) i);
-      final UUID pni = new UUID(1L, (long) i);
+      final UUID aci = new UUID(0L, i);
+      final UUID pni = new UUID(1L, i);
       final String e164 = String.format("+1408555%04d", i);
       final Account account = AccountsHelper.generateTestAccount(e164, aci, pni, devices, UNIDENTIFIED_ACCESS_BYTES);
 
@@ -1186,13 +1188,12 @@ class MessageControllerTest {
 
   // see testMultiRecipientMessageNoPni and testMultiRecipientMessagePni below for actual invocations
   private void testMultiRecipientMessage(
-      Map<ServiceIdentifier, Map<Byte, Integer>> destinations,
-      boolean authorize,
-      boolean isStory,
-      boolean urgent,
-      boolean explicitIdentifier,
-      int expectedStatus,
-      int expectedMessagesSent) throws Exception {
+      Map<ServiceIdentifier, Map<Byte, Integer>> destinations, boolean authorize, boolean isStory, boolean urgent,
+      boolean explicitIdentifier, int expectedStatus, int expectedMessagesSent) throws Exception {
+
+    when(messagesManager.insertSharedMultiRecipientMessagePayload(any(SealedSenderMultiRecipientMessage.class)))
+        .thenReturn(new byte[]{1});
+
     final List<Recipient> recipients = new ArrayList<>();
     destinations.forEach(
         (serviceIdentifier, deviceToRegistrationId) ->
@@ -1383,6 +1384,10 @@ class MessageControllerTest {
 
   @Test
   void testMultiRecipientMessageWithGroupSendEndorsements() throws Exception {
+
+    when(messagesManager.insertSharedMultiRecipientMessagePayload(any(SealedSenderMultiRecipientMessage.class)))
+        .thenReturn(new byte[]{1});
+
     final List<Recipient> recipients = List.of(
         new Recipient(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ID1, SINGLE_DEVICE_REG_ID1, new byte[48]),
         new Recipient(MULTI_DEVICE_ACI_ID, MULTI_DEVICE_ID1, MULTI_DEVICE_REG_ID1, new byte[48]),
@@ -1549,6 +1554,9 @@ class MessageControllerTest {
   @ParameterizedTest
   @MethodSource
   void testSendMultiRecipientMessageToUnknownAccounts(boolean story, boolean known, boolean useExplicitIdentifier) {
+
+    when(messagesManager.insertSharedMultiRecipientMessagePayload(any(SealedSenderMultiRecipientMessage.class)))
+        .thenReturn(new byte[]{1});
 
     final Recipient r1;
     if (known) {

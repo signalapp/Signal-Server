@@ -655,10 +655,7 @@ public class MessageController {
     }
 
     try {
-      @Nullable final byte[] sharedMrmKey =
-          dynamicConfigurationManager.getConfiguration().getMessagesConfiguration().storeSharedMrmData()
-              ? messagesManager.insertSharedMultiRecipientMessagePayload(multiRecipientMessage)
-          : null;
+      final byte[] sharedMrmKey = messagesManager.insertSharedMultiRecipientMessagePayload(multiRecipientMessage);
 
       CompletableFuture.allOf(
               recipients.values().stream()
@@ -941,7 +938,7 @@ public class MessageController {
       boolean story,
       boolean urgent,
       byte[] payload,
-      @Nullable byte[] sharedMrmKey) {
+      byte[] sharedMrmKey) {
 
     final Envelope.Builder messageBuilder = Envelope.newBuilder();
     final long serverTimestamp = System.currentTimeMillis();
@@ -952,12 +949,10 @@ public class MessageController {
         .setServerTimestamp(serverTimestamp)
         .setStory(story)
         .setUrgent(urgent)
-        .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString());
+        .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+        .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey));
 
-    if (sharedMrmKey != null) {
-      messageBuilder.setSharedMrmKey(ByteString.copyFrom(sharedMrmKey));
-    }
-    // mrm views phase 2: always set content
+    // mrm views phase 3: always set content
     messageBuilder.setContent(ByteString.copyFrom(payload));
 
     messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
