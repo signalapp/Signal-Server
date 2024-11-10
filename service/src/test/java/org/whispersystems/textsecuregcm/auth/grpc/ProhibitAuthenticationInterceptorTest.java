@@ -4,9 +4,8 @@ import io.grpc.Status;
 import org.junit.jupiter.api.Test;
 import org.signal.chat.rpc.GetAuthenticatedDeviceResponse;
 import org.whispersystems.textsecuregcm.grpc.GrpcTestUtils;
-import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -24,16 +23,16 @@ class ProhibitAuthenticationInterceptorTest extends AbstractAuthenticationInterc
 
   @Test
   void interceptCall() {
-    final ClientConnectionManager clientConnectionManager = getClientConnectionManager();
+    final GrpcClientConnectionManager grpcClientConnectionManager = getClientConnectionManager();
 
-    when(clientConnectionManager.getAuthenticatedDevice(any())).thenReturn(Optional.empty());
+    when(grpcClientConnectionManager.getAuthenticatedDevice(any())).thenReturn(Optional.empty());
 
     final GetAuthenticatedDeviceResponse response = getAuthenticatedDevice();
     assertTrue(response.getAccountIdentifier().isEmpty());
     assertEquals(0, response.getDeviceId());
 
     final AuthenticatedDevice authenticatedDevice = new AuthenticatedDevice(UUID.randomUUID(), Device.PRIMARY_ID);
-    when(clientConnectionManager.getAuthenticatedDevice(any())).thenReturn(Optional.of(authenticatedDevice));
+    when(grpcClientConnectionManager.getAuthenticatedDevice(any())).thenReturn(Optional.of(authenticatedDevice));
 
     GrpcTestUtils.assertStatusException(Status.UNAUTHENTICATED, this::getAuthenticatedDevice);
   }

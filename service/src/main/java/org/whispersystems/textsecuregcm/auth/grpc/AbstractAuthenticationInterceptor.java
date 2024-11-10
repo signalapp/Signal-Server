@@ -6,22 +6,22 @@ import io.grpc.ServerCall;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import io.netty.channel.local.LocalAddress;
-import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import java.util.Optional;
 
 abstract class AbstractAuthenticationInterceptor implements ServerInterceptor {
 
-  private final ClientConnectionManager clientConnectionManager;
+  private final GrpcClientConnectionManager grpcClientConnectionManager;
 
   private static final Metadata EMPTY_TRAILERS = new Metadata();
 
-  AbstractAuthenticationInterceptor(final ClientConnectionManager clientConnectionManager) {
-    this.clientConnectionManager = clientConnectionManager;
+  AbstractAuthenticationInterceptor(final GrpcClientConnectionManager grpcClientConnectionManager) {
+    this.grpcClientConnectionManager = grpcClientConnectionManager;
   }
 
   protected Optional<AuthenticatedDevice> getAuthenticatedDevice(final ServerCall<?, ?> call) {
     if (call.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR) instanceof LocalAddress localAddress) {
-      return clientConnectionManager.getAuthenticatedDevice(localAddress);
+      return grpcClientConnectionManager.getAuthenticatedDevice(localAddress);
     } else {
       throw new AssertionError("Unexpected channel type: " + call.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR));
     }

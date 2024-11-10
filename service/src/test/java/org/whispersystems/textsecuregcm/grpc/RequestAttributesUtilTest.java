@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -30,7 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.signal.chat.rpc.GetRequestAttributesRequest;
 import org.signal.chat.rpc.GetRequestAttributesResponse;
 import org.signal.chat.rpc.RequestAttributesGrpc;
-import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -39,7 +38,7 @@ class RequestAttributesUtilTest {
 
   private static DefaultEventLoopGroup eventLoopGroup;
 
-  private ClientConnectionManager clientConnectionManager;
+  private GrpcClientConnectionManager grpcClientConnectionManager;
 
   private Server server;
   private ManagedChannel managedChannel;
@@ -53,9 +52,9 @@ class RequestAttributesUtilTest {
   void setUp() throws IOException {
     final LocalAddress serverAddress = new LocalAddress("test-request-metadata-server");
 
-    clientConnectionManager = mock(ClientConnectionManager.class);
+    grpcClientConnectionManager = mock(GrpcClientConnectionManager.class);
 
-    when(clientConnectionManager.getRemoteAddress(any()))
+    when(grpcClientConnectionManager.getRemoteAddress(any()))
         .thenReturn(Optional.of(InetAddresses.forString("127.0.0.1")));
 
     // `RequestAttributesInterceptor` operates on `LocalAddresses`, so we need to do some slightly fancy plumbing to make
@@ -64,7 +63,7 @@ class RequestAttributesUtilTest {
         .channelType(LocalServerChannel.class)
         .bossEventLoopGroup(eventLoopGroup)
         .workerEventLoopGroup(eventLoopGroup)
-        .intercept(new RequestAttributesInterceptor(clientConnectionManager))
+        .intercept(new RequestAttributesInterceptor(grpcClientConnectionManager))
         .addService(new RequestAttributesServiceImpl())
         .build()
         .start();
@@ -89,12 +88,12 @@ class RequestAttributesUtilTest {
 
   @Test
   void getAcceptableLanguages() {
-    when(clientConnectionManager.getAcceptableLanguages(any()))
+    when(grpcClientConnectionManager.getAcceptableLanguages(any()))
         .thenReturn(Optional.empty());
 
     assertTrue(getRequestAttributes().getAcceptableLanguagesList().isEmpty());
 
-    when(clientConnectionManager.getAcceptableLanguages(any()))
+    when(grpcClientConnectionManager.getAcceptableLanguages(any()))
         .thenReturn(Optional.of(Locale.LanguageRange.parse("en,ja")));
 
     assertEquals(List.of("en", "ja"), getRequestAttributes().getAcceptableLanguagesList());
@@ -102,12 +101,12 @@ class RequestAttributesUtilTest {
 
   @Test
   void getAvailableAcceptedLocales() {
-    when(clientConnectionManager.getAcceptableLanguages(any()))
+    when(grpcClientConnectionManager.getAcceptableLanguages(any()))
         .thenReturn(Optional.empty());
 
     assertTrue(getRequestAttributes().getAvailableAcceptedLocalesList().isEmpty());
 
-    when(clientConnectionManager.getAcceptableLanguages(any()))
+    when(grpcClientConnectionManager.getAcceptableLanguages(any()))
         .thenReturn(Optional.of(Locale.LanguageRange.parse("en,ja")));
 
     final GetRequestAttributesResponse response = getRequestAttributes();
@@ -121,14 +120,14 @@ class RequestAttributesUtilTest {
 
   @Test
   void getRemoteAddress() {
-    when(clientConnectionManager.getRemoteAddress(any()))
+    when(grpcClientConnectionManager.getRemoteAddress(any()))
         .thenReturn(Optional.empty());
 
     GrpcTestUtils.assertStatusException(Status.INTERNAL, this::getRequestAttributes);
 
     final String remoteAddressString = "6.7.8.9";
 
-    when(clientConnectionManager.getRemoteAddress(any()))
+    when(grpcClientConnectionManager.getRemoteAddress(any()))
         .thenReturn(Optional.of(InetAddresses.forString(remoteAddressString)));
 
     assertEquals(remoteAddressString, getRequestAttributes().getRemoteAddress());
@@ -136,14 +135,14 @@ class RequestAttributesUtilTest {
 
   @Test
   void getUserAgent() throws UnrecognizedUserAgentException {
-    when(clientConnectionManager.getUserAgent(any()))
+    when(grpcClientConnectionManager.getUserAgent(any()))
         .thenReturn(Optional.empty());
 
     assertFalse(getRequestAttributes().hasUserAgent());
 
     final UserAgent userAgent = UserAgentUtil.parseUserAgentString("Signal-Desktop/1.2.3 Linux");
 
-    when(clientConnectionManager.getUserAgent(any()))
+    when(grpcClientConnectionManager.getUserAgent(any()))
         .thenReturn(Optional.of(userAgent));
 
     final GetRequestAttributesResponse response = getRequestAttributes();

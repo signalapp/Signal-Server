@@ -5,7 +5,7 @@ import io.grpc.Contexts;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
-import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 
 /**
  * A "require authentication" interceptor requires that requests be issued from a connection that is associated with an
@@ -14,8 +14,8 @@ import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
  */
 public class RequireAuthenticationInterceptor extends AbstractAuthenticationInterceptor {
 
-  public RequireAuthenticationInterceptor(final ClientConnectionManager clientConnectionManager) {
-    super(clientConnectionManager);
+  public RequireAuthenticationInterceptor(final GrpcClientConnectionManager grpcClientConnectionManager) {
+    super(grpcClientConnectionManager);
   }
 
   @Override

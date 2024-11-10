@@ -3,7 +3,7 @@ package org.whispersystems.textsecuregcm.auth.grpc;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
-import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 
 /**
  * A "prohibit authentication" interceptor ensures that requests to endpoints that should be invoked anonymously do not
@@ -12,8 +12,8 @@ import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
  */
 public class ProhibitAuthenticationInterceptor extends AbstractAuthenticationInterceptor {
 
-  public ProhibitAuthenticationInterceptor(final ClientConnectionManager clientConnectionManager) {
-    super(clientConnectionManager);
+  public ProhibitAuthenticationInterceptor(final GrpcClientConnectionManager grpcClientConnectionManager) {
+    super(grpcClientConnectionManager);
   }
 
   @Override

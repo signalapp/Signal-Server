@@ -11,7 +11,7 @@ import io.grpc.Status;
 import io.netty.channel.local.LocalAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import java.net.InetAddress;
 import java.util.List;
@@ -20,12 +20,12 @@ import java.util.Optional;
 
 public class RequestAttributesInterceptor implements ServerInterceptor {
 
-  private final ClientConnectionManager clientConnectionManager;
+  private final GrpcClientConnectionManager grpcClientConnectionManager;
 
   private static final Logger log = LoggerFactory.getLogger(RequestAttributesInterceptor.class);
 
-  public RequestAttributesInterceptor(final ClientConnectionManager clientConnectionManager) {
-    this.clientConnectionManager = clientConnectionManager;
+  public RequestAttributesInterceptor(final GrpcClientConnectionManager grpcClientConnectionManager) {
+    this.grpcClientConnectionManager = grpcClientConnectionManager;
   }
 
   @Override
@@ -37,7 +37,7 @@ public class RequestAttributesInterceptor implements ServerInterceptor {
       Context context = Context.current();
 
       {
-        final Optional<InetAddress> maybeRemoteAddress = clientConnectionManager.getRemoteAddress(localAddress);
+        final Optional<InetAddress> maybeRemoteAddress = grpcClientConnectionManager.getRemoteAddress(localAddress);
 
         if (maybeRemoteAddress.isEmpty()) {
           // We should never have a call from a party whose remote address we can't identify
@@ -52,7 +52,7 @@ public class RequestAttributesInterceptor implements ServerInterceptor {
 
       {
         final Optional<List<Locale.LanguageRange>> maybeAcceptLanguage =
-            clientConnectionManager.getAcceptableLanguages(localAddress);
+            grpcClientConnectionManager.getAcceptableLanguages(localAddress);
 
         if (maybeAcceptLanguage.isPresent()) {
           context = context.withValue(RequestAttributesUtil.ACCEPT_LANGUAGE_CONTEXT_KEY, maybeAcceptLanguage.get());
@@ -60,7 +60,7 @@ public class RequestAttributesInterceptor implements ServerInterceptor {
       }
 
       {
-        final Optional<UserAgent> maybeUserAgent = clientConnectionManager.getUserAgent(localAddress);
+        final Optional<UserAgent> maybeUserAgent = grpcClientConnectionManager.getUserAgent(localAddress);
 
         if (maybeUserAgent.isPresent()) {
           context = context.withValue(RequestAttributesUtil.USER_AGENT_CONTEXT_KEY, maybeUserAgent.get());

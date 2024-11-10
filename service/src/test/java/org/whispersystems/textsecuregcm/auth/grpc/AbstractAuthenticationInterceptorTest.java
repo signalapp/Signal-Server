@@ -18,13 +18,13 @@ import org.signal.chat.rpc.GetAuthenticatedDeviceRequest;
 import org.signal.chat.rpc.GetAuthenticatedDeviceResponse;
 import org.signal.chat.rpc.RequestAttributesGrpc;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesServiceImpl;
-import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 
 abstract class AbstractAuthenticationInterceptorTest {
 
   private static DefaultEventLoopGroup eventLoopGroup;
 
-  private ClientConnectionManager clientConnectionManager;
+  private GrpcClientConnectionManager grpcClientConnectionManager;
 
   private Server server;
   private ManagedChannel managedChannel;
@@ -38,7 +38,7 @@ abstract class AbstractAuthenticationInterceptorTest {
   void setUp() throws IOException {
     final LocalAddress serverAddress = new LocalAddress("test-authentication-interceptor-server");
 
-    clientConnectionManager = mock(ClientConnectionManager.class);
+    grpcClientConnectionManager = mock(GrpcClientConnectionManager.class);
 
     // `RequestAttributesInterceptor` operates on `LocalAddresses`, so we need to do some slightly fancy plumbing to make
     // sure that we're using local channels and addresses
@@ -66,8 +66,8 @@ abstract class AbstractAuthenticationInterceptorTest {
 
   protected abstract AbstractAuthenticationInterceptor getInterceptor();
 
-  protected ClientConnectionManager getClientConnectionManager() {
-    return clientConnectionManager;
+  protected GrpcClientConnectionManager getClientConnectionManager() {
+    return grpcClientConnectionManager;
   }
 
   protected GetAuthenticatedDeviceResponse getAuthenticatedDevice() {

@@ -155,7 +155,7 @@ import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
-import org.whispersystems.textsecuregcm.grpc.net.ClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedDefaultEventLoopGroup;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedLocalGrpcServer;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedNioEventLoopGroup;
@@ -820,7 +820,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         false
     );
 
-    final ClientConnectionManager clientConnectionManager = new ClientConnectionManager();
+    final GrpcClientConnectionManager grpcClientConnectionManager = new GrpcClientConnectionManager();
 
     final ManagedDefaultEventLoopGroup localEventLoopGroup = new ManagedDefaultEventLoopGroup();
 
@@ -830,7 +830,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
     final RequestAttributesInterceptor requestAttributesInterceptor =
-        new RequestAttributesInterceptor(clientConnectionManager);
+        new RequestAttributesInterceptor(grpcClientConnectionManager);
 
     final LocalAddress anonymousGrpcServerAddress = new LocalAddress("grpc-anonymous");
     final LocalAddress authenticatedGrpcServerAddress = new LocalAddress("grpc-authenticated");
@@ -850,7 +850,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .intercept(errorMappingInterceptor)
             .intercept(remoteDeprecationFilter)
             .intercept(requestAttributesInterceptor)
-            .intercept(new ProhibitAuthenticationInterceptor(clientConnectionManager))
+            .intercept(new ProhibitAuthenticationInterceptor(grpcClientConnectionManager))
             .addService(new AccountsAnonymousGrpcService(accountsManager, rateLimiters))
             .addService(new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()))
             .addService(new PaymentsGrpcService(currencyManager))
@@ -871,7 +871,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .intercept(errorMappingInterceptor)
             .intercept(remoteDeprecationFilter)
             .intercept(requestAttributesInterceptor)
-            .intercept(new RequireAuthenticationInterceptor(clientConnectionManager))
+            .intercept(new RequireAuthenticationInterceptor(grpcClientConnectionManager))
             .addService(new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager))
             .addService(ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters))
             .addService(new KeysGrpcService(accountsManager, keysManager, rateLimiters))
@@ -919,7 +919,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         noiseWebSocketTlsPrivateKey,
         noiseWebSocketEventLoopGroup,
         noiseWebSocketDelegatedTaskExecutor,
-        clientConnectionManager,
+        grpcClientConnectionManager,
         clientPublicKeysManager,
         config.getNoiseWebSocketTunnelConfiguration().noiseStaticKeyPair(),
         authenticatedGrpcServerAddress,

@@ -86,7 +86,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
   private static X509Certificate serverTlsCertificate;
 
-  private ClientConnectionManager clientConnectionManager;
+  private GrpcClientConnectionManager grpcClientConnectionManager;
   private ClientPublicKeysManager clientPublicKeysManager;
 
   private ECKeyPair serverKeyPair;
@@ -156,7 +156,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
     clientKeyPair = Curve.generateKeyPair();
     serverKeyPair = Curve.generateKeyPair();
 
-    clientConnectionManager = new ClientConnectionManager();
+    grpcClientConnectionManager = new GrpcClientConnectionManager();
 
     clientPublicKeysManager = mock(ClientPublicKeysManager.class);
     when(clientPublicKeysManager.findPublicKey(any(), anyByte()))
@@ -172,8 +172,8 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
       @Override
       protected void configureServer(final ServerBuilder<?> serverBuilder) {
         serverBuilder.addService(new RequestAttributesServiceImpl())
-            .intercept(new RequestAttributesInterceptor(clientConnectionManager))
-            .intercept(new RequireAuthenticationInterceptor(clientConnectionManager));
+            .intercept(new RequestAttributesInterceptor(grpcClientConnectionManager))
+            .intercept(new RequireAuthenticationInterceptor(grpcClientConnectionManager));
       }
     };
 
@@ -183,8 +183,8 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
       @Override
       protected void configureServer(final ServerBuilder<?> serverBuilder) {
         serverBuilder.addService(new RequestAttributesServiceImpl())
-            .intercept(new RequestAttributesInterceptor(clientConnectionManager))
-            .intercept(new ProhibitAuthenticationInterceptor(clientConnectionManager));
+            .intercept(new RequestAttributesInterceptor(grpcClientConnectionManager))
+            .intercept(new ProhibitAuthenticationInterceptor(grpcClientConnectionManager));
       }
     };
 
@@ -195,7 +195,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         serverTlsPrivateKey,
         nioEventLoopGroup,
         delegatedTaskExecutor,
-        clientConnectionManager,
+            grpcClientConnectionManager,
         clientPublicKeysManager,
         serverKeyPair,
         authenticatedGrpcServerAddress,
@@ -209,7 +209,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         null,
         nioEventLoopGroup,
         delegatedTaskExecutor,
-        clientConnectionManager,
+            grpcClientConnectionManager,
         clientPublicKeysManager,
         serverKeyPair,
         authenticatedGrpcServerAddress,
@@ -569,7 +569,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
         assertEquals(UUIDUtil.toByteString(ACCOUNT_IDENTIFIER), response.getAccountIdentifier());
         assertEquals(DEVICE_ID, response.getDeviceId());
 
-        clientConnectionManager.closeConnection(new AuthenticatedDevice(ACCOUNT_IDENTIFIER, DEVICE_ID));
+        grpcClientConnectionManager.closeConnection(new AuthenticatedDevice(ACCOUNT_IDENTIFIER, DEVICE_ID));
         assertTrue(connectionCloseLatch.await(2, TimeUnit.SECONDS));
 
         assertEquals(ApplicationWebSocketCloseReason.REAUTHENTICATION_REQUIRED.getStatusCode(),

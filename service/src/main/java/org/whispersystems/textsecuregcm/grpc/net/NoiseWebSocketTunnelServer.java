@@ -50,7 +50,7 @@ public class NoiseWebSocketTunnelServer implements Managed {
       @Nullable final PrivateKey tlsPrivateKey,
       final NioEventLoopGroup eventLoopGroup,
       final Executor delegatedTaskExecutor,
-      final ClientConnectionManager clientConnectionManager,
+      final GrpcClientConnectionManager grpcClientConnectionManager,
       final ClientPublicKeysManager clientPublicKeysManager,
       final ECKeyPair ecKeyPair,
       final LocalAddress authenticatedGrpcServerAddress,
@@ -109,7 +109,7 @@ public class NoiseWebSocketTunnelServer implements Managed {
                 .addLast(new WebsocketHandshakeCompleteHandler(clientPublicKeysManager, ecKeyPair, recognizedProxySecret))
                 // This handler will open a local connection to the appropriate gRPC server and install a ProxyHandler
                 // once the Noise handshake has completed
-                .addLast(new EstablishLocalGrpcConnectionHandler(clientConnectionManager, authenticatedGrpcServerAddress, anonymousGrpcServerAddress))
+                .addLast(new EstablishLocalGrpcConnectionHandler(grpcClientConnectionManager, authenticatedGrpcServerAddress, anonymousGrpcServerAddress))
                 .addLast(new ErrorHandler());
           }
         });

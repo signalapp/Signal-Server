@@ -135,7 +135,7 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
     embeddedChannel.pipeline().fireUserEventTriggered(handshakeCompleteEvent);
 
     assertEquals(expectedRemoteAddress,
-        embeddedChannel.attr(ClientConnectionManager.REMOTE_ADDRESS_ATTRIBUTE_KEY).get());
+        embeddedChannel.attr(GrpcClientConnectionManager.REMOTE_ADDRESS_ATTRIBUTE_KEY).get());
   }
 
   private static List<Arguments> getRemoteAddress() {

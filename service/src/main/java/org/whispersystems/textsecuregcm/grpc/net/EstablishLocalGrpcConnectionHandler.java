@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
  */
 class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
 
-  private final ClientConnectionManager clientConnectionManager;
+  private final GrpcClientConnectionManager grpcClientConnectionManager;
 
   private final LocalAddress authenticatedGrpcServerAddress;
   private final LocalAddress anonymousGrpcServerAddress;
@@ -31,11 +31,11 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
 
   private static final Logger log = LoggerFactory.getLogger(EstablishLocalGrpcConnectionHandler.class);
 
-  public EstablishLocalGrpcConnectionHandler(final ClientConnectionManager clientConnectionManager,
+  public EstablishLocalGrpcConnectionHandler(final GrpcClientConnectionManager grpcClientConnectionManager,
       final LocalAddress authenticatedGrpcServerAddress,
       final LocalAddress anonymousGrpcServerAddress) {
 
-    this.clientConnectionManager = clientConnectionManager;
+    this.grpcClientConnectionManager = grpcClientConnectionManager;
 
     this.authenticatedGrpcServerAddress = authenticatedGrpcServerAddress;
     this.anonymousGrpcServerAddress = anonymousGrpcServerAddress;
@@ -70,7 +70,7 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
           .connect()
           .addListener((ChannelFutureListener) localChannelFuture -> {
             if (localChannelFuture.isSuccess()) {
-              clientConnectionManager.handleConnectionEstablished((LocalChannel) localChannelFuture.channel(),
+              grpcClientConnectionManager.handleConnectionEstablished((LocalChannel) localChannelFuture.channel(),
                   remoteChannelContext.channel(),
                   noiseIdentityDeterminedEvent.authenticatedDevice());
 
