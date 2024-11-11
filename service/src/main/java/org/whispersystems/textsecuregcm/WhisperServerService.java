@@ -81,6 +81,7 @@ import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
@@ -549,6 +550,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .virtualExecutorService(name(getClass(), "appleAppStore-%d"));
     ExecutorService clientEventExecutor = environment.lifecycle()
         .virtualExecutorService(name(getClass(), "clientEvent-%d"));
+    ExecutorService disconnectionRequestListenerExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "disconnectionRequest-%d"));
 
     ScheduledExecutorService appleAppStoreRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "appleAppStoreRetry-%d")).threads(1).build();
@@ -597,6 +600,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
+    DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, disconnectionRequestListenerExecutor);
     WebSocketConnectionEventManager webSocketConnectionEventManager = new WebSocketConnectionEventManager(messagesCluster, clientEventExecutor);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
@@ -615,7 +619,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keysManager, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, webSocketConnectionEventManager,
+        secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager, webSocketConnectionEventManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor,
         clock, config.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
@@ -645,7 +649,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new MessageDeliveryLoopMonitor(rateLimitersCluster);
 
     final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-        accountsManager, webSocketConnectionEventManager, svr2CredentialsGenerator, svr3CredentialsGenerator,
+        accountsManager, disconnectionRequestManager, webSocketConnectionEventManager, svr2CredentialsGenerator, svr3CredentialsGenerator,
         registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
 
     final ReportedMessageMetricsListener reportedMessageMetricsListener = new ReportedMessageMetricsListener(
@@ -974,7 +978,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
     environment.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class));
     environment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager,
-        webSocketConnectionEventManager));
+        disconnectionRequestManager, webSocketConnectionEventManager));
     environment.jersey().register(new TimestampResponseFilter());
 
     ///
@@ -987,7 +991,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             pushNotificationScheduler, webSocketConnectionEventManager, websocketScheduledExecutor,
             messageDeliveryScheduler, clientReleaseManager, messageDeliveryLoopMonitor));
     webSocketEnvironment.jersey()
-        .register(new WebsocketRefreshApplicationEventListener(accountsManager, webSocketConnectionEventManager));
+        .register(new WebsocketRefreshApplicationEventListener(accountsManager, disconnectionRequestManager, webSocketConnectionEventManager));
     webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
@@ -1130,7 +1134,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     WebSocketEnvironment<AuthenticatedDevice> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), Duration.ofMillis(60000));
     provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager,
-        webSocketConnectionEventManager));
+        disconnectionRequestManager, webSocketConnectionEventManager));
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     provisioningEnvironment.jersey().register(new KeepAliveController(webSocketConnectionEventManager));

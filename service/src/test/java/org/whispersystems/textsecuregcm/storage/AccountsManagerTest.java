@@ -70,6 +70,7 @@ import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
@@ -117,6 +118,7 @@ class AccountsManagerTest {
   private KeysManager keysManager;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
+  private DisconnectionRequestManager disconnectionRequestManager;
   private WebSocketConnectionEventManager webSocketConnectionEventManager;
   private ClientPublicKeysManager clientPublicKeysManager;
 
@@ -152,6 +154,7 @@ class AccountsManagerTest {
     keysManager = mock(KeysManager.class);
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
+    disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
     clientPublicKeysManager = mock(ClientPublicKeysManager.class);
     dynamicConfiguration = mock(DynamicConfiguration.class);
@@ -241,6 +244,8 @@ class AccountsManagerTest {
     when(webSocketConnectionEventManager.requestDisconnection(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
+    when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
+
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -252,6 +257,7 @@ class AccountsManagerTest {
         profilesManager,
         storageClient,
         svr2Client,
+        disconnectionRequestManager,
         webSocketConnectionEventManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
@@ -879,6 +885,7 @@ class AccountsManagerTest {
     verify(messagesManager, times(2)).clear(existingUuid);
     verify(profilesManager, times(2)).deleteAll(existingUuid);
     verify(webSocketConnectionEventManager).requestDisconnection(existingUuid);
+    verify(disconnectionRequestManager).requestDisconnection(existingUuid);
   }
 
   @Test

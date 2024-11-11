@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
@@ -36,6 +37,7 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
@@ -77,6 +79,8 @@ public class AccountCreationDeletionIntegrationTest {
   private AccountsManager accountsManager;
   private KeysManager keysManager;
   private ClientPublicKeysManager clientPublicKeysManager;
+  private WebSocketConnectionEventManager webSocketConnectionEventManager;
+  private DisconnectionRequestManager disconnectionRequestManager;
 
   record DeliveryChannels(boolean fetchesMessages, String apnsToken, String fcmToken) {}
 
@@ -138,9 +142,12 @@ public class AccountCreationDeletionIntegrationTest {
     when(registrationRecoveryPasswordsManager.removeForNumber(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
-    final WebSocketConnectionEventManager webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
+    webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
     when(webSocketConnectionEventManager.requestDisconnection(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
+
+    disconnectionRequestManager = mock(DisconnectionRequestManager.class);
+    when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     accountsManager = new AccountsManager(
         accounts,
@@ -153,6 +160,7 @@ public class AccountCreationDeletionIntegrationTest {
         profilesManager,
         secureStorageClient,
         svr2Client,
+        disconnectionRequestManager,
         webSocketConnectionEventManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
@@ -399,6 +407,9 @@ public class AccountCreationDeletionIntegrationTest {
         pniPqLastResortPreKey);
 
     assertEquals(existingAccountUuid, reregisteredAccount.getUuid());
+
+    verify(webSocketConnectionEventManager).requestDisconnection(existingAccountUuid);
+    verify(disconnectionRequestManager).requestDisconnection(existingAccountUuid);
   }
 
   @Test
@@ -472,6 +483,9 @@ public class AccountCreationDeletionIntegrationTest {
     assertFalse(keysManager.getLastResort(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(clientPublicKeysManager.findPublicKey(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
+
+    verify(webSocketConnectionEventManager).requestDisconnection(aci);
+    verify(disconnectionRequestManager).requestDisconnection(aci);
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

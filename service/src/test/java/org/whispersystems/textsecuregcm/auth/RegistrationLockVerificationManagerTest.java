@@ -46,6 +46,7 @@ import org.whispersystems.textsecuregcm.util.Pair;
 class RegistrationLockVerificationManagerTest {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
+  private final DisconnectionRequestManager disconnectionRequestManager = mock(DisconnectionRequestManager.class);
   private final WebSocketConnectionEventManager webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
   private final ExternalServiceCredentialsGenerator svr2CredentialsGenerator = mock(
       ExternalServiceCredentialsGenerator.class);
@@ -56,8 +57,8 @@ class RegistrationLockVerificationManagerTest {
   private static PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
-      accountsManager, webSocketConnectionEventManager, svr2CredentialsGenerator, svr3CredentialsGenerator,
-      registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
+      accountsManager, disconnectionRequestManager, webSocketConnectionEventManager, svr2CredentialsGenerator,
+      svr3CredentialsGenerator, registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
 
   private final RateLimiter pinLimiter = mock(RateLimiter.class);
 
@@ -107,6 +108,7 @@ class RegistrationLockVerificationManagerTest {
             } else {
               verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
             }
+            verify(disconnectionRequestManager).requestDisconnection(account.getUuid(), List.of(Device.PRIMARY_ID));
             verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of(Device.PRIMARY_ID));
             try {
               verify(pushNotificationManager).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
@@ -130,6 +132,7 @@ class RegistrationLockVerificationManagerTest {
             verify(pushNotificationManager, never()).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
           } catch (NotPushRegisteredException npre) {}
           verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
+          verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
           verify(webSocketConnectionEventManager, never()).requestDisconnection(any(), any());
         });
       }
@@ -168,6 +171,7 @@ class RegistrationLockVerificationManagerTest {
 
     verify(account, never()).lockAuthTokenHash();
     verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
+    verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
     verify(webSocketConnectionEventManager, never()).requestDisconnection(any(), any());
   }
 

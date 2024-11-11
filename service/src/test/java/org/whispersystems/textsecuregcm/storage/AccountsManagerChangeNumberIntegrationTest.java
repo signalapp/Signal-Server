@@ -31,6 +31,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -66,6 +67,7 @@ class AccountsManagerChangeNumberIntegrationTest {
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private KeysManager keysManager;
+  private DisconnectionRequestManager disconnectionRequestManager;
   private WebSocketConnectionEventManager webSocketConnectionEventManager;
   private ExecutorService accountLockExecutor;
 
@@ -117,6 +119,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
       webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
+      disconnectionRequestManager = mock(DisconnectionRequestManager.class);
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
           new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
@@ -144,6 +147,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           profilesManager,
           secureStorageClient,
           svr2Client,
+          disconnectionRequestManager,
           webSocketConnectionEventManager,
           registrationRecoveryPasswordsManager,
           clientPublicKeysManager,
@@ -275,6 +279,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
     verify(webSocketConnectionEventManager).requestDisconnection(existingAccountUuid);
+    verify(disconnectionRequestManager).requestDisconnection(existingAccountUuid);
 
     assertEquals(Optional.of(existingAccountUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondNumber));

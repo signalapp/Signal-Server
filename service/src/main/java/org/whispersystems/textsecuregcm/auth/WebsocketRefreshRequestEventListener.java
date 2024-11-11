@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 
 public class WebsocketRefreshRequestEventListener implements RequestEventListener {
 
+  private final DisconnectionRequestManager disconnectionRequestManager;
   private final WebSocketConnectionEventManager webSocketConnectionEventManager;
   private final WebsocketRefreshRequirementProvider[] providers;
 
@@ -35,9 +36,11 @@ public class WebsocketRefreshRequestEventListener implements RequestEventListene
   private static final Logger logger = LoggerFactory.getLogger(WebsocketRefreshRequestEventListener.class);
 
   public WebsocketRefreshRequestEventListener(
+      final DisconnectionRequestManager disconnectionRequestManager,
       final WebSocketConnectionEventManager webSocketConnectionEventManager,
       final WebsocketRefreshRequirementProvider... providers) {
 
+    this.disconnectionRequestManager = disconnectionRequestManager;
     this.webSocketConnectionEventManager = webSocketConnectionEventManager;
     this.providers = providers;
   }
@@ -61,6 +64,7 @@ public class WebsocketRefreshRequestEventListener implements RequestEventListene
             try {
               displacedDevices.incrementAndGet();
               webSocketConnectionEventManager.requestDisconnection(pair.first(), List.of(pair.second()));
+              disconnectionRequestManager.requestDisconnection(pair.first(), List.of(pair.second()));
             } catch (final Exception e) {
               logger.error("Could not displace device presence", e);
             }

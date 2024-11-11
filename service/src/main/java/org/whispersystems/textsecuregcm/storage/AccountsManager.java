@@ -63,6 +63,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
@@ -124,6 +125,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final ProfilesManager profilesManager;
   private final SecureStorageClient secureStorageClient;
   private final SecureValueRecovery2Client secureValueRecovery2Client;
+  private final DisconnectionRequestManager disconnectionRequestManager;
   private final WebSocketConnectionEventManager webSocketConnectionEventManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final ClientPublicKeysManager clientPublicKeysManager;
@@ -202,6 +204,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final ProfilesManager profilesManager,
       final SecureStorageClient secureStorageClient,
       final SecureValueRecovery2Client secureValueRecovery2Client,
+      final DisconnectionRequestManager disconnectionRequestManager,
       final WebSocketConnectionEventManager webSocketConnectionEventManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final ClientPublicKeysManager clientPublicKeysManager,
@@ -219,6 +222,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.profilesManager = profilesManager;
     this.secureStorageClient = secureStorageClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
+    this.disconnectionRequestManager = disconnectionRequestManager;
     this.webSocketConnectionEventManager = webSocketConnectionEventManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.clientPublicKeysManager = clientPublicKeysManager;
@@ -326,6 +330,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                   messagesManager.clear(aci),
                   profilesManager.deleteAll(aci))
               .thenCompose(ignored -> webSocketConnectionEventManager.requestDisconnection(aci))
+              .thenCompose(ignored -> disconnectionRequestManager.requestDisconnection(aci))
               .thenCompose(ignored -> accounts.reclaimAccount(e.getExistingAccount(), account, additionalWriteItems))
               .thenCompose(ignored -> {
                 // We should have cleared all messages before overwriting the old account, but more may have arrived
@@ -590,6 +595,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         .whenComplete((ignored, throwable) -> {
           if (throwable == null) {
             webSocketConnectionEventManager.requestDisconnection(accountIdentifier, List.of(deviceId));
+            disconnectionRequestManager.requestDisconnection(accountIdentifier, List.of(deviceId));
           }
         });
   }
@@ -1236,7 +1242,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             registrationRecoveryPasswordsManager.removeForNumber(account.getNumber()))
         .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
         .thenCompose(ignored -> redisDeleteAsync(account))
-        .thenRun(() -> webSocketConnectionEventManager.requestDisconnection(account.getUuid()));
+        .thenRun(() -> {
+          webSocketConnectionEventManager.requestDisconnection(account.getUuid());
+          disconnectionRequestManager.requestDisconnection(account.getUuid());
+        });
   }
 
   private String getAccountMapKey(String key) {

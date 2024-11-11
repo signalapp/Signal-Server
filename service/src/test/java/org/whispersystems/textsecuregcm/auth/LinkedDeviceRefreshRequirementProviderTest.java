@@ -95,6 +95,7 @@ class LinkedDeviceRefreshRequirementProviderTest {
       .build();
 
   private AccountsManager accountsManager;
+  private DisconnectionRequestManager disconnectionRequestManager;
   private WebSocketConnectionEventManager webSocketConnectionEventManager;
 
   private LinkedDeviceRefreshRequirementProvider provider;
@@ -102,12 +103,13 @@ class LinkedDeviceRefreshRequirementProviderTest {
   @BeforeEach
   void setup() {
     accountsManager = mock(AccountsManager.class);
+    disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
 
     provider = new LinkedDeviceRefreshRequirementProvider(accountsManager);
 
     final WebsocketRefreshRequestEventListener listener =
-        new WebsocketRefreshRequestEventListener(webSocketConnectionEventManager, provider);
+        new WebsocketRefreshRequestEventListener(disconnectionRequestManager, webSocketConnectionEventManager, provider);
 
     when(applicationEventListener.onRequest(any())).thenReturn(listener);
 
@@ -142,6 +144,10 @@ class LinkedDeviceRefreshRequirementProviderTest {
     verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of((byte) 1));
     verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of((byte) 2));
     verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of((byte) 3));
+
+    verify(disconnectionRequestManager).requestDisconnection(account.getUuid(), List.of((byte) 1));
+    verify(disconnectionRequestManager).requestDisconnection(account.getUuid(), List.of((byte) 2));
+    verify(disconnectionRequestManager).requestDisconnection(account.getUuid(), List.of((byte) 3));
   }
 
   @ParameterizedTest
@@ -170,6 +176,7 @@ class LinkedDeviceRefreshRequirementProviderTest {
     assertEquals(200, response.getStatus());
 
     initialDeviceIds.forEach(deviceId -> {
+      verify(disconnectionRequestManager).requestDisconnection(account.getUuid(), List.of(deviceId));
       verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of(deviceId));
     });
 

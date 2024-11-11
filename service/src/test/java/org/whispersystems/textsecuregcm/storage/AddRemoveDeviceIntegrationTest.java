@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -149,6 +150,7 @@ public class AddRemoveDeviceIntegrationTest {
         profilesManager,
         secureStorageClient,
         svr2Client,
+        mock(DisconnectionRequestManager.class),
         mock(WebSocketConnectionEventManager.class),
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,

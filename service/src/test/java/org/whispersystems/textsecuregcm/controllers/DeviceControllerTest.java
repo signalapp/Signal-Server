@@ -60,6 +60,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
@@ -110,6 +111,7 @@ class DeviceControllerTest {
   private static final Account account = mock(Account.class);
   private static final Account maxedAccount = mock(Account.class);
   private static final Device primaryDevice = mock(Device.class);
+  private static final DisconnectionRequestManager disconnectionRequestManager = mock(DisconnectionRequestManager.class);
   private static final WebSocketConnectionEventManager webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
   private static final Map<String, Integer> deviceConfiguration = new HashMap<>();
   private static final TestClock testClock = TestClock.now();
@@ -131,7 +133,7 @@ class DeviceControllerTest {
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .addProvider(new RateLimitExceededExceptionMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, webSocketConnectionEventManager))
+      .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, disconnectionRequestManager, webSocketConnectionEventManager))
       .addProvider(new DeviceLimitExceededExceptionMapper())
       .addResource(deviceController)
       .build();

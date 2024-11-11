@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -62,6 +63,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(ProfilesManager.class),
         mock(SecureStorageClient.class),
         mock(SecureValueRecovery2Client.class),
+        mock(DisconnectionRequestManager.class),
         mock(WebSocketConnectionEventManager.class),
         mock(RegistrationRecoveryPasswordsManager.class),
         mock(ClientPublicKeysManager.class),

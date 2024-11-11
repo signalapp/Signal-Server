@@ -20,9 +20,11 @@ public class WebsocketRefreshApplicationEventListener implements ApplicationEven
   private final WebsocketRefreshRequestEventListener websocketRefreshRequestEventListener;
 
   public WebsocketRefreshApplicationEventListener(final AccountsManager accountsManager,
+      final DisconnectionRequestManager disconnectionRequestManager,
       final WebSocketConnectionEventManager webSocketConnectionEventManager) {
 
     this.websocketRefreshRequestEventListener = new WebsocketRefreshRequestEventListener(
+        disconnectionRequestManager,
         webSocketConnectionEventManager,
         new LinkedDeviceRefreshRequirementProvider(accountsManager),
         new PhoneNumberChangeRefreshRequirementProvider(accountsManager));
