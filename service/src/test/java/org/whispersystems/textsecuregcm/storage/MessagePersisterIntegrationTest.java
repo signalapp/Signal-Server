@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventListener;
 import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -52,7 +53,7 @@ class MessagePersisterIntegrationTest {
 
   private Scheduler messageDeliveryScheduler;
   private ExecutorService messageDeletionExecutorService;
-  private ExecutorService clientEventExecutorService;
+  private ExecutorService websocketConnectionEventExecutor;
   private MessagesCache messagesCache;
   private MessagesManager messagesManager;
   private WebSocketConnectionEventManager webSocketConnectionEventManager;
@@ -84,8 +85,12 @@ class MessagePersisterIntegrationTest {
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
         messageDeletionExecutorService);
 
-    clientEventExecutorService = Executors.newVirtualThreadPerTaskExecutor();
-    webSocketConnectionEventManager = new WebSocketConnectionEventManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), clientEventExecutorService);
+    websocketConnectionEventExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    webSocketConnectionEventManager = new WebSocketConnectionEventManager(mock(AccountsManager.class),
+        mock(PushNotificationManager.class),
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        websocketConnectionEventExecutor);
+
     webSocketConnectionEventManager.start();
 
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
@@ -108,8 +113,8 @@ class MessagePersisterIntegrationTest {
     messageDeletionExecutorService.shutdown();
     messageDeletionExecutorService.awaitTermination(15, TimeUnit.SECONDS);
 
-    clientEventExecutorService.shutdown();
-    clientEventExecutorService.awaitTermination(15, TimeUnit.SECONDS);
+    websocketConnectionEventExecutor.shutdown();
+    websocketConnectionEventExecutor.awaitTermination(15, TimeUnit.SECONDS);
 
     messageDeliveryScheduler.dispose();
 

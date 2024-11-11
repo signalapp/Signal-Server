@@ -211,7 +211,6 @@ record CommandDependencies(
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, disconnectionRequestListenerExecutor);
-    WebSocketConnectionEventManager webSocketConnectionEventManager = new WebSocketConnectionEventManager(messagesCluster, clientEventExecutor);
     MessagesCache messagesCache = new MessagesCache(messagesCluster,
         messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC(), dynamicConfigurationManager);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
@@ -263,6 +262,9 @@ record CommandDependencies(
         new PushNotificationExperimentSamples(dynamoDbAsyncClient,
             configuration.getDynamoDbTables().getPushNotificationExperimentSamples().getTableName(),
             Clock.systemUTC());
+
+    WebSocketConnectionEventManager webSocketConnectionEventManager =
+        new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor);
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(disconnectionRequestManager);

@@ -35,6 +35,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubClusterConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -58,6 +59,8 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<byte[], byte[]> implements Managed,
     DisconnectionRequestListener {
 
+  private final AccountsManager accountsManager;
+  private final PushNotificationManager pushNotificationManager;
   private final FaultTolerantRedisClusterClient clusterClient;
   private final Executor listenerEventExecutor;
 
@@ -81,8 +84,11 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
   private static final Counter UNSUBSCRIBE_ERROR_COUNTER =
       Metrics.counter(MetricsUtil.name(WebSocketConnectionEventManager.class, "unsubscribeError"));
 
-  private static final Counter MESSAGE_WITHOUT_LISTENER_COUNTER =
-      Metrics.counter(MetricsUtil.name(WebSocketConnectionEventManager.class, "messageWithoutListener"));
+  private static final Counter PUB_SUB_EVENT_WITHOUT_LISTENER_COUNTER =
+      Metrics.counter(MetricsUtil.name(WebSocketConnectionEventManager.class, "pubSubEventWithoutListener"));
+
+  private static final Counter MESSAGE_AVAILABLE_WITHOUT_LISTENER_COUNTER =
+      Metrics.counter(MetricsUtil.name(WebSocketConnectionEventManager.class, "messageAvailableWithoutListener"));
 
   private static final String LISTENER_GAUGE_NAME =
       MetricsUtil.name(WebSocketConnectionEventManager.class, "listeners");
@@ -93,8 +99,13 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
   record AccountAndDeviceIdentifier(UUID accountIdentifier, byte deviceId) {
   }
 
-  public WebSocketConnectionEventManager(final FaultTolerantRedisClusterClient clusterClient,
-                                         final Executor listenerEventExecutor) {
+  public WebSocketConnectionEventManager(final AccountsManager accountsManager,
+      final PushNotificationManager pushNotificationManager,
+      final FaultTolerantRedisClusterClient clusterClient,
+      final Executor listenerEventExecutor) {
+
+    this.accountsManager = accountsManager;
+    this.pushNotificationManager = pushNotificationManager;
 
     this.clusterClient = clusterClient;
     this.listenerEventExecutor = listenerEventExecutor;
@@ -331,8 +342,29 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
         default -> logger.warn("Unexpected client event type: {}", clientEvent.getClass());
       }
     } else {
-      MESSAGE_WITHOUT_LISTENER_COUNTER.increment();
+      PUB_SUB_EVENT_WITHOUT_LISTENER_COUNTER.increment();
+
       listenerEventExecutor.execute(() -> unsubscribeIfMissingListener(accountAndDeviceIdentifier));
+
+      if (clientEvent.getEventCase() == ClientEvent.EventCase.NEW_MESSAGE_AVAILABLE) {
+        MESSAGE_AVAILABLE_WITHOUT_LISTENER_COUNTER.increment();
+
+        // If we have an active subscription but no registered listener, it's likely that the publisher of this event
+        // believes that the receiving client was present when it really wasn't. Send a push notification as a
+        // just-in-case measure.
+        accountsManager.getByAccountIdentifierAsync(accountAndDeviceIdentifier.accountIdentifier())
+            .thenAccept(maybeAccount -> maybeAccount.ifPresent(account -> {
+              try {
+                pushNotificationManager.sendNewMessageNotification(account, accountAndDeviceIdentifier.deviceId(), true);
+              } catch (final NotPushRegisteredException ignored) {
+              }
+            }))
+            .whenComplete((ignored, throwable) -> {
+              if (throwable != null) {
+                logger.warn("Failed to send follow-up notification to {}:{}", accountAndDeviceIdentifier.accountIdentifier(), accountAndDeviceIdentifier.deviceId());
+              }
+            });
+      }
     }
   }
 

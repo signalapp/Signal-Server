@@ -601,7 +601,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, disconnectionRequestListenerExecutor);
-    WebSocketConnectionEventManager webSocketConnectionEventManager = new WebSocketConnectionEventManager(messagesCluster, clientEventExecutor);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
         messageDeletionAsyncExecutor, clock, dynamicConfigurationManager);
@@ -629,6 +628,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         apnSender, fcmSender, accountsManager, 0, 0);
     PushNotificationManager pushNotificationManager =
         new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
+    WebSocketConnectionEventManager webSocketConnectionEventManager =
+        new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(config.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
     ProvisioningManager provisioningManager = new ProvisioningManager(pubsubClient);
