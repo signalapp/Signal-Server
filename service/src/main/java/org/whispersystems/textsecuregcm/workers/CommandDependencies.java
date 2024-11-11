@@ -259,6 +259,7 @@ record CommandDependencies(
             Clock.systemUTC());
 
     environment.lifecycle().manage(apnSender);
+    environment.lifecycle().manage(disconnectionRequestManager);
     environment.lifecycle().manage(webSocketConnectionEventManager);
     environment.lifecycle().manage(new ManagedAwsCrt());
 
