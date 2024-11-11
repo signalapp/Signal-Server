@@ -314,9 +314,9 @@ class PubSubClientEventManagerTest {
         new PubSubClientEventManager.AccountAndDeviceIdentifier(noListenerAccountIdentifier, noListenerDeviceId));
 
     verify(pubSubAsyncCommands, never())
-        .sunsubscribe(PubSubClientEventManager.getClientPresenceKey(listenerAccountIdentifier, listenerDeviceId));
+        .sunsubscribe(PubSubClientEventManager.getClientEventChannel(listenerAccountIdentifier, listenerDeviceId));
 
     verify(pubSubAsyncCommands)
-        .sunsubscribe(PubSubClientEventManager.getClientPresenceKey(noListenerAccountIdentifier, noListenerDeviceId));
+        .sunsubscribe(PubSubClientEventManager.getClientEventChannel(noListenerAccountIdentifier, noListenerDeviceId));
   }
 }
