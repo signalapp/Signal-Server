@@ -304,7 +304,7 @@ public class PubSubClientEventManager extends RedisClusterPubSubAdapter<byte[], 
       if (existingListener == null && pubSubConnection != null) {
         // Enqueue, but do not block on, an "unsubscribe" operation
         pubSubConnection.usePubSubConnection(connection ->
-            connection.async().sunsubscribe(getClientPresenceKey(accountAndDeviceIdentifier.accountIdentifier(),
+            connection.async().sunsubscribe(getClientEventChannel(accountAndDeviceIdentifier.accountIdentifier(),
                 accountAndDeviceIdentifier.deviceId())));
       }
 
