@@ -4,17 +4,17 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
-import javax.annotation.Nonnull;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import javax.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.InternalServerErrorException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Optional;
+import javax.annotation.Nonnull;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 
 public record SubscriberCredentials(@Nonnull byte[] subscriberBytes,
                              @Nonnull byte[] subscriberUser,

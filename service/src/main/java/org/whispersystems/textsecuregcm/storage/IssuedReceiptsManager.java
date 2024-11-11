@@ -10,6 +10,8 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
 import com.google.common.base.Throwables;
+import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.core.Response.Status;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -23,8 +25,6 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import javax.ws.rs.ClientErrorException;
-import javax.ws.rs.core.Response.Status;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;

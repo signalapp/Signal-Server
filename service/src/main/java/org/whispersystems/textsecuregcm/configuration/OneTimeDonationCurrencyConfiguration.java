@@ -5,11 +5,11 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.List;
-import javax.validation.Valid;
-import javax.validation.constraints.DecimalMin;
-import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 /**

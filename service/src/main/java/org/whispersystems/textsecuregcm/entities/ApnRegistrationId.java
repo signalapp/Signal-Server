@@ -4,8 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 public record ApnRegistrationId(@NotEmpty String apnRegistrationId) {
 }

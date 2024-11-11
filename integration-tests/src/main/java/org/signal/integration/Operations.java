@@ -10,6 +10,9 @@ import static java.util.Objects.requireNonNull;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.io.Resources;
 import com.google.common.net.HttpHeaders;
+import io.dropwizard.configuration.ConfigurationValidationException;
+import io.dropwizard.jersey.validation.Validators;
+import jakarta.validation.ConstraintViolation;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URI;
@@ -26,8 +29,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executors;
-import io.dropwizard.configuration.ConfigurationValidationException;
-import io.dropwizard.jersey.validation.Validators;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
@@ -52,7 +53,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.HttpUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import javax.validation.ConstraintViolation;
 
 public final class Operations {
 

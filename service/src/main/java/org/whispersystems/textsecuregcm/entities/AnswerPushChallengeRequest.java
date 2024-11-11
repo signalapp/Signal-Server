@@ -6,7 +6,7 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 public class AnswerPushChallengeRequest extends AnswerChallengeRequest {
 

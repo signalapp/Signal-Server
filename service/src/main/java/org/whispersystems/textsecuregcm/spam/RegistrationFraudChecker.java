@@ -4,8 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.spam;
 
+import jakarta.ws.rs.container.ContainerRequestContext;
 import java.util.Optional;
-import javax.ws.rs.container.ContainerRequestContext;
 import org.whispersystems.textsecuregcm.entities.UpdateVerificationSessionRequest;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 

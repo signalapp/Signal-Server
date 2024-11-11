@@ -5,10 +5,9 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import java.util.UUID;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
 
 public record UsernameLinkHandle(
     @Schema(description = "A handle that can be included in username links to retrieve the stored encrypted username")

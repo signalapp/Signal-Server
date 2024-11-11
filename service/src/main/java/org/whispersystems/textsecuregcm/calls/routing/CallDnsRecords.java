@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.calls.routing;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;

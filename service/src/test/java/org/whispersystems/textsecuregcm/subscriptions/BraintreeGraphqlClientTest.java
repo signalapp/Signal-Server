@@ -15,6 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.braintree.graphql.clientoperation.CreatePayPalOneTimePaymentMutation;
+import jakarta.ws.rs.ServiceUnavailableException;
 import java.math.BigDecimal;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpResponse;
@@ -23,7 +24,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import javax.ws.rs.ServiceUnavailableException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;

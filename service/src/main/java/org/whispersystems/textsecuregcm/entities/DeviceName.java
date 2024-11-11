@@ -8,8 +8,8 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 public record DeviceName(@JsonSerialize(using = ByteArrayAdapter.Serializing.class)
                          @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)

@@ -5,11 +5,11 @@
 
 package org.whispersystems.textsecuregcm.util;
 
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
 
 public abstract class ExactlySizeValidator<T> implements ConstraintValidator<ExactlySize, T> {
 

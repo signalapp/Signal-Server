@@ -6,9 +6,9 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotEmpty;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
-import javax.validation.constraints.NotEmpty;
 
 public record SetShareSetRequest(
     @Schema(description = """

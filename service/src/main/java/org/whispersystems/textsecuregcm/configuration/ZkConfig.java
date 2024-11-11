@@ -5,8 +5,8 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 
 public record ZkConfig(@NotNull SecretBytes serverSecret,

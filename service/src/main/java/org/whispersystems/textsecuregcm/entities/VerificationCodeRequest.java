@@ -6,7 +6,7 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
 
 public record VerificationCodeRequest(@NotNull Transport transport, @NotNull String client) {

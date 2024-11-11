@@ -6,12 +6,12 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Fail.fail;
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.FOUND;
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.NOT_STORED;
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.PASSWORD_MISMATCH;
 
+import jakarta.ws.rs.ClientErrorException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
-import javax.ws.rs.ClientErrorException;
 import org.assertj.core.api.Condition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +30,6 @@ import org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult;
 import org.whispersystems.textsecuregcm.storage.Subscriptions.Record;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
-import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class SubscriptionsTest {

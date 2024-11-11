@@ -6,8 +6,8 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotEmpty;
 import java.time.Duration;
-import javax.validation.constraints.NotEmpty;
 
 public class IssuedReceiptsTableConfiguration extends DynamoDbTables.TableWithExpiration {
 

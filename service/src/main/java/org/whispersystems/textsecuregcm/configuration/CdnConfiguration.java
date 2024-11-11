@@ -5,9 +5,9 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public record CdnConfiguration(@NotNull @Valid StaticAwsCredentialsFactory credentials,
                                @NotBlank String bucket,

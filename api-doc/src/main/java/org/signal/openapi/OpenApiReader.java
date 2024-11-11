@@ -15,11 +15,11 @@ import io.swagger.v3.jaxrs2.Reader;
 import io.swagger.v3.jaxrs2.ResolvedParameter;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
+import jakarta.ws.rs.Consumes;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.List;
-import javax.ws.rs.Consumes;
 
 /**
  * One of the extension mechanisms of Swagger Core library (OpenAPI processor) is via custom implementations

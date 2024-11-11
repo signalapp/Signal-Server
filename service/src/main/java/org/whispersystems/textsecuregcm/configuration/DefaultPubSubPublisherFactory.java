@@ -14,10 +14,10 @@ import com.google.auth.oauth2.ExternalAccountCredentials;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.cloud.pubsub.v1.PublisherInterface;
 import com.google.pubsub.v1.TopicName;
+import jakarta.validation.constraints.NotBlank;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import javax.validation.constraints.NotBlank;
 
 @JsonTypeName("default")
 public record DefaultPubSubPublisherFactory(@NotBlank String project,

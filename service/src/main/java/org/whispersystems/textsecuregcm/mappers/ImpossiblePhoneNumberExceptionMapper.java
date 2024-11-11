@@ -5,13 +5,13 @@
 
 package org.whispersystems.textsecuregcm.mappers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.ext.ExceptionMapper;
 import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.ExceptionMapper;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class ImpossiblePhoneNumberExceptionMapper implements ExceptionMapper<ImpossiblePhoneNumberException> {
 

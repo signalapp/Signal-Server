@@ -2,8 +2,8 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables.Table;
-import javax.validation.constraints.NotBlank;
 
 public class AccountsTableConfiguration extends Table {
 

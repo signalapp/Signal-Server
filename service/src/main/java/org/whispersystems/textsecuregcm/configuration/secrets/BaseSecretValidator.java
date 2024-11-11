@@ -7,9 +7,9 @@ package org.whispersystems.textsecuregcm.configuration.secrets;
 
 import static java.util.Objects.requireNonNull;
 
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import java.lang.annotation.Annotation;
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
 
 public abstract class BaseSecretValidator<A extends Annotation, T, S extends Secret<? extends T>> implements ConstraintValidator<A, S> {
 

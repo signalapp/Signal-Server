@@ -4,11 +4,10 @@
  */
 package org.whispersystems.websocket;
 
+import jakarta.ws.rs.core.SecurityContext;
+import java.security.Principal;
 import org.whispersystems.websocket.session.ContextPrincipal;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
-
-import javax.ws.rs.core.SecurityContext;
-import java.security.Principal;
 
 public class WebSocketSecurityContext implements SecurityContext {
 

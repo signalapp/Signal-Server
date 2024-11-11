@@ -6,12 +6,12 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import javax.validation.Valid;
 import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
 
 public class DynamicConfiguration {

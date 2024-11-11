@@ -11,6 +11,8 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -21,8 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.ws.rs.ClientErrorException;
-import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;

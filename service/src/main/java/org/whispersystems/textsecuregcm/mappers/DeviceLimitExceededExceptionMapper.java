@@ -7,12 +7,10 @@ package org.whispersystems.textsecuregcm.mappers;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.ext.ExceptionMapper;
+import jakarta.ws.rs.ext.Provider;
 import org.whispersystems.textsecuregcm.controllers.DeviceLimitExceededException;
-
-import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.ExceptionMapper;
-import javax.ws.rs.ext.Provider;
 
 @Provider
 public class DeviceLimitExceededExceptionMapper implements ExceptionMapper<DeviceLimitExceededException> {

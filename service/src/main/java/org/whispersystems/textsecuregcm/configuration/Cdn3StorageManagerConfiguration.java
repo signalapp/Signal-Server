@@ -1,9 +1,9 @@
 package org.whispersystems.textsecuregcm.configuration;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import java.util.Collections;
 import java.util.Map;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 
 /**

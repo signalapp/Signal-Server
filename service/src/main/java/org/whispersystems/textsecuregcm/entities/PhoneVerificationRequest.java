@@ -7,9 +7,9 @@ package org.whispersystems.textsecuregcm.entities;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.ws.rs.ClientErrorException;
 import java.util.Base64;
-import javax.validation.constraints.AssertTrue;
-import javax.ws.rs.ClientErrorException;
 import org.apache.http.HttpStatus;
 
 public interface PhoneVerificationRequest {

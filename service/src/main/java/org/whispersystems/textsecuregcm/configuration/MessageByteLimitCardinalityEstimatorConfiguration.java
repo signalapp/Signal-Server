@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 
 public record MessageByteLimitCardinalityEstimatorConfiguration(@NotNull Duration period) {}

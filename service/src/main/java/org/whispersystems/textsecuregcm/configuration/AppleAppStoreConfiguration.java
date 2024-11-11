@@ -6,11 +6,11 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.apple.itunes.storekit.model.Environment;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
-import javax.validation.Valid;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 
 /**

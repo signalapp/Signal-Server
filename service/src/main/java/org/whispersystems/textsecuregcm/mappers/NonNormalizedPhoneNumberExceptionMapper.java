@@ -10,9 +10,9 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.micrometer.core.instrument.Metrics;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.ext.ExceptionMapper;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.ext.ExceptionMapper;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 
 public class NonNormalizedPhoneNumberExceptionMapper implements ExceptionMapper<NonNormalizedPhoneNumberException> {

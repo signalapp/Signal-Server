@@ -5,10 +5,9 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response.Status;
 import java.util.Base64;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response.Status;
-
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 

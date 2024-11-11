@@ -5,8 +5,10 @@
 package org.whispersystems.websocket.setup;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.dropwizard.jersey.DropwizardResourceConfig;
 import io.dropwizard.core.setup.Environment;
+import io.dropwizard.jersey.DropwizardResourceConfig;
+import jakarta.validation.Validator;
+import java.security.Principal;
 import java.time.Duration;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
@@ -14,9 +16,6 @@ import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 import org.whispersystems.websocket.logging.WebsocketRequestLog;
 import org.whispersystems.websocket.messages.WebSocketMessageFactory;
 import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
-
-import javax.validation.Validator;
-import java.security.Principal;
 
 public class WebSocketEnvironment<T extends Principal> {
 

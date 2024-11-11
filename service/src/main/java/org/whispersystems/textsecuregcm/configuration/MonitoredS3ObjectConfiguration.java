@@ -6,11 +6,11 @@
 package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import org.whispersystems.textsecuregcm.s3.S3ObjectMonitor;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import jakarta.validation.constraints.NotBlank;
 import java.time.Duration;
 import java.util.concurrent.ScheduledExecutorService;
-import javax.validation.constraints.NotBlank;
+import org.whispersystems.textsecuregcm.s3.S3ObjectMonitor;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 @JsonTypeName("default")
 public record MonitoredS3ObjectConfiguration(

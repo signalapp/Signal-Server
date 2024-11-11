@@ -1,6 +1,6 @@
 package org.whispersystems.textsecuregcm.spam;
 
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 public interface RegistrationRecoveryChecker {
 

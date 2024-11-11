@@ -5,8 +5,8 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import jakarta.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
-import javax.validation.constraints.NotNull;
 
 public record TlsKeyStoreConfiguration(@NotNull SecretString password) {
 }

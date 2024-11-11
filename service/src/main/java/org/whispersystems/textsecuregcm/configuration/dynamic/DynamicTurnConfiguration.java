@@ -6,9 +6,9 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
 import java.util.Collections;
 import java.util.List;
-import javax.validation.Valid;
 import org.whispersystems.textsecuregcm.configuration.TurnUriConfiguration;
 
 public class DynamicTurnConfiguration {

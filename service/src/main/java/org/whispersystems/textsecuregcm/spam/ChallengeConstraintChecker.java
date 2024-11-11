@@ -4,10 +4,9 @@
  */
 package org.whispersystems.textsecuregcm.spam;
 
-import org.whispersystems.textsecuregcm.storage.Account;
-
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 import java.util.Optional;
+import org.whispersystems.textsecuregcm.storage.Account;
 
 public interface ChallengeConstraintChecker {
 

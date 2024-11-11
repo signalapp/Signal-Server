@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.limits;
 
-import javax.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.AssertTrue;
 import java.time.Duration;
 
 public record RateLimiterConfig(int bucketSize, Duration permitRegenerationDuration) {

@@ -4,10 +4,9 @@
  */
 package org.whispersystems.websocket.session;
 
+import jakarta.ws.rs.core.SecurityContext;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.whispersystems.websocket.WebSocketSecurityContext;
-
-import javax.ws.rs.core.SecurityContext;
 
 public class WebSocketSessionContainerRequestValueFactory {
   private final ContainerRequest request;

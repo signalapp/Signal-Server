@@ -5,18 +5,18 @@
 
 package org.whispersystems.textsecuregcm.util;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Response;
 import java.security.Principal;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class VirtualExecutorServiceProviderTest {

@@ -11,6 +11,9 @@ import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import jakarta.ws.rs.core.Response;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -20,9 +23,6 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.MutableClock;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import javax.ws.rs.core.Response;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class SecureValueRecovery2ControllerTest extends SecureValueRecoveryControllerBaseTest {

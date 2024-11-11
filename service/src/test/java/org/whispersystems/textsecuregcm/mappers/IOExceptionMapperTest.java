@@ -7,10 +7,10 @@ package org.whispersystems.textsecuregcm.mappers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import jakarta.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
-import javax.ws.rs.core.Response;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;

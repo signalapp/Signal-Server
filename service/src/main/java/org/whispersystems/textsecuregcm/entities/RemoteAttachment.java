@@ -6,8 +6,8 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.util.ValidBase64URLString;
 
 public record RemoteAttachment(

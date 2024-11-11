@@ -5,9 +5,9 @@
 
 package org.whispersystems.textsecuregcm.attachments;
 
+import jakarta.validation.constraints.NotEmpty;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
-import javax.validation.constraints.NotEmpty;
 
 public record TusConfiguration(
   @ExactlySize(32) SecretBytes userAuthenticationTokenSharedSecret,

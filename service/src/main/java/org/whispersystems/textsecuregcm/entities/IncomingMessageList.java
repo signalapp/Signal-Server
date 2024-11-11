@@ -15,9 +15,9 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 
 import java.util.List;
-import javax.validation.Valid;
-import javax.validation.constraints.AssertTrue;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotNull;
 
 public record IncomingMessageList(@NotNull @Valid List<@NotNull IncomingMessage> messages,
                                   boolean online, boolean urgent, long timestamp) {

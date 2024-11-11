@@ -2,10 +2,10 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import io.dropwizard.core.setup.Environment;
+import jakarta.validation.constraints.NotBlank;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import javax.validation.constraints.NotBlank;
 import org.whispersystems.textsecuregcm.registration.IdentityTokenCallCredentials;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 

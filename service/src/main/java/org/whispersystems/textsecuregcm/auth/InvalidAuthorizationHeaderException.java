@@ -5,8 +5,8 @@
 package org.whispersystems.textsecuregcm.auth;
 
 
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response.Status;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response.Status;
 
 public class InvalidAuthorizationHeaderException extends WebApplicationException {
   public InvalidAuthorizationHeaderException(String s) {

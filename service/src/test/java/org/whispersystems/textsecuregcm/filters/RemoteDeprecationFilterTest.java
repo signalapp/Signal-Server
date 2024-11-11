@@ -22,14 +22,14 @@ import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.EnumMap;
 import java.util.Set;
 import java.util.stream.Stream;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -104,7 +104,7 @@ class RemoteDeprecationFilterTest {
 
     return new RemoteDeprecationFilter(dynamicConfigurationManager);
   }
-  
+
   @ParameterizedTest
   @MethodSource
   void testFilter(final String userAgent, final boolean expectDeprecation) throws IOException, ServletException {
@@ -180,5 +180,5 @@ class RemoteDeprecationFilterTest {
         Arguments.of("Signal-Desktop/8.0.0-beta.1", false),
         Arguments.of("Signal-iOS/8.0.0-beta.2", false));
   }
-  
+
 }

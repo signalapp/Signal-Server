@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 public record SubmitVerificationCodeRequest(@NotBlank String code) {
 

@@ -7,8 +7,8 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import static org.apache.commons.lang3.ObjectUtils.firstNonNull;
 
+import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
-import javax.validation.constraints.NotNull;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 

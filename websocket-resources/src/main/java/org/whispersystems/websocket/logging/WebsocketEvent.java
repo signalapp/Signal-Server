@@ -5,11 +5,10 @@
 package org.whispersystems.websocket.logging;
 
 import ch.qos.logback.core.spi.DeferredProcessingAware;
+import jakarta.ws.rs.core.MultivaluedMap;
+import java.util.List;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
-
-import javax.ws.rs.core.MultivaluedMap;
-import java.util.List;
 
 public class WebsocketEvent implements DeferredProcessingAware {
 

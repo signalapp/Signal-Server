@@ -1,5 +1,5 @@
 package org.whispersystems.textsecuregcm.entities;
 
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public record PhoneNumberDiscoverabilityRequest(@NotNull Boolean discoverableByPhoneNumber) {}

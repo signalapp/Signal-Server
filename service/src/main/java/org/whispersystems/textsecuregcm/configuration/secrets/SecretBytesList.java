@@ -6,9 +6,9 @@
 package org.whispersystems.textsecuregcm.configuration.secrets;
 
 import com.google.common.collect.ImmutableList;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.Collection;
 import java.util.List;
-import javax.validation.constraints.NotEmpty;
 import org.hibernate.validator.internal.constraintvalidators.bv.notempty.NotEmptyValidatorForCollection;
 
 public class SecretBytesList extends Secret<List<byte[]>> {

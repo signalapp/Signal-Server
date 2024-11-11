@@ -5,11 +5,11 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.util.List;
-import javax.validation.Valid;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 
 public record CloudflareTurnConfiguration(@NotNull SecretString apiToken,
                                           @NotBlank String endpoint,

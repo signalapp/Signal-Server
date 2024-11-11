@@ -13,6 +13,7 @@ import io.swagger.v3.jaxrs2.ResolvedParameter;
 import io.swagger.v3.jaxrs2.ext.AbstractOpenAPIExtension;
 import io.swagger.v3.jaxrs2.ext.OpenAPIExtension;
 import io.swagger.v3.oas.models.Components;
+import jakarta.ws.rs.Consumes;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Iterator;
@@ -20,7 +21,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
-import javax.ws.rs.Consumes;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 
 /**

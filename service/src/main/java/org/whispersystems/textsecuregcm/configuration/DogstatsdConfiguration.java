@@ -8,9 +8,9 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import io.micrometer.statsd.StatsdFlavor;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 
 @JsonTypeName("default")
 public class DogstatsdConfiguration implements DatadogConfiguration {

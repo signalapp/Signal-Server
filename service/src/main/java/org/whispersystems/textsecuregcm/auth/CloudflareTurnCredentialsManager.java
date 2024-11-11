@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.auth;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.netty.resolver.dns.DnsNameResolver;
+import jakarta.ws.rs.core.Response;
 import java.io.IOException;
 import java.net.Inet6Address;
 import java.net.URI;
@@ -16,7 +17,6 @@ import java.util.List;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;

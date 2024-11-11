@@ -6,7 +6,7 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 @Schema(description = """
     Represents a request from a new device to restore account data by some method.

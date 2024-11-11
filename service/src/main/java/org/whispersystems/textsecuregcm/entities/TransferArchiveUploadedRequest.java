@@ -6,11 +6,11 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Positive;
 import org.whispersystems.textsecuregcm.storage.Device;
-import javax.validation.Valid;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.Positive;
 
 public record TransferArchiveUploadedRequest(@Min(1)
                                              @Max(Device.MAXIMUM_DEVICE_ID)

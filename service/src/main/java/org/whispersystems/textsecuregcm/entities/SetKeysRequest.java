@@ -5,8 +5,8 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import java.util.List;
-import javax.validation.Valid;
 
 public record SetKeysRequest(
     @Valid

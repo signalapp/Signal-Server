@@ -4,14 +4,13 @@
  */
 package org.whispersystems.textsecuregcm.util;
 
-import org.glassfish.jersey.message.internal.CommittingOutputStream;
-
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.ext.WriterInterceptor;
-import javax.ws.rs.ext.WriterInterceptorContext;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.ext.WriterInterceptor;
+import jakarta.ws.rs.ext.WriterInterceptorContext;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import org.glassfish.jersey.message.internal.CommittingOutputStream;
 
 
 /**

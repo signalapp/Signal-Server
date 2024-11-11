@@ -6,13 +6,13 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
-import javax.validation.Valid;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 public class DynamicExperimentEnrollmentConfiguration {
 
@@ -80,4 +80,3 @@ public class DynamicExperimentEnrollmentConfiguration {
     return excludedUuids;
   }
 }
-

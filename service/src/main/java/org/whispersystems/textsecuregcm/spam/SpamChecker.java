@@ -4,12 +4,12 @@
  */
 package org.whispersystems.textsecuregcm.spam;
 
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.Response;
+import java.util.Optional;
 import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.core.Response;
-import java.util.Optional;
 
 public interface SpamChecker {
 

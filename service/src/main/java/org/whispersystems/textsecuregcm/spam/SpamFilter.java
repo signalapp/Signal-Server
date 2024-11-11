@@ -7,11 +7,9 @@ package org.whispersystems.textsecuregcm.spam;
 
 import io.dropwizard.configuration.ConfigurationValidationException;
 import io.dropwizard.lifecycle.Managed;
+import jakarta.validation.Validator;
 import java.io.IOException;
-import java.util.List;
 import java.util.function.Function;
-import javax.validation.Validator;
-import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.CaptchaClient;
 import org.whispersystems.textsecuregcm.storage.ReportedMessageListener;
 

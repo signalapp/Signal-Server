@@ -5,10 +5,10 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Positive;
 
 public record KeyTransparencyServiceConfiguration(@NotBlank String host,
                                                   @Positive int port,

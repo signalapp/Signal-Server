@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Map;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 public record AuthCheckResponseV2(@Schema(description = "A dictionary with the auth check results: `SVR Credentials -> 'match'/'no-match'/'invalid'`")
                                   @NotNull Map<String, Result> matches) {

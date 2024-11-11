@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.filters;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 

@@ -7,11 +7,11 @@ package org.whispersystems.websocket;
 import static java.util.Optional.ofNullable;
 
 import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
+import jakarta.ws.rs.InternalServerErrorException;
 import java.io.IOException;
 import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
-import javax.ws.rs.InternalServerErrorException;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest;
 import org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse;

@@ -5,8 +5,8 @@
 
 package org.whispersystems.textsecuregcm.calls.routing;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigInteger;
 import java.net.Inet4Address;
 import java.net.Inet6Address;

@@ -5,8 +5,8 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import jakarta.validation.constraints.NotNull;
 import java.util.Map;
-import javax.validation.constraints.NotNull;
 
 public record RemoteConfigConfiguration(@NotNull Map<String, String> globalConfig) {
 

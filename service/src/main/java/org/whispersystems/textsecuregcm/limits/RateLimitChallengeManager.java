@@ -7,9 +7,6 @@ package org.whispersystems.textsecuregcm.limits;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.google.i18n.phonenumbers.NumberParseException;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import com.google.i18n.phonenumbers.Phonenumber;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -19,15 +16,12 @@ import java.util.Optional;
 import org.whispersystems.textsecuregcm.captcha.Action;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.spam.ChallengeType;
 import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Util;
-import javax.ws.rs.ServerErrorException;
-import javax.ws.rs.core.Response;
 
 public class RateLimitChallengeManager {
 

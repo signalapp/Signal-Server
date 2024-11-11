@@ -6,7 +6,7 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import javax.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotEmpty;
 
 public record ProvisioningMessage(
     @Schema(description = "The MIME base64-encoded body of the provisioning message to send to the destination device")

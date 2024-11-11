@@ -8,12 +8,12 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import java.util.UUID;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
-import java.util.UUID;
-import javax.annotation.Nullable;
-import javax.validation.Valid;
 
 public record UsernameHashResponse(
     @Valid

@@ -5,15 +5,14 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
-import org.glassfish.jersey.server.ContainerRequest;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Device;
-import javax.ws.rs.core.SecurityContext;
-import java.util.Map;
+import jakarta.ws.rs.core.SecurityContext;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.glassfish.jersey.server.ContainerRequest;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.Device;
 
 class ContainerRequestUtil {
 
