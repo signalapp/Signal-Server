@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubClusterConnection;
@@ -55,7 +57,8 @@ import org.whispersystems.textsecuregcm.util.Util;
  * @see WebSocketConnectionEventListener
  * @see org.whispersystems.textsecuregcm.storage.MessagesManager#insert(UUID, byte, MessageProtos.Envelope)
  */
-public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<byte[], byte[]> implements Managed {
+public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<byte[], byte[]> implements Managed,
+    DisconnectionRequestListener {
 
   private final FaultTolerantRedisClusterClient clusterClient;
   private final Executor listenerEventExecutor;
@@ -272,6 +275,14 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
         .toArray(CompletableFuture[]::new));
   }
 
+  @Override
+  public void handleDisconnectionRequest(final UUID accountIdentifier, final Collection<Byte> deviceIds) {
+    deviceIds.stream()
+        .map(deviceId -> listenersByAccountAndDeviceIdentifier.get(new AccountAndDeviceIdentifier(accountIdentifier, deviceId)))
+        .filter(Objects::nonNull)
+        .forEach(listener -> listener.handleConnectionDisplaced(false));
+  }
+
   @VisibleForTesting
   void resubscribe(final ClusterTopologyChangedEvent clusterTopologyChangedEvent) {
     final boolean[] changedSlots = RedisClusterUtil.getChangedSlots(clusterTopologyChangedEvent);
@@ -347,7 +358,9 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
           }
         }
 
-        case DISCONNECT_REQUESTED -> listenerEventExecutor.execute(() -> listener.handleConnectionDisplaced(false));
+        case DISCONNECT_REQUESTED -> {
+          // Handle events from `DisconnectionRequestManager` instead
+        }
 
         case MESSAGES_PERSISTED -> listenerEventExecutor.execute(listener::handleMessagesPersisted);
 

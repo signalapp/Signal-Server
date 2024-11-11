@@ -650,6 +650,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessageDeliveryLoopMonitor messageDeliveryLoopMonitor =
         new MessageDeliveryLoopMonitor(rateLimitersCluster);
 
+    disconnectionRequestManager.addListener(webSocketConnectionEventManager);
+
     final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
         accountsManager, disconnectionRequestManager, webSocketConnectionEventManager, svr2CredentialsGenerator, svr3CredentialsGenerator,
         registrationRecoveryPasswordsManager, pushNotificationManager, rateLimiters);
@@ -828,6 +830,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     );
 
     final GrpcClientConnectionManager grpcClientConnectionManager = new GrpcClientConnectionManager();
+
+    disconnectionRequestManager.addListener(grpcClientConnectionManager);
 
     final ManagedDefaultEventLoopGroup localEventLoopGroup = new ManagedDefaultEventLoopGroup();
 

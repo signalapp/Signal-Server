@@ -9,16 +9,19 @@ import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.util.AttributeKey;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
@@ -30,7 +33,7 @@ import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
  * authenticated identity of the device that opened the connection (for non-anonymous connections). It can also close
  * connections associated with a given device if that device's credentials have changed and clients must reauthenticate.
  */
-public class GrpcClientConnectionManager {
+public class GrpcClientConnectionManager implements DisconnectionRequestListener {
 
   private final Map<LocalAddress, Channel> remoteChannelsByLocalAddress = new ConcurrentHashMap<>();
   private final Map<AuthenticatedDevice, List<Channel>> remoteChannelsByAuthenticatedDevice = new ConcurrentHashMap<>();
@@ -214,5 +217,12 @@ public class GrpcClientConnectionManager {
             return existingChannelList.isEmpty() ? null : existingChannelList;
           }));
     });
+  }
+
+  @Override
+  public void handleDisconnectionRequest(final UUID accountIdentifier, final Collection<Byte> deviceIds) {
+    deviceIds.stream()
+        .map(deviceId -> new AuthenticatedDevice(accountIdentifier, deviceId))
+        .forEach(this::closeConnection);
   }
 }

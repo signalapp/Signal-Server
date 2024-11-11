@@ -161,9 +161,8 @@ class WebSocketConnectionEventManagerTest {
     assertFalse(remoteEventManager.isLocallyPresent(accountIdentifier, deviceId));
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void requestDisconnection(final boolean requestDisconnectionRemotely) throws InterruptedException {
+  @Test
+  void handleDisconnectionRequest() throws InterruptedException {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte firstDeviceId = Device.PRIMARY_ID;
     final byte secondDeviceId = firstDeviceId + 1;
@@ -198,10 +197,7 @@ class WebSocketConnectionEventManagerTest {
     assertFalse(firstListenerDisplaced.get());
     assertFalse(secondListenerDisplaced.get());
 
-    final WebSocketConnectionEventManager displacingManager =
-        requestDisconnectionRemotely ? remoteEventManager : localEventManager;
-
-    displacingManager.requestDisconnection(accountIdentifier, List.of(firstDeviceId)).toCompletableFuture().join();
+    localEventManager.handleDisconnectionRequest(accountIdentifier, List.of(firstDeviceId));
 
     synchronized (firstListenerDisplaced) {
       while (!firstListenerDisplaced.get()) {
