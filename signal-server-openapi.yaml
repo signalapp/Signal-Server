@@ -5629,6 +5629,11 @@ components:
         playProductId:
           type: string
           description: The play billing productID associated with this backup level
+        mediaTtlDays:
+          type: integer
+          description: "The duration, in days, for which your backed up media is retained\
+            \ on the server after you stop refreshing with a paid credential"
+          format: int64
       description: Configuration for a backup level - use to present appropriate client
         interfaces
     CurrencyConfiguration:
