@@ -45,8 +45,6 @@ class WhisperServerServiceTest {
   static {
     System.setProperty("secrets.bundle.filename",
         Resources.getResource("config/test-secrets-bundle.yml").getPath());
-    // needed for AppConfigDataClient initialization
-    System.setProperty("aws.region", "local-test-region");
   }
 
   private static final DropwizardAppExtension<WhisperServerConfiguration> EXTENSION = new DropwizardAppExtension<>(
@@ -57,7 +55,6 @@ class WhisperServerServiceTest {
   @AfterAll
   static void teardown() {
     System.clearProperty("secrets.bundle.filename");
-    System.clearProperty("aws.region");
   }
 
   @BeforeEach
@@ -140,36 +137,35 @@ class WhisperServerServiceTest {
     final AwsCredentialsProvider awsCredentialsProvider = EXTENSION.getConfiguration().getAwsCredentialsConfiguration()
         .build();
 
-    try (DynamoDbClient dynamoDbClient = EXTENSION.getConfiguration().getDynamoDbClientConfiguration()
-        .buildSyncClient(awsCredentialsProvider, new NoopAwsSdkMetricPublisher())) {
+    final DynamoDbClient dynamoDbClient = EXTENSION.getConfiguration().getDynamoDbClientConfiguration()
+        .buildSyncClient(awsCredentialsProvider, new NoopAwsSdkMetricPublisher());
 
-      final DynamoDbExtension.TableSchema numbers = DynamoDbExtensionSchema.Tables.NUMBERS;
-      final AttributeValue numberAV = AttributeValues.s("+12125550001");
+    final DynamoDbExtension.TableSchema numbers = DynamoDbExtensionSchema.Tables.NUMBERS;
+    final AttributeValue numberAV = AttributeValues.s("+12125550001");
 
-      final GetItemResponse notFoundResponse = dynamoDbClient.getItem(GetItemRequest.builder()
-          .tableName(numbers.tableName())
-          .key(Map.of(numbers.hashKeyName(), numberAV))
-          .build());
+    final GetItemResponse notFoundResponse = dynamoDbClient.getItem(GetItemRequest.builder()
+        .tableName(numbers.tableName())
+        .key(Map.of(numbers.hashKeyName(), numberAV))
+        .build());
 
-      assertFalse(notFoundResponse.hasItem());
+    assertFalse(notFoundResponse.hasItem());
 
-      dynamoDbClient.putItem(PutItemRequest.builder()
-          .tableName(numbers.tableName())
-          .item(Map.of(numbers.hashKeyName(), numberAV))
-          .build());
+    dynamoDbClient.putItem(PutItemRequest.builder()
+        .tableName(numbers.tableName())
+        .item(Map.of(numbers.hashKeyName(), numberAV))
+        .build());
 
-      final GetItemResponse foundResponse = dynamoDbClient.getItem(GetItemRequest.builder()
-          .tableName(numbers.tableName())
-          .key(Map.of(numbers.hashKeyName(), numberAV))
-          .build());
+    final GetItemResponse foundResponse = dynamoDbClient.getItem(GetItemRequest.builder()
+        .tableName(numbers.tableName())
+        .key(Map.of(numbers.hashKeyName(), numberAV))
+        .build());
 
-      assertTrue(foundResponse.hasItem());
+    assertTrue(foundResponse.hasItem());
 
-      dynamoDbClient.deleteItem(DeleteItemRequest.builder()
-          .tableName(numbers.tableName())
-          .key(Map.of(numbers.hashKeyName(), numberAV))
-          .build());
-    }
+    dynamoDbClient.deleteItem(DeleteItemRequest.builder()
+        .tableName(numbers.tableName())
+        .key(Map.of(numbers.hashKeyName(), numberAV))
+        .build());
   }
 
 }

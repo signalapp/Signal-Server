@@ -26,8 +26,6 @@ public class LocalWhisperServerService {
 
     System.setProperty("secrets.bundle.filename",
         Resources.getResource("config/test-secrets-bundle.yml").getPath());
-    System.setProperty("sqlite.dir", "service/target/lib");
-    System.setProperty("aws.region", "local-test-region");
 
     final String config = Optional.ofNullable(System.getenv(SIGNAL_SERVER_CONFIG_ENV_VAR))
         .orElse(Resources.getResource("config/test.yml").getPath());

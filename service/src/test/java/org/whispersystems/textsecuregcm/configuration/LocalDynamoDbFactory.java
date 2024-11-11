@@ -16,8 +16,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 @JsonTypeName("local")
 public class LocalDynamoDbFactory implements DynamoDbClientFactory {
 
-  private static final DynamoDbExtension EXTENSION = new DynamoDbExtension(System.getProperty("sqlite.dir"),
-      DynamoDbExtensionSchema.Tables.values());
+  private static final DynamoDbExtension EXTENSION = new DynamoDbExtension(DynamoDbExtensionSchema.Tables.values());
 
   static {
     try {

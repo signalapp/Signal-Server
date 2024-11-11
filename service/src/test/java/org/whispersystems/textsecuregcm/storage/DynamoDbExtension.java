@@ -5,21 +5,12 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import com.almworks.sqlite4java.SQLite;
-import com.amazonaws.services.dynamodbv2.local.main.ServerRunner;
-import com.amazonaws.services.dynamodbv2.local.server.DynamoDBProxyServer;
-import java.net.ServerSocket;
-import java.net.URI;
-import java.time.Duration;
+import com.amazonaws.services.dynamodbv2.local.embedded.DynamoDBEmbedded;
+import com.amazonaws.services.dynamodbv2.local.shared.access.AmazonDynamoDBLocal;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
@@ -29,11 +20,8 @@ import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
 import software.amazon.awssdk.services.dynamodb.model.KeyType;
 import software.amazon.awssdk.services.dynamodb.model.LocalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput;
-import javax.annotation.Nullable;
 
 public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback {
-
-  private static final String DEFAULT_LIBRARY_PATH = "target/lib";
 
   public interface TableSchema {
     String tableName();
@@ -58,34 +46,13 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
       .writeCapacityUnits(20L)
       .build();
 
-  private static final AtomicBoolean libraryLoaded = new AtomicBoolean();
-
-  private DynamoDBProxyServer server;
-  private int port;
-
-  private final String libraryPath;
+  private AmazonDynamoDBLocal embedded;
   private final List<TableSchema> schemas;
   private DynamoDbClient dynamoDB2;
   private DynamoDbAsyncClient dynamoAsyncDB2;
 
   public DynamoDbExtension(TableSchema... schemas) {
-    this(DEFAULT_LIBRARY_PATH, schemas);
-  }
-
-  public DynamoDbExtension(@Nullable final String libraryPath, TableSchema... schemas) {
-    this.libraryPath = Optional.ofNullable(libraryPath).orElse(DEFAULT_LIBRARY_PATH);
     this.schemas = List.of(schemas);
-  }
-
-  private void loadLibrary() {
-    // to avoid noise in the logs from “library already loaded” warnings, we make sure we only set it once
-    if (libraryLoaded.get()) {
-      return;
-    }
-    if (libraryLoaded.compareAndSet(false, true)) {
-      // if you see a library failed to load error, you need to run mvn test-compile at least once first
-      SQLite.setLibraryPath(this.libraryPath);
-    }
   }
 
   @Override
@@ -98,7 +65,7 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
    */
   public void stopServer() {
     try {
-      server.stop();
+      embedded.shutdown();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -106,9 +73,6 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
 
   @Override
   public void beforeEach(ExtensionContext context) throws Exception {
-
-    startServer();
-
     initializeClient();
 
     createTables();
@@ -143,35 +107,10 @@ public class DynamoDbExtension implements BeforeEachCallback, AfterEachCallback 
     getDynamoDbClient().createTable(createTableRequest);
   }
 
-  private void startServer() throws Exception {
-    loadLibrary();
-    try (ServerSocket serverSocket = new ServerSocket(0)) {
-      port = serverSocket.getLocalPort();
-    }
-    server = ServerRunner.createServerFromCommandLineArgs(
-        new String[]{"-disableTelemetry", "-inMemory", "-port", String.valueOf(port)});
-    server.start();
-  }
-
   private void initializeClient() {
-    dynamoDB2 = DynamoDbClient.builder()
-        .endpointOverride(URI.create("http://localhost:" + port))
-        .region(Region.of("local-test-region"))
-        .credentialsProvider(StaticCredentialsProvider.create(
-            AwsBasicCredentials.create("accessKey", "secretKey")))
-        .overrideConfiguration(builder ->
-            builder.apiCallTimeout(Duration.ofSeconds(1))
-                .apiCallAttemptTimeout(Duration.ofSeconds(1)))
-        .build();
-    dynamoAsyncDB2 = DynamoDbAsyncClient.builder()
-        .endpointOverride(URI.create("http://localhost:" + port))
-        .region(Region.of("local-test-region"))
-        .credentialsProvider(StaticCredentialsProvider.create(
-            AwsBasicCredentials.create("accessKey", "secretKey")))
-        .overrideConfiguration(builder ->
-            builder.apiCallTimeout(Duration.ofSeconds(1))
-                .apiCallAttemptTimeout(Duration.ofSeconds(1)))
-        .build();
+    embedded = DynamoDBEmbedded.create();
+    dynamoDB2 = embedded.dynamoDbClient();
+    dynamoAsyncDB2 = embedded.dynamoDbAsyncClient();
   }
 
   public DynamoDbClient getDynamoDbClient() {
