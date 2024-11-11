@@ -333,10 +333,6 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
           }
         }
 
-        case DISCONNECT_REQUESTED -> {
-          // Handle events from `DisconnectionRequestManager` instead
-        }
-
         case MESSAGES_PERSISTED -> listenerEventExecutor.execute(listener::handleMessagesPersisted);
 
         default -> logger.warn("Unexpected client event type: {}", clientEvent.getClass());

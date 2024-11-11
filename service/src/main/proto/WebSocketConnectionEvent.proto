@@ -10,10 +10,10 @@ option java_package = "org.whispersystems.textsecuregcm.push";
 option java_multiple_files = true;
 
 message ClientEvent {
+  reserved 3;
   oneof event {
     NewMessageAvailableEvent new_message_available = 1;
     ClientConnectedEvent client_connected = 2;
-    DisconnectRequested disconnect_requested = 3;
     MessagesPersistedEvent messages_persisted = 4;
   }
 }
@@ -29,13 +29,6 @@ message NewMessageAvailableEvent {
  */
 message ClientConnectedEvent {
   bytes server_id = 1;
-}
-
-/**
- * Indicates that the server has requested that the client disconnect due to
- * (for example) account lifecycle events.
- */
-message DisconnectRequested {
 }
 
 /**
