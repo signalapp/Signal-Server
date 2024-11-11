@@ -46,7 +46,6 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -80,7 +79,6 @@ public class AccountCreationDeletionIntegrationTest {
   private AccountsManager accountsManager;
   private KeysManager keysManager;
   private ClientPublicKeysManager clientPublicKeysManager;
-  private WebSocketConnectionEventManager webSocketConnectionEventManager;
   private DisconnectionRequestManager disconnectionRequestManager;
 
   record DeliveryChannels(boolean fetchesMessages, String apnsToken, String fcmToken) {}
@@ -143,10 +141,6 @@ public class AccountCreationDeletionIntegrationTest {
     when(registrationRecoveryPasswordsManager.removeForNumber(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
-    webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
-    when(webSocketConnectionEventManager.requestDisconnection(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -162,7 +156,6 @@ public class AccountCreationDeletionIntegrationTest {
         secureStorageClient,
         svr2Client,
         disconnectionRequestManager,
-        webSocketConnectionEventManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         executor,
@@ -410,7 +403,6 @@ public class AccountCreationDeletionIntegrationTest {
 
     assertEquals(existingAccountUuid, reregisteredAccount.getUuid());
 
-    verify(webSocketConnectionEventManager).requestDisconnection(existingAccountUuid);
     verify(disconnectionRequestManager).requestDisconnection(existingAccountUuid);
   }
 
@@ -486,7 +478,6 @@ public class AccountCreationDeletionIntegrationTest {
     assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(clientPublicKeysManager.findPublicKey(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
 
-    verify(webSocketConnectionEventManager).requestDisconnection(aci);
     verify(disconnectionRequestManager).requestDisconnection(aci);
   }
 

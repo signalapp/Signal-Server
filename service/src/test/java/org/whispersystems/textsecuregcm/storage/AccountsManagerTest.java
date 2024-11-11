@@ -81,7 +81,6 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -120,7 +119,6 @@ class AccountsManagerTest {
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
   private DisconnectionRequestManager disconnectionRequestManager;
-  private WebSocketConnectionEventManager webSocketConnectionEventManager;
   private ClientPublicKeysManager clientPublicKeysManager;
 
   private Map<String, UUID> phoneNumberIdentifiersByE164;
@@ -156,7 +154,6 @@ class AccountsManagerTest {
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
-    webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
     clientPublicKeysManager = mock(ClientPublicKeysManager.class);
     dynamicConfiguration = mock(DynamicConfiguration.class);
 
@@ -242,9 +239,6 @@ class AccountsManagerTest {
         .stringAsyncCommands(asyncClusterCommands)
         .build();
 
-    when(webSocketConnectionEventManager.requestDisconnection(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     accountsManager = new AccountsManager(
@@ -259,7 +253,6 @@ class AccountsManagerTest {
         storageClient,
         svr2Client,
         disconnectionRequestManager,
-        webSocketConnectionEventManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
         mock(Executor.class),
@@ -799,7 +792,7 @@ class AccountsManagerTest {
     verify(keysManager, times(2)).deleteSingleUsePreKeys(account.getUuid(), linkedDevice.getId());
     verify(keysManager).buildWriteItemsForRemovedDevice(account.getUuid(), account.getPhoneNumberIdentifier(), linkedDevice.getId());
     verify(clientPublicKeysManager).buildTransactWriteItemForDeletion(account.getUuid(), linkedDevice.getId());
-    verify(webSocketConnectionEventManager).requestDisconnection(account.getUuid(), List.of(linkedDevice.getId()));
+    verify(disconnectionRequestManager).requestDisconnection(account.getUuid(), List.of(linkedDevice.getId()));
   }
 
   @Test
@@ -817,7 +810,7 @@ class AccountsManagerTest {
     assertDoesNotThrow(account::getPrimaryDevice);
     verify(messagesManager, never()).clear(any(), anyByte());
     verify(keysManager, never()).deleteSingleUsePreKeys(any(), anyByte());
-    verify(webSocketConnectionEventManager, never()).requestDisconnection(any(), any());
+    verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
   }
 
   @Test
@@ -886,7 +879,6 @@ class AccountsManagerTest {
     verify(keysManager, times(2)).deleteSingleUsePreKeys(phoneNumberIdentifiersByE164.get(e164));
     verify(messagesManager, times(2)).clear(existingUuid);
     verify(profilesManager, times(2)).deleteAll(existingUuid);
-    verify(webSocketConnectionEventManager).requestDisconnection(existingUuid);
     verify(disconnectionRequestManager).requestDisconnection(existingUuid);
   }
 

@@ -77,7 +77,6 @@ import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -127,7 +126,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final SecureStorageClient secureStorageClient;
   private final SecureValueRecovery2Client secureValueRecovery2Client;
   private final DisconnectionRequestManager disconnectionRequestManager;
-  private final WebSocketConnectionEventManager webSocketConnectionEventManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final ClientPublicKeysManager clientPublicKeysManager;
   private final Executor accountLockExecutor;
@@ -210,7 +208,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final SecureStorageClient secureStorageClient,
       final SecureValueRecovery2Client secureValueRecovery2Client,
       final DisconnectionRequestManager disconnectionRequestManager,
-      final WebSocketConnectionEventManager webSocketConnectionEventManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final ClientPublicKeysManager clientPublicKeysManager,
       final Executor accountLockExecutor,
@@ -229,7 +226,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.secureStorageClient = secureStorageClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
     this.disconnectionRequestManager = disconnectionRequestManager;
-    this.webSocketConnectionEventManager = webSocketConnectionEventManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.clientPublicKeysManager = clientPublicKeysManager;
     this.accountLockExecutor = accountLockExecutor;
@@ -336,7 +332,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                   keysManager.deleteSingleUsePreKeys(pni),
                   messagesManager.clear(aci),
                   profilesManager.deleteAll(aci))
-              .thenCompose(ignored -> webSocketConnectionEventManager.requestDisconnection(aci))
               .thenCompose(ignored -> disconnectionRequestManager.requestDisconnection(aci))
               .thenCompose(ignored -> accounts.reclaimAccount(e.getExistingAccount(), account, additionalWriteItems))
               .thenCompose(ignored -> {
@@ -601,7 +596,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         })
         .whenComplete((ignored, throwable) -> {
           if (throwable == null) {
-            webSocketConnectionEventManager.requestDisconnection(accountIdentifier, List.of(deviceId));
             disconnectionRequestManager.requestDisconnection(accountIdentifier, List.of(deviceId));
           }
         });
@@ -1249,10 +1243,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             registrationRecoveryPasswordsManager.removeForNumber(account.getNumber()))
         .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
         .thenCompose(ignored -> redisDeleteAsync(account))
-        .thenRun(() -> {
-          webSocketConnectionEventManager.requestDisconnection(account.getUuid());
-          disconnectionRequestManager.requestDisconnection(account.getUuid());
-        });
+        .thenRun(() -> disconnectionRequestManager.requestDisconnection(account.getUuid()));
   }
 
   private String getAccountMapKey(String key) {

@@ -133,7 +133,7 @@ class DeviceControllerTest {
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .addProvider(new RateLimitExceededExceptionMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, disconnectionRequestManager, webSocketConnectionEventManager))
+      .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, disconnectionRequestManager))
       .addProvider(new DeviceLimitExceededExceptionMapper())
       .addResource(deviceController)
       .build();

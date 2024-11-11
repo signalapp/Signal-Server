@@ -21,7 +21,6 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +37,6 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -69,7 +67,6 @@ class AccountsManagerChangeNumberIntegrationTest {
 
   private KeysManager keysManager;
   private DisconnectionRequestManager disconnectionRequestManager;
-  private WebSocketConnectionEventManager webSocketConnectionEventManager;
   private ScheduledExecutorService executor;
 
   private AccountsManager accountsManager;
@@ -119,7 +116,6 @@ class AccountsManagerChangeNumberIntegrationTest {
       final SecureValueRecovery2Client svr2Client = mock(SecureValueRecovery2Client.class);
       when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-      webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
       disconnectionRequestManager = mock(DisconnectionRequestManager.class);
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
@@ -149,7 +145,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           secureStorageClient,
           svr2Client,
           disconnectionRequestManager,
-          webSocketConnectionEventManager,
           registrationRecoveryPasswordsManager,
           clientPublicKeysManager,
           executor,
@@ -280,7 +275,6 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
-    verify(webSocketConnectionEventManager).requestDisconnection(existingAccountUuid);
     verify(disconnectionRequestManager).requestDisconnection(existingAccountUuid);
 
     assertEquals(Optional.of(existingAccountUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalNumber));

@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -36,7 +35,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubClusterConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -74,11 +72,6 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
       .setClientConnected(ClientConnectedEvent.newBuilder()
           .setServerId(UUIDUtil.toByteString(serverId))
           .build())
-      .build()
-      .toByteArray();
-
-  private static final byte[] DISCONNECT_REQUESTED_EVENT_BYTES = ClientEvent.newBuilder()
-      .setDisconnectRequested(DisconnectRequested.getDefaultInstance())
       .build()
       .toByteArray();
 
@@ -244,35 +237,6 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
    */
   public boolean isLocallyPresent(final UUID accountUuid, final byte deviceId) {
     return listenersByAccountAndDeviceIdentifier.containsKey(new AccountAndDeviceIdentifier(accountUuid, deviceId));
-  }
-
-  /**
-   * Broadcasts a request that all devices associated with the identified account and connected to any event manager
-   * instance close their network connections.
-   *
-   * @param accountIdentifier the account identifier for which to request disconnection
-   *
-   * @return a future that completes when the request has been sent
-   */
-  public CompletableFuture<Void> requestDisconnection(final UUID accountIdentifier) {
-    return requestDisconnection(accountIdentifier, Device.ALL_POSSIBLE_DEVICE_IDS);
-  }
-
-  /**
-   * Broadcasts a request that the specified devices associated with the identified account and connected to any event
-   * manager instance close their network connections.
-   *
-   * @param accountIdentifier the account identifier for which to request disconnection
-   * @param deviceIds the IDs of the devices for which to request disconnection
-   *
-   * @return a future that completes when the request has been sent
-   */
-  public CompletableFuture<Void> requestDisconnection(final UUID accountIdentifier, final Collection<Byte> deviceIds) {
-    return CompletableFuture.allOf(deviceIds.stream()
-        .map(deviceId -> clusterClient.withBinaryCluster(connection -> connection.async()
-                .spublish(getClientEventChannel(accountIdentifier, deviceId), DISCONNECT_REQUESTED_EVENT_BYTES))
-            .toCompletableFuture())
-        .toArray(CompletableFuture[]::new));
   }
 
   @Override

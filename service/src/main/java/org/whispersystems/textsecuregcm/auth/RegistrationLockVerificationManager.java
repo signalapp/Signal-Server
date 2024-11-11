@@ -55,7 +55,6 @@ public class RegistrationLockVerificationManager {
 
   private final AccountsManager accounts;
   private final DisconnectionRequestManager disconnectionRequestManager;
-  private final WebSocketConnectionEventManager webSocketConnectionEventManager;
   private final ExternalServiceCredentialsGenerator svr2CredentialGenerator;
   private final ExternalServiceCredentialsGenerator svr3CredentialGenerator;
   private final RateLimiters rateLimiters;
@@ -65,7 +64,6 @@ public class RegistrationLockVerificationManager {
   public RegistrationLockVerificationManager(
       final AccountsManager accounts,
       final DisconnectionRequestManager disconnectionRequestManager,
-      final WebSocketConnectionEventManager webSocketConnectionEventManager,
       final ExternalServiceCredentialsGenerator svr2CredentialGenerator,
       final ExternalServiceCredentialsGenerator svr3CredentialGenerator,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
@@ -73,7 +71,6 @@ public class RegistrationLockVerificationManager {
       final RateLimiters rateLimiters) {
     this.accounts = accounts;
     this.disconnectionRequestManager = disconnectionRequestManager;
-    this.webSocketConnectionEventManager = webSocketConnectionEventManager;
     this.svr2CredentialGenerator = svr2CredentialGenerator;
     this.svr3CredentialGenerator = svr3CredentialGenerator;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
@@ -164,7 +161,6 @@ public class RegistrationLockVerificationManager {
       }
 
       final List<Byte> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();
-      webSocketConnectionEventManager.requestDisconnection(updatedAccount.getUuid(), deviceIds);
       disconnectionRequestManager.requestDisconnection(updatedAccount.getUuid(), deviceIds);
 
       try {

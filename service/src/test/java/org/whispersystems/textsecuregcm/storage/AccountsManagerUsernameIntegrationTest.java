@@ -36,7 +36,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -135,9 +134,6 @@ class AccountsManagerUsernameIntegrationTest {
     when(messageManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(profileManager.deleteAll(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final WebSocketConnectionEventManager webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
-    when(webSocketConnectionEventManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
-
     final DisconnectionRequestManager disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -153,7 +149,6 @@ class AccountsManagerUsernameIntegrationTest {
         mock(SecureStorageClient.class),
         mock(SecureValueRecovery2Client.class),
         disconnectionRequestManager,
-        webSocketConnectionEventManager,
         mock(RegistrationRecoveryPasswordsManager.class),
         mock(ClientPublicKeysManager.class),
         Executors.newSingleThreadExecutor(),
