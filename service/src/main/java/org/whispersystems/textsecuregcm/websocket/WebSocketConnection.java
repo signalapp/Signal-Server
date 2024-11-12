@@ -93,6 +93,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
   private static final String STATUS_CODE_TAG = "status";
   private static final String STATUS_MESSAGE_TAG = "message";
   private static final String ERROR_TYPE_TAG = "errorType";
+  private static final String EXCEPTION_TYPE_TAG = "exceptionType";
 
   private static final long SLOW_DRAIN_THRESHOLD = 10_000;
 
@@ -436,26 +437,26 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
     return queueCleared;
   }
 
-  private void measureSendMessageErrors(Throwable e, final boolean terminal) {
+  private void measureSendMessageErrors(final Throwable e, final boolean terminal) {
     final String errorType;
+
     if (e instanceof TimeoutException) {
       errorType = "timeout";
-    } else if (e instanceof java.nio.channels.ClosedChannelException) {
-      errorType = "closedChannel";
-    } else if (e == WebSocketResourceProvider.CONNECTION_CLOSED_EXCEPTION) {
+    } else if (e instanceof java.nio.channels.ClosedChannelException ||
+        e == WebSocketResourceProvider.CONNECTION_CLOSED_EXCEPTION ||
+        e instanceof org.eclipse.jetty.io.EofException ||
+        (e instanceof StaticException staticException && "Closed".equals(staticException.getMessage()))) {
       errorType = "connectionClosed";
-    } else if (e instanceof org.eclipse.jetty.io.EofException) {
-      errorType = "connectionEof";
-    } else if (e instanceof StaticException staticException && "Closed".equals(staticException.getMessage())) {
-      errorType = "closedStatic";
     } else {
       logger.warn(terminal ? "Send message failure terminated stream" : "Send message failed", e);
       errorType = "other";
     }
-    final Tags tags = Tags.of(
-        UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-        Tag.of(ERROR_TYPE_TAG, errorType));
-    Metrics.counter(SEND_MESSAGE_ERROR_COUNTER, tags).increment();
+
+    Metrics.counter(SEND_MESSAGE_ERROR_COUNTER, Tags.of(
+            UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
+            Tag.of(ERROR_TYPE_TAG, errorType),
+            Tag.of(EXCEPTION_TYPE_TAG, e.getClass().getSimpleName())))
+        .increment();
   }
 
   private CompletableFuture<Void> sendMessage(Envelope envelope) {
