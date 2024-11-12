@@ -4689,10 +4689,10 @@ components:
         created:
           type: string
           format: date-time
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
