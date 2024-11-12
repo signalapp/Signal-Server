@@ -64,12 +64,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.reactivestreams.Publisher;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
-import org.signal.libsignal.protocol.ServiceId;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
@@ -98,26 +94,17 @@ class MessagesCacheTest {
     private Scheduler messageDeliveryScheduler;
     private MessagesCache messagesCache;
 
-    private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
-    private DynamicConfiguration dynamicConfiguration;
-
     private static final UUID DESTINATION_UUID = UUID.randomUUID();
 
     private static final byte DESTINATION_DEVICE_ID = 7;
 
     @BeforeEach
     void setUp() throws Exception {
-      dynamicConfiguration = mock(DynamicConfiguration.class);
-      when(dynamicConfiguration.getMessagesConfiguration()).thenReturn(
-          new DynamicMessagesConfiguration(true));
-      dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
-      when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-
       sharedExecutorService = Executors.newSingleThreadExecutor();
       resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
       messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
+          messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
     }
 
     @AfterEach
@@ -321,7 +308,7 @@ class MessagesCacheTest {
       }
 
       final MessagesCache messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          messageDeliveryScheduler, sharedExecutorService, cacheClock, dynamicConfigurationManager);
+          messageDeliveryScheduler, sharedExecutorService, cacheClock);
 
       final List<MessageProtos.Envelope> actualMessages = Flux.from(
               messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID))
@@ -429,12 +416,9 @@ class MessagesCacheTest {
       assertEquals(DESTINATION_DEVICE_ID, MessagesCache.getDeviceIdFromQueueName(queues.getFirst()));
     }
 
-    @CartesianTest
-    void testMultiRecipientMessage(@CartesianTest.Values(booleans = {true, false}) final boolean sharedMrmKeyPresent,
-        @CartesianTest.Values(booleans = {true, false}) final boolean useSharedMrmData) {
-
-      when(dynamicConfiguration.getMessagesConfiguration())
-          .thenReturn(new DynamicMessagesConfiguration(useSharedMrmData));
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void testMultiRecipientMessage(final boolean sharedMrmKeyPresent) {
 
       final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(UUID.randomUUID());
       final byte deviceId = 1;
@@ -453,10 +437,8 @@ class MessagesCacheTest {
           .toBuilder()
           // clear some things added by the helper
           .clearServerGuid()
-          // mrm views phase 2: messages have content
-          .setContent(
-              ByteString.copyFrom(mrm.messageForRecipient(mrm.getRecipients().get(destinationServiceId.toLibsignal()))))
           .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
+          .clearContent()
           .build();
       messagesCache.insert(guid, destinationServiceId.uuid(), deviceId, message);
 
@@ -464,7 +446,7 @@ class MessagesCacheTest {
           .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey)));
 
       final List<MessageProtos.Envelope> messages = get(destinationServiceId.uuid(), deviceId, 1);
-      if (useSharedMrmData && !sharedMrmKeyPresent) {
+      if (!sharedMrmKeyPresent) {
         assertTrue(messages.isEmpty());
       } else {
 
@@ -495,65 +477,7 @@ class MessagesCacheTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void testMultiRecipientMessagePhase2MissingContentSafeguard(final boolean useSharedMrmData) {
-
-      when(dynamicConfiguration.getMessagesConfiguration())
-          .thenReturn(new DynamicMessagesConfiguration(useSharedMrmData));
-
-      final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(UUID.randomUUID());
-      final byte deviceId = 1;
-
-      final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(destinationServiceId, deviceId);
-
-      final byte[] sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm);
-
-      final UUID guid = UUID.randomUUID();
-      final MessageProtos.Envelope message = generateRandomMessage(guid, destinationServiceId, true)
-          .toBuilder()
-          // clear some things added by the helper
-          .clearServerGuid()
-          // mrm views phase 2: there is a safeguard against missing content, even if the dynamic configuration
-          //   is to not fetch or use shared MRM data
-          .clearContent()
-          .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
-          .build();
-      messagesCache.insert(guid, destinationServiceId.uuid(), deviceId, message);
-
-      assertEquals(1, (long) REDIS_CLUSTER_EXTENSION.getRedisCluster()
-          .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey)));
-
-      final List<MessageProtos.Envelope> messages = get(destinationServiceId.uuid(), deviceId, 1);
-
-      assertEquals(1, messages.size());
-      assertEquals(guid, UUID.fromString(messages.getFirst().getServerGuid()));
-      assertFalse(messages.getFirst().hasSharedMrmKey());
-      final SealedSenderMultiRecipientMessage.Recipient recipient = mrm.getRecipients()
-          .get(destinationServiceId.toLibsignal());
-      assertArrayEquals(mrm.messageForRecipient(recipient), messages.getFirst().getContent().toByteArray());
-
-      final Optional<RemovedMessage> removedMessage = messagesCache.remove(destinationServiceId.uuid(), deviceId, guid)
-          .join();
-
-      assertTrue(removedMessage.isPresent());
-      assertEquals(guid, UUID.fromString(removedMessage.get().serverGuid().toString()));
-      assertTrue(get(destinationServiceId.uuid(), deviceId, 1).isEmpty());
-
-      // updating the shared MRM data is purely async, so we just wait for it
-      assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
-        boolean exists;
-        do {
-          exists = 1 == REDIS_CLUSTER_EXTENSION.getRedisCluster()
-              .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey));
-        } while (exists);
-      }, "Shared MRM data should be deleted asynchronously");
-    }
-
-    @CartesianTest
-    void testGetMessagesToPersist(@CartesianTest.Values(booleans = {true, false}) final boolean sharedMrmKeyPresent,
-        @CartesianTest.Values(booleans = {true, false}) final boolean useSharedMrmData) {
-
-      when(dynamicConfiguration.getMessagesConfiguration())
-          .thenReturn(new DynamicMessagesConfiguration(useSharedMrmData));
+    void testGetMessagesToPersist(final boolean sharedMrmKeyPresent) {
 
       final UUID destinationUuid = UUID.randomUUID();
       final ServiceIdentifier destinationServiceId = new AciServiceIdentifier(destinationUuid);
@@ -578,24 +502,22 @@ class MessagesCacheTest {
       final MessageProtos.Envelope mrmMessage = generateRandomMessage(mrmMessageGuid, destinationServiceId, true)
           .toBuilder()
           // clear some things added by the helper
-          .clearServerGuid()
-          // mrm views phase 2: messages have content
-          .setContent(
-              ByteString.copyFrom(mrm.messageForRecipient(mrm.getRecipients().get(new ServiceId.Aci(destinationUuid)))))
+          .clearContent()
           .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
           .build();
       messagesCache.insert(mrmMessageGuid, destinationUuid, deviceId, mrmMessage);
 
       final List<MessageProtos.Envelope> messages = messagesCache.getMessagesToPersist(destinationUuid, deviceId, 100);
 
-      if (useSharedMrmData && !sharedMrmKeyPresent) {
+      if (!sharedMrmKeyPresent) {
         assertEquals(1, messages.size());
       } else {
         assertEquals(2, messages.size());
 
-        assertEquals(mrmMessage.toBuilder().
-                clearSharedMrmKey().
-                setServerGuid(mrmMessageGuid.toString())
+        assertEquals(mrmMessage.toBuilder()
+                .clearSharedMrmKey()
+                .setContent(ByteString.copyFrom(
+                    mrm.messageForRecipient(mrm.getRecipients().get(destinationServiceId.toLibsignal()))))
                 .build(),
             messages.getLast());
       }
@@ -636,7 +558,7 @@ class MessagesCacheTest {
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
 
       messagesCache = new MessagesCache(mockCluster, messageDeliveryScheduler,
-          Executors.newSingleThreadExecutor(), Clock.systemUTC(), mock(DynamicConfigurationManager.class));
+          Executors.newSingleThreadExecutor(), Clock.systemUTC());
     }
 
     @AfterEach
@@ -822,8 +744,7 @@ class MessagesCacheTest {
   }
 
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid,
-      final ServiceIdentifier destinationServiceId, final boolean sealedSender,
-      final long timestamp) {
+      final ServiceIdentifier destinationServiceId, final boolean sealedSender, final long timestamp) {
     final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder()
         .setClientTimestamp(timestamp)
         .setServerTimestamp(timestamp)

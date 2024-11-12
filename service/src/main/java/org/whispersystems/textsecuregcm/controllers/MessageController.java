@@ -952,9 +952,6 @@ public class MessageController {
         .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
         .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey));
 
-    // mrm views phase 3: always set content
-    messageBuilder.setContent(ByteString.copyFrom(payload));
-
     messageSender.sendMessage(destinationAccount, destinationDevice, messageBuilder.build(), online);
   }
 

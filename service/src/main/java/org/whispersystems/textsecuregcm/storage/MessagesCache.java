@@ -36,10 +36,7 @@ import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.ServiceId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagesConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.Experiment;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -116,8 +113,6 @@ public class MessagesCache {
   // messageDeletionExecutorService wrapped into a reactor Scheduler
   private final Scheduler messageDeletionScheduler;
 
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
-
   private final MessagesCacheInsertScript insertScript;
   private final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript;
   private final MessagesCacheRemoveByGuidScript removeByGuidScript;
@@ -137,10 +132,8 @@ public class MessagesCache {
   private final Counter staleEphemeralMessagesCounter = Metrics.counter(
       name(MessagesCache.class, "staleEphemeralMessages"));
   private final Counter mrmContentRetrievedCounter = Metrics.counter(name(MessagesCache.class, "mrmViewRetrieved"));
-  private final String MRM_RETRIEVAL_ERROR_COUNTER_NAME = "mrmRetrievalError";
+  private final String MRM_RETRIEVAL_ERROR_COUNTER_NAME = name(MessagesCache.class, "mrmRetrievalError");
   private final String EPHEMERAL_TAG_NAME = "ephemeral";
-  private final Counter mrmPhaseTwoMissingContentCounter = Metrics.counter(
-      name(MessagesCache.class, "mrmPhaseTwoMissingContent"));
   private final Counter skippedStaleEphemeralMrmCounter = Metrics.counter(
       name(MessagesCache.class, "skippedStaleEphemeralMrm"));
   private final Counter sharedMrmDataKeyRemovedCounter = Metrics.counter(
@@ -148,8 +141,6 @@ public class MessagesCache {
 
   static final String NEXT_SLOT_TO_PERSIST_KEY = "user_queue_persist_slot";
   private static final byte[] LOCK_VALUE = "1".getBytes(StandardCharsets.UTF_8);
-
-  private static final String MRM_VIEWS_EXPERIMENT_NAME = "mrmViews";
 
   @VisibleForTesting
   static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
@@ -164,8 +155,7 @@ public class MessagesCache {
   public MessagesCache(final FaultTolerantRedisClusterClient redisCluster,
       final Scheduler messageDeliveryScheduler,
       final ExecutorService messageDeletionExecutorService,
-      final Clock clock,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager)
+      final Clock clock)
       throws IOException {
 
     this(
@@ -173,7 +163,6 @@ public class MessagesCache {
         messageDeliveryScheduler,
         messageDeletionExecutorService,
         clock,
-        dynamicConfigurationManager,
         new MessagesCacheInsertScript(redisCluster),
         new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(redisCluster),
         new MessagesCacheGetItemsScript(redisCluster),
@@ -189,7 +178,6 @@ public class MessagesCache {
   MessagesCache(final FaultTolerantRedisClusterClient redisCluster,
                 final Scheduler messageDeliveryScheduler,
                 final ExecutorService messageDeletionExecutorService, final Clock clock,
-                final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
                 final MessagesCacheInsertScript insertScript,
                 final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript,
                 final MessagesCacheGetItemsScript getItemsScript, final MessagesCacheRemoveByGuidScript removeByGuidScript,
@@ -204,8 +192,6 @@ public class MessagesCache {
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.messageDeletionExecutorService = messageDeletionExecutorService;
     this.messageDeletionScheduler = Schedulers.fromExecutorService(messageDeletionExecutorService, "messageDeletion");
-
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
 
     this.insertScript = insertScript;
     this.insertMrmScript = insertMrmScript;
@@ -371,8 +357,6 @@ public class MessagesCache {
                   messageMono = Mono.just(message.toBuilder().clearSharedMrmKey().build());
                   skippedStaleEphemeralMrmCounter.increment();
                 } else {
-                  // mrm views phase 3: fetch shared MRM data -- internally depends on dynamic config that
-                  // enables using it (the stored messages still always have `content` set upstream)
                   messageMono = getMessageWithSharedMrmData(message, destinationDevice);
                 }
 
@@ -393,27 +377,18 @@ public class MessagesCache {
 
   /**
    * Returns the given message with its shared MRM data.
-   *
-   * @see DynamicMessagesConfiguration#useSharedMrmData()
    */
   private Mono<MessageProtos.Envelope> getMessageWithSharedMrmData(final MessageProtos.Envelope mrmMessage,
       final byte destinationDevice) {
 
     assert mrmMessage.hasSharedMrmKey();
 
-    // mrm views phase 2: messages have content
-    if (!mrmMessage.hasContent()) {
-      mrmPhaseTwoMissingContentCounter.increment();
-    }
-
-    final Experiment experiment = new Experiment(MRM_VIEWS_EXPERIMENT_NAME);
-
     final byte[] key = mrmMessage.getSharedMrmKey().toByteArray();
     final byte[] sharedMrmViewKey = MessagesCache.getSharedMrmViewKey(
         // the message might be addressed to the account's PNI, so use the service ID from the envelope
         ServiceIdentifier.valueOf(mrmMessage.getDestinationServiceId()), destinationDevice);
 
-    final Mono<MessageProtos.Envelope> messageFromRedisMono = Mono.from(redisCluster.withBinaryClusterReactive(
+    return Mono.from(redisCluster.withBinaryClusterReactive(
             conn -> conn.reactive().hmget(key, "data".getBytes(StandardCharsets.UTF_8), sharedMrmViewKey)
                 .collectList()
                 .publishOn(messageDeliveryScheduler)))
@@ -444,18 +419,6 @@ public class MessagesCache {
           return Mono.empty();
         })
         .share();
-
-    if (mrmMessage.hasContent()) {
-      experiment.compareMonoResult(mrmMessage.toBuilder().clearSharedMrmKey().build(), messageFromRedisMono);
-    }
-
-    if (dynamicConfigurationManager.getConfiguration().getMessagesConfiguration().useSharedMrmData()
-        || !mrmMessage.hasContent()) {
-      return messageFromRedisMono;
-    }
-
-    // if fetching or using shared data is disabled, fallback to just() with the existing message
-    return Mono.just(mrmMessage.toBuilder().clearSharedMrmKey().build());
   }
 
   /**
@@ -529,8 +492,6 @@ public class MessagesCache {
         .concatMap(message -> {
           final Mono<MessageProtos.Envelope> messageMono;
           if (message.hasSharedMrmKey()) {
-            // mrm views phase 2: fetch shared MRM data -- internally depends on dynamic config that
-            // enables fetching and using it (the stored messages still always have `content` set upstream)
             messageMono = getMessageWithSharedMrmData(message, destinationDevice);
           } else {
             messageMono = Mono.just(message);

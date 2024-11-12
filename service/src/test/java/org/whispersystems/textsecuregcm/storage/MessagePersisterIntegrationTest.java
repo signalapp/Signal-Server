@@ -81,7 +81,7 @@ class MessagePersisterIntegrationTest {
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, messageDeletionExecutorService, Clock.systemUTC(), dynamicConfigurationManager);
+        messageDeliveryScheduler, messageDeletionExecutorService, Clock.systemUTC());
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
         messageDeletionExecutorService);
 

@@ -70,10 +70,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  DynamicMessagesConfiguration messagesConfiguration = new DynamicMessagesConfiguration();
-
-  @JsonProperty
-  @Valid
   List<String> svrStatusCodesToIgnoreForAccountDeletion = Collections.emptyList();
 
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
@@ -128,10 +124,6 @@ public class DynamicConfiguration {
 
   public DynamicMetricsConfiguration getMetricsConfiguration() {
     return metricsConfiguration;
-  }
-
-  public DynamicMessagesConfiguration getMessagesConfiguration() {
-    return messagesConfiguration;
   }
 
   public List<String> getSvrStatusCodesToIgnoreForAccountDeletion() {

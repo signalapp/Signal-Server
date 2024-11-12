@@ -212,7 +212,7 @@ record CommandDependencies(
         storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, disconnectionRequestListenerExecutor);
     MessagesCache messagesCache = new MessagesCache(messagesCluster,
-        messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC(), dynamicConfigurationManager);
+        messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
         configuration.getDynamoDbTables().getReportMessage().getTableName(),
