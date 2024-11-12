@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.jetty.util.StaticException;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -445,6 +446,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
       errorType = "connectionClosed";
     } else if (e instanceof org.eclipse.jetty.io.EofException) {
       errorType = "connectionEof";
+    } else if (e instanceof StaticException staticException && "Closed".equals(staticException.getMessage())) {
+      errorType = "closedStatic";
     } else {
       logger.warn(terminal ? "Send message failure terminated stream" : "Send message failed", e);
       errorType = "other";
