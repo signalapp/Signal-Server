@@ -137,7 +137,8 @@ public class MessagesCache {
   private final Counter staleEphemeralMessagesCounter = Metrics.counter(
       name(MessagesCache.class, "staleEphemeralMessages"));
   private final Counter mrmContentRetrievedCounter = Metrics.counter(name(MessagesCache.class, "mrmViewRetrieved"));
-  private final Counter mrmRetrievalErrorCounter = Metrics.counter(name(MessagesCache.class, "mrmRetrievalError"));
+  private final String MRM_RETRIEVAL_ERROR_COUNTER_NAME = "mrmRetrievalError";
+  private final String EPHEMERAL_TAG_NAME = "ephemeral";
   private final Counter mrmPhaseTwoMissingContentCounter = Metrics.counter(
       name(MessagesCache.class, "mrmPhaseTwoMissingContent"));
   private final Counter skippedStaleEphemeralMrmCounter = Metrics.counter(
@@ -436,7 +437,10 @@ public class MessagesCache {
         })
         .onErrorResume(throwable -> {
           logger.warn("Failed to retrieve shared mrm data", throwable);
-          mrmRetrievalErrorCounter.increment();
+          Metrics.counter(MRM_RETRIEVAL_ERROR_COUNTER_NAME,
+                  EPHEMERAL_TAG_NAME, String.valueOf(mrmMessage.getEphemeral()))
+              .increment();
+
           return Mono.empty();
         })
         .share();
