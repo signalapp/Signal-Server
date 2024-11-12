@@ -238,7 +238,7 @@ public class BackupAuthManager {
           return accountsManager.updateAsync(account, a -> {
             final Account.BackupVoucher newPayment = new Account.BackupVoucher(receiptLevel, receiptExpiration);
             final Account.BackupVoucher existingPayment = a.getBackupVoucher();
-            account.setBackupVoucher(merge(existingPayment, newPayment));
+            a.setBackupVoucher(merge(existingPayment, newPayment));
           });
         })
         .thenRun(Util.NOOP);
