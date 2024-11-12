@@ -140,6 +140,8 @@ public class MessagesCache {
   private final Counter mrmRetrievalErrorCounter = Metrics.counter(name(MessagesCache.class, "mrmRetrievalError"));
   private final Counter mrmPhaseTwoMissingContentCounter = Metrics.counter(
       name(MessagesCache.class, "mrmPhaseTwoMissingContent"));
+  private final Counter skippedStaleEphemeralMrmCounter = Metrics.counter(
+      name(MessagesCache.class, "skippedStaleEphemeralMrm"));
   private final Counter sharedMrmDataKeyRemovedCounter = Metrics.counter(
       name(MessagesCache.class, "sharedMrmKeyRemoved"));
 
@@ -366,6 +368,7 @@ public class MessagesCache {
                 if (isStaleEphemeralMessage(message, earliestAllowableEphemeralTimestamp)) {
                   // skip fetching content for message that will be discarded
                   messageMono = Mono.just(message.toBuilder().clearSharedMrmKey().build());
+                  skippedStaleEphemeralMrmCounter.increment();
                 } else {
                   // mrm views phase 2: fetch shared MRM data -- internally depends on dynamic config that
                   // enables fetching and using it (the stored messages still always have `content` set upstream)
