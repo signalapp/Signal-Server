@@ -698,8 +698,8 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
-          <!-- work around PATCH not being a supported method on HttpUrlConnection -->
-          <argLine>--add-opens=java.base/java.net=ALL-UNNAMED</argLine>
+          <!-- add-opens: work around PATCH not being a supported method on HttpUrlConnection -->
+          <argLine>-javaagent:${org.mockito:mockito-core:jar} --add-opens=java.base/java.net=ALL-UNNAMED</argLine>
         </configuration>
       </plugin>
 
