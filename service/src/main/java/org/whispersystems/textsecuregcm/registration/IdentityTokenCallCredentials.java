@@ -125,10 +125,6 @@ public class IdentityTokenCallCredentials extends CallCredentials implements Man
   }
 
   @Override
-  public void thisUsesUnstableApi() {
-  }
-
-  @Override
   public void stop() {
     synchronized (this) {
       if (!scheduledFuture.isDone()) {
