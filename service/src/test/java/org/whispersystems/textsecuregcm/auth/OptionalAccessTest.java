@@ -51,7 +51,7 @@ class OptionalAccessTest {
   }
 
   private static List<Arguments> verify() {
-    final String unidentifiedAccessKey = RandomStringUtils.randomAlphanumeric(16);
+    final String unidentifiedAccessKey = RandomStringUtils.secure().nextAlphanumeric(16);
 
     final Anonymous correctUakHeader =
         new Anonymous(Base64.getEncoder().encodeToString(unidentifiedAccessKey.getBytes()));
@@ -180,7 +180,7 @@ class OptionalAccessTest {
 
   @Test
   void testTargetIdentifierIllegalArgument() {
-    final String unidentifiedAccessKey = RandomStringUtils.randomAlphanumeric(16);
+    final String unidentifiedAccessKey = RandomStringUtils.secure().nextAlphanumeric(16);
 
     final Anonymous correctUakHeader =
         new Anonymous(Base64.getEncoder().encodeToString(unidentifiedAccessKey.getBytes()));

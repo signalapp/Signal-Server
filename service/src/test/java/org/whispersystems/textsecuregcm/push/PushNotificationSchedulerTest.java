@@ -55,7 +55,7 @@ class PushNotificationSchedulerTest {
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final String ACCOUNT_NUMBER = "+18005551234";
   private static final byte DEVICE_ID = 1;
-  private static final String APN_ID = RandomStringUtils.randomAlphanumeric(32);
+  private static final String APN_ID = RandomStringUtils.secure().nextAlphanumeric(32);
 
   @BeforeEach
   void setUp() throws Exception {

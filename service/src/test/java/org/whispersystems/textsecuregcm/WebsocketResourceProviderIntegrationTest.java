@@ -123,7 +123,7 @@ public class WebsocketResourceProviderIntegrationTest {
     @Path("/{size}")
     @ManagedAsync
     public String get(@PathParam("size") int size) {
-      return RandomStringUtils.randomAscii(size);
+      return RandomStringUtils.secure().nextAscii(size);
     }
 
     @PUT

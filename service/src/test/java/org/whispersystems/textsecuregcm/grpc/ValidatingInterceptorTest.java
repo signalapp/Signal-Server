@@ -104,7 +104,7 @@ public class ValidatingInterceptorTest {
   @ParameterizedTest
   @ValueSource(ints = {0, 1, 2, 3, 4, 6, 1000})
   public void testExactlySizeValidationFailure(final int size) throws Exception {
-    final String stringValue = RandomStringUtils.randomAlphanumeric(size);
+    final String stringValue = RandomStringUtils.secure().nextAlphanumeric(size);
     assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
         builderWithValidDefaults()
             .setFixedSizeString(stringValue)
@@ -119,7 +119,7 @@ public class ValidatingInterceptorTest {
     ));
 
     final List<String> listValue = IntStream.range(0, size)
-        .mapToObj(i -> RandomStringUtils.randomAlphabetic(10))
+        .mapToObj(i -> RandomStringUtils.secure().nextAlphabetic(10))
         .toList();
     assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
         builderWithValidDefaults()
@@ -181,7 +181,7 @@ public class ValidatingInterceptorTest {
   @ParameterizedTest
   @MethodSource
   public void testRangeSizeValidationFailure(final int size, final Status expectedStatus) throws Exception {
-    final String stringValue = RandomStringUtils.randomAlphanumeric(size);
+    final String stringValue = RandomStringUtils.secure().nextAlphanumeric(size);
     assertEquals(expectedStatus.getCode(), requestStatus(() -> stub.validationsEndpoint(
         builderWithValidDefaults()
             .setRangeSizeString(stringValue)
@@ -196,7 +196,7 @@ public class ValidatingInterceptorTest {
     )).getCode());
 
     final List<String> listValue = IntStream.range(0, size)
-        .mapToObj(i -> RandomStringUtils.randomAlphabetic(10))
+        .mapToObj(i -> RandomStringUtils.secure().nextAlphabetic(10))
         .toList();
     assertEquals(expectedStatus.getCode(), requestStatus(() -> stub.validationsEndpoint(
         builderWithValidDefaults()

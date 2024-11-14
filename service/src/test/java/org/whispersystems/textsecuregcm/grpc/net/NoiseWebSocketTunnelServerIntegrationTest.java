@@ -101,7 +101,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
   private static final UUID ACCOUNT_IDENTIFIER = UUID.randomUUID();
   private static final byte DEVICE_ID = Device.PRIMARY_ID;
 
-  private static final String RECOGNIZED_PROXY_SECRET = RandomStringUtils.randomAlphanumeric(16);
+  private static final String RECOGNIZED_PROXY_SECRET = RandomStringUtils.secure().nextAlphanumeric(16);
 
   // Please note that this certificate/key are used only for testing and are not used anywhere outside of this test.
   // They were generated with:

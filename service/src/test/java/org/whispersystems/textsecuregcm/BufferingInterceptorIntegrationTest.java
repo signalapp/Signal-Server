@@ -64,14 +64,14 @@ public class BufferingInterceptorIntegrationTest {
     @Path("/virtual/{size}")
     @ManagedAsync
     public String getVirtual(@PathParam("size") int size) {
-      return RandomStringUtils.randomAscii(size);
+      return RandomStringUtils.secure().nextAscii(size);
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("/platform/{size}")
     public String getPlatform(@PathParam("size") int size) {
-      return RandomStringUtils.randomAscii(size);
+      return RandomStringUtils.secure().nextAscii(size);
     }
   }
 }

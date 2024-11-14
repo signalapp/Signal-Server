@@ -151,7 +151,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
 
   @Test
   void waitForRestoreAccountRequest() {
-    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final String token = RandomStringUtils.secure().nextAlphanumeric(16);
     final RestoreAccountRequest restoreAccountRequest =
         new RestoreAccountRequest(RestoreAccountRequest.Method.DEVICE_TRANSFER);
 
@@ -170,7 +170,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
 
   @Test
   void waitForRestoreAccountRequestAlreadyRequested() {
-    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final String token = RandomStringUtils.secure().nextAlphanumeric(16);
     final RestoreAccountRequest restoreAccountRequest =
         new RestoreAccountRequest(RestoreAccountRequest.Method.DEVICE_TRANSFER);
 
@@ -183,6 +183,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
   @Test
   void waitForRestoreAccountRequestTimeout() {
     assertEquals(Optional.empty(),
-        accountsManager.waitForRestoreAccountRequest(RandomStringUtils.randomAlphanumeric(16), Duration.ofMillis(1)).join());
+        accountsManager.waitForRestoreAccountRequest(RandomStringUtils.secure().nextAlphanumeric(16),
+            Duration.ofMillis(1)).join());
   }
 }

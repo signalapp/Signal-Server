@@ -389,7 +389,7 @@ class WebSocketConnectionIntegrationTest {
     return MessageProtos.Envelope.newBuilder()
         .setClientTimestamp(timestamp)
         .setServerTimestamp(timestamp)
-        .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
+        .setContent(ByteString.copyFromUtf8(RandomStringUtils.secure().nextAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
         .setServerGuid(messageGuid.toString())
         .setDestinationServiceId(UUID.randomUUID().toString())

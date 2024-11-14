@@ -128,7 +128,7 @@ class MessageSenderTest {
     return MessageProtos.Envelope.newBuilder()
         .setClientTimestamp(System.currentTimeMillis())
         .setServerTimestamp(System.currentTimeMillis())
-        .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
+        .setContent(ByteString.copyFromUtf8(RandomStringUtils.secure().nextAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
         .setServerGuid(UUID.randomUUID().toString())
         .build();

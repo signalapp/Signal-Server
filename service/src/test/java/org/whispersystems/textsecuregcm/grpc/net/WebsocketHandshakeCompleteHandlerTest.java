@@ -38,7 +38,7 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
   private UserEventRecordingHandler userEventRecordingHandler;
   private MutableRemoteAddressEmbeddedChannel embeddedChannel;
 
-  private static final String RECOGNIZED_PROXY_SECRET = RandomStringUtils.randomAlphanumeric(16);
+  private static final String RECOGNIZED_PROXY_SECRET = RandomStringUtils.secure().nextAlphanumeric(16);
 
   private static class UserEventRecordingHandler extends ChannelInboundHandlerAdapter {
 

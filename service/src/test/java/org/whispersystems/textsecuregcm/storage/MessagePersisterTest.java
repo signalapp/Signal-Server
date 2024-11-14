@@ -353,7 +353,7 @@ class MessagePersisterTest {
           .setDestinationServiceId(accountUuid.toString())
           .setClientTimestamp(firstMessageTimestamp.toEpochMilli() + i)
           .setServerTimestamp(firstMessageTimestamp.toEpochMilli() + i)
-          .setContent(ByteString.copyFromUtf8(RandomStringUtils.randomAlphanumeric(256)))
+          .setContent(ByteString.copyFromUtf8(RandomStringUtils.secure().nextAlphanumeric(256)))
           .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
           .setServerGuid(messageGuid.toString())
           .build();

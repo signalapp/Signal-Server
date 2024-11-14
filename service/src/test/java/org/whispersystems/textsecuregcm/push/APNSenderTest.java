@@ -37,7 +37,7 @@ import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 
 class APNSenderTest {
 
-  private static final String DESTINATION_DEVICE_TOKEN = RandomStringUtils.randomAlphanumeric(32);
+  private static final String DESTINATION_DEVICE_TOKEN = RandomStringUtils.secure().nextAlphanumeric(32);
   private static final String BUNDLE_ID = "org.signal.test";
 
   private Account destinationAccount;

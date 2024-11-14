@@ -1005,8 +1005,8 @@ class DeviceControllerTest {
   }
 
   private static List<String> waitForLinkedDeviceBadTokenIdentifierLength() {
-    return List.of(RandomStringUtils.randomAlphanumeric(DeviceController.MIN_TOKEN_IDENTIFIER_LENGTH - 1),
-        RandomStringUtils.randomAlphanumeric(DeviceController.MAX_TOKEN_IDENTIFIER_LENGTH + 1));
+    return List.of(RandomStringUtils.secure().nextAlphanumeric(DeviceController.MIN_TOKEN_IDENTIFIER_LENGTH - 1),
+        RandomStringUtils.secure().nextAlphanumeric(DeviceController.MAX_TOKEN_IDENTIFIER_LENGTH + 1));
   }
 
   @Test
@@ -1177,7 +1177,7 @@ class DeviceControllerTest {
 
   @Test
   void recordRestoreAccountRequest() {
-    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final String token = RandomStringUtils.secure().nextAlphanumeric(16);
     final RestoreAccountRequest restoreAccountRequest =
         new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP);
 
@@ -1195,7 +1195,7 @@ class DeviceControllerTest {
 
   @Test
   void recordRestoreAccountRequestBadToken() {
-    final String token = RandomStringUtils.randomAlphanumeric(128);
+    final String token = RandomStringUtils.secure().nextAlphanumeric(128);
     final RestoreAccountRequest restoreAccountRequest =
         new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP);
 
@@ -1210,7 +1210,7 @@ class DeviceControllerTest {
 
   @Test
   void recordRestoreAccountRequestInvalidRequest() {
-    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final String token = RandomStringUtils.secure().nextAlphanumeric(16);
     final RestoreAccountRequest restoreAccountRequest = new RestoreAccountRequest(null);
 
     try (final Response response = resources.getJerseyTest()
@@ -1224,7 +1224,7 @@ class DeviceControllerTest {
 
   @Test
   void waitForDeviceTransferRequest() {
-    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final String token = RandomStringUtils.secure().nextAlphanumeric(16);
     final RestoreAccountRequest restoreAccountRequest =
         new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP);
 
@@ -1243,7 +1243,7 @@ class DeviceControllerTest {
 
   @Test
   void waitForDeviceTransferRequestNoRequestIssued() {
-    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final String token = RandomStringUtils.secure().nextAlphanumeric(16);
 
     when(accountsManager.waitForRestoreAccountRequest(eq(token), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -1260,7 +1260,7 @@ class DeviceControllerTest {
   @ParameterizedTest
   @ValueSource(ints = {0, -1, 3601})
   void waitForDeviceTransferRequestBadTimeout(final int timeoutSeconds) {
-    final String token = RandomStringUtils.randomAlphanumeric(16);
+    final String token = RandomStringUtils.secure().nextAlphanumeric(16);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/restore_account/" + token)

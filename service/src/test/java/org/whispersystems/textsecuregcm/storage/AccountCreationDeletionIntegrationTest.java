@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -182,12 +181,12 @@ public class AccountCreationDeletionIntegrationTest {
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
 
-    final String password = RandomStringUtils.randomAlphanumeric(16);
-    final String signalAgent = RandomStringUtils.randomAlphabetic(3);
+    final String password = RandomStringUtils.secure().nextAlphanumeric(16);
+    final String signalAgent = RandomStringUtils.secure().nextAlphabetic(3);
     final int registrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
     final int pniRegistrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
-    final byte[] deviceName = RandomStringUtils.randomAlphabetic(16).getBytes(StandardCharsets.UTF_8);
-    final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
+    final byte[] deviceName = RandomStringUtils.secure().nextAlphabetic(16).getBytes(StandardCharsets.UTF_8);
+    final String registrationLockSecret = RandomStringUtils.secure().nextAlphanumeric(16);
 
     final Set<DeviceCapability> deviceCapabilities = Set.of();
 
@@ -200,7 +199,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceCapabilities);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
-        RandomStringUtils.randomAlphabetic(8),
+        RandomStringUtils.secure().nextAlphabetic(8),
         CLOCK.instant().plus(Duration.ofDays(7)),
         true)));
 
@@ -323,12 +322,12 @@ public class AccountCreationDeletionIntegrationTest {
       existingAccountUuid = originalAccount.getUuid();
     }
 
-    final String password = RandomStringUtils.randomAlphanumeric(16);
-    final String signalAgent = RandomStringUtils.randomAlphabetic(3);
+    final String password = RandomStringUtils.secure().nextAlphanumeric(16);
+    final String signalAgent = RandomStringUtils.secure().nextAlphabetic(3);
     final int registrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
     final int pniRegistrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
-    final byte[] deviceName = RandomStringUtils.randomAlphabetic(16).getBytes(StandardCharsets.UTF_8);
-    final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
+    final byte[] deviceName = RandomStringUtils.secure().nextAlphabetic(16).getBytes(StandardCharsets.UTF_8);
+    final String registrationLockSecret = RandomStringUtils.secure().nextAlphanumeric(16);
 
     final Set<DeviceCapability> deviceCapabilities = Set.of();
 
@@ -341,7 +340,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceCapabilities);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
-        RandomStringUtils.randomAlphabetic(8),
+        RandomStringUtils.secure().nextAlphabetic(8),
         CLOCK.instant().plus(Duration.ofDays(7)),
         true)));
 
@@ -412,12 +411,12 @@ public class AccountCreationDeletionIntegrationTest {
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
 
-    final String password = RandomStringUtils.randomAlphanumeric(16);
-    final String signalAgent = RandomStringUtils.randomAlphabetic(3);
+    final String password = RandomStringUtils.secure().nextAlphanumeric(16);
+    final String signalAgent = RandomStringUtils.secure().nextAlphabetic(3);
     final int registrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
     final int pniRegistrationId = ThreadLocalRandom.current().nextInt(Device.MAX_REGISTRATION_ID);
-    final byte[] deviceName = RandomStringUtils.randomAlphabetic(16).getBytes(StandardCharsets.UTF_8);
-    final String registrationLockSecret = RandomStringUtils.randomAlphanumeric(16);
+    final byte[] deviceName = RandomStringUtils.secure().nextAlphabetic(16).getBytes(StandardCharsets.UTF_8);
+    final String registrationLockSecret = RandomStringUtils.secure().nextAlphanumeric(16);
 
     final Set<DeviceCapability> deviceCapabilities = Set.of();
 
@@ -430,7 +429,7 @@ public class AccountCreationDeletionIntegrationTest {
         deviceCapabilities);
 
     final List<AccountBadge> badges = new ArrayList<>(List.of(new AccountBadge(
-        RandomStringUtils.randomAlphabetic(8),
+        RandomStringUtils.secure().nextAlphabetic(8),
         CLOCK.instant().plus(Duration.ofDays(7)),
         true)));
 

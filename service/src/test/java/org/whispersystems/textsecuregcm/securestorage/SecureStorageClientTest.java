@@ -122,8 +122,8 @@ class SecureStorageClientTest {
   @Test
   void deleteStoredData() {
 
-    final String username = RandomStringUtils.randomAlphabetic(16);
-    final String password = RandomStringUtils.randomAlphanumeric(32);
+    final String username = RandomStringUtils.secure().nextAlphabetic(16);
+    final String password = RandomStringUtils.secure().nextAlphanumeric(32);
 
     when(credentialsGenerator.generateForUuid(accountUuid)).thenReturn(
         new ExternalServiceCredentials(username, password));
@@ -139,8 +139,8 @@ class SecureStorageClientTest {
   @Test
   void deleteStoredDataFailure() {
 
-    final String username = RandomStringUtils.randomAlphabetic(16);
-    final String password = RandomStringUtils.randomAlphanumeric(32);
+    final String username = RandomStringUtils.secure().nextAlphabetic(16);
+    final String password = RandomStringUtils.secure().nextAlphanumeric(32);
 
     when(credentialsGenerator.generateForUuid(accountUuid)).thenReturn(
         new ExternalServiceCredentials(username, password));
