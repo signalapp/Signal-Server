@@ -484,7 +484,12 @@
         <version>3.8.1</version>
         <executions>
           <execution>
-            <!-- Set dependencies as properties for use in argLine property for mockito jar -->
+            <!--
+              Set dependencies as properties for use in argLine property for mockito jar.
+              The property isn't needed until the test phase, and deferring it from the default
+              `initialize` addresses issues running lifecycle phases that precede `test` in isolation.
+            -->
+            <phase>process-test-classes</phase>
             <goals>
               <goal>properties</goal>
             </goals>
