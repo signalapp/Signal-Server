@@ -10,6 +10,7 @@ import java.util.List;
 import org.whispersystems.textsecuregcm.backup.BackupsDb;
 import org.whispersystems.textsecuregcm.scheduler.JobScheduler;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
+import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceChecks;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
 import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
@@ -397,6 +398,28 @@ public final class DynamoDbExtensionSchema {
         List.of(AttributeDefinition.builder()
             .attributeName(VerificationSessions.KEY_KEY)
             .attributeType(ScalarAttributeType.S)
+            .build()),
+        List.of(), List.of()),
+
+    APPLE_DEVICE_CHECKS("apple_device_check",
+        AppleDeviceChecks.KEY_ACCOUNT_UUID,
+        AppleDeviceChecks.KEY_PUBLIC_KEY_ID,
+        List.of(AttributeDefinition.builder()
+                .attributeName(AppleDeviceChecks.KEY_ACCOUNT_UUID)
+                .attributeType(ScalarAttributeType.B)
+                .build(),
+            AttributeDefinition.builder()
+                .attributeName(AppleDeviceChecks.KEY_PUBLIC_KEY_ID)
+                .attributeType(ScalarAttributeType.B)
+                .build()),
+        List.of(), List.of()),
+
+    APPLE_DEVICE_CHECKS_KEY_CONSTRAINT("apple_device_check_key_constraint",
+        AppleDeviceChecks.KEY_PUBLIC_KEY,
+        null,
+        List.of(AttributeDefinition.builder()
+            .attributeName(AppleDeviceChecks.KEY_PUBLIC_KEY)
+            .attributeType(ScalarAttributeType.B)
             .build()),
         List.of(), List.of());
 

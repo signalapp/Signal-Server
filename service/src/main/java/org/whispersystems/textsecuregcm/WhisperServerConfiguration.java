@@ -16,6 +16,7 @@ import java.util.Map;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppleAppStoreConfiguration;
+import org.whispersystems.textsecuregcm.configuration.AppleDeviceCheckConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsCredentialsProviderFactory;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
@@ -25,6 +26,7 @@ import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DefaultAwsCredentialsFactory;
+import org.whispersystems.textsecuregcm.configuration.DeviceCheckConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientFactory;
@@ -95,6 +97,16 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private AppleAppStoreConfiguration appleAppStore;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private AppleDeviceCheckConfiguration appleDeviceCheck;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private DeviceCheckConfiguration deviceCheck;
 
   @NotNull
   @Valid
@@ -357,6 +369,14 @@ public class WhisperServerConfiguration extends Configuration {
 
   public AppleAppStoreConfiguration getAppleAppStore() {
     return appleAppStore;
+  }
+
+  public AppleDeviceCheckConfiguration getAppleDeviceCheck() {
+    return appleDeviceCheck;
+  }
+
+  public DeviceCheckConfiguration getDeviceCheck() {
+    return deviceCheck;
   }
 
   public DynamoDbClientFactory getDynamoDbClientConfiguration() {

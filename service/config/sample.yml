@@ -92,6 +92,14 @@ appleAppStore:
   productIdToLevel: {}
   appleRootCerts: []
 
+appleDeviceCheck:
+  production: false
+  teamId: 0123456789
+  bundleId: bundle.name
+
+deviceCheck:
+  backupRedemptionDuration: P30D
+  backupRedemptionLevel: 201
 
 dynamoDbClient:
   region: us-west-2 # AWS Region
@@ -103,6 +111,10 @@ dynamoDbTables:
     phoneNumberIdentifierTableName: Example_Accounts_PhoneNumberIdentifiers
     usernamesTableName: Example_Accounts_Usernames
     usedLinkDeviceTokensTableName: Example_Accounts_UsedLinkDeviceTokens
+  appleDeviceChecks:
+    tableName: Example_AppleDeviceChecks
+  appleDeviceCheckPublicKeys:
+    tableName: Example_AppleDeviceCheckPublicKeys
   backups:
     tableName: Example_Backups
   clientReleases:

@@ -15,6 +15,7 @@
     <java-uuid-generator.version>5.1.0</java-uuid-generator.version>
     <google-androidpublisher.version>v3-rev20241016-2.0.0</google-androidpublisher.version>
     <storekit.version>3.2.0</storekit.version>
+    <webauthn4j.version>0.28.0.RELEASE</webauthn4j.version>
   </properties>
 
   <dependencies>
@@ -34,6 +35,11 @@
           <artifactId>okio-jvm</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.webauthn4j</groupId>
+      <artifactId>webauthn4j-appattest</artifactId>
+      <version>${webauthn4j.version}</version>
     </dependency>
     <dependency>
       <groupId>io.swagger.core.v3</groupId>

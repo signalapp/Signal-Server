@@ -235,13 +235,24 @@ public class BackupAuthManager {
                 .withDescription("receipt serial is already redeemed")
                 .asRuntimeException();
           }
-          return accountsManager.updateAsync(account, a -> {
-            final Account.BackupVoucher newPayment = new Account.BackupVoucher(receiptLevel, receiptExpiration);
-            final Account.BackupVoucher existingPayment = a.getBackupVoucher();
-            a.setBackupVoucher(merge(existingPayment, newPayment));
-          });
-        })
-        .thenRun(Util.NOOP);
+          return extendBackupVoucher(account, new Account.BackupVoucher(receiptLevel, receiptExpiration));
+        });
+  }
+
+  /**
+   * Extend the duration of the backup voucher on an account.
+   *
+   * @param account The account to update
+   * @param backupVoucher The backup voucher to apply to this account
+   * @return A future that completes once the account has been updated to have at least the level and expiration
+   * in the provided voucher.
+   */
+  public CompletableFuture<Void> extendBackupVoucher(final Account account, final Account.BackupVoucher backupVoucher) {
+    return accountsManager.updateAsync(account, a -> {
+      final Account.BackupVoucher newPayment = backupVoucher;
+      final Account.BackupVoucher existingPayment = a.getBackupVoucher();
+      a.setBackupVoucher(merge(existingPayment, newPayment));
+    }).thenRun(Util.NOOP);
   }
 
   private static Account.BackupVoucher merge(@Nullable final Account.BackupVoucher prev,

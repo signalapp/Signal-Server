@@ -8,6 +8,7 @@ import static com.codahale.metrics.MetricRegistry.name;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.Lists;
+import com.webauthn4j.appattest.DeviceCheckManager;
 import io.dropwizard.auth.AuthDynamicFeature;
 import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.AuthValueFactoryProvider;
@@ -114,6 +115,7 @@ import org.whispersystems.textsecuregcm.controllers.CallRoutingController;
 import org.whispersystems.textsecuregcm.controllers.CallRoutingControllerV2;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
 import org.whispersystems.textsecuregcm.controllers.ChallengeController;
+import org.whispersystems.textsecuregcm.controllers.DeviceCheckController;
 import org.whispersystems.textsecuregcm.controllers.DeviceController;
 import org.whispersystems.textsecuregcm.controllers.DirectoryV2Controller;
 import org.whispersystems.textsecuregcm.controllers.DonationController;
@@ -213,6 +215,9 @@ import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.AccountPrincipalSupplier;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
+import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckTrustAnchor;
+import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceChecks;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeys;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
@@ -789,6 +794,20 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         cdn3RemoteStorageManager,
         clock);
 
+    final AppleDeviceChecks appleDeviceChecks = new AppleDeviceChecks(
+        dynamoDbClient,
+        DeviceCheckManager.createObjectConverter(),
+        config.getDynamoDbTables().getAppleDeviceChecks().getTableName(),
+        config.getDynamoDbTables().getAppleDeviceCheckPublicKeys().getTableName());
+    final DeviceCheckManager deviceCheckManager = new DeviceCheckManager(new AppleDeviceCheckTrustAnchor());
+    deviceCheckManager.getAttestationDataValidator().setProduction(config.getAppleDeviceCheck().production());
+    final AppleDeviceCheckManager appleDeviceCheckManager = new AppleDeviceCheckManager(
+        appleDeviceChecks,
+        cacheCluster,
+        deviceCheckManager,
+        config.getAppleDeviceCheck().teamId(),
+        config.getAppleDeviceCheck().bundleId());
+
     final DynamicConfigTurnRouter configTurnRouter = new DynamicConfigTurnRouter(dynamicConfigurationManager);
 
     MaxMindDatabaseManager geoIpCityDatabaseManager = new MaxMindDatabaseManager(
@@ -1092,6 +1111,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(rateLimitChallengeManager, challengeConstraintChecker),
         new DeviceController(accountsManager, clientPublicKeysManager, rateLimiters, config.getMaxDevices()),
+        new DeviceCheckController(clock, backupAuthManager, appleDeviceCheckManager, rateLimiters,
+            config.getDeviceCheck().backupRedemptionLevel(),
+            config.getDeviceCheck().backupRedemptionDuration()),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),
