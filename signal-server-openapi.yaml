@@ -1401,10 +1401,6 @@ paths:
         schema:
           type: integer
           format: int64
-      - name: zkcCredential
-        in: query
-        schema:
-          type: boolean
       responses:
         default:
           description: default response
@@ -4689,10 +4685,10 @@ components:
         created:
           type: string
           format: date-time
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
     WebSocketSessionContext:
       type: object
       properties:
