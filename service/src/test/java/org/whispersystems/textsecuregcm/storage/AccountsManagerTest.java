@@ -853,6 +853,7 @@ class AccountsManagerTest {
           when(existingAccount.getNumber()).thenReturn(e164);
           when(existingAccount.getPhoneNumberIdentifier()).thenReturn(requestedAccount.getIdentifier(IdentityType.PNI));
           when(existingAccount.getIdentifier(IdentityType.PNI)).thenReturn(requestedAccount.getIdentifier(IdentityType.PNI));
+          when(existingAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
 
           throw new AccountAlreadyExistsException(existingAccount);
         });
