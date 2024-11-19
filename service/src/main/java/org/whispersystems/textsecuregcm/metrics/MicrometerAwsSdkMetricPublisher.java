@@ -4,16 +4,15 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
-import software.amazon.awssdk.metrics.MetricCollection;
-import software.amazon.awssdk.metrics.MetricPublisher;
-import software.amazon.awssdk.metrics.MetricRecord;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import software.amazon.awssdk.metrics.MetricCollection;
+import software.amazon.awssdk.metrics.MetricPublisher;
+import software.amazon.awssdk.metrics.MetricRecord;
 
 /**
  * A Micrometer AWS SDK metric publisher consumes {@link MetricCollection} instances provided by the AWS SDK when it
@@ -80,6 +79,9 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher {
   private static final String CONCURRENT_REQUESTS_DISTRIBUTION_NAME =
       MetricsUtil.name(MicrometerAwsSdkMetricPublisher.class, "concurrentRequests");
 
+  private static final String MAX_CONCURRENCY_GAUGE_NAME =
+          MetricsUtil.name(MicrometerAwsSdkMetricPublisher.class, "maxConcurrency");
+
   private static final String CLIENT_NAME_TAG = "clientName";
 
   /**
@@ -93,7 +95,7 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher {
     this.recordMetricsExecutorService = recordMetricsExecutorService;
     this.awsClientName = awsClientName;
 
-    mostRecentMaxConcurrency = Metrics.gauge("maxConcurrency",
+    mostRecentMaxConcurrency = Metrics.gauge(MAX_CONCURRENCY_GAUGE_NAME,
         Tags.of(CLIENT_NAME_TAG, awsClientName),
         new AtomicInteger(0));
   }
