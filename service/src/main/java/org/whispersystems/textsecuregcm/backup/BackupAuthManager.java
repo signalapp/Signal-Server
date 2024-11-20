@@ -48,7 +48,7 @@ import org.whispersystems.textsecuregcm.util.Util;
  */
 public class BackupAuthManager {
 
-  private static final Logger logger = LoggerFactory.getLogger(BackupManager.class);
+  private static final Logger logger = LoggerFactory.getLogger(BackupAuthManager.class);
 
 
   final static Duration MAX_REDEMPTION_DURATION = Duration.ofDays(7);

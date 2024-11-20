@@ -78,7 +78,7 @@ import org.whispersystems.websocket.auth.ReadOnly;
 @io.swagger.v3.oas.annotations.tags.Tag(name = "OneTimeDonations")
 public class OneTimeDonationController {
 
-  private static final Logger logger = LoggerFactory.getLogger(SubscriptionController.class);
+  private static final Logger logger = LoggerFactory.getLogger(OneTimeDonationController.class);
 
   private static final String EURO_CURRENCY_CODE = "EUR";
 

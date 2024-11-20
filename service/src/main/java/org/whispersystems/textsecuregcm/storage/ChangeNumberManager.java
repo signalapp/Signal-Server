@@ -16,7 +16,6 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.StaleDevicesException;
@@ -29,7 +28,8 @@ import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 
 public class ChangeNumberManager {
-  private static final Logger logger = LoggerFactory.getLogger(AccountController.class);
+
+  private static final Logger logger = LoggerFactory.getLogger(ChangeNumberManager.class);
   private final MessageSender messageSender;
   private final AccountsManager accountsManager;
 
