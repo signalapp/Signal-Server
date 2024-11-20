@@ -453,7 +453,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     // since badge redemption is untrackable by design and unrevokable, subscription changes must be immediate and
     // not prorated. Braintree subscriptions cannot change their next billing date,
     // so we must end the existing one and create a new one
-    return cancelSubscriptionAtEndOfCurrentPeriod(subscription)
+    return endSubscription(subscription)
         .thenCompose(ignored -> {
 
           final Transaction transaction = getLatestTransactionForSubscription(subscription)
@@ -504,19 +504,9 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
       final Instant anchor = subscription.getFirstBillingDate().toInstant();
       final Instant endOfCurrentPeriod = subscription.getBillingPeriodEndDate().toInstant();
 
-      boolean paymentProcessing = false;
-      ChargeFailure chargeFailure = null;
-
-      final Optional<Transaction> latestTransaction = getLatestTransactionForSubscription(subscription);
-
-      boolean latestTransactionFailed = false;
-      if (latestTransaction.isPresent()){
-        paymentProcessing = isPaymentProcessing(latestTransaction.get().getStatus());
-        if (getPaymentStatus(latestTransaction.get().getStatus()) != PaymentStatus.SUCCEEDED) {
-          latestTransactionFailed = true;
-          chargeFailure = createChargeFailure(latestTransaction.get());
-        }
-      }
+      final TransactionInfo latestTransactionInfo = getLatestTransactionForSubscription(subscription)
+          .map(this::getTransactionInfo)
+          .orElse(new TransactionInfo(PaymentMethod.PAYPAL, false, false, null));
 
       return new SubscriptionInformation(
           new SubscriptionPrice(plan.getCurrencyIsoCode().toUpperCase(Locale.ROOT),
@@ -526,14 +516,29 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
           endOfCurrentPeriod,
           Subscription.Status.ACTIVE == subscription.getStatus(),
           !subscription.neverExpires(),
-          getSubscriptionStatus(subscription.getStatus(), latestTransactionFailed),
+          getSubscriptionStatus(subscription.getStatus(), latestTransactionInfo.transactionFailed()),
           PaymentProvider.BRAINTREE,
-          latestTransaction.map(this::getPaymentMethodFromTransaction).orElse(PaymentMethod.PAYPAL),
-          paymentProcessing,
-          chargeFailure
+          latestTransactionInfo.paymentMethod(),
+          latestTransactionInfo.paymentProcessing(),
+          latestTransactionInfo.chargeFailure()
       );
 
     }, executor);
+  }
+
+  private record TransactionInfo(
+      PaymentMethod paymentMethod,
+      boolean paymentProcessing,
+      boolean transactionFailed,
+      @Nullable ChargeFailure chargeFailure) {}
+
+  private TransactionInfo getTransactionInfo(final Transaction transaction) {
+    final boolean paymentProcessing = isPaymentProcessing(transaction.getStatus());
+    final PaymentMethod paymentMethod = getPaymentMethodFromTransaction(transaction);
+    if (getPaymentStatus(transaction.getStatus()) != PaymentStatus.SUCCEEDED) {
+      return new TransactionInfo(paymentMethod, paymentProcessing, true, createChargeFailure(transaction));
+    }
+    return new TransactionInfo(paymentMethod, paymentProcessing, false, null);
   }
 
   private PaymentMethod getPaymentMethodFromTransaction(Transaction transaction) {
@@ -583,19 +588,37 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
               .map(com.braintreegateway.PaymentMethod::getSubscriptions)
               .orElse(Collections.emptyList())
               .stream()
-              .map(this::cancelSubscriptionAtEndOfCurrentPeriod)
+              .map(this::endSubscription)
               .toList();
 
       return CompletableFuture.allOf(subscriptionCancelFutures.toArray(new CompletableFuture[0]));
     });
   }
 
+  private CompletableFuture<Void> endSubscription(Subscription subscription) {
+    final boolean latestTransactionFailed = getLatestTransactionForSubscription(subscription)
+        .map(this::getTransactionInfo)
+        .map(TransactionInfo::transactionFailed)
+        .orElse(false);
+    return switch (getSubscriptionStatus(subscription.getStatus(), latestTransactionFailed)) {
+      // The payment for this period has not processed yet, we should immediately cancel to prevent any payment from
+      // going through.
+      case INCOMPLETE, PAST_DUE, UNPAID -> cancelSubscriptionImmediately(subscription);
+      // Otherwise, set the subscription to cancel at the current period end. If the subscription is active, it may
+      // continue to be used until the end of the period.
+      default -> cancelSubscriptionAtEndOfCurrentPeriod(subscription);
+    };
+  }
+
   private CompletableFuture<Void> cancelSubscriptionAtEndOfCurrentPeriod(Subscription subscription) {
-    return CompletableFuture.supplyAsync(() -> {
-      braintreeGateway.subscription().update(subscription.getId(),
-              new SubscriptionRequest().numberOfBillingCycles(subscription.getCurrentBillingCycle()));
-      return null;
-    }, executor);
+    return CompletableFuture.runAsync(() -> braintreeGateway
+        .subscription()
+        .update(subscription.getId(),
+            new SubscriptionRequest().numberOfBillingCycles(subscription.getCurrentBillingCycle())), executor);
+  }
+
+  private CompletableFuture<Void> cancelSubscriptionImmediately(Subscription subscription) {
+    return CompletableFuture.runAsync(() -> braintreeGateway.subscription().cancel(subscription.getId()), executor);
   }
 
 

@@ -385,7 +385,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     }).thenCompose(subscriptions -> {
       @SuppressWarnings("unchecked")
       CompletableFuture<Subscription>[] futures = (CompletableFuture<Subscription>[]) subscriptions.stream()
-          .map(this::cancelSubscriptionAtEndOfCurrentPeriod).toArray(CompletableFuture[]::new);
+          .map(this::endSubscription).toArray(CompletableFuture[]::new);
       return CompletableFuture.allOf(futures);
     });
   }
@@ -404,7 +404,19 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     }, executor);
   }
 
-  public CompletableFuture<Subscription> cancelSubscriptionImmediately(Subscription subscription) {
+  private CompletableFuture<Subscription> endSubscription(Subscription subscription) {
+    final SubscriptionStatus status = SubscriptionStatus.forApiValue(subscription.getStatus());
+    return switch (status) {
+      // The payment for this period has not processed yet, we should immediately cancel to prevent any payment from
+      // going through.
+      case UNPAID, PAST_DUE, INCOMPLETE -> cancelSubscriptionImmediately(subscription);
+      // Otherwise, set the subscription to cancel at the current period end. If the subscription is active, it may
+      // continue to be used until the end of the period.
+      default -> cancelSubscriptionAtEndOfCurrentPeriod(subscription);
+    };
+  }
+
+  private CompletableFuture<Subscription> cancelSubscriptionImmediately(Subscription subscription) {
     return CompletableFuture.supplyAsync(() -> {
       SubscriptionCancelParams params = SubscriptionCancelParams.builder().build();
       try {
@@ -415,7 +427,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     }, executor);
   }
 
-  public CompletableFuture<Subscription> cancelSubscriptionAtEndOfCurrentPeriod(Subscription subscription) {
+  private CompletableFuture<Subscription> cancelSubscriptionAtEndOfCurrentPeriod(Subscription subscription) {
     return CompletableFuture.supplyAsync(() -> {
       SubscriptionUpdateParams params = SubscriptionUpdateParams.builder()
           .setCancelAtPeriodEnd(true)
