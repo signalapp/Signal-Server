@@ -1217,11 +1217,10 @@ public class Accounts extends AbstractDynamoDbStore {
       return Optional.empty();
     }
 
-    if (response.count() > 1) {
-      throw new RuntimeException("Impossible result: more than one phone number returned for UUID: " + uuid);
-    }
-
-    return Optional.ofNullable(response.items().get(0).get(DELETED_ACCOUNTS_KEY_ACCOUNT_E164).s());
+    return response.items().stream()
+        .map(item -> item.get(DELETED_ACCOUNTS_KEY_ACCOUNT_E164).s())
+        .filter(e164OrPni -> e164OrPni.startsWith("+"))
+        .findFirst();
   }
 
   public CompletableFuture<Void> delete(final UUID uuid, final List<TransactWriteItem> additionalWriteItems) {
