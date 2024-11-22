@@ -236,6 +236,45 @@ class AccountsTest {
   }
 
   @Test
+  void testStoreAciCollisionFails() {
+    Device device = generateDevice(DEVICE_ID_1);
+    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device));
+
+    boolean freshUser = createAccount(account);
+
+    assertThat(freshUser).isTrue();
+    verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
+
+    assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
+    assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
+
+    account.setNumber("+14153334444", UUID.randomUUID());
+    assertThrows(IllegalArgumentException.class, () -> createAccount(account),
+        "Reusing ACI with different PNI should fail");
+  }
+
+  @Test
+  void testStorePniCollisionFails() {
+    Device device1 = generateDevice(DEVICE_ID_1);
+    Account account1 = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID(), List.of(device1));
+
+    boolean freshUser = createAccount(account1);
+
+    assertThat(freshUser).isTrue();
+    verifyStoredState("+14151112222", account1.getUuid(), account1.getPhoneNumberIdentifier(), null, account1, true);
+
+    assertPhoneNumberConstraintExists("+14151112222", account1.getUuid());
+    assertPhoneNumberIdentifierConstraintExists(account1.getPhoneNumberIdentifier(), account1.getUuid());
+
+    Device device2 = generateDevice(DEVICE_ID_1);
+    Account account2 = generateAccount("+14151112222", UUID.randomUUID(), account1.getPhoneNumberIdentifier(),
+        List.of(device2));
+
+    assertThrows(AccountAlreadyExistsException.class, () -> accounts.create(account2, Collections.emptyList()),
+        "New ACI with same PNI should fail");
+  }
+
+  @Test
   void testRetrieve() {
     final List<Device> devicesFirst = List.of(generateDevice(DEVICE_ID_1), generateDevice(DEVICE_ID_2));
 

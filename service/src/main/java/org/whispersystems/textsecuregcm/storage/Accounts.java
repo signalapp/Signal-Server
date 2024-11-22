@@ -1419,9 +1419,9 @@ public class Accounts extends AbstractDynamoDbStore {
 
     return TransactWriteItem.builder()
         .put(Put.builder()
-            .conditionExpression("attribute_not_exists(#number) OR #number = :number")
-            .expressionAttributeNames(Map.of("#number", ATTR_ACCOUNT_E164))
-            .expressionAttributeValues(Map.of(":number", numberAttr))
+            .conditionExpression("attribute_not_exists(#pni) OR #pni = :pni")
+            .expressionAttributeNames(Map.of("#pni", ATTR_PNI_UUID))
+            .expressionAttributeValues(Map.of(":pni", pniUuidAttr))
             .tableName(accountsTableName)
             .item(item)
             .build())
