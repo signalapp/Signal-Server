@@ -122,7 +122,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
       when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString()))
-          .thenAnswer((Answer<UUID>) invocation -> UUID.randomUUID());
+          .thenAnswer((Answer<CompletableFuture<UUID>>) invocation -> CompletableFuture.completedFuture(UUID.randomUUID()));
 
       accountsManager = new AccountsManager(
           accounts,

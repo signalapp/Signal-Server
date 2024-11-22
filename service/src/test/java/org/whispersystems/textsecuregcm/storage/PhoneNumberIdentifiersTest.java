@@ -25,7 +25,7 @@ class PhoneNumberIdentifiersTest {
 
   @BeforeEach
   void setUp() {
-    phoneNumberIdentifiers = new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+    phoneNumberIdentifiers = new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         Tables.PNI.tableName());
   }
 
@@ -34,28 +34,28 @@ class PhoneNumberIdentifiersTest {
     final String number = "+18005551234";
     final String differentNumber = "+18005556789";
 
-    final UUID firstPni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number);
-    final UUID secondPni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number);
+    final UUID firstPni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
+    final UUID secondPni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
 
     assertEquals(firstPni, secondPni);
-    assertNotEquals(firstPni, phoneNumberIdentifiers.getPhoneNumberIdentifier(differentNumber));
+    assertNotEquals(firstPni, phoneNumberIdentifiers.getPhoneNumberIdentifier(differentNumber).join());
   }
 
   @Test
   void generatePhoneNumberIdentifierIfNotExists() {
     final String number = "+18005551234";
 
-    assertEquals(phoneNumberIdentifiers.generatePhoneNumberIdentifierIfNotExists(number),
-        phoneNumberIdentifiers.generatePhoneNumberIdentifierIfNotExists(number));
+    assertEquals(phoneNumberIdentifiers.generatePhoneNumberIdentifierIfNotExists(number).join(),
+        phoneNumberIdentifiers.generatePhoneNumberIdentifierIfNotExists(number).join());
   }
 
   @Test
   void getPhoneNumber() {
     final String number = "+18005551234";
 
-    assertFalse(phoneNumberIdentifiers.getPhoneNumber(UUID.randomUUID()).isPresent());
+    assertFalse(phoneNumberIdentifiers.getPhoneNumber(UUID.randomUUID()).join().isPresent());
 
-    final UUID pni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number);
-    assertEquals(Optional.of(number), phoneNumberIdentifiers.getPhoneNumber(pni));
+    final UUID pni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
+    assertEquals(Optional.of(number), phoneNumberIdentifiers.getPhoneNumber(pni).join());
   }
 }

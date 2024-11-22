@@ -125,7 +125,7 @@ public class AccountCreationDeletionIntegrationTest {
     when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
-        new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
             DynamoDbExtensionSchema.Tables.PNI.tableName());
 
     final MessagesManager messagesManager = mock(MessagesManager.class);

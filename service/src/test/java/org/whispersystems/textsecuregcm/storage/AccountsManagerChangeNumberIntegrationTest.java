@@ -119,7 +119,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       disconnectionRequestManager = mock(DisconnectionRequestManager.class);
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers =
-          new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
+          new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.PNI.tableName());
 
       final MessagesManager messagesManager = mock(MessagesManager.class);
       when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));

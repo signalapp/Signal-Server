@@ -271,7 +271,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       @Nullable final String userAgent) throws InterruptedException {
 
     final Account account = new Account();
-    final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number);
+    final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
 
     return createTimer.record(() -> {
       accountLockManager.withLock(List.of(number), List.of(phoneNumberIdentifier), () -> {
@@ -651,7 +651,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
     final AtomicReference<Account> updatedAccount = new AtomicReference<>();
-    final UUID targetPhoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber);
+    final UUID targetPhoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber).join();
 
     accountLockManager.withLock(List.of(account.getNumber(), targetNumber),
         List.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier), () -> {
@@ -1207,7 +1207,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   public UUID getPhoneNumberIdentifier(String e164) {
-    return phoneNumberIdentifiers.getPhoneNumberIdentifier(e164);
+    return phoneNumberIdentifiers.getPhoneNumberIdentifier(e164).join();
   }
 
   public Optional<UUID> findRecentlyDeletedAccountIdentifier(final String e164) {

@@ -128,7 +128,7 @@ class AccountsManagerUsernameIntegrationTest {
     });
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
-        new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.PNI.tableName());
+        new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.PNI.tableName());
 
     final MessagesManager messageManager = mock(MessagesManager.class);
     final ProfilesManager profileManager = mock(ProfilesManager.class);

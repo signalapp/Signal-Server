@@ -185,7 +185,7 @@ record CommandDependencies(
         configuration.getDynamoDbTables().getAccounts().getUsernamesTableName(),
         configuration.getDynamoDbTables().getDeletedAccounts().getTableName(),
         configuration.getDynamoDbTables().getAccounts().getUsedLinkDeviceTokensTableName());
-    PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(dynamoDbClient,
+    PhoneNumberIdentifiers phoneNumberIdentifiers = new PhoneNumberIdentifiers(dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getProfiles().getTableName());
