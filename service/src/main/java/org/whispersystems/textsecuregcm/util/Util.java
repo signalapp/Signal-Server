@@ -101,6 +101,49 @@ public class Util {
     }
   }
 
+  /**
+   * Returns a list of equivalent phone numbers to the given phone number. This is useful in cases where a numbering
+   * authority has changed the numbering format for a region or in cases where multiple formats of a number may be valid
+   * in different circumstances. Numbers are considered equivalent if a call/message sent to each number will generally
+   * arrive at the same device.
+   *
+   * @apiNote This method is intended to support number format transitions in cases where we do not already have
+   * multiple accounts registered with different forms of the same number. As a result, this method does not cover all
+   * possible cases of equivalent formats, but instead focuses on the cases where we can and choose to prevent multiple
+   * accounts from using different formats of the same number.
+   *
+   * @param number the e164-formatted phone number for which to find equivalent forms
+   *
+   * @return a list of phone numbers equivalent to the given phone number, including the given number
+   */
+  public static List<String> getAlternateForms(final String number) {
+    try {
+      final PhoneNumber phoneNumber = PHONE_NUMBER_UTIL.parse(number, null);
+
+      // Benin is changing phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX starting on November 30, 2024
+      if ("BJ".equals(PHONE_NUMBER_UTIL.getRegionCodeForNumber(phoneNumber))) {
+        final String nationalSignificantNumber = PHONE_NUMBER_UTIL.getNationalSignificantNumber(phoneNumber);
+        final String alternateE164;
+
+        if (nationalSignificantNumber.length() == 10) {
+          // This is a new-format number; we can get the old-format version by stripping the leading "01" from the
+          // national number
+          alternateE164 = "+229" + StringUtils.removeStart(nationalSignificantNumber, "01");
+        } else {
+          // This is an old-format number; we can get the new-format version by adding a "01" prefix to the national
+          // number
+          alternateE164 = "+22901" + nationalSignificantNumber;
+        }
+
+        return List.of(number, alternateE164);
+      }
+
+      return List.of(number);
+    } catch (final NumberParseException e) {
+      return List.of(number);
+    }
+  }
+
   public static byte[] truncate(byte[] element, int length) {
     byte[] result = new byte[length];
     System.arraycopy(element, 0, result, 0, result.length);
