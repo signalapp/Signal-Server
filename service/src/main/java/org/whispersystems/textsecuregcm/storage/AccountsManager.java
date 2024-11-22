@@ -271,17 +271,17 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       @Nullable final String userAgent) throws InterruptedException {
 
     final Account account = new Account();
-    final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
+    final UUID pni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
 
     return createTimer.record(() -> {
-      accountLockManager.withLock(List.of(phoneNumberIdentifier), () -> {
+      accountLockManager.withLock(List.of(pni), () -> {
         final Optional<UUID> maybeRecentlyDeletedAccountIdentifier =
             accounts.findRecentlyDeletedAccountIdentifier(number);
 
         // Reuse the ACI from any recently-deleted account with this number to cover cases where somebody is
         // re-registering.
-        account.setNumber(number, phoneNumberIdentifier);
         account.setUuid(maybeRecentlyDeletedAccountIdentifier.orElseGet(UUID::randomUUID));
+        account.setNumber(number, pni);
         account.setIdentityKey(aciIdentityKey);
         account.setPhoneNumberIdentityKey(pniIdentityKey);
         account.addDevice(primaryDeviceSpec.toDevice(Device.PRIMARY_ID, clock));
@@ -325,10 +325,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           }
 
           final UUID aci = e.getExistingAccount().getIdentifier(IdentityType.ACI);
-          final UUID pni = e.getExistingAccount().getIdentifier(IdentityType.PNI);
-
           account.setUuid(aci);
-          account.setNumber(e.getExistingAccount().getNumber(), pni);
 
           final List<TransactWriteItem> additionalWriteItems = Stream.concat(
                   keysManager.buildWriteItemsForNewDevice(account.getIdentifier(IdentityType.ACI),

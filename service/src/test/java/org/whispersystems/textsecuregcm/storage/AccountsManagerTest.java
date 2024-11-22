@@ -66,6 +66,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
@@ -837,11 +838,17 @@ class AccountsManagerTest {
     verifyNoInteractions(profilesManager);
   }
 
-  @Test
-  void testReregisterAccount() throws InterruptedException, AccountAlreadyExistsException {
+  @ParameterizedTest
+  @CsvSource({
+      "+18005550123, +18005550123",
+      // the canonical form of numbers may change over time, so an existing account might have not-identical e164 that
+      // maps to the same PNI, and the number used by the caller must be present on the re-registered account
+      "+2290123456789, +22923456789"
+  })
+  void testReregisterAccount(final String e164, final String existingAccountE164)
+      throws InterruptedException, AccountAlreadyExistsException {
     final UUID existingUuid = UUID.randomUUID();
 
-    final String e164 = "+18005550123";
     final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
 
     when(accounts.create(any(), any()))
@@ -851,7 +858,7 @@ class AccountsManagerTest {
           final Account existingAccount = mock(Account.class);
           when(existingAccount.getUuid()).thenReturn(existingUuid);
           when(existingAccount.getIdentifier(IdentityType.ACI)).thenReturn(existingUuid);
-          when(existingAccount.getNumber()).thenReturn(e164);
+          when(existingAccount.getNumber()).thenReturn(existingAccountE164);
           when(existingAccount.getPhoneNumberIdentifier()).thenReturn(requestedAccount.getIdentifier(IdentityType.PNI));
           when(existingAccount.getIdentifier(IdentityType.PNI)).thenReturn(requestedAccount.getIdentifier(IdentityType.PNI));
           when(existingAccount.getPrimaryDevice()).thenReturn(mock(Device.class));
@@ -864,6 +871,7 @@ class AccountsManagerTest {
     final Account reregisteredAccount = createAccount(e164, attributes);
 
     assertTrue(phoneNumberIdentifiersByE164.containsKey(e164));
+    assertEquals(e164, reregisteredAccount.getNumber());
 
     verify(accounts)
         .create(argThat(account -> e164.equals(account.getNumber()) && existingUuid.equals(account.getUuid())), any());
