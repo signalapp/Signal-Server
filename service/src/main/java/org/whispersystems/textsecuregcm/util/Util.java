@@ -111,7 +111,8 @@ public class Util {
   public static void sleep(long i) {
     try {
       Thread.sleep(i);
-    } catch (InterruptedException ie) {}
+    } catch (final InterruptedException ignored) {
+    }
   }
 
   public static long todayInMillis() {
@@ -186,7 +187,7 @@ public class Util {
     }
 
     Set<Integer> indices = new HashSet<>(RANDOM_GENERATOR.ints(0, values.size()).distinct().limit(n).boxed().toList());
-    List<E> result = new ArrayList<E>(n);
+    List<E> result = new ArrayList<>(n);
     for(int i = 0; i < values.size() && result.size() < n; i++) {
       if(indices.contains(i)) {
         result.add(values.get(i));
