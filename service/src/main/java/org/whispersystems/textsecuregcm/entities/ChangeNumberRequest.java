@@ -20,6 +20,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
+import org.whispersystems.textsecuregcm.util.E164;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 import org.whispersystems.textsecuregcm.util.RegistrationIdValidator;
 
@@ -34,6 +35,7 @@ public record ChangeNumberRequest(
         Must not be combined with `sessionId`.""")
     @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class) byte[] recoveryPassword,
 
+    @E164
     @Schema(description="the new phone number for this account")
     @NotBlank String number,
 

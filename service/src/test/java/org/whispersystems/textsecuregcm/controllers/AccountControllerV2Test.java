@@ -218,6 +218,24 @@ class AccountControllerV2Test {
     }
 
     @Test
+    void changeNumberNonNormalizedNumber() throws Exception {
+      try (Response response = resources.getJerseyTest()
+          .target("/v2/accounts/number")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION,
+              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+          .put(Entity.entity(
+              // +4407700900111 is a valid number but not normalized - it has an optional '0' after the country code
+              new ChangeNumberRequest(encodeSessionId("session"), null, "+4407700900111", null,
+                  new IdentityKey(Curve.generateKeyPair().getPublicKey()),
+                  Collections.emptyList(),
+                  Collections.emptyMap(), null, Collections.emptyMap()),
+              MediaType.APPLICATION_JSON_TYPE))) {
+        assertEquals(422, response.getStatus());
+      }
+    }
+
+    @Test
     void unprocessableRequestJson() {
       final Invocation.Builder request = resources.getJerseyTest()
           .target("/v2/accounts/number")
