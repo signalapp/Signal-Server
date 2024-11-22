@@ -27,7 +27,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;

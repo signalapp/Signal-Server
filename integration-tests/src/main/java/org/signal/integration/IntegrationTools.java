@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import org.signal.integration.config.Config;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
@@ -37,6 +38,9 @@ public class IntegrationTools {
     final DynamoDbClient dynamoDbClient =
         config.dynamoDbClient().buildSyncClient(credentialsProvider, new NoopAwsSdkMetricPublisher());
 
+    final PhoneNumberIdentifiers phoneNumberIdentifiers =
+        new PhoneNumberIdentifiers(dynamoDbAsyncClient, config.dynamoDbTables().phoneNumberIdentifiers());
+
     final RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         config.dynamoDbTables().registrationRecovery(), Duration.ofDays(1), dynamoDbClient, dynamoDbAsyncClient);
 
@@ -44,7 +48,7 @@ public class IntegrationTools {
         dynamoDbAsyncClient, config.dynamoDbTables().verificationSessions(), Clock.systemUTC());
 
     return new IntegrationTools(
-        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords),
+        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords, phoneNumberIdentifiers),
         new VerificationSessionManager(verificationSessions)
     );
   }

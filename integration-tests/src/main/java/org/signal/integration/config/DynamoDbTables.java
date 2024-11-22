@@ -8,5 +8,6 @@ package org.signal.integration.config;
 import jakarta.validation.constraints.NotBlank;
 
 public record DynamoDbTables(@NotBlank String registrationRecovery,
-                             @NotBlank String verificationSessions) {
+                             @NotBlank String verificationSessions,
+                             @NotBlank String phoneNumberIdentifiers) {
 }
