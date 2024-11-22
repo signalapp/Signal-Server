@@ -10,10 +10,12 @@ import static java.util.Objects.requireNonNull;
 import java.lang.invoke.MethodHandles;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 
 public class RegistrationRecoveryPasswordsManager {
@@ -65,6 +67,38 @@ public class RegistrationRecoveryPasswordsManager {
                 logger.warn("Failed to remove Registration Recovery Password", error);
               }
             }));
+  }
+
+  public CompletableFuture<Boolean> migrateE164Record(final String number, final SaltedTokenHash saltedTokenHash, final long expirationSeconds) {
+    return phoneNumberIdentifiers.getPhoneNumberIdentifier(number)
+        .thenCompose(phoneNumberIdentifier -> migrateE164Record(number, phoneNumberIdentifier, saltedTokenHash, expirationSeconds, 10));
+  }
+
+  public CompletableFuture<Boolean> migrateE164Record(final String number,
+      final UUID phoneNumberIdentifier,
+      final SaltedTokenHash saltedTokenHash,
+      final long expirationSeconds,
+      final int remainingAttempts) {
+
+    if (remainingAttempts <= 0) {
+      return CompletableFuture.failedFuture(new ContestedOptimisticLockException());
+    }
+
+    return registrationRecoveryPasswords.insertPniRecord(number, phoneNumberIdentifier, saltedTokenHash, expirationSeconds)
+        .exceptionallyCompose(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException) {
+            // Something about the original record changed; refresh and retry
+            return registrationRecoveryPasswords.lookup(number)
+                .thenCompose(maybeSaltedTokenHash -> maybeSaltedTokenHash
+                    .map(refreshedSaltedTokenHash -> migrateE164Record(number, phoneNumberIdentifier, refreshedSaltedTokenHash, expirationSeconds, remainingAttempts - 1))
+                    .orElseGet(() -> {
+                      // The original record was deleted, and we can declare victory
+                      return CompletableFuture.completedFuture(false);
+                    }));
+          }
+
+          return CompletableFuture.failedFuture(throwable);
+        });
   }
 
   private static String bytesToString(final byte[] bytes) {
