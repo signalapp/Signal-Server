@@ -30,7 +30,7 @@ import org.apache.commons.lang3.StringUtils;
 
 public class Util {
 
-  private static final RandomGenerator rng = new Random();
+  private static final RandomGenerator RANDOM_GENERATOR = new Random();
 
   private static final Pattern COUNTRY_CODE_PATTERN = Pattern.compile("^\\+([17]|2[07]|3[0123469]|4[013456789]|5[12345678]|6[0123456]|8[1246]|9[0123458]|\\d{3})");
 
@@ -188,7 +188,7 @@ public class Util {
       return values;
     }
 
-    Set<Integer> indices = new HashSet<>(rng.ints(0, values.size()).distinct().limit(n).boxed().toList());
+    Set<Integer> indices = new HashSet<>(RANDOM_GENERATOR.ints(0, values.size()).distinct().limit(n).boxed().toList());
     List<E> result = new ArrayList<E>(n);
     for(int i = 0; i < values.size() && result.size() < n; i++) {
       if(indices.contains(i)) {
