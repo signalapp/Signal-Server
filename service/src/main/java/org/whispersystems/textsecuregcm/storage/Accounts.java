@@ -240,9 +240,10 @@ public class Accounts extends AbstractDynamoDbStore {
       // Clear any "recently deleted account" record for this number since, if it existed, we've used its old ACI for
       // the newly-created account.
       final TransactWriteItem deletedAccountDelete = buildRemoveDeletedAccount(account.getNumber());
+      final TransactWriteItem deletedAccountDeletePNI = buildRemoveDeletedAccount(account.getPhoneNumberIdentifier());
 
       final Collection<TransactWriteItem> writeItems = new ArrayList<>(
-          List.of(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut, deletedAccountDelete));
+          List.of(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut, deletedAccountDeletePNI, deletedAccountDelete));
 
       writeItems.addAll(additionalWriteItems);
 
@@ -436,6 +437,7 @@ public class Accounts extends AbstractDynamoDbStore {
         writeItems.add(buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, originalPni));
         writeItems.add(buildConstraintTablePut(phoneNumberIdentifierConstraintTableName, uuidAttr, ATTR_PNI_UUID, pniAttr));
         writeItems.add(buildRemoveDeletedAccount(number));
+        writeItems.add(buildRemoveDeletedAccount(phoneNumberIdentifier));
         maybeDisplacedAccountIdentifier.ifPresent(displacedAccountIdentifier ->
             writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalNumber)));
 
@@ -1170,6 +1172,15 @@ public class Accounts extends AbstractDynamoDbStore {
         .delete(Delete.builder()
             .tableName(deletedAccountsTableName)
             .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164)))
+            .build())
+        .build();
+  }
+
+  private TransactWriteItem buildRemoveDeletedAccount(final UUID pni) {
+    return TransactWriteItem.builder()
+        .delete(Delete.builder()
+            .tableName(deletedAccountsTableName)
+            .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(pni.toString())))
             .build())
         .build();
   }
