@@ -104,14 +104,6 @@ public class Util {
     }
   }
 
-  public static String getNumberPrefix(String number) {
-    String countryCode  = getCountryCode(number);
-    int    remaining    = number.length() - (1 + countryCode.length());
-    int    prefixLength = Math.min(4, remaining);
-
-    return number.substring(0, 1 + countryCode.length() + prefixLength);
-  }
-
   public static byte[] truncate(byte[] element, int length) {
     byte[] result = new byte[length];
     System.arraycopy(element, 0, result, 0, result.length);
