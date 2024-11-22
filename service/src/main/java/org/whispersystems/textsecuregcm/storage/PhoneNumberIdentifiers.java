@@ -11,13 +11,11 @@ import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
@@ -64,35 +62,6 @@ public class PhoneNumberIdentifiers {
             : generatePhoneNumberIdentifierIfNotExists(phoneNumber))
         .whenComplete((ignored, throwable) -> sample.stop(GET_PNI_TIMER));
   }
-
-  public CompletableFuture<Optional<String>> getPhoneNumber(final UUID phoneNumberIdentifier) {
-    return dynamoDbClient.query(QueryRequest.builder()
-            .tableName(tableName)
-            .indexName(INDEX_NAME)
-            .keyConditionExpression("#pni = :pni")
-            .projectionExpression("#phone_number")
-            .expressionAttributeNames(Map.of(
-                "#phone_number", KEY_E164,
-                "#pni", ATTR_PHONE_NUMBER_IDENTIFIER
-            ))
-            .expressionAttributeValues(Map.of(
-                ":pni", AttributeValues.fromUUID(phoneNumberIdentifier)
-            ))
-            .build())
-        .thenApply(response -> {
-          if (response.count() == 0) {
-            return Optional.empty();
-          }
-
-          if (response.count() > 1) {
-            throw new RuntimeException(
-                "Impossible result: more than one phone number returned for PNI: " + phoneNumberIdentifier);
-          }
-
-          return Optional.ofNullable(response.items().getFirst().get(KEY_E164).s());
-        });
-  }
-
 
   @VisibleForTesting
   CompletableFuture<UUID> generatePhoneNumberIdentifierIfNotExists(final String phoneNumber) {

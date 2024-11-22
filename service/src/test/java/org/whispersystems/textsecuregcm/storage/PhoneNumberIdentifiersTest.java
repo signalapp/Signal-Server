@@ -48,14 +48,4 @@ class PhoneNumberIdentifiersTest {
     assertEquals(phoneNumberIdentifiers.generatePhoneNumberIdentifierIfNotExists(number).join(),
         phoneNumberIdentifiers.generatePhoneNumberIdentifierIfNotExists(number).join());
   }
-
-  @Test
-  void getPhoneNumber() {
-    final String number = "+18005551234";
-
-    assertFalse(phoneNumberIdentifiers.getPhoneNumber(UUID.randomUUID()).join().isPresent());
-
-    final UUID pni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
-    assertEquals(Optional.of(number), phoneNumberIdentifiers.getPhoneNumber(pni).join());
-  }
 }
