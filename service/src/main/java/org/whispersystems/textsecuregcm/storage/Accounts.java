@@ -267,8 +267,9 @@ public class Accounts extends AbstractDynamoDbStore {
         if (conditionalCheckFailed(phoneNumberConstraintCancellationReason)
             || conditionalCheckFailed(phoneNumberIdentifierConstraintCancellationReason)) {
 
-          // In theory, both reasons should trip in tandem and either should give us the information we need. Even so,
-          // we'll be cautious here and make sure we're choosing a condition check that really failed.
+          // Both reasons should trip in tandem and either should give us the information we need. However, phone number
+          // canonicalization can cause multiple e164s to have the same PNI, so we make sure we're choosing a condition
+          // check that really failed.
           final CancellationReason reason = conditionalCheckFailed(phoneNumberConstraintCancellationReason)
               ? phoneNumberConstraintCancellationReason
               : phoneNumberIdentifierConstraintCancellationReason;
