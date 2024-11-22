@@ -5,15 +5,14 @@
 
 package org.whispersystems.textsecuregcm.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
-import org.junit.jupiter.api.Test;
+import java.util.List;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class UtilTest {
 
@@ -38,5 +37,16 @@ class UtilTest {
         Arguments.of(newFormatBeninE164, List.of(newFormatBeninE164, oldFormatBeninE164)),
         Arguments.of(oldFormatBeninE164, List.of(oldFormatBeninE164, newFormatBeninE164))
     );
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "0, 1, false",
+      "123456789, 1, true",
+      "123456789, 123, true",
+      "123456789, 456, false",
+  })
+  void startsWithDecimal(final long number, final long prefix, final boolean expectStartsWithPrefix) {
+    assertEquals(expectStartsWithPrefix, Util.startsWithDecimal(number, prefix));
   }
 }

@@ -144,6 +144,35 @@ public class Util {
     }
   }
 
+  /**
+   * Tests whether the decimal form of the given number (without leading zeroes) begins with the decimal form of the
+   * given prefix (without leading zeroes).
+   *
+   * @param number the number to check for the given prefix
+   * @param prefix the prefix
+   *
+   * @return {@code true} if the given number starts with the given prefix or {@code false} otherwise
+   *
+   * @throws IllegalArgumentException if {@code number} is negative or if {@code prefix} is zero or negative
+   */
+  public static boolean startsWithDecimal(final long number, final long prefix) {
+    if (number < 0) {
+      throw new IllegalArgumentException("Number must be non-negative");
+    }
+
+    if (prefix <= 0) {
+      throw new IllegalArgumentException("Prefix must be positive");
+    }
+
+    long workingCopy = number;
+
+    while (workingCopy > prefix) {
+      workingCopy /= 10;
+    }
+
+    return workingCopy == prefix;
+  }
+
   public static byte[] truncate(byte[] element, int length) {
     byte[] result = new byte[length];
     System.arraycopy(element, 0, result, 0, result.length);
