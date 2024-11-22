@@ -24,15 +24,11 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.random.RandomGenerator;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 
 public class Util {
 
   private static final RandomGenerator RANDOM_GENERATOR = new Random();
-
-  private static final Pattern COUNTRY_CODE_PATTERN = Pattern.compile("^\\+([17]|2[07]|3[0123469]|4[013456789]|5[12345678]|6[0123456]|8[1246]|9[0123458]|\\d{3})");
 
   private static final PhoneNumberUtil PHONE_NUMBER_UTIL = PhoneNumberUtil.getInstance();
 
@@ -89,10 +85,11 @@ public class Util {
   }
 
   public static String getCountryCode(String number) {
-    Matcher matcher = COUNTRY_CODE_PATTERN.matcher(number);
-
-    if (matcher.find()) return matcher.group(1);
-    else                return "0";
+    try {
+      return String.valueOf(PHONE_NUMBER_UTIL.parse(number, null).getCountryCode());
+    } catch (final NumberParseException e) {
+      return "0";
+    }
   }
 
   public static String getRegion(final String number) {
