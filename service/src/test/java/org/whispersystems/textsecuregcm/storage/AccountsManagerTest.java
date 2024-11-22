@@ -209,14 +209,14 @@ class AccountsManagerTest {
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
     doAnswer(invocation -> {
-      final Runnable task = invocation.getArgument(2);
+      final Runnable task = invocation.getArgument(1);
       task.run();
 
       return null;
-    }).when(accountLockManager).withLock(any(), anyList(), any(), any());
+    }).when(accountLockManager).withLock(anyList(), any(), any());
 
-    when(accountLockManager.withLockAsync(any(), anyList(), any(), any())).thenAnswer(invocation -> {
-      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(2);
+    when(accountLockManager.withLockAsync(anyList(), any(), any())).thenAnswer(invocation -> {
+      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
       return taskSupplier.get();
     });
 

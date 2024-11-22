@@ -41,8 +41,7 @@ public class ClientPublicKeysManager {
    * @return a future that completes when the given key has been stored
    */
   public CompletableFuture<Void> setPublicKey(final Account account, final byte deviceId, final ECPublicKey publicKey) {
-    return accountLockManager.withLockAsync(List.of(account.getNumber()),
-        List.of(account.getPhoneNumberIdentifier()),
+    return accountLockManager.withLockAsync(List.of(account.getPhoneNumberIdentifier()),
         () -> clientPublicKeys.setPublicKey(account.getIdentifier(IdentityType.ACI), deviceId, publicKey),
         accountLockExecutor);
   }

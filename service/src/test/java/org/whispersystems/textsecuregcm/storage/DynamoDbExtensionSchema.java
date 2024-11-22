@@ -98,10 +98,10 @@ public final class DynamoDbExtensionSchema {
     ),
 
     DELETED_ACCOUNTS_LOCK("deleted_accounts_lock_test",
-        AccountLockManager.KEY_ACCOUNT_E164,
+        AccountLockManager.KEY_ACCOUNT_PNI,
         null,
         List.of(AttributeDefinition.builder()
-            .attributeName(AccountLockManager.KEY_ACCOUNT_E164)
+            .attributeName(AccountLockManager.KEY_ACCOUNT_PNI)
             .attributeType(ScalarAttributeType.S).build()),
         List.of(), List.of()),
 

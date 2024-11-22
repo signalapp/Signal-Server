@@ -274,7 +274,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
 
     return createTimer.record(() -> {
-      accountLockManager.withLock(List.of(number), List.of(phoneNumberIdentifier), () -> {
+      accountLockManager.withLock(List.of(phoneNumberIdentifier), () -> {
         final Optional<UUID> maybeRecentlyDeletedAccountIdentifier =
             accounts.findRecentlyDeletedAccountIdentifier(number);
 
@@ -396,8 +396,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   public CompletableFuture<Pair<Account, Device>> addDevice(final Account account, final DeviceSpec deviceSpec, final String linkDeviceToken) {
-    return accountLockManager.withLockAsync(List.of(account.getNumber()),
-        List.of(account.getPhoneNumberIdentifier()),
+    return accountLockManager.withLockAsync(List.of(account.getPhoneNumberIdentifier()),
         () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
         accountLockExecutor);
   }
@@ -585,7 +584,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       throw new IllegalArgumentException("Cannot remove primary device");
     }
 
-    return accountLockManager.withLockAsync(List.of(account.getNumber()), List.of(account.getPhoneNumberIdentifier()),
+    return accountLockManager.withLockAsync(List.of(account.getPhoneNumberIdentifier()),
         () -> removeDevice(account.getIdentifier(IdentityType.ACI), deviceId, MAX_UPDATE_ATTEMPTS),
         accountLockExecutor);
   }
@@ -653,8 +652,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final AtomicReference<Account> updatedAccount = new AtomicReference<>();
     final UUID targetPhoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber).join();
 
-    accountLockManager.withLock(List.of(account.getNumber(), targetNumber),
-        List.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier), () -> {
+    accountLockManager.withLock(List.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier), () -> {
       redisDelete(account);
 
       // There are three possible states for accounts associated with the target phone number:
@@ -1225,8 +1223,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   public CompletableFuture<Void> delete(final Account account, final DeletionReason deletionReason) {
     final Timer.Sample sample = Timer.start();
 
-    return accountLockManager.withLockAsync(List.of(account.getNumber()), List.of(account.getPhoneNumberIdentifier()),
-            () -> delete(account),
+    return accountLockManager.withLockAsync(List.of(account.getPhoneNumberIdentifier()), () -> delete(account),
             accountLockExecutor)
         .whenComplete((ignored, throwable) -> {
           sample.stop(deleteTimer);
