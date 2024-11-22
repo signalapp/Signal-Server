@@ -8,11 +8,13 @@ import com.amazonaws.services.dynamodbv2.ReleaseLockOptions;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class AccountLockManager {
@@ -43,28 +45,35 @@ public class AccountLockManager {
    * account lifecycle changes (like deleting an account or changing a phone number). The given task runs once locks for
    * all given phone numbers have been acquired, and the locks are released as soon as the task completes by any means.
    *
-   * @param e164s the phone numbers for which to acquire a distributed, pessimistic lock
-   * @param task the task to execute once locks have been acquired
+   * @param e164s                   the phone numbers for which to acquire a distributed, pessimistic lock
+   * @param phoneNumberIdentifiers  the phone number identifiers for which to acquire a distributed, pessimistic lock
+   * @param task                    the task to execute once locks have been acquired
    * @param lockAcquisitionExecutor the executor on which to run blocking lock acquire/release tasks. this executor
    *                                should not use virtual threads.
-   *
    * @throws InterruptedException if interrupted while acquiring a lock
    */
-  public void withLock(final List<String> e164s, final Runnable task, final Executor lockAcquisitionExecutor) {
+  public void withLock(final List<String> e164s, final List<UUID> phoneNumberIdentifiers, final Runnable task,
+      final Executor lockAcquisitionExecutor) {
     if (e164s.isEmpty()) {
       throw new IllegalArgumentException("List of e164s to lock must not be empty");
     }
+    if (phoneNumberIdentifiers.isEmpty()) {
+      throw new IllegalArgumentException("List of PNIs to lock must not be empty");
+    }
 
-    final List<LockItem> lockItems = new ArrayList<>(e164s.size());
+    final List<String> allIdentifiers = Stream.concat(e164s.stream(),
+            phoneNumberIdentifiers.stream().map(UUID::toString))
+        .toList();
+    final List<LockItem> lockItems = new ArrayList<>(allIdentifiers.size());
 
     try {
       // Offload the acquire/release tasks to the dedicated lock acquisition executor. The lock client performs blocking
       // operations while holding locks which forces thread pinning when this method runs on a virtual thread.
       // https://github.com/awslabs/amazon-dynamodb-lock-client/issues/97
       CompletableFuture.runAsync(() -> {
-        for (final String e164 : e164s) {
+        for (final String identifier : allIdentifiers) {
           try {
-            lockItems.add(lockClient.acquireLock(AcquireLockOptions.builder(e164)
+            lockItems.add(lockClient.acquireLock(AcquireLockOptions.builder(identifier)
                 .withAcquireReleasedLocksConsistently(true)
                 .build()));
           } catch (final InterruptedException e) {
@@ -91,27 +100,32 @@ public class AccountLockManager {
    * account lifecycle changes (like deleting an account or changing a phone number). The given task runs once locks for
    * all given phone numbers have been acquired, and the locks are released as soon as the task completes by any means.
    *
-   * @param e164s the phone numbers for which to acquire a distributed, pessimistic lock
-   * @param taskSupplier a supplier for the task to execute once locks have been acquired
-   * @param executor the executor on which to acquire and release locks
-   *
+   * @param e164s                  the phone numbers for which to acquire a distributed, pessimistic lock
+   * @param phoneNumberIdentifiers the phone number identifiers for which to acquire a distributed, pessimistic lock
+   * @param taskSupplier           a supplier for the task to execute once locks have been acquired
+   * @param executor               the executor on which to acquire and release locks
    * @return a future that completes normally when the given task has executed successfully and all locks have been
    * released; the returned future may fail with an {@link InterruptedException} if interrupted while acquiring a lock
    */
-  public <T> CompletableFuture<T> withLockAsync(final List<String> e164s,
-      final Supplier<CompletableFuture<T>> taskSupplier,
-      final Executor executor) {
+  public <T> CompletableFuture<T> withLockAsync(final List<String> e164s, final List<UUID> phoneNumberIdentifiers,
+      final Supplier<CompletableFuture<T>> taskSupplier, final Executor executor) {
 
     if (e164s.isEmpty()) {
       throw new IllegalArgumentException("List of e164s to lock must not be empty");
     }
+    if (phoneNumberIdentifiers.isEmpty()) {
+      throw new IllegalArgumentException("List of PNIs to lock must not be empty");
+    }
 
-    final List<LockItem> lockItems = new ArrayList<>(e164s.size());
+    final List<String> allIdentifiers = Stream.concat(e164s.stream(),
+            phoneNumberIdentifiers.stream().map(UUID::toString))
+        .toList();
+    final List<LockItem> lockItems = new ArrayList<>(allIdentifiers.size());
 
     return CompletableFuture.runAsync(() -> {
-          for (final String e164 : e164s) {
+          for (final String identifier : allIdentifiers) {
             try {
-              lockItems.add(lockClient.acquireLock(AcquireLockOptions.builder(e164)
+              lockItems.add(lockClient.acquireLock(AcquireLockOptions.builder(identifier)
                   .withAcquireReleasedLocksConsistently(true)
                   .build()));
             } catch (final InterruptedException e) {

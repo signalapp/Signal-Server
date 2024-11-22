@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeast;
@@ -50,7 +51,6 @@ import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
@@ -107,14 +107,14 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
       doAnswer(invocation -> {
-        final Runnable task = invocation.getArgument(1);
+        final Runnable task = invocation.getArgument(2);
         task.run();
 
         return null;
-      }).when(accountLockManager).withLock(any(), any(), any());
+      }).when(accountLockManager).withLock(any(), anyList(), any(), any());
 
-      when(accountLockManager.withLockAsync(any(), any(), any())).thenAnswer(invocation -> {
-        final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
+      when(accountLockManager.withLockAsync(any(), anyList(), any(), any())).thenAnswer(invocation -> {
+        final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(2);
         taskSupplier.get().join();
 
         return CompletableFuture.completedFuture(null);

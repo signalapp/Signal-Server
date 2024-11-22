@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -208,14 +209,14 @@ class AccountsManagerTest {
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
     doAnswer(invocation -> {
-      final Runnable task = invocation.getArgument(1);
+      final Runnable task = invocation.getArgument(2);
       task.run();
 
       return null;
-    }).when(accountLockManager).withLock(any(), any(), any());
+    }).when(accountLockManager).withLock(any(), anyList(), any(), any());
 
-    when(accountLockManager.withLockAsync(any(), any(), any())).thenAnswer(invocation -> {
-      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
+    when(accountLockManager.withLockAsync(any(), anyList(), any(), any())).thenAnswer(invocation -> {
+      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(2);
       return taskSupplier.get();
     });
 

@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -113,14 +114,14 @@ class AccountsManagerUsernameIntegrationTest {
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
     doAnswer(invocation -> {
-      final Runnable task = invocation.getArgument(1);
+      final Runnable task = invocation.getArgument(2);
       task.run();
 
       return null;
-    }).when(accountLockManager).withLock(any(), any(), any());
+    }).when(accountLockManager).withLock(any(), anyList(), any(), any());
 
-    when(accountLockManager.withLockAsync(any(), any(), any())).thenAnswer(invocation -> {
-      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
+    when(accountLockManager.withLockAsync(any(), anyList(), any(), any())).thenAnswer(invocation -> {
+      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(2);
       taskSupplier.get().join();
 
       return CompletableFuture.completedFuture(null);

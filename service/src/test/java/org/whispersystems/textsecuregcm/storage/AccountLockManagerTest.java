@@ -12,6 +12,7 @@ import com.amazonaws.services.dynamodbv2.ReleaseLockOptions;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,6 +34,9 @@ class AccountLockManagerTest {
   private static final String SECOND_NUMBER = PhoneNumberUtil.getInstance().format(
       PhoneNumberUtil.getInstance().getExampleNumber("JP"), PhoneNumberUtil.PhoneNumberFormat.E164);
 
+  private static final UUID FIRST_PNI = UUID.randomUUID();
+  private static final UUID SECOND_PNI = UUID.randomUUID();
+
   @BeforeEach
   void setUp() {
     lockClient = mock(AmazonDynamoDBLockClient.class);
@@ -51,47 +55,53 @@ class AccountLockManagerTest {
 
   @Test
   void withLock() throws InterruptedException {
-    accountLockManager.withLock(List.of(FIRST_NUMBER, SECOND_NUMBER), () -> {}, executor);
+    accountLockManager.withLock(List.of(FIRST_NUMBER, SECOND_NUMBER), List.of(FIRST_PNI, SECOND_PNI), () -> {
+    }, executor);
 
-    verify(lockClient, times(2)).acquireLock(any());
-    verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
+    verify(lockClient, times(4)).acquireLock(any());
+    verify(lockClient, times(4)).releaseLock(any(ReleaseLockOptions.class));
   }
 
   @Test
   void withLockTaskThrowsException() throws InterruptedException {
-    assertThrows(RuntimeException.class, () -> accountLockManager.withLock(List.of(FIRST_NUMBER, SECOND_NUMBER), () -> {
+    assertThrows(RuntimeException.class,
+        () -> accountLockManager.withLock(List.of(FIRST_NUMBER, SECOND_NUMBER), List.of(FIRST_PNI, SECOND_PNI), () -> {
       throw new RuntimeException();
     }, executor));
 
-    verify(lockClient, times(2)).acquireLock(any());
-    verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
+    verify(lockClient, times(4)).acquireLock(any());
+    verify(lockClient, times(4)).releaseLock(any(ReleaseLockOptions.class));
   }
 
   @Test
   void withLockEmptyList() {
     final Runnable task = mock(Runnable.class);
 
-    assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptyList(), () -> {}, executor));
+    assertThrows(IllegalArgumentException.class,
+        () -> accountLockManager.withLock(Collections.emptyList(), Collections.emptyList(), () -> {
+            },
+            executor));
     verify(task, never()).run();
   }
 
   @Test
   void withLockAsync() throws InterruptedException {
     accountLockManager.withLockAsync(List.of(FIRST_NUMBER, SECOND_NUMBER),
-        () -> CompletableFuture.completedFuture(null), executor).join();
+        List.of(FIRST_PNI, SECOND_PNI), () -> CompletableFuture.completedFuture(null), executor).join();
 
-    verify(lockClient, times(2)).acquireLock(any());
-    verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
+    verify(lockClient, times(4)).acquireLock(any());
+    verify(lockClient, times(4)).releaseLock(any(ReleaseLockOptions.class));
   }
 
   @Test
   void withLockAsyncTaskThrowsException() throws InterruptedException {
     assertThrows(RuntimeException.class,
         () -> accountLockManager.withLockAsync(List.of(FIRST_NUMBER, SECOND_NUMBER),
-            () -> CompletableFuture.failedFuture(new RuntimeException()), executor).join());
+                List.of(FIRST_PNI, SECOND_PNI), () -> CompletableFuture.failedFuture(new RuntimeException()), executor)
+            .join());
 
-    verify(lockClient, times(2)).acquireLock(any());
-    verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
+    verify(lockClient, times(4)).acquireLock(any());
+    verify(lockClient, times(4)).releaseLock(any(ReleaseLockOptions.class));
   }
 
   @Test
@@ -100,7 +110,7 @@ class AccountLockManagerTest {
 
     assertThrows(IllegalArgumentException.class,
         () -> accountLockManager.withLockAsync(Collections.emptyList(),
-            () -> CompletableFuture.completedFuture(null), executor));
+            Collections.emptyList(), () -> CompletableFuture.completedFuture(null), executor));
 
     verify(task, never()).run();
   }
