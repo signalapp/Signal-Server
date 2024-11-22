@@ -637,10 +637,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
       @Nullable final Map<Byte, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
 
-    final String originalNumber = account.getNumber();
     final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
+    final UUID targetPhoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber).join();
 
-    if (originalNumber.equals(targetNumber)) {
+    if (originalPhoneNumberIdentifier.equals(targetPhoneNumberIdentifier)) {
       if (pniIdentityKey != null) {
         throw new IllegalArgumentException("change number must supply a changed phone number; otherwise use updatePniKeys");
       }
@@ -650,7 +650,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
     final AtomicReference<Account> updatedAccount = new AtomicReference<>();
-    final UUID targetPhoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber).join();
 
     accountLockManager.withLock(List.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier), () -> {
       redisDelete(account);

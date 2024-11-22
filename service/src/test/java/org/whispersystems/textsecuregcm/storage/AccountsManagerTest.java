@@ -1054,9 +1054,26 @@ class AccountsManagerTest {
     final String number = "+14152222222";
 
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    phoneNumberIdentifiersByE164.put(number, account.getPhoneNumberIdentifier());
     account = accountsManager.changeNumber(account, number, null, null, null, null);
 
     assertEquals(number, account.getNumber());
+    verify(keysManager, never()).deleteSingleUsePreKeys(any());
+  }
+
+  @Test
+  void testChangePhoneNumberDifferentNumberSamePni() throws InterruptedException, MismatchedDevicesException {
+    final String originalNumber = "+22923456789";
+    // the canonical form of numbers may change over time, so we use PNIs as stable identifiers
+    final String newNumber = "+2290123456789";
+
+    Account account = AccountsHelper.generateTestAccount(originalNumber, UUID.randomUUID(), UUID.randomUUID(),
+        new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    phoneNumberIdentifiersByE164.put(originalNumber, account.getPhoneNumberIdentifier());
+    phoneNumberIdentifiersByE164.put(newNumber, account.getPhoneNumberIdentifier());
+    account = accountsManager.changeNumber(account, newNumber, null, null, null, null);
+
+    assertEquals(originalNumber, account.getNumber());
     verify(keysManager, never()).deleteSingleUsePreKeys(any());
   }
 
@@ -1065,6 +1082,7 @@ class AccountsManagerTest {
     final String number = "+14152222222";
 
     Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    phoneNumberIdentifiersByE164.put(number, account.getPhoneNumberIdentifier());
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     assertThrows(IllegalArgumentException.class,
         () -> accountsManager.changeNumber(
