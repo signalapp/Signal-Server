@@ -82,12 +82,12 @@ public class RegistrationRecoveryTest {
       assertEquals(ORIGINAL_HASH.hash(), saltedTokenHashByNumber.get().hash());
     }
 
-    /* {
+    {
       final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI).get();
       assertTrue(saltedTokenHashByPni.isPresent());
       assertEquals(ORIGINAL_HASH.salt(), saltedTokenHashByPni.get().salt());
       assertEquals(ORIGINAL_HASH.hash(), saltedTokenHashByPni.get().hash());
-    } */
+    }
   }
 
   @Test
@@ -107,12 +107,12 @@ public class RegistrationRecoveryTest {
       assertEquals(ORIGINAL_HASH.hash(), saltedTokenHashByNumber.get().hash());
     }
 
-    /* {
+    {
       final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI).get();
       assertTrue(saltedTokenHashByPni.isPresent());
       assertEquals(ORIGINAL_HASH.salt(), saltedTokenHashByPni.get().salt());
       assertEquals(ORIGINAL_HASH.hash(), saltedTokenHashByPni.get().hash());
-    } */
+    }
   }
 
   @Test
@@ -127,12 +127,12 @@ public class RegistrationRecoveryTest {
       assertEquals(ANOTHER_HASH.hash(), saltedTokenHashByNumber.get().hash());
     }
 
-    /* {
+    {
       final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI).get();
       assertTrue(saltedTokenHashByPni.isPresent());
       assertEquals(ANOTHER_HASH.salt(), saltedTokenHashByPni.get().salt());
       assertEquals(ANOTHER_HASH.hash(), saltedTokenHashByPni.get().hash());
-    } */
+    }
   }
 
   @Test

@@ -89,9 +89,8 @@ public class RegistrationRecoveryPasswords extends AbstractDynamoDbStore {
 
     return asyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
             .transactItems(
-                buildPutRecoveryPasswordWriteItem(number, expirationSeconds, data.salt(), data.hash())
-                // buildPutRecoveryPasswordWriteItem(phoneNumberIdentifier.toString(), expirationSeconds, data.salt(), data.hash())
-            )
+                buildPutRecoveryPasswordWriteItem(number, expirationSeconds, data.salt(), data.hash()),
+                buildPutRecoveryPasswordWriteItem(phoneNumberIdentifier.toString(), expirationSeconds, data.salt(), data.hash()))
         .build())
         .thenRun(Util.NOOP);
   }
