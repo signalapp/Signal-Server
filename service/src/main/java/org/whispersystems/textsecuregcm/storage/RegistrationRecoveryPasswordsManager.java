@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import reactor.core.publisher.Flux;
+import reactor.util.function.Tuple3;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 
 public class RegistrationRecoveryPasswordsManager {
@@ -67,6 +69,10 @@ public class RegistrationRecoveryPasswordsManager {
                 logger.warn("Failed to remove Registration Recovery Password", error);
               }
             }));
+  }
+
+  public Flux<Tuple3<String, SaltedTokenHash, Long>> getE164AssociatedRegistrationRecoveryPasswords() {
+    return registrationRecoveryPasswords.getE164AssociatedRegistrationRecoveryPasswords();
   }
 
   public CompletableFuture<Boolean> migrateE164Record(final String number, final SaltedTokenHash saltedTokenHash, final long expirationSeconds) {
