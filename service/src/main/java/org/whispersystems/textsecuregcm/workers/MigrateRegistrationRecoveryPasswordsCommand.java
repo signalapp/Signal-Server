@@ -87,12 +87,12 @@ public class MigrateRegistrationRecoveryPasswordsCommand extends AbstractCommand
           final long expiration = tuple.getT3();
 
           return dryRun
-              ? Mono.fromFuture(() -> registrationRecoveryPasswordsManager.migrateE164Record(e164, saltedTokenHash, expiration))
-              .onErrorResume(throwable -> {
-                logger.warn("Failed to migrate record for {}", e164, throwable);
-                return Mono.empty();
-              })
-              : Mono.just(false);
+              ? Mono.just(false)
+              : Mono.fromFuture(() -> registrationRecoveryPasswordsManager.migrateE164Record(e164, saltedTokenHash, expiration))
+                  .onErrorResume(throwable -> {
+                        logger.warn("Failed to migrate record for {}", e164, throwable);
+                        return Mono.empty();
+                      });
         }, maxConcurrency)
         .filter(migrated -> migrated)
         .doOnNext(ignored -> recordsMigratedCounter.increment())
