@@ -8,27 +8,14 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,12 +26,8 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
-import org.whispersystems.textsecuregcm.util.Pair;
-import reactor.core.scheduler.Schedulers;
-import reactor.util.function.Tuples;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
 public class RegistrationRecoveryTest {
 
@@ -190,84 +173,6 @@ public class RegistrationRecoveryTest {
     assertFalse(manager.verify(NUMBER, wrongPassword).get());
   }
 
-  @Test
-  void getE164AssociatedRegistrationRecoveryPasswords() {
-    registrationRecoveryPasswords.addOrReplace(NUMBER, PNI, ORIGINAL_HASH).join();
-
-    assertEquals(List.of(Tuples.of(NUMBER, ORIGINAL_HASH, registrationRecoveryPasswords.expirationSeconds())),
-        registrationRecoveryPasswords.getE164AssociatedRegistrationRecoveryPasswords(2, Schedulers.parallel()).collectList().block());
-  }
-
-  @Test
-  void insertPniRecord() {
-    final long expirationSeconds = Instant.now().plusSeconds(3600).getEpochSecond();
-
-    DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
-        .tableName(Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName())
-        .item(Map.of(
-            RegistrationRecoveryPasswords.KEY_E164, AttributeValues.fromString(NUMBER),
-            RegistrationRecoveryPasswords.ATTR_EXP, AttributeValues.fromLong(expirationSeconds),
-            RegistrationRecoveryPasswords.ATTR_SALT, AttributeValues.fromString(ORIGINAL_HASH.salt()),
-            RegistrationRecoveryPasswords.ATTR_HASH, AttributeValues.fromString(ORIGINAL_HASH.hash())))
-        .build());
-
-    assertTrue(registrationRecoveryPasswords.lookup(PNI).join().isEmpty());
-
-    assertTrue(() -> registrationRecoveryPasswords.insertPniRecord(NUMBER, PNI, ORIGINAL_HASH, expirationSeconds).join());
-    assertEquals(Optional.of(ORIGINAL_HASH), registrationRecoveryPasswords.lookup(PNI).join());
-  }
-
-  @Test
-  void insertPniRecordOriginalDeleted() {
-    final CompletionException completionException = assertThrows(CompletionException.class, () ->
-        registrationRecoveryPasswords.insertPniRecord(NUMBER, PNI, ORIGINAL_HASH, 0L).join());
-
-    assertInstanceOf(ContestedOptimisticLockException.class, completionException.getCause());
-  }
-
-  @Test
-  void insertPniRecordOriginalChanged() {
-    final long expirationSeconds = Instant.now().plusSeconds(3600).getEpochSecond();
-
-    DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
-        .tableName(Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName())
-        .item(Map.of(
-            RegistrationRecoveryPasswords.KEY_E164, AttributeValues.fromString(NUMBER),
-            RegistrationRecoveryPasswords.ATTR_EXP, AttributeValues.fromLong(expirationSeconds),
-            RegistrationRecoveryPasswords.ATTR_SALT, AttributeValues.fromString(ORIGINAL_HASH.salt()),
-            RegistrationRecoveryPasswords.ATTR_HASH, AttributeValues.fromString(ORIGINAL_HASH.hash())))
-        .build());
-
-    final CompletionException completionException = assertThrows(CompletionException.class, () ->
-        registrationRecoveryPasswords.insertPniRecord(NUMBER, PNI, ANOTHER_HASH, expirationSeconds).join());
-
-    assertInstanceOf(ContestedOptimisticLockException.class, completionException.getCause());
-  }
-
-  @Test
-  void insertPniRecordNewRecordAlreadyExists() {
-    registrationRecoveryPasswords.addOrReplace(NUMBER, PNI, ORIGINAL_HASH).join();
-
-    assertTrue(registrationRecoveryPasswords.lookup(NUMBER).join().isPresent());
-    assertTrue(registrationRecoveryPasswords.lookup(PNI).join().isPresent());
-    assertEquals(registrationRecoveryPasswords.lookup(NUMBER).join(), registrationRecoveryPasswords.lookup(PNI).join());
-
-    assertFalse(() ->
-        registrationRecoveryPasswords.insertPniRecord(NUMBER, PNI, ORIGINAL_HASH, registrationRecoveryPasswords.expirationSeconds()).join());
-  }
-
-  @Test
-  void insertPniRecordOriginalChangedNewRecordAlreadyExists() {
-    registrationRecoveryPasswords.addOrReplace(NUMBER, PNI, ORIGINAL_HASH).join();
-
-    assertTrue(registrationRecoveryPasswords.lookup(NUMBER).join().isPresent());
-    assertTrue(registrationRecoveryPasswords.lookup(PNI).join().isPresent());
-    assertEquals(registrationRecoveryPasswords.lookup(NUMBER).join(), registrationRecoveryPasswords.lookup(PNI).join());
-
-    assertFalse(() ->
-        registrationRecoveryPasswords.insertPniRecord(NUMBER, PNI, ANOTHER_HASH, registrationRecoveryPasswords.expirationSeconds()).join());
-  }
-
   private static long fetchTimestamp(final String number) throws ExecutionException, InterruptedException {
     return DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient().getItem(GetItemRequest.builder()
             .tableName(Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName())
@@ -282,98 +187,5 @@ public class RegistrationRecoveryTest {
           return Long.parseLong(exp);
         })
         .get();
-  }
-
-  @Test
-  void migrateE164Record() {
-    final RegistrationRecoveryPasswords registrationRecoveryPasswords = mock(RegistrationRecoveryPasswords.class);
-    when(registrationRecoveryPasswords.insertPniRecord(any(), any(), any(), anyLong()))
-        .thenReturn(CompletableFuture.completedFuture(true));
-
-    final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
-    when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER)).thenReturn(CompletableFuture.completedFuture(PNI));
-
-    final RegistrationRecoveryPasswordsManager migrationManager =
-        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords, phoneNumberIdentifiers);
-
-    assertTrue(() -> migrationManager.migrateE164Record(NUMBER, ORIGINAL_HASH, 1234).join());
-  }
-
-  @Test
-  void migrateE164RecordRetry() {
-    final RegistrationRecoveryPasswords registrationRecoveryPasswords = mock(RegistrationRecoveryPasswords.class);
-
-    when(registrationRecoveryPasswords.insertPniRecord(eq(NUMBER), eq(PNI), eq(ORIGINAL_HASH), anyLong()))
-        .thenReturn(CompletableFuture.failedFuture(new ContestedOptimisticLockException()));
-
-    when(registrationRecoveryPasswords.insertPniRecord(eq(NUMBER), eq(PNI), eq(ANOTHER_HASH), anyLong()))
-        .thenReturn(CompletableFuture.completedFuture(true));
-
-    when(registrationRecoveryPasswords.lookupWithExpiration(NUMBER))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(new Pair<>(ANOTHER_HASH, 1234L))));
-
-    final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
-    when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER)).thenReturn(CompletableFuture.completedFuture(PNI));
-
-    final RegistrationRecoveryPasswordsManager migrationManager =
-        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords, phoneNumberIdentifiers);
-
-    assertTrue(() -> migrationManager.migrateE164Record(NUMBER, ORIGINAL_HASH, 1234).join());
-
-    verify(registrationRecoveryPasswords).lookupWithExpiration(NUMBER);
-    verify(registrationRecoveryPasswords, times(2)).insertPniRecord(any(), any(), any(), anyLong());
-  }
-
-  @Test
-  void migrateE164RecordOriginalDeleted() {
-    final RegistrationRecoveryPasswords registrationRecoveryPasswords = mock(RegistrationRecoveryPasswords.class);
-
-    when(registrationRecoveryPasswords.insertPniRecord(eq(NUMBER), eq(PNI), eq(ORIGINAL_HASH), anyLong()))
-        .thenReturn(CompletableFuture.failedFuture(new ContestedOptimisticLockException()));
-
-    when(registrationRecoveryPasswords.lookup(NUMBER))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-
-    when(registrationRecoveryPasswords.lookupWithExpiration(NUMBER))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-
-    final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
-    when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER)).thenReturn(CompletableFuture.completedFuture(PNI));
-
-    final RegistrationRecoveryPasswordsManager migrationManager =
-        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords, phoneNumberIdentifiers);
-
-    assertFalse(() -> migrationManager.migrateE164Record(NUMBER, ORIGINAL_HASH, 1234).join());
-
-    verify(registrationRecoveryPasswords).lookupWithExpiration(NUMBER);
-    verify(registrationRecoveryPasswords).insertPniRecord(any(), any(), any(), anyLong());
-  }
-
-  @Test
-  void migrateE164RecordRetryExhausted() {
-    final RegistrationRecoveryPasswords registrationRecoveryPasswords = mock(RegistrationRecoveryPasswords.class);
-
-    when(registrationRecoveryPasswords.insertPniRecord(any(), any(), any(), anyLong()))
-        .thenReturn(CompletableFuture.failedFuture(new ContestedOptimisticLockException()));
-
-    when(registrationRecoveryPasswords.lookup(NUMBER))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(ORIGINAL_HASH)));
-
-    when(registrationRecoveryPasswords.lookupWithExpiration(NUMBER))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(new Pair<>(ORIGINAL_HASH, CLOCK.instant().getEpochSecond() + EXPIRATION.getSeconds()))));
-
-    final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
-    when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER)).thenReturn(CompletableFuture.completedFuture(PNI));
-
-    final RegistrationRecoveryPasswordsManager migrationManager =
-        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords, phoneNumberIdentifiers);
-
-    final CompletionException completionException = assertThrows(CompletionException.class,
-        () -> migrationManager.migrateE164Record(NUMBER, ORIGINAL_HASH, 1234).join());
-
-    assertInstanceOf(ContestedOptimisticLockException.class, completionException.getCause());
-
-    verify(registrationRecoveryPasswords, times(10)).lookupWithExpiration(NUMBER);
-    verify(registrationRecoveryPasswords, times(10)).insertPniRecord(any(), any(), any(), anyLong());
   }
 }
