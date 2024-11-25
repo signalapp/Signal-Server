@@ -95,9 +95,9 @@ public class RegistrationRecoveryPasswordsManager {
         .exceptionallyCompose(throwable -> {
           if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException) {
             // Something about the original record changed; refresh and retry
-            return registrationRecoveryPasswords.lookup(number)
-                .thenCompose(maybeSaltedTokenHash -> maybeSaltedTokenHash
-                    .map(refreshedSaltedTokenHash -> migrateE164Record(number, phoneNumberIdentifier, refreshedSaltedTokenHash, expirationSeconds, remainingAttempts - 1))
+            return registrationRecoveryPasswords.lookupWithExpiration(number)
+                .thenCompose(maybePair -> maybePair
+                    .map(pair -> migrateE164Record(number, phoneNumberIdentifier, pair.first(), pair.second(), remainingAttempts - 1))
                     .orElseGet(() -> {
                       // The original record was deleted, and we can declare victory
                       return CompletableFuture.completedFuture(false);

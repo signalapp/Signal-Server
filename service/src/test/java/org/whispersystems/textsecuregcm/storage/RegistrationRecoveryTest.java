@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
+import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuples;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -308,8 +309,8 @@ public class RegistrationRecoveryTest {
     when(registrationRecoveryPasswords.insertPniRecord(eq(NUMBER), eq(PNI), eq(ANOTHER_HASH), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(true));
 
-    when(registrationRecoveryPasswords.lookup(NUMBER))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(ANOTHER_HASH)));
+    when(registrationRecoveryPasswords.lookupWithExpiration(NUMBER))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(new Pair<>(ANOTHER_HASH, 1234L))));
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER)).thenReturn(CompletableFuture.completedFuture(PNI));
@@ -319,7 +320,7 @@ public class RegistrationRecoveryTest {
 
     assertTrue(() -> migrationManager.migrateE164Record(NUMBER, ORIGINAL_HASH, 1234).join());
 
-    verify(registrationRecoveryPasswords).lookup(NUMBER);
+    verify(registrationRecoveryPasswords).lookupWithExpiration(NUMBER);
     verify(registrationRecoveryPasswords, times(2)).insertPniRecord(any(), any(), any(), anyLong());
   }
 
@@ -333,6 +334,9 @@ public class RegistrationRecoveryTest {
     when(registrationRecoveryPasswords.lookup(NUMBER))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
+    when(registrationRecoveryPasswords.lookupWithExpiration(NUMBER))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
     final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER)).thenReturn(CompletableFuture.completedFuture(PNI));
 
@@ -341,7 +345,7 @@ public class RegistrationRecoveryTest {
 
     assertFalse(() -> migrationManager.migrateE164Record(NUMBER, ORIGINAL_HASH, 1234).join());
 
-    verify(registrationRecoveryPasswords).lookup(NUMBER);
+    verify(registrationRecoveryPasswords).lookupWithExpiration(NUMBER);
     verify(registrationRecoveryPasswords).insertPniRecord(any(), any(), any(), anyLong());
   }
 
@@ -355,6 +359,9 @@ public class RegistrationRecoveryTest {
     when(registrationRecoveryPasswords.lookup(NUMBER))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(ORIGINAL_HASH)));
 
+    when(registrationRecoveryPasswords.lookupWithExpiration(NUMBER))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(new Pair<>(ORIGINAL_HASH, CLOCK.instant().getEpochSecond() + EXPIRATION.getSeconds()))));
+
     final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER)).thenReturn(CompletableFuture.completedFuture(PNI));
 
@@ -366,7 +373,7 @@ public class RegistrationRecoveryTest {
 
     assertInstanceOf(ContestedOptimisticLockException.class, completionException.getCause());
 
-    verify(registrationRecoveryPasswords, times(10)).lookup(NUMBER);
+    verify(registrationRecoveryPasswords, times(10)).lookupWithExpiration(NUMBER);
     verify(registrationRecoveryPasswords, times(10)).insertPniRecord(any(), any(), any(), anyLong());
   }
 }

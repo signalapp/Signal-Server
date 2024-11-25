@@ -17,6 +17,7 @@ import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
@@ -65,11 +66,24 @@ public class RegistrationRecoveryPasswords {
             .tableName(tableName)
             .key(Map.of(KEY_E164, AttributeValues.fromString(number)))
             .consistentRead(true)
-        .build())
+            .build())
         .thenApply(getItemResponse -> Optional.ofNullable(getItemResponse.item())
             .filter(item -> item.containsKey(ATTR_SALT))
             .filter(item -> item.containsKey(ATTR_HASH))
             .map(RegistrationRecoveryPasswords::saltedTokenHashFromItem));
+  }
+
+  CompletableFuture<Optional<Pair<SaltedTokenHash, Long>>> lookupWithExpiration(final String key) {
+    return asyncClient.getItem(GetItemRequest.builder()
+            .tableName(tableName)
+            .key(Map.of(KEY_E164, AttributeValues.fromString(key)))
+            .consistentRead(true)
+            .build())
+        .thenApply(getItemResponse -> Optional.ofNullable(getItemResponse.item())
+            .filter(item -> item.containsKey(ATTR_SALT))
+            .filter(item -> item.containsKey(ATTR_HASH))
+            .filter(item -> item.containsKey(ATTR_EXP))
+            .map(item -> new Pair<>(saltedTokenHashFromItem(item), Long.parseLong(item.get(ATTR_EXP).n()))));
   }
 
   public CompletableFuture<Optional<SaltedTokenHash>> lookup(final UUID phoneNumberIdentifier) {
