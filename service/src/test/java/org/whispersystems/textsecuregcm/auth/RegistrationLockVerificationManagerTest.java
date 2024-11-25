@@ -31,11 +31,11 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -53,7 +53,7 @@ class RegistrationLockVerificationManagerTest {
       ExternalServiceCredentialsGenerator.class);
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
       RegistrationRecoveryPasswordsManager.class);
-  private static PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
+  private final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
       accountsManager, disconnectionRequestManager, svr2CredentialsGenerator,
@@ -105,12 +105,13 @@ class RegistrationLockVerificationManagerTest {
             if (!verificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
               verify(registrationRecoveryPasswordsManager).removeForNumber(account.getNumber());
             } else {
-              verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
+              verify(registrationRecoveryPasswordsManager, never()).removeForNumber(any());
             }
             verify(disconnectionRequestManager).requestDisconnection(account.getUuid(), List.of(Device.PRIMARY_ID));
             try {
               verify(pushNotificationManager).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
-            } catch (NotPushRegisteredException npre) {}
+            } catch (final NotPushRegisteredException ignored) {
+            }
             if (alreadyLocked) {
               verify(account, never()).lockAuthTokenHash();
             } else {
@@ -126,10 +127,13 @@ class RegistrationLockVerificationManagerTest {
         doThrow(RateLimitExceededException.class).when(pinLimiter).validate(anyString());
         yield new Pair<>(RateLimitExceededException.class, ignored -> {
           verify(account, never()).lockAuthTokenHash();
+
           try {
             verify(pushNotificationManager, never()).sendAttemptLoginNotification(any(), eq("failedRegistrationLock"));
-          } catch (NotPushRegisteredException npre) {}
-          verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
+          } catch (final NotPushRegisteredException ignored2) {
+          }
+
+          verify(registrationRecoveryPasswordsManager, never()).removeForNumber(any());
           verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
         });
       }
@@ -167,7 +171,7 @@ class RegistrationLockVerificationManagerTest {
             PhoneVerificationRequest.VerificationType.SESSION));
 
     verify(account, never()).lockAuthTokenHash();
-    verify(registrationRecoveryPasswordsManager, never()).removeForNumber(account.getNumber());
+    verify(registrationRecoveryPasswordsManager, never()).removeForNumber(any());
     verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
   }
 

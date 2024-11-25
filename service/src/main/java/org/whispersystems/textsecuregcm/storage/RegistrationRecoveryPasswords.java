@@ -16,7 +16,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
-import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -28,9 +27,8 @@ import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 
 public class RegistrationRecoveryPasswords {
 
-  // As a temporary transitional measure, this can be either a string representation of an E164-formatted phone number
-  // or a UUID (PNI) string
-  static final String KEY_E164 = "P";
+  // For historical reasons, we record the PNI as a UUID string rather than a compact byte array
+  static final String KEY_PNI = "P";
   static final String ATTR_EXP = "E";
   static final String ATTR_SALT = "S";
   static final String ATTR_HASH = "H";
@@ -54,20 +52,16 @@ public class RegistrationRecoveryPasswords {
     this.clock = requireNonNull(clock);
   }
 
-  public CompletableFuture<Optional<SaltedTokenHash>> lookup(final String number) {
+  public CompletableFuture<Optional<SaltedTokenHash>> lookup(final UUID phoneNumberIdentifier) {
     return asyncClient.getItem(GetItemRequest.builder()
             .tableName(tableName)
-            .key(Map.of(KEY_E164, AttributeValues.fromString(number)))
+            .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
             .consistentRead(true)
             .build())
         .thenApply(getItemResponse -> Optional.ofNullable(getItemResponse.item())
             .filter(item -> item.containsKey(ATTR_SALT))
             .filter(item -> item.containsKey(ATTR_HASH))
             .map(RegistrationRecoveryPasswords::saltedTokenHashFromItem));
-  }
-
-  public CompletableFuture<Optional<SaltedTokenHash>> lookup(final UUID phoneNumberIdentifier) {
-    return lookup(phoneNumberIdentifier.toString());
   }
 
   public CompletableFuture<Void> addOrReplace(final String number, final UUID phoneNumberIdentifier, final SaltedTokenHash data) {
@@ -90,7 +84,7 @@ public class RegistrationRecoveryPasswords {
         .put(Put.builder()
             .tableName(tableName)
             .item(Map.of(
-                KEY_E164, AttributeValues.fromString(key),
+                KEY_PNI, AttributeValues.fromString(key),
                 ATTR_EXP, AttributeValues.fromLong(expirationSeconds),
                 ATTR_SALT, AttributeValues.fromString(salt),
                 ATTR_HASH, AttributeValues.fromString(hash)))
@@ -111,7 +105,7 @@ public class RegistrationRecoveryPasswords {
     return TransactWriteItem.builder()
         .delete(Delete.builder()
             .tableName(tableName)
-            .key(Map.of(KEY_E164, AttributeValues.fromString(key)))
+            .key(Map.of(KEY_PNI, AttributeValues.fromString(key)))
             .build())
         .build();
   }

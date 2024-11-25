@@ -65,6 +65,7 @@ import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.EncryptedUsername;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -113,7 +114,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(rateLimiter.validateReactive(any(UUID.class))).thenReturn(Mono.empty());
     when(rateLimiter.validateReactive(anyString())).thenReturn(Mono.empty());
 
-    when(registrationRecoveryPasswordsManager.storeForCurrentNumber(anyString(), any()))
+    when(registrationRecoveryPasswordsManager.storeForCurrentNumber(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     return new AccountsGrpcService(accountsManager,
@@ -261,7 +262,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
           final List<byte[]> usernameHashes = invocation.getArgument(1);
 
           return CompletableFuture.completedFuture(
-              new AccountsManager.UsernameReservation(invocation.getArgument(0), usernameHashes.get(0)));
+              new AccountsManager.UsernameReservation(invocation.getArgument(0), usernameHashes.getFirst()));
         });
 
     final ReserveUsernameHashResponse expectedResponse = ReserveUsernameHashResponse.newBuilder()
@@ -684,12 +685,10 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void setRegistrationRecoveryPassword() {
-    final String phoneNumber =
-        PhoneNumberUtil.getInstance().format(PhoneNumberUtil.getInstance().getExampleNumber("US"),
-            PhoneNumberUtil.PhoneNumberFormat.E164);
+    final UUID phoneNumberIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn(phoneNumber);
+    when(account.getIdentifier(IdentityType.PNI)).thenReturn(phoneNumberIdentifier);
 
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
@@ -701,7 +700,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
             .setRegistrationRecoveryPassword(ByteString.copyFrom(registrationRecoveryPassword))
             .build()));
 
-    verify(registrationRecoveryPasswordsManager).storeForCurrentNumber(phoneNumber, registrationRecoveryPassword);
+    verify(registrationRecoveryPasswordsManager).storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword);
   }
 
   @Test

@@ -9,8 +9,11 @@ import java.util.Base64;
 import javax.annotation.Nullable;
 import org.signal.registration.rpc.RegistrationSessionMetadata;
 
-public record RegistrationServiceSession(byte[] id, String number, boolean verified,
-                                         @Nullable Long nextSms, @Nullable Long nextVoiceCall,
+public record RegistrationServiceSession(byte[] id,
+                                         String number,
+                                         boolean verified,
+                                         @Nullable Long nextSms,
+                                         @Nullable Long nextVoiceCall,
                                          @Nullable Long nextVerificationAttempt,
                                          long expiration) {
 

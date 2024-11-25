@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 
 public class PhoneVerificationTokenManager {
@@ -33,13 +34,17 @@ public class PhoneVerificationTokenManager {
   private static final Duration REGISTRATION_RPC_TIMEOUT = Duration.ofSeconds(15);
   private static final long VERIFICATION_TIMEOUT_SECONDS = REGISTRATION_RPC_TIMEOUT.plusSeconds(1).getSeconds();
 
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers;
+
   private final RegistrationServiceClient registrationServiceClient;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final RegistrationRecoveryChecker registrationRecoveryChecker;
 
-  public PhoneVerificationTokenManager(final RegistrationServiceClient registrationServiceClient,
+  public PhoneVerificationTokenManager(final PhoneNumberIdentifiers phoneNumberIdentifiers,
+      final RegistrationServiceClient registrationServiceClient,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final RegistrationRecoveryChecker registrationRecoveryChecker) {
+    this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.registrationServiceClient = registrationServiceClient;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.registrationRecoveryChecker = registrationRecoveryChecker;
@@ -109,7 +114,7 @@ public class PhoneVerificationTokenManager {
       throw new ForbiddenException("recoveryPassword couldn't be verified");
     }
     try {
-      final boolean verified = registrationRecoveryPasswordsManager.verify(number, recoveryPassword)
+      final boolean verified = registrationRecoveryPasswordsManager.verify(phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join(), recoveryPassword)
           .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
       if (!verified) {
         throw new ForbiddenException("recoveryPassword couldn't be verified");

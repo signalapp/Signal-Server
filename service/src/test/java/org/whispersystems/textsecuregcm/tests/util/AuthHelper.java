@@ -85,6 +85,7 @@ public class AuthHelper {
 
   public static final String UNDISCOVERABLE_NUMBER   = "+18005551234";
   public static final UUID   UNDISCOVERABLE_UUID     = UUID.randomUUID();
+  public static final UUID   UNDISCOVERABLE_PNI      = UUID.randomUUID();
   public static final String UNDISCOVERABLE_PASSWORD = "IT'S A SECRET TO EVERYBODY.";
 
   public static final ECKeyPair VALID_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
@@ -169,7 +170,9 @@ public class AuthHelper {
     when(VALID_ACCOUNT_TWO.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_TWO);
     when(UNDISCOVERABLE_ACCOUNT.getNumber()).thenReturn(UNDISCOVERABLE_NUMBER);
     when(UNDISCOVERABLE_ACCOUNT.getUuid()).thenReturn(UNDISCOVERABLE_UUID);
+    when(UNDISCOVERABLE_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(UNDISCOVERABLE_PNI);
     when(UNDISCOVERABLE_ACCOUNT.getIdentifier(IdentityType.ACI)).thenReturn(UNDISCOVERABLE_UUID);
+    when(UNDISCOVERABLE_ACCOUNT.getIdentifier(IdentityType.PNI)).thenReturn(UNDISCOVERABLE_PNI);
     when(VALID_ACCOUNT_3.getNumber()).thenReturn(VALID_NUMBER_3);
     when(VALID_ACCOUNT_3.getUuid()).thenReturn(VALID_UUID_3);
     when(VALID_ACCOUNT_3.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_3);

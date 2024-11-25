@@ -83,6 +83,7 @@ import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker.VerificationCheck;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -116,6 +117,7 @@ public class VerificationController {
   private final PushNotificationManager pushNotificationManager;
   private final RegistrationCaptchaManager registrationCaptchaManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final RateLimiters rateLimiters;
   private final AccountsManager accountsManager;
   private final RegistrationFraudChecker registrationFraudChecker;
@@ -127,6 +129,7 @@ public class VerificationController {
       final PushNotificationManager pushNotificationManager,
       final RegistrationCaptchaManager registrationCaptchaManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final RateLimiters rateLimiters,
       final AccountsManager accountsManager,
       final RegistrationFraudChecker registrationFraudChecker,
@@ -137,6 +140,7 @@ public class VerificationController {
     this.pushNotificationManager = pushNotificationManager;
     this.registrationCaptchaManager = registrationCaptchaManager;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.rateLimiters = rateLimiters;
     this.accountsManager = accountsManager;
     this.registrationFraudChecker = registrationFraudChecker;
@@ -626,8 +630,8 @@ public class VerificationController {
   }
 
   /**
-   * @throws ClientErrorException          with {@code 422} status if the ID cannot be decoded
-   * @throws javax.ws.rs.NotFoundException if the ID cannot be found
+   * @throws ClientErrorException with {@code 422} status if the ID cannot be decoded
+   * @throws NotFoundException    if the ID cannot be found
    */
   private RegistrationServiceSession retrieveRegistrationServiceSession(final String encodedSessionId) {
     final byte[] sessionId;

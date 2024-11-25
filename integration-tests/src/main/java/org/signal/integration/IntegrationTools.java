@@ -8,6 +8,7 @@ package org.signal.integration;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.signal.integration.config.Config;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
@@ -20,7 +21,6 @@ import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class IntegrationTools {
 
@@ -57,8 +57,8 @@ public class IntegrationTools {
     this.verificationSessionManager = verificationSessionManager;
   }
 
-  public CompletableFuture<Void> populateRecoveryPassword(final String e164, final byte[] password) {
-    return registrationRecoveryPasswordsManager.storeForCurrentNumber(e164, password);
+  public CompletableFuture<Void> populateRecoveryPassword(final String number, final byte[] password) {
+    return registrationRecoveryPasswordsManager.storeForCurrentNumber(number, password);
   }
 
   public CompletableFuture<Optional<String>> peekVerificationSessionPushChallenge(final String sessionId) {

@@ -1076,7 +1076,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
 
     final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
-        registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker);
+        phoneNumberIdentifiers, registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker);
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, turnTokenGenerator, registrationRecoveryPasswordsManager,
             usernameHashZkProofVerifier),
@@ -1119,8 +1119,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getCdnConfiguration().credentials().secretAccessKey().value(), config.getCdnConfiguration().region(),
             config.getCdnConfiguration().bucket()),
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
-            pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters,
-            accountsManager, registrationFraudChecker, dynamicConfigurationManager, clock)
+            pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager,
+            phoneNumberIdentifiers, rateLimiters, accountsManager, registrationFraudChecker,
+            dynamicConfigurationManager, clock)
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,

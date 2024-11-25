@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Stream;
@@ -77,6 +78,7 @@ import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -87,7 +89,11 @@ class VerificationControllerTest {
   private static final long SESSION_EXPIRATION_SECONDS = Duration.ofMinutes(10).toSeconds();
 
   private static final byte[] SESSION_ID = "session".getBytes(StandardCharsets.UTF_8);
-  private static final String NUMBER = "+18005551212";
+  private static final String NUMBER = PhoneNumberUtil.getInstance().format(
+      PhoneNumberUtil.getInstance().getExampleNumber("US"),
+      PhoneNumberUtil.PhoneNumberFormat.E164);
+
+  private static final UUID PNI = UUID.randomUUID();
 
   private final RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
   private final VerificationSessionManager verificationSessionManager = mock(VerificationSessionManager.class);
@@ -95,6 +101,7 @@ class VerificationControllerTest {
   private final RegistrationCaptchaManager registrationCaptchaManager = mock(RegistrationCaptchaManager.class);
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
       RegistrationRecoveryPasswordsManager.class);
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final Clock clock = Clock.systemUTC();
@@ -115,7 +122,7 @@ class VerificationControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,
-              registrationCaptchaManager, registrationRecoveryPasswordsManager, rateLimiters, accountsManager,
+              registrationCaptchaManager, registrationRecoveryPasswordsManager, phoneNumberIdentifiers, rateLimiters, accountsManager,
               RegistrationFraudChecker.noop(), dynamicConfigurationManager, clock))
       .build();
 
@@ -131,6 +138,8 @@ class VerificationControllerTest {
         .thenReturn(new DynamicRegistrationConfiguration(false));
     when(dynamicConfigurationManager.getConfiguration())
         .thenReturn(dynamicConfiguration);
+    when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER))
+        .thenReturn(CompletableFuture.completedFuture(PNI));
   }
 
   @ParameterizedTest

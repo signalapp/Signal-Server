@@ -10,6 +10,7 @@ import static java.util.Objects.requireNonNull;
 import java.lang.invoke.MethodHandles;
 import java.util.HexFormat;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,8 +31,8 @@ public class RegistrationRecoveryPasswordsManager {
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
   }
 
-  public CompletableFuture<Boolean> verify(final String number, final byte[] password) {
-    return registrationRecoveryPasswords.lookup(number)
+  public CompletableFuture<Boolean> verify(final UUID phoneNumberIdentifier, final byte[] password) {
+    return registrationRecoveryPasswords.lookup(phoneNumberIdentifier)
         .thenApply(maybeHash -> maybeHash.filter(hash -> hash.verify(bytesToString(password))))
         .whenComplete((result, error) -> {
           if (error != null) {

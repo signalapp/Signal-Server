@@ -86,6 +86,7 @@ import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
@@ -105,6 +106,7 @@ class AccountControllerV2Test {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final ChangeNumberManager changeNumberManager = mock(ChangeNumberManager.class);
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
   private final RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
       RegistrationRecoveryPasswordsManager.class);
@@ -125,8 +127,8 @@ class AccountControllerV2Test {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new AccountControllerV2(accountsManager, changeNumberManager,
-              new PhoneVerificationTokenManager(registrationServiceClient, registrationRecoveryPasswordsManager,
-                  registrationRecoveryChecker),
+              new PhoneVerificationTokenManager(phoneNumberIdentifiers, registrationServiceClient,
+                  registrationRecoveryPasswordsManager, registrationRecoveryChecker),
               registrationLockVerificationManager, rateLimiters))
       .build();
 
@@ -401,6 +403,8 @@ class AccountControllerV2Test {
 
     @Test
     void recoveryPasswordManagerVerificationTrue() throws Exception {
+      when(phoneNumberIdentifiers.getPhoneNumberIdentifier(any()))
+          .thenReturn(CompletableFuture.completedFuture(UUID.randomUUID()));
       when(registrationRecoveryPasswordsManager.verify(any(), any()))
           .thenReturn(CompletableFuture.completedFuture(true));
       when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any()))
@@ -443,6 +447,8 @@ class AccountControllerV2Test {
 
     @Test
     void registrationRecoveryCheckerAllowsAttempt() {
+      when(phoneNumberIdentifiers.getPhoneNumberIdentifier(any()))
+          .thenReturn(CompletableFuture.completedFuture(UUID.randomUUID()));
       when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(true);
       when(registrationRecoveryPasswordsManager.verify(any(), any()))
           .thenReturn(CompletableFuture.completedFuture(true));

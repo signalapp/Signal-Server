@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -77,6 +78,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -94,6 +96,7 @@ class RegistrationControllerTest {
   private static final String PASSWORD = "password";
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
   private final RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
   private final RegistrationLockVerificationManager registrationLockVerificationManager = mock(
       RegistrationLockVerificationManager.class);
@@ -113,8 +116,8 @@ class RegistrationControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new RegistrationController(accountsManager,
-              new PhoneVerificationTokenManager(registrationServiceClient, registrationRecoveryPasswordsManager,
-                  registrationRecoveryChecker),
+              new PhoneVerificationTokenManager(phoneNumberIdentifiers, registrationServiceClient,
+                  registrationRecoveryPasswordsManager, registrationRecoveryChecker),
               registrationLockVerificationManager, rateLimiters))
       .build();
 
@@ -243,6 +246,8 @@ class RegistrationControllerTest {
 
   @Test
   void recoveryPasswordManagerVerificationFailureOrTimeout() {
+    when(phoneNumberIdentifiers.getPhoneNumberIdentifier(any()))
+        .thenReturn(CompletableFuture.completedFuture(UUID.randomUUID()));
     when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(true);
     when(registrationRecoveryPasswordsManager.verify(any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException()));
@@ -289,6 +294,8 @@ class RegistrationControllerTest {
 
   @Test
   void recoveryPasswordManagerVerificationTrue() throws InterruptedException {
+    when(phoneNumberIdentifiers.getPhoneNumberIdentifier(any()))
+        .thenReturn(CompletableFuture.completedFuture(UUID.randomUUID()));
     when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(true);
     when(registrationRecoveryPasswordsManager.verify(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
@@ -325,6 +332,8 @@ class RegistrationControllerTest {
 
   @Test
   void registrationRecoveryCheckerAllowsAttempt() throws InterruptedException {
+    when(phoneNumberIdentifiers.getPhoneNumberIdentifier(any()))
+        .thenReturn(CompletableFuture.completedFuture(UUID.randomUUID()));
     when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(true);
     when(registrationRecoveryPasswordsManager.verify(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(true));
