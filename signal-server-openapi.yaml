@@ -1686,11 +1686,12 @@ paths:
           default: 30
       responses:
         "200":
-          description: A new transfer archive was uploaded for the authenticated device
+          description: "Either a new transfer archive was uploaded for the authenticated\
+            \ device, or the upload has failed"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RemoteAttachment'
+                $ref: '#/components/schemas/TransferArchiveResult'
         "204":
           description: No transfer archive was uploaded before the call completed;
             clients may repeat the call to continue waiting
@@ -1706,8 +1707,10 @@ paths:
       summary: Signals that a transfer archive has been uploaded for a specific linked
         device
       description: |
-        Signals that a transfer archive has been uploaded for a specific linked device. Devices waiting via the "wait
-        for transfer archive" endpoint will be notified that the new archive is available.
+        Signals that a transfer archive has been uploaded or failed for a specific linked device. Devices waiting via
+        the "wait for transfer archive" endpoint will be notified that the new archive is available.
+
+        If the uploader cannot upload the transfer archive, they must signal an error.
       operationId: recordTransferArchiveUploaded
       requestBody:
         content:
@@ -4261,14 +4264,19 @@ components:
       - cdn
       - key
       type: object
-      properties:
-        cdn:
-          type: integer
-          description: The attachment cdn
-          format: int32
-        key:
-          type: string
-          description: The attachment key
+      allOf:
+      - $ref: '#/components/schemas/TransferArchiveResult'
+      - type: object
+        properties:
+          cdn:
+            type: integer
+            description: The attachment cdn
+            format: int32
+          key:
+            maxLength: 64
+            minLength: 0
+            type: string
+            description: The attachment key
     CopyMediaResponse:
       required:
       - cdn
@@ -4652,7 +4660,32 @@ components:
           - DECLINE
       description: |
         Represents a request from a new device to restore account data by some method.
+    RemoteAttachmentError:
+      required:
+      - error
+      type: object
+      description: Indicates an attachment failed to upload
+      allOf:
+      - $ref: '#/components/schemas/TransferArchiveResult'
+      - type: object
+        properties:
+          error:
+            type: string
+            description: The type of error encountered
+            enum:
+            - RELINK_REQUESTED
+            - CONTINUE_WITHOUT_UPLOAD
+    TransferArchiveResult:
+      type: object
+      description: |
+        The location of the transfer archive if the archive was successfully uploaded, otherwise a error indicating that
+         the upload has failed and the destination device should stop waiting
+      oneOf:
+      - $ref: '#/components/schemas/RemoteAttachmentError'
+      - $ref: '#/components/schemas/RemoteAttachment'
     TransferArchiveUploadedRequest:
+      required:
+      - transferArchive
       type: object
       properties:
         destinationDeviceId:
@@ -4666,7 +4699,7 @@ components:
             \ destination device was created"
           format: int64
         transferArchive:
-          $ref: '#/components/schemas/RemoteAttachment'
+          $ref: '#/components/schemas/TransferArchiveResult'
     RedeemReceiptRequest:
       required:
       - receiptCredentialPresentation
@@ -4685,10 +4718,10 @@ components:
         created:
           type: string
           format: date-time
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
     WebSocketSessionContext:
       type: object
       properties:
