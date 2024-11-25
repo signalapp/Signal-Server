@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuples;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
@@ -194,7 +195,7 @@ public class RegistrationRecoveryTest {
     registrationRecoveryPasswords.addOrReplace(NUMBER, PNI, ORIGINAL_HASH).join();
 
     assertEquals(List.of(Tuples.of(NUMBER, ORIGINAL_HASH, registrationRecoveryPasswords.expirationSeconds())),
-        registrationRecoveryPasswords.getE164AssociatedRegistrationRecoveryPasswords().collectList().block());
+        registrationRecoveryPasswords.getE164AssociatedRegistrationRecoveryPasswords(2, Schedulers.parallel()).collectList().block());
   }
 
   @Test

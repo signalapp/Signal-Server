@@ -18,6 +18,7 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 import java.time.Duration;
 
@@ -27,6 +28,7 @@ public class MigrateRegistrationRecoveryPasswordsCommand extends AbstractCommand
 
   private static final String DRY_RUN_ARGUMENT = "dry-run";
   private static final String MAX_CONCURRENCY_ARGUMENT = "max-concurrency";
+  private static final String SEGMENTS_ARGUMENT = "segments";
 
   private static final String RECORDS_INSPECTED_COUNTER_NAME =
       MetricsUtil.name(MigrateRegistrationRecoveryPasswordsCommand.class, "recordsInspected");
@@ -63,6 +65,13 @@ public class MigrateRegistrationRecoveryPasswordsCommand extends AbstractCommand
         .dest(MAX_CONCURRENCY_ARGUMENT)
         .setDefault(DEFAULT_MAX_CONCURRENCY)
         .help("Max concurrency for DynamoDB operations");
+
+    subparser.addArgument("--segments")
+        .type(Integer.class)
+        .dest(SEGMENTS_ARGUMENT)
+        .required(false)
+        .setDefault(1)
+        .help("The total number of segments for a DynamoDB scan");
   }
 
   @Override
@@ -71,6 +80,7 @@ public class MigrateRegistrationRecoveryPasswordsCommand extends AbstractCommand
 
     final boolean dryRun = namespace.getBoolean(DRY_RUN_ARGUMENT);
     final int maxConcurrency = namespace.getInt(MAX_CONCURRENCY_ARGUMENT);
+    final int segments = namespace.getInt(SEGMENTS_ARGUMENT);
 
     final Counter recordsInspectedCounter =
         Metrics.counter(RECORDS_INSPECTED_COUNTER_NAME, DRY_RUN_TAG, String.valueOf(dryRun));
@@ -81,7 +91,7 @@ public class MigrateRegistrationRecoveryPasswordsCommand extends AbstractCommand
     final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         commandDependencies.registrationRecoveryPasswordsManager();
 
-    registrationRecoveryPasswordsManager.getE164AssociatedRegistrationRecoveryPasswords()
+    registrationRecoveryPasswordsManager.getE164AssociatedRegistrationRecoveryPasswords(segments, Schedulers.parallel())
         .doOnNext(tuple -> recordsInspectedCounter.increment())
         .flatMap(tuple -> {
           final String e164 = tuple.getT1();

@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Scheduler;
 import reactor.util.function.Tuple3;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 
@@ -71,8 +72,8 @@ public class RegistrationRecoveryPasswordsManager {
             }));
   }
 
-  public Flux<Tuple3<String, SaltedTokenHash, Long>> getE164AssociatedRegistrationRecoveryPasswords() {
-    return registrationRecoveryPasswords.getE164AssociatedRegistrationRecoveryPasswords();
+  public Flux<Tuple3<String, SaltedTokenHash, Long>> getE164AssociatedRegistrationRecoveryPasswords(final int segments, final Scheduler scheduler) {
+    return registrationRecoveryPasswords.getE164AssociatedRegistrationRecoveryPasswords(segments, scheduler);
   }
 
   public CompletableFuture<Boolean> migrateE164Record(final String number, final SaltedTokenHash saltedTokenHash, final long expirationSeconds) {
