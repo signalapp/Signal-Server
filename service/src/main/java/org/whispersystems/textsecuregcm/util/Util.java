@@ -114,7 +114,8 @@ public class Util {
    *
    * @param number the e164-formatted phone number for which to find equivalent forms
    *
-   * @return a list of phone numbers equivalent to the given phone number, including the given number
+   * @return a list of phone numbers equivalent to the given phone number, including the given number. The given number
+   * will always be the first element of the list.
    */
   public static List<String> getAlternateForms(final String number) {
     try {
