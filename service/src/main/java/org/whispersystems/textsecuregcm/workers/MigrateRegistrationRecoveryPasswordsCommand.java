@@ -18,6 +18,8 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
+import java.time.Duration;
 
 public class MigrateRegistrationRecoveryPasswordsCommand extends AbstractCommandWithDependencies {
 
@@ -89,6 +91,7 @@ public class MigrateRegistrationRecoveryPasswordsCommand extends AbstractCommand
           return dryRun
               ? Mono.just(false)
               : Mono.fromFuture(() -> registrationRecoveryPasswordsManager.migrateE164Record(e164, saltedTokenHash, expiration))
+                  .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
                   .onErrorResume(throwable -> {
                         logger.warn("Failed to migrate record for {}", e164, throwable);
                         return Mono.empty();
