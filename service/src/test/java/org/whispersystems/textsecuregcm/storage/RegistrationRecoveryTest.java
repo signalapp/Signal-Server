@@ -73,7 +73,6 @@ public class RegistrationRecoveryTest {
     registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
         EXPIRATION,
-        DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         CLOCK
     );

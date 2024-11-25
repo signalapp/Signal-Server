@@ -167,9 +167,8 @@ record CommandDependencies(
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),
         configuration.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
-        dynamoDbClient,
-        dynamoDbAsyncClient
-    );
+        dynamoDbAsyncClient,
+        clock);
 
     ClientPublicKeys clientPublicKeys =
         new ClientPublicKeys(dynamoDbAsyncClient, configuration.getDynamoDbTables().getClientPublicKeys().getTableName());

@@ -23,7 +23,6 @@ import reactor.core.scheduler.Scheduler;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
@@ -33,7 +32,7 @@ import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 
-public class RegistrationRecoveryPasswords extends AbstractDynamoDbStore {
+public class RegistrationRecoveryPasswords {
 
   // As a temporary transitional measure, this can be either a string representation of an E164-formatted phone number
   // or a UUID (PNI) string
@@ -53,18 +52,8 @@ public class RegistrationRecoveryPasswords extends AbstractDynamoDbStore {
   public RegistrationRecoveryPasswords(
       final String tableName,
       final Duration expiration,
-      final DynamoDbClient dynamoDbClient,
-      final DynamoDbAsyncClient asyncClient) {
-    this(tableName, expiration, dynamoDbClient, asyncClient, Clock.systemUTC());
-  }
-
-  RegistrationRecoveryPasswords(
-      final String tableName,
-      final Duration expiration,
-      final DynamoDbClient dynamoDbClient,
       final DynamoDbAsyncClient asyncClient,
       final Clock clock) {
-    super(dynamoDbClient);
     this.tableName = requireNonNull(tableName);
     this.expiration = requireNonNull(expiration);
     this.asyncClient = requireNonNull(asyncClient);

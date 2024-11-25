@@ -35,14 +35,11 @@ public class IntegrationTools {
     final DynamoDbAsyncClient dynamoDbAsyncClient =
         config.dynamoDbClient().buildAsyncClient(credentialsProvider, new NoopAwsSdkMetricPublisher());
 
-    final DynamoDbClient dynamoDbClient =
-        config.dynamoDbClient().buildSyncClient(credentialsProvider, new NoopAwsSdkMetricPublisher());
-
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
         new PhoneNumberIdentifiers(dynamoDbAsyncClient, config.dynamoDbTables().phoneNumberIdentifiers());
 
     final RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
-        config.dynamoDbTables().registrationRecovery(), Duration.ofDays(1), dynamoDbClient, dynamoDbAsyncClient);
+        config.dynamoDbTables().registrationRecovery(), Duration.ofDays(1), dynamoDbAsyncClient, Clock.systemUTC());
 
     final VerificationSessions verificationSessions = new VerificationSessions(
         dynamoDbAsyncClient, config.dynamoDbTables().verificationSessions(), Clock.systemUTC());

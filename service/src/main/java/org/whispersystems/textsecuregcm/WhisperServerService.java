@@ -432,9 +432,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         config.getDynamoDbTables().getRegistrationRecovery().getTableName(),
         config.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
-        dynamoDbClient,
-        dynamoDbAsyncClient
-    );
+        dynamoDbAsyncClient,
+        clock);
     ClientPublicKeys clientPublicKeys =
         new ClientPublicKeys(dynamoDbAsyncClient, config.getDynamoDbTables().getClientPublicKeys().getTableName());
 
