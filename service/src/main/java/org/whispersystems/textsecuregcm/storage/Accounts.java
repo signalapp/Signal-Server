@@ -47,6 +47,8 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
+import reactor.util.function.Tuple3;
+import reactor.util.function.Tuples;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -57,6 +59,7 @@ import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
@@ -439,8 +442,10 @@ public class Accounts extends AbstractDynamoDbStore {
         writeItems.add(buildConstraintTablePut(phoneNumberIdentifierConstraintTableName, uuidAttr, ATTR_PNI_UUID, pniAttr));
         writeItems.add(buildRemoveDeletedAccount(number));
         writeItems.add(buildRemoveDeletedAccount(phoneNumberIdentifier));
-        maybeDisplacedAccountIdentifier.ifPresent(displacedAccountIdentifier ->
-            writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalNumber)));
+        maybeDisplacedAccountIdentifier.ifPresent(displacedAccountIdentifier -> {
+          writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalNumber));
+          writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalPni));
+        });
 
         // The `catch (TransactionCanceledException) block needs to check whether the cancellation reason is the account
         // update write item
@@ -1163,7 +1168,19 @@ public class Accounts extends AbstractDynamoDbStore {
             .item(Map.of(
                 DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164),
                 DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
-                DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(Instant.now().plus(DELETED_ACCOUNTS_TIME_TO_LIVE).getEpochSecond())))
+                DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(clock.instant().plus(DELETED_ACCOUNTS_TIME_TO_LIVE).getEpochSecond())))
+            .build())
+        .build();
+  }
+
+  private TransactWriteItem buildPutDeletedAccount(final UUID aci, final UUID pni) {
+    return TransactWriteItem.builder()
+        .put(Put.builder()
+            .tableName(deletedAccountsTableName)
+            .item(Map.of(
+                DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(pni.toString()),
+                DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(aci),
+                DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(clock.instant().plus(DELETED_ACCOUNTS_TIME_TO_LIVE).getEpochSecond())))
             .build())
         .build();
   }
@@ -1203,6 +1220,16 @@ public class Accounts extends AbstractDynamoDbStore {
     return Optional.ofNullable(AttributeValues.getUUID(response.item(), DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, null));
   }
 
+  public Optional<UUID> findRecentlyDeletedAccountIdentifier(final UUID phoneNumberIdentifier) {
+    final GetItemResponse response = db().getItem(GetItemRequest.builder()
+        .tableName(deletedAccountsTableName)
+        .consistentRead(true)
+        .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(phoneNumberIdentifier.toString())))
+        .build());
+
+    return Optional.ofNullable(AttributeValues.getUUID(response.item(), DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, null));
+  }
+
   public Optional<String> findRecentlyDeletedE164(final UUID uuid) {
     final QueryResponse response = db().query(QueryRequest.builder()
         .tableName(deletedAccountsTableName)
@@ -1232,7 +1259,8 @@ public class Accounts extends AbstractDynamoDbStore {
                   buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
                   buildDelete(accountsTableName, KEY_ACCOUNT_UUID, uuid),
                   buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
-                  buildPutDeletedAccount(uuid, account.getNumber())
+                  buildPutDeletedAccount(uuid, account.getNumber()),
+                  buildPutDeletedAccount(uuid, account.getPhoneNumberIdentifier())
               ));
 
               account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(
@@ -1266,6 +1294,68 @@ public class Accounts extends AbstractDynamoDbStore {
             .items()
             .map(Accounts::fromItem))
         .sequential();
+  }
+
+  public Flux<Tuple3<String, UUID, Long>> getE164KeyedDeletedAccounts(final int segments, final Scheduler scheduler) {
+    if (segments < 1) {
+      throw new IllegalArgumentException("Total number of segments must be positive");
+    }
+
+    return Flux.range(0, segments)
+        .parallel()
+        .runOn(scheduler)
+        .flatMap(segment -> asyncClient.scanPaginator(ScanRequest.builder()
+                .tableName(deletedAccountsTableName)
+                .consistentRead(true)
+                .segment(segment)
+                .totalSegments(segments)
+                .build())
+            .items())
+        .map(item ->
+            Tuples.of(
+                item.get(DELETED_ACCOUNTS_KEY_ACCOUNT_E164).s(),
+                AttributeValues.getUUID(item, DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, null),
+                AttributeValues.getLong(item, DELETED_ACCOUNTS_ATTR_EXPIRES, 0)))
+        .filter(item -> item.getT1().startsWith("+"))
+        .sequential();
+  }
+
+  public CompletableFuture<Boolean> insertPniDeletedAccount(final String e164, final UUID pni, final UUID aci, final long expiration) {
+    // This happens under a pessimistic lock, but that wasn't taken before we found the record we want to migrate,
+    // so make sure the e164 record is unchanged before updating the PNI record
+    return asyncClient.getItem(GetItemRequest.builder()
+        .tableName(deletedAccountsTableName)
+        .consistentRead(true)
+        .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164.toString())))
+        .build())
+        .thenComposeAsync(getItemResponse ->
+            getItemResponse.hasItem()
+            && AttributeValues.getString(
+                getItemResponse.item(), DELETED_ACCOUNTS_KEY_ACCOUNT_E164, "").equals(e164)
+            && AttributeValues.getUUID(
+                getItemResponse.item(), DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, UUID.randomUUID()).equals(aci)
+            && AttributeValues.getLong(
+                getItemResponse.item(), DELETED_ACCOUNTS_ATTR_EXPIRES, 0) == expiration
+            ? asyncClient.putItem(
+                PutItemRequest.builder()
+                    .tableName(deletedAccountsTableName)
+                    .item(
+                        Map.of(
+                            DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(pni.toString()),
+                            DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(aci),
+                            DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(expiration)))
+                    .conditionExpression("attribute_not_exists(#key)")
+                    .expressionAttributeNames(Map.of("#key", DELETED_ACCOUNTS_KEY_ACCOUNT_E164))
+                    .build())
+                .thenApply(ignored -> true)
+                .exceptionally(throwable -> {
+                  if (ExceptionUtils.unwrap(throwable) instanceof ConditionalCheckFailedException) {
+                    // there was already a PNI record; no problem, do nothing
+                    return false;
+                  }
+                  throw ExceptionUtils.wrap(throwable);
+                })
+            : CompletableFuture.completedFuture(false));
   }
 
   @Nonnull

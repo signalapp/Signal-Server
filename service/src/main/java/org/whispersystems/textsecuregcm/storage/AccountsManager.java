@@ -90,6 +90,7 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
+import reactor.util.function.Tuple3;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
 
@@ -1214,6 +1215,19 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
   public Flux<Account> streamAllFromDynamo(final int segments, final Scheduler scheduler) {
     return accounts.getAll(segments, scheduler);
+  }
+
+  public Flux<Tuple3<String, UUID, Long>> getE164KeyedDeletedAccounts(final int segments, final Scheduler scheduler) {
+    return accounts.getE164KeyedDeletedAccounts(segments, scheduler);
+  }
+
+  public CompletableFuture<Boolean> migrateDeletedAccount(final String e164, final UUID aci, final long expiration) {
+    return phoneNumberIdentifiers.getPhoneNumberIdentifier(e164)
+        .thenCompose(
+            pni -> accountLockManager.withLockAsync(
+                List.of(pni),
+                () -> accounts.insertPniDeletedAccount(e164, pni, aci, expiration),
+                accountLockExecutor));
   }
 
   public CompletableFuture<Void> delete(final Account account, final DeletionReason deletionReason) {
