@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.entities;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.util.ValidBase64URLString;
 
 public record RemoteAttachment(
@@ -17,6 +18,6 @@ public record RemoteAttachment(
 
     @NotBlank
     @ValidBase64URLString
-    @Schema(description = "The attachment key")
-    String key) {
-}
+    @Size(max = 64)
+    @Schema(description = "The attachment key", maxLength = 64)
+    String key) implements TransferArchiveResult {}

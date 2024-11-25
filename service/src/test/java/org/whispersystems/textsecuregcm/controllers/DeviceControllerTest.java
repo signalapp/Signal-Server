@@ -72,6 +72,7 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
+import org.whispersystems.textsecuregcm.entities.RemoteAttachmentError;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
@@ -1050,6 +1051,30 @@ class DeviceControllerTest {
     }
   }
 
+  @Test
+  void recordTransferArchiveFailed() {
+    final byte deviceId = Device.PRIMARY_ID + 1;
+    final Instant deviceCreated = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    final RemoteAttachmentError transferFailure = new RemoteAttachmentError(RemoteAttachmentError.ErrorType.CONTINUE_WITHOUT_UPLOAD);
+
+    when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
+    when(accountsManager.recordTransferArchiveUpload(AuthHelper.VALID_ACCOUNT, deviceId, deviceCreated, transferFailure))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/transfer_archive")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.entity(new TransferArchiveUploadedRequest(deviceId, deviceCreated.toEpochMilli(), transferFailure),
+            MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(204, response.getStatus());
+
+      verify(accountsManager)
+          .recordTransferArchiveUpload(AuthHelper.VALID_ACCOUNT, deviceId, deviceCreated, transferFailure);
+    }
+  }
+
   @ParameterizedTest
   @MethodSource
   void recordTransferArchiveUploadedBadRequest(final TransferArchiveUploadedRequest request) {
@@ -1112,6 +1137,26 @@ class DeviceControllerTest {
 
   @Test
   void waitForTransferArchive() {
+    final RemoteAttachment transferArchive =
+        new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
+
+    when(rateLimiter.validateAsync(anyString())).thenReturn(CompletableFuture.completedFuture(null));
+    when(accountsManager.waitForTransferArchive(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_DEVICE), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(transferArchive)));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/transfer_archive/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get()) {
+
+      assertEquals(200, response.getStatus());
+      assertEquals(transferArchive, response.readEntity(RemoteAttachment.class));
+    }
+  }
+
+  @Test
+  void waitForTransferArchiveUploadFailed() {
     final RemoteAttachment transferArchive =
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
 

@@ -67,6 +67,7 @@ import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
+import org.whispersystems.textsecuregcm.entities.TransferArchiveResult;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
@@ -522,8 +523,10 @@ public class DeviceController {
   @Operation(
       summary = "Signals that a transfer archive has been uploaded for a specific linked device",
       description = """
-          Signals that a transfer archive has been uploaded for a specific linked device. Devices waiting via the "wait
-          for transfer archive" endpoint will be notified that the new archive is available.
+          Signals that a transfer archive has been uploaded or failed for a specific linked device. Devices waiting via
+          the "wait for transfer archive" endpoint will be notified that the new archive is available.
+
+          If the uploader cannot upload the transfer archive, they must signal an error.
           """)
   @ApiResponse(responseCode = "204", description = "Success")
   @ApiResponse(responseCode = "422", description = "The request object could not be parsed or was otherwise invalid")
@@ -546,8 +549,8 @@ public class DeviceController {
           Waits for a new transfer archive to be uploaded for the authenticated device and returns the location of the
           archive when available.
           """)
-  @ApiResponse(responseCode = "200", description = "A new transfer archive was uploaded for the authenticated device",
-      content = @Content(schema = @Schema(implementation = RemoteAttachment.class)))
+  @ApiResponse(responseCode = "200", description = "Either a new transfer archive was uploaded for the authenticated device, or the upload has failed",
+      content = @Content(schema = @Schema(implementation = TransferArchiveResult.class)))
   @ApiResponse(responseCode = "204", description = "No transfer archive was uploaded before the call completed; clients may repeat the call to continue waiting")
   @ApiResponse(responseCode = "400", description = "The given timeout was invalid")
   @ApiResponse(responseCode = "429", description = "Rate-limited; try again after the prescribed delay")

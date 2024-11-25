@@ -12,10 +12,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
+import org.whispersystems.textsecuregcm.entities.RemoteAttachmentError;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
+import org.whispersystems.textsecuregcm.entities.TransferArchiveResult;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -97,10 +98,10 @@ public class AccountsManagerDeviceTransferIntegrationTest {
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
 
-    final CompletableFuture<Optional<RemoteAttachment>> displacedFuture =
+    final CompletableFuture<Optional<TransferArchiveResult>> displacedFuture =
         accountsManager.waitForTransferArchive(account, device, Duration.ofSeconds(5));
 
-    final CompletableFuture<Optional<RemoteAttachment>> activeFuture =
+    final CompletableFuture<Optional<TransferArchiveResult>> activeFuture =
         accountsManager.waitForTransferArchive(account, device, Duration.ofSeconds(5));
 
     assertEquals(Optional.empty(), displacedFuture.join());
@@ -129,6 +130,30 @@ public class AccountsManagerDeviceTransferIntegrationTest {
     accountsManager.recordTransferArchiveUpload(account, deviceId, Instant.ofEpochMilli(deviceCreated), transferArchive).join();
 
     assertEquals(Optional.of(transferArchive),
+        accountsManager.waitForTransferArchive(account, device, Duration.ofSeconds(5)).join());
+  }
+
+  @Test
+  void waitForErrorTransferArchive() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final byte deviceId = Device.PRIMARY_ID;
+    final long deviceCreated = System.currentTimeMillis();
+
+    final RemoteAttachmentError transferArchiveError =
+        new RemoteAttachmentError(RemoteAttachmentError.ErrorType.CONTINUE_WITHOUT_UPLOAD);
+
+    final Device device = mock(Device.class);
+    when(device.getId()).thenReturn(deviceId);
+    when(device.getCreated()).thenReturn(deviceCreated);
+
+    final Account account = mock(Account.class);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+
+    accountsManager
+        .recordTransferArchiveUpload(account, deviceId, Instant.ofEpochMilli(deviceCreated), transferArchiveError)
+        .join();
+
+    assertEquals(Optional.of(transferArchiveError),
         accountsManager.waitForTransferArchive(account, device, Duration.ofSeconds(5)).join());
   }
 
