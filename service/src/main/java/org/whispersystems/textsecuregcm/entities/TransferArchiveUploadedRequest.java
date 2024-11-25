@@ -25,4 +25,8 @@ public record TransferArchiveUploadedRequest(
 
     @NotNull
     @Valid
+    @Schema(description = """
+          The location of the transfer archive if the archive was successfully uploaded, otherwise a error indicating that
+           the upload has failed and the destination device should stop waiting
+          """, oneOf = {RemoteAttachment.class, RemoteAttachmentError.class})
     TransferArchiveResult transferArchive) {}

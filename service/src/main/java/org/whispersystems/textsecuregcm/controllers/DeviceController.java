@@ -65,6 +65,7 @@ import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.PreKeySignatureValidator;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
+import org.whispersystems.textsecuregcm.entities.RemoteAttachmentError;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
 import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveResult;
@@ -550,7 +551,10 @@ public class DeviceController {
           archive when available.
           """)
   @ApiResponse(responseCode = "200", description = "Either a new transfer archive was uploaded for the authenticated device, or the upload has failed",
-      content = @Content(schema = @Schema(implementation = TransferArchiveResult.class)))
+      content = @Content(schema = @Schema(description = """
+          The location of the transfer archive if the archive was successfully uploaded, otherwise a error indicating that
+           the upload has failed and the destination device should stop waiting
+          """, oneOf = {RemoteAttachment.class, RemoteAttachmentError.class})))
   @ApiResponse(responseCode = "204", description = "No transfer archive was uploaded before the call completed; clients may repeat the call to continue waiting")
   @ApiResponse(responseCode = "400", description = "The given timeout was invalid")
   @ApiResponse(responseCode = "429", description = "Rate-limited; try again after the prescribed delay")

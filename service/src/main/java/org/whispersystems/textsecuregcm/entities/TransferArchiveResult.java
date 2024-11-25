@@ -14,8 +14,4 @@ import io.swagger.v3.oas.annotations.media.Schema;
     @JsonSubTypes.Type(value = RemoteAttachment.class, name = "success"),
     @JsonSubTypes.Type(value = RemoteAttachmentError.class, name = "error"),
 })
-@Schema(description = """
-        The location of the transfer archive if the archive was successfully uploaded, otherwise a error indicating that
-         the upload has failed and the destination device should stop waiting
-        """, oneOf = {RemoteAttachmentError.class, RemoteAttachment.class})
 public sealed interface TransferArchiveResult permits RemoteAttachment, RemoteAttachmentError {}
