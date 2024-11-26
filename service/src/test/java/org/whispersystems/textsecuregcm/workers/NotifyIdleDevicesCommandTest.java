@@ -67,6 +67,7 @@ class NotifyIdleDevicesCommandTest {
           null,
           null,
           null,
+          null,
           null);
 
       this.idleDeviceNotificationScheduler = idleDeviceNotificationScheduler;

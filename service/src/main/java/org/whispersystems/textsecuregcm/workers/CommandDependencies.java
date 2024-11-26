@@ -88,7 +88,8 @@ record CommandDependencies(
     ClientResources.Builder redisClusterClientResourcesBuilder,
     BackupManager backupManager,
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-    DynamoDbAsyncClient dynamoDbAsyncClient) {
+    DynamoDbAsyncClient dynamoDbAsyncClient,
+    PhoneNumberIdentifiers phoneNumberIdentifiers) {
 
   static CommandDependencies build(
       final String name,
@@ -287,7 +288,8 @@ record CommandDependencies(
         redisClientResourcesBuilder,
         backupManager,
         dynamicConfigurationManager,
-        dynamoDbAsyncClient
+        dynamoDbAsyncClient,
+        phoneNumberIdentifiers
     );
   }
 
