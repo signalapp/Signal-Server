@@ -1691,7 +1691,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TransferArchiveResult'
+                description: |
+                  The location of the transfer archive if the archive was successfully uploaded, otherwise a error indicating that
+                   the upload has failed and the destination device should stop waiting
+                oneOf:
+                - $ref: '#/components/schemas/RemoteAttachment'
+                - $ref: '#/components/schemas/RemoteAttachmentError'
         "204":
           description: No transfer archive was uploaded before the call completed;
             clients may repeat the call to continue waiting
@@ -4264,19 +4269,16 @@ components:
       - cdn
       - key
       type: object
-      allOf:
-      - $ref: '#/components/schemas/TransferArchiveResult'
-      - type: object
-        properties:
-          cdn:
-            type: integer
-            description: The attachment cdn
-            format: int32
-          key:
-            maxLength: 64
-            minLength: 0
-            type: string
-            description: The attachment key
+      properties:
+        cdn:
+          type: integer
+          description: The attachment cdn
+          format: int32
+        key:
+          maxLength: 64
+          minLength: 0
+          type: string
+          description: The attachment key
     CopyMediaResponse:
       required:
       - cdn
@@ -4664,25 +4666,22 @@ components:
       required:
       - error
       type: object
+      properties:
+        error:
+          type: string
+          description: The type of error encountered
+          enum:
+          - RELINK_REQUESTED
+          - CONTINUE_WITHOUT_UPLOAD
       description: Indicates an attachment failed to upload
-      allOf:
-      - $ref: '#/components/schemas/TransferArchiveResult'
-      - type: object
-        properties:
-          error:
-            type: string
-            description: The type of error encountered
-            enum:
-            - RELINK_REQUESTED
-            - CONTINUE_WITHOUT_UPLOAD
     TransferArchiveResult:
       type: object
       description: |
         The location of the transfer archive if the archive was successfully uploaded, otherwise a error indicating that
          the upload has failed and the destination device should stop waiting
       oneOf:
-      - $ref: '#/components/schemas/RemoteAttachmentError'
       - $ref: '#/components/schemas/RemoteAttachment'
+      - $ref: '#/components/schemas/RemoteAttachmentError'
     TransferArchiveUploadedRequest:
       required:
       - transferArchive
