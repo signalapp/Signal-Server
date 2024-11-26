@@ -15,8 +15,6 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
-import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Scheduler;
 import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
 
 public class RegistrationRecoveryPasswordsManager {
@@ -52,18 +50,6 @@ public class RegistrationRecoveryPasswordsManager {
         });
   }
 
-  public CompletableFuture<Void> removeForE164(final String number) {
-    return registrationRecoveryPasswords.removeEntry(number)
-        .whenComplete((ignored, error) -> {
-          if (error instanceof ResourceNotFoundException) {
-            // These will naturally happen if a recovery password is already deleted. Since we can remove
-            // the recovery password through many flows, we avoid creating log messages for these exceptions
-          } else if (error != null) {
-            logger.warn("Failed to remove Registration Recovery Password", error);
-          }
-        });
-  }
-
   public CompletableFuture<Void> remove(final UUID phoneNumberIdentifier) {
     return registrationRecoveryPasswords.removeEntry(phoneNumberIdentifier)
         .whenComplete((ignored, error) -> {
@@ -74,10 +60,6 @@ public class RegistrationRecoveryPasswordsManager {
             logger.warn("Failed to remove Registration Recovery Password", error);
           }
         });
-  }
-
-  public Flux<String> getE164sWithRegistrationRecoveryPasswords(final int segments, final int bufferSize, final Scheduler scheduler) {
-    return registrationRecoveryPasswords.getE164sWithRegistrationRecoveryPasswords(segments, bufferSize, scheduler);
   }
 
   private static String bytesToString(final byte[] bytes) {
