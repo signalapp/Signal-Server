@@ -18,6 +18,8 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
+import java.time.Duration;
 
 public class MigrateDeletedAccountsCommand extends AbstractCommandWithDependencies {
 
@@ -79,7 +81,6 @@ public class MigrateDeletedAccountsCommand extends AbstractCommandWithDependenci
     final int concurrency = namespace.getInt(MAX_CONCURRENCY_ARGUMENT);
     final boolean dryRun = namespace.getBoolean(DRY_RUN_ARGUMENT);
 
-    final String deletedAccountsTableName = configuration.getDynamoDbTables().getDeletedAccounts().getTableName();
     logger.info("Crawling deleted accounts with {} segments and {} processors",
         segments,
         Runtime.getRuntime().availableProcessors());
@@ -98,8 +99,13 @@ public class MigrateDeletedAccountsCommand extends AbstractCommandWithDependenci
             tuple -> dryRun
                 ? Mono.just(false)
                 : Mono.fromFuture(
-                    accounts.migrateDeletedAccount(
-                        tuple.getT1(), tuple.getT2(), tuple.getT3())),
+                        accounts.migrateDeletedAccount(
+                            tuple.getT1(), tuple.getT2(), tuple.getT3()))
+                    .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+                    .onErrorResume(throwable -> {
+                      logger.warn("Failed to migrate record for {}", tuple.getT1(), throwable);
+                      return Mono.empty();
+                    }),
             concurrency)
         .filter(migrated -> migrated)
         .doOnNext(ignored -> recordsMigratedCounter.increment())
