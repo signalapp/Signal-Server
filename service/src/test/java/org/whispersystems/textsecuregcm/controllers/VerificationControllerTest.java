@@ -582,7 +582,7 @@ class VerificationControllerTest {
       assertTrue(verificationSessionResponse.verified());
       assertTrue(verificationSessionResponse.requestedInformation().isEmpty());
 
-      verify(registrationRecoveryPasswordsManager).removeForNumber(registrationServiceSession.number());
+      verify(registrationRecoveryPasswordsManager).remove(PNI);
     }
   }
 
@@ -879,7 +879,7 @@ class VerificationControllerTest {
     try (Response response = request.get()) {
       assertEquals(HttpStatus.SC_OK, response.getStatus());
 
-      verify(registrationRecoveryPasswordsManager).removeForNumber(registrationServiceSession.number());
+      verify(registrationRecoveryPasswordsManager).remove(PNI);
     }
   }
 
@@ -1204,7 +1204,7 @@ class VerificationControllerTest {
           VerificationSessionResponse.class);
       assertTrue(verificationSessionResponse.verified());
 
-      verify(registrationRecoveryPasswordsManager).removeForNumber(registrationServiceSession.number());
+      verify(registrationRecoveryPasswordsManager).remove(PNI);
     }
   }
 
@@ -1336,7 +1336,7 @@ class VerificationControllerTest {
 
       assertTrue(verificationSessionResponse.verified());
 
-      verify(registrationRecoveryPasswordsManager).removeForNumber(verifiedSession.number());
+      verify(registrationRecoveryPasswordsManager).remove(PNI);
     }
   }
 

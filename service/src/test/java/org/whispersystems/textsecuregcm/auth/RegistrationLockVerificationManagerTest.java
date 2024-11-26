@@ -103,9 +103,9 @@ class RegistrationLockVerificationManagerTest {
           if (e instanceof WebApplicationException wae) {
             assertEquals(RegistrationLockVerificationManager.FAILURE_HTTP_STATUS, wae.getResponse().getStatus());
             if (!verificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
-              verify(registrationRecoveryPasswordsManager).removeForNumber(account.getNumber());
+              verify(registrationRecoveryPasswordsManager).remove(account.getIdentifier(IdentityType.PNI));
             } else {
-              verify(registrationRecoveryPasswordsManager, never()).removeForNumber(any());
+              verify(registrationRecoveryPasswordsManager, never()).remove(any());
             }
             verify(disconnectionRequestManager).requestDisconnection(account.getUuid(), List.of(Device.PRIMARY_ID));
             try {
@@ -133,7 +133,7 @@ class RegistrationLockVerificationManagerTest {
           } catch (final NotPushRegisteredException ignored2) {
           }
 
-          verify(registrationRecoveryPasswordsManager, never()).removeForNumber(any());
+          verify(registrationRecoveryPasswordsManager, never()).remove(any());
           verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
         });
       }
@@ -171,7 +171,7 @@ class RegistrationLockVerificationManagerTest {
             PhoneVerificationRequest.VerificationType.SESSION));
 
     verify(account, never()).lockAuthTokenHash();
-    verify(registrationRecoveryPasswordsManager, never()).removeForNumber(any());
+    verify(registrationRecoveryPasswordsManager, never()).remove(any());
     verify(disconnectionRequestManager, never()).requestDisconnection(any(), any());
   }
 

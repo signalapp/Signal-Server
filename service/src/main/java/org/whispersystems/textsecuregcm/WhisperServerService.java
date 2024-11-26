@@ -586,7 +586,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(
         dynamicConfigurationManager);
     RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
-        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords, phoneNumberIdentifiers);
+        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
     UsernameHashZkProofVerifier usernameHashZkProofVerifier = new UsernameHashZkProofVerifier();
 
     RegistrationServiceClient registrationServiceClient = config.getRegistrationServiceConfiguration()

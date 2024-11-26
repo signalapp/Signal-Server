@@ -786,7 +786,7 @@ class AccountControllerTest {
             .withRecoveryPassword(recoveryPassword)))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
-      verify(registrationRecoveryPasswordsManager).storeForCurrentNumber(eq(AuthHelper.UNDISCOVERABLE_NUMBER), eq(recoveryPassword));
+      verify(registrationRecoveryPasswordsManager).store(AuthHelper.UNDISCOVERABLE_PNI, recoveryPassword);
     }
   }
 

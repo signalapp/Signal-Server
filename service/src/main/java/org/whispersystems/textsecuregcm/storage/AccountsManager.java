@@ -385,7 +385,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         Metrics.counter(CREATE_COUNTER_NAME, tags).increment();
 
         accountAttributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
-            registrationRecoveryPasswordsManager.storeForCurrentNumber(account.getNumber(),
+            registrationRecoveryPasswordsManager.store(account.getIdentifier(IdentityType.PNI),
                 registrationRecoveryPassword));
       }, accountLockExecutor);
 
@@ -1279,7 +1279,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
             messagesManager.clear(account.getUuid()),
             profilesManager.deleteAll(account.getUuid()),
-            registrationRecoveryPasswordsManager.removeForNumber(account.getNumber()))
+            registrationRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI)))
         .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
         .thenCompose(ignored -> redisDeleteAsync(account))
         .thenRun(() -> disconnectionRequestManager.requestDisconnection(account.getUuid()));

@@ -137,7 +137,7 @@ public class AddRemoveDeviceIntegrationTest {
     final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         mock(RegistrationRecoveryPasswordsManager.class);
 
-    when(registrationRecoveryPasswordsManager.removeForNumber(any()))
+    when(registrationRecoveryPasswordsManager.remove(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     PUBSUB_SERVER_EXTENSION.getRedisClient().useConnection(connection -> {

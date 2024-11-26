@@ -13,7 +13,6 @@ import java.util.concurrent.CompletableFuture;
 import org.signal.integration.config.Config;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
-import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
@@ -35,9 +34,6 @@ public class IntegrationTools {
     final DynamoDbAsyncClient dynamoDbAsyncClient =
         config.dynamoDbClient().buildAsyncClient(credentialsProvider, new NoopAwsSdkMetricPublisher());
 
-    final PhoneNumberIdentifiers phoneNumberIdentifiers =
-        new PhoneNumberIdentifiers(dynamoDbAsyncClient, config.dynamoDbTables().phoneNumberIdentifiers());
-
     final RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         config.dynamoDbTables().registrationRecovery(), Duration.ofDays(1), dynamoDbAsyncClient, Clock.systemUTC());
 
@@ -45,7 +41,7 @@ public class IntegrationTools {
         dynamoDbAsyncClient, config.dynamoDbTables().verificationSessions(), Clock.systemUTC());
 
     return new IntegrationTools(
-        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords, phoneNumberIdentifiers),
+        new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords),
         new VerificationSessionManager(verificationSessions)
     );
   }
@@ -57,8 +53,8 @@ public class IntegrationTools {
     this.verificationSessionManager = verificationSessionManager;
   }
 
-  public CompletableFuture<Void> populateRecoveryPassword(final String number, final byte[] password) {
-    return registrationRecoveryPasswordsManager.storeForCurrentNumber(number, password);
+  public CompletableFuture<Void> populateRecoveryPassword(final UUID phoneNumberIdentifier, final byte[] password) {
+    return registrationRecoveryPasswordsManager.store(phoneNumberIdentifier, password);
   }
 
   public CompletableFuture<Optional<String>> peekVerificationSessionPushChallenge(final String sessionId) {

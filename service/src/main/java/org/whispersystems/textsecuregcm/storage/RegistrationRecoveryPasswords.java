@@ -19,11 +19,9 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-import software.amazon.awssdk.services.dynamodb.model.Delete;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.Put;
-import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
-import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
 public class RegistrationRecoveryPasswords {
 
@@ -64,50 +62,26 @@ public class RegistrationRecoveryPasswords {
             .map(RegistrationRecoveryPasswords::saltedTokenHashFromItem));
   }
 
-  public CompletableFuture<Void> addOrReplace(final String number, final UUID phoneNumberIdentifier, final SaltedTokenHash data) {
+  public CompletableFuture<Void> addOrReplace(final UUID phoneNumberIdentifier, final SaltedTokenHash data) {
     final long expirationSeconds = expirationSeconds();
 
-    return asyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
-            .transactItems(
-                buildPutRecoveryPasswordWriteItem(number, expirationSeconds, data.salt(), data.hash()),
-                buildPutRecoveryPasswordWriteItem(phoneNumberIdentifier.toString(), expirationSeconds, data.salt(), data.hash()))
-        .build())
-        .thenRun(Util.NOOP);
-  }
-
-  private TransactWriteItem buildPutRecoveryPasswordWriteItem(final String key,
-      final long expirationSeconds,
-      final String salt,
-      final String hash) {
-
-    return TransactWriteItem.builder()
-        .put(Put.builder()
+    return asyncClient.putItem(PutItemRequest.builder()
             .tableName(tableName)
             .item(Map.of(
-                KEY_PNI, AttributeValues.fromString(key),
+                KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString()),
                 ATTR_EXP, AttributeValues.fromLong(expirationSeconds),
-                ATTR_SALT, AttributeValues.fromString(salt),
-                ATTR_HASH, AttributeValues.fromString(hash)))
+                ATTR_SALT, AttributeValues.fromString(data.salt()),
+                ATTR_HASH, AttributeValues.fromString(data.hash())))
             .build())
-        .build();
-  }
-
-  public CompletableFuture<Void> removeEntry(final String number, final UUID phoneNumberIdentifier) {
-    return asyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
-        .transactItems(
-            buildDeleteRecoveryPasswordWriteItem(number),
-            buildDeleteRecoveryPasswordWriteItem(phoneNumberIdentifier.toString()))
-        .build())
         .thenRun(Util.NOOP);
   }
 
-  private TransactWriteItem buildDeleteRecoveryPasswordWriteItem(final String key) {
-    return TransactWriteItem.builder()
-        .delete(Delete.builder()
+  public CompletableFuture<Void> removeEntry(final UUID phoneNumberIdentifier) {
+    return asyncClient.deleteItem(DeleteItemRequest.builder()
             .tableName(tableName)
-            .key(Map.of(KEY_PNI, AttributeValues.fromString(key)))
+            .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
             .build())
-        .build();
+        .thenRun(Util.NOOP);
   }
 
   @VisibleForTesting

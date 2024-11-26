@@ -137,7 +137,7 @@ public class AccountCreationDeletionIntegrationTest {
     final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         mock(RegistrationRecoveryPasswordsManager.class);
 
-    when(registrationRecoveryPasswordsManager.removeForNumber(any()))
+    when(registrationRecoveryPasswordsManager.remove(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);

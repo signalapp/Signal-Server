@@ -114,7 +114,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(rateLimiter.validateReactive(any(UUID.class))).thenReturn(Mono.empty());
     when(rateLimiter.validateReactive(anyString())).thenReturn(Mono.empty());
 
-    when(registrationRecoveryPasswordsManager.storeForCurrentNumber(any(), any()))
+    when(registrationRecoveryPasswordsManager.store(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     return new AccountsGrpcService(accountsManager,
@@ -700,7 +700,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
             .setRegistrationRecoveryPassword(ByteString.copyFrom(registrationRecoveryPassword))
             .build()));
 
-    verify(registrationRecoveryPasswordsManager).storeForCurrentNumber(account.getNumber(), registrationRecoveryPassword);
+    verify(registrationRecoveryPasswordsManager).store(account.getIdentifier(IdentityType.PNI), registrationRecoveryPassword);
   }
 
   @Test

@@ -602,7 +602,7 @@ public class VerificationController {
     }
 
     if (resultSession.verified()) {
-      registrationRecoveryPasswordsManager.removeForNumber(registrationServiceSession.number());
+      registrationRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join());
     }
 
     Metrics.counter(VERIFIED_COUNTER_NAME, Tags.of(
@@ -648,7 +648,7 @@ public class VerificationController {
           .orElseThrow(NotFoundException::new);
 
       if (registrationServiceSession.verified()) {
-        registrationRecoveryPasswordsManager.removeForNumber(registrationServiceSession.number());
+        registrationRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join());
       }
 
       return registrationServiceSession;
