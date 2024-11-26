@@ -10,18 +10,25 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.Util;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Scheduler;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 
 public class RegistrationRecoveryPasswords {
 
@@ -76,6 +83,14 @@ public class RegistrationRecoveryPasswords {
         .thenRun(Util.NOOP);
   }
 
+  CompletableFuture<Void> removeEntry(final String number) {
+    return asyncClient.deleteItem(DeleteItemRequest.builder()
+            .tableName(tableName)
+            .key(Map.of(KEY_PNI, AttributeValues.fromString(number)))
+            .build())
+        .thenRun(Util.NOOP);
+  }
+
   public CompletableFuture<Void> removeEntry(final UUID phoneNumberIdentifier) {
     return asyncClient.deleteItem(DeleteItemRequest.builder()
             .tableName(tableName)
@@ -87,6 +102,36 @@ public class RegistrationRecoveryPasswords {
   @VisibleForTesting
   long expirationSeconds() {
     return clock.instant().plus(expiration).getEpochSecond();
+  }
+
+  Flux<String> getE164sWithRegistrationRecoveryPasswords(final int segments, final int bufferSize, final Scheduler scheduler) {
+    if (segments < 1) {
+      throw new IllegalArgumentException("Total number of segments must be positive");
+    }
+
+    return Flux.range(0, segments)
+        .parallel()
+        .runOn(scheduler)
+        .flatMap(segment -> asyncClient.scanPaginator(ScanRequest.builder()
+                .tableName(tableName)
+                .consistentRead(true)
+                .segment(segment)
+                .totalSegments(segments)
+                .filterExpression("begins_with(#key, :e164Prefix)")
+                .expressionAttributeNames(Map.of("#key", KEY_PNI))
+                .expressionAttributeValues(Map.of(":e164Prefix", AttributeValue.fromS("+")))
+                .build())
+            .items()
+            .map(item -> item.get(KEY_PNI).s()))
+        .sequential()
+        .buffer(bufferSize)
+        .map(source -> {
+          final List<String> shuffled = new ArrayList<>(source);
+          Collections.shuffle(shuffled);
+          return shuffled;
+        })
+        .limitRate(2)
+        .flatMapIterable(Function.identity());
   }
 
   private static SaltedTokenHash saltedTokenHashFromItem(final Map<String, AttributeValue> item) {

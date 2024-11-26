@@ -259,6 +259,7 @@ import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.BackupMetricsCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
+import org.whispersystems.textsecuregcm.workers.DeleteE164RegistrationRecoveryPasswordsCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.IdleDeviceNotificationSchedulerFactory;
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
@@ -332,6 +333,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new IdleDeviceNotificationSchedulerFactory()));
 
     bootstrap.addCommand(new MigrateDeletedAccountsCommand());
+    bootstrap.addCommand(new DeleteE164RegistrationRecoveryPasswordsCommand());
   }
 
   @Override

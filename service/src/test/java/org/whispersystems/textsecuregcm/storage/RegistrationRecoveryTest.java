@@ -13,11 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -26,8 +28,10 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
+import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
 public class RegistrationRecoveryTest {
 
@@ -136,6 +140,35 @@ public class RegistrationRecoveryTest {
     assertFalse(manager.verify(PNI, updatedPassword).get());
     assertFalse(manager.verify(PNI, password).get());
     assertFalse(manager.verify(PNI, wrongPassword).get());
+  }
+
+  @Test
+  void getE164AssociatedRegistrationRecoveryPasswords() {
+    final String phoneNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
+        .tableName(Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName())
+        .item(Map.of(
+            RegistrationRecoveryPasswords.KEY_PNI, AttributeValues.fromString(PNI.toString()),
+            RegistrationRecoveryPasswords.ATTR_EXP, AttributeValues.fromLong(registrationRecoveryPasswords.expirationSeconds()),
+            RegistrationRecoveryPasswords.ATTR_SALT, AttributeValues.fromString(ORIGINAL_HASH.salt()),
+            RegistrationRecoveryPasswords.ATTR_HASH, AttributeValues.fromString(ORIGINAL_HASH.hash())))
+        .build());
+
+    DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
+        .tableName(Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName())
+        .item(Map.of(
+            RegistrationRecoveryPasswords.KEY_PNI, AttributeValues.fromString(phoneNumber),
+            RegistrationRecoveryPasswords.ATTR_EXP, AttributeValues.fromLong(registrationRecoveryPasswords.expirationSeconds()),
+            RegistrationRecoveryPasswords.ATTR_SALT, AttributeValues.fromString(ORIGINAL_HASH.salt()),
+            RegistrationRecoveryPasswords.ATTR_HASH, AttributeValues.fromString(ORIGINAL_HASH.hash())))
+        .build());
+
+    assertEquals(List.of(phoneNumber),
+        registrationRecoveryPasswords.getE164sWithRegistrationRecoveryPasswords(2, 2, Schedulers.parallel())
+            .collectList().block());
   }
 
   private static long fetchTimestamp(final UUID phoneNumberIdentifier) throws ExecutionException, InterruptedException {
