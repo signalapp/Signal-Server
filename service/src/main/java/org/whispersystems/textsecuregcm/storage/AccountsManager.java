@@ -1212,14 +1212,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return accounts.findRecentlyDeletedPhoneNumberIdentifier(accountIdentifier);
   }
 
-  public Flux<String> getE164sForRecentlyDeletedAccounts(final int segments, final Scheduler scheduler) {
-    return accounts.getE164sForRecentlyDeletedAccounts(segments, scheduler);
-  }
-
-  public CompletableFuture<Void> removeRecentlyDeletedAccountRecord(final String e164) {
-    return accounts.removeRecentlyDeletedAccountRecord(e164);
-  }
-
   public Flux<Account> streamAllFromDynamo(final int segments, final Scheduler scheduler) {
     return accounts.getAll(segments, scheduler);
   }

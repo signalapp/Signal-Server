@@ -54,7 +54,6 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.Delete;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
@@ -1244,36 +1243,6 @@ public class Accounts {
                 .build())
             .items()
             .map(Accounts::fromItem))
-        .sequential();
-  }
-
-  CompletableFuture<Void> removeRecentlyDeletedAccountRecord(final String e164) {
-    return asyncClient.deleteItem(DeleteItemRequest.builder()
-            .tableName(deletedAccountsTableName)
-            .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_PNI, AttributeValues.fromString(e164)))
-            .build())
-        .thenRun(Util.NOOP);
-  }
-
-  Flux<String> getE164sForRecentlyDeletedAccounts(final int segments, final Scheduler scheduler) {
-    if (segments < 1) {
-      throw new IllegalArgumentException("Total number of segments must be positive");
-    }
-
-    return Flux.range(0, segments)
-        .parallel()
-        .runOn(scheduler)
-        .flatMap(segment -> dynamoDbAsyncClient.scanPaginator(ScanRequest.builder()
-                .tableName(deletedAccountsTableName)
-                .consistentRead(true)
-                .segment(segment)
-                .totalSegments(segments)
-                .filterExpression("begins_with(#key, :e164Prefix)")
-                .expressionAttributeNames(Map.of("#key", DELETED_ACCOUNTS_KEY_ACCOUNT_PNI))
-                .expressionAttributeValues(Map.of(":e164Prefix", AttributeValue.fromS("+")))
-                .build())
-            .items())
-        .map(item -> item.get(DELETED_ACCOUNTS_KEY_ACCOUNT_PNI).s())
         .sequential();
   }
 
