@@ -22,6 +22,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -65,7 +66,6 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import reactor.core.scheduler.Schedulers;
-import reactor.util.function.Tuples;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -75,7 +75,6 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
@@ -1700,13 +1699,29 @@ class AccountsTest {
   }
 
   @Test
-  public void getE164KeyedDeletedAccounts() {
-    final Account deletedAccount = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
+  public void getE164sForRecentlyDeletedAccounts() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final UUID phoneNumberIdentifier = UUID.randomUUID();
+    final String phoneNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"),
+        PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final Account deletedAccount = generateAccount(phoneNumber, accountIdentifier, phoneNumberIdentifier);
     createAccount(deletedAccount);
     accounts.delete(deletedAccount.getUuid(), List.of()).join();
+
+    // Artificially insert this row to simulate legacy data
+    DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
+        .tableName(Tables.DELETED_ACCOUNTS.tableName())
+        .item(Map.of(
+            Accounts.DELETED_ACCOUNTS_KEY_ACCOUNT_PNI, AttributeValues.fromString(phoneNumber),
+            Accounts.DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier),
+            Accounts.DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(clock.instant().plus(Accounts.DELETED_ACCOUNTS_TIME_TO_LIVE).getEpochSecond())))
+        .build());
+
     assertEquals(
-        List.of(Tuples.of("+18005551234", deletedAccount.getUuid(), clock.instant().plus(Accounts.DELETED_ACCOUNTS_TIME_TO_LIVE).toEpochMilli() / 1000)),
-        accounts.getE164KeyedDeletedAccounts(1, Schedulers.immediate()).collectList().block());
+        List.of(phoneNumber),
+        accounts.getE164sForRecentlyDeletedAccounts(1, Schedulers.immediate()).collectList().block());
   }
 
   private static Device generateDevice(byte id) {

@@ -47,8 +47,6 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
-import reactor.util.function.Tuple3;
-import reactor.util.function.Tuples;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -59,7 +57,6 @@ import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
-import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
@@ -245,11 +242,10 @@ public class Accounts extends AbstractDynamoDbStore {
 
       // Clear any "recently deleted account" record for this number since, if it existed, we've used its old ACI for
       // the newly-created account.
-      final TransactWriteItem deletedAccountDelete = buildRemoveDeletedAccount(account.getNumber());
-      final TransactWriteItem deletedAccountDeletePNI = buildRemoveDeletedAccount(account.getPhoneNumberIdentifier());
+      final TransactWriteItem deletedAccountDelete = buildRemoveDeletedAccount(account.getPhoneNumberIdentifier());
 
       final Collection<TransactWriteItem> writeItems = new ArrayList<>(
-          List.of(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut, deletedAccountDeletePNI, deletedAccountDelete));
+          List.of(phoneNumberConstraintPut, phoneNumberIdentifierConstraintPut, accountPut, deletedAccountDelete));
 
       writeItems.addAll(additionalWriteItems);
 
@@ -443,12 +439,9 @@ public class Accounts extends AbstractDynamoDbStore {
         writeItems.add(buildConstraintTablePut(phoneNumberConstraintTableName, uuidAttr, ATTR_ACCOUNT_E164, numberAttr));
         writeItems.add(buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, originalPni));
         writeItems.add(buildConstraintTablePut(phoneNumberIdentifierConstraintTableName, uuidAttr, ATTR_PNI_UUID, pniAttr));
-        writeItems.add(buildRemoveDeletedAccount(number));
         writeItems.add(buildRemoveDeletedAccount(phoneNumberIdentifier));
-        maybeDisplacedAccountIdentifier.ifPresent(displacedAccountIdentifier -> {
-          writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalNumber));
-          writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalPni));
-        });
+        maybeDisplacedAccountIdentifier.ifPresent(displacedAccountIdentifier ->
+            writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalPni)));
 
         // The `catch (TransactionCanceledException) block needs to check whether the cancellation reason is the account
         // update write item
@@ -618,7 +611,7 @@ public class Accounts extends AbstractDynamoDbStore {
           if (conditionalCheckFailed(e.cancellationReasons().get(0))) {
             // The constraint table update failed the condition check. It could be because the username was taken,
             // or because we need to retry with a longer TTL
-            final Map<String, AttributeValue> item = e.cancellationReasons().get(0).item();
+            final Map<String, AttributeValue> item = e.cancellationReasons().getFirst().item();
             final UUID existingOwner = AttributeValues.getUUID(item, UsernameTable.ATTR_ACCOUNT_UUID, null);
             final boolean confirmed = AttributeValues.getBool(item, UsernameTable.ATTR_CONFIRMED, false);
             final long existingTtl = AttributeValues.getLong(item, UsernameTable.ATTR_TTL, 0L);
@@ -1076,7 +1069,7 @@ public class Accounts extends AbstractDynamoDbStore {
             final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
 
             if (unwrapped instanceof TransactionCanceledException transactionCanceledException) {
-              if (CONDITIONAL_CHECK_FAILED.equals(transactionCanceledException.cancellationReasons().get(0).code())) {
+              if (CONDITIONAL_CHECK_FAILED.equals(transactionCanceledException.cancellationReasons().getFirst().code())) {
                 throw new ContestedOptimisticLockException();
               }
 
@@ -1164,18 +1157,6 @@ public class Accounts extends AbstractDynamoDbStore {
             .map(Accounts::fromItem)));
   }
 
-  private TransactWriteItem buildPutDeletedAccount(final UUID uuid, final String e164) {
-    return TransactWriteItem.builder()
-        .put(Put.builder()
-            .tableName(deletedAccountsTableName)
-            .item(Map.of(
-                DELETED_ACCOUNTS_KEY_ACCOUNT_PNI, AttributeValues.fromString(e164),
-                DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(uuid),
-                DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(clock.instant().plus(DELETED_ACCOUNTS_TIME_TO_LIVE).getEpochSecond())))
-            .build())
-        .build();
-  }
-
   private TransactWriteItem buildPutDeletedAccount(final UUID aci, final UUID pni) {
     return TransactWriteItem.builder()
         .put(Put.builder()
@@ -1184,15 +1165,6 @@ public class Accounts extends AbstractDynamoDbStore {
                 DELETED_ACCOUNTS_KEY_ACCOUNT_PNI, AttributeValues.fromString(pni.toString()),
                 DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(aci),
                 DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(clock.instant().plus(DELETED_ACCOUNTS_TIME_TO_LIVE).getEpochSecond())))
-            .build())
-        .build();
-  }
-
-  private TransactWriteItem buildRemoveDeletedAccount(final String e164) {
-    return TransactWriteItem.builder()
-        .delete(Delete.builder()
-            .tableName(deletedAccountsTableName)
-            .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_PNI, AttributeValues.fromString(e164)))
             .build())
         .build();
   }
@@ -1253,7 +1225,6 @@ public class Accounts extends AbstractDynamoDbStore {
                   buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
                   buildDelete(accountsTableName, KEY_ACCOUNT_UUID, uuid),
                   buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
-                  buildPutDeletedAccount(uuid, account.getNumber()),
                   buildPutDeletedAccount(uuid, account.getPhoneNumberIdentifier())
               ));
 
@@ -1290,7 +1261,7 @@ public class Accounts extends AbstractDynamoDbStore {
         .sequential();
   }
 
-  public Flux<Tuple3<String, UUID, Long>> getE164KeyedDeletedAccounts(final int segments, final Scheduler scheduler) {
+  public Flux<String> getE164sForRecentlyDeletedAccounts(final int segments, final Scheduler scheduler) {
     if (segments < 1) {
       throw new IllegalArgumentException("Total number of segments must be positive");
     }
@@ -1303,14 +1274,12 @@ public class Accounts extends AbstractDynamoDbStore {
                 .consistentRead(true)
                 .segment(segment)
                 .totalSegments(segments)
+                .filterExpression("begins_with(#key, :e164Prefix)")
+                .expressionAttributeNames(Map.of("#key", DELETED_ACCOUNTS_KEY_ACCOUNT_PNI))
+                .expressionAttributeValues(Map.of(":e164Prefix", AttributeValue.fromS("+")))
                 .build())
             .items())
-        .map(item ->
-            Tuples.of(
-                item.get(DELETED_ACCOUNTS_KEY_ACCOUNT_PNI).s(),
-                AttributeValues.getUUID(item, DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, null),
-                AttributeValues.getLong(item, DELETED_ACCOUNTS_ATTR_EXPIRES, 0)))
-        .filter(item -> item.getT1().startsWith("+"))
+        .map(item -> item.get(DELETED_ACCOUNTS_KEY_ACCOUNT_PNI).s())
         .sequential();
   }
 
@@ -1437,7 +1406,7 @@ public class Accounts extends AbstractDynamoDbStore {
                     .formatted(indexName, keyName, keyValue)));
           }
 
-          final AttributeValue primaryKeyValue = response.items().get(0).get(KEY_ACCOUNT_UUID);
+          final AttributeValue primaryKeyValue = response.items().getFirst().get(KEY_ACCOUNT_UUID);
           return itemByKeyAsync(table, KEY_ACCOUNT_UUID, primaryKeyValue);
         });
   }
