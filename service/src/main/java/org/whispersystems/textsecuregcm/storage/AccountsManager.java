@@ -277,7 +277,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return createTimer.record(() -> {
       accountLockManager.withLock(List.of(pni), () -> {
         final Optional<UUID> maybeRecentlyDeletedAccountIdentifier =
-            accounts.findRecentlyDeletedAccountIdentifier(number);
+            accounts.findRecentlyDeletedAccountIdentifier(pni);
 
         // Reuse the ACI from any recently-deleted account with this number to cover cases where somebody is
         // re-registering.
@@ -654,16 +654,16 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
       // There are three possible states for accounts associated with the target phone number:
       //
-      // 1. An account exists with the target number; the caller has proved ownership of the number, so delete the
-      //    account with the target number. This will leave a "deleted account" record for the deleted account mapping
-      //    the UUID of the deleted account to the target phone number. We'll then overwrite that so it points to the
-      //    original number to facilitate switching back and forth between numbers.
-      // 2. No account with the target number exists, but one has recently been deleted. In that case, add a "deleted
-      //    account" record that maps the ACI of the recently-deleted account to the now-abandoned original phone number
+      // 1. An account exists with the target PNI; the caller has proved ownership of the number, so delete the
+      //    account with the target PNI. This will leave a "deleted account" record for the deleted account mapping
+      //    the UUID of the deleted account to the target PNI. We'll then overwrite that so it points to the
+      //    original PNI to facilitate switching back and forth between numbers.
+      // 2. No account with the target PNI exists, but one has recently been deleted. In that case, add a "deleted
+      //    account" record that maps the ACI of the recently-deleted account to the now-abandoned original PNI
       //    of the account changing its number (which facilitates ACI consistency in cases that a party is switching
       //    back and forth between numbers).
-      // 3. No account with the target number exists at all, in which case no additional action is needed.
-      final Optional<UUID> recentlyDeletedAci = accounts.findRecentlyDeletedAccountIdentifier(targetNumber);
+      // 3. No account with the target PNI exists at all, in which case no additional action is needed.
+      final Optional<UUID> recentlyDeletedAci = accounts.findRecentlyDeletedAccountIdentifier(targetPhoneNumberIdentifier);
       final Optional<Account> maybeExistingAccount = getByE164(targetNumber);
       final Optional<UUID> maybeDisplacedUuid;
 
@@ -1205,29 +1205,16 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return phoneNumberIdentifiers.getPhoneNumberIdentifier(e164).join();
   }
 
-  public Optional<UUID> findRecentlyDeletedAccountIdentifier(final String e164) {
-    return accounts.findRecentlyDeletedAccountIdentifier(e164);
+  public Optional<UUID> findRecentlyDeletedAccountIdentifier(final UUID phoneNumberIdentifier) {
+    return accounts.findRecentlyDeletedAccountIdentifier(phoneNumberIdentifier);
   }
 
-  public Optional<String> findRecentlyDeletedE164(final UUID uuid) {
-    return accounts.findRecentlyDeletedE164(uuid);
+  public Optional<UUID> findRecentlyDeletedPhoneNumberIdentifier(final UUID accountIdentifier) {
+    return accounts.findRecentlyDeletedPhoneNumberIdentifier(accountIdentifier);
   }
 
   public Flux<Account> streamAllFromDynamo(final int segments, final Scheduler scheduler) {
     return accounts.getAll(segments, scheduler);
-  }
-
-  public Flux<Tuple3<String, UUID, Long>> getE164KeyedDeletedAccounts(final int segments, final Scheduler scheduler) {
-    return accounts.getE164KeyedDeletedAccounts(segments, scheduler);
-  }
-
-  public CompletableFuture<Boolean> migrateDeletedAccount(final String e164, final UUID aci, final long expiration) {
-    return phoneNumberIdentifiers.getPhoneNumberIdentifier(e164)
-        .thenCompose(
-            pni -> accountLockManager.withLockAsync(
-                List.of(pni),
-                () -> accounts.insertPniDeletedAccount(e164, pni, aci, expiration),
-                accountLockExecutor));
   }
 
   public CompletableFuture<Void> delete(final Account account, final DeletionReason deletionReason) {

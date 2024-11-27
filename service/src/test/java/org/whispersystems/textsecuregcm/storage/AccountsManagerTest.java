@@ -896,7 +896,7 @@ class AccountsManagerTest {
   void testCreateAccountRecentlyDeleted() throws InterruptedException, AccountAlreadyExistsException {
     final UUID recentlyDeletedUuid = UUID.randomUUID();
 
-    when(accounts.findRecentlyDeletedAccountIdentifier(anyString())).thenReturn(Optional.of(recentlyDeletedUuid));
+    when(accounts.findRecentlyDeletedAccountIdentifier(any())).thenReturn(Optional.of(recentlyDeletedUuid));
     when(accounts.create(any(), any())).thenReturn(true);
 
     final String e164 = "+18005550123";

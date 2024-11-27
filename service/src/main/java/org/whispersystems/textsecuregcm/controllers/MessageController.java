@@ -123,6 +123,7 @@ import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -157,6 +158,7 @@ public class MessageController {
   private final ReceiptSender receiptSender;
   private final AccountsManager accountsManager;
   private final MessagesManager messagesManager;
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final PushNotificationManager pushNotificationManager;
   private final PushNotificationScheduler pushNotificationScheduler;
   private final ReportMessageManager reportMessageManager;
@@ -216,6 +218,7 @@ public class MessageController {
       ReceiptSender receiptSender,
       AccountsManager accountsManager,
       MessagesManager messagesManager,
+      PhoneNumberIdentifiers phoneNumberIdentifiers,
       PushNotificationManager pushNotificationManager,
       PushNotificationScheduler pushNotificationScheduler,
       ReportMessageManager reportMessageManager,
@@ -234,6 +237,7 @@ public class MessageController {
     this.receiptSender = receiptSender;
     this.accountsManager = accountsManager;
     this.messagesManager = messagesManager;
+    this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.pushNotificationManager = pushNotificationManager;
     this.pushNotificationScheduler = pushNotificationScheduler;
     this.reportMessageManager = reportMessageManager;
@@ -853,10 +857,10 @@ public class MessageController {
       @Nullable SpamReport spamReport,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent
   ) {
-
     final Optional<String> sourceNumber;
     final Optional<UUID> sourceAci;
     final Optional<UUID> sourcePni;
+
     if (source.startsWith("+")) {
       sourceNumber = Optional.of(source);
       final Optional<Account> maybeAccount = accountsManager.getByE164(source);
@@ -864,8 +868,8 @@ public class MessageController {
         sourceAci = maybeAccount.map(Account::getUuid);
         sourcePni = maybeAccount.map(Account::getPhoneNumberIdentifier);
       } else {
-        sourceAci = accountsManager.findRecentlyDeletedAccountIdentifier(source);
-        sourcePni = Optional.ofNullable(accountsManager.getPhoneNumberIdentifier(source));
+        sourcePni = Optional.ofNullable(phoneNumberIdentifiers.getPhoneNumberIdentifier(source).join());
+        sourceAci = sourcePni.flatMap(accountsManager::findRecentlyDeletedAccountIdentifier);
       }
     } else {
       sourceAci = Optional.of(UUID.fromString(source));
@@ -874,8 +878,9 @@ public class MessageController {
 
       if (sourceAccount.isEmpty()) {
         logger.warn("Could not find source: {}", sourceAci.get());
-        sourceNumber = accountsManager.findRecentlyDeletedE164(sourceAci.get());
-        sourcePni = sourceNumber.map(accountsManager::getPhoneNumberIdentifier);
+        sourcePni = accountsManager.findRecentlyDeletedPhoneNumberIdentifier(sourceAci.get());
+        sourceNumber = sourcePni.flatMap(pni ->
+            Util.getCanonicalNumber(phoneNumberIdentifiers.getPhoneNumber(pni).join()));
       } else {
         sourceNumber = sourceAccount.map(Account::getNumber);
         sourcePni = sourceAccount.map(Account::getPhoneNumberIdentifier);

@@ -264,7 +264,6 @@ import org.whispersystems.textsecuregcm.workers.DeleteE164RegistrationRecoveryPa
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.IdleDeviceNotificationSchedulerFactory;
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
-import org.whispersystems.textsecuregcm.workers.MigrateDeletedAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.NotifyIdleDevicesCommand;
 import org.whispersystems.textsecuregcm.workers.ProcessScheduledJobsServiceCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredAccountsCommand;
@@ -333,7 +332,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         "Processes scheduled jobs to send notifications to idle devices",
         new IdleDeviceNotificationSchedulerFactory()));
 
-    bootstrap.addCommand(new MigrateDeletedAccountsCommand());
     bootstrap.addCommand(new DeleteE164RegistrationRecoveryPasswordsCommand());
     bootstrap.addCommand(new BackfillBeninPhoneNumberFormsCommand());
   }
@@ -1104,8 +1102,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new KeysController(rateLimiters, keysManager, accountsManager, zkSecretParams, Clock.systemUTC()),
         new KeyTransparencyController(keyTransparencyServiceClient),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
-            accountsManager, messagesManager, pushNotificationManager, pushNotificationScheduler, reportMessageManager,
-            multiRecipientMessageExecutor, messageDeliveryScheduler, clientReleaseManager,
+            accountsManager, messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
+            reportMessageManager, multiRecipientMessageExecutor, messageDeliveryScheduler, clientReleaseManager,
             dynamicConfigurationManager, zkSecretParams, spamChecker, messageMetrics, messageDeliveryLoopMonitor,
             Clock.systemUTC()),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),

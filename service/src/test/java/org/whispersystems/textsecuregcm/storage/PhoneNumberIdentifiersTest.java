@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.io.IOException;
@@ -188,5 +189,15 @@ class PhoneNumberIdentifiersTest {
     CompletableFutureTestUtil.assertFailsWithCause(
         IOException.class,
         PhoneNumberIdentifiers.retry(10, RuntimeException.class, new FailN(1)));
+  }
+
+  @Test
+  void getPhoneNumber() {
+    final String number = "+18005551234";
+
+    assertTrue(phoneNumberIdentifiers.getPhoneNumber(UUID.randomUUID()).join().isEmpty());
+
+    final UUID pni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
+    assertEquals(List.of(number), phoneNumberIdentifiers.getPhoneNumber(pni).join());
   }
 }

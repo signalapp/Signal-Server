@@ -212,7 +212,6 @@ class AccountsTest {
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
 
     accounts.delete(originalUuid, Collections.emptyList()).join();
-    assertThat(accounts.findRecentlyDeletedAccountIdentifier(account.getNumber())).hasValue(originalUuid);
     assertThat(accounts.findRecentlyDeletedAccountIdentifier(account.getPhoneNumberIdentifier())).hasValue(originalUuid);
 
     freshUser = createAccount(account);
@@ -222,7 +221,6 @@ class AccountsTest {
     assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
 
-    assertThat(accounts.findRecentlyDeletedAccountIdentifier(account.getNumber())).isEmpty();
     assertThat(accounts.findRecentlyDeletedAccountIdentifier(account.getPhoneNumberIdentifier())).isEmpty();
   }
 
@@ -745,7 +743,6 @@ class AccountsTest {
     createAccount(deletedAccount);
     createAccount(retainedAccount);
 
-    assertThat(accounts.findRecentlyDeletedAccountIdentifier(deletedAccount.getNumber())).isEmpty();
     assertThat(accounts.findRecentlyDeletedAccountIdentifier(deletedAccount.getPhoneNumberIdentifier())).isEmpty();
 
     assertPhoneNumberConstraintExists("+14151112222", deletedAccount.getUuid());
@@ -759,7 +756,6 @@ class AccountsTest {
     accounts.delete(deletedAccount.getUuid(), Collections.emptyList()).join();
 
     assertThat(accounts.getByAccountIdentifier(deletedAccount.getUuid())).isNotPresent();
-    assertThat(accounts.findRecentlyDeletedAccountIdentifier(deletedAccount.getNumber())).hasValue(deletedAccount.getUuid());
     assertThat(accounts.findRecentlyDeletedAccountIdentifier(deletedAccount.getPhoneNumberIdentifier())).hasValue(deletedAccount.getUuid());
 
     assertPhoneNumberConstraintDoesNotExist(deletedAccount.getNumber());
@@ -898,7 +894,6 @@ class AccountsTest {
       assertThat(accounts.getByPhoneNumberIdentifier(targetPni)).isPresent();
     }
 
-    assertThat(accounts.findRecentlyDeletedAccountIdentifier(originalNumber)).isEqualTo(maybeDisplacedAccountIdentifier);
     assertThat(accounts.findRecentlyDeletedAccountIdentifier(originalPni)).isEqualTo(maybeDisplacedAccountIdentifier);
   }
 
@@ -1712,133 +1707,6 @@ class AccountsTest {
     assertEquals(
         List.of(Tuples.of("+18005551234", deletedAccount.getUuid(), clock.instant().plus(Accounts.DELETED_ACCOUNTS_TIME_TO_LIVE).toEpochMilli() / 1000)),
         accounts.getE164KeyedDeletedAccounts(1, Schedulers.immediate()).collectList().block());
-  }
-
-  @Test
-  public void insertPniDeletedAccount() throws Exception {
-    final String e164 = "+18005551234";
-    final UUID aci = UUID.randomUUID();
-    final UUID pni = UUID.randomUUID();
-    final Long expires = 1234567890L;
-
-    final ScanRequest scanRequest = ScanRequest.builder()
-        .tableName(Tables.DELETED_ACCOUNTS.tableName())
-        .build();
-    assertThat(
-        DYNAMO_DB_EXTENSION.getDynamoDbClient()
-            .scan(scanRequest)
-            .items())
-        .isEmpty();
-
-
-    DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(
-        PutItemRequest.builder()
-            .tableName(Tables.DELETED_ACCOUNTS.tableName())
-            .item(Map.of(
-                    Accounts.DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164),
-                    Accounts.DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(aci),
-                    Accounts.DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(expires)))
-            .build());
-
-    assertThat(accounts.insertPniDeletedAccount(e164, pni, aci, expires).get()).isTrue();
-
-    List<Map<String, AttributeValue>> items =
-        DYNAMO_DB_EXTENSION.getDynamoDbClient()
-        .scan(scanRequest)
-        .items();
-    assertThat(items).hasSize(2);
-    final Map<String, AttributeValue> item = items.stream().filter(i -> !i.get(Accounts.DELETED_ACCOUNTS_KEY_ACCOUNT_E164).s().equals(e164)).findFirst().get();
-    assertThat(item.get(Accounts.DELETED_ACCOUNTS_KEY_ACCOUNT_E164).s())
-        .isEqualTo(pni.toString());
-    assertThat(AttributeValues.getUUID(item, Accounts.DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, null))
-        .isEqualTo(aci);
-    assertThat(AttributeValues.getLong(item, Accounts.DELETED_ACCOUNTS_ATTR_EXPIRES, 0))
-        .isEqualTo(expires);
-  }
-
-  @Test
-  public void insertPniDeletedAccount_concurrentChange() throws Exception {
-    final String e164 = "+18005551234";
-    final UUID aci = UUID.randomUUID();
-    final UUID pni = UUID.randomUUID();
-    final Long expires = 1234567890L;
-
-    final ScanRequest scanRequest = ScanRequest.builder()
-        .tableName(Tables.DELETED_ACCOUNTS.tableName())
-        .build();
-    assertThat(
-        DYNAMO_DB_EXTENSION.getDynamoDbClient()
-            .scan(scanRequest)
-            .items())
-        .isEmpty();
-
-
-    DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(
-        PutItemRequest.builder()
-            .tableName(Tables.DELETED_ACCOUNTS.tableName())
-            .item(Map.of(
-                    Accounts.DELETED_ACCOUNTS_KEY_ACCOUNT_E164, AttributeValues.fromString(e164),
-                    Accounts.DELETED_ACCOUNTS_ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(aci),
-                    Accounts.DELETED_ACCOUNTS_ATTR_EXPIRES, AttributeValues.fromLong(expires + 1)))
-            .build());
-
-    assertThat(accounts.insertPniDeletedAccount(e164, pni, aci, expires).get()).isFalse();
-
-    List<Map<String, AttributeValue>> items =
-        DYNAMO_DB_EXTENSION.getDynamoDbClient()
-        .scan(scanRequest)
-        .items();
-    assertThat(items).hasSize(1);
-  }
-
-  @Test
-  public void insertPniDeletedAccount_concurrentDeletion() throws Exception {
-    final String e164 = "+18005551234";
-    final UUID aci = UUID.randomUUID();
-    final UUID pni = UUID.randomUUID();
-    final Long expires = 1234567890L;
-
-    final ScanRequest scanRequest = ScanRequest.builder()
-        .tableName(Tables.DELETED_ACCOUNTS.tableName())
-        .build();
-    assertThat(
-        DYNAMO_DB_EXTENSION.getDynamoDbClient()
-            .scan(scanRequest)
-            .items())
-        .isEmpty();
-
-    assertThat(accounts.insertPniDeletedAccount(e164, pni, aci, expires).get()).isFalse();
-
-    List<Map<String, AttributeValue>> items =
-        DYNAMO_DB_EXTENSION.getDynamoDbClient()
-        .scan(scanRequest)
-        .items();
-    assertThat(items).isEmpty();
-  }
-
-  @Test
-  public void insertPniDeletedAccount_alreadyMigrated() throws Exception {
-    final Account deletedAccount = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
-
-    createAccount(deletedAccount);
-    accounts.delete(deletedAccount.getUuid(), List.of()).join();
-
-    final ScanRequest scanRequest = ScanRequest.builder()
-        .tableName(Tables.DELETED_ACCOUNTS.tableName())
-        .build();
-    assertThat(
-        DYNAMO_DB_EXTENSION.getDynamoDbClient()
-            .scan(scanRequest)
-            .items())
-        .hasSize(2);
-
-    assertThat(accounts.insertPniDeletedAccount(deletedAccount.getNumber(), deletedAccount.getPhoneNumberIdentifier(), deletedAccount.getUuid(), clock.instant().plus(Accounts.DELETED_ACCOUNTS_TIME_TO_LIVE).toEpochMilli() / 1000).get()).isFalse();
-
-    List<Map<String, AttributeValue>> items =
-        DYNAMO_DB_EXTENSION.getDynamoDbClient()
-        .scan(scanRequest)
-        .items();
-    assertThat(items).hasSize(2);
   }
 
   private static Device generateDevice(byte id) {

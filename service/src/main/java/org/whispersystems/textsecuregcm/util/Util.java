@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +25,8 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.random.RandomGenerator;
+import java.util.stream.Collectors;
+
 import org.apache.commons.lang3.StringUtils;
 
 public class Util {
@@ -142,6 +145,44 @@ public class Util {
       return List.of(number);
     } catch (final NumberParseException e) {
       return List.of(number);
+    }
+  }
+
+  /**
+   * Returns the preferred form of an e164 from a list of equivalents. Only use this when there is no other reason (such
+   * as the form specifically provided by a user) to prefer a particular form and we want to reduce nondeterminism.
+   *
+   * @apiNote This method is intended to support number format transitions in cases where we do not already have
+   * multiple accounts registered with different forms of the same number. As a result, this method does not cover all
+   * possible cases of equivalent formats, but instead focuses on the cases where we can and choose to prevent multiple
+   * accounts from using different formats of the same number.
+   *
+   * @param e164s a list of equivalent forms of a single phone number
+   *
+   * @return a single preferred canonical form for the number
+   */
+  public static Optional<String> getCanonicalNumber(List<String> e164s) {
+    if (e164s.size() <= 1) {
+      return e164s.stream().findFirst();
+    }
+    try {
+      final List<PhoneNumber> phoneNumbers = new ArrayList<>(e164s.size());
+      for (String e164 : e164s) {
+        phoneNumbers.add(PHONE_NUMBER_UTIL.parse(e164, null));
+      }
+      final Set<String> regions = phoneNumbers.stream().map(PHONE_NUMBER_UTIL::getRegionCodeForNumber).collect(Collectors.toSet());
+      if (regions.size() != 1) {
+        throw new IllegalArgumentException("Numbers from different countries cannot be equivalent alternate forms");
+      }
+      if (regions.contains("BJ")) {
+        // Benin is changing phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX starting on November 30, 2024
+        // We prefer the longest form for long-term stability
+        return e164s.stream().sorted(Comparator.comparingInt(String::length).reversed()).findFirst();
+      }
+      // No matching country; fall back to something that's at least stable
+      return e164s.stream().sorted().findFirst();
+    } catch (final NumberParseException e) {
+      return e164s.stream().sorted().findFirst();
     }
   }
 

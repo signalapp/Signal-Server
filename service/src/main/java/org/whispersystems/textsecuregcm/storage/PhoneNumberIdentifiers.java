@@ -13,6 +13,7 @@ import io.micrometer.core.instrument.Timer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -30,7 +31,10 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.KeysAndAttributes;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
@@ -83,6 +87,34 @@ public class PhoneNumberIdentifiers {
     return retry(MAX_RETRIES, TransactionConflictException.class, () -> fetchPhoneNumbers(allPhoneNumberForms)
         .thenCompose(mappings -> setPniIfRequired(phoneNumber, allPhoneNumberForms, mappings)));
   }
+
+  /**
+   * Returns the list of phone numbers associated with a given phone number identifier. If this
+   * UUID was not previously assigned as a PNI by {@link #getPhoneNumberIdentifier(String)}, the
+   * returned list will be empty.
+   *
+   * @param UUID a phone number identifier
+   * @return the list of all e164s associated with the given phone number identifier
+   */
+  public CompletableFuture<List<String>> getPhoneNumber(final UUID phoneNumberIdentifier) {
+    return dynamoDbClient.query(QueryRequest.builder()
+            .tableName(tableName)
+            .indexName(INDEX_NAME)
+            .keyConditionExpression("#pni = :pni")
+            .projectionExpression("#phone_number")
+            .expressionAttributeNames(Map.of(
+                "#phone_number", KEY_E164,
+                "#pni", ATTR_PHONE_NUMBER_IDENTIFIER
+            ))
+            .expressionAttributeValues(Map.of(
+                ":pni", AttributeValues.fromUUID(phoneNumberIdentifier)
+            ))
+            .build())
+        .thenApply(response -> {
+              return response.items().stream().map(item -> item.get(KEY_E164).s()).toList();
+        });
+  }
+
 
   @VisibleForTesting
   static <T, E extends Exception> CompletableFuture<T> retry(

@@ -121,6 +121,7 @@ import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RemovedMessage;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -182,6 +183,7 @@ class MessageControllerTest {
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
   private static final CardinalityEstimator cardinalityEstimator = mock(CardinalityEstimator.class);
   private static final RateLimiter rateLimiter = mock(RateLimiter.class);
+  private static final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
   private static final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
   private static final PushNotificationScheduler pushNotificationScheduler = mock(PushNotificationScheduler.class);
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
@@ -205,9 +207,9 @@ class MessageControllerTest {
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
           new MessageController(rateLimiters, cardinalityEstimator, messageSender, receiptSender, accountsManager,
-              messagesManager, pushNotificationManager, pushNotificationScheduler, reportMessageManager, multiRecipientMessageExecutor,
-              messageDeliveryScheduler, mock(ClientReleaseManager.class), dynamicConfigurationManager,
-              serverSecretParams, SpamChecker.noop(), new MessageMetrics(), mock(MessageDeliveryLoopMonitor.class),
+              messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
+              reportMessageManager, multiRecipientMessageExecutor, messageDeliveryScheduler, mock(ClientReleaseManager.class),
+              dynamicConfigurationManager, serverSecretParams, SpamChecker.noop(), new MessageMetrics(), mock(MessageDeliveryLoopMonitor.class),
               clock))
       .build();
 
@@ -286,6 +288,7 @@ class MessageControllerTest {
         rateLimiters,
         rateLimiter,
         cardinalityEstimator,
+        phoneNumberIdentifiers,
         pushNotificationManager,
         reportMessageManager
     );
@@ -807,7 +810,6 @@ class MessageControllerTest {
 
   @Test
   void testReportMessageByE164() {
-
     final String senderNumber = "+12125550001";
     final UUID senderAci = UUID.randomUUID();
     final UUID senderPni = UUID.randomUUID();
@@ -820,8 +822,6 @@ class MessageControllerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByE164(senderNumber)).thenReturn(Optional.of(account));
-    when(accountsManager.findRecentlyDeletedAccountIdentifier(senderNumber)).thenReturn(Optional.of(senderAci));
-    when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
 
     try (final Response response =
         resources.getJerseyTest()
@@ -835,12 +835,27 @@ class MessageControllerTest {
 
       verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
           messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent);
-      verify(accountsManager, never()).findRecentlyDeletedE164(any(UUID.class));
-      verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
+      verify(accountsManager, never()).findRecentlyDeletedPhoneNumberIdentifier(any(UUID.class));
+      verify(phoneNumberIdentifiers, never()).getPhoneNumber(any());
     }
+  }
+
+  @Test
+  void testReportMesageByE164DeletedAccount() {
+    final String senderNumber = "+12125550001";
+    final UUID senderAci = UUID.randomUUID();
+    final UUID senderPni = UUID.randomUUID();
+    final String userAgent = "user-agent";
+    UUID messageGuid = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getNumber()).thenReturn(senderNumber);
+    when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByE164(senderNumber)).thenReturn(Optional.empty());
-    messageGuid = UUID.randomUUID();
+    when(phoneNumberIdentifiers.getPhoneNumberIdentifier(senderNumber)).thenReturn(CompletableFuture.completedFuture(senderPni));
+    when(accountsManager.findRecentlyDeletedAccountIdentifier(senderPni)).thenReturn(Optional.of(senderAci));
 
     try (final Response response =
         resources.getJerseyTest()
@@ -859,7 +874,6 @@ class MessageControllerTest {
 
   @Test
   void testReportMessageByAci() {
-
     final String senderNumber = "+12125550001";
     final UUID senderAci = UUID.randomUUID();
     final UUID senderPni = UUID.randomUUID();
@@ -872,8 +886,7 @@ class MessageControllerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
-    when(accountsManager.findRecentlyDeletedE164(senderAci)).thenReturn(Optional.of(senderNumber));
-    when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
+    when(phoneNumberIdentifiers.getPhoneNumber(senderPni)).thenReturn(CompletableFuture.completedFuture(List.of(senderNumber)));
 
     try (final Response response =
         resources.getJerseyTest()
@@ -887,11 +900,27 @@ class MessageControllerTest {
 
       verify(reportMessageManager).report(Optional.of(senderNumber), Optional.of(senderAci), Optional.of(senderPni),
           messageGuid, AuthHelper.VALID_UUID, Optional.empty(), userAgent);
-      verify(accountsManager, never()).findRecentlyDeletedE164(any(UUID.class));
-      verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
+      verify(accountsManager, never()).findRecentlyDeletedPhoneNumberIdentifier(any(UUID.class));
+      verify(phoneNumberIdentifiers, never()).getPhoneNumber(any());
     }
+  }
+
+  @Test
+  void testReportMessageByAciDeletedAccount() {
+    final String senderNumber = "+12125550001";
+    final UUID senderAci = UUID.randomUUID();
+    final UUID senderPni = UUID.randomUUID();
+    final String userAgent = "user-agent";
+    UUID messageGuid = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(senderAci);
+    when(account.getNumber()).thenReturn(senderNumber);
+    when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
+    when(accountsManager.findRecentlyDeletedPhoneNumberIdentifier(senderAci)).thenReturn(Optional.of(senderPni));
+    when(phoneNumberIdentifiers.getPhoneNumber(senderPni)).thenReturn(CompletableFuture.completedFuture(List.of(senderNumber)));
 
     messageGuid = UUID.randomUUID();
 
@@ -924,8 +953,8 @@ class MessageControllerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
-    when(accountsManager.findRecentlyDeletedE164(senderAci)).thenReturn(Optional.of(senderNumber));
-    when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
+    when(accountsManager.findRecentlyDeletedPhoneNumberIdentifier(senderAci)).thenReturn(Optional.of(senderPni));
+    when(phoneNumberIdentifiers.getPhoneNumber(senderPni)).thenReturn(CompletableFuture.completedFuture(List.of(senderNumber)));
 
     Entity<SpamReport> entity = Entity.entity(new SpamReport(new byte[3]), "application/json");
 
@@ -944,8 +973,8 @@ class MessageControllerTest {
           eq(AuthHelper.VALID_UUID),
           argThat(maybeBytes -> maybeBytes.map(bytes -> Arrays.equals(bytes, new byte[3])).orElse(false)),
           any());
-      verify(accountsManager, never()).findRecentlyDeletedE164(any(UUID.class));
-      verify(accountsManager, never()).getPhoneNumberIdentifier(anyString());
+      verify(accountsManager, never()).findRecentlyDeletedPhoneNumberIdentifier(any(UUID.class));
+      verify(phoneNumberIdentifiers, never()).getPhoneNumber(any());
     }
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
@@ -987,8 +1016,8 @@ class MessageControllerTest {
     when(account.getPhoneNumberIdentifier()).thenReturn(senderPni);
 
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.of(account));
-    when(accountsManager.findRecentlyDeletedE164(senderAci)).thenReturn(Optional.of(senderNumber));
-    when(accountsManager.getPhoneNumberIdentifier(senderNumber)).thenReturn(senderPni);
+    when(accountsManager.findRecentlyDeletedPhoneNumberIdentifier(senderAci)).thenReturn(Optional.of(senderPni));
+    when(phoneNumberIdentifiers.getPhoneNumber(senderPni)).thenReturn(CompletableFuture.completedFuture(List.of(senderNumber)));
 
     try (final Response response =
         resources.getJerseyTest()
