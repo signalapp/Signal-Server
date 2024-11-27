@@ -256,45 +256,4 @@ public class PhoneNumberIdentifiers {
             item -> AttributeValues.getUUID(item, ATTR_PHONE_NUMBER_IDENTIFIER, null))))
         .whenComplete((ignored, throwable) -> sample.stop(GET_PNI_TIMER));
   }
-
-  public Flux<Tuple2<String, UUID>> getPhoneNumberIdentifiers(final String prefix, final int segments,
-      final Scheduler scheduler) {
-    return Flux.range(0, segments)
-        .parallel()
-        .runOn(scheduler)
-        .flatMap(segment -> dynamoDbClient.scanPaginator(ScanRequest.builder()
-                .tableName(tableName)
-                .segment(segment)
-                .totalSegments(segments)
-                .filterExpression("begins_with(#key, :e164Prefix)")
-                .expressionAttributeNames(Map.of("#key", KEY_E164))
-                .expressionAttributeValues(Map.of(":e164Prefix", AttributeValue.fromS(prefix)))
-                .build())
-            .items()
-            .map(item -> Tuples.of(item.get(KEY_E164).s(),
-                AttributeValues.getUUID(item, ATTR_PHONE_NUMBER_IDENTIFIER, null))))
-        .sequential();
-  }
-
-  public CompletableFuture<Void> backfillAlternatePhoneNumbers(final String e164, final UUID pni) {
-    final List<String> alternateForms = new ArrayList<>(Util.getAlternateForms(e164));
-    if (alternateForms.size() == 1) {
-      return CompletableFuture.completedFuture(null);
-    }
-    return retry(MAX_RETRIES, TransactionConflictException.class,
-        () -> setPniIfRequired(e164, alternateForms, Map.of(e164, pni)))
-        .exceptionally(ExceptionUtils.exceptionallyHandler(TransactionCanceledException.class, e -> {
-          logger.error("Tried to backfill {} with pni: {}, but there were existing numbers with a different pni", e164,
-              pni);
-          throw e;
-        }))
-        .thenAccept(newPni -> {
-          if (!newPni.equals(pni)) {
-            logger.error("Tried to backfill {} with pni: {}, but there were existing numbers with pni: {}", pni,
-                newPni);
-            throw new IllegalArgumentException("Wrong PNI in backfill");
-          }
-        });
-  }
-
 }
