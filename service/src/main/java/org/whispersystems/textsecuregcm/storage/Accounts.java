@@ -54,6 +54,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.Delete;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
@@ -1261,7 +1262,15 @@ public class Accounts extends AbstractDynamoDbStore {
         .sequential();
   }
 
-  public Flux<String> getE164sForRecentlyDeletedAccounts(final int segments, final Scheduler scheduler) {
+  CompletableFuture<Void> removeRecentlyDeletedAccountRecord(final String e164) {
+    return asyncClient.deleteItem(DeleteItemRequest.builder()
+            .tableName(deletedAccountsTableName)
+            .key(Map.of(DELETED_ACCOUNTS_KEY_ACCOUNT_PNI, AttributeValues.fromString(e164)))
+            .build())
+        .thenRun(Util.NOOP);
+  }
+
+  Flux<String> getE164sForRecentlyDeletedAccounts(final int segments, final Scheduler scheduler) {
     if (segments < 1) {
       throw new IllegalArgumentException("Total number of segments must be positive");
     }
