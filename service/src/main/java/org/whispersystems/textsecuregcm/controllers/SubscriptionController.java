@@ -343,9 +343,14 @@ public class SubscriptionController {
     public record Error(SetSubscriptionLevelErrorResponse.Error.Type type, String message) {
 
       public enum Type {
+        // The requested level was invalid
         UNSUPPORTED_LEVEL,
+        // The requested currency was invalid
         UNSUPPORTED_CURRENCY,
+        // The card could not be charged
         PAYMENT_REQUIRES_ACTION,
+        // The request arguments were invalid representing a programmer error
+        INVALID_ARGUMENTS
       }
     }
   }
@@ -389,6 +394,12 @@ public class SubscriptionController {
           throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
               .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
                   SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null))))
+              .build());
+        }))
+        .exceptionally(ExceptionUtils.exceptionallyHandler(SubscriptionException.InvalidArguments.class, e -> {
+          throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
+              .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
+                  SetSubscriptionLevelErrorResponse.Error.Type.INVALID_ARGUMENTS, e.getMessage()))))
               .build());
         }))
         .thenApply(unused -> Response.ok(new SetSubscriptionLevelSuccessResponse(level)).build());

@@ -9,6 +9,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.stripe.StripeClient;
 import com.stripe.exception.CardException;
+import com.stripe.exception.IdempotencyException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Charge;
 import com.stripe.model.Customer;
@@ -292,14 +293,13 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
             // create a subscription, we want to ensure only one gets created.
             return stripeClient.subscriptions()
                 .create(params, commonOptions(generateIdempotencyKeyForCreateSubscription(
-                customerId, lastSubscriptionCreatedAt)));
+                    customerId, lastSubscriptionCreatedAt)));
+          } catch (IdempotencyException e) {
+            throw ExceptionUtils.wrap(new SubscriptionException.InvalidArguments(e.getStripeError().getMessage()));
+          } catch (CardException e) {
+            throw new CompletionException(
+                new SubscriptionException.ProcessorException(getProvider(), createChargeFailureFromCardException(e)));
           } catch (StripeException e) {
-
-            if (e instanceof CardException ce) {
-              throw new CompletionException(
-                  new SubscriptionException.ProcessorException(getProvider(), createChargeFailureFromCardException(e, ce)));
-            }
-
             throw new CompletionException(e);
           }
         }, executor)
@@ -347,15 +347,14 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
             return stripeClient.subscriptions().update(subscription.getId(), params,
                 commonOptions(
                     generateIdempotencyKeyForSubscriptionUpdate(subscription.getCustomer(), idempotencyKey)));
+          } catch (IdempotencyException e) {
+            throw ExceptionUtils.wrap(new SubscriptionException.InvalidArguments(e.getStripeError().getMessage()));
+          } catch (CardException e) {
+            throw ExceptionUtils.wrap(
+                new SubscriptionException.ProcessorException(getProvider(), createChargeFailureFromCardException(e)));
           } catch (StripeException e) {
-
-            if (e instanceof CardException ce) {
-              throw ExceptionUtils.wrap(
-                  new SubscriptionException.ProcessorException(getProvider(), createChargeFailureFromCardException(e, ce)));
-            }
             throw ExceptionUtils.wrap(e);
           }
-
         }, executor)
         .thenApply(subscription1 -> new SubscriptionId(subscription1.getId()));
   }
@@ -534,9 +533,9 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         outcome != null ? outcome.getType() : null);
   }
 
-  private static ChargeFailure createChargeFailureFromCardException(StripeException e, CardException ce) {
+  private static ChargeFailure createChargeFailureFromCardException(CardException e) {
     return new ChargeFailure(
-        StringUtils.defaultIfBlank(ce.getDeclineCode(), ce.getCode()),
+        StringUtils.defaultIfBlank(e.getDeclineCode(), e.getCode()),
         e.getStripeError().getMessage(),
         null,
         null,
