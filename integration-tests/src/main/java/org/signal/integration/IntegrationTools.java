@@ -13,6 +13,7 @@ import java.util.concurrent.CompletableFuture;
 import org.signal.integration.config.Config;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
+import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
@@ -26,6 +27,8 @@ public class IntegrationTools {
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
 
   private final VerificationSessionManager verificationSessionManager;
+
+  private final PhoneNumberIdentifiers phoneNumberIdentifiers;
 
 
   public static IntegrationTools create(final Config config) {
@@ -42,19 +45,24 @@ public class IntegrationTools {
 
     return new IntegrationTools(
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords),
-        new VerificationSessionManager(verificationSessions)
+        new VerificationSessionManager(verificationSessions),
+        new PhoneNumberIdentifiers(dynamoDbAsyncClient, config.dynamoDbTables().phoneNumberIdentifiers())
     );
   }
 
   private IntegrationTools(
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
-      final VerificationSessionManager verificationSessionManager) {
+      final VerificationSessionManager verificationSessionManager,
+      final PhoneNumberIdentifiers phoneNumberIdentifiers) {
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.verificationSessionManager = verificationSessionManager;
+    this.phoneNumberIdentifiers = phoneNumberIdentifiers;
   }
 
-  public CompletableFuture<Void> populateRecoveryPassword(final UUID phoneNumberIdentifier, final byte[] password) {
-    return registrationRecoveryPasswordsManager.store(phoneNumberIdentifier, password);
+  public CompletableFuture<Void> populateRecoveryPassword(final String phoneNumber, final byte[] password) {
+    return phoneNumberIdentifiers
+        .getPhoneNumberIdentifier(phoneNumber)
+        .thenCompose(pni -> registrationRecoveryPasswordsManager.store(pni, password));
   }
 
   public CompletableFuture<Optional<String>> peekVerificationSessionPushChallenge(final String sessionId) {

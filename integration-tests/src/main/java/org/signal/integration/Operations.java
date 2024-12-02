@@ -78,7 +78,7 @@ public final class Operations {
     final TestUser user = TestUser.create(number, accountPassword, registrationPassword);
     final AccountAttributes accountAttributes = user.accountAttributes();
 
-    INTEGRATION_TOOLS.populateRecoveryPassword(user.pniUuid(), registrationPassword).join();
+    INTEGRATION_TOOLS.populateRecoveryPassword(number, registrationPassword).join();
 
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
