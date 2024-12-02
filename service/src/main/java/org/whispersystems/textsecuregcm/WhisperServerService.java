@@ -397,6 +397,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .workQueue(messageDeletionQueue).build();
 
     Accounts accounts = new Accounts(
+        clock,
         dynamoDbClient,
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getAccounts().getTableName(),

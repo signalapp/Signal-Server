@@ -175,6 +175,7 @@ record CommandDependencies(
         new ClientPublicKeys(dynamoDbAsyncClient, configuration.getDynamoDbTables().getClientPublicKeys().getTableName());
 
     Accounts accounts = new Accounts(
+        clock,
         dynamoDbClient,
         dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getAccounts().getTableName(),

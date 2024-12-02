@@ -600,7 +600,9 @@ class AccountsTest {
   void testUpdateWithMockTransactionConflictException(boolean wrapException) {
 
     final DynamoDbAsyncClient dynamoDbAsyncClient = mock(DynamoDbAsyncClient.class);
-    accounts = new Accounts(mock(DynamoDbClient.class),
+    accounts = new Accounts(
+        clock,
+        mock(DynamoDbClient.class),
         dynamoDbAsyncClient,
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
@@ -689,7 +691,9 @@ class AccountsTest {
   void testUpdateTransactionallyWithMockTransactionConflictException() {
     final DynamoDbAsyncClient dynamoDbAsyncClient = mock(DynamoDbAsyncClient.class);
 
-    accounts = new Accounts(mock(DynamoDbClient.class),
+    accounts = new Accounts(
+        clock,
+        mock(DynamoDbClient.class),
         dynamoDbAsyncClient,
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
@@ -1081,7 +1085,9 @@ class AccountsTest {
       final Class<Exception> expectedException) {
     final DynamoDbAsyncClient dbAsyncClient = mock(DynamoDbAsyncClient.class);
 
-    accounts = new Accounts(mock(DynamoDbClient.class),
+    accounts = new Accounts(
+        clock,
+        mock(DynamoDbClient.class),
         dbAsyncClient,
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
@@ -1124,7 +1130,9 @@ class AccountsTest {
       final Class<Exception> expectedException) {
     final DynamoDbAsyncClient dbAsyncClient = mock(DynamoDbAsyncClient.class);
 
-    accounts = new Accounts(mock(DynamoDbClient.class),
+    accounts = new Accounts(
+        clock,
+        mock(DynamoDbClient.class),
         dbAsyncClient,
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
@@ -1225,7 +1233,9 @@ class AccountsTest {
       final Optional<String> accountsCancellationString) {
     final DynamoDbAsyncClient dbAsyncClient = mock(DynamoDbAsyncClient.class);
 
-    accounts = new Accounts(mock(DynamoDbClient.class),
+    accounts = new Accounts(
+        clock,
+        mock(DynamoDbClient.class),
         dbAsyncClient,
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),

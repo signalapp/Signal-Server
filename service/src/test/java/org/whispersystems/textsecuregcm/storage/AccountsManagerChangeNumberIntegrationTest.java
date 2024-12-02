@@ -93,6 +93,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
 
       final Accounts accounts = new Accounts(
+          Clock.systemUTC(),
           DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
           Tables.ACCOUNTS.tableName(),

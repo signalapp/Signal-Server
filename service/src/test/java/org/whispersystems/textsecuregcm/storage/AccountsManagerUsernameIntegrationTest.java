@@ -102,6 +102,7 @@ class AccountsManagerUsernameIntegrationTest {
     );
 
     accounts = Mockito.spy(new Accounts(
+        Clock.systemUTC(),
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         Tables.ACCOUNTS.tableName(),

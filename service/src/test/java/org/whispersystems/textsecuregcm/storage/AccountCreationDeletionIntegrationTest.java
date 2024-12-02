@@ -102,6 +102,7 @@ public class AccountCreationDeletionIntegrationTest {
         DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
 
     final Accounts accounts = new Accounts(
+        CLOCK,
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.ACCOUNTS.tableName(),
