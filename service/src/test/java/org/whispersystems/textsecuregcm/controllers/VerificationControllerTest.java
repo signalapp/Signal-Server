@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.net.HttpHeaders;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import io.grpc.Status;
@@ -94,7 +95,6 @@ class VerificationControllerTest {
       PhoneNumberUtil.PhoneNumberFormat.E164);
 
   private static final UUID PNI = UUID.randomUUID();
-
   private final RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
   private final VerificationSessionManager verificationSessionManager = mock(VerificationSessionManager.class);
   private final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
@@ -212,6 +212,45 @@ class VerificationControllerTest {
     try (Response response = request.post(Entity.json(createSessionJson(NUMBER, null, null)))) {
       assertEquals(HttpStatus.SC_INTERNAL_SERVER_ERROR, response.getStatus());
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void createBeninSessionSuccess(final String requestedNumber, final String expectedNumber) {
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
+                    SESSION_EXPIRATION_SECONDS)));
+    when(verificationSessionManager.insert(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/verification/session")
+        .request()
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1");
+    try (Response response = request.post(Entity.json(createSessionJson(requestedNumber, "token", "fcm")))) {
+      assertEquals(HttpStatus.SC_OK, response.getStatus());
+
+      final ArgumentCaptor<Phonenumber.PhoneNumber> phoneNumberArgumentCaptor = ArgumentCaptor.forClass(
+          Phonenumber.PhoneNumber.class);
+      verify(registrationServiceClient).createRegistrationSession(phoneNumberArgumentCaptor.capture(), anyBoolean(), any());
+      final Phonenumber.PhoneNumber phoneNumber = phoneNumberArgumentCaptor.getValue();
+
+      assertEquals(expectedNumber, PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164));
+    }
+  }
+
+  private static Stream<Arguments> createBeninSessionSuccess() {
+    // libphonenumber 8.13.50 and on generate new-format numbers for Benin
+    final String newFormatBeninE164 = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final String oldFormatBeninE164 = newFormatBeninE164.replaceFirst("01", "");
+    return Stream.of(
+        Arguments.of(oldFormatBeninE164, newFormatBeninE164),
+        Arguments.of(newFormatBeninE164, newFormatBeninE164),
+        Arguments.of(NUMBER, NUMBER)
+    );
   }
 
   @ParameterizedTest

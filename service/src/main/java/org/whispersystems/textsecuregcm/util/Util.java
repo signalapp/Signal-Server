@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.util;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat;
+import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.i18n.phonenumbers.Phonenumber.PhoneNumber;
 import jakarta.ws.rs.core.Response;
 import java.time.Clock;
@@ -213,6 +214,34 @@ public class Util {
     }
 
     return workingCopy == prefix;
+  }
+
+  /**
+   * Benin is changing phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX starting on November 30, 2024.
+   *
+   * @param phoneNumber the phone number to check.
+   * @return whether the provided phone number is an old-format Benin phone number
+   */
+  public static boolean isOldFormatBeninPhoneNumber(final Phonenumber.PhoneNumber phoneNumber) {
+    return "BJ".equals(PHONE_NUMBER_UTIL.getRegionCodeForNumber(phoneNumber)) &&
+        PHONE_NUMBER_UTIL.getNationalSignificantNumber(phoneNumber).length() == 8;
+  }
+
+  /**
+   * If applicable, return the canonical form of the provided phone number.
+   * This is relevant in cases where a numbering authority has changed the numbering format for a region.
+   *
+   * @param phoneNumber the phone number to canonicalize.
+   * @return the canonical phone number if applicable, otherwise the original phone number.
+   */
+  public static Phonenumber.PhoneNumber canonicalizePhoneNumber(final Phonenumber.PhoneNumber phoneNumber)
+      throws NumberParseException {
+    if (isOldFormatBeninPhoneNumber(phoneNumber)) {
+      // Benin changed phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX starting on November 30, 2024.
+      final String newFormatNumber = "+22901" + PHONE_NUMBER_UTIL.getNationalSignificantNumber(phoneNumber);
+      return PhoneNumberUtil.getInstance().parse(newFormatNumber, null);
+    }
+    return phoneNumber;
   }
 
   public static byte[] truncate(byte[] element, int length) {

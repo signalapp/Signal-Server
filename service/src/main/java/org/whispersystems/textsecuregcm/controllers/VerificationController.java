@@ -160,7 +160,7 @@ public class VerificationController {
 
     final Phonenumber.PhoneNumber phoneNumber;
     try {
-      phoneNumber = PhoneNumberUtil.getInstance().parse(request.getNumber(), null);
+      phoneNumber = Util.canonicalizePhoneNumber(PhoneNumberUtil.getInstance().parse(request.getNumber(), null));
     } catch (final NumberParseException e) {
       throw new ServerErrorException("could not parse already validated number", Response.Status.INTERNAL_SERVER_ERROR);
     }
