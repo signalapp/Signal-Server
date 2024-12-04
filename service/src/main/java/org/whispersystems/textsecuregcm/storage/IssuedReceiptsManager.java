@@ -17,8 +17,11 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
@@ -27,6 +30,8 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
+import org.whispersystems.textsecuregcm.util.AttributeValues;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
@@ -38,6 +43,8 @@ public class IssuedReceiptsManager {
   public static final String KEY_PROCESSOR_ITEM_ID = "A";  // S  (HashKey)
   public static final String KEY_ISSUED_RECEIPT_TAG = "B";  // B
   public static final String KEY_EXPIRATION = "E";  // N
+
+  public static final String KEY_ISSUED_RECEIPT_TAG_SET = "T"; // BS
 
   private final String table;
   private final Duration expiration;
@@ -79,6 +86,7 @@ public class IssuedReceiptsManager {
     } else {
       key = s(processor.name() + "_" + processorItemId);
     }
+    final byte[] tag = generateIssuedReceiptTag(request);
     UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_PROCESSOR_ITEM_ID, key))
@@ -86,13 +94,16 @@ public class IssuedReceiptsManager {
         .returnValues(ReturnValue.NONE)
         .updateExpression("SET "
             + "#tag = if_not_exists(#tag, :tag), "
-            + "#exp = if_not_exists(#exp, :exp)")
+            + "#exp = if_not_exists(#exp, :exp) "
+            + "ADD #tags :singletonTag")
         .expressionAttributeNames(Map.of(
             "#key", KEY_PROCESSOR_ITEM_ID,
             "#tag", KEY_ISSUED_RECEIPT_TAG,
+            "#tags", KEY_ISSUED_RECEIPT_TAG_SET,
             "#exp", KEY_EXPIRATION))
         .expressionAttributeValues(Map.of(
-            ":tag", b(generateIssuedReceiptTag(request)),
+            ":tag", b(tag),
+            ":singletonTag", AttributeValue.fromBs(List.of(SdkBytes.fromByteArray(tag))),
             ":exp", n(now.plus(expiration).getEpochSecond())))
         .build();
     return dynamoDbAsyncClient.updateItem(updateItemRequest).handle((updateItemResponse, throwable) -> {
