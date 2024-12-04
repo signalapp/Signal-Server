@@ -1500,6 +1500,151 @@ paths:
               style: simple
       security:
       - authenticatedAccount: []
+  /v1/devicecheck/assert:
+    get:
+      tags:
+      - DeviceCheck
+      summary: Fetch an assert challenge
+      description: |
+        Retrieve a challenge to use in an attestation, which must be provided at `POST /v1/devicecheck/assert`. To produce
+        the `clientDataHash` for [generateAssertion](https://developer.apple.com/documentation/devicecheck/dcappattestservice/generateassertion(_:clientdatahash:completionhandler:)),
+        construct the request you intend to `POST` and include the returned challenge as the "challenge"
+        field. Serialize the request as JSON and take the SHA256 of the request, as described [here](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity#Assert-your-apps-validity-as-necessary).
+        Note that the JSON body provided to the PUT must exactly match the input to the `clientDataHash` (field order,
+        whitespace, etc matters)
+
+        Repeat calls to retrieve a challenge may return the same challenge until it is used in a `POST`. Callers should
+        attempt to only have a single outstanding challenge at any given time.
+      operationId: assertChallenge
+      parameters:
+      - name: action
+        in: query
+        schema:
+          type: string
+          description: The type of action you will make an assertion for
+          enum:
+          - backup
+      responses:
+        "200":
+          description: The response body includes a challenge
+        "429":
+          description: Ratelimited.
+      security:
+      - authenticatedAccount: []
+    post:
+      tags:
+      - DeviceCheck
+      summary: Perform an attested action
+      description: |
+        Specify some action to take on the account via the request field. The request must exactly match the request you
+        provide when [generating the assertion](https://developer.apple.com/documentation/devicecheck/dcappattestservice/generateassertion(_:clientdatahash:completionhandler:)).
+        The request must include a challenge previously retrieved from `GET /v1/devicecheck/assert`.
+
+        Each assertion increments the counter associated with the client's device key. This method enforces that no
+        assertion with a counter lower than a counter we've already seen is allowed to execute. If a client issues
+        multiple requests concurrently, or if they retry a request that had an indeterminate outcome, it's possible that
+        the request will not be accepted because the server has already stored the updated counter. In this case the
+        request may return 401, and the client should generate a fresh assert for the request.
+      operationId: assertion
+      parameters:
+      - name: keyId
+        in: query
+        description: "The keyId, encoded with padded url-safe base64"
+        required: true
+        schema:
+          type: string
+      - name: request
+        in: query
+        description: |
+          The asserted JSON request data, encoded as a string in padded url-safe base64. This must exactly match the
+          request you use when generating the assertion (including field ordering, whitespace, etc).
+        required: true
+        schema:
+          $ref: '#/components/schemas/AssertionRequest'
+      requestBody:
+        description: "The assertion created by [generateAssertion](https://developer.apple.com/documentation/devicecheck/dcappattestservice/generateassertion(_:clientdatahash:completionhandler:))"
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: byte
+      responses:
+        "204":
+          description: The assertion was valid and the corresponding action was executed
+        "404":
+          description: The provided keyId was not found
+        "410":
+          description: There was no challenge associated with the account. It may
+            have expired.
+        "401":
+          description: The assertion could not be verified
+      security:
+      - authenticatedAccount: []
+  /v1/devicecheck/attest:
+    get:
+      tags:
+      - DeviceCheck
+      summary: Fetch an attest challenge
+      description: |
+        Retrieve a challenge to use in an attestation, which should be provided at `PUT /v1/devicecheck/attest`. To
+        produce the clientDataHash for [attestKey](https://developer.apple.com/documentation/devicecheck/dcappattestservice/attestkey(_:clientdatahash:completionhandler:))
+        take the SHA256 of the UTF-8 bytes of the returned challenge.
+
+        Repeat calls to retrieve a challenge may return the same challenge until it is used in a `PUT`. Callers should
+        have a single outstanding challenge at any given time.
+      operationId: attestChallenge
+      responses:
+        "200":
+          description: The response body includes a challenge
+        "429":
+          description: Ratelimited.
+      security:
+      - authenticatedAccount: []
+    put:
+      tags:
+      - DeviceCheck
+      summary: Register a keyId
+      description: |
+        Register a keyId with an attestation, which can be used to generate assertions from this account.
+
+        The attestation should use the SHA-256 of a challenge retrieved at `GET /v1/devicecheck/attest` as the
+        `clientDataHash`
+
+        Registration is idempotent, and you should retry network errors with the same challenge as suggested by [device
+        check](https://developer.apple.com/documentation/devicecheck/dcappattestservice/attestkey(_:clientdatahash:completionhandler:)#discussion),
+        as long as your challenge has not expired (410). Even if your challenge is expired, you may continue to retry with
+        your original keyId (and a fresh challenge).
+      operationId: attest
+      parameters:
+      - name: keyId
+        in: query
+        description: "The keyId, encoded with padded url-safe base64"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: "The attestation data, created by [attestKey](https://developer.apple.com/documentation/devicecheck/dcappattestservice/attestkey(_:clientdatahash:completionhandler:))"
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: byte
+      responses:
+        "204":
+          description: The keyId was successfully added to the account
+        "410":
+          description: There was no challenge associated with the account. It may
+            have expired.
+        "401":
+          description: The attestation could not be verified
+        "413":
+          description: There are too many unique keyIds associated with this account.
+            This is an unrecoverable error.
+        "409":
+          description: The provided keyId has already been registered to a different
+            account
+      security:
+      - authenticatedAccount: []
   /v1/devices/provisioning/code:
     get:
       tags:
@@ -1793,18 +1938,6 @@ paths:
           description: Account authentication check failed
         "422":
           description: Invalid request format
-      security:
-      - authenticatedAccount: []
-  /v1/devices/unauthenticated_delivery:
-    put:
-      tags:
-      - Devices
-      operationId: setUnauthenticatedDelivery
-      responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
       security:
       - authenticatedAccount: []
   /v1/devices/wait_for_linked_device/{tokenIdentifier}:
@@ -4541,6 +4674,23 @@ components:
           type: string
       discriminator:
         propertyName: type
+    ChallengeResponse:
+      type: object
+      properties:
+        challenge:
+          type: string
+          description: A challenge to use when generating attestations or assertions
+    AssertionRequest:
+      type: object
+      properties:
+        challenge:
+          type: string
+          description: The challenge retrieved at `GET /v1/devicecheck/assert`
+        action:
+          type: string
+          description: The type of action you'd like to perform with this assert
+          enum:
+          - backup
     LinkDeviceToken:
       type: object
       properties:
