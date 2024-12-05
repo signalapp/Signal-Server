@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
+import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery3Controller;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
@@ -44,6 +45,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery3Client;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -153,8 +155,10 @@ record CommandDependencies(
 
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
         configuration.getSecureStorageServiceConfiguration());
-    ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
+    ExternalServiceCredentialsGenerator secureValueRecovery2CredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
         configuration.getSvr2Configuration());
+    ExternalServiceCredentialsGenerator secureValueRecovery3CredentialsGenerator = SecureValueRecovery3Controller.credentialsGenerator(
+        configuration.getSvr3Configuration());
 
     final ExecutorService awsSdkMetricsExecutor = environment.lifecycle()
         .virtualExecutorService(MetricRegistry.name(CommandDependencies.class, "awsSdkMetrics-%d"));
@@ -204,9 +208,13 @@ record CommandDependencies(
     FaultTolerantRedisClusterClient rateLimitersCluster = configuration.getRateLimitersCluster().build("rate_limiters",
         redisClientResourcesBuilder);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(
-        secureValueRecoveryCredentialsGenerator, secureValueRecoveryServiceExecutor,
+        secureValueRecovery2CredentialsGenerator, secureValueRecoveryServiceExecutor,
         secureValueRecoveryServiceRetryExecutor,
         configuration.getSvr2Configuration());
+    SecureValueRecovery3Client secureValueRecovery3Client = new SecureValueRecovery3Client(
+        secureValueRecovery3CredentialsGenerator, secureValueRecoveryServiceExecutor,
+        secureValueRecoveryServiceRetryExecutor,
+        configuration.getSvr3Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, disconnectionRequestListenerExecutor);
@@ -228,7 +236,7 @@ record CommandDependencies(
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
+        secureStorageClient, secureValueRecovery2Client, secureValueRecovery3Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, messagePollExecutor,
         clock, configuration.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(configuration.getLimitsConfiguration(),

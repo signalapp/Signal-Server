@@ -87,6 +87,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery3Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
 import org.whispersystems.textsecuregcm.storage.AccountsManager.UsernameReservation;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -130,6 +131,7 @@ class AccountsManagerTest {
   private RedisAdvancedClusterAsyncCommands<String, String> asyncClusterCommands;
   private AccountsManager accountsManager;
   private SecureValueRecovery2Client svr2Client;
+  private SecureValueRecovery3Client svr3Client;
   private DynamicConfiguration dynamicConfiguration;
 
   private static final Answer<?> ACCOUNT_UPDATE_ANSWER = (answer) -> {
@@ -193,6 +195,9 @@ class AccountsManagerTest {
     svr2Client = mock(SecureValueRecovery2Client.class);
     when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
+    svr3Client = mock(SecureValueRecovery3Client.class);
+    when(svr3Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
+
     final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
     phoneNumberIdentifiersByE164 = new HashMap<>();
 
@@ -254,6 +259,7 @@ class AccountsManagerTest {
         profilesManager,
         storageClient,
         svr2Client,
+        svr3Client,
         disconnectionRequestManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
@@ -266,7 +272,7 @@ class AccountsManagerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testDeleteWithSvrErrorStatusCodes(final String statusCode, final boolean expectError) throws InterruptedException {
+  void testDeleteWithSvr2ErrorStatusCodes(final String statusCode, final boolean expectError) throws InterruptedException {
     when(svr2Client.deleteBackups(any())).thenReturn(
         CompletableFuture.failedFuture(new SecureValueRecoveryException("Failed to delete backup", statusCode)));
     when(dynamicConfiguration.getSvrStatusCodesToIgnoreForAccountDeletion()).thenReturn(List.of("500"));
@@ -282,11 +288,24 @@ class AccountsManagerTest {
     }
   }
 
-  private static Stream<Arguments> testDeleteWithSvrErrorStatusCodes() {
+  private static Stream<Arguments> testDeleteWithSvr2ErrorStatusCodes() {
     return Stream.of(
         Arguments.of("500", false),
         Arguments.of("429", true)
     );
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"500", "429"})
+  void testDeleteWithSvr3ErrorStatusCodes(final String statusCode) throws InterruptedException {
+    when(svr3Client.deleteBackups(any())).thenReturn(
+        CompletableFuture.failedFuture(new SecureValueRecoveryException("Failed to delete backup", statusCode)));
+
+    final AccountAttributes attributes = new AccountAttributes(false, 1, 2, null, null, true, null);
+
+    final Account createdAccount = createAccount("+18005550123", attributes);
+
+    assertDoesNotThrow(() -> accountsManager.delete(createdAccount, AccountsManager.DeletionReason.USER_REQUEST).toCompletableFuture().join());
   }
 
   @Test

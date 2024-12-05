@@ -82,6 +82,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery3Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -125,6 +126,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final ProfilesManager profilesManager;
   private final SecureStorageClient secureStorageClient;
   private final SecureValueRecovery2Client secureValueRecovery2Client;
+  private final SecureValueRecovery3Client secureValueRecovery3Client;
+
   private final DisconnectionRequestManager disconnectionRequestManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final ClientPublicKeysManager clientPublicKeysManager;
@@ -207,6 +210,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final ProfilesManager profilesManager,
       final SecureStorageClient secureStorageClient,
       final SecureValueRecovery2Client secureValueRecovery2Client,
+      final SecureValueRecovery3Client secureValueRecovery3Client,
       final DisconnectionRequestManager disconnectionRequestManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final ClientPublicKeysManager clientPublicKeysManager,
@@ -225,6 +229,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.profilesManager = profilesManager;
     this.secureStorageClient = secureStorageClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
+    this.secureValueRecovery3Client = secureValueRecovery3Client;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.clientPublicKeysManager = clientPublicKeysManager;
@@ -1248,19 +1253,27 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                     account.getIdentifier(IdentityType.ACI),
                     device.getId())))
         .toList();
-    CompletableFuture<Void> deleteBackupFuture = secureValueRecovery2Client.deleteBackups(account.getUuid())
+    final CompletableFuture<Void> svr2DeleteBackupFuture = secureValueRecovery2Client.deleteBackups(account.getUuid())
         .exceptionally(ExceptionUtils.exceptionallyHandler(SecureValueRecoveryException.class, exception -> {
           final List<String> svrStatusCodesToIgnore = dynamicConfigurationManager.getConfiguration().getSvrStatusCodesToIgnoreForAccountDeletion();
           if (svrStatusCodesToIgnore.contains(exception.getStatusCode())) {
-            logger.warn("Failed to delete backup for account: " + account.getUuid(), exception);
+            logger.warn("Ignoring failure to delete svr2 backup for account: " + account.getUuid(), exception);
             return null;
           }
+          logger.warn("Failed to delete svr2 backup for account: " + account.getUuid(), exception);
           throw new CompletionException(exception);
         }));
 
+    final CompletableFuture<Void> svr3DeleteBackupFuture = secureValueRecovery3Client.deleteBackups(account.getUuid())
+        .exceptionally(exception -> {
+          // We don't care about errors from SVR3 because we're not currently using it
+          return null;
+        });
+
     return CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),
-            deleteBackupFuture,
+            svr2DeleteBackupFuture,
+            svr3DeleteBackupFuture,
             keysManager.deleteSingleUsePreKeys(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
             messagesManager.clear(account.getUuid()),

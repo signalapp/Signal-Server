@@ -206,6 +206,7 @@ import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery3Client;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
@@ -478,8 +479,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .maxThreads(1).minThreads(1).build();
     ExecutorService fcmSenderExecutor = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d"))
         .maxThreads(32).minThreads(32).workQueue(fcmSenderQueue).build();
-    ExecutorService secureValueRecoveryServiceExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
+    ExecutorService secureValueRecovery2ServiceExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "secureValueRecoveryService2-%d")).maxThreads(1).minThreads(1).build();
+    ExecutorService secureValueRecovery3ServiceExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "secureValueRecoveryService3-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService virtualThreadEventLoggerExecutor = environment.lifecycle()
@@ -602,7 +605,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getKeyTransparencyServiceConfiguration().clientPrivateKey().value(),
         keyTransparencyCallbackExecutor);
     SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
-        secureValueRecoveryServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
+        secureValueRecovery2ServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
+    SecureValueRecovery3Client secureValueRecovery3Client = new SecureValueRecovery3Client(svr3CredentialsGenerator,
+        secureValueRecovery3ServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr3Configuration());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, disconnectionRequestListenerExecutor);
@@ -623,7 +628,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keysManager, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
+        secureStorageClient, secureValueRecovery2Client, secureValueRecovery3Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, messagePollExecutor,
         clock, config.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);

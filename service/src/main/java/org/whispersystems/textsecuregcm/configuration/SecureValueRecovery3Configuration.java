@@ -13,7 +13,9 @@ import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public record SecureValueRecovery3Configuration(
-    @NotBlank String uri,
+    @NotBlank String backend1Uri,
+    @NotBlank String backend2Uri,
+    @NotBlank String backend3Uri,
     @ExactlySize(32) SecretBytes userAuthenticationTokenSharedSecret,
     @ExactlySize(32) SecretBytes userIdTokenSharedSecret,
     @NotEmpty List<@NotBlank String> svrCaCertificates,

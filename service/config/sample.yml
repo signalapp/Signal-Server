@@ -215,7 +215,9 @@ svr2:
       -----END CERTIFICATE-----
 
 svr3:
-  uri: svr3.example.com
+  backend1Uri: backend1.example.com
+  backend2Uri: backend2.example.com
+  backend3Uri: backend3.example.com
   userAuthenticationTokenSharedSecret: secret://svr3.userAuthenticationTokenSharedSecret
   userIdTokenSharedSecret: secret://svr3.userIdTokenSharedSecret
   svrCaCertificates:

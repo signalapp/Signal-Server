@@ -56,6 +56,8 @@ public class SecureValueRecovery3ControllerTest extends SecureValueRecoveryContr
 
   private static final SecureValueRecovery3Configuration CFG = new SecureValueRecovery3Configuration(
       "",
+      "",
+      "",
       randomSecretBytes(32),
       randomSecretBytes(32),
       null,
