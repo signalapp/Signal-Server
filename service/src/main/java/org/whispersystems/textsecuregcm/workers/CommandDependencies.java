@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeys;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
@@ -89,6 +90,7 @@ record CommandDependencies(
     FaultTolerantRedisClusterClient pushSchedulerCluster,
     ClientResources.Builder redisClusterClientResourcesBuilder,
     BackupManager backupManager,
+    IssuedReceiptsManager issuedReceiptsManager,
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
     DynamoDbAsyncClient dynamoDbAsyncClient,
     PhoneNumberIdentifiers phoneNumberIdentifiers) {
@@ -261,6 +263,13 @@ record CommandDependencies(
             remoteStorageRetryExecutor,
             configuration.getCdn3StorageManagerConfiguration()),
         clock);
+
+    final IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
+        configuration.getDynamoDbTables().getIssuedReceipts().getTableName(),
+        configuration.getDynamoDbTables().getIssuedReceipts().getExpiration(),
+        dynamoDbAsyncClient,
+        configuration.getDynamoDbTables().getIssuedReceipts().getGenerator());
+
     APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, configuration.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
@@ -296,6 +305,7 @@ record CommandDependencies(
         pushSchedulerCluster,
         redisClientResourcesBuilder,
         backupManager,
+        issuedReceiptsManager,
         dynamicConfigurationManager,
         dynamoDbAsyncClient,
         phoneNumberIdentifiers
