@@ -249,7 +249,11 @@ public class BackupAuthManager {
    */
   public CompletableFuture<Void> extendBackupVoucher(final Account account, final Account.BackupVoucher backupVoucher) {
     return accountsManager.updateAsync(account, a -> {
-      final Account.BackupVoucher newPayment = backupVoucher;
+      // Receipt credential expirations must be day aligned. Make sure any manually set backupVoucher is also day
+      // aligned
+      final Account.BackupVoucher newPayment =  new Account.BackupVoucher(
+          backupVoucher.receiptLevel(),
+          backupVoucher.expiration().truncatedTo(ChronoUnit.DAYS));
       final Account.BackupVoucher existingPayment = a.getBackupVoucher();
       a.setBackupVoucher(merge(existingPayment, newPayment));
     }).thenRun(Util.NOOP);
