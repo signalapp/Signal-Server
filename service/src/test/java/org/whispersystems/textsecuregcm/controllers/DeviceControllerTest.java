@@ -66,6 +66,7 @@ import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
+import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -81,7 +82,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
@@ -113,7 +113,6 @@ class DeviceControllerTest {
   private static final Account maxedAccount = mock(Account.class);
   private static final Device primaryDevice = mock(Device.class);
   private static final DisconnectionRequestManager disconnectionRequestManager = mock(DisconnectionRequestManager.class);
-  private static final WebSocketConnectionEventManager webSocketConnectionEventManager = mock(WebSocketConnectionEventManager.class);
   private static final Map<String, Integer> deviceConfiguration = new HashMap<>();
   private static final TestClock testClock = TestClock.now();
 
@@ -178,6 +177,37 @@ class DeviceControllerTest {
     );
 
     testClock.unpin();
+  }
+
+  @Test
+  void getDevices() {
+    final byte deviceId = Device.PRIMARY_ID;
+    final byte[] deviceName = "refreshed-device-name".getBytes(StandardCharsets.UTF_8);
+    final long deviceCreated = System.currentTimeMillis();
+    final long deviceLastSeen = deviceCreated + 1;
+
+    final Device refreshedDevice = mock(Device.class);
+    when(refreshedDevice.getId()).thenReturn(deviceId);
+    when(refreshedDevice.getName()).thenReturn(deviceName);
+    when(refreshedDevice.getCreated()).thenReturn(deviceCreated);
+    when(refreshedDevice.getLastSeen()).thenReturn(deviceLastSeen);
+
+    final Account refreshedAccount = mock(Account.class);
+    when(refreshedAccount.getDevices()).thenReturn(List.of(refreshedDevice));
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(refreshedAccount));
+
+    final DeviceInfoList deviceInfoList = resources.getJerseyTest()
+        .target("/v1/devices")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(DeviceInfoList.class);
+
+    assertEquals(1, deviceInfoList.devices().size());
+    assertEquals(deviceId, deviceInfoList.devices().getFirst().id());
+    assertArrayEquals(deviceName, deviceInfoList.devices().getFirst().name());
+    assertEquals(deviceCreated, deviceInfoList.devices().getFirst().created());
+    assertEquals(deviceLastSeen, deviceInfoList.devices().getFirst().lastSeen());
   }
 
   @ParameterizedTest
