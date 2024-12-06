@@ -41,15 +41,12 @@ public class IssuedReceiptMigrationCommand extends AbstractCommandWithDependenci
   private static final String MIGRATED_ISSUED_RECEIPTS = MetricsUtil.name(IssuedReceiptMigrationCommand.class,
       "migratedIssuedReceipts");
 
-  private final Clock clock;
-
-  public IssuedReceiptMigrationCommand(final Clock clock) {
+  public IssuedReceiptMigrationCommand() {
     super(new Application<>() {
       @Override
       public void run(final WhisperServerConfiguration configuration, final Environment environment) {
       }
     }, "migrate-issued-receipts", "Migrates columns in the issued receipts table");
-    this.clock = clock;
   }
 
   @Override
