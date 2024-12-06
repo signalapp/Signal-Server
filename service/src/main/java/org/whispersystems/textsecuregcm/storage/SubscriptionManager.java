@@ -81,7 +81,7 @@ public class SubscriptionManager {
               .orElseGet(() -> CompletableFuture.completedFuture(null));
         })
         .thenCompose(unused ->
-            subscriptions.canceledAt(subscriberCredentials.subscriberUser(), subscriberCredentials.now()));
+            subscriptions.setCanceledAt(subscriberCredentials.subscriberUser(), subscriberCredentials.now()));
   }
 
   /**

@@ -195,7 +195,7 @@ public class Subscriptions {
         throw new IllegalStateException(
             "expected invariant of 1-1 subscriber-customer violated for customer " + processorCustomer);
       } else {
-        Map<String, AttributeValue> result = queryResponse.items().get(0);
+        Map<String, AttributeValue> result = queryResponse.items().getFirst();
         return result.get(KEY_USER).b().asByteArray();
       }
     });
@@ -370,15 +370,16 @@ public class Subscriptions {
             + "#subscription_id = :subscription_id, "
             + "#subscription_level = :subscription_level, "
             + "#subscription_created_at = if_not_exists(#subscription_created_at, :subscription_created_at), "
-            + "#subscription_level_changed_at = :subscription_level_changed_at"
-        )
+            + "#subscription_level_changed_at = :subscription_level_changed_at "
+            + "REMOVE #canceled_at")
         .expressionAttributeNames(Map.of(
             "#processor_customer_id", KEY_PROCESSOR_ID_CUSTOMER_ID,
             "#accessed_at", KEY_ACCESSED_AT,
             "#subscription_id", KEY_SUBSCRIPTION_ID,
             "#subscription_level", KEY_SUBSCRIPTION_LEVEL,
             "#subscription_created_at", KEY_SUBSCRIPTION_CREATED_AT,
-            "#subscription_level_changed_at", KEY_SUBSCRIPTION_LEVEL_CHANGED_AT))
+            "#subscription_level_changed_at", KEY_SUBSCRIPTION_LEVEL_CHANGED_AT,
+            "#canceled_at", KEY_CANCELED_AT))
         .expressionAttributeValues(Map.of(
             ":accessed_at", n(updatedAt.getEpochSecond()),
             ":processor_customer_id", b(processorCustomer.toDynamoBytes()),
@@ -414,7 +415,7 @@ public class Subscriptions {
     return client.updateItem(request).thenApply(updateItemResponse -> null);
   }
 
-  public CompletableFuture<Void> canceledAt(byte[] user, Instant canceledAt) {
+  public CompletableFuture<Void> setCanceledAt(byte[] user, Instant canceledAt) {
     checkUserLength(user);
 
     UpdateItemRequest request = UpdateItemRequest.builder()
@@ -449,13 +450,15 @@ public class Subscriptions {
             + "#subscription_id = :subscription_id, "
             + "#subscription_created_at = :subscription_created_at, "
             + "#subscription_level = :subscription_level, "
-            + "#subscription_level_changed_at = :subscription_level_changed_at")
+            + "#subscription_level_changed_at = :subscription_level_changed_at "
+            + "REMOVE #canceled_at")
         .expressionAttributeNames(Map.of(
             "#accessed_at", KEY_ACCESSED_AT,
             "#subscription_id", KEY_SUBSCRIPTION_ID,
             "#subscription_created_at", KEY_SUBSCRIPTION_CREATED_AT,
             "#subscription_level", KEY_SUBSCRIPTION_LEVEL,
-            "#subscription_level_changed_at", KEY_SUBSCRIPTION_LEVEL_CHANGED_AT))
+            "#subscription_level_changed_at", KEY_SUBSCRIPTION_LEVEL_CHANGED_AT,
+            "#canceled_at", KEY_CANCELED_AT))
         .expressionAttributeValues(Map.of(
             ":accessed_at", n(subscriptionCreatedAt.getEpochSecond()),
             ":subscription_id", s(subscriptionId),
@@ -478,12 +481,14 @@ public class Subscriptions {
             + "#accessed_at = :accessed_at, "
             + "#subscription_id = :subscription_id, "
             + "#subscription_level = :subscription_level, "
-            + "#subscription_level_changed_at = :subscription_level_changed_at")
+            + "#subscription_level_changed_at = :subscription_level_changed_at "
+            + "REMOVE #canceled_at")
         .expressionAttributeNames(Map.of(
             "#accessed_at", KEY_ACCESSED_AT,
             "#subscription_id", KEY_SUBSCRIPTION_ID,
             "#subscription_level", KEY_SUBSCRIPTION_LEVEL,
-            "#subscription_level_changed_at", KEY_SUBSCRIPTION_LEVEL_CHANGED_AT))
+            "#subscription_level_changed_at", KEY_SUBSCRIPTION_LEVEL_CHANGED_AT,
+            "#canceled_at", KEY_CANCELED_AT))
         .expressionAttributeValues(Map.of(
             ":accessed_at", n(subscriptionLevelChangedAt.getEpochSecond()),
             ":subscription_id", s(subscriptionId),

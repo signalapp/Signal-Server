@@ -12,7 +12,6 @@ import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.T
 import static org.whispersystems.textsecuregcm.storage.Subscriptions.GetResult.Type.PASSWORD_MISMATCH;
 
 import jakarta.ws.rs.ClientErrorException;
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -36,7 +35,6 @@ class SubscriptionsTest {
 
   private static final long NOW_EPOCH_SECONDS = 1_500_000_000L;
   private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
-  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.SUBSCRIPTIONS);
@@ -177,10 +175,10 @@ class SubscriptionsTest {
   }
 
   @Test
-  void testCanceledAt() {
+  void testSetCanceledAt() {
     Instant canceled = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 42);
     assertThat(subscriptions.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
-    assertThat(subscriptions.canceledAt(user, canceled)).succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptions.setCanceledAt(user, canceled)).succeedsWithin(DEFAULT_TIMEOUT);
     assertThat(subscriptions.get(user, password)).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
       assertThat(getResult).isNotNull();
       assertThat(getResult.type).isEqualTo(FOUND);
@@ -214,6 +212,36 @@ class SubscriptionsTest {
   }
 
   @Test
+  void testSubscriptionCreatedClearCanceledAt() {
+    String subscriptionId = Base64.getEncoder().encodeToString(TestRandomUtil.nextBytes(16));
+    Instant subscriptionCreated = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 1);
+    Instant canceledAt = subscriptionCreated.plusSeconds(1);
+    long level = 42;
+    assertThat(subscriptions.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptions.subscriptionCreated(user, subscriptionId, subscriptionCreated, level))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+
+    assertThat(subscriptions.setCanceledAt(user, canceledAt)).succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptions.get(user, password).join().record.canceledAt).isEqualTo(canceledAt);
+
+    assertThat(subscriptions.subscriptionCreated(user, subscriptionId, subscriptionCreated, level))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+
+    assertThat(subscriptions.get(user, password)).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
+      assertThat(getResult).isNotNull();
+      assertThat(getResult.type).isEqualTo(FOUND);
+      assertThat(getResult.record).isNotNull().satisfies(record -> {
+        assertThat(record.accessedAt).isEqualTo(subscriptionCreated);
+        assertThat(record.subscriptionId).isEqualTo(subscriptionId);
+        assertThat(record.subscriptionCreatedAt).isEqualTo(subscriptionCreated);
+        assertThat(record.subscriptionLevel).isEqualTo(level);
+        assertThat(record.subscriptionLevelChangedAt).isEqualTo(subscriptionCreated);
+        assertThat(record.canceledAt).isNull();
+      });
+    });
+  }
+
+  @Test
   void testSubscriptionLevelChanged() {
     Instant at = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 500);
     long level = 1776;
@@ -231,6 +259,34 @@ class SubscriptionsTest {
         assertThat(record.subscriptionLevelChangedAt).isEqualTo(at);
         assertThat(record.subscriptionLevel).isEqualTo(level);
         assertThat(record.subscriptionId).isEqualTo(updatedSubscriptionId);
+      });
+    });
+  }
+
+  @Test
+  void testSubscriptionLevelChangedClearCanceledAt() {
+    Instant at = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 500);
+    Instant canceledAt = at.plusSeconds(100);
+    long level = 1776;
+    String updatedSubscriptionId = "new";
+    assertThat(subscriptions.create(user, password, created)).succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptions.subscriptionCreated(user, "original", created, level - 1))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+
+    assertThat(subscriptions.setCanceledAt(user, canceledAt)).succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptions.get(user, password).join().record.canceledAt).isEqualTo(canceledAt);
+
+    assertThat(subscriptions.subscriptionLevelChanged(user, at, level, updatedSubscriptionId))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+    assertThat(subscriptions.get(user, password)).succeedsWithin(DEFAULT_TIMEOUT).satisfies(getResult -> {
+      assertThat(getResult).isNotNull();
+      assertThat(getResult.type).isEqualTo(FOUND);
+      assertThat(getResult.record).isNotNull().satisfies(record -> {
+        assertThat(record.accessedAt).isEqualTo(at);
+        assertThat(record.subscriptionLevelChangedAt).isEqualTo(at);
+        assertThat(record.subscriptionLevel).isEqualTo(level);
+        assertThat(record.subscriptionId).isEqualTo(updatedSubscriptionId);
+        assertThat(record.canceledAt).isNull();
       });
     });
   }
@@ -285,6 +341,36 @@ class SubscriptionsTest {
     assertThat(record.subscriptionLevelChangedAt).isEqualTo(nextAt);
     assertThat(record.subscriptionCreatedAt).isEqualTo(at);
     assertThat(record.getProcessorCustomer().orElseThrow()).isEqualTo(pc);
+  }
+
+  @Test
+  void testSetIapPurchaseClearCanceledAt() {
+    Instant at = Instant.ofEpochSecond(NOW_EPOCH_SECONDS + 500);
+    Instant canceledAt = at.plusSeconds(100);
+    long level = 100;
+
+    ProcessorCustomer pc = new ProcessorCustomer("customerId", PaymentProvider.GOOGLE_PLAY_BILLING);
+    Record record = subscriptions.create(user, password, created).join();
+
+    // Should be able to set a fresh subscription
+    assertThat(subscriptions.setIapPurchase(record, pc, "subscriptionId", level, at))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+
+    assertThat(subscriptions.setCanceledAt(record.user, canceledAt))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+
+    record = subscriptions.get(user, password).join().record;
+    assertThat(record.canceledAt).isEqualTo(canceledAt);
+
+    // should be able to update the level
+    Instant nextAt = at.plus(Duration.ofSeconds(10));
+    long nextLevel = level + 1;
+    assertThat(subscriptions.setIapPurchase(record, pc, "subscriptionId", nextLevel, nextAt))
+        .succeedsWithin(DEFAULT_TIMEOUT);
+
+    // Resetting the level should clear the "canceled at" timestamp
+    record = subscriptions.get(user, password).join().record;
+    assertThat(record.canceledAt).isNull();
   }
 
   @Test
