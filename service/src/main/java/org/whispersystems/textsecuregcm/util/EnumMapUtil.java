@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.util;
 
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -20,5 +21,14 @@ public class EnumMapUtil {
               throw new AssertionError("Duplicate enumeration key");
             },
             () -> new EnumMap<>(enumClass)));
+  }
+
+  public static <E extends Enum<E>, V> EnumMap<E, V> toCompleteEnumMap(final Class<E> enumClass, final Map<E, V> map) {
+    for (E e : enumClass.getEnumConstants()) {
+      if (!map.containsKey(e)) {
+        throw new IllegalArgumentException("Missing enum key: " + e);
+      }
+    }
+    return new EnumMap<>(map);
   }
 }

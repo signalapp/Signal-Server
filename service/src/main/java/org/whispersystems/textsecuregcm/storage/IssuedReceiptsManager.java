@@ -9,6 +9,7 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.b;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.core.Response.Status;
@@ -17,6 +18,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -46,16 +48,19 @@ public class IssuedReceiptsManager {
   private final Duration expiration;
   private final DynamoDbAsyncClient dynamoDbAsyncClient;
   private final byte[] receiptTagGenerator;
+  private final EnumMap<PaymentProvider, Integer> maxIssuedReceiptsPerPaymentId;
 
   public IssuedReceiptsManager(
       @Nonnull String table,
       @Nonnull Duration expiration,
       @Nonnull DynamoDbAsyncClient dynamoDbAsyncClient,
-      @Nonnull byte[] receiptTagGenerator) {
+      @Nonnull byte[] receiptTagGenerator,
+      @Nonnull EnumMap<PaymentProvider, Integer> maxIssuedReceiptsPerPaymentId) {
     this.table = Objects.requireNonNull(table);
     this.expiration = Objects.requireNonNull(expiration);
     this.dynamoDbAsyncClient = Objects.requireNonNull(dynamoDbAsyncClient);
     this.receiptTagGenerator = Objects.requireNonNull(receiptTagGenerator);
+    this.maxIssuedReceiptsPerPaymentId = Objects.requireNonNull(maxIssuedReceiptsPerPaymentId);
   }
 
   /**
@@ -74,19 +79,12 @@ public class IssuedReceiptsManager {
       ReceiptCredentialRequest request,
       Instant now) {
 
-    final AttributeValue key;
-    if (processor == PaymentProvider.STRIPE) {
-      // As the first processor, Stripe’s IDs were not prefixed. Its item IDs have documented prefixes (`il_`, `pi_`)
-      // that will not collide with `SubscriptionProcessor` names
-      key = s(processorItemId);
-    } else {
-      key = s(processor.name() + "_" + processorItemId);
-    }
+    final AttributeValue key = dynamoDbKey(processor, processorItemId);
     final byte[] tag = generateIssuedReceiptTag(request);
     UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_PROCESSOR_ITEM_ID, key))
-        .conditionExpression("attribute_not_exists(#key) OR #tag = :tag")
+        .conditionExpression("attribute_not_exists(#key) OR contains(#tags, :tag) OR size(#tags) < :maxTags")
         .returnValues(ReturnValue.NONE)
         .updateExpression("SET "
             + "#tag = if_not_exists(#tag, :tag), "
@@ -100,7 +98,8 @@ public class IssuedReceiptsManager {
         .expressionAttributeValues(Map.of(
             ":tag", b(tag),
             ":singletonTag", AttributeValue.fromBs(List.of(SdkBytes.fromByteArray(tag))),
-            ":exp", n(now.plus(expiration).getEpochSecond())))
+            ":exp", n(now.plus(expiration).getEpochSecond()),
+            ":maxTags", n(maxIssuedReceiptsPerPaymentId.get(processor))))
         .build();
     return dynamoDbAsyncClient.updateItem(updateItemRequest).handle((updateItemResponse, throwable) -> {
       if (throwable != null) {
@@ -115,7 +114,20 @@ public class IssuedReceiptsManager {
     });
   }
 
-  private byte[] generateIssuedReceiptTag(ReceiptCredentialRequest request) {
+  @VisibleForTesting
+  static AttributeValue dynamoDbKey(final PaymentProvider processor, String processorItemId) {
+    if (processor == PaymentProvider.STRIPE) {
+      // As the first processor, Stripe’s IDs were not prefixed. Its item IDs have documented prefixes (`il_`, `pi_`)
+      // that will not collide with `SubscriptionProcessor` names
+      return s(processorItemId);
+    } else {
+      return s(processor.name() + "_" + processorItemId);
+    }
+  }
+
+
+  @VisibleForTesting
+  byte[] generateIssuedReceiptTag(ReceiptCredentialRequest request) {
     return generateHmac("issuedReceiptTag", mac -> mac.update(request.serialize()));
   }
 

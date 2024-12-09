@@ -647,7 +647,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
         config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
         dynamoDbAsyncClient,
-        config.getDynamoDbTables().getIssuedReceipts().getGenerator());
+        config.getDynamoDbTables().getIssuedReceipts().getGenerator(),
+        config.getDynamoDbTables().getIssuedReceipts().getmaxIssuedReceiptsPerPaymentId());
     OneTimeDonationsManager oneTimeDonationsManager = new OneTimeDonationsManager(
         config.getDynamoDbTables().getOnetimeDonations().getTableName(), config.getDynamoDbTables().getOnetimeDonations().getExpiration(), dynamoDbAsyncClient);
     RedeemedReceiptsManager redeemedReceiptsManager = new RedeemedReceiptsManager(clock,

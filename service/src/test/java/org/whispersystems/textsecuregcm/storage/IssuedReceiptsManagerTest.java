@@ -12,18 +12,22 @@ import static org.mockito.Mockito.when;
 import jakarta.ws.rs.ClientErrorException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.assertj.core.api.Condition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -38,7 +42,13 @@ class IssuedReceiptsManagerTest {
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.ISSUED_RECEIPTS);
 
-  IssuedReceiptsManager issuedReceiptsManager;
+  private static EnumMap<PaymentProvider, Integer> MAX_TAGS_MAP = new EnumMap<>(Map.of(
+      PaymentProvider.STRIPE, 1,
+      PaymentProvider.BRAINTREE, 2,
+      PaymentProvider.GOOGLE_PLAY_BILLING, 3,
+      PaymentProvider.APPLE_APP_STORE, 4));
+
+  private IssuedReceiptsManager issuedReceiptsManager;
 
   @BeforeEach
   void beforeEach() {
@@ -46,7 +56,8 @@ class IssuedReceiptsManagerTest {
         Tables.ISSUED_RECEIPTS.tableName(),
         Duration.ofDays(90),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        TestRandomUtil.nextBytes(16));
+        TestRandomUtil.nextBytes(16),
+        MAX_TAGS_MAP);
   }
 
   @Test
@@ -57,7 +68,7 @@ class IssuedReceiptsManagerTest {
         receiptCredentialRequest, now);
     assertThat(future).succeedsWithin(Duration.ofSeconds(3));
 
-    final Map<String, AttributeValue> item = getItem("item-1").item();
+    final Map<String, AttributeValue> item = getItem(PaymentProvider.STRIPE, "item-1").item();
     final Set<byte[]> tagSet = item.get(IssuedReceiptsManager.KEY_ISSUED_RECEIPT_TAG_SET).bs()
         .stream()
         .map(SdkBytes::asByteArray)
@@ -88,12 +99,51 @@ class IssuedReceiptsManagerTest {
     assertThat(future).succeedsWithin(Duration.ofSeconds(3));
   }
 
+  @ParameterizedTest
+  @EnumSource(PaymentProvider.class)
+  void testIssueMax(PaymentProvider processor) {
+    final Instant now = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
 
-  private GetItemResponse getItem(final String itemId) {
+    final int maxTags = MAX_TAGS_MAP.get(processor);
+    final List<ReceiptCredentialRequest> requests = IntStream.range(0, maxTags)
+        .mapToObj(i -> randomReceiptCredentialRequest())
+        .toList();
+    for (int i = 0; i < maxTags; i++) {
+      // Should be allowed to insert up to maxTags
+        assertThat(issuedReceiptsManager.recordIssuance("item-1", processor, requests.get(i), now))
+            .succeedsWithin(Duration.ofSeconds(3));
+      for (int j = 0; j < i; j++) {
+        // Also should be allowed to repeat any previous tag
+        assertThat(issuedReceiptsManager.recordIssuance("item-1", processor, requests.get(j), now))
+            .succeedsWithin(Duration.ofSeconds(3));
+      }
+    }
+
+    assertThat(getItem(processor, "item-1").item().get(IssuedReceiptsManager.KEY_ISSUED_RECEIPT_TAG_SET).bs()
+        .stream()
+        .map(SdkBytes::asByteArray)
+        .collect(Collectors.toSet()))
+        .containsExactlyInAnyOrder(requests.stream()
+            .map(issuedReceiptsManager::generateIssuedReceiptTag)
+            .toArray(byte[][]::new));
+
+    // Should not be allowed to insert past maxTags
+    assertThat(issuedReceiptsManager.recordIssuance("item-1", processor, randomReceiptCredentialRequest(), now))
+        .failsWithin(Duration.ofSeconds(3))
+        .withThrowableOfType(Throwable.class)
+        .havingCause()
+        .isExactlyInstanceOf(ClientErrorException.class)
+        .has(new Condition<>(
+            e -> e instanceof ClientErrorException && ((ClientErrorException) e).getResponse().getStatus() == 409,
+            "status 409"));
+  }
+
+
+  private GetItemResponse getItem(final PaymentProvider processor, final String itemId) {
     final DynamoDbClient client = DYNAMO_DB_EXTENSION.getDynamoDbClient();
     return client.getItem(GetItemRequest.builder()
         .tableName(Tables.ISSUED_RECEIPTS.tableName())
-        .key(Map.of(IssuedReceiptsManager.KEY_PROCESSOR_ITEM_ID, AttributeValues.s(itemId)))
+        .key(Map.of(IssuedReceiptsManager.KEY_PROCESSOR_ITEM_ID, IssuedReceiptsManager.dynamoDbKey(processor, itemId)))
         .build());
   }
 

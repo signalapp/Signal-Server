@@ -268,7 +268,8 @@ record CommandDependencies(
         configuration.getDynamoDbTables().getIssuedReceipts().getTableName(),
         configuration.getDynamoDbTables().getIssuedReceipts().getExpiration(),
         dynamoDbAsyncClient,
-        configuration.getDynamoDbTables().getIssuedReceipts().getGenerator());
+        configuration.getDynamoDbTables().getIssuedReceipts().getGenerator(),
+        configuration.getDynamoDbTables().getIssuedReceipts().getmaxIssuedReceiptsPerPaymentId());
 
     APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, configuration.getFcmConfiguration().credentials().value());

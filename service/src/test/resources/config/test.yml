@@ -124,6 +124,11 @@ dynamoDbTables:
     tableName: issued_receipts_test
     expiration: P30D # Duration of time until rows expire
     generator: abcdefg12345678= # random base64-encoded binary sequence
+    maxIssuedReceiptsPerPaymentId:
+      STRIPE: 1
+      BRAINTREE: 1
+      GOOGLE_PLAY_BILLING: 1
+      APPLE_APP_STORE: 1
   ecKeys:
     tableName: keys_test
   ecSignedPreKeys:
