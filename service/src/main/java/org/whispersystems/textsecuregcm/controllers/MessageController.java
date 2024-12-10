@@ -272,10 +272,10 @@ public class MessageController {
       description="The message is not a story and some the recipient service ID does not correspond to a registered Signal user")
   @ApiResponse(
       responseCode = "409", description = "Incorrect set of devices supplied for recipient",
-      content = @Content(schema = @Schema(implementation = AccountMismatchedDevices[].class)))
+      content = @Content(schema = @Schema(implementation = MismatchedDevices.class)))
   @ApiResponse(
       responseCode = "410", description = "Mismatched registration ids supplied for some recipient devices",
-      content = @Content(schema = @Schema(implementation = AccountStaleDevices[].class)))
+      content = @Content(schema = @Schema(implementation = StaleDevices.class)))
   @ApiResponse(
       responseCode="428",
       description="The sender should complete a challenge before proceeding")
