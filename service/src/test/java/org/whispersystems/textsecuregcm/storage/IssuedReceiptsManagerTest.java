@@ -73,7 +73,7 @@ class IssuedReceiptsManagerTest {
         .stream()
         .map(SdkBytes::asByteArray)
         .collect(Collectors.toSet());
-    assertThat(tagSet).containsExactly(item.get(IssuedReceiptsManager.KEY_ISSUED_RECEIPT_TAG).b().asByteArray());
+    assertThat(tagSet).containsExactly(issuedReceiptsManager.generateIssuedReceiptTag(receiptCredentialRequest));
 
     // same request should succeed
     future = issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE, receiptCredentialRequest,

@@ -40,7 +40,6 @@ import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 public class IssuedReceiptsManager {
 
   public static final String KEY_PROCESSOR_ITEM_ID = "A";  // S  (HashKey)
-  public static final String KEY_ISSUED_RECEIPT_TAG = "B";  // B
   public static final String KEY_EXPIRATION = "E";  // N
   public static final String KEY_ISSUED_RECEIPT_TAG_SET = "T"; // BS
 
@@ -86,13 +85,9 @@ public class IssuedReceiptsManager {
         .key(Map.of(KEY_PROCESSOR_ITEM_ID, key))
         .conditionExpression("attribute_not_exists(#key) OR contains(#tags, :tag) OR size(#tags) < :maxTags")
         .returnValues(ReturnValue.NONE)
-        .updateExpression("SET "
-            + "#tag = if_not_exists(#tag, :tag), "
-            + "#exp = if_not_exists(#exp, :exp) "
-            + "ADD #tags :singletonTag")
+        .updateExpression("SET #exp = if_not_exists(#exp, :exp) ADD #tags :singletonTag")
         .expressionAttributeNames(Map.of(
             "#key", KEY_PROCESSOR_ITEM_ID,
-            "#tag", KEY_ISSUED_RECEIPT_TAG,
             "#tags", KEY_ISSUED_RECEIPT_TAG_SET,
             "#exp", KEY_EXPIRATION))
         .expressionAttributeValues(Map.of(
