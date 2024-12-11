@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -66,6 +67,7 @@ import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ConfirmUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceName;
 import org.whispersystems.textsecuregcm.entities.EncryptedUsername;
+import org.whispersystems.textsecuregcm.entities.Entitlements;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.RegistrationLock;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
@@ -82,6 +84,7 @@ import org.whispersystems.textsecuregcm.mappers.JsonMappingExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
@@ -324,6 +327,15 @@ class AccountControllerTest {
   @ParameterizedTest
   @ValueSource(strings = {"/v1/accounts/whoami", "/v1/accounts/me"})
   void testWhoAmI(final String path) {
+    final Instant expiration = Instant.now().plus(Duration.ofHours(1)).plusMillis(101);
+    final Instant truncatedExpiration = Instant.ofEpochSecond(expiration.getEpochSecond());
+    final AccountBadge badge1 = new AccountBadge("badge1", expiration, true);
+    final AccountBadge badge2 = new AccountBadge("badge2", expiration, true);
+
+    when(AuthHelper.VALID_ACCOUNT.getBackupVoucher())
+        .thenReturn(new Account.BackupVoucher(100, expiration));
+    when(AuthHelper.VALID_ACCOUNT.getBadges()).thenReturn(List.of(badge1, badge2));
+
     try (final Response response = resources.getJerseyTest()
         .target(path)
         .request()
@@ -331,7 +343,19 @@ class AccountControllerTest {
         .get()) {
 
       assertThat(response.getStatus()).isEqualTo(200);
-      assertThat(response.readEntity(AccountIdentityResponse.class).uuid()).isEqualTo(AuthHelper.VALID_UUID);
+      final AccountIdentityResponse identityResponse = response.readEntity(AccountIdentityResponse.class);
+      assertThat(identityResponse.uuid()).isEqualTo(AuthHelper.VALID_UUID);
+
+      final BiConsumer<Entitlements.BadgeEntitlement, AccountBadge> compareBadge = (actual, expected) -> {
+        assertThat(actual.expiration()).isEqualTo(truncatedExpiration);
+        assertThat(actual.id()).isEqualTo(expected.id());
+        assertThat(actual.visible()).isEqualTo(expected.visible());
+      };
+      compareBadge.accept(identityResponse.entitlements().badges().getFirst(), badge1);
+      compareBadge.accept(identityResponse.entitlements().badges().getLast(), badge2);
+
+      assertThat(identityResponse.entitlements().backup().backupLevel()).isEqualTo(100);
+      assertThat(identityResponse.entitlements().backup().expiration()).isEqualTo(truncatedExpiration);
     }
   }
 

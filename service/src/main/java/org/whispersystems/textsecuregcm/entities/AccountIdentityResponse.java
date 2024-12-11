@@ -31,5 +31,8 @@ public record AccountIdentityResponse(
     @Nullable UUID usernameLinkHandle,
 
     @Schema(description="whether any of this account's devices support storage")
-    boolean storageCapable) {
+    boolean storageCapable,
+
+    @Schema(description = "entitlements for this account and their current expirations")
+    Entitlements entitlements) {
 }
