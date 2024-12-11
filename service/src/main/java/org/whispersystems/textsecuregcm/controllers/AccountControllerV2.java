@@ -146,13 +146,7 @@ public class AccountControllerV2 {
           request.deviceMessages(),
           request.pniRegistrationIds());
 
-      return new AccountIdentityResponse(
-          updatedAccount.getUuid(),
-          updatedAccount.getNumber(),
-          updatedAccount.getPhoneNumberIdentifier(),
-          updatedAccount.getUsernameHash().orElse(null),
-          updatedAccount.getUsernameLinkHandle(),
-          updatedAccount.hasCapability(DeviceCapability.STORAGE));
+      return AccountIdentityResponseBuilder.fromAccount(updatedAccount);
     } catch (MismatchedDevicesException e) {
       throw new WebApplicationException(Response.status(409)
           .type(MediaType.APPLICATION_JSON_TYPE)
@@ -205,13 +199,7 @@ public class AccountControllerV2 {
           request.deviceMessages(),
           request.pniRegistrationIds());
 
-      return new AccountIdentityResponse(
-          updatedAccount.getUuid(),
-          updatedAccount.getNumber(),
-          updatedAccount.getPhoneNumberIdentifier(),
-          updatedAccount.getUsernameHash().orElse(null),
-          updatedAccount.getUsernameLinkHandle(),
-          updatedAccount.hasCapability(DeviceCapability.STORAGE));
+      return AccountIdentityResponseBuilder.fromAccount(updatedAccount);
     } catch (MismatchedDevicesException e) {
       throw new WebApplicationException(Response.status(409)
           .type(MediaType.APPLICATION_JSON_TYPE)

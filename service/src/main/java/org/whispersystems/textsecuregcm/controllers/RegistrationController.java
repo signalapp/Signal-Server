@@ -166,12 +166,12 @@ public class RegistrationController {
             Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name())))
         .increment();
 
-    return new AccountIdentityResponse(account.getUuid(),
-        account.getNumber(),
-        account.getPhoneNumberIdentifier(),
-        account.getUsernameHash().orElse(null),
-        account.getUsernameLinkHandle(),
-        existingAccount.map(a -> a.hasCapability(DeviceCapability.STORAGE)).orElse(false));
+    return new AccountIdentityResponseBuilder(account)
+        // If there was an existing account, return whether it could have had something in the storage service
+        .storageCapable(existingAccount
+            .map(a -> a.hasCapability(DeviceCapability.STORAGE))
+            .orElse(false))
+        .build();
   }
 
 }

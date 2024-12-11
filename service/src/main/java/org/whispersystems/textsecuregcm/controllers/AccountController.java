@@ -268,23 +268,14 @@ public class AccountController {
   @Deprecated() // use whoami
   @Produces(MediaType.APPLICATION_JSON)
   public AccountIdentityResponse getMe(@ReadOnly @Auth AuthenticatedDevice auth) {
-    return buildAccountIdentityResponse(auth);
+    return AccountIdentityResponseBuilder.fromAccount(auth.getAccount());
   }
 
   @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
   public AccountIdentityResponse whoAmI(@ReadOnly @Auth AuthenticatedDevice auth) {
-    return buildAccountIdentityResponse(auth);
-  }
-
-  private AccountIdentityResponse buildAccountIdentityResponse(AccountAndAuthenticatedDeviceHolder auth) {
-    return new AccountIdentityResponse(auth.getAccount().getUuid(),
-        auth.getAccount().getNumber(),
-        auth.getAccount().getPhoneNumberIdentifier(),
-        auth.getAccount().getUsernameHash().filter(h -> h.length > 0).orElse(null),
-        auth.getAccount().getUsernameLinkHandle(),
-        auth.getAccount().hasCapability(DeviceCapability.STORAGE));
+    return AccountIdentityResponseBuilder.fromAccount(auth.getAccount());
   }
 
   @DELETE
