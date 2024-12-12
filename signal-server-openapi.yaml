@@ -2473,17 +2473,13 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/AccountMismatchedDevices'
+                $ref: '#/components/schemas/MismatchedDevices'
         "410":
           description: Mismatched registration ids supplied for some recipient devices
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/AccountStaleDevices'
+                $ref: '#/components/schemas/StaleDevices'
         "428":
           description: The sender should complete a challenge before proceeding
       security:
@@ -3810,6 +3806,46 @@ components:
         storageCapable:
           type: boolean
           description: whether any of this account's devices support storage
+        entitlements:
+          $ref: '#/components/schemas/Entitlements'
+    BackupEntitlement:
+      type: object
+      properties:
+        backupLevel:
+          type: integer
+          description: The backup level of the account
+          format: int64
+        expirationSeconds:
+          type: integer
+          description: "When the backup entitlement expires, in number of seconds\
+            \ since epoch"
+          format: int64
+      description: "If present, the backup level set via /v1/archives/redeem-receipt"
+    BadgeEntitlement:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The badge id
+        visible:
+          type: boolean
+          description: Whether the badge is currently configured to be visible
+        expirationSeconds:
+          type: integer
+          description: "When the badge expires, in number of seconds since epoch"
+          format: int64
+      description: Active badges added via /v1/donation/redeem-receipt
+    Entitlements:
+      type: object
+      properties:
+        badges:
+          type: array
+          description: Active badges added via /v1/donation/redeem-receipt
+          items:
+            $ref: '#/components/schemas/BadgeEntitlement'
+        backup:
+          $ref: '#/components/schemas/BackupEntitlement'
+      description: entitlements for this account and their current expirations
     TurnToken:
       type: object
       properties:
@@ -5174,6 +5210,22 @@ components:
         token:
           type: string
           format: byte
+    IncomingMessageList:
+      required:
+      - messages
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncomingMessage'
+        online:
+          type: boolean
+        urgent:
+          type: boolean
+        timestamp:
+          type: integer
+          format: int64
     AccountMismatchedDevices:
       type: object
       properties:
@@ -5192,22 +5244,6 @@ components:
             that identifies an account and identity within the Signal service.
         devices:
           $ref: '#/components/schemas/StaleDevices'
-    IncomingMessageList:
-      required:
-      - messages
-      type: object
-      properties:
-        messages:
-          type: array
-          items:
-            $ref: '#/components/schemas/IncomingMessage'
-        online:
-          type: boolean
-        urgent:
-          type: boolean
-        timestamp:
-          type: integer
-          format: int64
     CombinedUnidentifiedSenderAccessKeys:
       type: object
       properties:
