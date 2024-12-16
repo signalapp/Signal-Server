@@ -10,6 +10,7 @@ import com.google.common.collect.Lists;
 import com.stripe.StripeClient;
 import com.stripe.exception.CardException;
 import com.stripe.exception.IdempotencyException;
+import com.stripe.exception.InvalidRequestException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Charge;
 import com.stripe.model.Customer;
@@ -171,6 +172,9 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       try {
         stripeClient.customers().update(customerId, params, commonOptions());
         return null;
+      } catch (InvalidRequestException e) {
+        // Could happen if the paymentMethodId was bunk or the client didn't actually finish setting it up
+        throw ExceptionUtils.wrap(new SubscriptionException.InvalidArguments(e.getMessage()));
       } catch (StripeException e) {
         throw new CompletionException(e);
       }

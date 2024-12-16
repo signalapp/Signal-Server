@@ -712,6 +712,11 @@ public class SubscriptionController {
                 // a missing customer ID indicates the client made requests out of order,
                 // and needs to call create_payment_method to create a customer for the given payment method
                 new ClientErrorException(Status.CONFLICT)))
+        .exceptionally(ExceptionUtils.exceptionallyHandler(SubscriptionException.InvalidArguments.class, e -> {
+          // Here, invalid arguments must mean that the client has made requests out of order, and needs to finish
+          // setting up the paymentMethod first
+          throw new ClientErrorException(Status.CONFLICT);
+        }))
         .thenApply(customer -> Response.ok().build());
   }
 
