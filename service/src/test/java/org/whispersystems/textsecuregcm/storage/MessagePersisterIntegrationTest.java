@@ -54,6 +54,7 @@ class MessagePersisterIntegrationTest {
   private Scheduler messageDeliveryScheduler;
   private ExecutorService messageDeletionExecutorService;
   private ExecutorService websocketConnectionEventExecutor;
+  private ExecutorService asyncOperationQueueingExecutor;
   private MessagesCache messagesCache;
   private MessagesManager messagesManager;
   private WebSocketConnectionEventManager webSocketConnectionEventManager;
@@ -86,10 +87,12 @@ class MessagePersisterIntegrationTest {
         messageDeletionExecutorService);
 
     websocketConnectionEventExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    asyncOperationQueueingExecutor = Executors.newSingleThreadExecutor();
     webSocketConnectionEventManager = new WebSocketConnectionEventManager(mock(AccountsManager.class),
         mock(PushNotificationManager.class),
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        websocketConnectionEventExecutor);
+        websocketConnectionEventExecutor,
+        asyncOperationQueueingExecutor);
 
     webSocketConnectionEventManager.start();
 
@@ -108,6 +111,7 @@ class MessagePersisterIntegrationTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
   }
 
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   @AfterEach
   void tearDown() throws Exception {
     messageDeletionExecutorService.shutdown();
@@ -115,6 +119,9 @@ class MessagePersisterIntegrationTest {
 
     websocketConnectionEventExecutor.shutdown();
     websocketConnectionEventExecutor.awaitTermination(15, TimeUnit.SECONDS);
+
+    asyncOperationQueueingExecutor.shutdown();
+    asyncOperationQueueingExecutor.awaitTermination(15, TimeUnit.SECONDS);
 
     messageDeliveryScheduler.dispose();
 

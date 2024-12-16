@@ -23,10 +23,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +65,10 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
   private final PushNotificationManager pushNotificationManager;
   private final FaultTolerantRedisClusterClient clusterClient;
   private final Executor listenerEventExecutor;
+
+  // Note that this MUST be a single-threaded executor; its function is to process tasks that should usually be
+  // non-blocking, but can rarely block, and do so in the order in which those tasks were submitted.
+  private final Executor asyncOperationQueueingExecutor;
 
   @Nullable
   private FaultTolerantPubSubClusterConnection<byte[], byte[]> pubSubConnection;
@@ -102,13 +108,15 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
   public WebSocketConnectionEventManager(final AccountsManager accountsManager,
       final PushNotificationManager pushNotificationManager,
       final FaultTolerantRedisClusterClient clusterClient,
-      final Executor listenerEventExecutor) {
+      final Executor listenerEventExecutor,
+      final Executor asyncOperationQueueingExecutor) {
 
     this.accountsManager = accountsManager;
     this.pushNotificationManager = pushNotificationManager;
 
     this.clusterClient = clusterClient;
     this.listenerEventExecutor = listenerEventExecutor;
+    this.asyncOperationQueueingExecutor = asyncOperationQueueingExecutor;
 
     this.listenersByAccountAndDeviceIdentifier =
         Metrics.gaugeMapSize(LISTENER_GAUGE_NAME, Tags.empty(), new ConcurrentHashMap<>());
@@ -169,8 +177,9 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
     // operation is asynchronous; we're not blocking on it in the scope of the `compute` operation.
     listenersByAccountAndDeviceIdentifier.compute(new AccountAndDeviceIdentifier(accountIdentifier, deviceId),
         (key, existingListener) -> {
-          subscribeFuture.set(pubSubConnection.withPubSubConnection(connection ->
-              connection.async().ssubscribe(eventChannel)));
+          subscribeFuture.set(CompletableFuture.supplyAsync(() -> pubSubConnection.withPubSubConnection(connection ->
+                  connection.async().ssubscribe(eventChannel)), asyncOperationQueueingExecutor)
+              .thenCompose(Function.identity()));
 
           if (existingListener != null) {
             displacedListener.set(existingListener);
@@ -223,9 +232,10 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
     // operation is asynchronous; we're not blocking on it in the scope of the `compute` operation.
     listenersByAccountAndDeviceIdentifier.compute(new AccountAndDeviceIdentifier(accountIdentifier, deviceId),
         (ignored, existingListener) -> {
-          unsubscribeFuture.set(pubSubConnection.withPubSubConnection(connection ->
-                  connection.async().sunsubscribe(getClientEventChannel(accountIdentifier, deviceId)))
-              .thenRun(Util.NOOP));
+          unsubscribeFuture.set(CompletableFuture.supplyAsync(() -> pubSubConnection.withPubSubConnection(connection ->
+                      connection.async().sunsubscribe(getClientEventChannel(accountIdentifier, deviceId)))
+                  .thenRun(Util.NOOP), asyncOperationQueueingExecutor)
+              .thenCompose(Function.identity()));
 
           return null;
         });
@@ -295,9 +305,9 @@ public class WebSocketConnectionEventManager extends RedisClusterPubSubAdapter<b
     listenersByAccountAndDeviceIdentifier.compute(accountAndDeviceIdentifier, (ignored, existingListener) -> {
       if (existingListener == null && pubSubConnection != null) {
         // Enqueue, but do not block on, an "unsubscribe" operation
-        pubSubConnection.usePubSubConnection(connection ->
+        asyncOperationQueueingExecutor.execute(() -> pubSubConnection.usePubSubConnection(connection ->
             connection.async().sunsubscribe(getClientEventChannel(accountAndDeviceIdentifier.accountIdentifier(),
-                accountAndDeviceIdentifier.deviceId())));
+                accountAndDeviceIdentifier.deviceId()))));
       }
 
       // Make no change to the existing listener whether present or absent

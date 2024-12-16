@@ -143,6 +143,8 @@ record CommandDependencies(
         .maxThreads(16).minThreads(16).build();
     ExecutorService clientEventExecutor = environment.lifecycle()
         .virtualExecutorService(name(name, "clientEvent-%d"));
+    ExecutorService asyncOperationQueueingExecutor = environment.lifecycle()
+        .executorService(name(name, "asyncOperationQueueing-%d")).minThreads(1).maxThreads(1).build();
     ExecutorService disconnectionRequestListenerExecutor = environment.lifecycle()
         .virtualExecutorService(name(name, "disconnectionRequest-%d"));
 
@@ -283,7 +285,7 @@ record CommandDependencies(
             Clock.systemUTC());
 
     WebSocketConnectionEventManager webSocketConnectionEventManager =
-        new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor);
+        new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(disconnectionRequestManager);

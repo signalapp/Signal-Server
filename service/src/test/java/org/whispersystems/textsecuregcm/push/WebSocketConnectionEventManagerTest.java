@@ -51,6 +51,7 @@ class WebSocketConnectionEventManagerTest {
   private WebSocketConnectionEventManager remoteEventManager;
 
   private static ExecutorService webSocketConnectionEventExecutor;
+  private static ExecutorService asyncOperationQueueingExecutor;
 
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
@@ -73,6 +74,7 @@ class WebSocketConnectionEventManagerTest {
   @BeforeAll
   static void setUpBeforeAll() {
     webSocketConnectionEventExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    asyncOperationQueueingExecutor = Executors.newSingleThreadExecutor();
   }
 
   @BeforeEach
@@ -80,12 +82,14 @@ class WebSocketConnectionEventManagerTest {
     localEventManager = new WebSocketConnectionEventManager(mock(AccountsManager.class),
         mock(PushNotificationManager.class),
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        webSocketConnectionEventExecutor);
+        webSocketConnectionEventExecutor,
+        asyncOperationQueueingExecutor);
 
     remoteEventManager = new WebSocketConnectionEventManager(mock(AccountsManager.class),
         mock(PushNotificationManager.class),
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        webSocketConnectionEventExecutor);
+        webSocketConnectionEventExecutor,
+        asyncOperationQueueingExecutor);
 
     localEventManager.start();
     remoteEventManager.start();
@@ -100,6 +104,7 @@ class WebSocketConnectionEventManagerTest {
   @AfterAll
   static void tearDownAfterAll() {
     webSocketConnectionEventExecutor.shutdown();
+    asyncOperationQueueingExecutor.shutdown();
   }
 
   @ParameterizedTest
@@ -242,6 +247,7 @@ class WebSocketConnectionEventManagerTest {
         mock(AccountsManager.class),
         mock(PushNotificationManager.class),
         clusterClient,
+        Runnable::run,
         Runnable::run);
 
     eventManager.start();
@@ -309,6 +315,7 @@ class WebSocketConnectionEventManagerTest {
         mock(AccountsManager.class),
         mock(PushNotificationManager.class),
         clusterClient,
+        Runnable::run,
         Runnable::run);
 
     eventManager.start();
@@ -366,6 +373,7 @@ class WebSocketConnectionEventManagerTest {
         accountsManager,
         pushNotificationManager,
         clusterClient,
+        Runnable::run,
         Runnable::run);
 
     eventManager.start();

@@ -487,6 +487,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
     ExecutorService virtualThreadEventLoggerExecutor = environment.lifecycle()
         .executorService(name(getClass(), "virtualThreadEventLogger-%d")).minThreads(1).maxThreads(1).build();
+    ExecutorService asyncOperationQueueingExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "asyncOperationQueueing-%d")).minThreads(1).maxThreads(1).build();
     ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "secureValueRecoveryServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
@@ -639,7 +641,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PushNotificationManager pushNotificationManager =
         new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
     WebSocketConnectionEventManager webSocketConnectionEventManager =
-        new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor);
+        new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
     RateLimiters rateLimiters = RateLimiters.createAndValidate(config.getLimitsConfiguration(),
         dynamicConfigurationManager, rateLimitersCluster);
     ProvisioningManager provisioningManager = new ProvisioningManager(pubsubClient);
