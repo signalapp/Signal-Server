@@ -15,6 +15,13 @@ import io.grpc.StatusRuntimeException;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
@@ -68,6 +75,7 @@ import org.whispersystems.textsecuregcm.entities.VerificationCodeRequest;
 import org.whispersystems.textsecuregcm.entities.VerificationSessionResponse;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -152,7 +160,19 @@ public class VerificationController {
   @Path("/session")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public VerificationSessionResponse createSession(@NotNull @Valid CreateVerificationSessionRequest request)
+  @Operation(
+      summary = "Creates a new verification session for a specific phone number",
+      description = """
+          Initiates a session to be able to verify the phone number for account registration. Check the response and 
+          submit requested information at PATCH /session/{sessionId}
+          """)
+  @ApiResponse(responseCode = "200", description = "The verification session was created successfully", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "422", description = "The request did not pass validation")
+  @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed",
+      schema = @Schema(implementation = Integer.class)))
+  public VerificationSessionResponse createSession(@NotNull @Valid final CreateVerificationSessionRequest request)
       throws RateLimitExceededException {
 
     final Pair<String, PushNotification.TokenType> pushTokenAndType = validateAndExtractPushToken(
@@ -200,12 +220,28 @@ public class VerificationController {
   @Path("/session/{sessionId}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Update a registration verification session",
+      description = """
+          Updates the session with requested information like an answer to a push challenge or captcha. 
+          If `requestedInformation` in the response is empty, and `allowedToRequestCode` is `true`, proceed to call 
+          `POST /session/{sessionId}/code`. If `requestedInformation` is empty and `allowedToRequestCode` is `false`, 
+          then the caller must create a new verification session.
+          """)
+  @ApiResponse(responseCode = "200", description = "Session was updated successfully with the information provided", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "403", description = "The information provided was not accepted (e.g push challenge or captcha verification failed)")
+  @ApiResponse(responseCode = "422", description = "The request did not pass validation")
+  @ApiResponse(responseCode = "429", description = "Too many attempts",
+      content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)),
+      headers = @Header(
+          name = "Retry-After",
+          description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed",
+          schema = @Schema(implementation = Integer.class)))
   public VerificationSessionResponse updateSession(
       @PathParam("sessionId") final String encodedSessionId,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-      @Context ContainerRequestContext requestContext,
-      @NotNull @Valid final UpdateVerificationSessionRequest updateVerificationSessionRequest,
-      @Context ContainerRequestContext context) {
+      @Context final ContainerRequestContext requestContext,
+      @NotNull @Valid final UpdateVerificationSessionRequest updateVerificationSessionRequest) {
 
     final String sourceHost = (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
@@ -216,7 +252,7 @@ public class VerificationController {
     VerificationSession verificationSession = retrieveVerificationSession(registrationServiceSession);
 
     final VerificationCheck verificationCheck = registrationFraudChecker.checkVerificationAttempt(
-        context,
+        requestContext,
         verificationSession,
         registrationServiceSession.number(),
         updateVerificationSessionRequest);
@@ -433,6 +469,15 @@ public class VerificationController {
   @GET
   @Path("/session/{sessionId}")
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Get a registration verification session",
+      description = """
+          Retrieve metadata of the registration verification session with the specified ID
+          """)
+  @ApiResponse(responseCode = "200", description = "Session was retrieved successfully", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "Invalid session ID")
+  @ApiResponse(responseCode = "404", description = "Session with the specified ID could not be found")
+  @ApiResponse(responseCode = "422", description = "Malformed session ID encoding")
   public VerificationSessionResponse getSession(@PathParam("sessionId") final String encodedSessionId) {
 
     final RegistrationServiceSession registrationServiceSession = retrieveRegistrationServiceSession(encodedSessionId);
@@ -445,10 +490,45 @@ public class VerificationController {
   @Path("/session/{sessionId}/code")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Request a verification code",
+      description = """
+          Sends a verification code to the phone number associated with the specified session via SMS or phone call.
+          This endpoint can only be called when the session metadata includes "allowedToRequestCode = true"
+          """)
+  @ApiResponse(responseCode = "200", description = "Verification code was successfully sent", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "Invalid session ID")
+  @ApiResponse(responseCode = "404", description = "Session with the specified ID could not be found")
+  @ApiResponse(responseCode = "409", description = "The session is already verified or not in a state to request a code because requested information hasn't been provided yet",
+      content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)))
+  @ApiResponse(responseCode = "418", description = "The request to send a verification code with the given transport could not be fulfilled, but may succeed with a different transport",
+      content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)))
+  @ApiResponse(responseCode = "422", description = "Request did not pass validation")
+  @ApiResponse(responseCode = "429", description = """
+      Too may attempts; the caller is not permitted to send a verification code via the requested channel at this time 
+      and may need to wait before trying again; if the session metadata does not specify a time at which the caller may 
+      try again, then the caller has exhausted their permitted attempts and must either try a different transport or 
+      create a new verification session.
+      """,
+      content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)),
+      headers = @Header(
+          name = "Retry-After",
+          description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed",
+          schema = @Schema(implementation = Integer.class)
+      ))
+  @ApiResponse(responseCode = "440", description = """
+      The attempt to send a verification code failed because an external service (e.g. the SMS provider) refused to 
+      deliver the code. This may be a temporary or permanent failure, as indicated in the response body. If temporary, 
+      clients may try again after a reasonable delay. If permanent, clients should not retry the request and should 
+      communicate the permanent failure to the end user. Permanent failures may result in the server disallowing all 
+      future attempts to request or submit verification codes (since those attempts would be all but guaranteed to fail).
+      """,
+      content = @Content(schema = @Schema(implementation = RegistrationServiceSenderExceptionMapper.SendVerificationCodeFailureResponse.class)))
   public VerificationSessionResponse requestVerificationCode(@PathParam("sessionId") final String encodedSessionId,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-      @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) Optional<String> acceptLanguage,
-      @NotNull @Valid VerificationCodeRequest verificationCodeRequest) throws Throwable {
+      @Parameter(in = ParameterIn.HEADER, description = "Ordered list of languages in which the client prefers to receive SMS or voice verification messages") @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE)
+      final Optional<String> acceptLanguage,
+      @NotNull @Valid final VerificationCodeRequest verificationCodeRequest) throws Throwable {
 
     final RegistrationServiceSession registrationServiceSession = retrieveRegistrationServiceSession(encodedSessionId);
     final VerificationSession verificationSession = retrieveVerificationSession(registrationServiceSession);
@@ -550,8 +630,31 @@ public class VerificationController {
   @Path("/session/{sessionId}/code")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Submit a verification code",
+      description = """
+          Submits a verification code received via SMS or voice for verification
+          """)
+  @ApiResponse(responseCode = "200", description = """
+      The request to check a verification code was processed (though the submitted code may not be the correct code);
+      the session metadata will indicate whether the submitted code was correct
+      """, useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "Invalid session ID or verification  code")
+  @ApiResponse(responseCode = "404", description = "Session with the specified ID could not be found")
+  @ApiResponse(responseCode = "409", description = "The session is already verified or no code has been requested yet for this session",
+      content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)))
+  @ApiResponse(responseCode = "429", description = """
+      Too many attempts; the caller is not permitted to submit a verification code at this time and may need to wait 
+      before trying again; if the session metadata does not specify a time at which the caller may try again, then the 
+      caller has exhausted their permitted attempts and must create a new verification session.
+      """,
+      content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)),
+      headers = @Header(
+          name = "Retry-After",
+          description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed",
+          schema = @Schema(implementation = Integer.class)))
   public VerificationSessionResponse verifyCode(@PathParam("sessionId") final String encodedSessionId,
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @Valid final SubmitVerificationCodeRequest submitVerificationCodeRequest)
       throws RateLimitExceededException {
 
