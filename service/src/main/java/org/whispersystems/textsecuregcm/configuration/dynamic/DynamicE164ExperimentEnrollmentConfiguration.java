@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Min;
 import java.util.Collections;
 import java.util.Set;
 
-public class DynamicPreRegistrationExperimentEnrollmentConfiguration {
+public class DynamicE164ExperimentEnrollmentConfiguration {
 
   @JsonProperty
   @Valid

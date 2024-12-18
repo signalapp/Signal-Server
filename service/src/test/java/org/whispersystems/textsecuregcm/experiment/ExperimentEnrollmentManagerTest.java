@@ -29,7 +29,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicExperimentEnrollmentConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPreRegistrationExperimentEnrollmentConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicE164ExperimentEnrollmentConfiguration;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
@@ -37,7 +37,7 @@ class ExperimentEnrollmentManagerTest {
 
   private DynamicExperimentEnrollmentConfiguration.UuidSelector uuidSelector;
   private DynamicExperimentEnrollmentConfiguration experimentEnrollmentConfiguration;
-  private DynamicPreRegistrationExperimentEnrollmentConfiguration preRegistrationExperimentEnrollmentConfiguration;
+  private DynamicE164ExperimentEnrollmentConfiguration e164ExperimentEnrollmentConfiguration;
 
   private ExperimentEnrollmentManager experimentEnrollmentManager;
 
@@ -66,18 +66,18 @@ class ExperimentEnrollmentManagerTest {
 
     experimentEnrollmentConfiguration = mock(DynamicExperimentEnrollmentConfiguration.class);
     when(experimentEnrollmentConfiguration.getUuidSelector()).thenReturn(uuidSelector);
-    preRegistrationExperimentEnrollmentConfiguration = mock(
-        DynamicPreRegistrationExperimentEnrollmentConfiguration.class);
+    e164ExperimentEnrollmentConfiguration = mock(
+        DynamicE164ExperimentEnrollmentConfiguration.class);
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getExperimentEnrollmentConfiguration(UUID_EXPERIMENT_NAME))
         .thenReturn(Optional.of(experimentEnrollmentConfiguration));
-    when(dynamicConfiguration.getPreRegistrationEnrollmentConfiguration(E164_EXPERIMENT_NAME))
-        .thenReturn(Optional.of(preRegistrationExperimentEnrollmentConfiguration));
+    when(dynamicConfiguration.getE164ExperimentEnrollmentConfiguration(E164_EXPERIMENT_NAME))
+        .thenReturn(Optional.of(e164ExperimentEnrollmentConfiguration));
     when(dynamicConfiguration.getExperimentEnrollmentConfiguration(E164_AND_UUID_EXPERIMENT_NAME))
         .thenReturn(Optional.of(experimentEnrollmentConfiguration));
-    when(dynamicConfiguration.getPreRegistrationEnrollmentConfiguration(E164_AND_UUID_EXPERIMENT_NAME))
-        .thenReturn(Optional.of(preRegistrationExperimentEnrollmentConfiguration));
+    when(dynamicConfiguration.getE164ExperimentEnrollmentConfiguration(E164_AND_UUID_EXPERIMENT_NAME))
+        .thenReturn(Optional.of(e164ExperimentEnrollmentConfiguration));
 
     account = mock(Account.class);
     when(account.getUuid()).thenReturn(ACCOUNT_UUID);
@@ -127,11 +127,11 @@ class ExperimentEnrollmentManagerTest {
 
   @Test
   void testIsEnrolled_E164AndUuidExperiment() {
-    when(preRegistrationExperimentEnrollmentConfiguration.getIncludedCountryCodes()).thenReturn(Set.of("1"));
-    when(preRegistrationExperimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
-    when(preRegistrationExperimentEnrollmentConfiguration.getEnrolledE164s()).thenReturn(Collections.emptySet());
-    when(preRegistrationExperimentEnrollmentConfiguration.getExcludedE164s()).thenReturn(Collections.emptySet());
-    when(preRegistrationExperimentEnrollmentConfiguration.getExcludedCountryCodes()).thenReturn(Collections.emptySet());
+    when(e164ExperimentEnrollmentConfiguration.getIncludedCountryCodes()).thenReturn(Set.of("1"));
+    when(e164ExperimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
+    when(e164ExperimentEnrollmentConfiguration.getEnrolledE164s()).thenReturn(Collections.emptySet());
+    when(e164ExperimentEnrollmentConfiguration.getExcludedE164s()).thenReturn(Collections.emptySet());
+    when(e164ExperimentEnrollmentConfiguration.getExcludedCountryCodes()).thenReturn(Collections.emptySet());
 
     // test UUID enrollment is prioritized
     when(uuidSelector.getUuids()).thenReturn(Set.of(ACCOUNT_UUID));
@@ -151,30 +151,30 @@ class ExperimentEnrollmentManagerTest {
     when(experimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(0);
     assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
     assertFalse(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
-    when(preRegistrationExperimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
+    when(e164ExperimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(100);
     assertTrue(experimentEnrollmentManager.isEnrolled(ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
     assertTrue(experimentEnrollmentManager.isEnrolled(NOT_ENROLLED_164, account.getUuid(), E164_AND_UUID_EXPERIMENT_NAME));
   }
 
   @ParameterizedTest
   @MethodSource
-  void testIsEnrolled_PreRegistrationExperiment(final String e164, final String experimentName,
+  void testIsEnrolled_E164Experiment(final String e164, final String experimentName,
       final Set<String> enrolledE164s, final Set<String> excludedE164s, final Set<String> includedCountryCodes,
       final Set<String> excludedCountryCodes,
       final int enrollmentPercentage,
       final boolean expectEnrolled, final String message) {
 
-    when(preRegistrationExperimentEnrollmentConfiguration.getEnrolledE164s()).thenReturn(enrolledE164s);
-    when(preRegistrationExperimentEnrollmentConfiguration.getExcludedE164s()).thenReturn(excludedE164s);
-    when(preRegistrationExperimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(enrollmentPercentage);
-    when(preRegistrationExperimentEnrollmentConfiguration.getIncludedCountryCodes()).thenReturn(includedCountryCodes);
-    when(preRegistrationExperimentEnrollmentConfiguration.getExcludedCountryCodes()).thenReturn(excludedCountryCodes);
+    when(e164ExperimentEnrollmentConfiguration.getEnrolledE164s()).thenReturn(enrolledE164s);
+    when(e164ExperimentEnrollmentConfiguration.getExcludedE164s()).thenReturn(excludedE164s);
+    when(e164ExperimentEnrollmentConfiguration.getEnrollmentPercentage()).thenReturn(enrollmentPercentage);
+    when(e164ExperimentEnrollmentConfiguration.getIncludedCountryCodes()).thenReturn(includedCountryCodes);
+    when(e164ExperimentEnrollmentConfiguration.getExcludedCountryCodes()).thenReturn(excludedCountryCodes);
 
     assertEquals(expectEnrolled, experimentEnrollmentManager.isEnrolled(e164, experimentName), message);
   }
 
   @SuppressWarnings("unused")
-  static Stream<Arguments> testIsEnrolled_PreRegistrationExperiment() {
+  static Stream<Arguments> testIsEnrolled_E164Experiment() {
     return Stream.of(
         Arguments.of(ENROLLED_164, E164_EXPERIMENT_NAME, Collections.emptySet(), Collections.emptySet(),
             Collections.emptySet(), Collections.emptySet(), 0, false, "default configuration expects no enrollment"),

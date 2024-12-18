@@ -12,7 +12,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicExperimentEnrollmentConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicPreRegistrationExperimentEnrollmentConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicE164ExperimentEnrollmentConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -73,8 +73,8 @@ public class ExperimentEnrollmentManager {
 
   public boolean isEnrolled(final String e164, final String experimentName) {
 
-    final Optional<DynamicPreRegistrationExperimentEnrollmentConfiguration> maybeConfiguration = dynamicConfigurationManager
-        .getConfiguration().getPreRegistrationEnrollmentConfiguration(experimentName);
+    final Optional<DynamicE164ExperimentEnrollmentConfiguration> maybeConfiguration = dynamicConfigurationManager
+        .getConfiguration().getE164ExperimentEnrollmentConfiguration(experimentName);
 
     return maybeConfiguration.map(config -> {
 

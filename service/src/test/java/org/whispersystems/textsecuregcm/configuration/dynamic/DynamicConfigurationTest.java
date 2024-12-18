@@ -125,18 +125,18 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParsePreRegistrationExperiments() throws JsonProcessingException {
+  void testParseE164Experiments() throws JsonProcessingException {
     {
       final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");
       final DynamicConfiguration emptyConfig =
           DynamicConfigurationManager.parseConfiguration(emptyConfigYaml, DynamicConfiguration.class).orElseThrow();
 
-      assertFalse(emptyConfig.getPreRegistrationEnrollmentConfiguration("test").isPresent());
+      assertFalse(emptyConfig.getE164ExperimentEnrollmentConfiguration("test").isPresent());
     }
 
     {
       final String experimentConfigYaml = REQUIRED_CONFIG.concat("""
-          preRegistrationExperiments:
+          e164Experiments:
             percentageOnly:
               enrollmentPercentage: 17
             e164sCountryCodesAndPercentage:
@@ -161,11 +161,11 @@ class DynamicConfigurationTest {
       final DynamicConfiguration config =
           DynamicConfigurationManager.parseConfiguration(experimentConfigYaml, DynamicConfiguration.class).orElseThrow();
 
-      assertFalse(config.getPreRegistrationEnrollmentConfiguration("unconfigured").isPresent());
+      assertFalse(config.getE164ExperimentEnrollmentConfiguration("unconfigured").isPresent());
 
       {
-        final Optional<DynamicPreRegistrationExperimentEnrollmentConfiguration> percentageOnly = config
-            .getPreRegistrationEnrollmentConfiguration("percentageOnly");
+        final Optional<DynamicE164ExperimentEnrollmentConfiguration> percentageOnly = config
+            .getE164ExperimentEnrollmentConfiguration("percentageOnly");
         assertTrue(percentageOnly.isPresent());
         assertEquals(17,
             percentageOnly.get().getEnrollmentPercentage());
@@ -176,8 +176,8 @@ class DynamicConfigurationTest {
       }
 
       {
-        final Optional<DynamicPreRegistrationExperimentEnrollmentConfiguration> e164sCountryCodesAndPercentage = config
-            .getPreRegistrationEnrollmentConfiguration("e164sCountryCodesAndPercentage");
+        final Optional<DynamicE164ExperimentEnrollmentConfiguration> e164sCountryCodesAndPercentage = config
+            .getE164ExperimentEnrollmentConfiguration("e164sCountryCodesAndPercentage");
 
         assertTrue(e164sCountryCodesAndPercentage.isPresent());
         assertEquals(46,
@@ -193,8 +193,8 @@ class DynamicConfigurationTest {
       }
 
       {
-        final Optional<DynamicPreRegistrationExperimentEnrollmentConfiguration> e164sAndExcludedCodes = config
-            .getPreRegistrationEnrollmentConfiguration("e164sAndExcludedCodes");
+        final Optional<DynamicE164ExperimentEnrollmentConfiguration> e164sAndExcludedCodes = config
+            .getE164ExperimentEnrollmentConfiguration("e164sAndExcludedCodes");
         assertTrue(e164sAndExcludedCodes.isPresent());
         assertEquals(0, e164sAndExcludedCodes.get().getEnrollmentPercentage());
         assertEquals(Set.of("+120255551212"),
