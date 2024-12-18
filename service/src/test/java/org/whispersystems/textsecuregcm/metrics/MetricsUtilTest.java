@@ -36,21 +36,21 @@ class MetricsUtilTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void lettuceTagRejection(final boolean enableLettuceRemoteTag) {
-    DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(enableLettuceRemoteTag);
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(enableLettuceRemoteTag, false);
     when(dynamicConfiguration.getMetricsConfiguration()).thenReturn(metricsConfiguration);
-    DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
-    MeterRegistry registry = new SimpleMeterRegistry();
+    final MeterRegistry registry = new SimpleMeterRegistry();
     MetricsUtil.configureMeterFilters(registry.config(), dynamicConfigurationManager);
 
     registry.counter("lettuce.command.completion.max", "command", "hello", "remote", "world", "allowed", "!").increment();
     final List<Meter> meters = registry.getMeters();
     assertThat(meters).hasSize(1);
 
-    Meter meter = meters.get(0);
+    final Meter meter = meters.getFirst();
     assertThat(meter.getId().getName()).isEqualTo("chat.lettuce.command.completion.max");
     assertThat(meter.getId().getTag("command")).isNull();
     AbstractStringAssert<?> remoteTag = assertThat(meter.getId().getTag("remote"));
@@ -61,5 +61,24 @@ class MetricsUtilTest {
       remoteTag.isNull();
     }
     assertThat(meter.getId().getTag("allowed")).isNotNull();
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void awsSdkMetricRejection(final boolean enableAwsSdkMetrics) {
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false, enableAwsSdkMetrics);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getMetricsConfiguration()).thenReturn(metricsConfiguration);
+
+    final MeterRegistry registry = new SimpleMeterRegistry();
+    MetricsUtil.configureMeterFilters(registry.config(), dynamicConfigurationManager);
+    registry.counter("chat.MicrometerAwsSdkMetricPublisher.days_since_last_incident").increment();
+
+    assertThat(registry.getMeters()).hasSize(enableAwsSdkMetrics ? 1 : 0);
   }
 }

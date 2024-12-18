@@ -85,6 +85,8 @@ public class MetricsUtil {
         .percentiles(.75, .95, .99, .999)
         .build();
 
+    final String awsSdkMetricNamePrefix = MetricsUtil.name(MicrometerAwsSdkMetricPublisher.class);
+
     return config
         .meterFilter(new MeterFilter() {
           @Override
@@ -108,7 +110,9 @@ public class MetricsUtil {
             return MeterFilter.super.map(id);
           }
         })
-        .meterFilter(MeterFilter.denyNameStartsWith(MessageMetrics.DELIVERY_LATENCY_TIMER_NAME + ".percentile"));
+        .meterFilter(MeterFilter.denyNameStartsWith(MessageMetrics.DELIVERY_LATENCY_TIMER_NAME + ".percentile"))
+        .meterFilter(MeterFilter.deny(id -> !dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().enableAwsSdkMetrics()
+            && id.getName().startsWith(awsSdkMetricNamePrefix)));
   }
 
   public static void registerSystemResourceMetrics(final Environment environment) {
