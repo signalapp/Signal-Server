@@ -2612,6 +2612,11 @@ paths:
     post:
       tags:
       - OneTimeDonations
+      summary: Create a Stripe payment intent
+      description: |
+        Create a Stripe PaymentIntent and return a client secret that can be used to complete the payment.
+
+        Once the payment is complete, the paymentIntentId can be used at /v1/subscriptions/receipt_credentials
       operationId: createBoostPaymentIntent
       parameters:
       - name: User-Agent
@@ -2625,22 +2630,36 @@ paths:
               $ref: '#/components/schemas/CreateBoostRequest'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: Payment Intent created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateBoostResponse'
+        "403":
+          description: The request was made on an authenticated channel
+        "400":
+          description: |
+            Invalid argument. The response body may include an error code with more specific information. If the error code
+            is `amount_below_currency_minimum` the body will also include the `minimum` field indicating the minimum amount
+            for the currency. If the error code is `amount_above_sepa_limit` the body will also include the `maximum`
+            field indicating the maximum amount for a SEPA transaction.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
+                  error:
+                    type: string
+        "409":
+          description: Provided level does not match the currency/amount combination
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
       security:
       - authenticatedAccount: []
       - {}
@@ -5280,6 +5299,7 @@ components:
           format: uuid
     ConfirmPayPalBoostRequest:
       required:
+      - amount
       - currency
       - payerId
       - paymentId
@@ -5287,16 +5307,23 @@ components:
       type: object
       properties:
         currency:
+          maxLength: 3
+          minLength: 3
           type: string
         amount:
           minimum: 1
           type: integer
+          description: "The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)"
           format: int64
         level:
           type: integer
+          description: The level for the boost payment. Assumed to be the boost level
+            if missing
           format: int64
         paymentMethod:
           type: string
+          description: The payment method
+          default: CARD
           enum:
           - UNKNOWN
           - CARD
@@ -5311,22 +5338,36 @@ components:
           type: string
         paymentToken:
           type: string
+    CreateBoostResponse:
+      type: object
+      properties:
+        clientSecret:
+          type: string
+          description: A client secret that can be used to complete a stripe PaymentIntent
     CreateBoostRequest:
       required:
+      - amount
       - currency
       type: object
       properties:
         currency:
+          maxLength: 3
+          minLength: 3
           type: string
         amount:
           minimum: 1
           type: integer
+          description: "The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)"
           format: int64
         level:
           type: integer
+          description: The level for the boost payment. Assumed to be the boost level
+            if missing
           format: int64
         paymentMethod:
           type: string
+          description: The payment method
+          default: CARD
           enum:
           - UNKNOWN
           - CARD
@@ -5356,22 +5397,30 @@ components:
           - APPLE_APP_STORE
     CreatePayPalBoostRequest:
       required:
+      - amount
       - cancelUrl
       - currency
       - returnUrl
       type: object
       properties:
         currency:
+          maxLength: 3
+          minLength: 3
           type: string
         amount:
           minimum: 1
           type: integer
+          description: "The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)"
           format: int64
         level:
           type: integer
+          description: The level for the boost payment. Assumed to be the boost level
+            if missing
           format: int64
         paymentMethod:
           type: string
+          description: The payment method
+          default: CARD
           enum:
           - UNKNOWN
           - CARD
