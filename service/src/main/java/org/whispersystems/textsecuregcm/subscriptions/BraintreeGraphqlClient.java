@@ -89,7 +89,15 @@ class BraintreeGraphqlClient {
         {
           // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
           // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
-          final CreatePayPalOneTimePaymentMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
+          final ApolloResponse<CreatePayPalOneTimePaymentMutation.Data> apolloResponse =
+              extractApolloResponse(httpResponse, mutation);
+          final CreatePayPalOneTimePaymentMutation.Data data = assertSuccessAndExtractDataFromApolloResponse(apolloResponse);
+          if (data.createPayPalOneTimePayment == null) {
+            logger.warn(
+                "createPayPalOneTimePayment requestId={} did not have any errors but data was null. response={}",
+                apolloResponse.extensions.getOrDefault("requestId", "<No-Request-Id>"), httpResponse.body());
+            throw new ServiceUnavailableException();
+          }
           return data.createPayPalOneTimePayment;
         });
   }
@@ -287,7 +295,12 @@ class BraintreeGraphqlClient {
    * Verifies that the HTTP response has a {@code 200} status code and the GraphQL response has no errors, otherwise
    * throws a {@link ServiceUnavailableException}.
    */
-  private <T extends Operation<U>, U extends Operation.Data> U assertSuccessAndExtractData(
+  private static <T extends Operation<U>, U extends Operation.Data> U assertSuccessAndExtractData(
+      HttpResponse<String> httpResponse, T operation) {
+    return assertSuccessAndExtractDataFromApolloResponse(extractApolloResponse(httpResponse, operation));
+  }
+
+  private static <T extends Operation<U>, U extends Operation.Data> ApolloResponse<U> extractApolloResponse(
       HttpResponse<String> httpResponse, T operation) {
 
     if (httpResponse.statusCode() != 200) {
@@ -296,8 +309,10 @@ class BraintreeGraphqlClient {
       throw new ServiceUnavailableException();
     }
 
-    ApolloResponse<U> response = Operations.parseJsonResponse(operation, httpResponse.body());
+    return Operations.parseJsonResponse(operation, httpResponse.body());
+  }
 
+  private static <T extends Operation<U>, U extends Operation.Data> U assertSuccessAndExtractDataFromApolloResponse(final ApolloResponse<U> response) {
     if (response.hasErrors() || response.data == null) {
       //noinspection ConstantConditions
       response.errors.forEach(
