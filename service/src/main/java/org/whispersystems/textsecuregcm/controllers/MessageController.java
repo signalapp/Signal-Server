@@ -209,6 +209,11 @@ public class MessageController {
   @VisibleForTesting
   static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
 
+  // The Signal desktop client (really, JavaScript in general) can handle message timestamps at most 100,000,000 days
+  // past the epoch; please see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
+  // for additional details.
+  public static final long MAX_TIMESTAMP = 86_400_000L * 100_000_000L;
+
   private static final Duration NOTIFY_FOR_REMAINING_MESSAGES_DELAY = Duration.ofMinutes(1);
 
   public MessageController(
@@ -553,6 +558,10 @@ public class MessageController {
       @NotNull SealedSenderMultiRecipientMessage multiRecipientMessage,
 
       @Context ContainerRequestContext context) throws RateLimitExceededException {
+
+    if (timestamp < 0 || timestamp > MAX_TIMESTAMP) {
+      throw new BadRequestException("Illegal timestamp");
+    }
 
     final SpamChecker.SpamCheckResult spamCheck = spamChecker.checkForSpam(context, Optional.empty(), Optional.empty(), Optional.empty());
     if (spamCheck instanceof final SpamChecker.Spam spam) {

@@ -9,6 +9,8 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.PositiveOrZero;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 
 import io.micrometer.core.instrument.Counter;
@@ -19,8 +21,17 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
-public record IncomingMessageList(@NotNull @Valid List<@NotNull IncomingMessage> messages,
-                                  boolean online, boolean urgent, long timestamp) {
+public record IncomingMessageList(@NotNull
+                                  @Valid
+                                  List<@NotNull @Valid IncomingMessage> messages,
+
+                                  boolean online,
+
+                                  boolean urgent,
+
+                                  @PositiveOrZero
+                                  @Max(MessageController.MAX_TIMESTAMP)
+                                  long timestamp) {
 
   private static final Counter REJECT_DUPLICATE_RECIPIENT_COUNTER =
       Metrics.counter(

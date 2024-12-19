@@ -1095,7 +1095,7 @@ class MessageControllerTest {
             .request()
             .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
             .put(Entity.entity(new IncomingMessageList(
-                    List.of(new IncomingMessage(1, (byte) 1, 1, new String(contentBytes))), false, true,
+                    List.of(new IncomingMessage(1, (byte) 1, 1, Base64.getEncoder().encodeToString(contentBytes))), false, true,
                     System.currentTimeMillis()),
                 MediaType.APPLICATION_JSON_TYPE))) {
 
@@ -1599,7 +1599,7 @@ class MessageControllerTest {
 
   @ParameterizedTest
   @CsvSource({
-      "-1, 422",
+      "-1, 400",
       "0, 200",
       "1, 200",
       "8640000000000000, 200",
