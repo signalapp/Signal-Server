@@ -331,10 +331,6 @@ paymentsService:
     coinMarketCapCurrencyIds:
       MOB: 7878
 
-artService:
-  userAuthenticationTokenSharedSecret: secret://artService.userAuthenticationTokenSharedSecret
-  userAuthenticationTokenUserIdSecret: secret://artService.userAuthenticationTokenUserIdSecret
-
 badges:
   badges:
     - id: TEST

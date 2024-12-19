@@ -326,10 +326,6 @@ paymentsService:
   externalClients:
     type: stub
 
-artService:
-  userAuthenticationTokenSharedSecret: secret://artService.userAuthenticationTokenSharedSecret
-  userAuthenticationTokenUserIdSecret: secret://artService.userAuthenticationTokenUserIdSecret
-
 badges:
   badges:
     - id: TEST

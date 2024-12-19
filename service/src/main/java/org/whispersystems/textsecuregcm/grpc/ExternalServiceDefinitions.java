@@ -16,21 +16,11 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.signal.chat.credentials.ExternalServiceType;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
-import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2ClientConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
 
 enum ExternalServiceDefinitions {
-  ART(ExternalServiceType.EXTERNAL_SERVICE_TYPE_ART, (chatConfig, clock) -> {
-    final ArtServiceConfiguration cfg = chatConfig.getArtServiceConfiguration();
-    return ExternalServiceCredentialsGenerator
-        .builder(cfg.userAuthenticationTokenSharedSecret())
-        .withUserDerivationKey(cfg.userAuthenticationTokenUserIdSecret())
-        .prependUsername(false)
-        .truncateSignature(false)
-        .build();
-  }),
   DIRECTORY(ExternalServiceType.EXTERNAL_SERVICE_TYPE_DIRECTORY, (chatConfig, clock) -> {
     final DirectoryV2ClientConfiguration cfg = chatConfig.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration();
     return ExternalServiceCredentialsGenerator

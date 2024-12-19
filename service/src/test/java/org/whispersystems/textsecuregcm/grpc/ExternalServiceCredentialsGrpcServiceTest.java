@@ -43,7 +43,7 @@ import reactor.core.publisher.Mono;
 public class ExternalServiceCredentialsGrpcServiceTest
     extends SimpleBaseGrpcTest<ExternalServiceCredentialsGrpcService, ExternalServiceCredentialsGrpc.ExternalServiceCredentialsBlockingStub> {
 
-  private static final ExternalServiceCredentialsGenerator ART_CREDENTIALS_GENERATOR = Mockito.spy(ExternalServiceCredentialsGenerator
+  private static final ExternalServiceCredentialsGenerator DIRECTORY_CREDENTIALS_GENERATOR = Mockito.spy(ExternalServiceCredentialsGenerator
       .builder(TestRandomUtil.nextBytes(32))
       .withUserDerivationKey(TestRandomUtil.nextBytes(32))
       .prependUsername(false)
@@ -62,14 +62,14 @@ public class ExternalServiceCredentialsGrpcServiceTest
   @Override
   protected ExternalServiceCredentialsGrpcService createServiceBeforeEachTest() {
     return new ExternalServiceCredentialsGrpcService(Map.of(
-        ExternalServiceType.EXTERNAL_SERVICE_TYPE_ART, ART_CREDENTIALS_GENERATOR,
+        ExternalServiceType.EXTERNAL_SERVICE_TYPE_DIRECTORY, DIRECTORY_CREDENTIALS_GENERATOR,
         ExternalServiceType.EXTERNAL_SERVICE_TYPE_PAYMENTS, PAYMENTS_CREDENTIALS_GENERATOR
     ), rateLimiters);
   }
 
   static Stream<Arguments> testSuccess() {
     return Stream.of(
-        Arguments.of(ExternalServiceType.EXTERNAL_SERVICE_TYPE_ART, ART_CREDENTIALS_GENERATOR),
+        Arguments.of(ExternalServiceType.EXTERNAL_SERVICE_TYPE_DIRECTORY, DIRECTORY_CREDENTIALS_GENERATOR),
         Arguments.of(ExternalServiceType.EXTERNAL_SERVICE_TYPE_PAYMENTS, PAYMENTS_CREDENTIALS_GENERATOR)
     );
   }
@@ -111,14 +111,14 @@ public class ExternalServiceCredentialsGrpcServiceTest
   public void testRateLimitExceeded() throws Exception {
     final Duration retryAfter = MockUtils.updateRateLimiterResponseToFail(
         rateLimiters, RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS, AUTHENTICATED_ACI, Duration.ofSeconds(100));
-    Mockito.reset(ART_CREDENTIALS_GENERATOR);
+    Mockito.reset(DIRECTORY_CREDENTIALS_GENERATOR);
     assertRateLimitExceeded(
         retryAfter,
         () -> authenticatedServiceStub().getExternalServiceCredentials(
             GetExternalServiceCredentialsRequest.newBuilder()
-                .setExternalService(ExternalServiceType.EXTERNAL_SERVICE_TYPE_ART)
+                .setExternalService(ExternalServiceType.EXTERNAL_SERVICE_TYPE_DIRECTORY)
                 .build()),
-        ART_CREDENTIALS_GENERATOR
+        DIRECTORY_CREDENTIALS_GENERATOR
     );
   }
 
@@ -126,7 +126,7 @@ public class ExternalServiceCredentialsGrpcServiceTest
   public void testUnauthenticatedCall() throws Exception {
     assertStatusUnauthenticated(() -> unauthenticatedServiceStub().getExternalServiceCredentials(
         GetExternalServiceCredentialsRequest.newBuilder()
-            .setExternalService(ExternalServiceType.EXTERNAL_SERVICE_TYPE_ART)
+            .setExternalService(ExternalServiceType.EXTERNAL_SERVICE_TYPE_DIRECTORY)
             .build()));
   }
 

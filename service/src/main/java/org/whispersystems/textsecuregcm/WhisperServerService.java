@@ -108,7 +108,6 @@ import org.whispersystems.textsecuregcm.configuration.secrets.SecretsModule;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.AccountControllerV2;
 import org.whispersystems.textsecuregcm.controllers.ArchiveController;
-import org.whispersystems.textsecuregcm.controllers.ArtController;
 import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV4;
 import org.whispersystems.textsecuregcm.controllers.CallLinkController;
 import org.whispersystems.textsecuregcm.controllers.CallRoutingController;
@@ -214,9 +213,6 @@ import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.AccountPrincipalSupplier;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
-import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckTrustAnchor;
-import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceChecks;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeys;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
@@ -244,6 +240,9 @@ import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
+import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
+import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckTrustAnchor;
+import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceChecks;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
@@ -582,8 +581,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getSecureStorageServiceConfiguration());
     ExternalServiceCredentialsGenerator paymentsCredentialsGenerator = PaymentsController.credentialsGenerator(
         config.getPaymentsServiceConfiguration());
-    ExternalServiceCredentialsGenerator artCredentialsGenerator = ArtController.credentialsGenerator(
-        config.getArtServiceConfiguration());
     ExternalServiceCredentialsGenerator svr2CredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
             config.getSvr2Configuration());
 
@@ -1101,7 +1098,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             usernameHashZkProofVerifier),
         new AccountControllerV2(accountsManager, changeNumberManager, phoneVerificationTokenManager,
             registrationLockVerificationManager, rateLimiters),
-        new ArtController(rateLimiters, artCredentialsGenerator),
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
             experimentEnrollmentManager),
         new ArchiveController(backupAuthManager, backupManager),

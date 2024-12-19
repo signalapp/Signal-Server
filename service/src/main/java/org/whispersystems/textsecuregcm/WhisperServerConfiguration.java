@@ -17,7 +17,6 @@ import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppleAppStoreConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AppleDeviceCheckConfiguration;
-import org.whispersystems.textsecuregcm.configuration.ArtServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.AwsCredentialsProviderFactory;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
@@ -216,11 +215,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private PaymentsServiceConfiguration paymentsService;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private ArtServiceConfiguration artService;
 
   @Valid
   @NotNull
@@ -467,10 +461,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public PaymentsServiceConfiguration getPaymentsServiceConfiguration() {
     return paymentsService;
-  }
-
-  public ArtServiceConfiguration getArtServiceConfiguration() {
-    return artService;
   }
 
   public ZkConfig getZkConfig() {
