@@ -10,6 +10,11 @@ import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.StringToClassMapItem;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -109,25 +114,54 @@ public class OneTimeDonationController {
 
   public static class CreateBoostRequest {
 
+    @Schema(required = true, maxLength = 3, minLength = 3)
     @NotEmpty
     @ExactlySize(3)
     public String currency;
+
+    @Schema(required = true, minimum = "1", description = "The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)")
     @Min(1)
     public long amount;
+
+    @Schema(description = "The level for the boost payment. Assumed to be the boost level if missing")
     public Long level;
+
+    @Schema(description = "The payment method", defaultValue = "CARD")
     public PaymentMethod paymentMethod = PaymentMethod.CARD;
   }
 
-  public record CreateBoostResponse(String clientSecret) {}
+  public record CreateBoostResponse(
+      @Schema(description = "A client secret that can be used to complete a stripe PaymentIntent")
+      String clientSecret) {}
 
-
-  /**
-   * Creates a Stripe PaymentIntent with the requested amount and currency
-   */
   @POST
   @Path("/create")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Create a Stripe payment intent", description = """
+  Create a Stripe PaymentIntent and return a client secret that can be used to complete the payment.
+
+  Once the payment is complete, the paymentIntentId can be used at /v1/subscriptions/receipt_credentials
+  """)
+  @ApiResponse(responseCode = "200", description = "Payment Intent created", content = @Content(schema = @Schema(implementation = CreateBoostResponse.class)))
+  @ApiResponse(responseCode = "403", description = "The request was made on an authenticated channel")
+  @ApiResponse(responseCode = "400", description = """
+      Invalid argument. The response body may include an error code with more specific information. If the error code
+      is `amount_below_currency_minimum` the body will also include the `minimum` field indicating the minimum amount
+      for the currency. If the error code is `amount_above_sepa_limit` the body will also include the `maximum`
+      field indicating the maximum amount for a SEPA transaction.
+      """,
+      content = @Content(schema = @Schema(
+          type = "object",
+          properties = {
+              @StringToClassMapItem(key = "error", value = String.class)
+          })))
+  @ApiResponse(responseCode = "409", description = "Provided level does not match the currency/amount combination",
+      content = @Content(schema = @Schema(
+          type = "object",
+          properties = {
+              @StringToClassMapItem(key = "error", value = String.class)
+          })))
   public CompletableFuture<Response> createBoostPaymentIntent(
       @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid CreateBoostRequest request,

@@ -65,10 +65,16 @@ public class SubscriptionException extends Exception {
     }
   }
 
-  public static class AmountTooSmall extends InvalidArguments {
+  public static class InvalidAmount extends InvalidArguments {
+    private String errorCode;
 
-    public AmountTooSmall() {
+    public InvalidAmount(String errorCode) {
       super(null, null);
+      this.errorCode = errorCode;
+    }
+
+    public String getErrorCode() {
+      return errorCode;
     }
   }
 

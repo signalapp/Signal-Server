@@ -22,10 +22,10 @@ public class SubscriptionExceptionMapper implements ExceptionMapper<Subscription
   public Response toResponse(final SubscriptionException exception) {
 
     // Some exceptions have specific error body formats
-    if (exception instanceof SubscriptionException.AmountTooSmall e) {
+    if (exception instanceof SubscriptionException.InvalidAmount e) {
       return Response
           .status(Response.Status.BAD_REQUEST)
-          .entity(Map.of("error", "amount_too_small"))
+          .entity(Map.of("error", e.getErrorCode()))
           .type(MediaType.APPLICATION_JSON_TYPE)
           .build();
     }

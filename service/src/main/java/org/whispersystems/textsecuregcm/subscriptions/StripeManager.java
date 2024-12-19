@@ -202,8 +202,8 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   }
 
   /**
-   * Creates a payment intent. May throw a
-   * {@link SubscriptionException.AmountTooSmall} if the amount is too small.
+   * Creates a payment intent. May throw a {@link SubscriptionException.InvalidAmount} if stripe rejects the
+   * attempt if the amount is too large or too small
    */
   public CompletableFuture<PaymentIntent> createPaymentIntent(final String currency,
       final long amount,
@@ -224,10 +224,11 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       try {
         return stripeClient.paymentIntents().create(builder.build(), commonOptions());
       } catch (StripeException e) {
-        if ("amount_too_small".equalsIgnoreCase(e.getCode())) {
-          throw ExceptionUtils.wrap(new SubscriptionException.AmountTooSmall());
-        } else {
-          throw new CompletionException(e);
+        final String errorCode = e.getCode().toLowerCase(Locale.ROOT);
+        switch (errorCode) {
+          case "amount_too_small","amount_too_large" ->
+              throw ExceptionUtils.wrap(new SubscriptionException.InvalidAmount(errorCode));
+          default -> throw new CompletionException(e);
         }
       }
     }, executor);
