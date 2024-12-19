@@ -98,8 +98,12 @@ public class WebSocketClient {
   }
 
   public boolean shouldDeliverStories() {
-    String value = session.getUpgradeRequest().getHeader(Stories.X_SIGNAL_RECEIVE_STORIES);
-    return Stories.parseReceiveStoriesHeader(value);
+    String value = session.getUpgradeRequest().getHeader(WebsocketHeaders.X_SIGNAL_RECEIVE_STORIES);
+    return WebsocketHeaders.parseReceiveStoriesHeader(value);
+  }
+
+  public boolean supportsProvisioningSocketTimeouts() {
+    return session.getUpgradeRequest().getHeader(WebsocketHeaders.X_SIGNAL_WEBSOCKET_TIMEOUT_HEADER) != null;
   }
 
   private long generateRequestId() {

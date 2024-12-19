@@ -569,6 +569,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .scheduledExecutorService(name(getClass(), "cloudflareTurnRetry-%d")).threads(1).build();
     ScheduledExecutorService messagePollExecutor = environment.lifecycle()
         .scheduledExecutorService(name(getClass(), "messagePollExecutor-%d")).threads(1).build();
+    ScheduledExecutorService provisioningWebsocketTimeoutExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "provisioningWebsocketTimeout-%d")).threads(1).build();
 
     final ManagedNioEventLoopGroup dnsResolutionEventLoopGroup = new ManagedNioEventLoopGroup();
     final DnsNameResolver cloudflareDnsResolver = new DnsNameResolverBuilder(dnsResolutionEventLoopGroup.next())
@@ -1171,7 +1173,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         webSocketEnvironment.getRequestLog(), Duration.ofMillis(60000));
     provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager,
         disconnectionRequestManager));
-    provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager));
+    provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager, provisioningWebsocketTimeoutExecutor, Duration.ofSeconds(90)));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     provisioningEnvironment.jersey().register(new KeepAliveController(webSocketConnectionEventManager));
     provisioningEnvironment.jersey().register(new TimestampResponseFilter());

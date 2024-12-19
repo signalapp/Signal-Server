@@ -130,7 +130,7 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
-import org.whispersystems.websocket.Stories;
+import org.whispersystems.websocket.WebsocketHeaders;
 import org.whispersystems.websocket.auth.ReadOnly;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -749,10 +749,10 @@ public class MessageController {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@ReadOnly @Auth AuthenticatedDevice auth,
-      @HeaderParam(Stories.X_SIGNAL_RECEIVE_STORIES) String receiveStoriesHeader,
+      @HeaderParam(WebsocketHeaders.X_SIGNAL_RECEIVE_STORIES) String receiveStoriesHeader,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
 
-    boolean shouldReceiveStories = Stories.parseReceiveStoriesHeader(receiveStoriesHeader);
+    boolean shouldReceiveStories = WebsocketHeaders.parseReceiveStoriesHeader(receiveStoriesHeader);
 
     pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), auth.getAuthenticatedDevice(), userAgent);
 

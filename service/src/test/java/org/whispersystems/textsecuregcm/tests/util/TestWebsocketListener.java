@@ -24,8 +24,9 @@ public class TestWebsocketListener implements WebSocketListener {
 
   private final AtomicLong requestId = new AtomicLong();
   private final CompletableFuture<Session> started = new CompletableFuture<>();
+  private final CompletableFuture<Integer> closed = new CompletableFuture<>();
   private final ConcurrentHashMap<Long, CompletableFuture<WebSocketResponseMessage>> responseFutures = new ConcurrentHashMap<>();
-  private final WebSocketMessageFactory messageFactory;
+  protected final WebSocketMessageFactory messageFactory;
 
   public TestWebsocketListener() {
     this.messageFactory = new ProtobufWebSocketMessageFactory();
@@ -36,6 +37,15 @@ public class TestWebsocketListener implements WebSocketListener {
   public void onWebSocketConnect(final Session session) {
     started.complete(session);
 
+  }
+
+  @Override
+  public void onWebSocketClose(int statusCode, String reason) {
+    closed.complete(statusCode);
+  }
+
+  public CompletableFuture<Integer> closeFuture() {
+    return closed;
   }
 
   public CompletableFuture<WebSocketResponseMessage> doGet(final String requestPath) {

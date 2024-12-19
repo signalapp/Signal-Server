@@ -7,10 +7,15 @@ package org.whispersystems.textsecuregcm.websocket;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -31,7 +36,7 @@ import org.whispersystems.websocket.setup.WebSocketConnectListener;
  * a random, temporary "provisioning address," which it transmits via the newly-opened WebSocket. From there, the new
  * device generally displays the provisioning address (and a public key) as a QR code. After that, the primary device
  * will scan the QR code and send an encrypted provisioning message to the new device via
- * {@link org.whispersystems.textsecuregcm.controllers.ProvisioningController#sendProvisioningMessage(AuthenticatedDevice, String, ProvisioningMessage, String)}.
+ * {@link ProvisioningController#sendProvisioningMessage(AuthenticatedDevice, String, ProvisioningMessage, String)}.
  * Once the server receives the message from the primary device, it sends the message to the new device via the open
  * WebSocket, then closes the WebSocket connection.
  */
@@ -39,9 +44,15 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
 
   private final ProvisioningManager provisioningManager;
   private final OpenWebSocketCounter openWebSocketCounter;
+  private final ScheduledExecutorService timeoutExecutor;
+  private final Duration timeout;
 
-  public ProvisioningConnectListener(final ProvisioningManager provisioningManager) {
+  public ProvisioningConnectListener(final ProvisioningManager provisioningManager,
+      final ScheduledExecutorService timeoutExecutor,
+      final Duration timeout) {
     this.provisioningManager = provisioningManager;
+    this.timeoutExecutor = timeoutExecutor;
+    this.timeout = timeout;
     this.openWebSocketCounter = new OpenWebSocketCounter(MetricsUtil.name(getClass(), "openWebsockets"),
         MetricsUtil.name(getClass(), "sessionDuration"));
   }
@@ -50,8 +61,17 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
   public void onWebSocketConnect(WebSocketSessionContext context) {
     openWebSocketCounter.countOpenWebSocket(context);
 
+    final Optional<ScheduledFuture<?>> maybeTimeoutFuture = context.getClient().supportsProvisioningSocketTimeouts()
+        ? Optional.of(timeoutExecutor.schedule(() ->
+            context.getClient().close(1000, "Timeout"), timeout.toSeconds(), TimeUnit.SECONDS))
+        : Optional.empty();
+
     final String provisioningAddress = generateProvisioningAddress();
-    context.addWebsocketClosedListener((context1, statusCode, reason) -> provisioningManager.removeListener(provisioningAddress));
+
+    context.addWebsocketClosedListener((context1, statusCode, reason) -> {
+      provisioningManager.removeListener(provisioningAddress);
+      maybeTimeoutFuture.ifPresent(future -> future.cancel(false));
+    });
 
     provisioningManager.addListener(provisioningAddress, message -> {
       assert message.getType() == PubSubProtos.PubSubMessage.Type.DELIVER;

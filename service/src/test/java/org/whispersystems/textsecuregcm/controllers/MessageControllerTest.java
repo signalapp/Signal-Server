@@ -19,7 +19,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyBoolean;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -132,7 +131,7 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import org.whispersystems.websocket.Stories;
+import org.whispersystems.websocket.WebsocketHeaders;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -675,7 +674,7 @@ class MessageControllerTest {
         resources.getJerseyTest().target("/v1/messages/")
             .request()
             .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .header(Stories.X_SIGNAL_RECEIVE_STORIES, receiveStories ? "true" : "false")
+            .header(WebsocketHeaders.X_SIGNAL_RECEIVE_STORIES, receiveStories ? "true" : "false")
             .header(HttpHeaders.USER_AGENT, userAgent)
             .accept(MediaType.APPLICATION_JSON_TYPE)
             .get(OutgoingMessageEntityList.class);
