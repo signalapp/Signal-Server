@@ -485,6 +485,43 @@ class MessageControllerTest {
         Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), true, true, 400));
   }
 
+  @ParameterizedTest
+  @CsvSource({
+      "-1, 422",
+      "0, 200",
+      "1, 200",
+      "8640000000000000, 200",
+      "8640000000000001, 422",
+
+      // This is something of a quirk; because this failure is happening at the parsing layer (we can't parse it as a
+      // `long`) instead of the validation layer, we get a 400 instead of a 422
+      "99999999999999999999999999999999999, 400"
+  })
+  void testSingleDeviceExtremeTimestamp(final String timestamp, final int expectedStatus) throws JsonProcessingException {
+    final String jsonTemplate = """
+        {
+            "timestamp" : %s,
+            "messages" : [{
+                "type" : 1,
+                "destinationDeviceId" : 1,
+                "content" : "Zm9vYmFyego"
+            }]
+        }
+        """;
+
+    final String json = String.format(jsonTemplate, timestamp);
+
+    try (final Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.json(json))) {
+
+      assertThat(response.getStatus(), is(equalTo(expectedStatus)));
+    }
+  }
+
   @Test
   void testSendBadAuth() throws Exception {
     try (final Response response =
@@ -1166,7 +1203,7 @@ class MessageControllerTest {
   }
 
   @Test
-  void testManyRecipientMessage() throws Exception {
+  void testManyRecipientMessage() {
 
     when(messagesManager.insertSharedMultiRecipientMessagePayload(any(SealedSenderMultiRecipientMessage.class)))
         .thenReturn(new byte[]{1});
@@ -1558,6 +1595,66 @@ class MessageControllerTest {
         .put(Entity.entity(initializeMultiPayload(recipients, new byte[257<<10], true, 256<<10), MultiRecipientMessageProvider.MEDIA_TYPE));
 
     checkBadMultiRecipientResponse(response, 400);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "-1, 422",
+      "0, 200",
+      "1, 200",
+      "8640000000000000, 200",
+      "8640000000000001, 400",
+
+      // 404 here is a weird quirk of controller pattern matching; this value doesn't get interpreted as `long`, and so
+      // it doesn't match the "send multi-recipient message" endpoint
+      "99999999999999999999999999999999999, 404"
+  })
+  void testMultiRecipientExtremeTimestamp(final String timestamp, final int expectedStatus) {
+
+    when(messagesManager.insertSharedMultiRecipientMessagePayload(any(SealedSenderMultiRecipientMessage.class)))
+        .thenReturn(new byte[]{1});
+
+    final int nRecipients = 999;
+    final int devicesPerRecipient = 5;
+    final List<Recipient> recipients = new ArrayList<>();
+
+    for (int i = 0; i < nRecipients; i++) {
+      final List<Device> devices =
+          IntStream.range(1, devicesPerRecipient + 1)
+              .mapToObj(
+                  d -> generateTestDevice(
+                      (byte) d, 100 + d, 10 * d, true))
+              .collect(Collectors.toList());
+      final UUID aci = new UUID(0L, i);
+      final UUID pni = new UUID(1L, i);
+      final String e164 = String.format("+1408555%04d", i);
+      final Account account = AccountsHelper.generateTestAccount(e164, aci, pni, devices, UNIDENTIFIED_ACCESS_BYTES);
+
+      when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(aci)))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+      when(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(pni)))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+      devices.forEach(d -> recipients.add(new Recipient(new AciServiceIdentifier(aci), d.getId(), d.getRegistrationId(), new byte[48])));
+    }
+
+    byte[] buffer = new byte[1048576];
+    InputStream stream = initializeMultiPayload(recipients, buffer, true);
+    Entity<InputStream> entity = Entity.entity(stream, MultiRecipientMessageProvider.MEDIA_TYPE);
+    try (final Response response = resources
+        .getJerseyTest()
+        .target("/v1/messages/multi_recipient")
+        .queryParam("online", true)
+        .queryParam("story", true)
+        .queryParam("urgent", false)
+        .queryParam("ts", timestamp)
+        .request()
+        .header(HttpHeaders.USER_AGENT, "test")
+        .put(entity)) {
+
+      assertThat(response.readEntity(String.class), response.getStatus(), is(equalTo(expectedStatus)));
+    }
   }
 
   @Test
