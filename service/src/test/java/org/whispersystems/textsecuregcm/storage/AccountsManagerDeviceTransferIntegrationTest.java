@@ -21,7 +21,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
-import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery3Client;
+
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -66,7 +66,6 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(ProfilesManager.class),
         mock(SecureStorageClient.class),
         mock(SecureValueRecovery2Client.class),
-        mock(SecureValueRecovery3Client.class),
         mock(DisconnectionRequestManager.class),
         mock(RegistrationRecoveryPasswordsManager.class),
         mock(ClientPublicKeysManager.class),

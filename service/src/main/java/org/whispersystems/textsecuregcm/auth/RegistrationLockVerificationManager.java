@@ -22,7 +22,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
-import org.whispersystems.textsecuregcm.entities.Svr3Credentials;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -56,7 +55,6 @@ public class RegistrationLockVerificationManager {
   private final AccountsManager accounts;
   private final DisconnectionRequestManager disconnectionRequestManager;
   private final ExternalServiceCredentialsGenerator svr2CredentialGenerator;
-  private final ExternalServiceCredentialsGenerator svr3CredentialGenerator;
   private final RateLimiters rateLimiters;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final PushNotificationManager pushNotificationManager;
@@ -65,14 +63,12 @@ public class RegistrationLockVerificationManager {
       final AccountsManager accounts,
       final DisconnectionRequestManager disconnectionRequestManager,
       final ExternalServiceCredentialsGenerator svr2CredentialGenerator,
-      final ExternalServiceCredentialsGenerator svr3CredentialGenerator,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final PushNotificationManager pushNotificationManager,
       final RateLimiters rateLimiters) {
     this.accounts = accounts;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.svr2CredentialGenerator = svr2CredentialGenerator;
-    this.svr3CredentialGenerator = svr3CredentialGenerator;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.pushNotificationManager = pushNotificationManager;
     this.rateLimiters = rateLimiters;
@@ -174,7 +170,7 @@ public class RegistrationLockVerificationManager {
           .entity(new RegistrationLockFailure(
               existingRegistrationLock.getTimeRemaining().toMillis(),
               svr2FailureCredentials(existingRegistrationLock, updatedAccount),
-              svr3FailureCredentials(existingRegistrationLock, updatedAccount)))
+              null))
           .build());
     }
 
@@ -188,11 +184,4 @@ public class RegistrationLockVerificationManager {
     return svr2CredentialGenerator.generateForUuid(account.getUuid());
   }
 
-  private @Nullable Svr3Credentials svr3FailureCredentials(final StoredRegistrationLock existingRegistrationLock, final Account account) {
-    if (!existingRegistrationLock.needsFailureCredentials()) {
-      return null;
-    }
-    final ExternalServiceCredentials creds = svr3CredentialGenerator.generateForUuid(account.getUuid());
-    return new Svr3Credentials(creds.username(), creds.password(), account.getSvr3ShareSet());
-  }
 }

@@ -82,7 +82,6 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
-import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery3Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -126,7 +125,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final ProfilesManager profilesManager;
   private final SecureStorageClient secureStorageClient;
   private final SecureValueRecovery2Client secureValueRecovery2Client;
-  private final SecureValueRecovery3Client secureValueRecovery3Client;
 
   private final DisconnectionRequestManager disconnectionRequestManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
@@ -210,7 +208,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final ProfilesManager profilesManager,
       final SecureStorageClient secureStorageClient,
       final SecureValueRecovery2Client secureValueRecovery2Client,
-      final SecureValueRecovery3Client secureValueRecovery3Client,
       final DisconnectionRequestManager disconnectionRequestManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final ClientPublicKeysManager clientPublicKeysManager,
@@ -229,7 +226,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.profilesManager = profilesManager;
     this.secureStorageClient = secureStorageClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
-    this.secureValueRecovery3Client = secureValueRecovery3Client;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.clientPublicKeysManager = clientPublicKeysManager;
@@ -1264,16 +1260,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           throw new CompletionException(exception);
         }));
 
-    final CompletableFuture<Void> svr3DeleteBackupFuture = secureValueRecovery3Client.deleteBackups(account.getUuid())
-        .exceptionally(exception -> {
-          // We don't care about errors from SVR3 because we're not currently using it
-          return null;
-        });
-
     return CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),
             svr2DeleteBackupFuture,
-            svr3DeleteBackupFuture,
             keysManager.deleteSingleUsePreKeys(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
             messagesManager.clear(account.getUuid()),

@@ -467,7 +467,6 @@ class AccountsTest {
 
     // the backup credential request and share-set are always preserved across account reclaims
     existingAccount.setBackupCredentialRequests(TestRandomUtil.nextBytes(32), TestRandomUtil.nextBytes(32));
-    existingAccount.setSvr3ShareSet(TestRandomUtil.nextBytes(100));
     createAccount(existingAccount);
     final Account secondAccount =
         generateAccount(e164, UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
@@ -479,7 +478,6 @@ class AccountsTest {
         .isEqualTo(existingAccount.getBackupCredentialRequest(BackupCredentialType.MESSAGES).get());
     assertThat(reclaimed.getBackupCredentialRequest(BackupCredentialType.MEDIA).get())
         .isEqualTo(existingAccount.getBackupCredentialRequest(BackupCredentialType.MEDIA).get());
-    assertThat(reclaimed.getSvr3ShareSet()).isEqualTo(existingAccount.getSvr3ShareSet());
   }
 
   @Test

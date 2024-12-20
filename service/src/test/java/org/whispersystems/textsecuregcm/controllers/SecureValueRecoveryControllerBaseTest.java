@@ -319,7 +319,6 @@ abstract class SecureValueRecoveryControllerBaseTest {
   private static Account account(final UUID uuid) {
     final Account a = new Account();
     a.setUuid(uuid);
-    a.setSvr3ShareSet(TestRandomUtil.nextBytes(100));
     return a;
   }
 }

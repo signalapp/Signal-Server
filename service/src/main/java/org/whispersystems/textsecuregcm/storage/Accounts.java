@@ -315,10 +315,6 @@ public class Accounts {
           existingAccount.getBackupCredentialRequest(BackupCredentialType.MESSAGES).orElse(null),
           existingAccount.getBackupCredentialRequest(BackupCredentialType.MEDIA).orElse(null));
 
-      // Carry over the old SVR3 share-set. This is required for an account to restore information from SVR. The share-
-      // set is not a secret, if the new account claimer does not have the SVR3 pin, it is useless.
-      accountToCreate.setSvr3ShareSet(existingAccount.getSvr3ShareSet());
-
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
       // If we're reclaiming an account that already has a username, we'd like to give the re-registering client

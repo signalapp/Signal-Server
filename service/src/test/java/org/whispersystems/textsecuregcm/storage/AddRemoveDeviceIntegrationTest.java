@@ -41,7 +41,6 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
-import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery3Client;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -126,9 +125,6 @@ public class AddRemoveDeviceIntegrationTest {
     final SecureValueRecovery2Client svr2Client = mock(SecureValueRecovery2Client.class);
     when(svr2Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final SecureValueRecovery3Client svr3Client = mock(SecureValueRecovery3Client.class);
-    when(svr3Client.deleteBackups(any())).thenReturn(CompletableFuture.completedFuture(null));
-
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
         new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
             DynamoDbExtensionSchema.Tables.PNI.tableName());
@@ -161,7 +157,6 @@ public class AddRemoveDeviceIntegrationTest {
         profilesManager,
         secureStorageClient,
         svr2Client,
-        svr3Client,
         mock(DisconnectionRequestManager.class),
         mock(RegistrationRecoveryPasswordsManager.class),
         clientPublicKeysManager,
