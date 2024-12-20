@@ -18,8 +18,5 @@ public record RegistrationLockFailure(
     long timeRemaining,
     @Schema(description = "Credentials that can be used with SVR2")
     @Nullable
-    ExternalServiceCredentials svr2Credentials,
-    @Deprecated
-    @Nullable
-    ExternalServiceCredentials svr3Credentials) {
+    ExternalServiceCredentials svr2Credentials) {
 }

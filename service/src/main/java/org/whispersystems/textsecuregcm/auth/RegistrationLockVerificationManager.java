@@ -169,8 +169,7 @@ public class RegistrationLockVerificationManager {
       throw new WebApplicationException(Response.status(FAILURE_HTTP_STATUS)
           .entity(new RegistrationLockFailure(
               existingRegistrationLock.getTimeRemaining().toMillis(),
-              svr2FailureCredentials(existingRegistrationLock, updatedAccount),
-              null))
+              svr2FailureCredentials(existingRegistrationLock, updatedAccount)))
           .build());
     }
 
