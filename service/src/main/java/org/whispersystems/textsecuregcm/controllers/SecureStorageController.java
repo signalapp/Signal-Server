@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -37,6 +39,14 @@ public class SecureStorageController {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Generate credentials for Storage Service",
+      description = """
+          Generate Storage Service credentials. Generated credentials have an expiration time of 24 hours\s
+          (however, the TTL is fully controlled by the server and may change even for already generated credentials).
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
   public ExternalServiceCredentials getAuth(@ReadOnly @Auth AuthenticatedDevice auth) {
     return storageServiceCredentialsGenerator.generateForUuid(auth.getAccount().getUuid());
   }
