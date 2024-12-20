@@ -6,6 +6,8 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -48,6 +50,14 @@ public class DirectoryV2Controller {
   @GET
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Generate credentials for Contact Discovery Service",
+      description = """
+          Generate Contact Discovery Service credentials. Generated credentials have an expiration time of 24 hours\s
+          (however, the TTL is fully controlled by the server and may change even for already generated credentials).
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
   public Response getAuthToken(final @ReadOnly @Auth AuthenticatedDevice auth) {
     final UUID uuid = auth.getAccount().getUuid();
     final ExternalServiceCredentials credentials = directoryServiceTokenGenerator.generateForUuid(uuid);
