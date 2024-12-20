@@ -1233,20 +1233,6 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
-  /v1/art/auth:
-    get:
-      tags:
-      - Art
-      operationId: getAuth
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExternalServiceCredentials'
-      security:
-      - authenticatedAccount: []
   /v4/attachments/form/upload:
     get:
       tags:
@@ -2739,7 +2725,7 @@ paths:
     get:
       tags:
       - Payments
-      operationId: getAuth_1
+      operationId: getAuth
       responses:
         default:
           description: default response
@@ -3020,7 +3006,7 @@ paths:
     get:
       tags:
       - Secure Storage
-      operationId: getAuth_2
+      operationId: getAuth_1
       responses:
         default:
           description: default response
@@ -3066,7 +3052,7 @@ paths:
       description: |
         Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
-      operationId: getAuth_3
+      operationId: getAuth_2
       responses:
         "200":
           description: '`JSON` with generated credentials.'
@@ -3074,79 +3060,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExternalServiceCredentials'
-        "401":
-          description: Account authentication check failed.
-      security:
-      - authenticatedAccount: []
-  /v3/backup/auth/check:
-    post:
-      tags:
-      - Secure Value Recovery
-      summary: Check SVR3 credentials
-      description: |
-        Over time, clients may wind up with multiple sets of SVR3 authentication credentials in cloud storage.
-        To determine which set is most current and should be used to communicate with SVR3 to retrieve a master key
-        (from which a registration recovery password can be derived), clients should call this endpoint
-        with a list of stored credentials. The response will identify which (if any) set of credentials are
-        appropriate for communicating with SVR3.
-      operationId: authCheck_1
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthCheckRequest'
-        required: true
-      responses:
-        "200":
-          description: '`JSON` with the check results.'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthCheckResponseV3'
-        "422":
-          description: Provided list of SVR3 credentials could not be parsed
-        "400":
-          description: '`POST` request body is not a valid `JSON`'
-  /v3/backup/auth:
-    get:
-      tags:
-      - Secure Value Recovery
-      summary: Generate credentials for SVR3
-      description: |
-        Generate SVR3 service credentials. Generated credentials have an expiration time of 30 days
-        (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
-
-        If a share-set has been previously set via /v3/backups/share-set, it will be included in the response
-      operationId: getAuth_4
-      responses:
-        "200":
-          description: '`JSON` with generated credentials and share-set'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Svr3Credentials'
-        "401":
-          description: Account authentication check failed.
-      security:
-      - authenticatedAccount: []
-  /v3/backup/share-set:
-    put:
-      tags:
-      - Secure Value Recovery
-      summary: Set a share-set for the account
-      description: |
-        Add a share-set to the account that can later be retrieved at v3/backups/auth or during registration. After
-        storing a value with SVR3, clients must store the returned share-set so the value can be restored later.
-      operationId: setShareSet
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SetShareSetRequest'
-        required: true
-      responses:
-        "204":
-          description: Successfully set share-set
         "401":
           description: Account authentication check failed.
       security:
@@ -3638,6 +3551,10 @@ paths:
     post:
       tags:
       - Verification
+      summary: Creates a new verification session for a specific phone number
+      description: |
+        Initiates a session to be able to verify the phone number for account registration. Check the response and
+        submit requested information at PATCH /session/{sessionId}
       operationId: createSession
       requestBody:
         content:
@@ -3646,16 +3563,31 @@ paths:
               $ref: '#/components/schemas/CreateVerificationSessionRequest'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: The verification session was created successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerificationSessionResponse'
+        "422":
+          description: The request did not pass validation
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
+              schema:
+                type: integer
+                format: int32
   /v1/verification/session/{sessionId}:
     get:
       tags:
       - Verification
+      summary: Get a registration verification session
+      description: |
+        Retrieve metadata of the registration verification session with the specified ID
       operationId: getSession
       parameters:
       - name: sessionId
@@ -3664,15 +3596,27 @@ paths:
         schema:
           type: string
       responses:
-        default:
-          description: default response
+        "200":
+          description: Session was retrieved successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerificationSessionResponse'
+        "400":
+          description: Invalid session ID
+        "404":
+          description: Session with the specified ID could not be found
+        "422":
+          description: Malformed session ID encoding
     patch:
       tags:
       - Verification
+      summary: Update a registration verification session
+      description: |
+        Updates the session with requested information like an answer to a push challenge or captcha.
+        If `requestedInformation` in the response is empty, and `allowedToRequestCode` is `true`, proceed to call
+        `POST /session/{sessionId}/code`. If `requestedInformation` is empty and `allowedToRequestCode` is `false`,
+        then the caller must create a new verification session.
       operationId: updateSession
       parameters:
       - name: sessionId
@@ -3691,8 +3635,27 @@ paths:
               $ref: '#/components/schemas/UpdateVerificationSessionRequest'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: Session was updated successfully with the information provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+        "403":
+          description: The information provided was not accepted (e.g push challenge
+            or captcha verification failed)
+        "422":
+          description: The request did not pass validation
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
+              schema:
+                type: integer
+                format: int32
           content:
             application/json:
               schema:
@@ -3701,6 +3664,9 @@ paths:
     put:
       tags:
       - Verification
+      summary: Submit a verification code
+      description: |
+        Submits a verification code received via SMS or voice for verification
       operationId: verifyCode
       parameters:
       - name: sessionId
@@ -3719,8 +3685,38 @@ paths:
               $ref: '#/components/schemas/SubmitVerificationCodeRequest'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: |
+            The request to check a verification code was processed (though the submitted code may not be the correct code);
+            the session metadata will indicate whether the submitted code was correct
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+        "400":
+          description: Invalid session ID or verification  code
+        "404":
+          description: Session with the specified ID could not be found
+        "409":
+          description: The session is already verified or no code has been requested
+            yet for this session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+        "429":
+          description: |
+            Too many attempts; the caller is not permitted to submit a verification code at this time and may need to wait
+            before trying again; if the session metadata does not specify a time at which the caller may try again, then the
+            caller has exhausted their permitted attempts and must create a new verification session.
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
+              schema:
+                type: integer
+                format: int32
           content:
             application/json:
               schema:
@@ -3728,6 +3724,10 @@ paths:
     post:
       tags:
       - Verification
+      summary: Request a verification code
+      description: |
+        Sends a verification code to the phone number associated with the specified session via SMS or phone call.
+        This endpoint can only be called when the session metadata includes "allowedToRequestCode = true"
       operationId: requestVerificationCode
       parameters:
       - name: sessionId
@@ -3741,6 +3741,8 @@ paths:
           type: string
       - name: Accept-Language
         in: header
+        description: Ordered list of languages in which the client prefers to receive
+          SMS or voice verification messages
         schema:
           type: string
       requestBody:
@@ -3750,12 +3752,61 @@ paths:
               $ref: '#/components/schemas/VerificationCodeRequest'
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: Verification code was successfully sent
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerificationSessionResponse'
+        "400":
+          description: Invalid session ID
+        "404":
+          description: Session with the specified ID could not be found
+        "409":
+          description: The session is already verified or not in a state to request
+            a code because requested information hasn't been provided yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+        "418":
+          description: "The request to send a verification code with the given transport\
+            \ could not be fulfilled, but may succeed with a different transport"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+        "422":
+          description: Request did not pass validation
+        "429":
+          description: |
+            Too may attempts; the caller is not permitted to send a verification code via the requested channel at this time
+            and may need to wait before trying again; if the session metadata does not specify a time at which the caller may
+            try again, then the caller has exhausted their permitted attempts and must either try a different transport or
+            create a new verification session.
+          headers:
+            Retry-After:
+              description: "If present, an positive integer indicating the number\
+                \ of seconds before a subsequent attempt could succeed"
+              style: simple
+              schema:
+                type: integer
+                format: int32
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSessionResponse'
+        "440":
+          description: |
+            The attempt to send a verification code failed because an external service (e.g. the SMS provider) refused to
+            deliver the code. This may be a temporary or permanent failure, as indicated in the response body. If temporary,
+            clients may try again after a reasonable delay. If permanent, clients should not retry the request and should
+            communicate the permanent failure to the end user. Permanent failures may result in the server disallowing all
+            future attempts to request or submit verification codes (since those attempts would be all but guaranteed to fail).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendVerificationCodeFailureResponse'
 components:
   schemas:
     AciServiceIdentifier:
@@ -4062,26 +4113,10 @@ components:
         svr2Credentials:
           $ref: '#/components/schemas/ExternalServiceCredentials'
         svr3Credentials:
-          $ref: '#/components/schemas/Svr3Credentials'
+          $ref: '#/components/schemas/ExternalServiceCredentials'
       description: |
         Information about the current Registration lock and SVR credentials. With a correct PIN, the credentials can
         be used to recover the secret used to derive the registration lock password.
-    Svr3Credentials:
-      type: object
-      properties:
-        username:
-          type: string
-          description: The credential username
-        password:
-          type: string
-          description: The credential password
-        shareSet:
-          type: string
-          description: |
-            If present, a shareSet previously stored for this account via /v3/backups/shareSet. Required to restore a value
-            from SVR3. Encoded in standard un-padded base64.
-      description: |
-        A time limited external service credential that can be used to authenticate and restore from SVR3.
     ChangeNumberRequest:
       required:
       - deviceMessages
@@ -4922,10 +4957,10 @@ components:
         created:
           type: string
           format: date-time
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
     WebSocketSessionContext:
       type: object
       properties:
@@ -5781,43 +5816,6 @@ components:
             description: |-
               A list of SVR tokens, previously retrieved from `backup/auth`. Tokens should be the
               of the form "username:password". May contain at most 10 tokens.
-    AuthCheckResponseV3:
-      required:
-      - matches
-      type: object
-      properties:
-        matches:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/Result'
-          description: |
-            A dictionary with the auth check results, keyed by the token corresponding token provided in the request.
-    Result:
-      type: object
-      properties:
-        status:
-          type: string
-          description: "The status of the credential. Either match, no-match, or invalid"
-          enum:
-          - match
-          - no-match
-          - invalid
-        shareSet:
-          type: string
-          description: |
-            If the credential was a match, the stored shareSet that can be used to restore a value from SVR. Encoded in
-            standard un-padded base64.
-      description: |
-        A dictionary with the auth check results, keyed by the token corresponding token provided in the request.
-    SetShareSetRequest:
-      required:
-      - shareSet
-      type: object
-      properties:
-        shareSet:
-          type: string
-          description: |
-            A share-set generated by a client after storing a value in SVR3, serialized in un-padded standard base64
     StickerPackFormUploadAttributes:
       type: object
       properties:
@@ -6099,30 +6097,48 @@ components:
       description: "Information about the subscription, or null if no subscription\
         \ is present"
     VerificationSessionResponse:
+      required:
+      - allowedToRequestCode
+      - id
+      - verified
       type: object
       properties:
         id:
           type: string
+          description: A URL-safe ID for the session
         nextSms:
           type: integer
+          description: Duration in seconds after which next SMS can be requested for
+            this session
           format: int64
         nextCall:
           type: integer
+          description: Duration in seconds after which next voice call can be requested
+            for this session
           format: int64
         nextVerificationAttempt:
           type: integer
+          description: Duration in seconds after which the client can submit a verification
+            code for this session
           format: int64
         allowedToRequestCode:
           type: boolean
+          description: Whether it is allowed to request a verification code for this
+            session
         requestedInformation:
           type: array
+          description: A list of requested information that the client needs to submit
+            before requesting code delivery
           items:
             type: string
+            description: A list of requested information that the client needs to
+              submit before requesting code delivery
             enum:
             - pushChallenge
             - captcha
         verified:
           type: boolean
+          description: Whether this session is verified
     CreateVerificationSessionRequest:
       required:
       - number
@@ -6130,39 +6146,65 @@ components:
       properties:
         number:
           type: string
+          description: The e164-formatted phone number to be verified
         pushToken:
           type: string
+          description: The APNs or FCM device token to which a push challenge can
+            be sent
         pushTokenType:
           type: string
+          description: The type of push token
           enum:
           - apn
           - fcm
         pushChallenge:
           type: string
+          description: Value received by the device in the push challenge
         captcha:
           type: string
+          description: Captcha token returned after solving a captcha challenge
         mcc:
           type: string
+          description: Mobile country code of the phone subscriber
         mnc:
           type: string
+          description: Mobile network code of the phone subscriber
     UpdateVerificationSessionRequest:
       type: object
       properties:
         pushToken:
           type: string
+          description: The APNs or FCM device token to which a push challenge can
+            be sent
         pushTokenType:
           type: string
+          description: The type of push token
           enum:
           - apn
           - fcm
         pushChallenge:
           type: string
+          description: Value received by the device in the push challenge
         captcha:
           type: string
+          description: Captcha token returned after solving a captcha challenge
         mcc:
           type: string
+          description: Mobile country code of the phone subscriber
         mnc:
           type: string
+          description: Mobile network code of the phone subscriber
+    SendVerificationCodeFailureResponse:
+      type: object
+      properties:
+        reason:
+          type: string
+          enum:
+          - providerUnavailable
+          - providerRejected
+          - illegalArgument
+        permanentFailure:
+          type: boolean
     VerificationCodeRequest:
       required:
       - client
@@ -6171,11 +6213,13 @@ components:
       properties:
         transport:
           type: string
+          description: Transport via which to send the verification code
           enum:
           - sms
           - voice
         client:
           type: string
+          description: Client type to facilitate platform-specific SMS verification
     SubmitVerificationCodeRequest:
       required:
       - code
