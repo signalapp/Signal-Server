@@ -53,6 +53,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
@@ -1344,6 +1345,35 @@ class DeviceControllerTest {
         .get()) {
 
       assertEquals(400, response.getStatus());
+    }
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {""})
+  void linkDeviceMissingVerificationCode(final String verificationCode) {
+    final AccountAttributes accountAttributes = new AccountAttributes(true, 1234, 5678, null,
+        null, true, Set.of());
+
+    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    final LinkDeviceRequest request = new LinkDeviceRequest(verificationCode,
+        accountAttributes,
+        new DeviceActivationRequest(
+            KeysHelper.signedECPreKey(1, aciIdentityKeyPair),
+            KeysHelper.signedECPreKey(2, pniIdentityKeyPair),
+            KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair),
+            KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair),
+            Optional.empty(),
+            Optional.empty()));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+      assertEquals(422, response.getStatus());
     }
   }
 }

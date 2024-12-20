@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.util.Optional;
 
@@ -13,6 +14,7 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
                                 The verification code associated with this device. Must match the verification code
                                 provided by the server when provisioning this device.
                                 """)
+                                @NotBlank
                                 String verificationCode,
 
                                 @Valid
