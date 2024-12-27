@@ -107,13 +107,13 @@ class FaultTolerantRedisClusterClientTest {
     cluster = buildCluster(null, ClientResources.builder());
 
     final ExecutionException asyncException = assertThrows(ExecutionException.class,
-        () -> cluster.withCluster(connection -> connection.async().blpop(2 * TIMEOUT.toMillis() / 1000d, "key"))
+        () -> cluster.withCluster(connection -> connection.async().blpop(10 * TIMEOUT.toMillis() / 1000d, "key"))
             .get());
 
     assertInstanceOf(RedisCommandTimeoutException.class, asyncException.getCause());
 
     assertThrows(RedisCommandTimeoutException.class,
-        () -> cluster.withCluster(connection -> connection.sync().blpop(2 * TIMEOUT.toMillis() / 1000d, "key")));
+        () -> cluster.withCluster(connection -> connection.sync().blpop(10 * TIMEOUT.toMillis() / 1000d, "key")));
   }
 
   @Test
