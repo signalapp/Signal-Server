@@ -264,14 +264,6 @@ public class AccountController {
   }
 
   @GET
-  @Path("/me")
-  @Deprecated() // use whoami
-  @Produces(MediaType.APPLICATION_JSON)
-  public AccountIdentityResponse getMe(@ReadOnly @Auth AuthenticatedDevice auth) {
-    return AccountIdentityResponseBuilder.fromAccount(auth.getAccount());
-  }
-
-  @GET
   @Path("/whoami")
   @Produces(MediaType.APPLICATION_JSON)
   public AccountIdentityResponse whoAmI(@ReadOnly @Auth AuthenticatedDevice auth) {

@@ -324,9 +324,8 @@ class AccountControllerTest {
     }
   }
 
-  @ParameterizedTest
-  @ValueSource(strings = {"/v1/accounts/whoami", "/v1/accounts/me"})
-  void testWhoAmI(final String path) {
+  @Test
+  void testWhoAmI() {
     final Instant expiration = Instant.now().plus(Duration.ofHours(1)).plusMillis(101);
     final Instant truncatedExpiration = Instant.ofEpochSecond(expiration.getEpochSecond());
     final AccountBadge badge1 = new AccountBadge("badge1", expiration, true);
@@ -337,7 +336,7 @@ class AccountControllerTest {
     when(AuthHelper.VALID_ACCOUNT.getBadges()).thenReturn(List.of(badge1, badge2));
 
     try (final Response response = resources.getJerseyTest()
-        .target(path)
+        .target("/v1/accounts/whoami")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get()) {
