@@ -54,7 +54,6 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
-import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.websocket.auth.Mutable;
 import org.whispersystems.websocket.auth.ReadOnly;
 
@@ -220,6 +219,8 @@ public class AccountControllerV2 {
   @Path("/phone_number_discoverability")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Sets whether the account should be discoverable by phone number in the directory.")
+  @ApiResponse(responseCode = "204", description = "The setting was successfully updated.")
   public void setPhoneNumberDiscoverability(
       @Mutable @Auth AuthenticatedDevice auth,
       @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability
