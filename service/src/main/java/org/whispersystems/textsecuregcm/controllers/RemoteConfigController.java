@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -52,6 +54,16 @@ public class RemoteConfigController {
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Fetch remote configuration",
+      description = """
+          Remote configuration is a list of namespaced keys that clients may use for consistent configuration or behavior.
+
+          Configuration values change over time, and the list should be refreshed periodically, typically at client
+          launch and every few hours thereafter.
+          """
+  )
+  @ApiResponse(responseCode = "200", description = "Remote configuration values for the authenticated user", useReturnTypeSchema = true)
   public UserRemoteConfigList getAll(@ReadOnly @Auth AuthenticatedDevice auth) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA1");

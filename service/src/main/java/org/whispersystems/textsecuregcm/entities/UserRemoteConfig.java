@@ -6,24 +6,29 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public class UserRemoteConfig {
 
   @JsonProperty
-  private String  name;
+  @Schema(description = "Name of the configuration", example = "android.exampleFeature")
+  private String name;
 
   @JsonProperty
+  @Schema(description = "Whether the configuration is enabled for the user")
   private boolean enabled;
 
   @JsonProperty
-  private String  value;
+  @Schema(description = "The value to be used for the configuration, if it is a non-boolean type")
+  private String value;
 
-  public UserRemoteConfig() {}
+  public UserRemoteConfig() {
+  }
 
   public UserRemoteConfig(String name, boolean enabled, String value) {
-    this.name    = name;
+    this.name = name;
     this.enabled = enabled;
-    this.value   = value;
+    this.value = value;
   }
 
   public String getName() {
