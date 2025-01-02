@@ -13,7 +13,6 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import java.time.Clock;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -58,9 +57,8 @@ public class DirectoryV2Controller {
           """
   )
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
-  public Response getAuthToken(final @ReadOnly @Auth AuthenticatedDevice auth) {
+  public ExternalServiceCredentials getAuthToken(final @ReadOnly @Auth AuthenticatedDevice auth) {
     final UUID uuid = auth.getAccount().getUuid();
-    final ExternalServiceCredentials credentials = directoryServiceTokenGenerator.generateForUuid(uuid);
-    return Response.ok().entity(credentials).build();
+    return directoryServiceTokenGenerator.generateForUuid(uuid);
   }
 }

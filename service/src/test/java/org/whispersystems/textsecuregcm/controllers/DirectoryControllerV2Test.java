@@ -37,11 +37,11 @@ class DirectoryControllerV2Test {
     final UUID uuid = UUID.fromString("11111111-1111-1111-1111-111111111111");
     when(account.getUuid()).thenReturn(uuid);
 
-    final ExternalServiceCredentials credentials = (ExternalServiceCredentials) controller.getAuthToken(
-        new AuthenticatedDevice(account, mock(Device.class))).getEntity();
+    final ExternalServiceCredentials credentials = controller.getAuthToken(
+        new AuthenticatedDevice(account, mock(Device.class)));
 
-    assertEquals(credentials.username(), "d369bc712e2e0dd36258");
-    assertEquals(credentials.password(), "1633738643:4433b0fab41f25f79dd4");
+    assertEquals("d369bc712e2e0dd36258", credentials.username());
+    assertEquals("1633738643:4433b0fab41f25f79dd4", credentials.password());
   }
 
 }
