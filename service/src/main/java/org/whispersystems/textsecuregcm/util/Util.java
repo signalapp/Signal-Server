@@ -27,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
-
 import org.apache.commons.lang3.StringUtils;
 
 public class Util {
@@ -125,7 +124,7 @@ public class Util {
     try {
       final PhoneNumber phoneNumber = PHONE_NUMBER_UTIL.parse(number, null);
 
-      // Benin is changing phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX starting on November 30, 2024
+      // Benin changed phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX on November 30, 2024
       if ("BJ".equals(PHONE_NUMBER_UTIL.getRegionCodeForNumber(phoneNumber))) {
         final String nationalSignificantNumber = PHONE_NUMBER_UTIL.getNationalSignificantNumber(phoneNumber);
         final String alternateE164;
@@ -176,7 +175,7 @@ public class Util {
         throw new IllegalArgumentException("Numbers from different countries cannot be equivalent alternate forms");
       }
       if (regions.contains("BJ")) {
-        // Benin is changing phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX starting on November 30, 2024
+        // Benin changed phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX on November 30, 2024
         // We prefer the longest form for long-term stability
         return e164s.stream().sorted(Comparator.comparingInt(String::length).reversed()).findFirst();
       }
@@ -217,7 +216,7 @@ public class Util {
   }
 
   /**
-   * Benin is changing phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX starting on November 30, 2024.
+   * Benin changed phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX on November 30, 2024
    *
    * @param phoneNumber the phone number to check.
    * @return whether the provided phone number is an old-format Benin phone number
@@ -235,11 +234,9 @@ public class Util {
    * @return the canonical phone number if applicable, otherwise the original phone number.
    */
   public static Phonenumber.PhoneNumber canonicalizePhoneNumber(final Phonenumber.PhoneNumber phoneNumber)
-      throws NumberParseException {
+      throws NumberParseException, ObsoletePhoneNumberFormatException {
     if (isOldFormatBeninPhoneNumber(phoneNumber)) {
-      // Benin changed phone number formats from +229 XXXXXXXX to +229 01XXXXXXXX starting on November 30, 2024.
-      final String newFormatNumber = "+22901" + PHONE_NUMBER_UTIL.getNationalSignificantNumber(phoneNumber);
-      return PhoneNumberUtil.getInstance().parse(newFormatNumber, null);
+      throw new ObsoletePhoneNumberFormatException("bj");
     }
     return phoneNumber;
   }

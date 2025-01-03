@@ -95,6 +95,7 @@ import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.ObsoletePhoneNumberFormatException;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -173,7 +174,7 @@ public class VerificationController {
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed",
       schema = @Schema(implementation = Integer.class)))
   public VerificationSessionResponse createSession(@NotNull @Valid final CreateVerificationSessionRequest request)
-      throws RateLimitExceededException {
+      throws RateLimitExceededException, ObsoletePhoneNumberFormatException {
 
     final Pair<String, PushNotification.TokenType> pushTokenAndType = validateAndExtractPushToken(
         request.getUpdateVerificationSessionRequest());

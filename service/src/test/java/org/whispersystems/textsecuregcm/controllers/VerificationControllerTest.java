@@ -66,6 +66,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
+import org.whispersystems.textsecuregcm.mappers.ObsoletePhoneNumberFormatExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -117,6 +118,7 @@ class VerificationControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .addProvider(new ImpossiblePhoneNumberExceptionMapper())
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
+      .addProvider(new ObsoletePhoneNumberFormatExceptionMapper())
       .addProvider(new RegistrationServiceSenderExceptionMapper())
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
@@ -220,7 +222,7 @@ class VerificationControllerTest {
     when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
-                new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
+                new RegistrationServiceSession(SESSION_ID, requestedNumber, false, null, null, null,
                     SESSION_EXPIRATION_SECONDS)));
     when(verificationSessionManager.insert(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -245,12 +247,34 @@ class VerificationControllerTest {
     // libphonenumber 8.13.50 and on generate new-format numbers for Benin
     final String newFormatBeninE164 = PhoneNumberUtil.getInstance()
         .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
-    final String oldFormatBeninE164 = newFormatBeninE164.replaceFirst("01", "");
     return Stream.of(
-        Arguments.of(oldFormatBeninE164, newFormatBeninE164),
         Arguments.of(newFormatBeninE164, newFormatBeninE164),
         Arguments.of(NUMBER, NUMBER)
     );
+  }
+
+  @Test
+  void createBeninSessionFailure() {
+    // libphonenumber 8.13.50 and on generate new-format numbers for Benin
+    final String newFormatBeninE164 = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final String oldFormatBeninE164 = newFormatBeninE164.replaceFirst("01", "");
+
+    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
+                    SESSION_EXPIRATION_SECONDS)));
+    when(verificationSessionManager.insert(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/verification/session")
+        .request()
+        .header(HttpHeaders.X_FORWARDED_FOR, "127.0.0.1");
+    try (Response response = request.post(Entity.json(createSessionJson(oldFormatBeninE164, "token", "fcm")))) {
+      assertEquals(499, response.getStatus());
+    }
   }
 
   @ParameterizedTest

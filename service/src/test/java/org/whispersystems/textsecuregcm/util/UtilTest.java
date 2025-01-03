@@ -7,15 +7,17 @@ package org.whispersystems.textsecuregcm.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import com.google.i18n.phonenumbers.Phonenumber;
 import java.util.List;
 import java.util.Optional;
-import org.junit.jupiter.api.Test;
 import java.util.stream.Stream;
-import com.google.i18n.phonenumbers.Phonenumber;
+import javax.annotation.Nullable;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -93,9 +95,13 @@ class UtilTest {
 
   @ParameterizedTest
   @MethodSource
-  void normalizeBeninPhoneNumber(final Phonenumber.PhoneNumber beninNumber, final Phonenumber.PhoneNumber expectedBeninNumber)
-      throws NumberParseException {
-    assertTrue(expectedBeninNumber.exactlySameAs(Util.canonicalizePhoneNumber(beninNumber)));
+  void normalizeBeninPhoneNumber(final Phonenumber.PhoneNumber beninNumber, final Phonenumber.PhoneNumber expectedBeninNumber, @Nullable Class<? extends Throwable> exception)
+      throws Exception {
+    if (exception == null) {
+      assertTrue(expectedBeninNumber.exactlySameAs(Util.canonicalizePhoneNumber(beninNumber)));
+    } else {
+      assertThrows(exception, () -> Util.canonicalizePhoneNumber(beninNumber));
+    }
   }
 
   private static Stream<Arguments> normalizeBeninPhoneNumber() throws NumberParseException {
@@ -103,9 +109,9 @@ class UtilTest {
     final Phonenumber.PhoneNumber newFormatBeninPhoneNumber = PhoneNumberUtil.getInstance().parse(NEW_FORMAT_BENIN_E164_STRING, null);
     final Phonenumber.PhoneNumber usPhoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("US");
     return Stream.of(
-        Arguments.of(newFormatBeninPhoneNumber, newFormatBeninPhoneNumber),
-        Arguments.of(oldFormatBeninPhoneNumber, newFormatBeninPhoneNumber),
-        Arguments.of(usPhoneNumber, usPhoneNumber)
+        Arguments.of(newFormatBeninPhoneNumber, newFormatBeninPhoneNumber, null),
+        Arguments.of(oldFormatBeninPhoneNumber, null, ObsoletePhoneNumberFormatException.class),
+        Arguments.of(usPhoneNumber, usPhoneNumber, null)
     );
   }
 }
