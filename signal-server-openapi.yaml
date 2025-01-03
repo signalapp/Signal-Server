@@ -1967,12 +1967,18 @@ paths:
     get:
       tags:
       - Directory
+      summary: Generate credentials for Contact Discovery Service
+      description: "Generate Contact Discovery Service credentials. Generated credentials\
+        \ have an expiration time of 24 hours \n(however, the TTL is fully controlled\
+        \ by the server and may change even for already generated credentials).\n"
       operationId: getAuthToken
       responses:
-        default:
-          description: default response
+        "200":
+          description: '`JSON` with generated credentials.'
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExternalServiceCredentials'
       security:
       - authenticatedAccount: []
   /v1/donation/redeem-receipt:
@@ -2978,10 +2984,16 @@ paths:
     get:
       tags:
       - Remote Config
+      summary: Fetch remote configuration
+      description: |
+        Remote configuration is a list of namespaced keys that clients may use for consistent configuration or behavior.
+
+        Configuration values change over time, and the list should be refreshed periodically, typically at client
+        launch and every few hours thereafter.
       operationId: getAll
       responses:
-        default:
-          description: default response
+        "200":
+          description: Remote configuration values for the authenticated user
           content:
             application/json:
               schema:
@@ -2992,10 +3004,14 @@ paths:
     get:
       tags:
       - Secure Storage
+      summary: Generate credentials for Storage Service
+      description: "Generate Storage Service credentials. Generated credentials have\
+        \ an expiration time of 24 hours \n(however, the TTL is fully controlled by\
+        \ the server and may change even for already generated credentials).\n"
       operationId: getAuth_1
       responses:
-        default:
-          description: default response
+        "200":
+          description: '`JSON` with generated credentials.'
           content:
             application/json:
               schema:
@@ -5264,6 +5280,7 @@ components:
         urgent:
           type: boolean
         timestamp:
+          maximum: 8640000000000000
           type: integer
           format: int64
     AccountMismatchedDevices:
@@ -5750,20 +5767,30 @@ components:
       properties:
         name:
           type: string
+          description: Name of the configuration
+          example: android.exampleFeature
         enabled:
           type: boolean
+          description: Whether the configuration is enabled for the user
         value:
           type: string
+          description: "The value to be used for the configuration, if it is a non-boolean\
+            \ type"
+      description: List of remote configurations applicable to the user
     UserRemoteConfigList:
       type: object
       properties:
         config:
           type: array
+          description: List of remote configurations applicable to the user
           items:
             $ref: '#/components/schemas/UserRemoteConfig'
         serverEpochTime:
           type: string
+          description: |
+            Timestamp when the configuration was generated. Deprecated in favor of `X-Signal-Timestamp` response header.
           format: date-time
+          deprecated: true
     AuthCheckResponseV2:
       required:
       - matches
