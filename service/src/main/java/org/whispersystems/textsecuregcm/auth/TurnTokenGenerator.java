@@ -27,8 +27,6 @@ import org.whispersystems.textsecuregcm.util.WeightedRandomSelect;
 
 public class TurnTokenGenerator {
 
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
-
   private final byte[] turnSecret;
 
   private static final String ALGORITHM = "HmacSHA1";
@@ -37,15 +35,8 @@ public class TurnTokenGenerator {
 
   private static final String WithIpsProtocol = "01";
 
-  public TurnTokenGenerator(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final byte[] turnSecret) {
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
+  public TurnTokenGenerator(final byte[] turnSecret) {
     this.turnSecret = turnSecret;
-  }
-
-  @Deprecated
-  public TurnToken generate(final UUID aci) {
-    return generateToken(null, null, urls(aci));
   }
 
   public TurnToken generateWithTurnServerOptions(TurnServerOptions options) {
@@ -70,24 +61,5 @@ public class TurnTokenGenerator {
     } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
       throw new AssertionError(e);
     }
-  }
-
-  private List<String> urls(final UUID aci) {
-    final DynamicTurnConfiguration turnConfig = dynamicConfigurationManager.getConfiguration().getTurnConfiguration();
-
-    // Check if number is enrolled to test out specific turn servers
-    final Optional<TurnUriConfiguration> enrolled = turnConfig.getUriConfigs().stream()
-        .filter(config -> config.getEnrolledAcis().contains(aci))
-        .findFirst();
-
-    if (enrolled.isPresent()) {
-      return enrolled.get().getUris();
-    }
-
-    // Otherwise, select from turn server sets by weighted choice
-    return WeightedRandomSelect.select(turnConfig
-        .getUriConfigs()
-        .stream()
-        .map(c -> new Pair<>(c.getUris(), c.getWeight())).toList());
   }
 }

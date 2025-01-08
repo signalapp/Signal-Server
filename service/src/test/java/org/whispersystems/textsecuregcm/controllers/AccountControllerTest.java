@@ -159,7 +159,6 @@ class AccountControllerTest {
       .addResource(new AccountController(
               accountsManager,
           rateLimiters,
-          turnTokenGenerator,
           registrationRecoveryPasswordsManager,
           usernameZkProofVerifier
       ))

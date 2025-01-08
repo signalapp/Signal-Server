@@ -63,12 +63,9 @@ class CallRoutingControllerV2Test {
 
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
   private static final RateLimiter getCallEndpointLimiter = mock(RateLimiter.class);
-  private static final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
-      DynamicConfigurationManager.class);
   private static final ExperimentEnrollmentManager experimentEnrollmentManager = mock(
       ExperimentEnrollmentManager.class);
-  private static final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
-      "bloop".getBytes(StandardCharsets.UTF_8));
+  private static final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator("bloop".getBytes(StandardCharsets.UTF_8));
   private static final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager = mock(
       CloudflareTurnCredentialsManager.class);
   private static final TurnCallRouter turnCallRouter = mock(TurnCallRouter.class);
@@ -91,8 +88,7 @@ class CallRoutingControllerV2Test {
 
   @AfterEach
   void tearDown() {
-    reset(experimentEnrollmentManager, dynamicConfigurationManager, rateLimiters, getCallEndpointLimiter,
-        turnCallRouter);
+    reset(experimentEnrollmentManager, rateLimiters, getCallEndpointLimiter, turnCallRouter);
   }
 
   void initializeMocksWith(Optional<TurnServerOptions> signalTurn, Optional<TurnToken> cloudflare) {

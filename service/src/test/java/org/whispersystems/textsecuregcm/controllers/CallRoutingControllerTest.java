@@ -34,12 +34,10 @@ import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
 import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
@@ -52,12 +50,10 @@ class CallRoutingControllerTest {
 
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
   private static final RateLimiter getCallEndpointLimiter = mock(RateLimiter.class);
-  private static final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(
-      DynamicConfigurationManager.class);
   private static final ExperimentEnrollmentManager experimentEnrollmentManager = mock(
       ExperimentEnrollmentManager.class);
-  private static final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(dynamicConfigurationManager,
-      "bloop".getBytes(StandardCharsets.UTF_8));
+  private static final TurnTokenGenerator turnTokenGenerator =
+      new TurnTokenGenerator("bloop".getBytes(StandardCharsets.UTF_8));
   private static final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager = mock(
       CloudflareTurnCredentialsManager.class);
 
@@ -81,8 +77,7 @@ class CallRoutingControllerTest {
 
   @AfterEach
   void tearDown() {
-    reset(experimentEnrollmentManager, dynamicConfigurationManager, rateLimiters, getCallEndpointLimiter,
-        turnCallRouter);
+    reset(experimentEnrollmentManager, rateLimiters, getCallEndpointLimiter, turnCallRouter);
   }
 
   @Test

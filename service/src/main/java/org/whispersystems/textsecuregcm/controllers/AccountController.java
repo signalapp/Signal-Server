@@ -35,11 +35,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 import org.signal.libsignal.usernames.BaseUsernameException;
-import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
-import org.whispersystems.textsecuregcm.auth.TurnToken;
-import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
@@ -61,7 +58,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
@@ -82,31 +78,18 @@ public class AccountController {
 
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;
-  private final TurnTokenGenerator turnTokenGenerator;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final UsernameHashZkProofVerifier usernameHashZkProofVerifier;
 
   public AccountController(
       AccountsManager accounts,
       RateLimiters rateLimiters,
-      TurnTokenGenerator turnTokenGenerator,
       RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       UsernameHashZkProofVerifier usernameHashZkProofVerifier) {
     this.accounts = accounts;
     this.rateLimiters = rateLimiters;
-    this.turnTokenGenerator = turnTokenGenerator;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.usernameHashZkProofVerifier = usernameHashZkProofVerifier;
-  }
-
-  // may be removed after 2024-07-16
-  @Deprecated(forRemoval = true)
-  @GET
-  @Path("/turn/")
-  @Produces(MediaType.APPLICATION_JSON)
-  public TurnToken getTurnToken(@ReadOnly @Auth AuthenticatedDevice auth) throws RateLimitExceededException {
-    rateLimiters.getTurnLimiter().validate(auth.getAccount().getUuid());
-    return turnTokenGenerator.generate(auth.getAccount().getUuid());
   }
 
   @PUT
