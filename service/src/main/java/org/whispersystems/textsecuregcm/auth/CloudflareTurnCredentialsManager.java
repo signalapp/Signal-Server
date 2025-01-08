@@ -6,6 +6,8 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import io.netty.resolver.dns.DnsNameResolver;
 import jakarta.ws.rs.core.Response;
 import java.io.IOException;
@@ -22,12 +24,16 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class CloudflareTurnCredentialsManager {
 
   private static final Logger logger = LoggerFactory.getLogger(CloudflareTurnCredentialsManager.class);
+
+  private static final String CREDENTIAL_FETCH_TIMER_NAME = MetricsUtil.name(CloudflareTurnCredentialsManager.class,
+      "credentialFetchLatency");
 
   private final List<String> cloudflareTurnUrls;
   private final List<String> cloudflareTurnUrlsWithIps;
@@ -51,8 +57,9 @@ public class CloudflareTurnCredentialsManager {
   public CloudflareTurnCredentialsManager(final String cloudflareTurnApiToken,
       final String cloudflareTurnEndpoint, final long cloudflareTurnTtl, final List<String> cloudflareTurnUrls,
       final List<String> cloudflareTurnUrlsWithIps, final String cloudflareTurnHostname,
-      final CircuitBreakerConfiguration circuitBreaker, final ExecutorService executor, final RetryConfiguration retry,
-      final ScheduledExecutorService retryExecutor, final DnsNameResolver dnsNameResolver) {
+      final int cloudflareTurnNumHttpClients, final CircuitBreakerConfiguration circuitBreaker,
+      final ExecutorService executor, final RetryConfiguration retry, final ScheduledExecutorService retryExecutor,
+      final DnsNameResolver dnsNameResolver) {
 
     this.cloudflareTurnClient = FaultTolerantHttpClient.newBuilder()
         .withName("cloudflare-turn")
@@ -60,6 +67,7 @@ public class CloudflareTurnCredentialsManager {
         .withExecutor(executor)
         .withRetry(retry)
         .withRetryExecutor(retryExecutor)
+        .withNumClients(cloudflareTurnNumHttpClients)
         .build();
     this.cloudflareTurnUrls = cloudflareTurnUrls;
     this.cloudflareTurnUrlsWithIps = cloudflareTurnUrlsWithIps;
@@ -93,11 +101,20 @@ public class CloudflareTurnCredentialsManager {
       throw new IOException(e);
     }
 
+    final Timer.Sample sample = Timer.start();
     final HttpResponse<String> response;
     try {
       response = cloudflareTurnClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+      sample.stop(Timer.builder(CREDENTIAL_FETCH_TIMER_NAME)
+          .publishPercentileHistogram(true)
+          .tags("outcome", "success")
+          .register(Metrics.globalRegistry));
     } catch (CompletionException e) {
       logger.warn("failed to make http request to Cloudflare Turn: {}", e.getMessage());
+      sample.stop(Timer.builder(CREDENTIAL_FETCH_TIMER_NAME)
+          .publishPercentileHistogram(true)
+          .tags("outcome", "failure")
+          .register(Metrics.globalRegistry));
       throw new IOException(ExceptionUtils.unwrap(e));
     }
 

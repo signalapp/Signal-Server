@@ -484,6 +484,7 @@ turn:
       - turns:%s:443?transport=tcp
     ttl: 86400
     hostname: turn.cloudflare.example.com
+    numHttpClients: 1
 
 linkDevice:
   secret: secret://linkDevice.secret

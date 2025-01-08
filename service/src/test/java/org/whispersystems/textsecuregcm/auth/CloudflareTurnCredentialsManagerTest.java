@@ -61,6 +61,7 @@ public class CloudflareTurnCredentialsManagerTest {
         List.of("turn:cf.example.com"),
         List.of("turn:%s", "turn:%s:80?transport=tcp", "turns:%s:443?transport=tcp"),
         TURN_HOSTNAME,
+        2,
         new CircuitBreakerConfiguration(),
         httpExecutor,
         new RetryConfiguration(),

@@ -677,6 +677,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getTurnConfiguration().cloudflare().urls(),
         config.getTurnConfiguration().cloudflare().urlsWithIps(),
         config.getTurnConfiguration().cloudflare().hostname(),
+        config.getTurnConfiguration().cloudflare().numHttpClients(),
         config.getTurnConfiguration().cloudflare().circuitBreaker(),
         cloudflareTurnHttpExecutor,
         config.getTurnConfiguration().cloudflare().retry(),
