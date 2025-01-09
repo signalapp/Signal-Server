@@ -49,11 +49,9 @@ public record KeyTransparencyMonitorRequest(
       @Schema(description = "The aci identifier to monitor")
       AciServiceIdentifier value,
 
-      @Schema(description = "A list of log tree positions maintained by the client for the aci search key.")
-      @Valid
-      @NotNull
-      @NotEmpty
-      List<@Positive Long> positions,
+      @Schema(description = "A log tree position maintained by the client for the aci.")
+      @Positive
+      long entry_position,
 
       @Schema(description = "The commitment index derived from a previous search request, encoded in standard unpadded base64")
       @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
@@ -68,11 +66,9 @@ public record KeyTransparencyMonitorRequest(
       @NotBlank
       String value,
 
-      @Schema(description = "A list of log tree positions maintained by the client for the e164 search key.")
-      @NotNull
-      @NotEmpty
-      @Valid
-      List<@Positive Long> positions,
+      @Schema(description = "A log tree position maintained by the client for the e164.")
+      @Positive
+      long entry_position,
 
       @Schema(description = "The commitment index derived from a previous search request, encoded in standard unpadded base64")
       @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
@@ -91,10 +87,9 @@ public record KeyTransparencyMonitorRequest(
       @NotEmpty
       byte[] value,
 
-      @Schema(description = "A list of log tree positions maintained by the client for the username hash search key.")
-      @NotNull
-      @NotEmpty
-      @Valid List<@Positive Long> positions,
+      @Schema(description = "A log tree position maintained by the client for the username hash.")
+      @Positive
+      long entry_position,
 
       @Schema(description = "The commitment index derived from a previous search request, encoded in standard unpadded base64")
       @JsonSerialize(using = ByteArrayAdapter.Serializing.class)

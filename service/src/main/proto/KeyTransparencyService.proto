@@ -295,19 +295,19 @@ message MonitorRequest {
 
 message AciMonitorRequest {
   bytes aci = 1;
-  repeated uint64 entries = 2;
+  uint64 entry_position = 2;
   bytes commitment_index = 3;
 }
 
 message UsernameHashMonitorRequest {
   bytes username_hash = 1;
-  repeated uint64 entries = 2;
+  uint64 entry_position = 2;
   bytes commitment_index = 3;
 }
 
 message E164MonitorRequest {
   string e164 = 1;
-  repeated uint64 entries = 2;
+  uint64 entry_position = 2;
   bytes commitment_index = 3;
 }
 

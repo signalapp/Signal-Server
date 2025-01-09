@@ -305,7 +305,7 @@ public class KeyTransparencyControllerTest {
     try (Response response = request.post(Entity.json(
         createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(3L), COMMITMENT_INDEX),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI,3, COMMITMENT_INDEX),
                 Optional.empty(), Optional.empty(), 3L, 4L))))) {
       assertEquals(200, response.getStatus());
 
@@ -327,7 +327,7 @@ public class KeyTransparencyControllerTest {
     try (Response response = request.post(
         Entity.json(createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(3L), COMMITMENT_INDEX),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 3, COMMITMENT_INDEX),
                 Optional.empty(), Optional.empty(), 3L, 4L))))) {
       assertEquals(400, response.getStatus());
       verifyNoInteractions(keyTransparencyServiceClient);
@@ -346,7 +346,7 @@ public class KeyTransparencyControllerTest {
     try (Response response = request.post(
         Entity.json(createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(3L), COMMITMENT_INDEX),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 3, COMMITMENT_INDEX),
                 Optional.empty(), Optional.empty(), 3L, 4L))))) {
       assertEquals(httpStatus, response.getStatus());
       verify(keyTransparencyServiceClient, times(1)).monitor(any(), any(), any(), anyLong(), anyLong(), any());
@@ -381,115 +381,101 @@ public class KeyTransparencyControllerTest {
             new KeyTransparencyMonitorRequest(null, Optional.empty(), Optional.empty(), 3L, 4L))),
         // aci monitor fields can't be null
         Arguments.of(createRequestJson(
-            new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(null, null, null),
+            new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(null, 4, null),
                 Optional.empty(), Optional.empty(), 3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(null, List.of(4L), COMMITMENT_INDEX),
+                new KeyTransparencyMonitorRequest.AciMonitor(null, 4, COMMITMENT_INDEX),
                 Optional.empty(), Optional.empty(), 3L, 4L))),
         Arguments.of(createRequestJson(
-            new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, null, COMMITMENT_INDEX),
+            new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, null),
                 Optional.empty(), Optional.empty(), 3L, 4L))),
-        Arguments.of(createRequestJson(
-            new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), null),
-                Optional.empty(), Optional.empty(), 3L, 4L))),
-        // aciPositions list can't be empty
+        // aciPosition must be positive
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
-            new KeyTransparencyMonitorRequest.AciMonitor(ACI, Collections.emptyList(), COMMITMENT_INDEX),
+            new KeyTransparencyMonitorRequest.AciMonitor(ACI, 0, COMMITMENT_INDEX),
             Optional.empty(), Optional.empty(), 3L, 4L))),
         // aci commitment index must be the correct size
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
-            new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), new byte[0]),
+            new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, new byte[0]),
             Optional.empty(), Optional.empty(), 3L, 4L))),
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
-            new KeyTransparencyMonitorRequest.AciMonitor(ACI, Collections.emptyList(), new byte[33]),
+            new KeyTransparencyMonitorRequest.AciMonitor(ACI, 0, new byte[33]),
             Optional.empty(), Optional.empty(), 3L, 4L))),
         // username monitor fields cannot be null
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
-                Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(null, null, null)),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX), Optional.empty(),
+                Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(null, 5, null)),
                 3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
-                Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(null, List.of(5L), COMMITMENT_INDEX)),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX), Optional.empty(),
+                Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(null, 5, COMMITMENT_INDEX)),
                 3L, 4L))),
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
-                Optional.of(
-                    new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH, null, COMMITMENT_INDEX)),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX), Optional.empty(),
+                Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH, 5, null)),
                 3L, 4L))),
+        // usernameHashPosition must be positive
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
-                Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH, List.of(5L), null)),
-                3L, 4L))),
-        // usernameHashPositions list cannot be empty
-        Arguments.of(createRequestJson(
-            new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
                 Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH,
-                    Collections.emptyList(), COMMITMENT_INDEX)), 3L, 4L))),
+                    0, COMMITMENT_INDEX)), 3L, 4L))),
         // username commitment index must be the correct size
         Arguments.of(createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), new byte[0]),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, new byte[0]),
                 Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH,
-                    List.of(5L), new byte[0])), 3L, 4L))),
+                    5, new byte[0])), 3L, 4L))),
         Arguments.of(createRequestJson(
-            new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), null),
+            new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, null),
                 Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH,
-                    List.of(5L), new byte[33])), 3L, 4L))),
+                    5, new byte[33])), 3L, 4L))),
         // e164 fields cannot be null
         Arguments.of(
             createRequestJson(new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
-                Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(null, null, null)),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
+                Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(null, 5, null)),
                 Optional.empty(), 3L, 4L))),
         Arguments.of(
             createRequestJson(new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
-                Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(null, List.of(5L), COMMITMENT_INDEX)),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
+                Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(null, 5, COMMITMENT_INDEX)),
                 Optional.empty(), 3L, 4L))),
         Arguments.of(
             createRequestJson(new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
-                Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, null, COMMITMENT_INDEX)),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
+                Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, 5, null)),
                 Optional.empty(), 3L, 4L))),
-        Arguments.of(
-            createRequestJson(new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
-                Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, List.of(5L), null)),
-                Optional.empty(), 3L, 4L))),
-        // e164Positions list cannot empty
+        // e164Position must be positive
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
-            new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
+            new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
             Optional.of(
-                new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, Collections.emptyList(), COMMITMENT_INDEX)),
+                new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, 0, COMMITMENT_INDEX)),
             Optional.empty(), 3L, 4L))),
         // e164 commitment index must be the correct size
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
-            new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
+            new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
             Optional.of(
-                new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, List.of(5L), new byte[0])),
+                new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, 5, new byte[0])),
             Optional.empty(), 3L, 4L))),
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
-            new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX),
+            new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
             Optional.of(
-                new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, List.of(5L), new byte[33])),
+                new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, 5, new byte[33])),
             Optional.empty(), 3L, 4L))),
         // lastNonDistinguishedTreeHeadSize must be positive
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
-            new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
+            new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX), Optional.empty(),
             Optional.empty(), 0L, 4L))),
         // lastDistinguishedTreeHeadSize must be positive
         Arguments.of(createRequestJson(new KeyTransparencyMonitorRequest(
-            new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(4L), COMMITMENT_INDEX), Optional.empty(),
+            new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX), Optional.empty(),
             Optional.empty(), 3L, 0L)))
     );
   }
@@ -503,7 +489,7 @@ public class KeyTransparencyControllerTest {
         .request();
     try (Response response = request.post(
         Entity.json(createRequestJson(
-            new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, List.of(3L), null),
+            new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, 3, null),
                 Optional.empty(), Optional.empty(),
                 3L, 4L))))) {
       assertEquals(429, response.getStatus());
