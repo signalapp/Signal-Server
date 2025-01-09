@@ -74,8 +74,8 @@
     <stripe.version>23.10.0</stripe.version>
     <swagger.version>2.2.25</swagger.version>
 
-    <!-- 21.0.4_7-jre-jammy (note: always use the multi-arch manifest *LIST* here) -->
-    <docker.image.sha256>870aae69d4521fdaf26e952f8026f75b37cb721e6302d4d4d7100f6b09823057</docker.image.sha256>
+    <!-- eclipse-temurin:21.0.5_11-jre-jammy (note: always use the multi-arch manifest *LIST* here) -->
+    <docker.image.sha256>5f8358c9d5615c18e95728e8b8528bda7ff40a7a5da2ac9a35b7a01f5d9b231a</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
