@@ -37,42 +37,41 @@
   </modules>
 
   <properties>
-    <aws.sdk2.version>2.29.7</aws.sdk2.version>
+    <aws.sdk2.version>2.29.48</aws.sdk2.version>
     <braintree.version>3.37.0</braintree.version>
     <commons-csv.version>1.12.0</commons-csv.version>
-    <commons-io.version>2.17.0</commons-io.version>
-    <dropwizard.version>4.0.10</dropwizard.version>
+    <commons-io.version>2.18.0</commons-io.version>
+    <dropwizard.version>4.0.11</dropwizard.version>
     <dropwizard-metrics-datadog.version>1.1.13</dropwizard-metrics-datadog.version>
     <!-- can be updated to latest version with Dropwizard 5 (Jetty 12); will then need to disable telemetry -->
     <dynamodblocal.version>2.2.1</dynamodblocal.version>
-    <google-cloud-libraries.version>26.50.0</google-cloud-libraries.version>
-    <grpc.version>1.61.1</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
+    <google-cloud-libraries.version>26.52.0</google-cloud-libraries.version>
+    <grpc.version>1.69.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <gson.version>2.11.0</gson.version>
     <!-- several libraries (AWS, Google Cloud) use Apache http components transitively, and we need to align them -->
     <httpcore.version>4.4.16</httpcore.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <jackson.version>2.18.1</jackson.version>
+    <jackson.version>2.18.2</jackson.version>
     <jaxb.version>2.3.1</jaxb.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
-    <kotlin.version>1.9.24</kotlin.version>
-    <kotlinx-serialization.version>1.5.1</kotlinx-serialization.version>
+    <kotlin.version>1.9.25</kotlin.version>
     <lettuce.version>6.5.1.RELEASE</lettuce.version>
-    <libphonenumber.version>8.13.50</libphonenumber.version>
+    <libphonenumber.version>8.13.52</libphonenumber.version>
     <logstash.logback.version>7.3</logstash.logback.version>
-    <log4j-bom.version>2.23.1</log4j-bom.version>
-    <luajava.version>3.4.0</luajava.version>
-    <micrometer.version>1.13.6</micrometer.version>
-    <netty.version>4.1.111.Final</netty.version>
+    <log4j-bom.version>2.24.3</log4j-bom.version>
+    <luajava.version>3.5.0</luajava.version>
+    <micrometer.version>1.14.2</micrometer.version>
+    <netty.version>4.1.116.Final</netty.version>
     <protobuf.version>3.25.5</protobuf.version> <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
     <pushy.version>0.15.4</pushy.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
-    <reactor-bom.version>2023.0.11</reactor-bom.version> <!-- 3.6.x, see https://github.com/reactor/reactor#bom-versioning-scheme -->
+    <reactor-bom.version>2024.0.1</reactor-bom.version> <!-- 3.7.1, see https://github.com/reactor/reactor#bom-versioning-scheme -->
     <resilience4j.version>2.2.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
-    <slf4j.version>2.0.13</slf4j.version>
+    <slf4j.version>2.0.16</slf4j.version>
     <stripe.version>23.10.0</stripe.version>
-    <swagger.version>2.2.25</swagger.version>
+    <swagger.version>2.2.27</swagger.version>
 
     <!-- eclipse-temurin:21.0.5_11-jre-jammy (note: always use the multi-arch manifest *LIST* here) -->
     <docker.image.sha256>5f8358c9d5615c18e95728e8b8528bda7ff40a7a5da2ac9a35b7a01f5d9b231a</docker.image.sha256>
