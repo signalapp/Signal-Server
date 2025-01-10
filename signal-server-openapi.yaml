@@ -209,21 +209,6 @@ paths:
           description: Ratelimited.
       security:
       - authenticatedAccount: []
-  /v1/accounts/turn:
-    get:
-      tags:
-      - Account
-      operationId: getTurnToken
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TurnToken'
-      deprecated: true
-      security:
-      - authenticatedAccount: []
   /v1/accounts/username_hash/{usernameHash}:
     get:
       tags:
@@ -3853,23 +3838,6 @@ components:
           type: string
           description: The url-safe base64-encoded encrypted username to be stored
             for username links
-    TurnToken:
-      type: object
-      properties:
-        username:
-          type: string
-        password:
-          type: string
-        urls:
-          type: array
-          items:
-            type: string
-        urlsWithIps:
-          type: array
-          items:
-            type: string
-        hostname:
-          type: string
     AccountIdentifierResponse:
       required:
       - uuid
@@ -4685,6 +4653,23 @@ components:
         createCallLinkCredentialRequest:
           type: string
           format: byte
+    TurnToken:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        urls:
+          type: array
+          items:
+            type: string
+        urlsWithIps:
+          type: array
+          items:
+            type: string
+        hostname:
+          type: string
     GetCallingRelaysResponse:
       type: object
       properties:
@@ -4993,22 +4978,16 @@ components:
     AciMonitor:
       required:
       - commitmentIndex
-      - positions
       - value
       type: object
       properties:
         value:
           type: string
           description: An identifier for an account based on the account's ACI
-        positions:
-          type: array
-          description: A list of log tree positions maintained by the client for the
-            aci search key.
-          items:
-            type: integer
-            description: A list of log tree positions maintained by the client for
-              the aci search key.
-            format: int64
+        entry_position:
+          type: integer
+          description: A log tree position maintained by the client for the aci.
+          format: int64
         commitmentIndex:
           type: string
           description: "The commitment index derived from a previous search request,\
@@ -5017,22 +4996,16 @@ components:
     E164Monitor:
       required:
       - commitmentIndex
-      - positions
       - value
       type: object
       properties:
         value:
           type: string
           description: The e164-formatted phone number to monitor
-        positions:
-          type: array
-          description: A list of log tree positions maintained by the client for the
-            e164 search key.
-          items:
-            type: integer
-            description: A list of log tree positions maintained by the client for
-              the e164 search key.
-            format: int64
+        entry_position:
+          type: integer
+          description: A log tree position maintained by the client for the e164.
+          format: int64
         commitmentIndex:
           type: string
           description: "The commitment index derived from a previous search request,\
@@ -5062,7 +5035,6 @@ components:
     UsernameHashMonitor:
       required:
       - commitmentIndex
-      - positions
       - value
       type: object
       properties:
@@ -5071,15 +5043,11 @@ components:
           description: "The username hash to monitor, encoded in url-safe unpadded\
             \ base64."
           format: byte
-        positions:
-          type: array
-          description: A list of log tree positions maintained by the client for the
-            username hash search key.
-          items:
-            type: integer
-            description: A list of log tree positions maintained by the client for
-              the username hash search key.
-            format: int64
+        entry_position:
+          type: integer
+          description: A log tree position maintained by the client for the username
+            hash.
+          format: int64
         commitmentIndex:
           type: string
           description: "The commitment index derived from a previous search request,\
