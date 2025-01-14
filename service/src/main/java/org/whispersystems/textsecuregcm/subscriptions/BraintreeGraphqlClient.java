@@ -94,8 +94,9 @@ class BraintreeGraphqlClient {
           final CreatePayPalOneTimePaymentMutation.Data data = assertSuccessAndExtractDataFromApolloResponse(apolloResponse);
           if (data.createPayPalOneTimePayment == null) {
             logger.warn(
-                "createPayPalOneTimePayment requestId={} did not have any errors but data was null. response={}",
-                apolloResponse.extensions.getOrDefault("requestId", "<No-Request-Id>"), httpResponse.body());
+                "createPayPalOneTimePayment requestId={} currency={} amount={} did not have any errors but data was null. response={}",
+                apolloResponse.extensions.getOrDefault("requestId", "<No-Request-Id>"),
+                currency, amount, httpResponse.body());
             throw new ServiceUnavailableException();
           }
           return data.createPayPalOneTimePayment;
