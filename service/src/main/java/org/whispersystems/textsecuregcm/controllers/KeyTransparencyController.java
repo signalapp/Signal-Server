@@ -151,21 +151,21 @@ public class KeyTransparencyController {
     try {
       final AciMonitorRequest aciMonitorRequest = AciMonitorRequest.newBuilder()
           .setAci(ByteString.copyFrom(request.aci().value().toCompactByteArray()))
-          .setEntryPosition(request.aci().entry_position())
+          .setEntryPosition(request.aci().entryPosition())
           .setCommitmentIndex(ByteString.copyFrom(request.aci().commitmentIndex()))
           .build();
 
       final Optional<UsernameHashMonitorRequest> usernameHashMonitorRequest = request.usernameHash().map(usernameHash ->
           UsernameHashMonitorRequest.newBuilder()
               .setUsernameHash(ByteString.copyFrom(usernameHash.value()))
-              .setEntryPosition(usernameHash.entry_position())
+              .setEntryPosition(usernameHash.entryPosition())
               .setCommitmentIndex(ByteString.copyFrom(usernameHash.commitmentIndex()))
               .build());
 
       final Optional<E164MonitorRequest> e164MonitorRequest = request.e164().map(e164 ->
           E164MonitorRequest.newBuilder()
               .setE164(e164.value())
-              .setEntryPosition(e164.entry_position())
+              .setEntryPosition(e164.entryPosition())
               .setCommitmentIndex(ByteString.copyFrom(e164.commitmentIndex()))
               .build());
 
