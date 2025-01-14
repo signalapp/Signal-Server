@@ -4984,7 +4984,7 @@ components:
         value:
           type: string
           description: An identifier for an account based on the account's ACI
-        entry_position:
+        entryPosition:
           type: integer
           description: A log tree position maintained by the client for the aci.
           format: int64
@@ -5002,7 +5002,7 @@ components:
         value:
           type: string
           description: The e164-formatted phone number to monitor
-        entry_position:
+        entryPosition:
           type: integer
           description: A log tree position maintained by the client for the e164.
           format: int64
@@ -5043,7 +5043,7 @@ components:
           description: "The username hash to monitor, encoded in url-safe unpadded\
             \ base64."
           format: byte
-        entry_position:
+        entryPosition:
           type: integer
           description: A log tree position maintained by the client for the username
             hash.
