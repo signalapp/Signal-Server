@@ -286,7 +286,7 @@ public class PushNotificationScheduler implements Managed {
     return pushSchedulingCluster.withCluster(connection -> connection.async().set(
         getLastBackgroundApnsNotificationTimestampKey(account, device),
         String.valueOf(clock.millis()), new SetArgs().ex(BACKGROUND_NOTIFICATION_PERIOD)))
-        .thenCompose(ignored -> apnSender.sendNotification(new PushNotification(device.getApnId(), PushNotification.TokenType.APN, PushNotification.NotificationType.NOTIFICATION, null, account, device, false)))
+        .thenCompose(ignored -> apnSender.sendNotification(new PushNotification(device.getApnId(), PushNotification.TokenType.APN, PushNotification.NotificationType.NOTIFICATION, null, account, device, false, Optional.empty())))
         .thenAccept(response -> Metrics.counter(BACKGROUND_NOTIFICATION_SENT_COUNTER_NAME,
                 ACCEPTED_TAG, String.valueOf(response.accepted()))
             .increment())
@@ -308,7 +308,8 @@ public class PushNotificationScheduler implements Managed {
         null,
         account,
         device,
-        true);
+        true,
+        Optional.empty());
 
     final PushNotificationSender pushNotificationSender = isApnsDevice ? apnSender : fcmSender;
 

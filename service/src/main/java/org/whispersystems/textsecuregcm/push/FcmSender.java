@@ -78,11 +78,13 @@ public class FcmSender implements PushNotificationSender {
 
   @Override
   public CompletableFuture<SendPushNotificationResult> sendNotification(PushNotification pushNotification) {
+    final AndroidConfig.Builder androidConfig = AndroidConfig.builder()
+        .setPriority(pushNotification.urgent() ? AndroidConfig.Priority.HIGH : AndroidConfig.Priority.NORMAL);
+    pushNotification.ttl().ifPresent(androidConfig::setTtl);
+
     Message.Builder builder = Message.builder()
         .setToken(pushNotification.deviceToken())
-        .setAndroidConfig(AndroidConfig.builder()
-            .setPriority(pushNotification.urgent() ? AndroidConfig.Priority.HIGH : AndroidConfig.Priority.NORMAL)
-            .build());
+        .setAndroidConfig(androidConfig.build());
 
     final String key = switch (pushNotification.notificationType()) {
       case NOTIFICATION -> "newMessageAlert";

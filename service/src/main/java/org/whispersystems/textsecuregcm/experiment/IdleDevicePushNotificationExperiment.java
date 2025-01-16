@@ -6,18 +6,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.workers.IdleWakeupEligibilityChecker;
 import reactor.core.publisher.Flux;
 import javax.annotation.Nullable;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 abstract class IdleDevicePushNotificationExperiment implements PushNotificationExperiment<DeviceLastSeenState> {
 
-  private final Clock clock;
+  private final IdleWakeupEligibilityChecker idleWakeupEligibilityChecker;
 
   private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -37,19 +36,8 @@ abstract class IdleDevicePushNotificationExperiment implements PushNotificationE
     UNCHANGED
   }
 
-  protected IdleDevicePushNotificationExperiment(final Clock clock) {
-    this.clock = clock;
-  }
-
-  protected abstract Duration getMinIdleDuration();
-
-  protected abstract Duration getMaxIdleDuration();
-
-  @VisibleForTesting
-  boolean isIdle(final Device device) {
-    final Duration idleDuration = Duration.between(Instant.ofEpochMilli(device.getLastSeen()), clock.instant());
-
-    return idleDuration.compareTo(getMinIdleDuration()) >= 0 && idleDuration.compareTo(getMaxIdleDuration()) < 0;
+  protected IdleDevicePushNotificationExperiment(final IdleWakeupEligibilityChecker idleWakeupEligibilityChecker) {
+    this.idleWakeupEligibilityChecker = idleWakeupEligibilityChecker;
   }
 
   @VisibleForTesting
@@ -57,11 +45,18 @@ abstract class IdleDevicePushNotificationExperiment implements PushNotificationE
     return !StringUtils.isAllBlank(device.getApnId(), device.getGcmId());
   }
 
+  abstract boolean isIdleDeviceEligible(final Account account, final Device idleDevice, final DeviceLastSeenState state);
+
+  @Override
+  public CompletableFuture<Boolean> isDeviceEligible(final Account account, final Device device) {
+    return idleWakeupEligibilityChecker.isDeviceEligible(account, device).thenApply(idle ->
+        idle && isIdleDeviceEligible(account, device, getState(account, device)));
+  }
+
   @Override
   public DeviceLastSeenState getState(@Nullable final Account account, @Nullable final Device device) {
     if (account != null && device != null) {
       final DeviceLastSeenState.PushTokenType pushTokenType;
-
       if (StringUtils.isNotBlank(device.getApnId())) {
         pushTokenType = DeviceLastSeenState.PushTokenType.APNS;
       } else if (StringUtils.isNotBlank(device.getGcmId())) {
@@ -69,7 +64,6 @@ abstract class IdleDevicePushNotificationExperiment implements PushNotificationE
       } else {
         pushTokenType = null;
       }
-
       return new DeviceLastSeenState(true, device.getCreated(), hasPushToken(device), device.getLastSeen(), pushTokenType);
     } else {
       return DeviceLastSeenState.MISSING_DEVICE_STATE;
