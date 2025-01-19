@@ -327,9 +327,9 @@ paymentsService:
     - MOB
   externalClients:
     fixerApiKey: secret://paymentsService.fixerApiKey
-    coinMarketCapApiKey: secret://paymentsService.coinMarketCapApiKey
-    coinMarketCapCurrencyIds:
-      MOB: 7878
+    coinGeckoApiKey: secret://paymentsService.coinGeckoApiKey
+    coinGeckoCurrencyIds:
+      MOB: mobilecoin
 
 badges:
   badges:

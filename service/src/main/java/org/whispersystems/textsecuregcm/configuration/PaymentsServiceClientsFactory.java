@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.dropwizard.jackson.Discoverable;
-import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
+import org.whispersystems.textsecuregcm.currency.CoinGeckoClient;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
 import java.net.http.HttpClient;
 
@@ -16,5 +16,5 @@ public interface PaymentsServiceClientsFactory extends Discoverable {
 
   FixerClient buildFixerClient(final HttpClient httpClient);
 
-  CoinMarketCapClient buildCoinMarketCapClient(HttpClient httpClient);
+  CoinGeckoClient buildCoinGeckoClient(HttpClient httpClient);
 }

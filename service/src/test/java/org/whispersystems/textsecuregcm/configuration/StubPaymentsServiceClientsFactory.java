@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.net.http.HttpClient;
 import java.util.Collections;
 import java.util.Map;
-import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
+import org.whispersystems.textsecuregcm.currency.CoinGeckoClient;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
 
 @JsonTypeName("stub")
@@ -22,8 +22,8 @@ public class StubPaymentsServiceClientsFactory implements PaymentsServiceClients
   }
 
   @Override
-  public CoinMarketCapClient buildCoinMarketCapClient(final HttpClient httpClient) {
-    return new StubCoinMarketCapClient();
+  public CoinGeckoClient buildCoinGeckoClient(final HttpClient httpClient) {
+    return new StubCoinGeckoClient();
   }
 
   /**
@@ -44,9 +44,9 @@ public class StubPaymentsServiceClientsFactory implements PaymentsServiceClients
   /**
    * Always returns {@code 0} for spot price checks
    */
-  private static class StubCoinMarketCapClient extends CoinMarketCapClient {
+  private static class StubCoinGeckoClient extends CoinGeckoClient {
 
-    public StubCoinMarketCapClient() {
+    public StubCoinGeckoClient() {
       super(null, null, null);
     }
 

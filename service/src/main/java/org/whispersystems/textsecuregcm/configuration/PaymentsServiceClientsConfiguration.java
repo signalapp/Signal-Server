@@ -12,13 +12,13 @@ import jakarta.validation.constraints.NotNull;
 import java.net.http.HttpClient;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
-import org.whispersystems.textsecuregcm.currency.CoinMarketCapClient;
+import org.whispersystems.textsecuregcm.currency.CoinGeckoClient;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
 
 @JsonTypeName("default")
-public record PaymentsServiceClientsConfiguration(@NotNull SecretString coinMarketCapApiKey,
+public record PaymentsServiceClientsConfiguration(@NotNull SecretString coinGeckoApiKey,
                                                   @NotNull SecretString fixerApiKey,
-                                                  @NotEmpty Map<@NotBlank String, Integer> coinMarketCapCurrencyIds) implements
+                                                  @NotEmpty Map<@NotBlank String, String> coinGeckoCurrencyIds) implements
     PaymentsServiceClientsFactory {
 
   @Override
@@ -27,7 +27,7 @@ public record PaymentsServiceClientsConfiguration(@NotNull SecretString coinMark
   }
 
   @Override
-  public CoinMarketCapClient buildCoinMarketCapClient(final HttpClient httpClient) {
-    return new CoinMarketCapClient(httpClient, coinMarketCapApiKey.value(), coinMarketCapCurrencyIds);
+  public CoinGeckoClient buildCoinGeckoClient(final HttpClient httpClient) {
+    return new CoinGeckoClient(httpClient, coinGeckoApiKey.value(), coinGeckoCurrencyIds);
   }
 }
