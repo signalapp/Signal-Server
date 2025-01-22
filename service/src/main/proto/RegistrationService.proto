@@ -39,6 +39,12 @@ message CreateRegistrationSessionRequest {
    * session represents a "re-registration" attempt).
    */
   bool account_exists_with_e164 = 2;
+
+  /**
+   * The session creation rate limit for the number will be
+   * collated by this key.
+   */
+  string rate_limit_collation_key = 3;
 }
 
 message CreateRegistrationSessionResponse {

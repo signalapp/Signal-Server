@@ -393,6 +393,7 @@ oneTimeDonations:
 
 registrationService:
   type: stub
+  collationKeySalt: secret://registrationService.collationKeySalt
   registrationCaCertificate: |
     -----BEGIN CERTIFICATE-----
     MIIDazCCAlOgAwIBAgIUW5lcNWkuynRVc8Rq5pO6mHQBuZAwDQYJKoZIhvcNAQEL

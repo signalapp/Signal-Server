@@ -14,12 +14,15 @@ import io.grpc.TlsChannelCredentials;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import javax.crypto.Mac;
 import org.apache.commons.lang3.StringUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.signal.registration.rpc.CheckVerificationCodeRequest;
@@ -35,9 +38,12 @@ import org.whispersystems.textsecuregcm.util.CompletableFutureUtil;
 
 public class RegistrationServiceClient implements Managed {
 
+  private static final Base64.Encoder BASE64_UNPADDED_ENCODER = Base64.getEncoder().withoutPadding();
+
   private final ManagedChannel channel;
   private final RegistrationServiceGrpc.RegistrationServiceFutureStub stub;
   private final Executor callbackExecutor;
+  private final byte[] collationKeySalt;
 
   /**
    * @param from an e164 in a {@code long} representation e.g. {@code 18005550123}
@@ -60,6 +66,7 @@ public class RegistrationServiceClient implements Managed {
       final int port,
       final CallCredentials callCredentials,
       final String caCertificatePem,
+      final byte[] collationKeySalt,
       final Executor callbackExecutor) throws IOException {
 
     try (final ByteArrayInputStream certificateInputStream = new ByteArrayInputStream(caCertificatePem.getBytes(StandardCharsets.UTF_8))) {
@@ -73,19 +80,22 @@ public class RegistrationServiceClient implements Managed {
     }
 
     this.stub = RegistrationServiceGrpc.newFutureStub(channel).withCallCredentials(callCredentials);
-
+    this.collationKeySalt = collationKeySalt;
     this.callbackExecutor = callbackExecutor;
   }
 
   public CompletableFuture<RegistrationServiceSession> createRegistrationSession(
-      final Phonenumber.PhoneNumber phoneNumber, final boolean accountExistsWithPhoneNumber, final Duration timeout) {
+      final Phonenumber.PhoneNumber phoneNumber, final String sourceHost, final boolean accountExistsWithPhoneNumber, final Duration timeout) {
+
     final long e164 = Long.parseLong(
         PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).substring(1));
+    final String rateLimitCollationKey = hmac(sourceHost, collationKeySalt);
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .createSession(CreateRegistrationSessionRequest.newBuilder()
             .setE164(e164)
             .setAccountExistsWithE164(accountExistsWithPhoneNumber)
+            .setRateLimitCollationKey(rateLimitCollationKey)
             .build()), callbackExecutor)
         .thenApply(response -> switch (response.getResponseCase()) {
           case SESSION_METADATA -> buildSessionResponseFromMetadata(response.getSessionMetadata());
@@ -258,5 +268,19 @@ public class RegistrationServiceClient implements Managed {
     if (channel != null) {
       channel.shutdown();
     }
+  }
+
+  private static String hmac(String sourceHost, byte[] collationKeySalt) {
+    final  Mac hmacSha256;
+    try {
+      hmacSha256 = Mac.getInstance("HmacSHA256");
+    } catch (NoSuchAlgorithmException e) {
+      throw new AssertionError(e);
+    }
+
+    hmacSha256.update(sourceHost.getBytes(StandardCharsets.UTF_8));
+    hmacSha256.update(collationKeySalt);
+
+    return BASE64_UNPADDED_ENCODER.encodeToString(hmacSha256.doFinal());
   }
 }

@@ -84,6 +84,7 @@ import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class VerificationControllerTest {
@@ -120,6 +121,7 @@ class VerificationControllerTest {
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
       .addProvider(new ObsoletePhoneNumberFormatExceptionMapper())
       .addProvider(new RegistrationServiceSenderExceptionMapper())
+      .addProvider(new TestRemoteAddressFilterProvider("127.0.0.1"))
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
@@ -190,7 +192,7 @@ class VerificationControllerTest {
 
   @Test
   void createSessionRateLimited() {
-    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -204,7 +206,7 @@ class VerificationControllerTest {
 
   @Test
   void createSessionRegistrationServiceError() {
-    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("expected service error")));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -219,7 +221,7 @@ class VerificationControllerTest {
   @ParameterizedTest
   @MethodSource
   void createBeninSessionSuccess(final String requestedNumber, final String expectedNumber) {
-    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, requestedNumber, false, null, null, null,
@@ -236,7 +238,7 @@ class VerificationControllerTest {
 
       final ArgumentCaptor<Phonenumber.PhoneNumber> phoneNumberArgumentCaptor = ArgumentCaptor.forClass(
           Phonenumber.PhoneNumber.class);
-      verify(registrationServiceClient).createRegistrationSession(phoneNumberArgumentCaptor.capture(), anyBoolean(), any());
+      verify(registrationServiceClient).createRegistrationSession(phoneNumberArgumentCaptor.capture(), anyString(), anyBoolean(), any());
       final Phonenumber.PhoneNumber phoneNumber = phoneNumberArgumentCaptor.getValue();
 
       assertEquals(expectedNumber, PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164));
@@ -260,7 +262,7 @@ class VerificationControllerTest {
         .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
     final String oldFormatBeninE164 = newFormatBeninE164.replaceFirst("01", "");
 
-    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
@@ -281,7 +283,7 @@ class VerificationControllerTest {
   @MethodSource
   void createSessionSuccess(final String pushToken, final String pushTokenType,
       final List<VerificationSession.Information> expectedRequestedInformation) {
-    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
@@ -315,7 +317,7 @@ class VerificationControllerTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void createSessionReregistration(final boolean isReregistration) throws NumberParseException {
-    when(registrationServiceClient.createRegistrationSession(any(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
@@ -337,6 +339,7 @@ class VerificationControllerTest {
 
       verify(registrationServiceClient).createRegistrationSession(
           eq(PhoneNumberUtil.getInstance().parse(NUMBER, null)),
+          anyString(),
           eq(isReregistration),
           any()
       );

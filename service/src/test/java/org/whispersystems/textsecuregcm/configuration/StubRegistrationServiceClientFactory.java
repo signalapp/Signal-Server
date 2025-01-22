@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.registration.ClientType;
 import org.whispersystems.textsecuregcm.registration.MessageTransport;
@@ -35,12 +36,16 @@ public class StubRegistrationServiceClientFactory implements RegistrationService
   @NotNull
   private String registrationCaCertificate;
 
+  @JsonProperty
+  @NotNull
+  private SecretBytes collationKeySalt;
+
   @Override
   public RegistrationServiceClient build(final Environment environment, final Executor callbackExecutor,
       final ScheduledExecutorService identityRefreshExecutor) {
 
     try {
-      return new StubRegistrationServiceClient(registrationCaCertificate);
+      return new StubRegistrationServiceClient(registrationCaCertificate, collationKeySalt.value());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -50,13 +55,13 @@ public class StubRegistrationServiceClientFactory implements RegistrationService
 
     private final static Map<String, RegistrationServiceSession> SESSIONS = new ConcurrentHashMap<>();
 
-    public StubRegistrationServiceClient(final String registrationCaCertificate) throws IOException {
-      super("example.com", 8080, null, registrationCaCertificate, null);
+    public StubRegistrationServiceClient(final String registrationCaCertificate, final byte[] collationKeySalt) throws IOException {
+      super("example.com", 8080, null, registrationCaCertificate,  collationKeySalt, null);
     }
 
     @Override
     public CompletableFuture<RegistrationServiceSession> createRegistrationSession(
-        final Phonenumber.PhoneNumber phoneNumber, final boolean accountExistsWithPhoneNumber, final Duration timeout) {
+        final Phonenumber.PhoneNumber phoneNumber, final String sourceHost, final boolean accountExistsWithPhoneNumber, final Duration timeout) {
 
       final String e164 = PhoneNumberUtil.getInstance()
           .format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);

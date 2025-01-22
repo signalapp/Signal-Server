@@ -173,7 +173,8 @@ public class VerificationController {
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed",
       schema = @Schema(implementation = Integer.class)))
-  public VerificationSessionResponse createSession(@NotNull @Valid final CreateVerificationSessionRequest request)
+  public VerificationSessionResponse createSession(@NotNull @Valid final CreateVerificationSessionRequest request,
+      @Context final ContainerRequestContext requestContext)
       throws RateLimitExceededException, ObsoletePhoneNumberFormatException {
 
     final Pair<String, PushNotification.TokenType> pushTokenAndType = validateAndExtractPushToken(
@@ -188,7 +189,9 @@ public class VerificationController {
 
     final RegistrationServiceSession registrationServiceSession;
     try {
-      registrationServiceSession = registrationServiceClient.createRegistrationSession(phoneNumber,
+      final String sourceHost = (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
+
+      registrationServiceSession = registrationServiceClient.createRegistrationSession(phoneNumber, sourceHost,
           accountsManager.getByE164(request.getNumber()).isPresent(),
           REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CancellationException e) {
