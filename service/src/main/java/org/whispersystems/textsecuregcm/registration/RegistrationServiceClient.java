@@ -14,6 +14,7 @@ import io.grpc.TlsChannelCredentials;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.Base64;
@@ -23,6 +24,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.StringUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.signal.registration.rpc.CheckVerificationCodeRequest;
@@ -82,6 +84,13 @@ public class RegistrationServiceClient implements Managed {
     this.stub = RegistrationServiceGrpc.newFutureStub(channel).withCallCredentials(callCredentials);
     this.collationKeySalt = collationKeySalt;
     this.callbackExecutor = callbackExecutor;
+
+    // Fail fast: reject bad keys
+    try {
+      getInitializedMac(collationKeySalt);
+    } catch (final InvalidKeyException e) {
+      throw new IllegalArgumentException(e);
+    }
   }
 
   public CompletableFuture<RegistrationServiceSession> createRegistrationSession(
@@ -89,7 +98,7 @@ public class RegistrationServiceClient implements Managed {
 
     final long e164 = Long.parseLong(
         PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164).substring(1));
-    final String rateLimitCollationKey = hmac(sourceHost, collationKeySalt);
+    final String rateLimitCollationKey = hmac(sourceHost);
 
     return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
         .createSession(CreateRegistrationSessionRequest.newBuilder()
@@ -270,17 +279,29 @@ public class RegistrationServiceClient implements Managed {
     }
   }
 
-  private static String hmac(String sourceHost, byte[] collationKeySalt) {
-    final  Mac hmacSha256;
+  private String hmac(String sourceHost) {
+      final Mac hmacSha256 = getInitializedMac();
+      hmacSha256.update(sourceHost.getBytes(StandardCharsets.UTF_8));
+
+      return BASE64_UNPADDED_ENCODER.encodeToString(hmacSha256.doFinal());
+  }
+
+  private Mac getInitializedMac() {
     try {
-      hmacSha256 = Mac.getInstance("HmacSHA256");
+      return getInitializedMac(collationKeySalt);
+    } catch (final InvalidKeyException e) {
+      throw new AssertionError(e);
+    }
+  }
+
+
+  private static Mac getInitializedMac(byte[] key) throws InvalidKeyException {
+    try {
+      final Mac hmacSha256 = Mac.getInstance("HmacSHA256");
+      hmacSha256.init(new SecretKeySpec(key, "HmacSHA256"));
+      return hmacSha256;
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
-
-    hmacSha256.update(sourceHost.getBytes(StandardCharsets.UTF_8));
-    hmacSha256.update(collationKeySalt);
-
-    return BASE64_UNPADDED_ENCODER.encodeToString(hmacSha256.doFinal());
   }
 }
