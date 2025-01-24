@@ -16,6 +16,7 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -126,8 +127,12 @@ public class CloudflareTurnCredentialsManager {
     final CloudflareTurnResponse cloudflareTurnResponse = SystemMapper.jsonMapper()
         .readValue(response.body(), CloudflareTurnResponse.class);
 
-    return new TurnToken(cloudflareTurnResponse.iceServers().username(),
+    return TurnTokenGenerator.from(
+        cloudflareTurnResponse.iceServers().username(),
         cloudflareTurnResponse.iceServers().credential(),
-        cloudflareTurnUrls, cloudflareTurnComposedUrls, cloudflareTurnHostname);
+        Optional.ofNullable(cloudflareTurnUrls),
+        Optional.ofNullable(cloudflareTurnComposedUrls),
+        cloudflareTurnHostname
+    );
   }
 }

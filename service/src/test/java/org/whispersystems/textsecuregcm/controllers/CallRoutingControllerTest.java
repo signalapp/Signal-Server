@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -84,8 +85,8 @@ class CallRoutingControllerTest {
   void testGetTurnEndpointsSuccess() throws UnknownHostException {
     TurnServerOptions options = new TurnServerOptions(
         "example.domain.org",
-        List.of("stun:12.34.56.78"),
-        List.of("stun:example.domain.org")
+        Optional.of(List.of("stun:12.34.56.78")),
+        Optional.of(List.of("stun:example.domain.org"))
     );
 
     when(turnCallRouter.getRoutingFor(
@@ -104,8 +105,8 @@ class CallRoutingControllerTest {
       assertThat(token.username()).isNotEmpty();
       assertThat(token.password()).isNotEmpty();
       assertThat(token.hostname()).isEqualTo(options.hostname());
-      assertThat(token.urlsWithIps()).isEqualTo(options.urlsWithIps());
-      assertThat(token.urls()).isEqualTo(options.urlsWithHostname());
+      assertThat(token.urlsWithIps()).isEqualTo(options.urlsWithIps().get());
+      assertThat(token.urls()).isEqualTo(options.urlsWithHostname().get());
     }
   }
 
@@ -115,7 +116,7 @@ class CallRoutingControllerTest {
         .thenReturn(true);
 
     when(cloudflareTurnCredentialsManager.retrieveFromCloudflare()).thenReturn(new TurnToken("ABC", "XYZ",
-        List.of("turn:cloudflare.example.com:3478?transport=udp"), null,
+        List.of("turn:cloudflare.example.com:3478?transport=udp"), Collections.emptyList(),
         "cf.example.com"));
 
     try (Response response = resources.getJerseyTest()
@@ -129,7 +130,7 @@ class CallRoutingControllerTest {
       assertThat(token.username()).isEqualTo("ABC");
       assertThat(token.password()).isEqualTo("XYZ");
       assertThat(token.hostname()).isEqualTo("cf.example.com");
-      assertThat(token.urlsWithIps()).isNull();
+      assertThat(token.urlsWithIps()).isEmpty();
       assertThat(token.urls()).isEqualTo(List.of("turn:cloudflare.example.com:3478?transport=udp"));
     }
   }
@@ -138,8 +139,8 @@ class CallRoutingControllerTest {
   void testGetTurnEndpointsInvalidIpSuccess() throws UnknownHostException {
     TurnServerOptions options = new TurnServerOptions(
         "example.domain.org",
-        List.of(),
-        List.of("stun:example.domain.org")
+        Optional.of(List.of()),
+        Optional.of(List.of("stun:example.domain.org"))
     );
 
     when(turnCallRouter.getRoutingFor(
@@ -158,8 +159,8 @@ class CallRoutingControllerTest {
       assertThat(token.username()).isNotEmpty();
       assertThat(token.password()).isNotEmpty();
       assertThat(token.hostname()).isEqualTo(options.hostname());
-      assertThat(token.urlsWithIps()).isEqualTo(options.urlsWithIps());
-      assertThat(token.urls()).isEqualTo(options.urlsWithHostname());
+      assertThat(token.urlsWithIps()).isEqualTo(options.urlsWithIps().get());
+      assertThat(token.urls()).isEqualTo(options.urlsWithHostname().get());
     }
   }
 

@@ -6,6 +6,11 @@
 package org.whispersystems.textsecuregcm.calls.routing;
 
 import java.util.List;
+import java.util.Optional;
 
-public record TurnServerOptions(String hostname, List<String> urlsWithIps, List<String> urlsWithHostname) {
+public record TurnServerOptions(
+    String hostname,
+    Optional<List<String>> urlsWithIps,
+    Optional<List<String>> urlsWithHostname
+) {
 }

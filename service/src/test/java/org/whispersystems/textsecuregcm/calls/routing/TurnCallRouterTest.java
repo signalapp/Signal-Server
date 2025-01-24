@@ -127,8 +127,8 @@ public class TurnCallRouterTest {
   TurnServerOptions optionsWithUrls(List<String> urls) {
     return new TurnServerOptions(
         TEST_HOSTNAME,
-        urls,
-        EXPECTED_TEST_URLS_WITH_HOSTS
+        Optional.of(urls),
+        Optional.of(EXPECTED_TEST_URLS_WITH_HOSTS)
     );
   }
 
@@ -144,8 +144,8 @@ public class TurnCallRouterTest {
     assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 10))
         .isEqualTo(new TurnServerOptions(
             TEST_HOSTNAME,
-            null,
-            targetedUrls
+            Optional.empty(),
+            Optional.of(targetedUrls)
         ));
   }
 
@@ -157,8 +157,8 @@ public class TurnCallRouterTest {
     assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 10))
         .isEqualTo(new TurnServerOptions(
             TEST_HOSTNAME,
-            null,
-            TEST_URLS_WITH_HOSTS
+            Optional.empty(),
+            Optional.of(TEST_URLS_WITH_HOSTS)
         ));
   }
 
@@ -172,8 +172,8 @@ public class TurnCallRouterTest {
     assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 0))
         .isEqualTo(new TurnServerOptions(
             TEST_HOSTNAME,
-            null,
-            TEST_URLS_WITH_HOSTS
+            Optional.empty(),
+            Optional.of(TEST_URLS_WITH_HOSTS)
         ));
   }
 

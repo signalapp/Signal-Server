@@ -77,7 +77,7 @@ public class TurnCallRouter {
       return getRoutingForInner(aci, clientAddress, instanceLimit);
     } catch(Exception e) {
       logger.error("Failed to perform routing", e);
-      return new TurnServerOptions(this.configTurnRouter.getHostname(), null, this.configTurnRouter.randomUrls());
+      return new TurnServerOptions(this.configTurnRouter.getHostname(), null, Optional.of(this.configTurnRouter.randomUrls()));
     }
   }
 
@@ -90,11 +90,11 @@ public class TurnCallRouter {
 
     List<String> targetedUrls = this.configTurnRouter.targetedUrls(aci);
     if(!targetedUrls.isEmpty()) {
-      return new TurnServerOptions(hostname, null, targetedUrls);
+      return new TurnServerOptions(hostname, Optional.empty(), Optional.ofNullable(targetedUrls));
     }
 
     if(clientAddress.isEmpty() || this.configTurnRouter.shouldRandomize() || instanceLimit < 1) {
-      return new TurnServerOptions(hostname, null, this.configTurnRouter.randomUrls());
+      return new TurnServerOptions(hostname, Optional.empty(), Optional.ofNullable(this.configTurnRouter.randomUrls()));
     }
 
     CityResponse geoInfo;
@@ -128,7 +128,7 @@ public class TurnCallRouter {
             datacenters,
             instanceLimit
         ));
-    return new TurnServerOptions(hostname, urlsWithIps, minimalRandomUrls());
+    return new TurnServerOptions(hostname, Optional.of(urlsWithIps), Optional.of(minimalRandomUrls()));
   }
 
   // Includes only the udp options in the randomUrls

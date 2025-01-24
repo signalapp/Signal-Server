@@ -49,8 +49,8 @@ class CallRoutingControllerV2Test {
   private static final String REMOTE_ADDRESS = "123.123.123.1";
   private static final TurnServerOptions TURN_SERVER_OPTIONS = new TurnServerOptions(
       "example.domain.org",
-      List.of("stun:12.34.56.78"),
-      List.of("stun:example.domain.org")
+      Optional.of(List.of("stun:12.34.56.78")),
+      Optional.of(List.of("stun:example.domain.org"))
   );
   private static final TurnToken CLOUDFLARE_TURN_TOKEN = new TurnToken(
       "ABC",
@@ -129,8 +129,8 @@ class CallRoutingControllerV2Test {
       assertThat(relays.getFirst().username()).isNotEmpty();
       assertThat(relays.getFirst().password()).isNotEmpty();
       assertThat(relays.getFirst().hostname()).isEqualTo(options.hostname());
-      assertThat(relays.getFirst().urlsWithIps()).isEqualTo(options.urlsWithIps());
-      assertThat(relays.getFirst().urls()).isEqualTo(options.urlsWithHostname());
+      assertThat(relays.getFirst().urlsWithIps()).isEqualTo(options.urlsWithIps().get());
+      assertThat(relays.getFirst().urls()).isEqualTo(options.urlsWithHostname().get());
     }
   }
 
@@ -159,8 +159,8 @@ class CallRoutingControllerV2Test {
       assertThat(token.username()).isNotEmpty();
       assertThat(token.password()).isNotEmpty();
       assertThat(token.hostname()).isEqualTo(options.hostname());
-      assertThat(token.urlsWithIps()).isEqualTo(options.urlsWithIps());
-      assertThat(token.urls()).isEqualTo(options.urlsWithHostname());
+      assertThat(token.urlsWithIps()).isEqualTo(options.urlsWithIps().get());
+      assertThat(token.urls()).isEqualTo(options.urlsWithHostname().get());
     }
   }
 
@@ -168,8 +168,8 @@ class CallRoutingControllerV2Test {
   void testGetRelaysInvalidIpSuccess() throws UnknownHostException {
     TurnServerOptions options = new TurnServerOptions(
         "example.domain.org",
-        List.of(),
-        List.of("stun:example.domain.org")
+        Optional.of(List.of()),
+        Optional.of(List.of("stun:example.domain.org"))
     );
 
     when(turnCallRouter.getRoutingFor(
@@ -192,8 +192,8 @@ class CallRoutingControllerV2Test {
       assertThat(token.username()).isNotEmpty();
       assertThat(token.password()).isNotEmpty();
       assertThat(token.hostname()).isEqualTo(options.hostname());
-      assertThat(token.urlsWithIps()).isEqualTo(options.urlsWithIps());
-      assertThat(token.urls()).isEqualTo(options.urlsWithHostname());
+      assertThat(token.urlsWithIps()).isEqualTo(options.urlsWithIps().get());
+      assertThat(token.urls()).isEqualTo(options.urlsWithHostname().get());
     }
   }
 
