@@ -117,7 +117,7 @@ public class TurnCallRouterTest {
         () -> callDnsRecords,
         () -> performanceTable,
         () -> manualTable,
-         configTurnRouter,
+        configTurnRouter,
         () -> geoIp,
         // set to true so the return values are predictable
         true
@@ -155,6 +155,21 @@ public class TurnCallRouterTest {
         .thenReturn(true);
 
     assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 10))
+        .isEqualTo(new TurnServerOptions(
+            TEST_HOSTNAME,
+            null,
+            TEST_URLS_WITH_HOSTS
+        ));
+  }
+
+  @Test
+  public void testUrlsOnlyNoInstanceIps() throws UnknownHostException {
+    when(performanceTable.getDatacentersFor(any(), any(), any(), any()))
+        .thenReturn(List.of("dc-performance2", "dc-performance1"));
+    when(configTurnRouter.shouldRandomize())
+        .thenReturn(false);
+
+    assertThat(router().getRoutingFor(aci, Optional.of(InetAddress.getByName("0.0.0.1")), 0))
         .isEqualTo(new TurnServerOptions(
             TEST_HOSTNAME,
             null,

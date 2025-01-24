@@ -18,7 +18,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -40,8 +39,8 @@ import org.whispersystems.websocket.auth.ReadOnly;
 @Path("/v2/calling")
 public class CallRoutingControllerV2 {
 
-  private static final int TURN_INSTANCE_LIMIT = 2;
   private static final Counter INVALID_IP_COUNTER = Metrics.counter(name(CallRoutingControllerV2.class, "invalidIP"));
+  private static final Counter CLOUDFLARE_TURN_ERROR_COUNTER = Metrics.counter(name(CallRoutingController.class, "cloudflareTurnError"));
   private final RateLimiters rateLimiters;
   private final TurnCallRouter turnCallRouter;
   private final TurnTokenGenerator tokenGenerator;
@@ -79,13 +78,18 @@ public class CallRoutingControllerV2 {
   public GetCallingRelaysResponse getCallingRelays(
       final @ReadOnly @Auth AuthenticatedDevice auth,
       @Context ContainerRequestContext requestContext
-  ) throws RateLimitExceededException, IOException {
+  ) throws RateLimitExceededException {
     UUID aci = auth.getAccount().getUuid();
     rateLimiters.getCallEndpointLimiter().validate(aci);
 
     List<TurnToken> tokens = new ArrayList<>();
-    if (experimentEnrollmentManager.isEnrolled(auth.getAccount().getNumber(), aci, "cloudflareTurn")) {
-      tokens.add(cloudflareTurnCredentialsManager.retrieveFromCloudflare());
+    try {
+      if (experimentEnrollmentManager.isEnrolled(auth.getAccount().getNumber(), aci, "cloudflareTurn")) {
+        tokens.add(cloudflareTurnCredentialsManager.retrieveFromCloudflare());
+      }
+    } catch (Exception e) {
+      // emit counter, rely on Signal URL fallback
+      CallRoutingControllerV2.CLOUDFLARE_TURN_ERROR_COUNTER.increment();
     }
 
     Optional<InetAddress> address = Optional.empty();
@@ -97,7 +101,7 @@ public class CallRoutingControllerV2 {
       INVALID_IP_COUNTER.increment();
     }
 
-    TurnServerOptions options = turnCallRouter.getRoutingFor(aci, address, TURN_INSTANCE_LIMIT);
+    TurnServerOptions options = turnCallRouter.getRoutingFor(aci, address);
     tokens.add(tokenGenerator.generateWithTurnServerOptions(options));
 
     return new GetCallingRelaysResponse(tokens);

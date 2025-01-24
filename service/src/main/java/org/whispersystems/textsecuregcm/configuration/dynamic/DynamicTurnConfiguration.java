@@ -23,6 +23,12 @@ public class DynamicTurnConfiguration {
   @JsonProperty
   private long randomizeRate = 5_000;
 
+  /**
+   * Number of instance ips to return in TURN routing request
+   */
+  @JsonProperty
+  private int defaultInstanceIpCount = 0;
+
   @JsonProperty
   private List<@Valid TurnUriConfiguration> uriConfigs = Collections.emptyList();
 
@@ -32,6 +38,10 @@ public class DynamicTurnConfiguration {
 
   public long getRandomizeRate() {
     return randomizeRate;
+  }
+
+  public int getDefaultInstanceIpCount() {
+    return defaultInstanceIpCount;
   }
 
   public String getHostname() {

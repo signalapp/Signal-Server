@@ -62,6 +62,11 @@ public class DynamicConfigTurnRouter {
     return turnConfig.getRandomizeRate();
   }
 
+  public int getDefaultInstanceIpCount() {
+    final DynamicTurnConfiguration turnConfig = dynamicConfigurationManager.getConfiguration().getTurnConfiguration();
+    return turnConfig.getDefaultInstanceIpCount();
+  }
+
   public boolean shouldRandomize() {
     long rate = getRandomizeRate();
     return rate >= RANDOMIZE_RATE_BASIS || rng.nextLong(0, DynamicConfigTurnRouter.RANDOMIZE_RATE_BASIS) < rate;

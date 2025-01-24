@@ -52,6 +52,13 @@ public class TurnCallRouter {
     this.stableSelect = stableSelect;
   }
 
+  public TurnServerOptions getRoutingFor(
+      @Nonnull final UUID aci,
+      @Nonnull final Optional<InetAddress> clientAddress
+  ) {
+    return getRoutingFor(aci, clientAddress,  this.configTurnRouter.getDefaultInstanceIpCount());
+  }
+
   /**
    * Gets Turn Instance addresses. Returns both the IPv4 and IPv6 addresses. Prefers to match the IP protocol of the
    * client address in datacenter selection. Returns 2 instance options of the preferred protocol for every one instance
@@ -79,10 +86,6 @@ public class TurnCallRouter {
       @Nonnull final Optional<InetAddress> clientAddress,
       final int instanceLimit
   ) {
-    if (instanceLimit < 1) {
-      throw new IllegalArgumentException("Limit cannot be less than one");
-    }
-
     String hostname = this.configTurnRouter.getHostname();
 
     List<String> targetedUrls = this.configTurnRouter.targetedUrls(aci);
@@ -90,7 +93,7 @@ public class TurnCallRouter {
       return new TurnServerOptions(hostname, null, targetedUrls);
     }
 
-    if(clientAddress.isEmpty() || this.configTurnRouter.shouldRandomize()) {
+    if(clientAddress.isEmpty() || this.configTurnRouter.shouldRandomize() || instanceLimit < 1) {
       return new TurnServerOptions(hostname, null, this.configTurnRouter.randomUrls());
     }
 

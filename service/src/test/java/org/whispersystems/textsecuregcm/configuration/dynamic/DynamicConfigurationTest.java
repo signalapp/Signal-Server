@@ -376,6 +376,23 @@ class DynamicConfigurationTest {
 
       assertThat(turnConfiguration.getHostname()).isEqualTo("test.domain.org");
       assertThat(turnConfiguration.getRandomizeRate()).isEqualTo(100_000L);
+      assertThat(turnConfiguration.getDefaultInstanceIpCount()).isEqualTo(0);
+    }
+
+    {
+      final String config = REQUIRED_CONFIG.concat("""
+          turn:
+            uriConfigs:
+                - uris:
+                    - turn:test0.org
+                    - turn:test1.org
+            defaultInstanceIpCount: 5
+           """);
+      DynamicTurnConfiguration turnConfiguration = DynamicConfigurationManager
+          .parseConfiguration(config, DynamicConfiguration.class)
+          .orElseThrow()
+          .getTurnConfiguration();
+      assertThat(turnConfiguration.getDefaultInstanceIpCount()).isEqualTo(5);
     }
   }
 
