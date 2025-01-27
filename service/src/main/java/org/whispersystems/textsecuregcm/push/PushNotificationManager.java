@@ -51,19 +51,11 @@ public class PushNotificationManager {
     final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
 
     return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
-        PushNotification.NotificationType.NOTIFICATION, null, destination, device, urgent, Optional.empty()));
-  }
-
-  public CompletableFuture<Optional<SendPushNotificationResult>> sendNewMessageNotificationWithTtl(final Account destination, final byte destinationDeviceId, final boolean urgent, long ttl) throws NotPushRegisteredException {
-    final Device device = destination.getDevice(destinationDeviceId).orElseThrow(NotPushRegisteredException::new);
-    final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
-
-    return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
-        PushNotification.NotificationType.NOTIFICATION, null, destination, device, urgent, Optional.of(ttl)));
+        PushNotification.NotificationType.NOTIFICATION, null, destination, device, urgent));
   }
 
   public CompletableFuture<SendPushNotificationResult> sendRegistrationChallengeNotification(final String deviceToken, final PushNotification.TokenType tokenType, final String challengeToken) {
-    return sendNotification(new PushNotification(deviceToken, tokenType, PushNotification.NotificationType.CHALLENGE, challengeToken, null, null, true, Optional.empty()))
+    return sendNotification(new PushNotification(deviceToken, tokenType, PushNotification.NotificationType.CHALLENGE, challengeToken, null, null, true))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
   }
 
@@ -74,7 +66,7 @@ public class PushNotificationManager {
     final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
 
     return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
-        PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, destination, device, true, Optional.empty()))
+        PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, destination, device, true))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
   }
 
@@ -84,7 +76,7 @@ public class PushNotificationManager {
 
     return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
         PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY,
-        context, destination, device, true, Optional.empty()))
+        context, destination, device, true))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
   }
 

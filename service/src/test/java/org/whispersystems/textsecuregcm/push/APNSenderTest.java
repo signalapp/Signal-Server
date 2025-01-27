@@ -69,8 +69,7 @@ class APNSenderTest {
             (Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     PushNotification pushNotification = new PushNotification(DESTINATION_DEVICE_TOKEN, PushNotification.TokenType.APN,
-        PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, urgent,
-        Optional.empty());
+        PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, urgent);
 
     final SendPushNotificationResult result = apnSender.sendNotification(pushNotification).join();
 
@@ -114,8 +113,7 @@ class APNSenderTest {
             (Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     PushNotification pushNotification = new PushNotification(DESTINATION_DEVICE_TOKEN, PushNotification.TokenType.APN,
-        PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, true,
-        Optional.empty());
+        PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, true);
 
     when(destinationDevice.getApnId()).thenReturn(DESTINATION_DEVICE_TOKEN);
     when(destinationDevice.getPushTimestamp()).thenReturn(System.currentTimeMillis() - TimeUnit.SECONDS.toMillis(11));
@@ -146,8 +144,7 @@ class APNSenderTest {
             (Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
     PushNotification pushNotification = new PushNotification(DESTINATION_DEVICE_TOKEN, PushNotification.TokenType.APN,
-        PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, true,
-        Optional.empty());
+        PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, true);
 
     final SendPushNotificationResult result = apnSender.sendNotification(pushNotification).join();
 
@@ -174,8 +171,7 @@ class APNSenderTest {
             new IOException("lost connection")));
 
     PushNotification pushNotification = new PushNotification(DESTINATION_DEVICE_TOKEN, PushNotification.TokenType.APN,
-        PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, true,
-        Optional.empty());
+        PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, true);
 
     assertThatThrownBy(() -> apnSender.sendNotification(pushNotification).join())
         .isInstanceOf(CompletionException.class)
