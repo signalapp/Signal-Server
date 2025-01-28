@@ -90,7 +90,7 @@ class MetricsRequestEventListenerTest {
     final ContainerRequest request = mock(ContainerRequest.class);
     when(request.getMethod()).thenReturn(method);
     when(request.getRequestHeader(HttpHeaders.USER_AGENT)).thenReturn(
-        Collections.singletonList("Signal-Android/4.53.7 (Android 8.1)"));
+        Collections.singletonList("Signal-Android/7.6.2 Android/34 libsignal/0.46.0"));
 
     final ContainerResponse response = mock(ContainerResponse.class);
     when(response.getStatus()).thenReturn(statusCode);
@@ -116,12 +116,13 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(5, tags.size());
+    assertEquals(6, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, path)));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, method)));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
+    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "true")));
   }
 
   @Test
@@ -178,12 +179,13 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(5, tags.size());
+    assertEquals(6, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
+    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
   }
 
   @Test
@@ -238,12 +240,13 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(5, tags.size());
+    assertEquals(6, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")));
+    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
   }
 
   private static SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor)

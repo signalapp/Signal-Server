@@ -5,14 +5,10 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import com.vdurmont.semver4j.Semver;
 import io.micrometer.core.instrument.Tag;
-import java.util.Collections;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -24,6 +20,7 @@ public class UserAgentTagUtil {
 
   public static final String PLATFORM_TAG = "platform";
   public static final String VERSION_TAG = "clientVersion";
+  public static final String LIBSIGNAL_TAG = "libsignal";
 
   private UserAgentTagUtil() {
   }
@@ -52,4 +49,23 @@ public class UserAgentTagUtil {
 
     return Optional.empty();
   }
+
+  public static List<Tag> getLibsignalAndPlatformTags(final String userAgentString) {
+    String platform;
+    boolean libsignal;
+
+    try {
+      final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
+      platform = userAgent.getPlatform().name().toLowerCase();
+      libsignal = userAgent.getAdditionalSpecifiers()
+          .map(additionalSpecifiers -> additionalSpecifiers.contains("libsignal"))
+          .orElse(false);
+    } catch (final UnrecognizedUserAgentException e) {
+      platform = "unrecognized";
+      libsignal = false;
+    }
+
+    return List.of(Tag.of(PLATFORM_TAG, platform), Tag.of(LIBSIGNAL_TAG, String.valueOf(libsignal)));
+  }
+
 }
