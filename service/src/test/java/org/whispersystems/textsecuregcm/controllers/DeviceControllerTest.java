@@ -955,6 +955,8 @@ class DeviceControllerTest {
         .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), eq(tokenIdentifier), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(deviceInfo)));
 
+    when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
+
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/wait_for_linked_device/" + tokenIdentifier)
         .request()
@@ -979,6 +981,8 @@ class DeviceControllerTest {
         .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), eq(tokenIdentifier), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
+    when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
+
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/wait_for_linked_device/" + tokenIdentifier)
         .request()
@@ -996,6 +1000,8 @@ class DeviceControllerTest {
     when(accountsManager
         .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), eq(tokenIdentifier), any()))
         .thenReturn(CompletableFuture.failedFuture(new IllegalArgumentException()));
+
+    when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/wait_for_linked_device/" + tokenIdentifier)
@@ -1042,10 +1048,11 @@ class DeviceControllerTest {
   }
 
   @Test
-  void waitForLinkedDeviceRateLimited() throws RateLimitExceededException {
+  void waitForLinkedDeviceRateLimited() {
     final String tokenIdentifier = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
 
-    doThrow(new RateLimitExceededException(null)).when(rateLimiter).validate(AuthHelper.VALID_UUID);
+    when(rateLimiter.validateAsync(AuthHelper.VALID_UUID))
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/wait_for_linked_device/" + tokenIdentifier)

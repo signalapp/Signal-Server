@@ -343,7 +343,7 @@ public class DeviceController {
   @ApiResponse(responseCode = "204", description = "No device was linked to the account before the call completed; clients may repeat the call to continue waiting")
   @ApiResponse(responseCode = "400", description = "The given token identifier or timeout was invalid")
   @ApiResponse(responseCode = "429", description = "Rate-limited; try again after the prescribed delay")
-  public CompletableFuture<Response> waitForLinkedDevice(
+  public CompletionStage<Response> waitForLinkedDevice(
       @ReadOnly @Auth final AuthenticatedDevice authenticatedDevice,
 
       @PathParam("tokenIdentifier")
@@ -363,40 +363,35 @@ public class DeviceController {
                 given amount of time, this endpoint will return a status of HTTP/204.
               """) final int timeoutSeconds,
 
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) throws RateLimitExceededException {
-
-    rateLimiters.getWaitForLinkedDeviceLimiter().validate(authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI));
-
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
     final AtomicInteger linkedDeviceListenerCounter = getCounterForLinkedDeviceListeners(userAgent);
     linkedDeviceListenerCounter.incrementAndGet();
-
     final Timer.Sample sample = Timer.start();
-    try {
-      return accounts.waitForNewLinkedDevice(authenticatedDevice.getAccount().getUuid(),
-              authenticatedDevice.getAuthenticatedDevice(), tokenIdentifier, Duration.ofSeconds(timeoutSeconds))
-          .thenApply(maybeDeviceInfo -> maybeDeviceInfo
-              .map(deviceInfo -> Response.status(Response.Status.OK).entity(deviceInfo).build())
-              .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
-          .exceptionally(ExceptionUtils.exceptionallyHandler(IllegalArgumentException.class,
-              e -> Response.status(Response.Status.BAD_REQUEST).build()))
-          .whenComplete((response, throwable) -> {
-            linkedDeviceListenerCounter.decrementAndGet();
 
-            if (response != null) {
-              sample.stop(Timer.builder(WAIT_FOR_LINKED_DEVICE_TIMER_NAME)
-                  .publishPercentileHistogram(true)
-                  .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
-                      io.micrometer.core.instrument.Tag.of("deviceFound",
-                          String.valueOf(response.getStatus() == Response.Status.OK.getStatusCode()))))
-                  .register(Metrics.globalRegistry));
-            }
-          });
-    } catch (final RedisException e) {
-      // `waitForNewLinkedDevice` could fail synchronously if the Redis circuit breaker is open; prevent counter drift
-      // if that happens
-      linkedDeviceListenerCounter.decrementAndGet();
-      throw e;
-    }
+    return rateLimiters.getWaitForLinkedDeviceLimiter()
+        .validateAsync(authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI))
+        .thenCompose(ignored -> accounts.waitForNewLinkedDevice(
+            authenticatedDevice.getAccount().getUuid(),
+            authenticatedDevice.getAuthenticatedDevice(),
+            tokenIdentifier,
+            Duration.ofSeconds(timeoutSeconds)))
+        .thenApply(maybeDeviceInfo -> maybeDeviceInfo
+            .map(deviceInfo -> Response.status(Response.Status.OK).entity(deviceInfo).build())
+            .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
+        .exceptionally(ExceptionUtils.exceptionallyHandler(IllegalArgumentException.class,
+            e -> Response.status(Response.Status.BAD_REQUEST).build()))
+        .whenComplete((response, throwable) -> {
+          linkedDeviceListenerCounter.decrementAndGet();
+
+          if (response != null) {
+            sample.stop(Timer.builder(WAIT_FOR_LINKED_DEVICE_TIMER_NAME)
+                .publishPercentileHistogram(true)
+                .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+                    io.micrometer.core.instrument.Tag.of("deviceFound",
+                        String.valueOf(response.getStatus() == Response.Status.OK.getStatusCode()))))
+                .register(Metrics.globalRegistry));
+          }
+        });
   }
 
   private AtomicInteger getCounterForLinkedDeviceListeners(final String userAgent) {
