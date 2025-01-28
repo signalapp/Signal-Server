@@ -111,6 +111,10 @@ public class DeviceController {
   private static final String WAIT_FOR_LINKED_DEVICE_TIMER_NAME =
       MetricsUtil.name(DeviceController.class, "waitForLinkedDeviceDuration");
 
+  private static final String WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME =
+      MetricsUtil.name(DeviceController.class, "waitForTransferArchiveDuration");
+
+
   @VisibleForTesting
   static final int MIN_TOKEN_IDENTIFIER_LENGTH = 32;
 
@@ -565,7 +569,11 @@ public class DeviceController {
           description = """
                 The amount of time (in seconds) to wait for a response. If a transfer archive for the authenticated
                 device is not available within the given amount of time, this endpoint will return a status of HTTP/204.
-              """) final int timeoutSeconds) {
+              """) final int timeoutSeconds,
+
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable String userAgent) {
+
+    final Timer.Sample sample = Timer.start();
 
     final String rateLimiterKey = authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI) +
         ":" + authenticatedDevice.getAuthenticatedDevice().getId();
@@ -575,7 +583,20 @@ public class DeviceController {
             authenticatedDevice.getAuthenticatedDevice(),
             Duration.ofSeconds(timeoutSeconds)))
         .thenApply(maybeTransferArchive -> maybeTransferArchive
-            .map(transferArchive -> Response.status(Response.Status.OK).entity(transferArchive).build())
-            .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()));
+              .map(transferArchive -> Response.status(Response.Status.OK).entity(transferArchive).build())
+              .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
+        .whenComplete((response, throwable) -> {
+          if (response == null) {
+            return;
+          }
+          sample.stop(Timer.builder(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME)
+              .publishPercentileHistogram(true)
+              .tags(Tags.of(
+                  UserAgentTagUtil.getPlatformTag(userAgent),
+                  io.micrometer.core.instrument.Tag.of(
+                      "archiveUploaded",
+                      String.valueOf(response.getStatus() == Response.Status.OK.getStatusCode()))))
+              .register(Metrics.globalRegistry));
+        });
   }
 }
