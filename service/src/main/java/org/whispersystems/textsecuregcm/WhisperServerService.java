@@ -227,6 +227,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
+import org.whispersystems.textsecuregcm.storage.PersistentTimer;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -1097,6 +1098,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       log.info("Registered spam filter: {}", filter.getClass().getName());
     });
 
+    final PersistentTimer persistentTimer = new PersistentTimer(rateLimitersCluster, clock);
 
     final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
         phoneNumberIdentifiers, registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker);
@@ -1115,7 +1117,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),
             zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(rateLimitChallengeManager, challengeConstraintChecker),
-        new DeviceController(accountsManager, clientPublicKeysManager, rateLimiters, config.getMaxDevices()),
+        new DeviceController(accountsManager, clientPublicKeysManager, rateLimiters, persistentTimer, config.getMaxDevices()),
         new DeviceCheckController(clock, backupAuthManager, appleDeviceCheckManager, rateLimiters,
             config.getDeviceCheck().backupRedemptionLevel(),
             config.getDeviceCheck().backupRedemptionDuration()),

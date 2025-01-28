@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.controllers;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
-import io.lettuce.core.RedisException;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
@@ -81,6 +80,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.LinkDeviceTokenAlreadyUsedException;
+import org.whispersystems.textsecuregcm.storage.PersistentTimer;
 import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -100,6 +100,7 @@ public class DeviceController {
   private final AccountsManager accounts;
   private final ClientPublicKeysManager clientPublicKeysManager;
   private final RateLimiters rateLimiters;
+  private final PersistentTimer persistentTimer;
   private final Map<String, Integer> maxDeviceConfiguration;
 
   private final EnumMap<ClientPlatform, AtomicInteger> linkedDeviceListenersByPlatform;
@@ -108,9 +109,11 @@ public class DeviceController {
   private static final String LINKED_DEVICE_LISTENER_GAUGE_NAME =
       MetricsUtil.name(DeviceController.class, "linkedDeviceListeners");
 
+  private static final String WAIT_FOR_LINKED_DEVICE_TIMER_NAMESPACE = "wait_for_linked_device";
   private static final String WAIT_FOR_LINKED_DEVICE_TIMER_NAME =
       MetricsUtil.name(DeviceController.class, "waitForLinkedDeviceDuration");
 
+  private static final String WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAMESPACE = "wait_for_transfer_archive";
   private static final String WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME =
       MetricsUtil.name(DeviceController.class, "waitForTransferArchiveDuration");
 
@@ -124,11 +127,13 @@ public class DeviceController {
   public DeviceController(final AccountsManager accounts,
       final ClientPublicKeysManager clientPublicKeysManager,
       final RateLimiters rateLimiters,
+      final PersistentTimer persistentTimer,
       final Map<String, Integer> maxDeviceConfiguration) {
 
     this.accounts = accounts;
     this.clientPublicKeysManager = clientPublicKeysManager;
     this.rateLimiters = rateLimiters;
+    this.persistentTimer = persistentTimer;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
 
     linkedDeviceListenersByPlatform =
@@ -366,32 +371,30 @@ public class DeviceController {
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
     final AtomicInteger linkedDeviceListenerCounter = getCounterForLinkedDeviceListeners(userAgent);
     linkedDeviceListenerCounter.incrementAndGet();
-    final Timer.Sample sample = Timer.start();
 
     return rateLimiters.getWaitForLinkedDeviceLimiter()
         .validateAsync(authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI))
-        .thenCompose(ignored -> accounts.waitForNewLinkedDevice(
-            authenticatedDevice.getAccount().getUuid(),
-            authenticatedDevice.getAuthenticatedDevice(),
-            tokenIdentifier,
-            Duration.ofSeconds(timeoutSeconds)))
-        .thenApply(maybeDeviceInfo -> maybeDeviceInfo
-            .map(deviceInfo -> Response.status(Response.Status.OK).entity(deviceInfo).build())
-            .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
-        .exceptionally(ExceptionUtils.exceptionallyHandler(IllegalArgumentException.class,
-            e -> Response.status(Response.Status.BAD_REQUEST).build()))
-        .whenComplete((response, throwable) -> {
-          linkedDeviceListenerCounter.decrementAndGet();
+        .thenCompose(ignored -> persistentTimer.start(WAIT_FOR_LINKED_DEVICE_TIMER_NAMESPACE, tokenIdentifier))
+        .thenCompose(sample -> accounts.waitForNewLinkedDevice(
+                authenticatedDevice.getAccount().getUuid(),
+                authenticatedDevice.getAuthenticatedDevice(),
+                tokenIdentifier,
+                Duration.ofSeconds(timeoutSeconds))
+            .thenApply(maybeDeviceInfo -> maybeDeviceInfo
+                .map(deviceInfo -> Response.status(Response.Status.OK).entity(deviceInfo).build())
+                .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
+            .exceptionally(ExceptionUtils.exceptionallyHandler(IllegalArgumentException.class,
+                e -> Response.status(Response.Status.BAD_REQUEST).build()))
+            .whenComplete((response, throwable) -> {
+              linkedDeviceListenerCounter.decrementAndGet();
 
-          if (response != null) {
-            sample.stop(Timer.builder(WAIT_FOR_LINKED_DEVICE_TIMER_NAME)
-                .publishPercentileHistogram(true)
-                .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
-                    io.micrometer.core.instrument.Tag.of("deviceFound",
-                        String.valueOf(response.getStatus() == Response.Status.OK.getStatusCode()))))
-                .register(Metrics.globalRegistry));
-          }
-        });
+              if (response != null && response.getStatus() == Response.Status.OK.getStatusCode()) {
+                sample.stop(Timer.builder(WAIT_FOR_LINKED_DEVICE_TIMER_NAME)
+                    .publishPercentileHistogram(true)
+                    .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+                    .register(Metrics.globalRegistry));
+              }
+            }));
   }
 
   private AtomicInteger getCounterForLinkedDeviceListeners(final String userAgent) {
@@ -529,7 +532,8 @@ public class DeviceController {
   public CompletionStage<Void> recordTransferArchiveUploaded(@ReadOnly @Auth final AuthenticatedDevice authenticatedDevice,
       @NotNull @Valid final TransferArchiveUploadedRequest transferArchiveUploadedRequest) {
 
-    return rateLimiters.getUploadTransferArchiveLimiter().validateAsync(authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI))
+    return rateLimiters.getUploadTransferArchiveLimiter()
+        .validateAsync(authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI))
         .thenCompose(ignored -> accounts.recordTransferArchiveUpload(authenticatedDevice.getAccount(),
             transferArchiveUploadedRequest.destinationDeviceId(),
             Instant.ofEpochMilli(transferArchiveUploadedRequest.destinationDeviceCreated()),
@@ -568,30 +572,25 @@ public class DeviceController {
 
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable String userAgent) {
 
-    final Timer.Sample sample = Timer.start();
 
     final String rateLimiterKey = authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI) +
         ":" + authenticatedDevice.getAuthenticatedDevice().getId();
 
     return rateLimiters.getWaitForTransferArchiveLimiter().validateAsync(rateLimiterKey)
-        .thenCompose(ignored -> accounts.waitForTransferArchive(authenticatedDevice.getAccount(),
-            authenticatedDevice.getAuthenticatedDevice(),
-            Duration.ofSeconds(timeoutSeconds)))
-        .thenApply(maybeTransferArchive -> maybeTransferArchive
-              .map(transferArchive -> Response.status(Response.Status.OK).entity(transferArchive).build())
-              .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
-        .whenComplete((response, throwable) -> {
-          if (response == null) {
-            return;
-          }
-          sample.stop(Timer.builder(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME)
-              .publishPercentileHistogram(true)
-              .tags(Tags.of(
-                  UserAgentTagUtil.getPlatformTag(userAgent),
-                  io.micrometer.core.instrument.Tag.of(
-                      "archiveUploaded",
-                      String.valueOf(response.getStatus() == Response.Status.OK.getStatusCode()))))
-              .register(Metrics.globalRegistry));
-        });
+        .thenCompose(ignored -> persistentTimer.start(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAMESPACE, rateLimiterKey))
+        .thenCompose(sample -> accounts.waitForTransferArchive(authenticatedDevice.getAccount(),
+                authenticatedDevice.getAuthenticatedDevice(),
+                Duration.ofSeconds(timeoutSeconds))
+            .thenApply(maybeTransferArchive -> maybeTransferArchive
+                .map(transferArchive -> Response.status(Response.Status.OK).entity(transferArchive).build())
+                .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
+            .whenComplete((response, throwable) -> {
+              if (response != null && response.getStatus() == Response.Status.OK.getStatusCode()) {
+                sample.stop(Timer.builder(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME)
+                    .publishPercentileHistogram(true)
+                    .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+                    .register(Metrics.globalRegistry));
+              }
+            }));
   }
 }
