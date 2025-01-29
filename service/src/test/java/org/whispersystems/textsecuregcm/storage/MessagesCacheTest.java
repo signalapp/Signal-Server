@@ -446,23 +446,36 @@ class MessagesCacheTest {
           .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey)));
 
       final List<MessageProtos.Envelope> messages = get(destinationServiceId.uuid(), deviceId, 1);
+
       if (!sharedMrmKeyPresent) {
         assertTrue(messages.isEmpty());
-      } else {
 
+        // the discard is purely async, so we just wait for it
+        assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
+          boolean exists;
+          do {
+            exists = 1 == REDIS_CLUSTER_EXTENSION.getRedisCluster()
+                .withBinaryCluster(conn ->
+                    conn.sync().hlen(MessagesCache.getMessageQueueKey(destinationServiceId.uuid(), deviceId)));
+          } while (exists);
+        }, "Stale MRM message should be deleted asynchronously");
+
+      } else {
         assertEquals(1, messages.size());
+
         assertEquals(guid, UUID.fromString(messages.getFirst().getServerGuid()));
         assertFalse(messages.getFirst().hasSharedMrmKey());
         final SealedSenderMultiRecipientMessage.Recipient recipient = mrm.getRecipients()
             .get(destinationServiceId.toLibsignal());
         assertArrayEquals(mrm.messageForRecipient(recipient), messages.getFirst().getContent().toByteArray());
+
+        final Optional<RemovedMessage> removedMessage = messagesCache.remove(destinationServiceId.uuid(), deviceId, guid)
+            .join();
+
+        assertTrue(removedMessage.isPresent());
+        assertEquals(guid, UUID.fromString(removedMessage.get().serverGuid().toString()));
       }
 
-      final Optional<RemovedMessage> removedMessage = messagesCache.remove(destinationServiceId.uuid(), deviceId, guid)
-          .join();
-
-      assertTrue(removedMessage.isPresent());
-      assertEquals(guid, UUID.fromString(removedMessage.get().serverGuid().toString()));
       assertTrue(get(destinationServiceId.uuid(), deviceId, 1).isEmpty());
 
       // updating the shared MRM data is purely async, so we just wait for it
