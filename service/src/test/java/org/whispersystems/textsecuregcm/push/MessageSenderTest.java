@@ -10,23 +10,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.google.protobuf.ByteString;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import org.apache.commons.lang3.RandomStringUtils;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -49,17 +51,21 @@ class MessageSenderTest {
 
   @CartesianTest
   void sendMessage(@CartesianTest.Values(booleans = {true, false}) final boolean clientPresent,
-      @CartesianTest.Values(booleans = {true, false}) final boolean onlineMessage,
+      @CartesianTest.Values(booleans = {true, false}) final boolean ephemeral,
+      @CartesianTest.Values(booleans = {true, false}) final boolean urgent,
       @CartesianTest.Values(booleans = {true, false}) final boolean hasPushToken) throws NotPushRegisteredException {
 
-    final boolean expectPushNotificationAttempt = !clientPresent && !onlineMessage;
+    final boolean expectPushNotificationAttempt = !clientPresent && !ephemeral;
 
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
 
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
-    final MessageProtos.Envelope message = generateRandomMessage();
+    final MessageProtos.Envelope message = MessageProtos.Envelope.newBuilder()
+        .setEphemeral(ephemeral)
+        .setUrgent(urgent)
+        .build();
 
     when(account.getUuid()).thenReturn(accountIdentifier);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
@@ -72,18 +78,61 @@ class MessageSenderTest {
           .when(pushNotificationManager).sendNewMessageNotification(any(), anyByte(), anyBoolean());
     }
 
-    when(messagesManager.insert(eq(accountIdentifier), eq(deviceId), any())).thenReturn(clientPresent);
+    when(messagesManager.insert(any(), any())).thenReturn(Map.of(deviceId, clientPresent));
 
-    assertDoesNotThrow(() -> messageSender.sendMessage(account, device, message, onlineMessage));
+    assertDoesNotThrow(() -> messageSender.sendMessages(account, Map.of(device.getId(), message)));
 
-    final MessageProtos.Envelope expectedMessage = onlineMessage
+    final MessageProtos.Envelope expectedMessage = ephemeral
         ? message.toBuilder().setEphemeral(true).build()
         : message.toBuilder().build();
 
-    verify(messagesManager).insert(accountIdentifier, deviceId, expectedMessage);
+    verify(messagesManager).insert(accountIdentifier, Map.of(deviceId, expectedMessage));
 
     if (expectPushNotificationAttempt) {
-      verify(pushNotificationManager).sendNewMessageNotification(account, deviceId, expectedMessage.getUrgent());
+      verify(pushNotificationManager).sendNewMessageNotification(account, deviceId, urgent);
+    } else {
+      verifyNoInteractions(pushNotificationManager);
+    }
+  }
+
+  @CartesianTest
+  void sendMultiRecipientMessage(@CartesianTest.Values(booleans = {true, false}) final boolean clientPresent,
+      @CartesianTest.Values(booleans = {true, false}) final boolean ephemeral,
+      @CartesianTest.Values(booleans = {true, false}) final boolean urgent,
+      @CartesianTest.Values(booleans = {true, false}) final boolean hasPushToken) throws NotPushRegisteredException {
+
+    final boolean expectPushNotificationAttempt = !clientPresent && !ephemeral;
+
+    final UUID accountIdentifier = UUID.randomUUID();
+    final byte deviceId = Device.PRIMARY_ID;
+
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+
+    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(device.getId()).thenReturn(deviceId);
+
+    if (hasPushToken) {
+      when(device.getApnId()).thenReturn("apns-token");
+    } else {
+      doThrow(NotPushRegisteredException.class)
+          .when(pushNotificationManager).sendNewMessageNotification(any(), anyByte(), anyBoolean());
+    }
+
+    when(messagesManager.insertMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean()))
+        .thenReturn(CompletableFuture.completedFuture(Map.of(account, Map.of(deviceId, clientPresent))));
+
+    assertDoesNotThrow(() -> messageSender.sendMultiRecipientMessage(mock(SealedSenderMultiRecipientMessage.class),
+        Collections.emptyMap(),
+        System.currentTimeMillis(),
+        false,
+        ephemeral,
+        urgent)
+        .join());
+
+    if (expectPushNotificationAttempt) {
+      verify(pushNotificationManager).sendNewMessageNotification(account, deviceId, urgent);
     } else {
       verifyNoInteractions(pushNotificationManager);
     }
@@ -122,15 +171,5 @@ class MessageSenderTest {
     arguments.add(Arguments.of(mock(Device.class), "none"));
 
     return arguments;
-  }
-
-  private MessageProtos.Envelope generateRandomMessage() {
-    return MessageProtos.Envelope.newBuilder()
-        .setClientTimestamp(System.currentTimeMillis())
-        .setServerTimestamp(System.currentTimeMillis())
-        .setContent(ByteString.copyFromUtf8(RandomStringUtils.secure().nextAlphanumeric(256)))
-        .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
-        .setServerGuid(UUID.randomUUID().toString())
-        .build();
   }
 }

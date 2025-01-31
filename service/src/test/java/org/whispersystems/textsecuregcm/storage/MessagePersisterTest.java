@@ -358,7 +358,7 @@ class MessagePersisterTest {
           .setServerGuid(messageGuid.toString())
           .build();
 
-      messagesCache.insert(messageGuid, accountUuid, deviceId, envelope);
+      messagesCache.insert(messageGuid, accountUuid, deviceId, envelope).join();
     }
   }
 

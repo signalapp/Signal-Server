@@ -34,7 +34,7 @@ class MessagesCacheRemoveByGuidScriptTest {
         .setServerGuid(serverGuid.toString())
         .build();
 
-    insertScript.execute(destinationUuid, deviceId, envelope1);
+    insertScript.executeAsync(destinationUuid, deviceId, envelope1);
 
     final MessagesCacheRemoveByGuidScript removeByGuidScript = new MessagesCacheRemoveByGuidScript(
         REDIS_CLUSTER_EXTENSION.getRedisCluster());

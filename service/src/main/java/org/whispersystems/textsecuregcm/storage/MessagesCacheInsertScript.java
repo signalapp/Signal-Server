@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.ClientEvent;
 import org.whispersystems.textsecuregcm.push.NewMessageAvailableEvent;
@@ -44,7 +45,7 @@ class MessagesCacheInsertScript {
    * @return {@code true} if the destination device had a registered "presence"/event subscriber or {@code false}
    * otherwise
    */
-  boolean execute(final UUID destinationUuid, final byte destinationDevice, final MessageProtos.Envelope envelope) {
+  CompletableFuture<Boolean> executeAsync(final UUID destinationUuid, final byte destinationDevice, final MessageProtos.Envelope envelope) {
     assert envelope.hasServerGuid();
     assert envelope.hasServerTimestamp();
 
@@ -62,6 +63,7 @@ class MessagesCacheInsertScript {
         NEW_MESSAGE_EVENT_BYTES // eventPayload
     ));
 
-    return (boolean) insertScript.executeBinary(keys, args);
+    return insertScript.executeBinaryAsync(keys, args)
+        .thenApply(result -> (boolean) result);
   }
 }

@@ -431,7 +431,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getRemoteConfig().getTableName());
     PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(dynamoDbClient,
         config.getDynamoDbTables().getPushChallenge().getTableName());
-    ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
+    ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getReportMessage().getTableName(),
         config.getReportMessageConfiguration().getReportTtl());
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
@@ -618,7 +618,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
         config.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager,
-        messageDeletionAsyncExecutor);
+        messageDeletionAsyncExecutor, Clock.systemUTC());
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     ClientPublicKeysManager clientPublicKeysManager =
@@ -1128,7 +1128,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new KeyTransparencyController(keyTransparencyServiceClient),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
-            reportMessageManager, multiRecipientMessageExecutor, messageDeliveryScheduler, clientReleaseManager,
+            reportMessageManager, messageDeliveryScheduler, clientReleaseManager,
             dynamicConfigurationManager, zkSecretParams, spamChecker, messageMetrics, messageDeliveryLoopMonitor,
             Clock.systemUTC()),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),

@@ -22,13 +22,15 @@ public class DestinationDeviceValidator {
   /**
    * @see #validateRegistrationIds(Account, Stream, boolean)
    */
-  public static <T> void validateRegistrationIds(final Account account, final Collection<T> messages,
-      Function<T, Byte> getDeviceId, Function<T, Integer> getRegistrationId, boolean usePhoneNumberIdentity)
-      throws StaleDevicesException {
+  public static <T> void validateRegistrationIds(final Account account,
+      final Collection<T> messages,
+      Function<T, Byte> getDeviceId,
+      Function<T, Integer> getRegistrationId,
+      boolean usePhoneNumberIdentity) throws StaleDevicesException {
+
     validateRegistrationIds(account,
         messages.stream().map(m -> new Pair<>(getDeviceId.apply(m), getRegistrationId.apply(m))),
         usePhoneNumberIdentity);
-
   }
 
   /**

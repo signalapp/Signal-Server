@@ -29,6 +29,7 @@ class ReportMessageDynamoDbTest {
   void setUp() {
     this.reportMessageDynamoDb = new ReportMessageDynamoDb(
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         Tables.REPORT_MESSAGES.tableName(),
         Duration.ofDays(1));
   }
@@ -44,8 +45,8 @@ class ReportMessageDynamoDbTest {
         () -> assertFalse(reportMessageDynamoDb.remove(hash2))
     );
 
-    reportMessageDynamoDb.store(hash1);
-    reportMessageDynamoDb.store(hash2);
+    reportMessageDynamoDb.store(hash1).join();
+    reportMessageDynamoDb.store(hash2).join();
 
     assertAll("both hashes should be found",
         () -> assertTrue(reportMessageDynamoDb.remove(hash1)),

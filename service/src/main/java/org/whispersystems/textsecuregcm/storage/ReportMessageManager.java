@@ -54,11 +54,8 @@ public class ReportMessageManager {
   }
 
   public void store(String sourceAci, UUID messageGuid) {
-
     try {
-      Objects.requireNonNull(sourceAci);
-
-      reportMessageDynamoDb.store(hash(messageGuid, sourceAci));
+      reportMessageDynamoDb.store(hash(messageGuid, Objects.requireNonNull(sourceAci)));
     } catch (final Exception e) {
       logger.warn("Failed to store hash", e);
     }

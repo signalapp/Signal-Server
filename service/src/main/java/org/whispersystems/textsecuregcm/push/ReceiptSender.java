@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.push;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -43,21 +44,21 @@ public class ReceiptSender {
       try {
         accountManager.getByAccountIdentifier(destinationIdentifier.uuid()).ifPresentOrElse(
             destinationAccount -> {
-              final Envelope.Builder message = Envelope.newBuilder()
+              final Envelope message = Envelope.newBuilder()
                   .setServerTimestamp(System.currentTimeMillis())
                   .setSourceServiceId(sourceIdentifier.toServiceIdentifierString())
                   .setSourceDevice(sourceDeviceId)
                   .setDestinationServiceId(destinationIdentifier.toServiceIdentifierString())
                   .setClientTimestamp(messageId)
                   .setType(Envelope.Type.SERVER_DELIVERY_RECEIPT)
-                  .setUrgent(false);
+                  .setUrgent(false)
+                  .build();
 
-              for (final Device destinationDevice : destinationAccount.getDevices()) {
-                try {
-                  messageSender.sendMessage(destinationAccount, destinationDevice, message.build(), false);
-                } catch (final Exception e) {
-                  logger.warn("Could not send delivery receipt", e);
-                }
+              try {
+                messageSender.sendMessages(destinationAccount, destinationAccount.getDevices().stream()
+                    .collect(Collectors.toMap(Device::getId, ignored -> message)));
+              } catch (final Exception e) {
+                logger.warn("Could not send delivery receipt", e);
               }
             },
             () -> logger.info("No longer registered: {}", destinationIdentifier)

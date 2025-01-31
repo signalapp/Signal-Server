@@ -217,13 +217,13 @@ record CommandDependencies(
     MessagesCache messagesCache = new MessagesCache(messagesCluster,
         messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
-    ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient,
+    ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getReportMessage().getTableName(),
         configuration.getReportMessageConfiguration().getReportTtl());
     ReportMessageManager reportMessageManager = new ReportMessageManager(reportMessageDynamoDb, rateLimitersCluster,
         configuration.getReportMessageConfiguration().getCounterTtl());
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache,
-        reportMessageManager, messageDeletionExecutor);
+        reportMessageManager, messageDeletionExecutor, Clock.systemUTC());
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     ClientPublicKeysManager clientPublicKeysManager =

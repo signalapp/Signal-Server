@@ -41,7 +41,7 @@ class MessagesCacheInsertScriptTest {
         .setServerGuid(UUID.randomUUID().toString())
         .build();
 
-    insertScript.execute(destinationUuid, deviceId, envelope1);
+    insertScript.executeAsync(destinationUuid, deviceId, envelope1);
 
     assertEquals(List.of(envelope1), getStoredMessages(destinationUuid, deviceId));
 
@@ -50,11 +50,11 @@ class MessagesCacheInsertScriptTest {
         .setServerGuid(UUID.randomUUID().toString())
         .build();
 
-    insertScript.execute(destinationUuid, deviceId, envelope2);
+    insertScript.executeAsync(destinationUuid, deviceId, envelope2);
 
     assertEquals(List.of(envelope1, envelope2), getStoredMessages(destinationUuid, deviceId));
 
-    insertScript.execute(destinationUuid, deviceId, envelope1);
+    insertScript.executeAsync(destinationUuid, deviceId, envelope1);
 
     assertEquals(List.of(envelope1, envelope2), getStoredMessages(destinationUuid, deviceId),
         "Messages with same GUID should be deduplicated");
@@ -89,10 +89,10 @@ class MessagesCacheInsertScriptTest {
     final MessagesCacheInsertScript insertScript =
         new MessagesCacheInsertScript(REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
-    assertFalse(insertScript.execute(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
+    assertFalse(insertScript.executeAsync(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())
         .setServerGuid(UUID.randomUUID().toString())
-        .build()));
+        .build()).join());
 
     final FaultTolerantPubSubClusterConnection<byte[], byte[]> pubSubClusterConnection =
         REDIS_CLUSTER_EXTENSION.getRedisCluster().createBinaryPubSubConnection();
@@ -100,9 +100,9 @@ class MessagesCacheInsertScriptTest {
     pubSubClusterConnection.usePubSubConnection(connection ->
         connection.sync().ssubscribe(WebSocketConnectionEventManager.getClientEventChannel(destinationUuid, deviceId)));
 
-    assertTrue(insertScript.execute(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
+    assertTrue(insertScript.executeAsync(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())
         .setServerGuid(UUID.randomUUID().toString())
-        .build()));
+        .build()).join());
   }
 }

@@ -4,8 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -13,10 +13,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.StaleDevicesException;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -115,40 +115,39 @@ public class ChangeNumberManager {
 
   private void sendDeviceMessages(final Account account, final List<IncomingMessage> deviceMessages) {
     try {
-      deviceMessages.forEach(message ->
-          sendMessageToSelf(account, account.getDevice(message.destinationDeviceId()), message));
-    } catch (RuntimeException e) {
+      final long serverTimestamp = System.currentTimeMillis();
+
+      messageSender.sendMessages(account, deviceMessages.stream()
+          .filter(message -> getMessageContent(message).isPresent())
+          .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, message -> Envelope.newBuilder()
+              .setType(Envelope.Type.forNumber(message.type()))
+              .setClientTimestamp(serverTimestamp)
+              .setServerTimestamp(serverTimestamp)
+              .setDestinationServiceId(new AciServiceIdentifier(account.getUuid()).toServiceIdentifierString())
+              .setContent(ByteString.copyFrom(getMessageContent(message).orElseThrow()))
+              .setSourceServiceId(new AciServiceIdentifier(account.getUuid()).toServiceIdentifierString())
+              .setSourceDevice(Device.PRIMARY_ID)
+              .setUpdatedPni(account.getPhoneNumberIdentifier().toString())
+              .setUrgent(true)
+              .setEphemeral(false)
+              .build())));
+    } catch (final RuntimeException e) {
       logger.warn("Changed number but could not send all device messages on {}", account.getUuid(), e);
       throw e;
     }
   }
 
-  @VisibleForTesting
-  void sendMessageToSelf(
-      Account sourceAndDestinationAccount, Optional<Device> destinationDevice, IncomingMessage message) {
-    Optional<byte[]> contents = MessageController.getMessageContent(message);
-    if (contents.isEmpty()) {
-      logger.debug("empty message contents sending to self, ignoring");
-      return;
-    } else if (destinationDevice.isEmpty()) {
-      logger.debug("destination device not present");
-      return;
+  private static Optional<byte[]> getMessageContent(final IncomingMessage message) {
+    if (StringUtils.isEmpty(message.content())) {
+      logger.warn("Message has no content");
+      return Optional.empty();
     }
 
-    final long serverTimestamp = System.currentTimeMillis();
-    final Envelope envelope = Envelope.newBuilder()
-        .setType(Envelope.Type.forNumber(message.type()))
-        .setClientTimestamp(serverTimestamp)
-        .setServerTimestamp(serverTimestamp)
-        .setDestinationServiceId(
-            new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
-        .setContent(ByteString.copyFrom(contents.get()))
-        .setSourceServiceId(new AciServiceIdentifier(sourceAndDestinationAccount.getUuid()).toServiceIdentifierString())
-        .setSourceDevice(Device.PRIMARY_ID)
-        .setUpdatedPni(sourceAndDestinationAccount.getPhoneNumberIdentifier().toString())
-        .setUrgent(true)
-        .build();
-
-    messageSender.sendMessage(sourceAndDestinationAccount, destinationDevice.get(), envelope, false);
+    try {
+      return Optional.of(Base64.getDecoder().decode(message.content()));
+    } catch (final IllegalArgumentException e) {
+      logger.warn("Failed to parse message content", e);
+      return Optional.empty();
+    }
   }
 }

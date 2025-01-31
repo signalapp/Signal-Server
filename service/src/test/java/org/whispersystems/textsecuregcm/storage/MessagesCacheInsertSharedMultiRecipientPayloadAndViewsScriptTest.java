@@ -6,7 +6,9 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.lettuce.core.RedisCommandExecutionException;
 import java.util.ArrayList;
@@ -14,8 +16,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import io.lettuce.core.RedisException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,8 +43,8 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
         REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
     final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
-    insertMrmScript.execute(sharedMrmKey,
-        MessagesCacheTest.generateRandomMrmMessage(destinations));
+    insertMrmScript.executeAsync(sharedMrmKey,
+        MessagesCacheTest.generateRandomMrmMessage(destinations)).join();
 
     final int totalDevices = destinations.values().stream().mapToInt(List::size).sum();
     final long hashFieldCount = REDIS_CLUSTER_EXTENSION.getRedisCluster()
@@ -82,15 +86,17 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
         REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
     final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
-    insertMrmScript.execute(sharedMrmKey,
-        MessagesCacheTest.generateRandomMrmMessage(new AciServiceIdentifier(UUID.randomUUID()), Device.PRIMARY_ID));
+    insertMrmScript.executeAsync(sharedMrmKey,
+        MessagesCacheTest.generateRandomMrmMessage(new AciServiceIdentifier(UUID.randomUUID()), Device.PRIMARY_ID)).join();
 
-    final RedisCommandExecutionException e = assertThrows(RedisCommandExecutionException.class,
-        () -> insertMrmScript.execute(sharedMrmKey,
+    final CompletionException completionException = assertThrows(CompletionException.class,
+        () -> insertMrmScript.executeAsync(sharedMrmKey,
             MessagesCacheTest.generateRandomMrmMessage(new AciServiceIdentifier(UUID.randomUUID()),
-                Device.PRIMARY_ID)));
+                Device.PRIMARY_ID)).join());
 
-    assertEquals(MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript.ERROR_KEY_EXISTS, e.getMessage());
+    assertInstanceOf(RedisException.class, completionException.getCause());
+    assertTrue(completionException.getCause().getMessage()
+        .contains(MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript.ERROR_KEY_EXISTS));
   }
 
 }

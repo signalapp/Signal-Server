@@ -122,7 +122,7 @@ class MessagesCacheTest {
     void testInsert(final boolean sealedSender) {
       final UUID messageGuid = UUID.randomUUID();
       assertDoesNotThrow(() -> messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
-          generateRandomMessage(messageGuid, sealedSender)));
+          generateRandomMessage(messageGuid, sealedSender))).join();
     }
 
     @Test
@@ -130,8 +130,8 @@ class MessagesCacheTest {
       final UUID duplicateGuid = UUID.randomUUID();
       final MessageProtos.Envelope duplicateMessage = generateRandomMessage(duplicateGuid, false);
 
-      messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage);
-      messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage);
+      messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage).join();
+      messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage).join();
 
       assertEquals(1, messagesCache.getAllMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID, 0, 10)
           .count()
@@ -149,7 +149,7 @@ class MessagesCacheTest {
 
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
 
-      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
       final Optional<RemovedMessage> maybeRemovedMessage = messagesCache.remove(DESTINATION_UUID,
           DESTINATION_DEVICE_ID, messageGuid).get(5, TimeUnit.SECONDS);
 
@@ -175,12 +175,12 @@ class MessagesCacheTest {
 
       for (final MessageProtos.Envelope message : messagesToRemove) {
         messagesCache.insert(UUID.fromString(message.getServerGuid()), DESTINATION_UUID, DESTINATION_DEVICE_ID,
-            message);
+            message).join();
       }
 
       for (final MessageProtos.Envelope message : messagesToPreserve) {
         messagesCache.insert(UUID.fromString(message.getServerGuid()), DESTINATION_UUID, DESTINATION_DEVICE_ID,
-            message);
+            message).join();
       }
 
       final List<RemovedMessage> removedMessages = messagesCache.remove(DESTINATION_UUID, DESTINATION_DEVICE_ID,
@@ -197,7 +197,7 @@ class MessagesCacheTest {
 
       final UUID messageGuid = UUID.randomUUID();
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid, true);
-      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
 
       assertTrue(messagesCache.hasMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID));
     }
@@ -208,7 +208,7 @@ class MessagesCacheTest {
 
       final UUID messageGuid = UUID.randomUUID();
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid, true);
-      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
 
       assertTrue(messagesCache.hasMessagesAsync(DESTINATION_UUID, DESTINATION_DEVICE_ID).join());
     }
@@ -223,7 +223,7 @@ class MessagesCacheTest {
       for (int i = 0; i < messageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope message = generateRandomMessage(messageGuid, i % 2 == 0);
-        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
         assertEquals(expectedOldestTimestamp,
             messagesCache.getEarliestUndeliveredTimestamp(DESTINATION_UUID, DESTINATION_DEVICE_ID).block());
         expectedMessages.add(message);
@@ -248,7 +248,7 @@ class MessagesCacheTest {
       for (int i = 0; i < messageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
-        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
         expectedMessages.add(message);
       }
 
@@ -262,7 +262,7 @@ class MessagesCacheTest {
 
       final UUID message1Guid = UUID.randomUUID();
       final MessageProtos.Envelope message1 = generateRandomMessage(message1Guid, sealedSender);
-      messagesCache.insert(message1Guid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message1);
+      messagesCache.insert(message1Guid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message1).join();
       final List<MessageProtos.Envelope> get1 = get(DESTINATION_UUID, DESTINATION_DEVICE_ID,
           1);
       assertEquals(List.of(message1), get1);
@@ -272,7 +272,7 @@ class MessagesCacheTest {
       final UUID message2Guid = UUID.randomUUID();
       final MessageProtos.Envelope message2 = generateRandomMessage(message2Guid, sealedSender);
 
-      messagesCache.insert(message2Guid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message2);
+      messagesCache.insert(message2Guid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message2).join();
 
       assertEquals(List.of(message2), get(DESTINATION_UUID, DESTINATION_DEVICE_ID, 1));
     }
@@ -287,7 +287,7 @@ class MessagesCacheTest {
       for (int i = 0; i < messageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope message = generateRandomMessage(messageGuid, true);
-        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message);
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
 
         expectedMessages.add(message);
       }
@@ -295,7 +295,7 @@ class MessagesCacheTest {
       final UUID ephemeralMessageGuid = UUID.randomUUID();
       final MessageProtos.Envelope ephemeralMessage = generateRandomMessage(ephemeralMessageGuid, true)
           .toBuilder().setEphemeral(true).build();
-      messagesCache.insert(ephemeralMessageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, ephemeralMessage);
+      messagesCache.insert(ephemeralMessageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, ephemeralMessage).join();
 
       final Clock cacheClock;
       if (expectStale) {
@@ -352,7 +352,7 @@ class MessagesCacheTest {
           final UUID messageGuid = UUID.randomUUID();
           final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
 
-          messagesCache.insert(messageGuid, DESTINATION_UUID, deviceId, message);
+          messagesCache.insert(messageGuid, DESTINATION_UUID, deviceId, message).join();
         }
       }
 
@@ -372,7 +372,7 @@ class MessagesCacheTest {
           final UUID messageGuid = UUID.randomUUID();
           final MessageProtos.Envelope message = generateRandomMessage(messageGuid, sealedSender);
 
-          messagesCache.insert(messageGuid, DESTINATION_UUID, deviceId, message);
+          messagesCache.insert(messageGuid, DESTINATION_UUID, deviceId, message).join();
         }
       }
 
@@ -404,7 +404,7 @@ class MessagesCacheTest {
       final UUID messageGuid = UUID.randomUUID();
 
       messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
-          generateRandomMessage(messageGuid, sealedSender));
+          generateRandomMessage(messageGuid, sealedSender)).join();
       final int slot = SlotHash.getSlot(DESTINATION_UUID + "::" + DESTINATION_DEVICE_ID);
 
       assertTrue(messagesCache.getQueuesToPersist(slot + 1, Instant.now().plusSeconds(60), 100).isEmpty());
@@ -427,7 +427,7 @@ class MessagesCacheTest {
 
       final byte[] sharedMrmDataKey;
       if (sharedMrmKeyPresent) {
-        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm);
+        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm).join();
       } else {
         sharedMrmDataKey = "{1}".getBytes(StandardCharsets.UTF_8);
       }
@@ -440,7 +440,7 @@ class MessagesCacheTest {
           .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
           .clearContent()
           .build();
-      messagesCache.insert(guid, destinationServiceId.uuid(), deviceId, message);
+      messagesCache.insert(guid, destinationServiceId.uuid(), deviceId, message).join();
 
       assertEquals(sharedMrmKeyPresent ? 1 : 0, (long) REDIS_CLUSTER_EXTENSION.getRedisCluster()
           .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey)));
@@ -487,13 +487,13 @@ class MessagesCacheTest {
       final MessageProtos.Envelope message = generateRandomMessage(messageGuid,
           new AciServiceIdentifier(destinationUuid), true);
 
-      messagesCache.insert(messageGuid, destinationUuid, deviceId, message);
+      messagesCache.insert(messageGuid, destinationUuid, deviceId, message).join();
 
       final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(destinationServiceId, deviceId);
 
       final byte[] sharedMrmDataKey;
       if (sharedMrmKeyPresent) {
-        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm);
+        sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm).join();
       } else {
         sharedMrmDataKey = new byte[]{1};
       }
@@ -505,7 +505,7 @@ class MessagesCacheTest {
           .clearContent()
           .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
           .build();
-      messagesCache.insert(mrmMessageGuid, destinationUuid, deviceId, mrmMessage);
+      messagesCache.insert(mrmMessageGuid, destinationUuid, deviceId, mrmMessage).join();
 
       final List<MessageProtos.Envelope> messages = messagesCache.getMessagesToPersist(destinationUuid, deviceId, 100);
 

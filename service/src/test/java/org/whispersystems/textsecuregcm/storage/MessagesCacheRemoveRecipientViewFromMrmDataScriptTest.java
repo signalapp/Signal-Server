@@ -41,8 +41,7 @@ class MessagesCacheRemoveRecipientViewFromMrmDataScriptTest {
         REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
     final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
-    insertMrmScript.execute(sharedMrmKey,
-        MessagesCacheTest.generateRandomMrmMessage(destinations));
+    insertMrmScript.executeAsync(sharedMrmKey, MessagesCacheTest.generateRandomMrmMessage(destinations)).join();
 
     final MessagesCacheRemoveRecipientViewFromMrmDataScript removeRecipientViewFromMrmDataScript = new MessagesCacheRemoveRecipientViewFromMrmDataScript(
         REDIS_CLUSTER_EXTENSION.getRedisCluster());
@@ -103,8 +102,8 @@ class MessagesCacheRemoveRecipientViewFromMrmDataScriptTest {
           REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
       final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
-      insertMrmScript.execute(sharedMrmKey,
-          MessagesCacheTest.generateRandomMrmMessage(serviceIdentifier, deviceId));
+      insertMrmScript.executeAsync(sharedMrmKey,
+          MessagesCacheTest.generateRandomMrmMessage(serviceIdentifier, deviceId)).join();
 
       sharedMrmKeys.add(sharedMrmKey);
     }

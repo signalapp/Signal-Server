@@ -132,7 +132,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessages(final int persistedMessageCount, final int cachedMessageCount) {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
+        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
@@ -164,7 +164,7 @@ class WebSocketConnectionIntegrationTest {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
 
-        messagesCache.insert(messageGuid, account.getUuid(), device.getId(), envelope);
+        messagesCache.insert(messageGuid, account.getUuid(), device.getId(), envelope).join();
         expectedMessages.add(envelope);
       }
 
@@ -220,7 +220,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessagesClientClosed() {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
+        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
@@ -253,7 +253,7 @@ class WebSocketConnectionIntegrationTest {
       for (int i = 0; i < cachedMessageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
-        messagesCache.insert(messageGuid, account.getUuid(), device.getId(), envelope);
+        messagesCache.insert(messageGuid, account.getUuid(), device.getId(), envelope).join();
 
         expectedMessages.add(envelope);
       }
@@ -289,7 +289,7 @@ class WebSocketConnectionIntegrationTest {
   void testProcessStoredMessagesSendFutureTimeout() {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
-        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService),
+        new MessagesManager(messagesDynamoDb, messagesCache, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
@@ -323,7 +323,7 @@ class WebSocketConnectionIntegrationTest {
       for (int i = 0; i < cachedMessageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
-        messagesCache.insert(messageGuid, account.getUuid(), device.getId(), envelope);
+        messagesCache.insert(messageGuid, account.getUuid(), device.getId(), envelope).join();
 
         expectedMessages.add(envelope);
       }

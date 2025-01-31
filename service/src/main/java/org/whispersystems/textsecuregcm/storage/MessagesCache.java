@@ -203,22 +203,28 @@ public class MessagesCache {
     this.unlockQueueScript = unlockQueueScript;
   }
 
-  public boolean insert(final UUID messageGuid,
+  public CompletableFuture<Boolean> insert(final UUID messageGuid,
       final UUID destinationAccountIdentifier,
       final byte destinationDeviceId,
       final MessageProtos.Envelope message) {
 
     final MessageProtos.Envelope messageWithGuid = message.toBuilder().setServerGuid(messageGuid.toString()).build();
-    return insertTimer.record(() -> insertScript.execute(destinationAccountIdentifier, destinationDeviceId, messageWithGuid));
+    final Timer.Sample sample = Timer.start();
+
+    return insertScript.executeAsync(destinationAccountIdentifier, destinationDeviceId, messageWithGuid)
+        .whenComplete((ignored, throwable) -> sample.stop(insertTimer));
   }
 
-  public byte[] insertSharedMultiRecipientMessagePayload(
+  public CompletableFuture<byte[]> insertSharedMultiRecipientMessagePayload(
       final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
-    return insertSharedMrmPayloadTimer.record(() -> {
-          final byte[] sharedMrmKey = getSharedMrmKey(UUID.randomUUID());
-          insertMrmScript.execute(sharedMrmKey, sealedSenderMultiRecipientMessage);
-          return sharedMrmKey;
-      });
+
+    final Timer.Sample sample = Timer.start();
+
+    final byte[] sharedMrmKey = getSharedMrmKey(UUID.randomUUID());
+
+    return insertMrmScript.executeAsync(sharedMrmKey, sealedSenderMultiRecipientMessage)
+        .thenApply(ignored -> sharedMrmKey)
+        .whenComplete((ignored, throwable) -> sample.stop(insertSharedMrmPayloadTimer));
   }
 
   public CompletableFuture<Optional<RemovedMessage>> remove(final UUID destinationUuid, final byte destinationDevice,

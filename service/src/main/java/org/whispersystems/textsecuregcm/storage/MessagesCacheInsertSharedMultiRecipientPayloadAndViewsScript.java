@@ -9,9 +9,11 @@ import io.lettuce.core.ScriptOutputType;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.Util;
 
 /**
  * Inserts the shared multi-recipient message payload into the cache. The list of recipients and views will be set as
@@ -31,7 +33,7 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
         ScriptOutputType.INTEGER);
   }
 
-  void execute(final byte[] sharedMrmKey, final SealedSenderMultiRecipientMessage message) {
+  CompletableFuture<Void> executeAsync(final byte[] sharedMrmKey, final SealedSenderMultiRecipientMessage message) {
     final List<byte[]> keys = List.of(
         sharedMrmKey // sharedMrmKey
     );
@@ -47,6 +49,7 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
       }
     });
 
-    script.executeBinary(keys, args);
+    return script.executeBinaryAsync(keys, args)
+        .thenRun(Util.NOOP);
   }
 }

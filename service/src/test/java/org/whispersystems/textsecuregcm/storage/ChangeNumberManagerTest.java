@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -104,7 +105,7 @@ public class ChangeNumberManagerTest {
     changeNumberManager.changeNumber(account, "+18025551234", null, null, null, null, null);
     verify(accountsManager).changeNumber(account, "+18025551234", null, null, null, null);
     verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
-    verify(messageSender, never()).sendMessage(eq(account), any(), any(), eq(false));
+    verify(messageSender, never()).sendMessages(eq(account), any());
   }
 
   @Test
@@ -118,7 +119,7 @@ public class ChangeNumberManagerTest {
 
     changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyList(), Collections.emptyMap());
     verify(accountsManager).changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyMap());
-    verify(messageSender, never()).sendMessage(eq(account), any(), any(), eq(false));
+    verify(messageSender, never()).sendMessages(eq(account), any());
   }
 
   @Test
@@ -155,10 +156,15 @@ public class ChangeNumberManagerTest {
 
     verify(accountsManager).changeNumber(account, changedE164, pniIdentityKey, prekeys, null, registrationIds);
 
-    final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
-    verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
+    @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
+        ArgumentCaptor.forClass(Map.class);
 
-    final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
+    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+
+    assertEquals(1, envelopeCaptor.getValue().size());
+    assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
+
+    final MessageProtos.Envelope envelope = envelopeCaptor.getValue().get(deviceId2);
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
     assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
@@ -203,10 +209,15 @@ public class ChangeNumberManagerTest {
 
     verify(accountsManager).changeNumber(account, changedE164, pniIdentityKey, prekeys, pqPrekeys, registrationIds);
 
-    final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
-    verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
+    @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
+        ArgumentCaptor.forClass(Map.class);
 
-    final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
+    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+
+    assertEquals(1, envelopeCaptor.getValue().size());
+    assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
+
+    final MessageProtos.Envelope envelope = envelopeCaptor.getValue().get(deviceId2);
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
     assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
@@ -249,10 +260,15 @@ public class ChangeNumberManagerTest {
 
     verify(accountsManager).updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, registrationIds);
 
-    final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
-    verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
+    @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
+        ArgumentCaptor.forClass(Map.class);
 
-    final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
+    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+
+    assertEquals(1, envelopeCaptor.getValue().size());
+    assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
+
+    final MessageProtos.Envelope envelope = envelopeCaptor.getValue().get(deviceId2);
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
     assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
@@ -291,10 +307,15 @@ public class ChangeNumberManagerTest {
 
     verify(accountsManager).updatePniKeys(account, pniIdentityKey, prekeys, null, registrationIds);
 
-    final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
-    verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
+    @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
+        ArgumentCaptor.forClass(Map.class);
 
-    final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
+    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+
+    assertEquals(1, envelopeCaptor.getValue().size());
+    assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
+
+    final MessageProtos.Envelope envelope = envelopeCaptor.getValue().get(deviceId2);
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
     assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
@@ -335,10 +356,15 @@ public class ChangeNumberManagerTest {
 
     verify(accountsManager).updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, registrationIds);
 
-    final ArgumentCaptor<MessageProtos.Envelope> envelopeCaptor = ArgumentCaptor.forClass(MessageProtos.Envelope.class);
-    verify(messageSender).sendMessage(any(), eq(d2), envelopeCaptor.capture(), eq(false));
+    @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
+        ArgumentCaptor.forClass(Map.class);
 
-    final MessageProtos.Envelope envelope = envelopeCaptor.getValue();
+    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+
+    assertEquals(1, envelopeCaptor.getValue().size());
+    assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
+
+    final MessageProtos.Envelope envelope = envelopeCaptor.getValue().get(deviceId2);
 
     assertEquals(aci, UUID.fromString(envelope.getDestinationServiceId()));
     assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));

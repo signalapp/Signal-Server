@@ -18,6 +18,7 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -68,8 +69,8 @@ class ReportMessageManagerTest {
 
     verify(reportMessageDynamoDb).store(any());
 
-    doThrow(RuntimeException.class)
-        .when(reportMessageDynamoDb).store(any());
+    when(reportMessageDynamoDb.store(any()))
+        .thenReturn(CompletableFuture.failedFuture(new RuntimeException()));
 
     assertDoesNotThrow(() -> reportMessageManager.store(sourceAci.toString(), messageGuid));
   }

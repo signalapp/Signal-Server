@@ -6,18 +6,23 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.reactivestreams.Publisher;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
@@ -25,6 +30,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.observability.micrometer.Micrometer;
@@ -48,41 +55,120 @@ public class MessagesManager {
   private final MessagesCache messagesCache;
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService messageDeletionExecutor;
+  private final Clock clock;
 
   public MessagesManager(
       final MessagesDynamoDb messagesDynamoDb,
       final MessagesCache messagesCache,
       final ReportMessageManager reportMessageManager,
-      final ExecutorService messageDeletionExecutor) {
+      final ExecutorService messageDeletionExecutor,
+      final Clock clock) {
+
     this.messagesDynamoDb = messagesDynamoDb;
     this.messagesCache = messagesCache;
     this.reportMessageManager = reportMessageManager;
     this.messageDeletionExecutor = messageDeletionExecutor;
+    this.clock = clock;
   }
 
   /**
-   * Inserts a message into a target device's message queue and notifies registered listeners that a new message is
-   * available.
+   * Inserts messages into the message queues for devices associated with the identified account.
    *
-   * @param destinationUuid the account identifier for the destination queue
-   * @param destinationDeviceId the device ID for the destination queue
-   * @param message the message to insert into the queue
+   * @param accountIdentifier the account identifier for the destination queue
+   * @param messagesByDeviceId a map of device IDs to messages
    *
-   * @return {@code true} if the destination device is "present" (i.e. has an active event listener) or {@code false}
-   * otherwise
+   * @return a map of device IDs to a device's presence state (i.e. if the device has an active event listener)
    *
    * @see org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager
    */
-  public boolean insert(final UUID destinationUuid, final byte destinationDeviceId, final Envelope message) {
-    final UUID messageGuid = UUID.randomUUID();
+  public Map<Byte, Boolean> insert(final UUID accountIdentifier, final Map<Byte, Envelope> messagesByDeviceId) {
+    return insertAsync(accountIdentifier, messagesByDeviceId).join();
+  }
 
-    final boolean destinationPresent = messagesCache.insert(messageGuid, destinationUuid, destinationDeviceId, message);
+  private CompletableFuture<Map<Byte, Boolean>> insertAsync(final UUID accountIdentifier, final Map<Byte, Envelope> messagesByDeviceId) {
+    final Map<Byte, Boolean> devicePresenceById = new ConcurrentHashMap<>();
 
-    if (message.hasSourceServiceId() && !destinationUuid.toString().equals(message.getSourceServiceId())) {
-      reportMessageManager.store(message.getSourceServiceId(), messageGuid);
-    }
+    return CompletableFuture.allOf(messagesByDeviceId.entrySet().stream()
+            .map(deviceIdAndMessage -> {
+              final byte deviceId = deviceIdAndMessage.getKey();
+              final Envelope message = deviceIdAndMessage.getValue();
+              final UUID messageGuid = UUID.randomUUID();
 
-    return destinationPresent;
+              return messagesCache.insert(messageGuid, accountIdentifier, deviceId, message)
+                  .thenAccept(present -> {
+                    if (message.hasSourceServiceId() && !accountIdentifier.toString()
+                        .equals(message.getSourceServiceId())) {
+                      // Note that this is an asynchronous, best-effort, fire-and-forget operation
+                      reportMessageManager.store(message.getSourceServiceId(), messageGuid);
+                    }
+
+                    devicePresenceById.put(deviceId, present);
+                  });
+            })
+            .toArray(CompletableFuture[]::new))
+        .thenApply(ignored -> devicePresenceById);
+  }
+
+  /**
+   * Inserts messages into the message queues for devices associated with the identified accounts.
+   *
+   * @param multiRecipientMessage the multi-recipient message to insert into destination queues
+   * @param resolvedRecipients    a map of multi-recipient message {@code Recipient} entities to their corresponding
+   *                              Signal accounts; messages will not be delivered to unresolved recipients
+   * @param clientTimestamp       the timestamp for the message as reported by the sending party
+   * @param isStory               {@code true} if the given message is a story or {@code false} otherwise
+   * @param isEphemeral           {@code true} if the given message should only be delivered to devices with active
+   *                              connections to a Signal server or {@code false} otherwise
+   * @param isUrgent              {@code true} if the given message is urgent or {@code false} otherwise
+   *
+   * @return a map of accounts to maps of device IDs to a device's presence state (i.e. if the device has an active
+   * event listener)
+   *
+   * @see org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager
+   */
+  public CompletableFuture<Map<Account, Map<Byte, Boolean>>> insertMultiRecipientMessage(
+      final SealedSenderMultiRecipientMessage multiRecipientMessage,
+      final Map<SealedSenderMultiRecipientMessage.Recipient, Account> resolvedRecipients,
+      final long clientTimestamp,
+      final boolean isStory,
+      final boolean isEphemeral,
+      final boolean isUrgent) {
+
+    final long serverTimestamp = clock.millis();
+
+    return insertSharedMultiRecipientMessagePayload(multiRecipientMessage)
+        .thenCompose(sharedMrmKey -> {
+          final Envelope prototypeMessage = Envelope.newBuilder()
+              .setType(Envelope.Type.UNIDENTIFIED_SENDER)
+              .setClientTimestamp(clientTimestamp == 0 ? serverTimestamp : clientTimestamp)
+              .setServerTimestamp(serverTimestamp)
+              .setStory(isStory)
+              .setEphemeral(isEphemeral)
+              .setUrgent(isUrgent)
+              .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey))
+              .build();
+
+          final Map<Account, Map<Byte, Boolean>> clientPresenceByAccountAndDevice = new ConcurrentHashMap<>();
+
+          return CompletableFuture.allOf(multiRecipientMessage.getRecipients().entrySet().stream()
+                  .filter(serviceIdAndRecipient -> resolvedRecipients.containsKey(serviceIdAndRecipient.getValue()))
+                  .map(serviceIdAndRecipient -> {
+                    final ServiceIdentifier serviceIdentifier = ServiceIdentifier.fromLibsignal(serviceIdAndRecipient.getKey());
+                    final SealedSenderMultiRecipientMessage.Recipient recipient = serviceIdAndRecipient.getValue();
+                    final byte[] devices = recipient.getDevices();
+
+                    return insertAsync(resolvedRecipients.get(recipient).getIdentifier(IdentityType.ACI),
+                        IntStream.range(0, devices.length).mapToObj(i -> devices[i])
+                            .collect(Collectors.toMap(deviceId -> deviceId, deviceId -> prototypeMessage.toBuilder()
+                                .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+                                .build())))
+                        .thenAccept(clientPresenceByDeviceId ->
+                            clientPresenceByAccountAndDevice.put(resolvedRecipients.get(recipient),
+                                clientPresenceByDeviceId));
+                  })
+                  .toArray(CompletableFuture[]::new))
+              .thenApply(ignored -> clientPresenceByAccountAndDevice);
+        });
   }
 
   public CompletableFuture<Boolean> mayHavePersistedMessages(final UUID destinationUuid, final Device destinationDevice) {
@@ -217,7 +303,7 @@ public class MessagesManager {
    * @return a key where the shared data is stored
    * @see MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript
    */
-  public byte[] insertSharedMultiRecipientMessagePayload(
+  private CompletableFuture<byte[]> insertSharedMultiRecipientMessagePayload(
       final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
     return messagesCache.insertSharedMultiRecipientMessagePayload(sealedSenderMultiRecipientMessage);
   }
