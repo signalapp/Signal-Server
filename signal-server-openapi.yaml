@@ -1786,6 +1786,10 @@ paths:
               device is not available within the given amount of time, this endpoint will return a status of HTTP/204.
           format: int32
           default: 30
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       responses:
         "200":
           description: "Either a new transfer archive was uploaded for the authenticated\
