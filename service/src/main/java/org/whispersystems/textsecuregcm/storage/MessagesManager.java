@@ -267,11 +267,7 @@ public class MessagesManager {
       final Device destinationDevice,
       final List<Envelope> messages) {
 
-    final List<Envelope> nonEphemeralMessages = messages.stream()
-        .filter(envelope -> !envelope.getEphemeral())
-        .collect(Collectors.toList());
-
-    messagesDynamoDb.store(nonEphemeralMessages, destinationUuid, destinationDevice);
+    messagesDynamoDb.store(messages, destinationUuid, destinationDevice);
 
     final List<UUID> messageGuids = messages.stream().map(message -> UUID.fromString(message.getServerGuid()))
         .collect(Collectors.toList());
@@ -279,7 +275,7 @@ public class MessagesManager {
     try {
       messagesRemovedFromCache = messagesCache.remove(destinationUuid, destinationDevice.getId(), messageGuids)
           .get(30, TimeUnit.SECONDS).size();
-      PERSIST_MESSAGE_COUNTER.increment(nonEphemeralMessages.size());
+      PERSIST_MESSAGE_COUNTER.increment(messages.size());
 
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       logger.warn("Failed to remove messages from cache", e);

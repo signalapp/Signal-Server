@@ -528,7 +528,6 @@ public class MessagesCache {
         });
   }
 
-  @VisibleForTesting
   List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
       final int limit) {
 
@@ -537,7 +536,7 @@ public class MessagesCache {
     final List<byte[]> messages = redisCluster.withBinaryCluster(connection ->
         connection.sync().zrange(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
 
-    return Flux.fromIterable(messages)
+    final Flux<MessageProtos.Envelope> allMessages = Flux.fromIterable(messages)
         .mapNotNull(message -> {
           try {
             return MessageProtos.Envelope.parseFrom(message);
@@ -555,7 +554,22 @@ public class MessagesCache {
           }
 
           return messageMono;
-        })
+        });
+
+    final Flux<MessageProtos.Envelope> messagesToPersist = allMessages
+        .filter(Predicate.not(envelope ->
+            envelope.getEphemeral() || isStaleMrmMessage(envelope)));
+
+    final Flux<MessageProtos.Envelope> ephemeralMessages = allMessages
+        .filter(MessageProtos.Envelope::getEphemeral);
+    discardStaleMessages(accountUuid, destinationDevice, ephemeralMessages, staleEphemeralMessagesCounter, "ephemeral");
+
+    final Flux<MessageProtos.Envelope> staleMrmMessages = allMessages.filter(MessagesCache::isStaleMrmMessage)
+        // clearing the sharedMrmKey prevents unnecessary calls to update the shared MRM data
+        .map(envelope -> envelope.toBuilder().clearSharedMrmKey().build());
+    discardStaleMessages(accountUuid, destinationDevice, staleMrmMessages, staleMrmMessagesCounter, "mrm");
+
+    return messagesToPersist
         .collectList()
         .doOnTerminate(() -> sample.stop(getMessagesTimer))
         .block(Duration.ofSeconds(5));
