@@ -403,6 +403,7 @@ public class MessageController {
                     source.map(account -> account.getAuthenticatedDevice().getId()).orElse(null),
                     messages.timestamp() == 0 ? System.currentTimeMillis() : messages.timestamp(),
                     isStory,
+                    messages.online(),
                     messages.urgent(),
                     reportSpamToken.orElse(null));
               } catch (final IllegalArgumentException e) {

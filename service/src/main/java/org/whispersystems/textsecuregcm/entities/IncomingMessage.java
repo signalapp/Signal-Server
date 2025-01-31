@@ -19,6 +19,7 @@ public record IncomingMessage(int type, byte destinationDeviceId, int destinatio
       @Nullable Byte sourceDeviceId,
       final long timestamp,
       final boolean story,
+      final boolean ephemeral,
       final boolean urgent,
       @Nullable byte[] reportSpamToken) {
 
@@ -35,6 +36,7 @@ public record IncomingMessage(int type, byte destinationDeviceId, int destinatio
         .setServerTimestamp(System.currentTimeMillis())
         .setDestinationServiceId(destinationIdentifier.toServiceIdentifierString())
         .setStory(story)
+        .setEphemeral(ephemeral)
         .setUrgent(urgent);
 
     if (sourceAccount != null && sourceDeviceId != null) {

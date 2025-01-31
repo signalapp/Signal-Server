@@ -64,8 +64,6 @@ class OutgoingMessageEntityTest {
 
   @Test
   void entityPreservesEnvelope() {
-    final Random random = new Random();
-
     final byte[] reportSpamToken = TestRandomUtil.nextBytes(8);
 
     final Account account = new Account();
@@ -79,11 +77,14 @@ class OutgoingMessageEntityTest {
         (byte) 123,
         System.currentTimeMillis(),
         false,
+        false,
         true,
         reportSpamToken);
 
     MessageProtos.Envelope envelope = baseEnvelope.toBuilder().setServerGuid(UUID.randomUUID().toString()).build();
 
-    assertEquals(envelope, OutgoingMessageEntity.fromEnvelope(envelope).toEnvelope());
+    // Note that outgoing message entities don't have an "ephemeral"/"online" flag
+    assertEquals(envelope.toBuilder().clearEphemeral().build(),
+        OutgoingMessageEntity.fromEnvelope(envelope).toEnvelope());
   }
 }
