@@ -4086,8 +4086,6 @@ components:
           format: int64
         svr2Credentials:
           $ref: '#/components/schemas/ExternalServiceCredentials'
-        svr3Credentials:
-          $ref: '#/components/schemas/ExternalServiceCredentials'
       description: |
         Information about the current Registration lock and SVR credentials. With a correct PIN, the credentials can
         be used to recover the secret used to derive the registration lock password.
