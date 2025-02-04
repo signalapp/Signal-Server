@@ -21,6 +21,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -33,7 +34,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -178,8 +181,9 @@ public class AccountsManagerDeviceTransferIntegrationTest {
   @Test
   void waitForRestoreAccountRequest() {
     final String token = RandomStringUtils.secure().nextAlphanumeric(16);
+    final byte[] deviceTransferBootstrap = TestRandomUtil.nextBytes(100);
     final RestoreAccountRequest restoreAccountRequest =
-        new RestoreAccountRequest(RestoreAccountRequest.Method.DEVICE_TRANSFER);
+        new RestoreAccountRequest(RestoreAccountRequest.Method.DEVICE_TRANSFER, deviceTransferBootstrap);
 
     final CompletableFuture<Optional<RestoreAccountRequest>> displacedFuture =
         accountsManager.waitForRestoreAccountRequest(token, Duration.ofSeconds(5));
@@ -191,14 +195,17 @@ public class AccountsManagerDeviceTransferIntegrationTest {
 
     accountsManager.recordRestoreAccountRequest(token, restoreAccountRequest).join();
 
-    assertEquals(Optional.of(restoreAccountRequest), activeFuture.join());
+    final Optional<RestoreAccountRequest> result = activeFuture.join();
+    assertTrue(result.isPresent());
+    assertEquals(restoreAccountRequest.method(), result.get().method());
+    assertArrayEquals(restoreAccountRequest.deviceTransferBootstrap(), result.get().deviceTransferBootstrap());
   }
 
   @Test
   void waitForRestoreAccountRequestAlreadyRequested() {
     final String token = RandomStringUtils.secure().nextAlphanumeric(16);
     final RestoreAccountRequest restoreAccountRequest =
-        new RestoreAccountRequest(RestoreAccountRequest.Method.DEVICE_TRANSFER);
+        new RestoreAccountRequest(RestoreAccountRequest.Method.DEVICE_TRANSFER, null);
 
     accountsManager.recordRestoreAccountRequest(token, restoreAccountRequest).join();
 

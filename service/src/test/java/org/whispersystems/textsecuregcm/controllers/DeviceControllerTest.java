@@ -42,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
@@ -51,6 +52,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -1267,7 +1269,7 @@ class DeviceControllerTest {
   void recordRestoreAccountRequest() {
     final String token = RandomStringUtils.secure().nextAlphanumeric(16);
     final RestoreAccountRequest restoreAccountRequest =
-        new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP);
+        new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP, null);
 
     when(accountsManager.recordRestoreAccountRequest(token, restoreAccountRequest))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -1285,7 +1287,7 @@ class DeviceControllerTest {
   void recordRestoreAccountRequestBadToken() {
     final String token = RandomStringUtils.secure().nextAlphanumeric(128);
     final RestoreAccountRequest restoreAccountRequest =
-        new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP);
+        new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP, null);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/restore_account/" + token)
@@ -1299,7 +1301,7 @@ class DeviceControllerTest {
   @Test
   void recordRestoreAccountRequestInvalidRequest() {
     final String token = RandomStringUtils.secure().nextAlphanumeric(16);
-    final RestoreAccountRequest restoreAccountRequest = new RestoreAccountRequest(null);
+    final RestoreAccountRequest restoreAccountRequest = new RestoreAccountRequest(null, null);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/restore_account/" + token)
@@ -1310,11 +1312,34 @@ class DeviceControllerTest {
     }
   }
 
+  @ParameterizedTest
+  @CsvSource({
+      "0, true",
+      "4096, true",
+      "4097, false"
+  })
+  void recordRestoreAccountRequestBootstrapLengthLimit(int bootstrapLength, boolean valid) {
+    final String token = RandomStringUtils.secure().nextAlphanumeric(16);
+
+    final byte[] bootstrap = TestRandomUtil.nextBytes(bootstrapLength);
+    final RestoreAccountRequest restoreAccountRequest = new RestoreAccountRequest(
+        RestoreAccountRequest.Method.DEVICE_TRANSFER, bootstrap);
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/restore_account/" + token)
+        .request()
+        .put(Entity.json(restoreAccountRequest))) {
+
+      assertEquals(valid ? 204 : 422, response.getStatus());
+    }
+
+  }
+
   @Test
   void waitForDeviceTransferRequest() {
     final String token = RandomStringUtils.secure().nextAlphanumeric(16);
     final RestoreAccountRequest restoreAccountRequest =
-        new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP);
+        new RestoreAccountRequest(RestoreAccountRequest.Method.LOCAL_BACKUP, null);
 
     when(accountsManager.waitForRestoreAccountRequest(eq(token), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(restoreAccountRequest)));
