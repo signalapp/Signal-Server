@@ -104,6 +104,8 @@ public class FcmSender implements PushNotificationSender {
 
             if (firebaseMessagingException.getMessagingErrorCode() != null) {
               errorCode = firebaseMessagingException.getMessagingErrorCode().name();
+            } else if (firebaseMessagingException.getHttpResponse() != null) {
+              errorCode = "http" + firebaseMessagingException.getHttpResponse().getStatusCode();
             } else {
               logger.warn("Received an FCM exception with no error code", firebaseMessagingException);
               errorCode = "unknown";
