@@ -141,6 +141,7 @@ import org.whispersystems.textsecuregcm.filters.ExternalRequestFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
+import org.whispersystems.textsecuregcm.filters.RestDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.geo.MaxMindDatabaseManager;
 import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
@@ -1001,7 +1002,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     metricsHttpChannelListener.configure(environment);
     final MessageMetrics messageMetrics = new MessageMetrics();
 
+    // BufferingInterceptor is needed on the base environment but not the WebSocketEnvironment,
+    // because we handle serialization of http responses on the websocket on our own and can
+    // compute content lengths without it
     environment.jersey().register(new BufferingInterceptor());
+    environment.jersey().register(new RestDeprecationFilter(dynamicConfigurationManager, experimentEnrollmentManager));
+
     environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
     environment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
