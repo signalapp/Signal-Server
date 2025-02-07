@@ -17,11 +17,12 @@ import jakarta.ws.rs.core.Response;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import org.eclipse.jetty.util.component.LifeCycle;
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.StatusCode;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
@@ -47,25 +48,20 @@ class WhisperServerServiceTest {
         Resources.getResource("config/test-secrets-bundle.yml").getPath());
   }
 
+  private static final WebSocketClient webSocketClient = new WebSocketClient();
+
   private static final DropwizardAppExtension<WhisperServerConfiguration> EXTENSION = new DropwizardAppExtension<>(
       WhisperServerService.class, Resources.getResource("config/test.yml").getPath());
 
-  private WebSocketClient webSocketClient;
 
   @AfterAll
   static void teardown() {
     System.clearProperty("secrets.bundle.filename");
   }
 
-  @BeforeEach
-  void setUp() throws Exception {
-    webSocketClient = new WebSocketClient();
+  @BeforeAll
+  static void setUp() throws Exception {
     webSocketClient.start();
-  }
-
-  @AfterEach
-  void tearDown() throws Exception {
-    webSocketClient.stop();
   }
 
   @Test
@@ -96,6 +92,16 @@ class WhisperServerServiceTest {
 
     final TestWebsocketListener testWebsocketListener = new TestWebsocketListener();
 
+    EXTENSION.getTestSupport().getEnvironment().getApplicationContext().getServer()
+        .addEventListener(new LifeCycle.Listener() {
+          @Override
+          public void lifeCycleStopped(final LifeCycle event) {
+            // closed by org.eclipse.jetty.websocket.common.SessionTracker during the container Lifecycle stopping phase
+            assertEquals(StatusCode.SHUTDOWN, testWebsocketListener.closeFuture().getNow(-1));
+          }
+        });
+
+    // Session is Closeable, but we intentionally keep it open so that we can confirm the container Lifecycle behavior
     final Session session = webSocketClient.connect(testWebsocketListener,
             URI.create(String.format("ws://localhost:%d/v1/websocket/", EXTENSION.getLocalPort())))
         .join();
@@ -112,6 +118,8 @@ class WhisperServerServiceTest {
     assertEquals(401, whoami.getStatus());
     final long whoamiTimestamp = Long.parseLong(whoami.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase()));
     assertTrue(whoamiTimestamp >= start);
+
+
   }
 
   @Test

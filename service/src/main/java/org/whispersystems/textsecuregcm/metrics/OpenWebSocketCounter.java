@@ -1,18 +1,22 @@
 package org.whispersystems.textsecuregcm.metrics;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class OpenWebSocketCounter {
+
+  private static final String WEBSOCKET_CLOSED_COUNTER_NAME = name(OpenWebSocketCounter.class, "websocketClosed");
 
   private final Map<ClientPlatform, AtomicInteger> openWebsocketsByClientPlatform;
   private final AtomicInteger openWebsocketsFromUnknownPlatforms;
@@ -81,6 +85,9 @@ public class OpenWebSocketCounter {
     context.addWebsocketClosedListener((context1, statusCode, reason) -> {
       sample.stop(durationTimer);
       openWebSocketCounter.decrementAndGet();
+
+      Metrics.counter(WEBSOCKET_CLOSED_COUNTER_NAME, "status", String.valueOf(statusCode))
+          .increment();
     });
   }
 }
