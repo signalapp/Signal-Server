@@ -1268,31 +1268,6 @@ paths:
           description: Ratelimited.
       security:
       - authenticatedAccount: []
-  /v1/calling/relays:
-    get:
-      tags:
-      - Calling
-      summary: Get 1:1 calling relay options for the client
-      description: |
-        Get 1:1 relay addresses in IpV4, Ipv6, and URL formats.
-      operationId: getCallingRelays
-      responses:
-        "200":
-          description: '`JSON` with call endpoints.'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TurnToken'
-        "400":
-          description: Invalid get call endpoint request.
-        "401":
-          description: Account authentication check failed.
-        "422":
-          description: Invalid request format.
-        "429":
-          description: Rate limited.
-      security:
-      - authenticatedAccount: []
   /v2/calling/relays:
     get:
       tags:
@@ -1300,7 +1275,7 @@ paths:
       summary: Get 1:1 calling relay options for the client
       description: |
         Get 1:1 relay addresses in IpV4, Ipv6, and URL formats.
-      operationId: getCallingRelays_1
+      operationId: getCallingRelays
       responses:
         "200":
           description: '`JSON` with call endpoints.'
@@ -4655,6 +4630,13 @@ components:
         createCallLinkCredentialRequest:
           type: string
           format: byte
+    GetCallingRelaysResponse:
+      type: object
+      properties:
+        relays:
+          type: array
+          items:
+            $ref: '#/components/schemas/TurnToken'
     TurnToken:
       type: object
       properties:
@@ -4672,13 +4654,6 @@ components:
             type: string
         hostname:
           type: string
-    GetCallingRelaysResponse:
-      type: object
-      properties:
-        relays:
-          type: array
-          items:
-            $ref: '#/components/schemas/TurnToken'
     DeliveryCertificate:
       type: object
       properties:
@@ -4889,6 +4864,12 @@ components:
           - LOCAL_BACKUP
           - DEVICE_TRANSFER
           - DECLINE
+        deviceTransferBootstrap:
+          maxLength: 4096
+          minLength: 0
+          type: string
+          description: "Additional data to use to bootstrap a connection between devices,\
+            \ in standard unpadded base64."
       description: |
         Represents a request from a new device to restore account data by some method.
     RemoteAttachmentError:
