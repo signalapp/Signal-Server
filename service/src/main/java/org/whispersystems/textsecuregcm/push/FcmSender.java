@@ -98,26 +98,29 @@ public class FcmSender implements PushNotificationSender {
     return GoogleApiUtil.toCompletableFuture(firebaseMessagingClient.sendAsync(builder.build()), executor)
         .whenComplete((ignored, throwable) -> sample.stop(SEND_NOTIFICATION_TIMER))
         .thenApply(ignored -> new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty()))
-        .exceptionally(throwable -> {
-          if (ExceptionUtils.unwrap(throwable) instanceof final FirebaseMessagingException firebaseMessagingException) {
-            final String errorCode;
+        .exceptionally(ExceptionUtils.exceptionallyHandler(FirebaseMessagingException.class,
+            firebaseMessagingException -> {
+              final String errorCode;
 
-            if (firebaseMessagingException.getMessagingErrorCode() != null) {
-              errorCode = firebaseMessagingException.getMessagingErrorCode().name();
-            } else if (firebaseMessagingException.getHttpResponse() != null) {
-              errorCode = "http" + firebaseMessagingException.getHttpResponse().getStatusCode();
-            } else {
-              logger.warn("Received an FCM exception with no error code", firebaseMessagingException);
-              errorCode = "unknown";
-            }
+              if (firebaseMessagingException.getMessagingErrorCode() != null) {
+                errorCode = firebaseMessagingException.getMessagingErrorCode().name();
+                if (firebaseMessagingException.getMessagingErrorCode() == MessagingErrorCode.QUOTA_EXCEEDED) {
+                  logger.info("FCM request failed with quota exceeded; retry-after: {}, response body: {}",
+                      firebaseMessagingException.getHttpResponse().getHeaders().get("retry-after"),
+                      firebaseMessagingException.getHttpResponse().getContent());
+                }
+              } else if (firebaseMessagingException.getHttpResponse() != null) {
+                errorCode = "http" + firebaseMessagingException.getHttpResponse().getStatusCode();
+              } else {
+                logger.warn("Received an FCM exception with no error code", firebaseMessagingException);
+                errorCode = "unknown";
+              }
 
-            final boolean unregistered =
-                firebaseMessagingException.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED;
+              final boolean unregistered =
+                  firebaseMessagingException.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED;
 
-            return new SendPushNotificationResult(false, Optional.of(errorCode), unregistered, Optional.empty());
-          } else {
-            throw ExceptionUtils.wrap(throwable);
-          }
-        });
+              return new SendPushNotificationResult(false, Optional.of(errorCode), unregistered, Optional.empty());
+            }));
   }
 }
+
