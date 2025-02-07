@@ -40,7 +40,7 @@ import org.whispersystems.websocket.auth.ReadOnly;
 public class CallRoutingControllerV2 {
 
   private static final Counter INVALID_IP_COUNTER = Metrics.counter(name(CallRoutingControllerV2.class, "invalidIP"));
-  private static final Counter CLOUDFLARE_TURN_ERROR_COUNTER = Metrics.counter(name(CallRoutingController.class, "cloudflareTurnError"));
+  private static final Counter CLOUDFLARE_TURN_ERROR_COUNTER = Metrics.counter(name(CallRoutingControllerV2.class, "cloudflareTurnError"));
   private final RateLimiters rateLimiters;
   private final TurnCallRouter turnCallRouter;
   private final TurnTokenGenerator tokenGenerator;
