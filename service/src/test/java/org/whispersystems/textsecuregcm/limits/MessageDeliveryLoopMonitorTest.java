@@ -11,14 +11,14 @@ import org.whispersystems.textsecuregcm.storage.Device;
 
 class MessageDeliveryLoopMonitorTest {
 
-  private MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
+  private RedisMessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
 
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   @BeforeEach
   void setUp() {
-    messageDeliveryLoopMonitor = new MessageDeliveryLoopMonitor(REDIS_CLUSTER_EXTENSION.getRedisCluster());
+    messageDeliveryLoopMonitor = new RedisMessageDeliveryLoopMonitor(REDIS_CLUSTER_EXTENSION.getRedisCluster());
   }
 
   @Test

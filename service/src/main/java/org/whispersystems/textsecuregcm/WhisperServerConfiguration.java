@@ -336,6 +336,9 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private KeyTransparencyServiceConfiguration keyTransparencyService;
 
+  @JsonProperty
+  private boolean logMessageDeliveryLoops;
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -558,4 +561,9 @@ public class WhisperServerConfiguration extends Configuration {
   public KeyTransparencyServiceConfiguration getKeyTransparencyServiceConfiguration() {
     return keyTransparencyService;
   }
+
+  public boolean logMessageDeliveryLoops() {
+    return logMessageDeliveryLoops;
+  }
+
 }

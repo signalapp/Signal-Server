@@ -164,10 +164,12 @@ import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
+import org.whispersystems.textsecuregcm.limits.NoopMessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.limits.PushChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.limits.RedisMessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
@@ -655,7 +657,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Subscriptions subscriptions = new Subscriptions(
         config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient);
     MessageDeliveryLoopMonitor messageDeliveryLoopMonitor =
-        new MessageDeliveryLoopMonitor(rateLimitersCluster);
+        config.logMessageDeliveryLoops() ? new RedisMessageDeliveryLoopMonitor(rateLimitersCluster) : new NoopMessageDeliveryLoopMonitor();
 
     disconnectionRequestManager.addListener(webSocketConnectionEventManager);
 
