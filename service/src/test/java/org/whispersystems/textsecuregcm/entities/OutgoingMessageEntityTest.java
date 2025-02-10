@@ -69,7 +69,7 @@ class OutgoingMessageEntityTest {
     final Account account = new Account();
     account.setUuid(UUID.randomUUID());
 
-    IncomingMessage message = new IncomingMessage(1, (byte) 44, 55, "AAAAAA");
+    IncomingMessage message = new IncomingMessage(1, (byte) 44, 55, TestRandomUtil.nextBytes(4));
 
     MessageProtos.Envelope baseEnvelope = message.toEnvelope(
         new AciServiceIdentifier(UUID.randomUUID()),

@@ -4,18 +4,25 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.protobuf.ByteString;
+import com.webauthn4j.converter.jackson.deserializer.json.ByteArrayBase64Deserializer;
 import io.micrometer.core.instrument.Metrics;
 import jakarta.validation.constraints.AssertTrue;
-import java.util.Base64;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
+import java.util.Arrays;
+import java.util.Objects;
 
-public record IncomingMessage(int type, byte destinationDeviceId, int destinationRegistrationId, String content) {
+public record IncomingMessage(int type,
+                              byte destinationDeviceId,
+                              int destinationRegistrationId,
+
+                              @JsonDeserialize(using = ByteArrayBase64Deserializer.class)
+                              byte[] content) {
 
   private static final String REJECT_INVALID_ENVELOPE_TYPE_COUNTER_NAME =
       MetricsUtil.name(IncomingMessage.class, "rejectInvalidEnvelopeType");
@@ -50,8 +57,8 @@ public record IncomingMessage(int type, byte destinationDeviceId, int destinatio
       envelopeBuilder.setReportSpamToken(ByteString.copyFrom(reportSpamToken));
     }
 
-    if (StringUtils.isNotEmpty(content())) {
-      envelopeBuilder.setContent(ByteString.copyFrom(Base64.getDecoder().decode(content())));
+    if (content() != null && content().length > 0) {
+      envelopeBuilder.setContent(ByteString.copyFrom(content()));
     }
 
     return envelopeBuilder.build();
@@ -68,5 +75,18 @@ public record IncomingMessage(int type, byte destinationDeviceId, int destinatio
     }
 
     return true;
+  }
+
+  @Override
+  public boolean equals(final Object o) {
+    if (!(o instanceof IncomingMessage(int otherType, byte otherDeviceId, int otherRegistrationId, byte[] otherContent)))
+      return false;
+    return type == otherType && destinationDeviceId == otherDeviceId
+        && destinationRegistrationId == otherRegistrationId && Objects.deepEquals(content, otherContent);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(type, destinationDeviceId, destinationRegistrationId, Arrays.hashCode(content));
   }
 }

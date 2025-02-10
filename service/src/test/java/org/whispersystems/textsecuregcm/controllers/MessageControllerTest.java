@@ -1096,7 +1096,7 @@ class MessageControllerTest {
             .request()
             .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
             .put(Entity.entity(new IncomingMessageList(
-                    List.of(new IncomingMessage(1, (byte) 1, 1, Base64.getEncoder().encodeToString(contentBytes))), false, true,
+                    List.of(new IncomingMessage(1, (byte) 1, 1, contentBytes)), false, true,
                     System.currentTimeMillis()),
                 MediaType.APPLICATION_JSON_TYPE))) {
 
@@ -1641,15 +1641,5 @@ class MessageControllerTest {
     }
 
     return builder.build();
-  }
-
-  @Test
-  void decodedSize() {
-    for (int size = MessageController.MAX_MESSAGE_SIZE - 3; size <= MessageController.MAX_MESSAGE_SIZE + 3; size++) {
-      final byte[] bytes = TestRandomUtil.nextBytes(size);
-      final String base64Encoded = Base64.getEncoder().encodeToString(bytes);
-
-      assertEquals(bytes.length, MessageController.decodedSize(base64Encoded));
-    }
   }
 }

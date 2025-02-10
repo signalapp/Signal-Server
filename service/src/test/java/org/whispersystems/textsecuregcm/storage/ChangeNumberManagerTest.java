@@ -15,8 +15,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -150,7 +150,7 @@ public class ChangeNumberManagerTest {
 
     final IncomingMessage msg = mock(IncomingMessage.class);
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
-    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
+    when(msg.content()).thenReturn(new byte[]{1});
 
     changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, null, List.of(msg), registrationIds);
 
@@ -203,7 +203,7 @@ public class ChangeNumberManagerTest {
 
     final IncomingMessage msg = mock(IncomingMessage.class);
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
-    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
+    when(msg.content()).thenReturn(new byte[]{1});
 
     changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
 
@@ -254,7 +254,7 @@ public class ChangeNumberManagerTest {
 
     final IncomingMessage msg = mock(IncomingMessage.class);
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
-    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
+    when(msg.content()).thenReturn(new byte[]{1});
 
     changeNumberManager.changeNumber(account, originalE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
 
@@ -301,7 +301,7 @@ public class ChangeNumberManagerTest {
 
     final IncomingMessage msg = mock(IncomingMessage.class);
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
-    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
+    when(msg.content()).thenReturn(new byte[]{1});
 
     changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, null, List.of(msg), registrationIds);
 
@@ -350,7 +350,7 @@ public class ChangeNumberManagerTest {
 
     final IncomingMessage msg = mock(IncomingMessage.class);
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
-    when(msg.content()).thenReturn(Base64.getEncoder().encodeToString(new byte[]{1}));
+    when(msg.content()).thenReturn(new byte[]{1});
 
     changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
 
@@ -393,8 +393,8 @@ public class ChangeNumberManagerTest {
     final byte destinationDeviceId2 = 2;
     final byte destinationDeviceId3 = 3;
     final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, destinationDeviceId2, 1, "foo"),
-        new IncomingMessage(1, destinationDeviceId3, 1, "foo"));
+        new IncomingMessage(1, destinationDeviceId2, 1, "foo".getBytes(StandardCharsets.UTF_8)),
+        new IncomingMessage(1, destinationDeviceId3, 1, "foo".getBytes(StandardCharsets.UTF_8)));
 
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final ECPublicKey pniIdentityKey = pniIdentityKeyPair.getPublicKey();
@@ -431,8 +431,8 @@ public class ChangeNumberManagerTest {
     final byte destinationDeviceId2 = 2;
     final byte destinationDeviceId3 = 3;
     final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, destinationDeviceId2, 1, "foo"),
-        new IncomingMessage(1, destinationDeviceId3, 1, "foo"));
+        new IncomingMessage(1, destinationDeviceId2, 1, "foo".getBytes(StandardCharsets.UTF_8)),
+        new IncomingMessage(1, destinationDeviceId3, 1, "foo".getBytes(StandardCharsets.UTF_8)));
 
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
     final ECPublicKey pniIdentityKey = pniIdentityKeyPair.getPublicKey();
@@ -469,8 +469,8 @@ public class ChangeNumberManagerTest {
     final byte destinationDeviceId2 = 2;
     final byte destinationDeviceId3 = 3;
     final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, destinationDeviceId2, 2, "foo"),
-        new IncomingMessage(1, destinationDeviceId3, 3, "foo"));
+        new IncomingMessage(1, destinationDeviceId2, 2, "foo".getBytes(StandardCharsets.UTF_8)),
+        new IncomingMessage(1, destinationDeviceId3, 3, "foo".getBytes(StandardCharsets.UTF_8)));
 
     final Map<Byte, Integer> registrationIds = Map.of((byte) 1, 17, destinationDeviceId2, 47, destinationDeviceId3, 89);
 

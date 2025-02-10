@@ -62,7 +62,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.ServiceId;
@@ -324,7 +323,7 @@ public class MessageController {
       int totalContentLength = 0;
 
       for (final IncomingMessage message : messages.messages()) {
-        final int contentLength = decodedSize(message.content());
+        final int contentLength = message.content() != null ? message.content().length : 0;
 
         validateContentLength(contentLength, false, isSyncMessage, isStory, userAgent);
 
@@ -954,20 +953,5 @@ public class MessageController {
           Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage))))
           .increment();
     }      
-  }
-
-  @VisibleForTesting
-  static int decodedSize(final String base64) {
-    final int padding;
-
-    if (StringUtils.endsWith(base64, "==")) {
-      padding = 2;
-    } else if (StringUtils.endsWith(base64, "=")) {
-      padding = 1;
-    } else {
-      padding = 0;
-    }
-
-    return ((StringUtils.length(base64) - padding) * 3) / 4;
   }
 }

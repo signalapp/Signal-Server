@@ -8,7 +8,6 @@ package org.signal.integration;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
@@ -27,11 +26,10 @@ public class MessagingTest {
 
     try {
       final byte[] expectedContent = "Hello, World!".getBytes(StandardCharsets.UTF_8);
-      final String contentBase64 = Base64.getEncoder().encodeToString(expectedContent);
-      final IncomingMessage message = new IncomingMessage(1, Device.PRIMARY_ID, userB.registrationId(), contentBase64);
+      final IncomingMessage message = new IncomingMessage(1, Device.PRIMARY_ID, userB.registrationId(), expectedContent);
       final IncomingMessageList messages = new IncomingMessageList(List.of(message), false, true, System.currentTimeMillis());
 
-      final Pair<Integer, SendMessageResponse> sendMessage = Operations
+      Operations
           .apiPut("/v1/messages/%s".formatted(userB.aciUuid().toString()), messages)
           .authorized(userA)
           .execute(SendMessageResponse.class);
@@ -40,7 +38,7 @@ public class MessagingTest {
           .authorized(userB)
           .execute(OutgoingMessageEntityList.class);
 
-      final byte[] actualContent = receiveMessages.getRight().messages().get(0).content();
+      final byte[] actualContent = receiveMessages.getRight().messages().getFirst().content();
       assertArrayEquals(expectedContent, actualContent);
     } finally {
       Operations.deleteUser(userA);

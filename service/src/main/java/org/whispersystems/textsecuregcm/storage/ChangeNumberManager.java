@@ -13,7 +13,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,16 +137,11 @@ public class ChangeNumberManager {
   }
 
   private static Optional<byte[]> getMessageContent(final IncomingMessage message) {
-    if (StringUtils.isEmpty(message.content())) {
+    if (message.content() == null || message.content().length == 0) {
       logger.warn("Message has no content");
       return Optional.empty();
     }
 
-    try {
-      return Optional.of(Base64.getDecoder().decode(message.content()));
-    } catch (final IllegalArgumentException e) {
-      logger.warn("Failed to parse message content", e);
-      return Optional.empty();
-    }
+    return Optional.of(message.content());
   }
 }
