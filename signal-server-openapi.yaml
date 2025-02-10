@@ -2488,7 +2488,11 @@ paths:
         required: true
       responses:
         "200":
-          description: Message was successfully sent to all recipients
+          description: Message was successfully sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendMultiRecipientMessageResponse'
         "400":
           description: The envelope specified delivery to the same recipient device
             multiple times
@@ -5234,6 +5238,18 @@ components:
           maximum: 8640000000000000
           type: integer
           format: int64
+    SendMultiRecipientMessageResponse:
+      type: object
+      properties:
+        uuids404:
+          type: array
+          description: a list of the service identifiers in the request that do not
+            correspond to registered Signal users; will only be present if a group
+            send endorsement was supplied for the request
+          items:
+            type: string
+            description: A service identifier is a tuple of a UUID and identity type
+              that identifies an account and identity within the Signal service.
     AccountMismatchedDevices:
       type: object
       properties:
