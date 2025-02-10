@@ -337,7 +337,7 @@ public class MessageController {
           contentLength += message.content().length();
         }
 
-        validateContentLength(contentLength, false, userAgent);
+        validateContentLength(contentLength, false, isSyncMessage, isStory, userAgent);
         validateEnvelopeType(message.type(), userAgent);
 
         totalContentLength += contentLength;
@@ -529,7 +529,7 @@ public class MessageController {
 
     // Verify that the message isn't too large before performing more expensive validations
     multiRecipientMessage.getRecipients().values().forEach(recipient ->
-        validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipient), true, userAgent));
+        validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipient), true, false, isStory, userAgent));
 
     // Check that the request is well-formed and doesn't contain repeated entries for the same device for the same
     // recipient
@@ -931,26 +931,36 @@ public class MessageController {
     }
   }
 
-  private void validateContentLength(final int contentLength, final boolean multiRecipientMessage, final String userAgent) {
+  private void validateContentLength(final int contentLength,
+      final boolean isMultiRecipientMessage,
+      final boolean isSyncMessage,
+      final boolean isStory,
+      final String userAgent) {
+
     final boolean oversize = contentLength > MAX_MESSAGE_SIZE;
 
     DistributionSummary.builder(CONTENT_SIZE_DISTRIBUTION_NAME)
         .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of("oversize", String.valueOf(oversize)),
-            Tag.of("multiRecipientMessage", String.valueOf(multiRecipientMessage))))
+            Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
+            Tag.of("syncMessage", String.valueOf(isSyncMessage)),
+            Tag.of("story", String.valueOf(isStory))))
         .publishPercentileHistogram(true)
         .register(Metrics.globalRegistry)
         .record(contentLength);
 
     if (oversize) {
-      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+              Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
+              Tag.of("syncMessage", String.valueOf(isSyncMessage)),
+              Tag.of("story", String.valueOf(isStory))))
           .increment();
       throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
     }
     if (contentLength > LARGE_MESSAGE_SIZE) {
       Metrics.counter(
           LARGE_BUT_NOT_OVERSIZE_MESSAGE_COUNTER,
-          Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("multiRecipientMessage", String.valueOf(multiRecipientMessage))))
+          Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage))))
           .increment();
     }      
   }
