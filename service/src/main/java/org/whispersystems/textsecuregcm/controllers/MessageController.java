@@ -59,6 +59,7 @@ import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -684,16 +685,21 @@ public class MessageController {
         messageSender.sendMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, timestamp, isStory, online, isUrgent).get();
       }
 
-      final List<ServiceIdentifier> unresolvedRecipientServiceIds = authType == AUTH_TYPE_GROUP_SEND_TOKEN ? new ArrayList<>() : List.of();
+      final List<ServiceIdentifier> unresolvedRecipientServiceIds;
+      if (AUTH_TYPE_GROUP_SEND_TOKEN.equals(authType)) {
+        unresolvedRecipientServiceIds = multiRecipientMessage.getRecipients().entrySet().stream()
+            .filter(entry -> !resolvedRecipients.containsKey(entry.getValue()))
+            .map(entry -> ServiceIdentifier.fromLibsignal(entry.getKey()))
+            .toList();
+      } else {
+        unresolvedRecipientServiceIds = List.of();
+      }
 
       multiRecipientMessage.getRecipients().forEach((serviceId, recipient) -> {
         if (!resolvedRecipients.containsKey(recipient)) {
           // We skipped sending to this recipient because we couldn't resolve the recipient to an
           // existing account; don't increment the counter for this recipient. If the client was
           // using a GSE, track the missing recipients to include in the response.
-          if (authType == AUTH_TYPE_GROUP_SEND_TOKEN) {
-            unresolvedRecipientServiceIds.add(ServiceIdentifier.fromLibsignal(serviceId));
-          }
           return;
         }
 
