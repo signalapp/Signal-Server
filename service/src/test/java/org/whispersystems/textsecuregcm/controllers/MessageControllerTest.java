@@ -9,6 +9,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,6 +48,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -82,6 +84,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
+import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SpamReport;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -1162,7 +1165,8 @@ class MessageControllerTest {
       final Optional<String> maybeAccessKey,
       final Optional<String> maybeGroupSendToken,
       final int expectedStatus,
-      final Set<Account> expectedResolvedAccounts) {
+      final Set<Account> expectedResolvedAccounts,
+      final Set<ServiceIdentifier> expectedUuids404) {
 
     clock.pin(START_OF_DAY);
 
@@ -1203,6 +1207,11 @@ class MessageControllerTest {
         .put(Entity.entity(multiRecipientMessage, MultiRecipientMessageProvider.MEDIA_TYPE))) {
 
       assertThat(response.getStatus(), is(equalTo(expectedStatus)));
+
+      if (expectedStatus == 200) {
+        final SendMultiRecipientMessageResponse entity = response.readEntity(SendMultiRecipientMessageResponse.class);
+        assertThat(Set.copyOf(entity.uuids404()), equalTo(expectedUuids404));
+      }
 
       if (expectedStatus == 200 && !expectedResolvedAccounts.isEmpty()) {
         verify(messageSender).sendMultiRecipientMessage(any(),
@@ -1283,7 +1292,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.empty(),
             200,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Multi-recipient message with combined UAKs",
             accountsByServiceIdentifier,
@@ -1294,7 +1304,8 @@ class MessageControllerTest {
             Optional.of(Base64.getEncoder().encodeToString(UnidentifiedAccessUtil.getCombinedUnidentifiedAccessKey(List.of(singleDeviceAccount, multiDeviceAccount)))),
             Optional.empty(),
             200,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Multi-recipient message with group send endorsement",
             accountsByServiceIdentifier,
@@ -1305,7 +1316,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.of(groupSendEndorsement),
             200,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Incorrect combined UAK",
             accountsByServiceIdentifier,
@@ -1316,7 +1328,8 @@ class MessageControllerTest {
             Optional.of(Base64.getEncoder().encodeToString(TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH))),
             Optional.empty(),
             401,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Incorrect group send endorsement",
             accountsByServiceIdentifier,
@@ -1329,7 +1342,8 @@ class MessageControllerTest {
                 List.of(new AciServiceIdentifier(UUID.randomUUID())),
                 START_OF_DAY.plus(Duration.ofDays(1)))),
             401,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         // Stories don't require credentials of any kind, but for historical reasons, we don't reject a combined UAK if
         // provided
@@ -1342,7 +1356,8 @@ class MessageControllerTest {
             Optional.of(Base64.getEncoder().encodeToString(UnidentifiedAccessUtil.getCombinedUnidentifiedAccessKey(List.of(singleDeviceAccount, multiDeviceAccount)))),
             Optional.empty(),
             200,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Story with group send endorsement",
             accountsByServiceIdentifier,
@@ -1353,7 +1368,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.of(groupSendEndorsement),
             400,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Conflicting credentials",
             accountsByServiceIdentifier,
@@ -1364,7 +1380,8 @@ class MessageControllerTest {
             Optional.of(Base64.getEncoder().encodeToString(UnidentifiedAccessUtil.getCombinedUnidentifiedAccessKey(List.of(singleDeviceAccount, multiDeviceAccount)))),
             Optional.of(groupSendEndorsement),
             400,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("No credentials",
             accountsByServiceIdentifier,
@@ -1375,7 +1392,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.empty(),
             401,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Oversized payload",
             accountsByServiceIdentifier,
@@ -1390,7 +1408,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.of(groupSendEndorsement),
             413,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Negative timestamp",
             accountsByServiceIdentifier,
@@ -1401,7 +1420,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.of(groupSendEndorsement),
             400,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Excessive timestamp",
             accountsByServiceIdentifier,
@@ -1412,7 +1432,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.of(groupSendEndorsement),
             400,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Empty recipient list",
             accountsByServiceIdentifier,
@@ -1425,7 +1446,8 @@ class MessageControllerTest {
                 List.of(),
                 START_OF_DAY.plus(Duration.ofDays(1)))),
             400,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Story with empty recipient list",
             accountsByServiceIdentifier,
@@ -1436,7 +1458,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.empty(),
             400,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Duplicate recipient",
             accountsByServiceIdentifier,
@@ -1449,7 +1472,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.of(groupSendEndorsement),
             400,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Missing account",
             Map.of(),
@@ -1459,8 +1483,21 @@ class MessageControllerTest {
             false,
             Optional.empty(),
             Optional.of(groupSendEndorsement),
-            404,
-            Collections.emptySet()),
+            200,
+            Collections.emptySet(),
+            Set.of(new AciServiceIdentifier(singleDeviceAccountAci), new AciServiceIdentifier(multiDeviceAccountAci))),
+
+        Arguments.argumentSet("One missing and one existing account",
+            Map.of(new AciServiceIdentifier(singleDeviceAccountAci), singleDeviceAccount),
+            aciMessage,
+            clock.instant().toEpochMilli(),
+            false,
+            false,
+            Optional.empty(),
+            Optional.of(groupSendEndorsement),
+            200,
+            Set.of(singleDeviceAccount),
+            Set.of(new AciServiceIdentifier(multiDeviceAccountAci))),
 
         Arguments.argumentSet("Missing account for story",
             Map.of(),
@@ -1471,7 +1508,20 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.empty(),
             200,
-            Collections.emptySet()),
+            Collections.emptySet(),
+            Set.of()),
+
+        Arguments.argumentSet("One missing and one existing account for story",
+            Map.of(new AciServiceIdentifier(singleDeviceAccountAci), singleDeviceAccount),
+            aciMessage,
+            clock.instant().toEpochMilli(),
+            true,
+            false,
+            Optional.empty(),
+            Optional.empty(),
+            200,
+            Set.of(singleDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Missing device",
             accountsByServiceIdentifier,
@@ -1484,7 +1534,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.of(groupSendEndorsement),
             409,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Extra device",
             accountsByServiceIdentifier,
@@ -1499,7 +1550,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.of(groupSendEndorsement),
             409,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Stale registration ID",
             accountsByServiceIdentifier,
@@ -1513,7 +1565,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.of(groupSendEndorsement),
             410,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Rate-limited story",
             accountsByServiceIdentifier,
@@ -1524,7 +1577,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.empty(),
             429,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Story to PNI recipients",
             accountsByServiceIdentifier,
@@ -1538,7 +1592,8 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.empty(),
             200,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Multi-recipient message to PNI recipients with UAK",
             accountsByServiceIdentifier,
@@ -1552,7 +1607,8 @@ class MessageControllerTest {
             Optional.of(Base64.getEncoder().encodeToString(UnidentifiedAccessUtil.getCombinedUnidentifiedAccessKey(List.of(singleDeviceAccount, multiDeviceAccount)))),
             Optional.empty(),
             401,
-            Set.of(singleDeviceAccount, multiDeviceAccount)),
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of()),
 
         Arguments.argumentSet("Multi-recipient message to PNI recipients with group send endorsement",
             accountsByServiceIdentifier,
@@ -1568,7 +1624,8 @@ class MessageControllerTest {
                 List.of(new PniServiceIdentifier(singleDeviceAccountPni), new PniServiceIdentifier(multiDeviceAccountPni)),
                 START_OF_DAY.plus(Duration.ofDays(1)))),
             200,
-            Set.of(singleDeviceAccount, multiDeviceAccount))
+            Set.of(singleDeviceAccount, multiDeviceAccount),
+            Set.of())
     );
   }
 

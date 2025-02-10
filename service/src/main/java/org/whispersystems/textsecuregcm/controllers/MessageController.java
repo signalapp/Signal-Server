@@ -475,7 +475,10 @@ public class MessageController {
           Deliver a common-payload message to multiple recipients.
           An unidentifed-access key for all recipients must be provided, unless the message is a story.
           """)
-  @ApiResponse(responseCode="200", description="Message was successfully sent to all recipients", useReturnTypeSchema=true)
+  @ApiResponse(
+      responseCode="200",
+      description="Message was successfully sent",
+      content = @Content(schema = @Schema(implementation = SendMultiRecipientMessageResponse.class)))
   @ApiResponse(responseCode="400", description="The envelope specified delivery to the same recipient device multiple times")
   @ApiResponse(
       responseCode="401",
@@ -578,7 +581,7 @@ public class MessageController {
 
               return Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
                   .flatMap(Mono::justOrEmpty)
-                  .switchIfEmpty(isStory ? Mono.empty() : Mono.error(NotFoundException::new))
+                  .switchIfEmpty(isStory || groupSendToken != null ? Mono.empty() : Mono.error(NotFoundException::new))
                   .map(account -> Tuples.of(serviceIdAndRecipient.getValue(), account));
             }, MAX_FETCH_ACCOUNT_CONCURRENCY)
             .collectMap(Tuple2::getT1, Tuple2::getT2)
@@ -677,12 +680,20 @@ public class MessageController {
     }
 
     try {
-      messageSender.sendMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, timestamp, isStory, online, isUrgent).get();
+      if (!resolvedRecipients.isEmpty()) {
+        messageSender.sendMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, timestamp, isStory, online, isUrgent).get();
+      }
+
+      final List<ServiceIdentifier> unresolvedRecipientServiceIds = authType == AUTH_TYPE_GROUP_SEND_TOKEN ? new ArrayList<>() : List.of();
 
       multiRecipientMessage.getRecipients().forEach((serviceId, recipient) -> {
         if (!resolvedRecipients.containsKey(recipient)) {
-          // We skipped sending to this recipient because we're sending a story and couldn't resolve the recipient to
-          // an existing account; don't increment the counter for this recipient.
+          // We skipped sending to this recipient because we couldn't resolve the recipient to an
+          // existing account; don't increment the counter for this recipient. If the client was
+          // using a GSE, track the missing recipients to include in the response.
+          if (authType == AUTH_TYPE_GROUP_SEND_TOKEN) {
+            unresolvedRecipientServiceIds.add(ServiceIdentifier.fromLibsignal(serviceId));
+          }
           return;
         }
 
@@ -701,6 +712,8 @@ public class MessageController {
                 Tag.of(IDENTITY_TYPE_TAG_NAME, identityType)))
             .increment(recipient.getDevices().length);
       });
+
+      return Response.ok(new SendMultiRecipientMessageResponse(unresolvedRecipientServiceIds)).build();
     } catch (InterruptedException e) {
       logger.error("interrupted while delivering multi-recipient messages", e);
       throw new InternalServerErrorException("interrupted during delivery");
@@ -711,7 +724,6 @@ public class MessageController {
       logger.error("partial failure while delivering multi-recipient messages", e.getCause());
       throw new InternalServerErrorException("failure during delivery");
     }
-    return Response.ok(new SendMultiRecipientMessageResponse(Collections.emptyList())).build();
   }
 
   private void checkGroupSendToken(
