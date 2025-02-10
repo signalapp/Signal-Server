@@ -5,14 +5,20 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import com.google.protobuf.ByteString;
+import io.micrometer.core.instrument.Metrics;
+import jakarta.validation.constraints.AssertTrue;
 import java.util.Base64;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 public record IncomingMessage(int type, byte destinationDeviceId, int destinationRegistrationId, String content) {
+
+  private static final String REJECT_INVALID_ENVELOPE_TYPE_COUNTER_NAME =
+      MetricsUtil.name(IncomingMessage.class, "rejectInvalidEnvelopeType");
 
   public MessageProtos.Envelope toEnvelope(final ServiceIdentifier destinationIdentifier,
       @Nullable Account sourceAccount,
@@ -23,15 +29,10 @@ public record IncomingMessage(int type, byte destinationDeviceId, int destinatio
       final boolean urgent,
       @Nullable byte[] reportSpamToken) {
 
-    final MessageProtos.Envelope.Type envelopeType = MessageProtos.Envelope.Type.forNumber(type());
-
-    if (envelopeType == null) {
-      throw new IllegalArgumentException("Bad envelope type: " + type());
-    }
-
     final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder();
 
-    envelopeBuilder.setType(envelopeType)
+    envelopeBuilder
+        .setType(MessageProtos.Envelope.Type.forNumber(type))
         .setClientTimestamp(timestamp)
         .setServerTimestamp(System.currentTimeMillis())
         .setDestinationServiceId(destinationIdentifier.toServiceIdentifierString())
@@ -54,5 +55,18 @@ public record IncomingMessage(int type, byte destinationDeviceId, int destinatio
     }
 
     return envelopeBuilder.build();
+  }
+
+  @AssertTrue
+  public boolean isValidEnvelopeType() {
+    if (type() == MessageProtos.Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE ||
+        MessageProtos.Envelope.Type.forNumber(type()) == null) {
+
+      Metrics.counter(REJECT_INVALID_ENVELOPE_TYPE_COUNTER_NAME).increment();
+
+      return false;
+    }
+
+    return true;
   }
 }

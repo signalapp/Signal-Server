@@ -167,7 +167,6 @@ public class MessageController {
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
 
-  private static final String REJECT_INVALID_ENVELOPE_TYPE = name(MessageController.class, "rejectInvalidEnvelopeType");
   private static final String SEND_MESSAGE_LATENCY_TIMER_NAME = MetricsUtil.name(MessageController.class, "sendMessageLatency");
 
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
@@ -175,7 +174,6 @@ public class MessageController {
   private static final String AUTH_TYPE_TAG_NAME = "authType";
   private static final String SENDER_COUNTRY_TAG_NAME = "senderCountry";
   private static final String RATE_LIMIT_REASON_TAG_NAME = "rateLimitReason";
-  private static final String ENVELOPE_TYPE_TAG_NAME = "envelopeType";
   private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
   private static final String ENDPOINT_TYPE_TAG_NAME = "endpoint";
 
@@ -192,7 +190,7 @@ public class MessageController {
   private static final String ENDPOINT_TYPE_MULTI = "multi";
 
   @VisibleForTesting
-  static final long MAX_MESSAGE_SIZE = DataSize.kibibytes(256).toBytes();
+  static final int MAX_MESSAGE_SIZE = (int) DataSize.kibibytes(256).toBytes();
   private static final long LARGE_MESSAGE_SIZE = DataSize.kibibytes(8).toBytes();
 
   // The Signal desktop client (really, JavaScript in general) can handle message timestamps at most 100,000,000 days
@@ -332,14 +330,9 @@ public class MessageController {
       int totalContentLength = 0;
 
       for (final IncomingMessage message : messages.messages()) {
-        int contentLength = 0;
-
-        if (StringUtils.isNotEmpty(message.content())) {
-          contentLength += message.content().length();
-        }
+        final int contentLength = decodedSize(message.content());
 
         validateContentLength(contentLength, false, isSyncMessage, isStory, userAgent);
-        validateEnvelopeType(message.type(), userAgent);
 
         totalContentLength += contentLength;
       }
@@ -971,12 +964,18 @@ public class MessageController {
     }      
   }
 
-  private void validateEnvelopeType(final int type, final String userAgent) {
-    if (type == Type.SERVER_DELIVERY_RECEIPT_VALUE) {
-      Metrics.counter(REJECT_INVALID_ENVELOPE_TYPE,
-              Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of(ENVELOPE_TYPE_TAG_NAME, String.valueOf(type))))
-          .increment();
-      throw new BadRequestException("reserved envelope type");
+  @VisibleForTesting
+  static int decodedSize(final String base64) {
+    final int padding;
+
+    if (StringUtils.endsWith(base64, "==")) {
+      padding = 2;
+    } else if (StringUtils.endsWith(base64, "=")) {
+      padding = 1;
+    } else {
+      padding = 0;
     }
+
+    return ((StringUtils.length(base64) - padding) * 3) / 4;
   }
 }

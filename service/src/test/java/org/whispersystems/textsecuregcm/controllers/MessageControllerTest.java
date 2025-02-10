@@ -9,7 +9,6 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -48,7 +47,6 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -1141,7 +1139,7 @@ class MessageControllerTest {
         assertEquals(200, response.getStatus());
         verify(messageSender).sendMessages(any(), any());
       } else {
-        assertEquals(400, response.getStatus());
+        assertEquals(422, response.getStatus());
         verify(messageSender, never()).sendMessages(any(), any());
       }
     }
@@ -1662,4 +1660,13 @@ class MessageControllerTest {
     return builder.build();
   }
 
+  @Test
+  void decodedSize() {
+    for (int size = MessageController.MAX_MESSAGE_SIZE - 3; size <= MessageController.MAX_MESSAGE_SIZE + 3; size++) {
+      final byte[] bytes = TestRandomUtil.nextBytes(size);
+      final String base64Encoded = Base64.getEncoder().encodeToString(bytes);
+
+      assertEquals(bytes.length, MessageController.decodedSize(base64Encoded));
+    }
+  }
 }

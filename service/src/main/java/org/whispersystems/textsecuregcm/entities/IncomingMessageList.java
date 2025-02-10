@@ -8,18 +8,16 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.PositiveOrZero;
-import org.whispersystems.textsecuregcm.controllers.MessageController;
-
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
-
-import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import java.util.List;
+import java.util.Objects;
+import org.whispersystems.textsecuregcm.controllers.MessageController;
 
 public record IncomingMessageList(@NotNull
                                   @Valid
@@ -49,10 +47,14 @@ public record IncomingMessageList(@NotNull
 
   @AssertTrue
   public boolean hasNoDuplicateRecipients() {
-    boolean valid = messages.stream().filter(m -> m != null).map(IncomingMessage::destinationDeviceId).distinct().count() == messages.size();
+    final boolean valid = messages.stream()
+        .filter(Objects::nonNull)
+        .map(IncomingMessage::destinationDeviceId).distinct().count() == messages.size();
+
     if (!valid) {
       REJECT_DUPLICATE_RECIPIENT_COUNTER.increment();
     }
+
     return valid;
   }
 }
