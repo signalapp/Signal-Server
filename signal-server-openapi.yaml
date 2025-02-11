@@ -4185,6 +4185,8 @@ components:
           format: int32
         content:
           type: string
+        validEnvelopeType:
+          type: boolean
     KEMSignedPreKey:
       type: object
       properties:
