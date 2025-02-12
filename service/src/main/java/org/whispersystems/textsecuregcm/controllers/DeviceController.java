@@ -42,7 +42,9 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -588,9 +590,27 @@ public class DeviceController {
               if (response != null && response.getStatus() == Response.Status.OK.getStatusCode()) {
                 sample.stop(Timer.builder(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME)
                     .publishPercentileHistogram(true)
-                    .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+                    .tags(Tags.of(
+                        UserAgentTagUtil.getPlatformTag(userAgent),
+                        primaryPlatformTag(authenticatedDevice.getAccount())))
                     .register(Metrics.globalRegistry));
               }
             }));
+  }
+
+  private static io.micrometer.core.instrument.Tag primaryPlatformTag(final Account account) {
+    final Optional<ClientPlatform> clientPlatform = Optional.ofNullable(
+        switch (account.getPrimaryDevice().getUserAgent()) {
+          case "OWA" -> ClientPlatform.ANDROID;
+          case "OWI", "OWP" -> ClientPlatform.IOS;
+          case "OWD" -> ClientPlatform.DESKTOP;
+          case null, default -> null;
+        });
+
+    return io.micrometer.core.instrument.Tag.of(
+        "primaryPlatform",
+        clientPlatform
+            .map(p -> p.name().toLowerCase(Locale.ROOT))
+            .orElse("unknown"));
   }
 }
