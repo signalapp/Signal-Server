@@ -268,6 +268,8 @@ import org.whispersystems.textsecuregcm.workers.BackupMetricsCommand;
 import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
+import org.whispersystems.textsecuregcm.workers.DiscardPushNotificationExperimentSamplesCommand;
+import org.whispersystems.textsecuregcm.workers.FinishPushNotificationExperimentCommand;
 import org.whispersystems.textsecuregcm.workers.IdleDeviceNotificationSchedulerFactory;
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
 import org.whispersystems.textsecuregcm.workers.NotifyIdleDevicesCommand;
@@ -280,7 +282,10 @@ import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSend
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
 import org.whispersystems.textsecuregcm.workers.SetUserDiscoverabilityCommand;
+import org.whispersystems.textsecuregcm.workers.StartPushNotificationExperimentCommand;
 import org.whispersystems.textsecuregcm.workers.UnlinkDeviceCommand;
+import org.whispersystems.textsecuregcm.workers.ZeroTtlExperimentNotificationSchedulerFactory;
+import org.whispersystems.textsecuregcm.workers.ZeroTtlPushNotificationExperimentFactory;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -334,6 +339,24 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new BackupMetricsCommand(Clock.systemUTC()));
     bootstrap.addCommand(new RemoveExpiredLinkedDevicesCommand());
     bootstrap.addCommand(new NotifyIdleDevicesCommand());
+
+    bootstrap.addCommand(new StartPushNotificationExperimentCommand<>("start-zero-ttl-push-notification-experiment",
+        "Start an experiment to send push notifications with ttl=0 to idle android devices",
+        new ZeroTtlPushNotificationExperimentFactory()));
+
+    bootstrap.addCommand(
+        new FinishPushNotificationExperimentCommand<>("finish-zero-ttl-push-notification-experiment",
+            "Finish an experiment to send push notifications with ttl=0 to idle android devices",
+            new ZeroTtlPushNotificationExperimentFactory()));
+
+    bootstrap.addCommand(
+        new DiscardPushNotificationExperimentSamplesCommand("discard-zero-ttl-push-notification-experiment",
+            "Discard samples from the \"zero TTL push notification\" experiment",
+            new ZeroTtlPushNotificationExperimentFactory()));
+
+    bootstrap.addCommand(new ProcessScheduledJobsServiceCommand("process-zero-ttl-notification-jobs",
+        "Processes scheduled jobs to send zero-ttl experiment notifications to idle devices",
+        new ZeroTtlExperimentNotificationSchedulerFactory()));
 
     bootstrap.addCommand(new ProcessScheduledJobsServiceCommand("process-idle-device-notification-jobs",
         "Processes scheduled jobs to send notifications to idle devices",

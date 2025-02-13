@@ -14,6 +14,7 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.ThreadManager;
 import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -24,6 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -78,11 +80,24 @@ public class FcmSender implements PushNotificationSender {
 
   @Override
   public CompletableFuture<SendPushNotificationResult> sendNotification(PushNotification pushNotification) {
+    final AndroidConfig.Builder androidConfig = AndroidConfig.builder()
+        .setPriority(pushNotification.urgent() ? AndroidConfig.Priority.HIGH : AndroidConfig.Priority.NORMAL);
+
+    // This experiment compares the effect of two standard push notifications to one standard + one with a TTL=0
+    switch (pushNotification.experimentalNotificationType().orElse(null)) {
+      case ZERO_TTL -> {
+        androidConfig.setTtl(0);
+        androidConfig.setCollapseKey("ttl0");
+      }
+      case NON_COLLAPSIBLE ->
+          // We still want to make sure we don't collapse notifications in the control group
+          androidConfig.setCollapseKey("ttl0");
+      case null -> {}
+    }
+
     Message.Builder builder = Message.builder()
         .setToken(pushNotification.deviceToken())
-        .setAndroidConfig(AndroidConfig.builder()
-            .setPriority(pushNotification.urgent() ? AndroidConfig.Priority.HIGH : AndroidConfig.Priority.NORMAL)
-            .build());
+        .setAndroidConfig(androidConfig.build());
 
     final String key = switch (pushNotification.notificationType()) {
       case NOTIFICATION -> "newMessageAlert";

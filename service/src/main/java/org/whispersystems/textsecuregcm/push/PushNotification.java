@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.push;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import javax.annotation.Nullable;
+import java.util.Optional;
 
 public record PushNotification(String deviceToken,
                                TokenType tokenType,
@@ -15,7 +16,8 @@ public record PushNotification(String deviceToken,
                                @Nullable String data,
                                @Nullable Account destination,
                                @Nullable Device destinationDevice,
-                               boolean urgent) {
+                               boolean urgent,
+                               Optional<ExperimentalNotificationType> experimentalNotificationType) {
 
   public enum NotificationType {
     NOTIFICATION,
@@ -27,5 +29,10 @@ public record PushNotification(String deviceToken,
   public enum TokenType {
     FCM,
     APN
+  }
+
+  public enum ExperimentalNotificationType {
+    ZERO_TTL,
+    NON_COLLAPSIBLE
   }
 }
