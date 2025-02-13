@@ -14,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -114,9 +115,17 @@ public class BackupAuthManager {
       return CompletableFuture.completedFuture(null);
     }
 
-    return rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID)
-        .validateAsync(account.getUuid())
-        .thenCompose(ignored -> this.accountsManager
+    CompletionStage<Void> rateLimitFuture = rateLimiters
+        .forDescriptor(RateLimiters.For.SET_BACKUP_ID)
+        .validateAsync(account.getUuid());
+
+    if (!mediaCredentialRequestMatches && hasActiveVoucher(account)) {
+      rateLimitFuture = rateLimitFuture.thenCombine(
+          rateLimiters.forDescriptor(RateLimiters.For.SET_PAID_MEDIA_BACKUP_ID).validateAsync(account.getUuid()),
+          (ignore1, ignore2) -> null);
+    }
+
+    return rateLimitFuture.thenCompose(ignored -> this.accountsManager
             .updateAsync(account, a -> a.setBackupCredentialRequests(serializedMessageCredentialRequest, serializedMediaCredentialRequest))
             .thenRun(Util.NOOP))
         .toCompletableFuture();
@@ -280,8 +289,12 @@ public class BackupAuthManager {
     return next;
   }
 
+  private boolean hasActiveVoucher(final Account account) {
+    return account.getBackupVoucher() != null && clock.instant().isBefore(account.getBackupVoucher().expiration());
+  }
+
   private boolean hasExpiredVoucher(final Account account) {
-    return account.getBackupVoucher() != null && clock.instant().isAfter(account.getBackupVoucher().expiration());
+    return account.getBackupVoucher() != null && !hasActiveVoucher(account);
   }
 
   /**
