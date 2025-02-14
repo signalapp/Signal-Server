@@ -455,7 +455,6 @@ public class MessagesCache {
           }
         })
         .onErrorResume(throwable -> {
-          logger.warn("Failed to retrieve shared mrm data", throwable);
 
           final List<Tag> tags = new ArrayList<>();
           tags.add(Tag.of(EPHEMERAL_TAG_NAME, String.valueOf(mrmMessage.getEphemeral())));
@@ -467,6 +466,7 @@ public class MessagesCache {
             // MRM data) fails after it has been delivered. We return it so that it may be discarded from the queue.
             result = Mono.just(mrmMessage.toBuilder().setSharedMrmKey(STALE_MRM_KEY).build());
           } else {
+            logger.warn("Failed to retrieve shared mrm data", throwable);
             // For unexpected errors, return empty. The message will remain in the queue and be retried in the future.
             result = Mono.empty();
           }

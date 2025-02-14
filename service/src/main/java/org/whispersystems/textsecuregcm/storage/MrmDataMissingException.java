@@ -18,4 +18,9 @@ class MrmDataMissingException extends NoStackTraceRuntimeException {
   Type getType() {
     return type;
   }
+
+  @Override
+  public String toString() {
+    return "MrmDataMissingException{type=%s}".formatted(type);
+  }
 }
