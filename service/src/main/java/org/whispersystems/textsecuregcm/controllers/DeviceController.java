@@ -52,6 +52,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
@@ -599,13 +600,21 @@ public class DeviceController {
   }
 
   private static io.micrometer.core.instrument.Tag primaryPlatformTag(final Account account) {
-    final Optional<ClientPlatform> clientPlatform = Optional.ofNullable(
-        switch (account.getPrimaryDevice().getUserAgent()) {
+    final Device primaryDevice = account.getPrimaryDevice();
+
+    Optional<ClientPlatform> clientPlatform = Optional.empty();
+    if (StringUtils.isNotBlank(primaryDevice.getGcmId())) {
+      clientPlatform = Optional.of(ClientPlatform.ANDROID);
+    } else if (StringUtils.isNotBlank(primaryDevice.getApnId())) {
+      clientPlatform = Optional.of(ClientPlatform.IOS);
+    }
+    clientPlatform = clientPlatform.or(() -> Optional.ofNullable(
+        switch (primaryDevice.getUserAgent()) {
           case "OWA" -> ClientPlatform.ANDROID;
           case "OWI", "OWP" -> ClientPlatform.IOS;
           case "OWD" -> ClientPlatform.DESKTOP;
           case null, default -> null;
-        });
+        }));
 
     return io.micrometer.core.instrument.Tag.of(
         "primaryPlatform",
