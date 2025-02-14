@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -232,7 +233,9 @@ public class AccountController {
         d.setName(attributes.getName());
         d.setLastSeen(Util.todayInMillis());
         d.setCapabilities(attributes.getCapabilities());
-        d.setUserAgent(userAgent);
+        if (StringUtils.isNotBlank(userAgent)) {
+          d.setUserAgent(userAgent);
+        }
       });
 
       a.setRegistrationLockFromAttributes(attributes);
