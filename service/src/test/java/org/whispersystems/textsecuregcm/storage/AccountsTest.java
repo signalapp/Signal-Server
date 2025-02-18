@@ -30,10 +30,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -56,6 +58,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -729,6 +732,22 @@ class AccountsTest {
     assertNotNull(retrievedAccounts);
     assertEquals(expectedAccounts.stream().map(Account::getUuid).collect(Collectors.toSet()),
         retrievedAccounts.stream().map(Account::getUuid).collect(Collectors.toSet()));
+  }
+
+  @Test
+  void testGetAllAccountIdentifiers() {
+    final Set<UUID> expectedAccountIdentifiers = new HashSet<>();
+
+    for (int i = 1; i <= 100; i++) {
+      final Account account = generateAccount("+1" + String.format("%03d", i), UUID.randomUUID(), UUID.randomUUID());
+      expectedAccountIdentifiers.add(account.getIdentifier(IdentityType.ACI));
+      createAccount(account);
+    }
+
+    @SuppressWarnings("DataFlowIssue") final Set<UUID> retrievedAccountIdentifiers =
+        new HashSet<>(accounts.getAllAccountIdentifiers(2, Schedulers.parallel()).collectList().block());
+
+    assertEquals(expectedAccountIdentifiers, retrievedAccountIdentifiers);
   }
 
   @Test

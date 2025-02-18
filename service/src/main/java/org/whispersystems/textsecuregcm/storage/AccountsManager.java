@@ -1217,6 +1217,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return accounts.getAll(segments, scheduler);
   }
 
+  public Flux<UUID> streamAccountIdentifiersFromDynamo(final int segments, final Scheduler scheduler) {
+    return accounts.getAllAccountIdentifiers(segments, scheduler);
+  }
+
   public CompletableFuture<Void> delete(final Account account, final DeletionReason deletionReason) {
     final Timer.Sample sample = Timer.start();
 

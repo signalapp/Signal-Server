@@ -1242,6 +1242,26 @@ public class Accounts {
         .sequential();
   }
 
+  Flux<UUID> getAllAccountIdentifiers(final int segments, final Scheduler scheduler) {
+    if (segments < 1) {
+      throw new IllegalArgumentException("Total number of segments must be positive");
+    }
+
+    return Flux.range(0, segments)
+        .parallel()
+        .runOn(scheduler)
+        .flatMap(segment -> dynamoDbAsyncClient.scanPaginator(ScanRequest.builder()
+                .tableName(accountsTableName)
+                .consistentRead(false)
+                .segment(segment)
+                .totalSegments(segments)
+                .projectionExpression(KEY_ACCOUNT_UUID)
+                .build())
+            .items()
+            .map(item -> AttributeValues.getUUID(item, KEY_ACCOUNT_UUID, null)))
+        .sequential();
+  }
+
   @Nonnull
   private Optional<Account> getByIndirectLookup(
       final Timer timer,
