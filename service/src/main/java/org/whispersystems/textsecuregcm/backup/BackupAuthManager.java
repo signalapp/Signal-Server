@@ -236,6 +236,12 @@ public class BackupAuthManager {
           .asRuntimeException();
     }
 
+    if (account.getBackupCredentialRequest(BackupCredentialType.MEDIA).isEmpty()) {
+      throw Status.ABORTED
+          .withDescription("account must have a backup-id commitment")
+          .asRuntimeException();
+    }
+
     return redeemedReceiptsManager
         .put(receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, account.getUuid())
         .thenCompose(receiptAllowed -> {

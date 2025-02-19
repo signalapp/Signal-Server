@@ -55,6 +55,9 @@ service Backups {
    * After successful redemption, subsequent requests to
    * GetBackupAuthCredentials will return credentials with the level on the
    * provided receipt until the expiration time on the receipt.
+   *
+   * errors:
+   * ABORTED: The target account does not have a backup-id commitment
    */
   rpc RedeemReceipt(RedeemReceiptRequest) returns (RedeemReceiptResponse) {}
 

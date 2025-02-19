@@ -348,6 +348,7 @@ public class BackupAuthManagerTest {
     final BackupAuthManager authManager = create(BackupLevel.FREE);
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(aci);
+    when(account.getBackupCredentialRequest(BackupCredentialType.MEDIA)).thenReturn(Optional.of(new byte[0]));
 
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
     when(accountsManager.updateAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(account));
@@ -358,6 +359,24 @@ public class BackupAuthManagerTest {
   }
 
   @Test
+  void redeemReceiptNoBackupRequest() {
+    final Instant expirationTime = Instant.EPOCH.plus(Duration.ofDays(1));
+    final BackupAuthManager authManager = create(BackupLevel.FREE);
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(aci);
+    when(account.getBackupCredentialRequest(BackupCredentialType.MEDIA)).thenReturn(Optional.empty());
+
+    clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
+    when(redeemedReceiptsManager.put(any(), eq(expirationTime.getEpochSecond()), eq(201L), eq(aci)))
+        .thenReturn(CompletableFuture.completedFuture(true));
+    assertThatExceptionOfType(StatusRuntimeException.class)
+        .isThrownBy(() ->
+            authManager.redeemReceipt(account, receiptPresentation(201, expirationTime)).join())
+        .extracting(ex -> ex.getStatus().getCode())
+        .isEqualTo(Status.Code.ABORTED);
+  }
+
+  @Test
   void mergeRedemptions() throws InvalidInputException, VerificationFailedException {
     final Instant newExpirationTime = Instant.EPOCH.plus(Duration.ofDays(1));
     final Instant existingExpirationTime = Instant.EPOCH.plus(Duration.ofDays(1)).plus(Duration.ofSeconds(1));
@@ -365,6 +384,7 @@ public class BackupAuthManagerTest {
     final BackupAuthManager authManager = create(BackupLevel.FREE);
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(aci);
+    when(account.getBackupCredentialRequest(BackupCredentialType.MEDIA)).thenReturn(Optional.of(new byte[0]));
 
     // The account has an existing voucher with a later expiration date
     when(account.getBackupVoucher()).thenReturn(new Account.BackupVoucher(201, existingExpirationTime));
@@ -429,6 +449,7 @@ public class BackupAuthManagerTest {
     final BackupAuthManager authManager = create(BackupLevel.FREE);
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(aci);
+    when(account.getBackupCredentialRequest(BackupCredentialType.MEDIA)).thenReturn(Optional.of(new byte[0]));
 
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
     when(accountsManager.updateAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(account));

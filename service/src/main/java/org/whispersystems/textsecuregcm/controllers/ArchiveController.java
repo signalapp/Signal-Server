@@ -173,9 +173,13 @@ public class ArchiveController {
 
           After successful redemption, subsequent requests to /v1/archive/auth will return credentials with the level on
           the provided receipt until the expiration time on the receipt.
+
+          Accounts must have an existing backup credential request in order to redeem a receipt. This request will fail
+          if the account has not already set a backup credential request via PUT `/v1/archives/backupid`.
           """)
   @ApiResponse(responseCode = "204", description = "The receipt was redeemed")
   @ApiResponse(responseCode = "400", description = "The provided presentation or receipt was invalid")
+  @ApiResponse(responseCode = "409", description = "The target account does not have a backup-id commitment")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public CompletionStage<Response> redeemReceipt(
       @Mutable @Auth final AuthenticatedDevice account,
