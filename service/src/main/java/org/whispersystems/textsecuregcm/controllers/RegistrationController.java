@@ -36,6 +36,7 @@ import java.util.Optional;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
+import org.whispersystems.textsecuregcm.entities.AccountCreationResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
@@ -100,7 +101,7 @@ public class RegistrationController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public AccountIdentityResponse register(
+  public AccountCreationResponse register(
       @HeaderParam(HttpHeaders.AUTHORIZATION) @NotNull final BasicAuthorizationHeader authorizationHeader,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String signalAgent,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
@@ -166,12 +167,14 @@ public class RegistrationController {
             Tag.of(VERIFICATION_TYPE_TAG_NAME, verificationType.name())))
         .increment();
 
-    return new AccountIdentityResponseBuilder(account)
+    final AccountIdentityResponse identityResponse = new AccountIdentityResponseBuilder(account)
         // If there was an existing account, return whether it could have had something in the storage service
         .storageCapable(existingAccount
             .map(a -> a.hasCapability(DeviceCapability.STORAGE))
             .orElse(false))
         .build();
+
+    return new AccountCreationResponse(identityResponse, existingAccount.isPresent());
   }
 
 }

@@ -50,6 +50,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -59,6 +60,8 @@ import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.AccountCreationResponse;
+import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -748,6 +751,8 @@ class RegistrationControllerTest {
 
     try (Response response = request.post(Entity.json(registrationRequest))) {
       assertEquals(200, response.getStatus());
+      final AccountIdentityResponse identityResponse = response.readEntity(AccountIdentityResponse.class);
+      assertEquals(accountIdentifier, identityResponse.uuid());
     }
 
     verify(accountsManager).create(
@@ -758,6 +763,34 @@ class RegistrationControllerTest {
         eq(expectedPniIdentityKey),
         eq(expectedDeviceSpec),
         any());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void reregistrationFlag(final boolean existingAccount) throws InterruptedException {
+    final RegistrationServiceSession registrationSession =
+        new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null, SESSION_EXPIRATION_SECONDS);
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(registrationSession)));
+
+    final Optional<Account> maybeAccount = Optional.ofNullable(existingAccount ? mock(Account.class) : null);
+    when(accountsManager.getByE164(any())).thenReturn(maybeAccount);
+
+    final Account account = mock(Account.class);
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
+      assertEquals(200, response.getStatus());
+      final AccountCreationResponse creationResponse = response.readEntity(AccountCreationResponse.class);
+      assertEquals(existingAccount, creationResponse.isReregistration());
+    }
   }
 
   private static boolean accountAttributesEqual(final AccountAttributes a, final AccountAttributes b) {
