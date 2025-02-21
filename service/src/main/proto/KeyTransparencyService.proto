@@ -265,13 +265,9 @@ message SearchProof {
 
 message UpdateValue {
   /**
-   * TODO: Update KT server to remove this field since it's only relevant to third-party management and we're not doing that.
+   * The new mapped value for an identifier or the "distinguished" key.
    */
-  // optional bytes signature = 1;
-  /**
-   * The new value for a identifier.
-   */
-  bytes value = 2;
+  bytes value = 1;
 }
 
 message PrefixSearchResult {
