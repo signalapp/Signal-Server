@@ -1060,6 +1060,9 @@ paths:
 
         After successful redemption, subsequent requests to /v1/archive/auth will return credentials with the level on
         the provided receipt until the expiration time on the receipt.
+
+        Accounts must have an existing backup credential request in order to redeem a receipt. This request will fail
+        if the account has not already set a backup credential request via PUT `/v1/archives/backupid`.
       operationId: redeemReceipt
       requestBody:
         content:
@@ -1072,6 +1075,8 @@ paths:
           description: The receipt was redeemed
         "400":
           description: The provided presentation or receipt was invalid
+        "409":
+          description: The target account does not have a backup-id commitment
         "429":
           description: Rate limited.
       security:
@@ -2927,7 +2932,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountIdentityResponse'
+                $ref: '#/components/schemas/AccountCreationResponse'
         "403":
           description: Verification failed for the provided Registration Recovery
             Password
@@ -5678,6 +5683,37 @@ components:
           type: string
           description: The MIME base64-encoded body of the provisioning message to
             send to the destination device
+    AccountCreationResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+          description: the account identifier for this account
+          format: uuid
+        number:
+          type: string
+          description: the phone number associated with this account
+        pni:
+          type: string
+          description: the account identifier for this account's phone-number identity
+          format: uuid
+        usernameHash:
+          type: string
+          description: "a hash of this account's username, if set"
+          format: byte
+        usernameLinkHandle:
+          type: string
+          description: "this account's username link handle, if set"
+          format: uuid
+        storageCapable:
+          type: boolean
+          description: whether any of this account's devices support storage
+        entitlements:
+          $ref: '#/components/schemas/Entitlements'
+        reregistration:
+          type: boolean
+          description: "If true, there was an existing account registered for this\
+            \ number"
     RegistrationRequest:
       required:
       - accountAttributes
