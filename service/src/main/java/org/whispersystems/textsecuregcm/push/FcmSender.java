@@ -104,12 +104,6 @@ public class FcmSender implements PushNotificationSender {
 
               if (firebaseMessagingException.getMessagingErrorCode() != null) {
                 errorCode = firebaseMessagingException.getMessagingErrorCode().name();
-                if (firebaseMessagingException.getMessagingErrorCode() == MessagingErrorCode.QUOTA_EXCEEDED
-                    && firebaseMessagingException.getHttpResponse() != null) {
-                  logger.info("FCM request failed with quota exceeded; retry-after: {}, response body: {}",
-                      firebaseMessagingException.getHttpResponse().getHeaders().get("retry-after"),
-                      firebaseMessagingException.getHttpResponse().getContent());
-                }
               } else if (firebaseMessagingException.getHttpResponse() != null) {
                 errorCode = "http" + firebaseMessagingException.getHttpResponse().getStatusCode();
               } else {
