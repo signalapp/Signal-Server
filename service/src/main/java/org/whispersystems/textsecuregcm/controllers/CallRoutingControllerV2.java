@@ -18,20 +18,13 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
 import org.whispersystems.textsecuregcm.auth.TurnToken;
-import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
-import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
-import org.whispersystems.textsecuregcm.calls.routing.TurnServerOptions;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
-import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.websocket.auth.ReadOnly;
 
@@ -39,25 +32,15 @@ import org.whispersystems.websocket.auth.ReadOnly;
 @Path("/v2/calling")
 public class CallRoutingControllerV2 {
 
-  private static final Counter INVALID_IP_COUNTER = Metrics.counter(name(CallRoutingControllerV2.class, "invalidIP"));
   private static final Counter CLOUDFLARE_TURN_ERROR_COUNTER = Metrics.counter(name(CallRoutingControllerV2.class, "cloudflareTurnError"));
   private final RateLimiters rateLimiters;
-  private final TurnCallRouter turnCallRouter;
-  private final TurnTokenGenerator tokenGenerator;
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager;
 
   public CallRoutingControllerV2(
       final RateLimiters rateLimiters,
-      final TurnCallRouter turnCallRouter,
-      final TurnTokenGenerator tokenGenerator,
-      final ExperimentEnrollmentManager experimentEnrollmentManager,
       final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager
   ) {
     this.rateLimiters = rateLimiters;
-    this.turnCallRouter = turnCallRouter;
-    this.tokenGenerator = tokenGenerator;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.cloudflareTurnCredentialsManager = cloudflareTurnCredentialsManager;
   }
 
@@ -76,33 +59,18 @@ public class CallRoutingControllerV2 {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public GetCallingRelaysResponse getCallingRelays(
-      final @ReadOnly @Auth AuthenticatedDevice auth,
-      @Context ContainerRequestContext requestContext
-  ) throws RateLimitExceededException {
+      final @ReadOnly @Auth AuthenticatedDevice auth
+  ) throws RateLimitExceededException, IOException {
     UUID aci = auth.getAccount().getUuid();
     rateLimiters.getCallEndpointLimiter().validate(aci);
 
     List<TurnToken> tokens = new ArrayList<>();
     try {
-      if (experimentEnrollmentManager.isEnrolled(auth.getAccount().getNumber(), aci, "cloudflareTurn")) {
-        tokens.add(cloudflareTurnCredentialsManager.retrieveFromCloudflare());
-      }
+      tokens.add(cloudflareTurnCredentialsManager.retrieveFromCloudflare());
     } catch (Exception e) {
-      // emit counter, rely on Signal URL fallback
       CallRoutingControllerV2.CLOUDFLARE_TURN_ERROR_COUNTER.increment();
+      throw e;
     }
-
-    Optional<InetAddress> address = Optional.empty();
-    try {
-      final String remoteAddress = (String) requestContext.getProperty(
-          RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
-      address = Optional.of(InetAddress.getByName(remoteAddress));
-    } catch (UnknownHostException e) {
-      INVALID_IP_COUNTER.increment();
-    }
-
-    TurnServerOptions options = turnCallRouter.getRoutingFor(aci, address);
-    tokens.add(tokenGenerator.generateWithTurnServerOptions(options));
 
     return new GetCallingRelaysResponse(tokens);
   }

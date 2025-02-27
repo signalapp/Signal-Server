@@ -94,10 +94,6 @@ import org.whispersystems.textsecuregcm.backup.BackupsDb;
 import org.whispersystems.textsecuregcm.backup.Cdn3BackupCredentialGenerator;
 import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
-import org.whispersystems.textsecuregcm.calls.routing.CallDnsRecordsManager;
-import org.whispersystems.textsecuregcm.calls.routing.CallRoutingTableManager;
-import org.whispersystems.textsecuregcm.calls.routing.DynamicConfigTurnRouter;
-import org.whispersystems.textsecuregcm.calls.routing.TurnCallRouter;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.CaptchaClient;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
@@ -142,7 +138,6 @@ import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.RestDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
-import org.whispersystems.textsecuregcm.geo.MaxMindDatabaseManager;
 import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
@@ -813,45 +808,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAppleDeviceCheck().teamId(),
         config.getAppleDeviceCheck().bundleId());
 
-    final DynamicConfigTurnRouter configTurnRouter = new DynamicConfigTurnRouter(dynamicConfigurationManager);
-
-    MaxMindDatabaseManager geoIpCityDatabaseManager = new MaxMindDatabaseManager(
-        recurringConfigSyncExecutor,
-        awsCredentialsProvider,
-        config.getMaxmindCityDatabase(),
-        "city"
-    );
-    environment.lifecycle().manage(geoIpCityDatabaseManager);
-    CallDnsRecordsManager callDnsRecordsManager = new CallDnsRecordsManager(
-      recurringConfigSyncExecutor,
-        awsCredentialsProvider,
-      config.getCallingTurnDnsRecords()
-    );
-    environment.lifecycle().manage(callDnsRecordsManager);
-    CallRoutingTableManager callRoutingTableManager = new CallRoutingTableManager(
-        recurringConfigSyncExecutor,
-        awsCredentialsProvider,
-        config.getCallingTurnPerformanceTable(),
-        "Performance"
-    );
-    environment.lifecycle().manage(callRoutingTableManager);
-    CallRoutingTableManager manualCallRoutingTableManager = new CallRoutingTableManager(
-        recurringConfigSyncExecutor,
-        awsCredentialsProvider,
-        config.getCallingTurnManualTable(),
-        "Manual"
-    );
-    environment.lifecycle().manage(manualCallRoutingTableManager);
-
-    TurnCallRouter callRouter = new TurnCallRouter(
-        callDnsRecordsManager,
-        callRoutingTableManager,
-        manualCallRoutingTableManager,
-        configTurnRouter,
-        geoIpCityDatabaseManager,
-        false
-    );
-
     final GrpcClientConnectionManager grpcClientConnectionManager = new GrpcClientConnectionManager();
 
     disconnectionRequestManager.addListener(grpcClientConnectionManager);
@@ -1117,7 +1073,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
             experimentEnrollmentManager),
         new ArchiveController(backupAuthManager, backupManager),
-        new CallRoutingControllerV2(rateLimiters, callRouter, turnTokenGenerator, experimentEnrollmentManager, cloudflareTurnCredentialsManager),
+        new CallRoutingControllerV2(rateLimiters, cloudflareTurnCredentialsManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),
