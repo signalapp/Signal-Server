@@ -37,6 +37,7 @@ import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
 import org.whispersystems.textsecuregcm.configuration.GooglePlayBillingConfiguration;
+import org.whispersystems.textsecuregcm.configuration.IdlePrimaryDeviceReminderConfiguration;
 import org.whispersystems.textsecuregcm.configuration.KeyTransparencyServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
@@ -339,6 +340,10 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private boolean logMessageDeliveryLoops;
 
+  @JsonProperty
+  private IdlePrimaryDeviceReminderConfiguration idlePrimaryDeviceReminder =
+      new IdlePrimaryDeviceReminderConfiguration(Duration.ofDays(30));
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -566,4 +571,7 @@ public class WhisperServerConfiguration extends Configuration {
     return logMessageDeliveryLoops;
   }
 
+  public IdlePrimaryDeviceReminderConfiguration idlePrimaryDeviceReminderConfiguration() {
+    return idlePrimaryDeviceReminder;
+  }
 }
