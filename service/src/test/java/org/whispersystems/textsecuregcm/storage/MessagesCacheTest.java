@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -54,6 +55,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -486,6 +488,46 @@ class MessagesCacheTest {
               .withBinaryCluster(conn -> conn.sync().exists(sharedMrmDataKey));
         } while (exists);
       }, "Shared MRM data should be deleted asynchronously");
+    }
+
+    @Test
+    void testMessagesToPersistReactive() {
+      final UUID destinationUuid = UUID.randomUUID();
+      final ServiceIdentifier serviceId = new AciServiceIdentifier(destinationUuid);
+      final byte deviceId = 1;
+
+      final List<MessageProtos.Envelope> expected = IntStream.range(0, 100)
+          .mapToObj(i -> {
+            if (i % 3 == 0) {
+              final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(serviceId, deviceId);
+              byte[] sharedMrmDataKey = messagesCache.insertSharedMultiRecipientMessagePayload(mrm).join();
+              return generateRandomMessage(UUID.randomUUID(), serviceId, true)
+                  .toBuilder()
+                  // clear some things added by the helper
+                  .clearContent()
+                  .setSharedMrmKey(ByteString.copyFrom(sharedMrmDataKey))
+                  .build();
+            } else if (i % 13 == 0) {
+              return generateRandomMessage(UUID.randomUUID(), serviceId, true).toBuilder().setEphemeral(true).build();
+            } else {
+              return generateRandomMessage(UUID.randomUUID(), serviceId, true);
+            }
+          })
+          .filter(envelope -> !envelope.getEphemeral())
+          .toList();
+
+      for (MessageProtos.Envelope envelope : expected) {
+        messagesCache.insert(UUID.fromString(envelope.getServerGuid()), destinationUuid, deviceId, envelope).join();
+      }
+
+      final List<MessageProtos.Envelope> actual = messagesCache
+          .getMessagesToPersistReactive(destinationUuid, deviceId, 7).collectList().block();
+
+      assertEquals(expected.size(), actual.size());
+      for (int i = 0; i < actual.size(); i++) {
+        assertNotNull(actual.get(i).getContent());
+        assertEquals(actual.get(i).getServerGuid(), expected.get(i).getServerGuid());
+      }
     }
 
     @ParameterizedTest

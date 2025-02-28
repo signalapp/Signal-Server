@@ -10,6 +10,9 @@ import static com.codahale.metrics.MetricRegistry.name;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.lettuce.core.Limit;
+import io.lettuce.core.Range;
+import io.lettuce.core.ScoredValue;
 import io.lettuce.core.ZAddArgs;
 import io.lettuce.core.cluster.SlotHash;
 import io.micrometer.core.instrument.Counter;
@@ -31,6 +34,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import org.reactivestreams.Publisher;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
@@ -528,15 +532,28 @@ public class MessagesCache {
         });
   }
 
-  List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
-      final int limit) {
-
+  Flux<MessageProtos.Envelope> getMessagesToPersistReactive(final UUID accountUuid, final byte destinationDevice,
+      final int pageSize) {
     final Timer.Sample sample = Timer.start();
 
-    final List<byte[]> messages = redisCluster.withBinaryCluster(connection ->
-        connection.sync().zrange(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
+    final Function<Long, Mono<List<ScoredValue<byte[]>>>> getNextPage = (Long start) ->
+        Mono.fromCompletionStage(() -> redisCluster.withBinaryCluster(connection ->
+            connection.async().zrangebyscoreWithScores(
+                getMessageQueueKey(accountUuid, destinationDevice),
+                Range.from(
+                    Range.Boundary.excluding(start),
+                    Range.Boundary.unbounded()),
+                Limit.from(pageSize))));
 
-    final Flux<MessageProtos.Envelope> allMessages = Flux.fromIterable(messages)
+    final Flux<MessageProtos.Envelope> allMessages = getNextPage.apply(0L)
+        .expand(scoredValues -> {
+          if (scoredValues.isEmpty()) {
+            return Mono.empty();
+          }
+          long lastTimestamp = (long) scoredValues.getLast().getScore();
+          return getNextPage.apply(lastTimestamp);
+        })
+        .concatMap(scoredValues -> Flux.fromStream(scoredValues.stream().map(ScoredValue::getValue)))
         .mapNotNull(message -> {
           try {
             return MessageProtos.Envelope.parseFrom(message);
@@ -554,7 +571,15 @@ public class MessagesCache {
           }
 
           return messageMono;
-        });
+        })
+        .publish()
+        // We expect exactly three subscribers to this base flux:
+        // 1. the caller of the method
+        // 2. an internal processes to discard stale ephemeral messages
+        // 3. an internal process to discard stale MRM messages
+        // The discard subscribers will subscribe immediately, but we don’t want to do any work if the
+        // caller never subscribes
+        .autoConnect(3);
 
     final Flux<MessageProtos.Envelope> messagesToPersist = allMessages
         .filter(Predicate.not(envelope ->
@@ -570,8 +595,14 @@ public class MessagesCache {
     discardStaleMessages(accountUuid, destinationDevice, staleMrmMessages, staleMrmMessagesCounter, "mrm");
 
     return messagesToPersist
+        .doOnTerminate(() -> sample.stop(getMessagesTimer));
+  }
+
+  List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
+      final int limit) {
+    return getMessagesToPersistReactive(accountUuid, destinationDevice, limit)
+        .take(limit)
         .collectList()
-        .doOnTerminate(() -> sample.stop(getMessagesTimer))
         .block(Duration.ofSeconds(5));
   }
 

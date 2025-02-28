@@ -10,12 +10,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.MockUtils.exactly;
@@ -26,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,8 +39,10 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,9 +52,12 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagePersisterConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
+import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
@@ -75,6 +85,8 @@ class MessagePersisterTest {
 
   private static final Duration PERSIST_DELAY = Duration.ofMinutes(5);
 
+  private static final double EXTRA_ROOM_RATIO = 2.0;
+
   @BeforeEach
   void setUp() throws Exception {
 
@@ -84,16 +96,21 @@ class MessagePersisterTest {
 
     messagesDynamoDb = mock(MessagesDynamoDb.class);
     accountsManager = mock(AccountsManager.class);
-    destinationAccount = mock(Account.class);;
+    destinationAccount = mock(Account.class);
 
     when(accountsManager.getByAccountIdentifier(DESTINATION_ACCOUNT_UUID)).thenReturn(Optional.of(destinationAccount));
     when(accountsManager.removeDevice(any(), anyByte()))
         .thenAnswer(invocation -> CompletableFuture.completedFuture(invocation.getArgument(0)));
 
     when(destinationAccount.getUuid()).thenReturn(DESTINATION_ACCOUNT_UUID);
+    when(destinationAccount.getIdentifier(IdentityType.ACI)).thenReturn(DESTINATION_ACCOUNT_UUID);
     when(destinationAccount.getNumber()).thenReturn(DESTINATION_ACCOUNT_NUMBER);
     when(destinationAccount.getDevice(DESTINATION_DEVICE_ID)).thenReturn(Optional.of(DESTINATION_DEVICE));
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfiguration.getMessagePersisterConfiguration())
+        .thenReturn(new DynamicMessagePersisterConfiguration(true, EXTRA_ROOM_RATIO));
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     sharedExecutorService = Executors.newSingleThreadExecutor();
     resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
@@ -286,6 +303,66 @@ class MessagePersisterTest {
   }
 
   @Test
+  void testTrimOnFullPrimaryQueue() {
+    final byte[] queueName = MessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, Device.PRIMARY_ID);
+    final Instant now = Instant.now();
+
+    final List<MessageProtos.Envelope> cachedMessages = Stream.generate(() -> generateMessage(
+            DESTINATION_ACCOUNT_UUID, UUID.randomUUID(), now.getEpochSecond(), ThreadLocalRandom.current().nextInt(100)))
+        .limit(10)
+        .toList();
+    final long cacheSize = cachedMessages.stream().mapToLong(MessageProtos.Envelope::getSerializedSize).sum();
+    for (MessageProtos.Envelope envelope : cachedMessages) {
+      messagesCache.insert(UUID.fromString(envelope.getServerGuid()), DESTINATION_ACCOUNT_UUID, Device.PRIMARY_ID, envelope);
+    }
+
+    final long expectedClearedBytes = (long) (cacheSize * EXTRA_ROOM_RATIO);
+
+    final int persistedMessageCount = 100;
+    final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(persistedMessageCount);
+    final List<UUID> expectedClearedGuids = new ArrayList<>();
+    long total = 0L;
+    for (int i = 0; i < 100; i++) {
+      final UUID guid = UUID.randomUUID();
+      final MessageProtos.Envelope envelope = generateMessage(DESTINATION_ACCOUNT_UUID, guid, now.getEpochSecond(), 13);
+      persistedMessages.add(envelope);
+      if (total < expectedClearedBytes) {
+        total += envelope.getSerializedSize();
+        expectedClearedGuids.add(guid);
+      }
+    }
+
+    setNextSlotToPersist(SlotHash.getSlot(queueName));
+
+    final Device primary = mock(Device.class);
+    when(primary.getId()).thenReturn((byte) 1);
+    when(primary.isPrimary()).thenReturn(true);
+    when(primary.getFetchesMessages()).thenReturn(true);
+    when(destinationAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(primary));
+
+    when(messagesManager.persistMessages(any(UUID.class), any(), anyList()))
+        .thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
+    when(messagesManager.getMessagesForDeviceReactive(DESTINATION_ACCOUNT_UUID, primary, false))
+        .thenReturn(Flux.concat(
+            Flux.fromIterable(persistedMessages),
+            Flux.fromIterable(cachedMessages)));
+    when(messagesManager.delete(any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
+    assertTimeoutPreemptively(Duration.ofSeconds(10), () ->
+        messagePersister.persistNextQueues(Clock.systemUTC().instant()));
+
+    verify(messagesManager, times(expectedClearedGuids.size()))
+        .delete(eq(DESTINATION_ACCOUNT_UUID), eq(primary), argThat(expectedClearedGuids::contains), isNotNull());
+    verify(messagesManager, never()).delete(any(), any(), argThat(guid -> !expectedClearedGuids.contains(guid)), any());
+
+    final List<String> queuesToPersist = messagesCache.getQueuesToPersist(SlotHash.getSlot(queueName),
+        Clock.systemUTC().instant(), 1);
+    assertEquals(queuesToPersist.size(), 1);
+    assertEquals(queuesToPersist.getFirst(), new String(queueName, StandardCharsets.UTF_8));
+  }
+
+  @Test
   void testFailedUnlinkOnFullQueueThrowsForRetry() {
     final String queueName = new String(
         MessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID), StandardCharsets.UTF_8);
@@ -348,18 +425,21 @@ class MessagePersisterTest {
       final Instant firstMessageTimestamp) {
     for (int i = 0; i < messageCount; i++) {
       final UUID messageGuid = UUID.randomUUID();
-
-      final MessageProtos.Envelope envelope = MessageProtos.Envelope.newBuilder()
-          .setDestinationServiceId(accountUuid.toString())
-          .setClientTimestamp(firstMessageTimestamp.toEpochMilli() + i)
-          .setServerTimestamp(firstMessageTimestamp.toEpochMilli() + i)
-          .setContent(ByteString.copyFromUtf8(RandomStringUtils.secure().nextAlphanumeric(256)))
-          .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
-          .setServerGuid(messageGuid.toString())
-          .build();
-
+      final MessageProtos.Envelope envelope = generateMessage(
+          accountUuid, messageGuid, firstMessageTimestamp.toEpochMilli() + i, 256);
       messagesCache.insert(messageGuid, accountUuid, deviceId, envelope).join();
     }
+  }
+
+  private MessageProtos.Envelope generateMessage(UUID accountUuid, UUID messageGuid, long messageTimestamp, int contentSize) {
+    return MessageProtos.Envelope.newBuilder()
+        .setDestinationServiceId(accountUuid.toString())
+        .setClientTimestamp(messageTimestamp)
+        .setServerTimestamp(messageTimestamp)
+        .setContent(ByteString.copyFromUtf8(RandomStringUtils.secure().nextAlphanumeric(contentSize)))
+        .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
+        .setServerGuid(messageGuid.toString())
+        .build();
   }
 
   private void setNextSlotToPersist(final int nextSlot) {

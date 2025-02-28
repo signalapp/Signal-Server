@@ -18,11 +18,17 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.Util;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
 
 public class MessagePersister implements Managed {
@@ -30,17 +36,21 @@ public class MessagePersister implements Managed {
   private final MessagesCache messagesCache;
   private final MessagesManager messagesManager;
   private final AccountsManager accountsManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final Duration persistDelay;
 
   private final Thread[] workerThreads;
   private volatile boolean running;
 
+  private static final String OVERSIZED_QUEUE_COUNTER_NAME = name(MessagePersister.class, "persistQueueOversized");
+
   private final Timer getQueuesTimer = Metrics.timer(name(MessagePersister.class, "getQueues"));
   private final Timer persistQueueTimer = Metrics.timer(name(MessagePersister.class, "persistQueue"));
   private final Counter persistQueueExceptionMeter = Metrics.counter(
       name(MessagePersister.class, "persistQueueException"));
-  private final Counter oversizedQueueCounter = Metrics.counter(name(MessagePersister.class, "persistQueueOversized"));
+  private static final Counter trimmedMessageCounter = Metrics.counter(name(MessagePersister.class, "trimmedMessage"));
+  private static final Counter trimmedMessageBytesCounter = Metrics.counter(name(MessagePersister.class, "trimmedMessageBytes"));
   private final DistributionSummary queueCountDistributionSummery = DistributionSummary.builder(
           name(MessagePersister.class, "queueCount"))
       .publishPercentiles(0.5, 0.75, 0.95, 0.99, 0.999)
@@ -54,6 +64,7 @@ public class MessagePersister implements Managed {
 
   static final int QUEUE_BATCH_LIMIT = 100;
   static final int MESSAGE_BATCH_LIMIT = 100;
+  static final int CACHE_PAGE_SIZE = 100;
 
   private static final long EXCEPTION_PAUSE_MILLIS = Duration.ofSeconds(3).toMillis();
 
@@ -66,12 +77,12 @@ public class MessagePersister implements Managed {
       final AccountsManager accountsManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Duration persistDelay,
-      final int dedicatedProcessWorkerThreadCount
-  ) {
+      final int dedicatedProcessWorkerThreadCount) {
 
     this.messagesCache = messagesCache;
     this.messagesManager = messagesManager;
     this.accountsManager = accountsManager;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.persistDelay = persistDelay;
     this.workerThreads = new Thread[dedicatedProcessWorkerThreadCount];
 
@@ -159,7 +170,10 @@ public class MessagePersister implements Managed {
 
           messagesCache.addQueueToPersist(accountUuid, deviceId);
 
-          Util.sleep(EXCEPTION_PAUSE_MILLIS);
+          if (!(e instanceof MessagePersistenceException)) {
+            // Pause after unexpected exceptions
+            Util.sleep(EXCEPTION_PAUSE_MILLIS);
+          }
         }
       }
 
@@ -204,8 +218,19 @@ public class MessagePersister implements Managed {
 
       queueSizeDistributionSummery.record(messageCount);
     } catch (ItemCollectionSizeLimitExceededException e) {
-      oversizedQueueCounter.increment();
-      maybeUnlink(account, deviceId); // may throw, in which case we'll retry later by the usual mechanism
+      final boolean isPrimary = deviceId == Device.PRIMARY_ID;
+      Metrics.counter(OVERSIZED_QUEUE_COUNTER_NAME, "primary", String.valueOf(isPrimary)).increment();
+      // may throw, in which case we'll retry later by the usual mechanism
+      if (isPrimary) {
+        logger.warn("Failed to persist queue {}::{} due to overfull queue; will trim oldest messages",
+            account.getUuid(), deviceId);
+        trimQueue(account, deviceId);
+        throw new MessagePersistenceException("Could not persist due to an overfull queue. Trimmed primary queue, a subsequent retry may succeed");
+      } else {
+        logger.warn("Failed to persist queue {}::{} due to overfull queue; will unlink device", account.getUuid(),
+            deviceId);
+        accountsManager.removeDevice(account, deviceId).join();
+      }
     } finally {
       messagesCache.unlockQueueForPersistence(accountUuid, deviceId);
       sample.stop(persistQueueTimer);
@@ -213,13 +238,62 @@ public class MessagePersister implements Managed {
 
   }
 
-  @VisibleForTesting
-  void maybeUnlink(final Account account, byte destinationDeviceId) throws MessagePersistenceException {
-    if (destinationDeviceId == Device.PRIMARY_ID) {
-      throw new MessagePersistenceException("primary device has a full queue");
-    }
+  private void trimQueue(final Account account, byte deviceId) {
+    final UUID aci = account.getIdentifier(IdentityType.ACI);
 
-    logger.warn("Failed to persist queue {}::{} due to overfull queue; will unlink device", account.getUuid(), destinationDeviceId);
-    accountsManager.removeDevice(account, destinationDeviceId).join();
+    final Optional<Device> maybeDevice = account.getDevice(deviceId);
+    if (maybeDevice.isEmpty()) {
+      logger.warn("Not deleting messages for overfull queue {}::{}, deviceId {} does not exist",
+          aci, deviceId, deviceId);
+      return;
+    }
+    final Device device = maybeDevice.get();
+
+    // Calculate how many bytes we should trim
+    final long cachedMessageBytes = Flux
+        .from(messagesCache.getMessagesToPersistReactive(aci, deviceId, CACHE_PAGE_SIZE))
+        .reduce(0, (acc, envelope) -> acc + envelope.getSerializedSize())
+        .block();
+    final double extraRoomRatio = this.dynamicConfigurationManager.getConfiguration()
+        .getMessagePersisterConfiguration()
+        .getTrimOversizedQueueExtraRoomRatio();
+    final long targetDeleteBytes = Math.round(cachedMessageBytes * extraRoomRatio);
+
+    final AtomicLong oldestMessage = new AtomicLong(0L);
+    final AtomicLong newestMessage = new AtomicLong(0L);
+    final AtomicLong bytesDeleted = new AtomicLong(0L);
+
+    // Iterate from the oldest message until we've removed targetDeleteBytes
+    final Pair<Long, Long> outcomes = Flux.from(messagesManager.getMessagesForDeviceReactive(aci, device, false))
+        .concatMap(envelope -> {
+          if (bytesDeleted.getAndAdd(envelope.getSerializedSize()) >= targetDeleteBytes) {
+            return Mono.just(Optional.<MessageProtos.Envelope>empty());
+          }
+          oldestMessage.compareAndSet(0L, envelope.getServerTimestamp());
+          newestMessage.set(envelope.getServerTimestamp());
+          return Mono.just(Optional.of(envelope));
+        })
+        .takeWhile(Optional::isPresent)
+        .flatMap(maybeEnvelope -> {
+          final MessageProtos.Envelope envelope = maybeEnvelope.get();
+          trimmedMessageCounter.increment();
+          trimmedMessageBytesCounter.increment(envelope.getSerializedSize());
+          return Mono
+              .fromCompletionStage(() -> messagesManager
+                  .delete(aci, device, UUID.fromString(envelope.getServerGuid()), envelope.getServerTimestamp()))
+              .retryWhen(Retry.backoff(5, Duration.ofSeconds(1)))
+              .map(Optional::isPresent);
+        })
+        .reduce(Pair.of(0L, 0L), (acc, deleted) -> deleted
+            ? Pair.of(acc.getLeft() + 1, acc.getRight())
+            : Pair.of(acc.getLeft(), acc.getRight() + 1))
+        .block();
+
+    logger.warn(
+        "Finished trimming {}:{}. Oldest message = {}, newest message = {}. Attempted to delete {} persisted bytes to make room for {} cached message bytes.  Delete outcomes: {} present, {} missing.",
+        aci, deviceId,
+        Instant.ofEpochMilli(oldestMessage.get()), Instant.ofEpochMilli(newestMessage.get()),
+        targetDeleteBytes, cachedMessageBytes,
+        outcomes.getLeft(), outcomes.getRight());
   }
 }
