@@ -76,6 +76,9 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
         authenticated = ReusableAuth.anonymous();
       }
 
+      Optional.ofNullable(environment.getAuthenticatedWebSocketUpgradeFilter())
+          .ifPresent(filter -> filter.handleAuthentication(authenticated, request, response));
+
       return new WebSocketResourceProvider<>(getRemoteAddress(request),
           remoteAddressPropertyName,
           this.jerseyApplicationHandler,

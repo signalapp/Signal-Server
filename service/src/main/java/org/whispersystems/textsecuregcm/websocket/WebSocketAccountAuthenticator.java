@@ -49,7 +49,7 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
       return CREDENTIALS_NOT_PRESENTED;
     }
     return basicCredentialsFromAuthHeader(authHeader)
-        .flatMap(credentials -> accountAuthenticator.authenticate(credentials))
+        .flatMap(accountAuthenticator::authenticate)
         .map(authenticatedAccount -> ReusableAuth.authenticated(authenticatedAccount, this.principalSupplier))
         .orElse(INVALID_CREDENTIALS_PRESENTED);
   }

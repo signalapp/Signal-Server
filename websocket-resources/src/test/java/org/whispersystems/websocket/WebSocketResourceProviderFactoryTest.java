@@ -27,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.websocket.auth.AuthenticationException;
 import org.whispersystems.websocket.auth.PrincipalSupplier;
+import org.whispersystems.websocket.auth.AuthenticatedWebSocketUpgradeFilter;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -123,6 +124,29 @@ public class WebSocketResourceProviderFactoryTest {
     factory.configure(servletFactory);
 
     verify(servletFactory).setCreator(eq(factory));
+  }
+
+  @Test
+  void testAuthenticatedWebSocketUpgradeFilter() throws AuthenticationException {
+    final Account account = new Account();
+    final ReusableAuth<Account> reusableAuth =
+        ReusableAuth.authenticated(account, PrincipalSupplier.forImmutablePrincipal());
+
+    when(environment.getAuthenticator()).thenReturn(authenticator);
+    when(authenticator.authenticate(eq(request))).thenReturn(reusableAuth);
+    when(environment.jersey()).thenReturn(jerseyEnvironment);
+    final HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
+    when(httpServletRequest.getAttribute(REMOTE_ADDRESS_PROPERTY_NAME)).thenReturn("127.0.0.1");
+    when(request.getHttpServletRequest()).thenReturn(httpServletRequest);
+
+    final AuthenticatedWebSocketUpgradeFilter<Account> filter = mock(AuthenticatedWebSocketUpgradeFilter.class);
+    when(environment.getAuthenticatedWebSocketUpgradeFilter()).thenReturn(filter);
+
+    final WebSocketResourceProviderFactory<?> factory = new WebSocketResourceProviderFactory<>(environment, Account.class,
+        mock(WebSocketConfiguration.class), REMOTE_ADDRESS_PROPERTY_NAME);
+    assertNotNull(factory.createWebSocket(request, response));
+
+    verify(filter).handleAuthentication(reusableAuth, request, response);
   }
 
 

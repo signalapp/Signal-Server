@@ -11,11 +11,13 @@ import jakarta.validation.Validator;
 import java.security.Principal;
 import java.time.Duration;
 import org.glassfish.jersey.server.ResourceConfig;
+import org.whispersystems.websocket.auth.AuthenticatedWebSocketUpgradeFilter;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 import org.whispersystems.websocket.logging.WebsocketRequestLog;
 import org.whispersystems.websocket.messages.WebSocketMessageFactory;
 import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
+import javax.annotation.Nullable;
 
 public class WebSocketEnvironment<T extends Principal> {
 
@@ -26,6 +28,7 @@ public class WebSocketEnvironment<T extends Principal> {
   private final Duration idleTimeout;
 
   private WebSocketAuthenticator<T> authenticator;
+  private AuthenticatedWebSocketUpgradeFilter<T> authenticatedWebSocketUpgradeFilter;
   private WebSocketMessageFactory messageFactory;
   private WebSocketConnectListener connectListener;
 
@@ -50,12 +53,22 @@ public class WebSocketEnvironment<T extends Principal> {
     return jerseyConfig;
   }
 
+  @Nullable
   public WebSocketAuthenticator<T> getAuthenticator() {
     return authenticator;
   }
 
   public void setAuthenticator(WebSocketAuthenticator<T> authenticator) {
     this.authenticator = authenticator;
+  }
+
+  @Nullable
+  public AuthenticatedWebSocketUpgradeFilter<T> getAuthenticatedWebSocketUpgradeFilter() {
+    return authenticatedWebSocketUpgradeFilter;
+  }
+
+  public void setAuthenticatedWebSocketUpgradeFilter(final AuthenticatedWebSocketUpgradeFilter<T> authenticatedWebSocketUpgradeFilter) {
+    this.authenticatedWebSocketUpgradeFilter = authenticatedWebSocketUpgradeFilter;
   }
 
   public Duration getIdleTimeout() {
