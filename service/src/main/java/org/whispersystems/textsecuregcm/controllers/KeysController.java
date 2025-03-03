@@ -381,7 +381,8 @@ public class KeysController {
                 Metrics.counter(GET_KEYS_COUNTER_NAME, Tags.of(
                         UserAgentTagUtil.getPlatformTag(userAgent),
                         Tag.of(IDENTITY_TYPE_TAG_NAME, targetIdentifier.identityType().name()),
-                        Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey != null))))
+                        Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey != null)),
+                        Tag.of("pqKeyAvailable", String.valueOf(pqPreKey != null))))
                     .increment();
 
                 if (signedEcPreKey != null || unsignedEcPreKey != null || pqPreKey != null) {
