@@ -8,11 +8,18 @@ import static com.codahale.metrics.MetricRegistry.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.dropwizard.util.DataSize;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
+import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -34,6 +41,11 @@ public class MessageSender {
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
 
+  // Note that these names deliberately reference `MessageController` for metric continuity
+  private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageController.class, "rejectOversizeMessage");
+  private static final String LARGE_BUT_NOT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageController.class, "largeMessage");
+  private static final String CONTENT_SIZE_DISTRIBUTION_NAME = MetricsUtil.name(MessageController.class, "messageContentSize");
+
   private static final String SEND_COUNTER_NAME = name(MessageSender.class, "sendMessage");
   private static final String CHANNEL_TAG_NAME = "channel";
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
@@ -41,6 +53,10 @@ public class MessageSender {
   private static final String URGENT_TAG_NAME = "urgent";
   private static final String STORY_TAG_NAME = "story";
   private static final String SEALED_SENDER_TAG_NAME = "sealedSender";
+
+  @VisibleForTesting
+  public static final int MAX_MESSAGE_SIZE = (int) DataSize.kibibytes(256).toBytes();
+  private static final long LARGE_MESSAGE_SIZE = DataSize.kibibytes(8).toBytes();
 
   public MessageSender(final MessagesManager messagesManager, final PushNotificationManager pushNotificationManager) {
     this.messagesManager = messagesManager;
@@ -135,6 +151,42 @@ public class MessageSender {
       return "websocket";
     } else {
       return "none";
+    }
+  }
+
+  public static void validateContentLength(final int contentLength,
+      final boolean isMultiRecipientMessage,
+      final boolean isSyncMessage,
+      final boolean isStory,
+      final String userAgent) throws MessageTooLargeException {
+
+    final boolean oversize = contentLength > MAX_MESSAGE_SIZE;
+
+    DistributionSummary.builder(CONTENT_SIZE_DISTRIBUTION_NAME)
+        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of("oversize", String.valueOf(oversize)),
+            Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
+            Tag.of("syncMessage", String.valueOf(isSyncMessage)),
+            Tag.of("story", String.valueOf(isStory))))
+        .publishPercentileHistogram(true)
+        .register(Metrics.globalRegistry)
+        .record(contentLength);
+
+    if (oversize) {
+      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+              Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
+              Tag.of("syncMessage", String.valueOf(isSyncMessage)),
+              Tag.of("story", String.valueOf(isStory))))
+          .increment();
+
+      throw new MessageTooLargeException();
+    }
+
+    if (contentLength > LARGE_MESSAGE_SIZE) {
+      Metrics.counter(
+              LARGE_BUT_NOT_OVERSIZE_MESSAGE_COUNTER_NAME,
+              Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage))))
+          .increment();
     }
   }
 }

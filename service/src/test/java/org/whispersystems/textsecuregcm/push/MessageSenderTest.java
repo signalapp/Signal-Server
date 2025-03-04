@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.push;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -171,5 +173,14 @@ class MessageSenderTest {
     arguments.add(Arguments.of(mock(Device.class), "none"));
 
     return arguments;
+  }
+
+  @Test
+  void validateContentLength() {
+    assertThrows(MessageTooLargeException.class, () ->
+        MessageSender.validateContentLength(MessageSender.MAX_MESSAGE_SIZE + 1, false, false, false, null));
+
+    assertDoesNotThrow(() ->
+        MessageSender.validateContentLength(MessageSender.MAX_MESSAGE_SIZE, false, false, false, null));
   }
 }

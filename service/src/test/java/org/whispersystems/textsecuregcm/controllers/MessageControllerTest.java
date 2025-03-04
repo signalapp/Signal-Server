@@ -29,7 +29,6 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -490,7 +489,7 @@ class MessageControllerTest {
       // `long`) instead of the validation layer, we get a 400 instead of a 422
       "99999999999999999999999999999999999, 400"
   })
-  void testSingleDeviceExtremeTimestamp(final String timestamp, final int expectedStatus) throws JsonProcessingException {
+  void testSingleDeviceExtremeTimestamp(final String timestamp, final int expectedStatus) {
     final String jsonTemplate = """
         {
             "timestamp" : %s,
@@ -607,9 +606,7 @@ class MessageControllerTest {
 
       assertEquals(3, envelopeCaptor.getValue().size());
 
-      envelopeCaptor.getValue().values().forEach(envelope -> {
-        assertTrue(envelope.getUrgent());
-      });
+      envelopeCaptor.getValue().values().forEach(envelope -> assertTrue(envelope.getUrgent()));
     }
   }
 
@@ -633,9 +630,7 @@ class MessageControllerTest {
 
       assertEquals(3, envelopeCaptor.getValue().size());
 
-      envelopeCaptor.getValue().values().forEach(envelope -> {
-        assertFalse(envelope.getUrgent());
-      });
+      envelopeCaptor.getValue().values().forEach(envelope -> assertFalse(envelope.getUrgent()));
     }
   }
 
@@ -948,7 +943,7 @@ class MessageControllerTest {
     final UUID senderAci = UUID.randomUUID();
     final UUID senderPni = UUID.randomUUID();
     final String userAgent = "user-agent";
-    UUID messageGuid = UUID.randomUUID();
+    final UUID messageGuid = UUID.randomUUID();
 
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(senderAci);
@@ -958,8 +953,6 @@ class MessageControllerTest {
     when(accountsManager.getByAccountIdentifier(senderAci)).thenReturn(Optional.empty());
     when(accountsManager.findRecentlyDeletedPhoneNumberIdentifier(senderAci)).thenReturn(Optional.of(senderPni));
     when(phoneNumberIdentifiers.getPhoneNumber(senderPni)).thenReturn(CompletableFuture.completedFuture(List.of(senderNumber)));
-
-    messageGuid = UUID.randomUUID();
 
     try (final Response response =
         resources.getJerseyTest()
@@ -1086,7 +1079,7 @@ class MessageControllerTest {
 
   @Test
   void testValidateContentLength() {
-    final int contentLength = Math.toIntExact(MessageController.MAX_MESSAGE_SIZE + 1);
+    final int contentLength = Math.toIntExact(MessageSender.MAX_MESSAGE_SIZE + 1);
     final byte[] contentBytes = new byte[contentLength];
     Arrays.fill(contentBytes, (byte) 1);
 

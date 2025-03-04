@@ -7,11 +7,8 @@ package org.whispersystems.textsecuregcm.controllers;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import com.codahale.metrics.annotation.Timed;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
-import io.dropwizard.util.DataSize;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -102,6 +99,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -155,10 +153,7 @@ public class MessageController {
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture<?>[0];
 
-  private static final String REJECT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "rejectOversizeMessage");
-  private static final String LARGE_BUT_NOT_OVERSIZE_MESSAGE_COUNTER = name(MessageController.class, "largeMessage");
   private static final String SENT_MESSAGE_COUNTER_NAME = name(MessageController.class, "sentMessages");
-  private static final String CONTENT_SIZE_DISTRIBUTION_NAME = MetricsUtil.name(MessageController.class, "messageContentSize");
   private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
   private static final String RATE_LIMITED_MESSAGE_COUNTER_NAME = name(MessageController.class, "rateLimitedMessage");
 
@@ -183,10 +178,6 @@ public class MessageController {
 
   private static final String ENDPOINT_TYPE_SINGLE = "single";
   private static final String ENDPOINT_TYPE_MULTI = "multi";
-
-  @VisibleForTesting
-  static final int MAX_MESSAGE_SIZE = (int) DataSize.kibibytes(256).toBytes();
-  private static final long LARGE_MESSAGE_SIZE = DataSize.kibibytes(8).toBytes();
 
   // The Signal desktop client (really, JavaScript in general) can handle message timestamps at most 100,000,000 days
   // past the epoch; please see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
@@ -325,7 +316,11 @@ public class MessageController {
       for (final IncomingMessage message : messages.messages()) {
         final int contentLength = message.content() != null ? message.content().length : 0;
 
-        validateContentLength(contentLength, false, isSyncMessage, isStory, userAgent);
+        try {
+          MessageSender.validateContentLength(contentLength, false, isSyncMessage, isStory, userAgent);
+        } catch (final MessageTooLargeException e) {
+          throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
+        }
 
         totalContentLength += contentLength;
       }
@@ -513,8 +508,13 @@ public class MessageController {
     }
 
     // Verify that the message isn't too large before performing more expensive validations
-    multiRecipientMessage.getRecipients().values().forEach(recipient ->
-        validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipient), true, false, isStory, userAgent));
+    multiRecipientMessage.getRecipients().values().forEach(recipient -> {
+      try {
+        MessageSender.validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipient), true, false, isStory, userAgent);
+      } catch (final MessageTooLargeException e) {
+        throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
+      }
+    });
 
     // Check that the request is well-formed and doesn't contain repeated entries for the same device for the same
     // recipient
@@ -919,39 +919,5 @@ public class MessageController {
 
       throw e;
     }
-  }
-
-  private void validateContentLength(final int contentLength,
-      final boolean isMultiRecipientMessage,
-      final boolean isSyncMessage,
-      final boolean isStory,
-      final String userAgent) {
-
-    final boolean oversize = contentLength > MAX_MESSAGE_SIZE;
-
-    DistributionSummary.builder(CONTENT_SIZE_DISTRIBUTION_NAME)
-        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
-            Tag.of("oversize", String.valueOf(oversize)),
-            Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
-            Tag.of("syncMessage", String.valueOf(isSyncMessage)),
-            Tag.of("story", String.valueOf(isStory))))
-        .publishPercentileHistogram(true)
-        .register(Metrics.globalRegistry)
-        .record(contentLength);
-
-    if (oversize) {
-      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
-              Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
-              Tag.of("syncMessage", String.valueOf(isSyncMessage)),
-              Tag.of("story", String.valueOf(isStory))))
-          .increment();
-      throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
-    }
-    if (contentLength > LARGE_MESSAGE_SIZE) {
-      Metrics.counter(
-          LARGE_BUT_NOT_OVERSIZE_MESSAGE_COUNTER,
-          Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage))))
-          .increment();
-    }      
   }
 }
