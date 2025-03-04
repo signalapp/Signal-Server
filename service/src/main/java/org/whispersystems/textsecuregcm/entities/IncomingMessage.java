@@ -10,6 +10,8 @@ import com.webauthn4j.converter.jackson.deserializer.json.ByteArrayBase64Deseria
 import io.micrometer.core.instrument.Metrics;
 import jakarta.validation.constraints.AssertTrue;
 import javax.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -22,6 +24,10 @@ public record IncomingMessage(int type,
                               int destinationRegistrationId,
 
                               @JsonDeserialize(using = ByteArrayBase64Deserializer.class)
+                              @NotNull
+                              // Note that max size is validated elsewhere in the interest of controlling responses and
+                              // reporting additional metrics.
+                              @Size(min = 1)
                               byte[] content) {
 
   private static final String REJECT_INVALID_ENVELOPE_TYPE_COUNTER_NAME =
@@ -57,9 +63,7 @@ public record IncomingMessage(int type,
       envelopeBuilder.setReportSpamToken(ByteString.copyFrom(reportSpamToken));
     }
 
-    if (content() != null && content().length > 0) {
-      envelopeBuilder.setContent(ByteString.copyFrom(content()));
-    }
+    envelopeBuilder.setContent(ByteString.copyFrom(content()));
 
     return envelopeBuilder.build();
   }

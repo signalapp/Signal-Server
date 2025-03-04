@@ -314,7 +314,7 @@ public class MessageController {
       int totalContentLength = 0;
 
       for (final IncomingMessage message : messages.messages()) {
-        final int contentLength = message.content() != null ? message.content().length : 0;
+        final int contentLength = message.content().length;
 
         try {
           MessageSender.validateContentLength(contentLength, false, isSyncMessage, isStory, userAgent);

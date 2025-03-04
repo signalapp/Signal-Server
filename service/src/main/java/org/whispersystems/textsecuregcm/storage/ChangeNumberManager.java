@@ -5,10 +5,8 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.protobuf.ByteString;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -117,13 +115,12 @@ public class ChangeNumberManager {
       final long serverTimestamp = System.currentTimeMillis();
 
       messageSender.sendMessages(account, deviceMessages.stream()
-          .filter(message -> getMessageContent(message).isPresent())
           .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, message -> Envelope.newBuilder()
               .setType(Envelope.Type.forNumber(message.type()))
               .setClientTimestamp(serverTimestamp)
               .setServerTimestamp(serverTimestamp)
               .setDestinationServiceId(new AciServiceIdentifier(account.getUuid()).toServiceIdentifierString())
-              .setContent(ByteString.copyFrom(getMessageContent(message).orElseThrow()))
+              .setContent(ByteString.copyFrom(message.content()))
               .setSourceServiceId(new AciServiceIdentifier(account.getUuid()).toServiceIdentifierString())
               .setSourceDevice(Device.PRIMARY_ID)
               .setUpdatedPni(account.getPhoneNumberIdentifier().toString())
@@ -134,14 +131,5 @@ public class ChangeNumberManager {
       logger.warn("Changed number but could not send all device messages on {}", account.getUuid(), e);
       throw e;
     }
-  }
-
-  private static Optional<byte[]> getMessageContent(final IncomingMessage message) {
-    if (message.content() == null || message.content().length == 0) {
-      logger.warn("Message has no content");
-      return Optional.empty();
-    }
-
-    return Optional.of(message.content());
   }
 }
