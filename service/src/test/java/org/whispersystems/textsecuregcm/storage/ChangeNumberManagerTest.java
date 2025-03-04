@@ -102,7 +102,7 @@ public class ChangeNumberManagerTest {
   void changeNumberNoMessages() throws Exception {
     Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
-    changeNumberManager.changeNumber(account, "+18025551234", null, null, null, null, null);
+    changeNumberManager.changeNumber(account, "+18025551234", null, null, null, null, null, null);
     verify(accountsManager).changeNumber(account, "+18025551234", null, null, null, null);
     verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
     verify(messageSender, never()).sendMessages(eq(account), any());
@@ -117,7 +117,7 @@ public class ChangeNumberManagerTest {
     final Map<Byte, ECSignedPreKey> prekeys = Map.of(Device.PRIMARY_ID,
         KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
 
-    changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyList(), Collections.emptyMap());
+    changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyList(), Collections.emptyMap(), null);
     verify(accountsManager).changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyMap());
     verify(messageSender, never()).sendMessages(eq(account), any());
   }
@@ -152,7 +152,7 @@ public class ChangeNumberManagerTest {
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(new byte[]{1});
 
-    changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, null, List.of(msg), registrationIds);
+    changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, null, List.of(msg), registrationIds, null);
 
     verify(accountsManager).changeNumber(account, changedE164, pniIdentityKey, prekeys, null, registrationIds);
 
@@ -205,7 +205,7 @@ public class ChangeNumberManagerTest {
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(new byte[]{1});
 
-    changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
+    changeNumberManager.changeNumber(account, changedE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds, null);
 
     verify(accountsManager).changeNumber(account, changedE164, pniIdentityKey, prekeys, pqPrekeys, registrationIds);
 
@@ -256,7 +256,7 @@ public class ChangeNumberManagerTest {
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(new byte[]{1});
 
-    changeNumberManager.changeNumber(account, originalE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
+    changeNumberManager.changeNumber(account, originalE164, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds, null);
 
     verify(accountsManager).updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, registrationIds);
 
@@ -303,7 +303,7 @@ public class ChangeNumberManagerTest {
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(new byte[]{1});
 
-    changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, null, List.of(msg), registrationIds);
+    changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, null, List.of(msg), registrationIds, null);
 
     verify(accountsManager).updatePniKeys(account, pniIdentityKey, prekeys, null, registrationIds);
 
@@ -352,7 +352,7 @@ public class ChangeNumberManagerTest {
     when(msg.destinationDeviceId()).thenReturn(deviceId2);
     when(msg.content()).thenReturn(new byte[]{1});
 
-    changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds);
+    changeNumberManager.updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, List.of(msg), registrationIds, null);
 
     verify(accountsManager).updatePniKeys(account, pniIdentityKey, prekeys, pqPrekeys, registrationIds);
 
@@ -407,7 +407,7 @@ public class ChangeNumberManagerTest {
         destinationDeviceId3, 89);
 
     assertThrows(StaleDevicesException.class,
-        () -> changeNumberManager.changeNumber(account, "+18005559876", new IdentityKey(Curve.generateKeyPair().getPublicKey()), preKeys, null, messages, registrationIds));
+        () -> changeNumberManager.changeNumber(account, "+18005559876", new IdentityKey(Curve.generateKeyPair().getPublicKey()), preKeys, null, messages, registrationIds, null));
   }
 
   @Test
@@ -445,7 +445,7 @@ public class ChangeNumberManagerTest {
         destinationDeviceId3, 89);
 
     assertThrows(StaleDevicesException.class,
-        () -> changeNumberManager.updatePniKeys(account, new IdentityKey(Curve.generateKeyPair().getPublicKey()), preKeys, null, messages, registrationIds));
+        () -> changeNumberManager.updatePniKeys(account, new IdentityKey(Curve.generateKeyPair().getPublicKey()), preKeys, null, messages, registrationIds, null));
   }
 
   @Test
@@ -475,6 +475,6 @@ public class ChangeNumberManagerTest {
     final Map<Byte, Integer> registrationIds = Map.of((byte) 1, 17, destinationDeviceId2, 47, destinationDeviceId3, 89);
 
     assertThrows(IllegalArgumentException.class,
-        () -> changeNumberManager.changeNumber(account, "+18005559876", new IdentityKey(Curve.generateKeyPair().getPublicKey()), null, null, messages, registrationIds));
+        () -> changeNumberManager.changeNumber(account, "+18005559876", new IdentityKey(Curve.generateKeyPair().getPublicKey()), null, null, messages, registrationIds, null));
   }
 }

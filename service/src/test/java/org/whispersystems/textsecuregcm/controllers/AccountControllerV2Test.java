@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -79,6 +80,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -139,7 +141,7 @@ class AccountControllerV2Test {
     void setUp() throws Exception {
       when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
 
-      when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any())).thenAnswer(
+      when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(
           (Answer<Account>) invocation -> {
             final Account account = invocation.getArgument(0);
             final String number = invocation.getArgument(1);
@@ -189,7 +191,7 @@ class AccountControllerV2Test {
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
       verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(NEW_NUMBER), any(), any(), any(),
-          any(), any());
+          any(), any(), any());
 
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(NEW_NUMBER, accountIdentityResponse.number());
@@ -212,7 +214,7 @@ class AccountControllerV2Test {
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
       verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_NUMBER), any(), any(), any(),
-          any(), any());
+          any(), any(), any());
 
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(AuthHelper.VALID_NUMBER, accountIdentityResponse.number());
@@ -220,7 +222,7 @@ class AccountControllerV2Test {
     }
 
     @Test
-    void changeNumberNonNormalizedNumber() throws Exception {
+    void changeNumberNonNormalizedNumber() {
       try (Response response = resources.getJerseyTest()
           .target("/v2/accounts/number")
           .request()
@@ -293,13 +295,15 @@ class AccountControllerV2Test {
           null, NEW_NUMBER, "123", new IdentityKey(Curve.generateKeyPair().getPublicKey()),
           Collections.emptyList(), Collections.emptyMap(), null, Map.of((byte) 1, pniRegistrationId));
 
-      final Response response = resources.getJerseyTest()
+      try (final Response response = resources.getJerseyTest()
           .target("/v2/accounts/number")
           .request()
           .header(HttpHeaders.AUTHORIZATION,
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-          .put(Entity.entity(changeNumberRequest, MediaType.APPLICATION_JSON_TYPE));
-      assertEquals(expectedStatusCode, response.getStatus());
+          .put(Entity.entity(changeNumberRequest, MediaType.APPLICATION_JSON_TYPE))) {
+
+        assertEquals(expectedStatusCode, response.getStatus());
+      }
     }
 
     private static Stream<Arguments> invalidRegistrationId() {
@@ -422,7 +426,7 @@ class AccountControllerV2Test {
         final AccountIdentityResponse accountIdentityResponse = response.readEntity(AccountIdentityResponse.class);
 
         verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(NEW_NUMBER), any(), any(), any(),
-            any(), any());
+            any(), any(), any());
 
         assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
         assertEquals(NEW_NUMBER, accountIdentityResponse.number());
@@ -478,6 +482,33 @@ class AccountControllerV2Test {
       final byte[] recoveryPassword = new byte[32];
       try (Response response = request.put(Entity.json(requestJsonRecoveryPassword(recoveryPassword, NEW_NUMBER)))) {
         assertEquals(403, response.getStatus());
+      }
+    }
+
+    @Test
+    void deviceMessageTooLarge() throws Exception {
+
+      when(registrationServiceClient.getSession(any(), any()))
+          .thenReturn(CompletableFuture.completedFuture(
+              Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
+                  SESSION_EXPIRATION_SECONDS))));
+
+      reset(changeNumberManager);
+      when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any()))
+          .thenThrow(MessageTooLargeException.class);
+
+      try (final Response response = resources.getJerseyTest()
+              .target("/v2/accounts/number")
+              .request()
+              .header(HttpHeaders.AUTHORIZATION,
+                  AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+              .put(Entity.entity(
+                  new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", new IdentityKey(Curve.generateKeyPair().getPublicKey()),
+                      Collections.emptyList(),
+                      Collections.emptyMap(), null, Collections.emptyMap()),
+                  MediaType.APPLICATION_JSON_TYPE))) {
+
+        assertEquals(413, response.getStatus());
       }
     }
 
@@ -558,7 +589,7 @@ class AccountControllerV2Test {
 
     @BeforeEach
     void setUp() throws Exception {
-      when(changeNumberManager.updatePniKeys(any(), any(), any(), any(), any(), any())).thenAnswer(
+      when(changeNumberManager.updatePniKeys(any(), any(), any(), any(), any(), any(), any())).thenAnswer(
           (Answer<Account>) invocation -> {
             final Account account = invocation.getArgument(0);
             final IdentityKey pniIdentityKey = invocation.getArgument(1);
@@ -594,7 +625,7 @@ class AccountControllerV2Test {
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
           .put(Entity.json(requestJson()), AccountIdentityResponse.class);
 
-      verify(changeNumberManager).updatePniKeys(eq(AuthHelper.VALID_ACCOUNT), eq(IDENTITY_KEY), any(), any(), any(), any());
+      verify(changeNumberManager).updatePniKeys(eq(AuthHelper.VALID_ACCOUNT), eq(IDENTITY_KEY), any(), any(), any(), any(), any());
 
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(AuthHelper.VALID_NUMBER, accountIdentityResponse.number());
@@ -643,6 +674,23 @@ class AccountControllerV2Test {
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
       try (Response response = request.put(Entity.json(invalidRequestJson()))) {
         assertEquals(422, response.getStatus());
+      }
+    }
+
+    @Test
+    void deviceMessageTooLarge() throws Exception {
+      reset(changeNumberManager);
+      when(changeNumberManager.updatePniKeys(any(), any(), any(), any(), any(), any(), any()))
+          .thenThrow(MessageTooLargeException.class);
+
+      try (final Response response = resources.getJerseyTest()
+              .target("/v2/accounts/phone_number_identity_key_distribution")
+              .request()
+              .header(HttpHeaders.AUTHORIZATION,
+                  AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+              .put(Entity.json(requestJson()))) {
+
+        assertEquals(413, response.getStatus());
       }
     }
 

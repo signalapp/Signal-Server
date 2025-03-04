@@ -51,6 +51,7 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.StaleDevices;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
@@ -94,6 +95,7 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "403", description = "Verification failed for the provided Registration Recovery Password")
   @ApiResponse(responseCode = "409", description = "Mismatched number of devices or device ids in 'devices to notify' list", content = @Content(schema = @Schema(implementation = MismatchedDevices.class)))
   @ApiResponse(responseCode = "410", description = "Mismatched registration ids in 'devices to notify' list", content = @Content(schema = @Schema(implementation = StaleDevices.class)))
+  @ApiResponse(responseCode = "413", description = "One or more device messages was too large")
   @ApiResponse(responseCode = "422", description = "The request did not pass validation")
   @ApiResponse(responseCode = "423", content = @Content(schema = @Schema(implementation = RegistrationLockFailure.class)))
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
@@ -143,7 +145,8 @@ public class AccountControllerV2 {
           request.devicePniSignedPrekeys(),
           request.devicePniPqLastResortPrekeys(),
           request.deviceMessages(),
-          request.pniRegistrationIds());
+          request.pniRegistrationIds(),
+          userAgentString);
 
       return AccountIdentityResponseBuilder.fromAccount(updatedAccount);
     } catch (MismatchedDevicesException e) {
@@ -159,6 +162,8 @@ public class AccountControllerV2 {
           .build());
     } catch (IllegalArgumentException e) {
       throw new BadRequestException(e);
+    } catch (MessageTooLargeException e) {
+      throw new WebApplicationException(Response.Status.REQUEST_ENTITY_TOO_LARGE);
     }
   }
 
@@ -176,6 +181,7 @@ public class AccountControllerV2 {
       content = @Content(schema = @Schema(implementation = MismatchedDevices.class)))
   @ApiResponse(responseCode = "410", description = "The registration IDs provided for some devices do not match those stored on the server.",
       content = @Content(schema = @Schema(implementation = StaleDevices.class)))
+  @ApiResponse(responseCode = "413", description = "One or more device messages was too large")
   public AccountIdentityResponse distributePhoneNumberIdentityKeys(
       @Mutable @Auth final AuthenticatedDevice authenticatedDevice,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString,
@@ -196,7 +202,8 @@ public class AccountControllerV2 {
           request.devicePniSignedPrekeys(),
           request.devicePniPqLastResortPrekeys(),
           request.deviceMessages(),
-          request.pniRegistrationIds());
+          request.pniRegistrationIds(),
+          userAgentString);
 
       return AccountIdentityResponseBuilder.fromAccount(updatedAccount);
     } catch (MismatchedDevicesException e) {
@@ -212,6 +219,8 @@ public class AccountControllerV2 {
           .build());
     } catch (IllegalArgumentException e) {
       throw new BadRequestException(e);
+    } catch (MessageTooLargeException e) {
+      throw new WebApplicationException(Response.Status.REQUEST_ENTITY_TOO_LARGE);
     }
   }
 

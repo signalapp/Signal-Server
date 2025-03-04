@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 
 public class ChangeNumberManager {
@@ -42,8 +43,9 @@ public class ChangeNumberManager {
       @Nullable final Map<Byte, ECSignedPreKey> deviceSignedPreKeys,
       @Nullable final Map<Byte, KEMSignedPreKey> devicePqLastResortPreKeys,
       @Nullable final List<IncomingMessage> deviceMessages,
-      @Nullable final Map<Byte, Integer> pniRegistrationIds)
-      throws InterruptedException, MismatchedDevicesException, StaleDevicesException {
+      @Nullable final Map<Byte, Integer> pniRegistrationIds,
+      @Nullable final String senderUserAgent)
+      throws InterruptedException, MismatchedDevicesException, StaleDevicesException, MessageTooLargeException {
 
     if (ObjectUtils.allNotNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
       // AccountsManager validates the device set on deviceSignedPreKeys and pniRegistrationIds
@@ -63,14 +65,14 @@ public class ChangeNumberManager {
       if (pniIdentityKey == null) {
         return account;
       }
-      return updatePniKeys(account, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, deviceMessages, pniRegistrationIds);
+      return updatePniKeys(account, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, deviceMessages, pniRegistrationIds, senderUserAgent);
     }
 
     final Account updatedAccount = accountsManager.changeNumber(
         account, number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
     if (deviceMessages != null) {
-      sendDeviceMessages(updatedAccount, deviceMessages);
+      sendDeviceMessages(updatedAccount, deviceMessages, senderUserAgent);
     }
 
     return updatedAccount;
@@ -81,7 +83,9 @@ public class ChangeNumberManager {
       final Map<Byte, ECSignedPreKey> deviceSignedPreKeys,
       @Nullable final Map<Byte, KEMSignedPreKey> devicePqLastResortPreKeys,
       final List<IncomingMessage> deviceMessages,
-      final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException, StaleDevicesException {
+      final Map<Byte, Integer> pniRegistrationIds,
+      final String senderUserAgent) throws MismatchedDevicesException, StaleDevicesException, MessageTooLargeException {
+
     validateDeviceMessages(account, deviceMessages);
 
     // Don't try to be smart about ignoring unnecessary retries. If we make literally no change we will skip the ddb
@@ -89,7 +93,7 @@ public class ChangeNumberManager {
     final Account updatedAccount = accountsManager.updatePniKeys(
         account, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
-    sendDeviceMessages(updatedAccount, deviceMessages);
+    sendDeviceMessages(updatedAccount, deviceMessages, senderUserAgent);
     return updatedAccount;
   }
 
@@ -110,7 +114,18 @@ public class ChangeNumberManager {
         false);
   }
 
-  private void sendDeviceMessages(final Account account, final List<IncomingMessage> deviceMessages) {
+  private void sendDeviceMessages(final Account account,
+      final List<IncomingMessage> deviceMessages,
+      final String senderUserAgent) throws MessageTooLargeException {
+
+    for (final IncomingMessage message : deviceMessages) {
+      MessageSender.validateContentLength(message.content().length,
+          false,
+          true,
+          false,
+          senderUserAgent);
+    }
+
     try {
       final long serverTimestamp = System.currentTimeMillis();
 
