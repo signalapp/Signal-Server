@@ -41,8 +41,6 @@ class AccountTest {
   private final Device oldSecondaryDevice = mock(Device.class);
   private final Device deleteSyncCapableDevice = mock(Device.class);
   private final Device deleteSyncIncapableDevice = mock(Device.class);
-  private final Device versionedExpirationTimerCapableDevice = mock(Device.class);
-  private final Device versionedExpirationTimerIncapableDevice = mock(Device.class);
 
   @BeforeEach
   void setup() {
@@ -67,12 +65,6 @@ class AccountTest {
 
     when(deleteSyncIncapableDevice.getId()).thenReturn((byte) 2);
     when(deleteSyncIncapableDevice.hasCapability(DeviceCapability.DELETE_SYNC)).thenReturn(false);
-
-    when(versionedExpirationTimerCapableDevice.getId()).thenReturn((byte) 1);
-    when(versionedExpirationTimerCapableDevice.hasCapability(DeviceCapability.VERSIONED_EXPIRATION_TIMER)).thenReturn(true);
-
-    when(versionedExpirationTimerIncapableDevice.getId()).thenReturn((byte) 2);
-    when(versionedExpirationTimerIncapableDevice.hasCapability(DeviceCapability.VERSIONED_EXPIRATION_TIMER)).thenReturn(false);
   }
 
   @Test
@@ -139,17 +131,6 @@ class AccountTest {
         "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.DELETE_SYNC));
   }
 
-  @Test
-  void isVersionedExpirationTimerSupported() {
-    assertTrue(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(versionedExpirationTimerCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.VERSIONED_EXPIRATION_TIMER));
-    assertFalse(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(versionedExpirationTimerIncapableDevice, versionedExpirationTimerCapableDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.VERSIONED_EXPIRATION_TIMER));
-  }
-
-  @Test
   void stale() {
     final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), Collections.emptyList(),
         new byte[0]);

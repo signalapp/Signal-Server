@@ -11,7 +11,6 @@ public enum DeviceCapability {
   STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false),
   TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false),
   DELETE_SYNC("deleteSync", AccountCapabilityMode.ALL_DEVICES, true, true),
-  VERSIONED_EXPIRATION_TIMER("versionedExpirationTimer", AccountCapabilityMode.ALL_DEVICES, true, true),
   STORAGE_SERVICE_RECORD_KEY_ROTATION("ssre2", AccountCapabilityMode.ALL_DEVICES, true, true);
 
   public enum AccountCapabilityMode {

@@ -434,8 +434,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       @CartesianTest.Values(bytes = {Device.PRIMARY_ID, Device.PRIMARY_ID + 1}) final byte deviceId,
       @CartesianTest.Values(booleans = {true, false}) final boolean storage,
       @CartesianTest.Values(booleans = {true, false}) final boolean transfer,
-      @CartesianTest.Values(booleans = {true, false}) final boolean deleteSync,
-      @CartesianTest.Values(booleans = {true, false}) final boolean versionedExpirationTimer) {
+      @CartesianTest.Values(booleans = {true, false}) final boolean deleteSync) {
 
     mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
@@ -456,10 +455,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC);
     }
 
-    if (versionedExpirationTimer) {
-      requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_VERSIONED_EXPIRATION_TIMER);
-    }
-
     final SetCapabilitiesResponse ignored = authenticatedServiceStub().setCapabilities(requestBuilder.build());
 
     final Set<DeviceCapability> expectedCapabilities = new HashSet<>();
@@ -474,10 +469,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     if (deleteSync) {
       expectedCapabilities.add(DeviceCapability.DELETE_SYNC);
-    }
-
-    if (versionedExpirationTimer) {
-      expectedCapabilities.add(DeviceCapability.VERSIONED_EXPIRATION_TIMER);
     }
 
     verify(device).setCapabilities(expectedCapabilities);
