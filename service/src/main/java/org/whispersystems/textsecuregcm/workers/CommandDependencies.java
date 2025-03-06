@@ -22,6 +22,7 @@ import java.util.concurrent.SynchronousQueue;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.WhisperServerService;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -105,7 +106,7 @@ record CommandDependencies(
     final AwsCredentialsProvider awsCredentialsProvider = configuration.getAwsCredentialsConfiguration().build();
 
     ScheduledExecutorService dynamicConfigurationExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(name, "dynamicConfiguration-%d")).threads(1).build();
+        .scheduledExecutorService(name(WhisperServerService.class, "dynamicConfiguration-%d")).threads(1).build();
 
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         new DynamicConfigurationManager<>(
@@ -124,36 +125,36 @@ record CommandDependencies(
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         environment.lifecycle().executorService("messageDelivery").minThreads(4).maxThreads(4).build());
     ExecutorService messageDeletionExecutor = environment.lifecycle()
-        .executorService(name(name, "messageDeletion-%d")).minThreads(4).maxThreads(4).build();
+        .executorService(name(WhisperServerService.class, "messageDeletion-%d")).minThreads(4).maxThreads(4).build();
     ExecutorService secureValueRecoveryServiceExecutor = environment.lifecycle()
-        .executorService(name(name, "secureValueRecoveryService-%d")).maxThreads(8).minThreads(8).build();
+        .executorService(name(WhisperServerService.class, "secureValueRecoveryService-%d")).maxThreads(8).minThreads(8).build();
     ExecutorService storageServiceExecutor = environment.lifecycle()
-        .executorService(name(name, "storageService-%d")).maxThreads(8).minThreads(8).build();
+        .executorService(name(WhisperServerService.class, "storageService-%d")).maxThreads(8).minThreads(8).build();
     ExecutorService accountLockExecutor = environment.lifecycle()
-        .executorService(name(name, "accountLock-%d")).minThreads(8).maxThreads(8).build();
+        .executorService(name(WhisperServerService.class, "accountLock-%d")).minThreads(8).maxThreads(8).build();
     ExecutorService remoteStorageHttpExecutor = environment.lifecycle()
-        .executorService(name(name, "remoteStorage-%d"))
+        .executorService(name(WhisperServerService.class, "remoteStorage-%d"))
         .minThreads(0).maxThreads(Integer.MAX_VALUE).workQueue(new SynchronousQueue<>())
         .keepAliveTime(io.dropwizard.util.Duration.seconds(60L)).build();
-    ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(name, "apnSender-%d"))
+    ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(WhisperServerService.class, "apnSender-%d"))
         .maxThreads(1).minThreads(1).build();
-    ExecutorService fcmSenderExecutor = environment.lifecycle().executorService(name(name, "fcmSender-%d"))
+    ExecutorService fcmSenderExecutor = environment.lifecycle().executorService(name(WhisperServerService.class, "fcmSender-%d"))
         .maxThreads(16).minThreads(16).build();
     ExecutorService clientEventExecutor = environment.lifecycle()
-        .virtualExecutorService(name(name, "clientEvent-%d"));
+        .virtualExecutorService(name(WhisperServerService.class, "clientEvent-%d"));
     ExecutorService asyncOperationQueueingExecutor = environment.lifecycle()
-        .executorService(name(name, "asyncOperationQueueing-%d")).minThreads(1).maxThreads(1).build();
+        .executorService(name(WhisperServerService.class, "asyncOperationQueueing-%d")).minThreads(1).maxThreads(1).build();
     ExecutorService disconnectionRequestListenerExecutor = environment.lifecycle()
-        .virtualExecutorService(name(name, "disconnectionRequest-%d"));
+        .virtualExecutorService(name(WhisperServerService.class, "disconnectionRequest-%d"));
 
     ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(name, "secureValueRecoveryServiceRetry-%d")).threads(1).build();
+        .scheduledExecutorService(name(WhisperServerService.class, "secureValueRecoveryServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService remoteStorageRetryExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(name, "remoteStorageRetry-%d")).threads(1).build();
+        .scheduledExecutorService(name(WhisperServerService.class, "remoteStorageRetry-%d")).threads(1).build();
     ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(name, "storageServiceRetry-%d")).threads(1).build();
+        .scheduledExecutorService(name(WhisperServerService.class, "storageServiceRetry-%d")).threads(1).build();
     ScheduledExecutorService messagePollExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(name, "messagePollExecutor-%d")).threads(1).build();
+        .scheduledExecutorService(name(WhisperServerService.class, "messagePollExecutor-%d")).threads(1).build();
 
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
         configuration.getSecureStorageServiceConfiguration());
@@ -161,7 +162,7 @@ record CommandDependencies(
         configuration.getSvr2Configuration());
 
     final ExecutorService awsSdkMetricsExecutor = environment.lifecycle()
-        .virtualExecutorService(MetricRegistry.name(CommandDependencies.class, "awsSdkMetrics-%d"));
+        .virtualExecutorService(MetricRegistry.name(WhisperServerService.class, "awsSdkMetrics-%d"));
 
     DynamoDbAsyncClient dynamoDbAsyncClient = configuration.getDynamoDbClientConfiguration()
         .buildAsyncClient(awsCredentialsProvider, new MicrometerAwsSdkMetricPublisher(awsSdkMetricsExecutor, "dynamoDbAsyncCommand"));
