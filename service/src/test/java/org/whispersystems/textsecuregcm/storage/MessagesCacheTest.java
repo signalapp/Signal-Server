@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
@@ -491,12 +492,69 @@ class MessagesCacheTest {
     }
 
     @Test
+    void testMessagesToPersistPagination() throws InterruptedException {
+      final UUID destinationUuid = UUID.randomUUID();
+      final ServiceIdentifier serviceId = new AciServiceIdentifier(destinationUuid);
+      final byte deviceId = 1;
+      final byte[] queueKey = MessagesCache.getMessageQueueKey(destinationUuid, deviceId);
+
+      final List<MessageProtos.Envelope> messages = IntStream.range(0, 60)
+          .mapToObj(i -> switch (i % 3) {
+            // Stale MRM
+            case 0 -> generateRandomMessage(UUID.randomUUID(), serviceId, true)
+                .toBuilder()
+                // clear some things added by the helper
+                .clearContent()
+                .setSharedMrmKey(MessagesCache.STALE_MRM_KEY)
+                .build();
+            // ephemeral message
+            case 1 -> generateRandomMessage(UUID.randomUUID(), serviceId, true)
+                .toBuilder()
+                .setEphemeral(true).build();
+            // standard message
+            case 2 -> generateRandomMessage(UUID.randomUUID(), serviceId, true);
+            default -> throw new IllegalStateException();
+          })
+          .toList();
+      for (MessageProtos.Envelope envelope : messages) {
+        messagesCache.insert(UUID.fromString(envelope.getServerGuid()), destinationUuid, deviceId, envelope).join();
+      }
+
+      final List<UUID> expectedGuidsToPersist = messages.stream()
+          .filter(envelope -> !envelope.getEphemeral() && !envelope.hasSharedMrmKey())
+          .map(envelope -> UUID.fromString(envelope.getServerGuid()))
+          .limit(10)
+          .collect(Collectors.toList());
+
+      // Fetch 10 messages which should discard 20 ephemeral stale messages, and leave the rest
+      final List<UUID> actual = messagesCache.getMessagesToPersist(destinationUuid, deviceId, 10).stream()
+          .map(envelope -> UUID.fromString(envelope.getServerGuid()))
+          .toList();
+      assertIterableEquals(expectedGuidsToPersist, actual);
+
+      // Eventually, the 20 ephemeral/stale messages should be discarded
+      assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
+        while (REDIS_CLUSTER_EXTENSION.getRedisCluster()
+            .withBinaryCluster(conn -> conn.sync().zcard(queueKey)) != 40) {
+          Thread.sleep(1);
+        }
+      }, "Ephemeral and stale messages should be deleted asynchronously");
+
+      // Let all pending tasks finish and make sure no more stale messages have been deleted
+      sharedExecutorService.shutdown();
+      sharedExecutorService.awaitTermination(1, TimeUnit.SECONDS);
+      assertEquals(REDIS_CLUSTER_EXTENSION.getRedisCluster()
+          .withBinaryCluster(conn -> conn.sync().zcard(queueKey)).longValue(), 40);
+    }
+
+    @Test
     void testMessagesToPersistReactive() {
       final UUID destinationUuid = UUID.randomUUID();
       final ServiceIdentifier serviceId = new AciServiceIdentifier(destinationUuid);
       final byte deviceId = 1;
+      final byte[] messageQueueKey = MessagesCache.getMessageQueueKey(destinationUuid, deviceId);
 
-      final List<MessageProtos.Envelope> expected = IntStream.range(0, 100)
+      final List<MessageProtos.Envelope> messages = IntStream.range(0, 200)
           .mapToObj(i -> {
             if (i % 3 == 0) {
               final SealedSenderMultiRecipientMessage mrm = generateRandomMrmMessage(serviceId, deviceId);
@@ -509,17 +567,27 @@ class MessagesCacheTest {
                   .build();
             } else if (i % 13 == 0) {
               return generateRandomMessage(UUID.randomUUID(), serviceId, true).toBuilder().setEphemeral(true).build();
+            } else if (i % 17 == 0) {
+              return generateRandomMessage(UUID.randomUUID(), serviceId, true)
+                  .toBuilder()
+                  // clear some things added by the helper
+                  .clearContent()
+                  .setSharedMrmKey(MessagesCache.STALE_MRM_KEY)
+                  .build();
             } else {
               return generateRandomMessage(UUID.randomUUID(), serviceId, true);
             }
           })
-          .filter(envelope -> !envelope.getEphemeral())
           .toList();
 
-      for (MessageProtos.Envelope envelope : expected) {
+      for (MessageProtos.Envelope envelope : messages) {
         messagesCache.insert(UUID.fromString(envelope.getServerGuid()), destinationUuid, deviceId, envelope).join();
       }
 
+      final List<MessageProtos.Envelope> expected = messages.stream()
+          .filter(envelope -> !envelope.getEphemeral() &&
+              (envelope.getSharedMrmKey() == null || !envelope.getSharedMrmKey().equals(MessagesCache.STALE_MRM_KEY)))
+          .toList();
       final List<MessageProtos.Envelope> actual = messagesCache
           .getMessagesToPersistReactive(destinationUuid, deviceId, 7).collectList().block();
 
@@ -528,6 +596,14 @@ class MessagesCacheTest {
         assertNotNull(actual.get(i).getContent());
         assertEquals(actual.get(i).getServerGuid(), expected.get(i).getServerGuid());
       }
+
+      // Ephemeral messages and stale MRM messages are asynchronously deleted, but eventually they should all be removed
+      assertTimeoutPreemptively(Duration.ofSeconds(1), () -> {
+        while (REDIS_CLUSTER_EXTENSION.getRedisCluster()
+            .withBinaryCluster(conn -> conn.sync().zcard(messageQueueKey)) != expected.size()) {
+          Thread.sleep(1);
+        }
+      }, "Ephemeral and stale messages should be deleted asynchronously");
     }
 
     @ParameterizedTest

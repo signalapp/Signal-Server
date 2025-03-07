@@ -50,6 +50,7 @@ import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
@@ -149,7 +150,8 @@ public class MessagesCache {
   static final String NEXT_SLOT_TO_PERSIST_KEY = "user_queue_persist_slot";
   private static final byte[] LOCK_VALUE = "1".getBytes(StandardCharsets.UTF_8);
 
-  private static final ByteString STALE_MRM_KEY = ByteString.copyFromUtf8("stale");
+  @VisibleForTesting
+  static final ByteString STALE_MRM_KEY = ByteString.copyFromUtf8("stale");
 
   @VisibleForTesting
   static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
@@ -536,22 +538,26 @@ public class MessagesCache {
       final int pageSize) {
     final Timer.Sample sample = Timer.start();
 
-    final Function<Long, Mono<List<ScoredValue<byte[]>>>> getNextPage = (Long start) ->
+
+    final Function<Optional<Long>, Mono<List<ScoredValue<byte[]>>>> getNextPage = (Optional<Long> start) ->
         Mono.fromCompletionStage(() -> redisCluster.withBinaryCluster(connection ->
             connection.async().zrangebyscoreWithScores(
                 getMessageQueueKey(accountUuid, destinationDevice),
                 Range.from(
-                    Range.Boundary.excluding(start),
+                    start.map(Range.Boundary::excluding).orElse(Range.Boundary.unbounded()),
                     Range.Boundary.unbounded()),
                 Limit.from(pageSize))));
 
-    final Flux<MessageProtos.Envelope> allMessages = getNextPage.apply(0L)
+    final Sinks.Many<MessageProtos.Envelope> staleEphemeralMessages = Sinks.many().unicast().onBackpressureBuffer();
+    final Sinks.Many<MessageProtos.Envelope> staleMrmMessages = Sinks.many().unicast().onBackpressureBuffer();
+
+    final Flux<MessageProtos.Envelope> messagesToPersist = getNextPage.apply(Optional.empty())
         .expand(scoredValues -> {
           if (scoredValues.isEmpty()) {
             return Mono.empty();
           }
           long lastTimestamp = (long) scoredValues.getLast().getScore();
-          return getNextPage.apply(lastTimestamp);
+          return getNextPage.apply(Optional.of(lastTimestamp));
         })
         .concatMap(scoredValues -> Flux.fromStream(scoredValues.stream().map(ScoredValue::getValue)))
         .mapNotNull(message -> {
@@ -572,30 +578,25 @@ public class MessagesCache {
 
           return messageMono;
         })
-        .publish()
-        // We expect exactly three subscribers to this base flux:
-        // 1. the caller of the method
-        // 2. an internal processes to discard stale ephemeral messages
-        // 3. an internal process to discard stale MRM messages
-        // The discard subscribers will subscribe immediately, but we don’t want to do any work if the
-        // caller never subscribes
-        .autoConnect(3);
+        .doOnNext(envelope -> {
+          if (envelope.getEphemeral()) {
+            staleEphemeralMessages.tryEmitNext(envelope).orThrow();
+          } else if (isStaleMrmMessage(envelope)) {
+            // clearing the sharedMrmKey prevents unnecessary calls to update the shared MRM data
+            staleMrmMessages.tryEmitNext(envelope.toBuilder().clearSharedMrmKey().build()).orThrow();
+          }
+        })
+        .filter(Predicate.not(envelope -> envelope.getEphemeral() || isStaleMrmMessage(envelope)));
 
-    final Flux<MessageProtos.Envelope> messagesToPersist = allMessages
-        .filter(Predicate.not(envelope ->
-            envelope.getEphemeral() || isStaleMrmMessage(envelope)));
-
-    final Flux<MessageProtos.Envelope> ephemeralMessages = allMessages
-        .filter(MessageProtos.Envelope::getEphemeral);
-    discardStaleMessages(accountUuid, destinationDevice, ephemeralMessages, staleEphemeralMessagesCounter, "ephemeral");
-
-    final Flux<MessageProtos.Envelope> staleMrmMessages = allMessages.filter(MessagesCache::isStaleMrmMessage)
-        // clearing the sharedMrmKey prevents unnecessary calls to update the shared MRM data
-        .map(envelope -> envelope.toBuilder().clearSharedMrmKey().build());
-    discardStaleMessages(accountUuid, destinationDevice, staleMrmMessages, staleMrmMessagesCounter, "mrm");
+    discardStaleMessages(accountUuid, destinationDevice, staleEphemeralMessages.asFlux(), staleEphemeralMessagesCounter, "ephemeral");
+    discardStaleMessages(accountUuid, destinationDevice, staleMrmMessages.asFlux(), staleMrmMessagesCounter, "mrm");
 
     return messagesToPersist
-        .doOnTerminate(() -> sample.stop(getMessagesTimer));
+        .doFinally(signal -> {
+          sample.stop(getMessagesTimer);
+          staleEphemeralMessages.tryEmitComplete();
+          staleMrmMessages.tryEmitComplete();
+        });
   }
 
   List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
