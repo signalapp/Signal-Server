@@ -182,6 +182,16 @@ class GooglePlayBillingManagerTest {
   }
 
   @Test
+  public void cancelMissingSubscription() throws IOException {
+    final HttpResponseException mockException = mock(HttpResponseException.class);
+    when(mockException.getStatusCode()).thenReturn(404);
+    when(subscriptionsv2Get.execute()).thenThrow(mockException);
+    assertThatNoException().isThrownBy(() ->
+        googlePlayBillingManager.cancelAllActiveSubscriptions(PURCHASE_TOKEN).join());
+    verifyNoInteractions(cancel);
+  }
+
+  @Test
   public void getReceiptUnacknowledged() throws IOException {
     when(subscriptionsv2Get.execute()).thenReturn(new SubscriptionPurchaseV2()
         .setAcknowledgementState(GooglePlayBillingManager.AcknowledgementState.PENDING.apiString())

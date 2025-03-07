@@ -219,7 +219,9 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
 
       return executeTokenOperation(pub ->
           pub.purchases().subscriptions().cancel(packageName, purchase.getProductId(), purchaseToken));
-    });
+    })
+    // If the subscription is not found, no need to do anything
+    .exceptionally(ExceptionUtils.exceptionallyHandler(SubscriptionException.NotFound.class, e -> null));
   }
 
   @Override
