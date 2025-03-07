@@ -142,7 +142,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
         // We've already acknowledged this purchase on a previous attempt, nothing to do
         return CompletableFuture.completedFuture(null);
       }
-      return executeAsync(pub -> pub.purchases().subscriptions()
+      return executeTokenOperation(pub -> pub.purchases().subscriptions()
           .acknowledge(packageName, productId, purchaseToken, new SubscriptionPurchasesAcknowledgeRequest()));
     }
 
@@ -217,7 +217,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
       }
       final SubscriptionPurchaseLineItem purchase = getLineItem(subscription);
 
-      return executeAsync(pub ->
+      return executeTokenOperation(pub ->
           pub.purchases().subscriptions().cancel(packageName, purchase.getProductId(), purchaseToken));
     });
   }
@@ -339,26 +339,37 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
     return CompletableFuture.supplyAsync(() -> {
       try {
         return apiCall.req(androidPublisher).execute();
-      } catch (GoogleJsonResponseException e) {
-        if (e.getStatusCode() == Response.Status.NOT_FOUND.getStatusCode()) {
-          throw ExceptionUtils.wrap(new SubscriptionException.NotFound());
-        }
-        logger.warn("Unexpected HTTP status code {} from androidpublisher: {}", e.getStatusCode(), e.getDetails(), e);
-        throw ExceptionUtils.wrap(e);
-      } catch (HttpResponseException e) {
-        if (e.getStatusCode() == Response.Status.NOT_FOUND.getStatusCode()) {
-          throw ExceptionUtils.wrap(new SubscriptionException.NotFound());
-        }
-        logger.warn("Unexpected HTTP status code {} from androidpublisher", e.getStatusCode(), e);
-        throw ExceptionUtils.wrap(e);
       } catch (IOException e) {
         throw ExceptionUtils.wrap(e);
       }
     }, executor);
   }
 
+  /**
+   * Asynchronously execute a synchronous API call on a purchaseToken, mapping expected errors to the appropriate
+   * {@link SubscriptionException}
+   *
+   * @param apiCall An API call that operates on a purchaseToken
+   * @param <R>     The result of the API call
+   * @return A stage that completes with the result of the API call
+   */
+  private <R> CompletableFuture<R> executeTokenOperation(final ApiCall<R> apiCall) {
+    return executeAsync(apiCall)
+        .exceptionally(ExceptionUtils.exceptionallyHandler(HttpResponseException.class, e -> {
+          if (e.getStatusCode() == Response.Status.NOT_FOUND.getStatusCode()
+              || e.getStatusCode() == Response.Status.GONE.getStatusCode()) {
+            throw ExceptionUtils.wrap(new SubscriptionException.NotFound());
+          }
+          final String details = e instanceof GoogleJsonResponseException
+              ? ((GoogleJsonResponseException) e).getDetails().toString()
+              : "";
+          logger.warn("Unexpected HTTP status code {} from androidpublisher: {}", e.getStatusCode(), details, e);
+          throw ExceptionUtils.wrap(e);
+        }));
+  }
+
   private CompletableFuture<SubscriptionPurchaseV2> lookupSubscription(final String purchaseToken) {
-    return executeAsync(publisher -> publisher.purchases().subscriptionsv2().get(packageName, purchaseToken));
+    return executeTokenOperation(publisher -> publisher.purchases().subscriptionsv2().get(packageName, purchaseToken));
   }
 
   private long productIdToLevel(final String productId) {
