@@ -3896,7 +3896,6 @@ components:
             - STORAGE
             - TRANSFER
             - DELETE_SYNC
-            - VERSIONED_EXPIRATION_TIMER
             - STORAGE_SERVICE_RECORD_KEY_ROTATION
         discoverableByPhoneNumber:
           type: boolean
