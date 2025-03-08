@@ -385,8 +385,17 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       if (customer == null) {
         throw ExceptionUtils.wrap(new IOException("no customer record found for id " + customerId));
       }
+      if (StringUtils.isBlank(customer.getId()) || (!customer.getId().equals(customerId))) {
+        logger.error("customer ID returned by Stripe ({}) did not match query ({})",  customerId, customer.getSubscriptions());
+        throw ExceptionUtils.wrap(new IOException("unexpected customer ID returned by Stripe"));
+      }
       return listNonCanceledSubscriptions(customer);
     }).thenCompose(subscriptions -> {
+      if (subscriptions.stream()
+          .anyMatch(subscription -> !subscription.getCustomer().equals(customerId))) {
+        logger.error("Subscription did not match expected customer ID: {}",  customerId);
+        throw ExceptionUtils.wrap( new IOException("mismatched customer ID"));
+      }
       @SuppressWarnings("unchecked")
       CompletableFuture<Subscription>[] futures = (CompletableFuture<Subscription>[]) subscriptions.stream()
           .map(this::endSubscription).toArray(CompletableFuture[]::new);
