@@ -50,7 +50,6 @@ import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
@@ -534,11 +533,13 @@ public class MessagesCache {
         });
   }
 
-  Flux<MessageProtos.Envelope> getMessagesToPersistReactive(final UUID accountUuid, final byte destinationDevice,
-      final int pageSize) {
-    final Timer.Sample sample = Timer.start();
-
-
+  /**
+   * Estimate the size of the cached queue if it were to be persisted
+   * @param accountUuid The account identifier
+   * @param destinationDevice The destination device id
+   * @return A future that completes with the approximate size of stored messages that need to be persisted
+   */
+  CompletableFuture<Long> estimatePersistedQueueSizeBytes(final UUID accountUuid, final byte destinationDevice) {
     final Function<Optional<Long>, Mono<List<ScoredValue<byte[]>>>> getNextPage = (Optional<Long> start) ->
         Mono.fromCompletionStage(() -> redisCluster.withBinaryCluster(connection ->
             connection.async().zrangebyscoreWithScores(
@@ -546,12 +547,8 @@ public class MessagesCache {
                 Range.from(
                     start.map(Range.Boundary::excluding).orElse(Range.Boundary.unbounded()),
                     Range.Boundary.unbounded()),
-                Limit.from(pageSize))));
-
-    final Sinks.Many<MessageProtos.Envelope> staleEphemeralMessages = Sinks.many().unicast().onBackpressureBuffer();
-    final Sinks.Many<MessageProtos.Envelope> staleMrmMessages = Sinks.many().unicast().onBackpressureBuffer();
-
-    final Flux<MessageProtos.Envelope> messagesToPersist = getNextPage.apply(Optional.empty())
+                Limit.from(PAGE_SIZE))));
+    final Flux<byte[]> allSerializedMessages = getNextPage.apply(Optional.empty())
         .expand(scoredValues -> {
           if (scoredValues.isEmpty()) {
             return Mono.empty();
@@ -559,7 +556,45 @@ public class MessagesCache {
           long lastTimestamp = (long) scoredValues.getLast().getScore();
           return getNextPage.apply(Optional.of(lastTimestamp));
         })
-        .concatMap(scoredValues -> Flux.fromStream(scoredValues.stream().map(ScoredValue::getValue)))
+        .concatMap(scoredValues -> Flux.fromStream(scoredValues.stream().map(ScoredValue::getValue)));
+
+    return parseAndFetchMrms(allSerializedMessages, destinationDevice)
+        .filter(Predicate.not(envelope -> envelope.getEphemeral() || isStaleMrmMessage(envelope)))
+        .reduce(0L, (acc, envelope) -> acc + envelope.getSerializedSize())
+        .toFuture();
+  }
+
+  List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
+      final int limit) {
+
+    final Timer.Sample sample = Timer.start();
+
+    final List<byte[]> messages = redisCluster.withBinaryCluster(connection ->
+        connection.sync().zrange(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
+
+    final Flux<MessageProtos.Envelope> allMessages = parseAndFetchMrms(Flux.fromIterable(messages), destinationDevice);
+
+    final Flux<MessageProtos.Envelope> messagesToPersist = allMessages
+        .filter(Predicate.not(envelope ->
+            envelope.getEphemeral() || isStaleMrmMessage(envelope)));
+
+    final Flux<MessageProtos.Envelope> ephemeralMessages = allMessages
+        .filter(MessageProtos.Envelope::getEphemeral);
+    discardStaleMessages(accountUuid, destinationDevice, ephemeralMessages, staleEphemeralMessagesCounter, "ephemeral");
+
+    final Flux<MessageProtos.Envelope> staleMrmMessages = allMessages.filter(MessagesCache::isStaleMrmMessage)
+        // clearing the sharedMrmKey prevents unnecessary calls to update the shared MRM data
+        .map(envelope -> envelope.toBuilder().clearSharedMrmKey().build());
+    discardStaleMessages(accountUuid, destinationDevice, staleMrmMessages, staleMrmMessagesCounter, "mrm");
+
+    return messagesToPersist
+        .collectList()
+        .doOnTerminate(() -> sample.stop(getMessagesTimer))
+        .block(Duration.ofSeconds(5));
+  }
+
+  private Flux<MessageProtos.Envelope> parseAndFetchMrms(final Flux<byte[]> serializedMessages, final byte destinationDevice) {
+    return serializedMessages
         .mapNotNull(message -> {
           try {
             return MessageProtos.Envelope.parseFrom(message);
@@ -577,34 +612,7 @@ public class MessagesCache {
           }
 
           return messageMono;
-        })
-        .doOnNext(envelope -> {
-          if (envelope.getEphemeral()) {
-            staleEphemeralMessages.tryEmitNext(envelope).orThrow();
-          } else if (isStaleMrmMessage(envelope)) {
-            // clearing the sharedMrmKey prevents unnecessary calls to update the shared MRM data
-            staleMrmMessages.tryEmitNext(envelope.toBuilder().clearSharedMrmKey().build()).orThrow();
-          }
-        })
-        .filter(Predicate.not(envelope -> envelope.getEphemeral() || isStaleMrmMessage(envelope)));
-
-    discardStaleMessages(accountUuid, destinationDevice, staleEphemeralMessages.asFlux(), staleEphemeralMessagesCounter, "ephemeral");
-    discardStaleMessages(accountUuid, destinationDevice, staleMrmMessages.asFlux(), staleMrmMessagesCounter, "mrm");
-
-    return messagesToPersist
-        .doFinally(signal -> {
-          sample.stop(getMessagesTimer);
-          staleEphemeralMessages.tryEmitComplete();
-          staleMrmMessages.tryEmitComplete();
         });
-  }
-
-  List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
-      final int limit) {
-    return getMessagesToPersistReactive(accountUuid, destinationDevice, limit)
-        .take(limit)
-        .collectList()
-        .block(Duration.ofSeconds(5));
   }
 
   public CompletableFuture<Void> clear(final UUID destinationUuid) {

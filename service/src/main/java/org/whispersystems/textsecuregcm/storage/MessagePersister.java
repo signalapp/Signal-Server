@@ -250,10 +250,7 @@ public class MessagePersister implements Managed {
     final Device device = maybeDevice.get();
 
     // Calculate how many bytes we should trim
-    final long cachedMessageBytes = Flux
-        .from(messagesCache.getMessagesToPersistReactive(aci, deviceId, CACHE_PAGE_SIZE))
-        .reduce(0, (acc, envelope) -> acc + envelope.getSerializedSize())
-        .block();
+    final long cachedMessageBytes = messagesCache.estimatePersistedQueueSizeBytes(aci, deviceId).join();
     final double extraRoomRatio = this.dynamicConfigurationManager.getConfiguration()
         .getMessagePersisterConfiguration()
         .getTrimOversizedQueueExtraRoomRatio();
