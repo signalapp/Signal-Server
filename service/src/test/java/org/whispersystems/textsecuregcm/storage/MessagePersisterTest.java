@@ -313,7 +313,7 @@ class MessagePersisterTest {
         .toList();
     final long cacheSize = cachedMessages.stream().mapToLong(MessageProtos.Envelope::getSerializedSize).sum();
     for (MessageProtos.Envelope envelope : cachedMessages) {
-      messagesCache.insert(UUID.fromString(envelope.getServerGuid()), DESTINATION_ACCOUNT_UUID, Device.PRIMARY_ID, envelope);
+      messagesCache.insert(UUID.fromString(envelope.getServerGuid()), DESTINATION_ACCOUNT_UUID, Device.PRIMARY_ID, envelope).join();
     }
 
     final long expectedClearedBytes = (long) (cacheSize * EXTRA_ROOM_RATIO);
