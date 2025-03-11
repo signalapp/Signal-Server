@@ -509,8 +509,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     // TODO: generally speaking this is a DynamoDB I/O executor for the accounts table; we should eventually have a general executor for speaking to the accounts table, but most of the server is still synchronous so this isn't widely useful yet
     ExecutorService batchIdentityCheckExecutor = environment.lifecycle().executorService(name(getClass(), "batchIdentityCheck-%d")).minThreads(32).maxThreads(32).build();
-    ExecutorService multiRecipientMessageExecutor = environment.lifecycle()
-        .executorService(name(getClass(), "multiRecipientMessage-%d")).minThreads(64).maxThreads(64).build();
     ExecutorService subscriptionProcessorExecutor = environment.lifecycle()
         .executorService(name(getClass(), "subscriptionProcessor-%d"))
         .maxThreads(availableProcessors)  // mostly this is IO bound so tying to number of processors is tenuous at best
