@@ -48,6 +48,9 @@ public class MessagesManager {
   private static final Counter PERSIST_MESSAGE_COUNTER = Metrics.counter(
       name(MessagesManager.class, "persistMessage"));
 
+  private static final Counter PERSIST_MESSAGE_BYTES_COUNTER = Metrics.counter(
+      name(MessagesManager.class, "persistMessageBytes"));
+
   private static final String MAY_HAVE_MESSAGES_COUNTER_NAME =
       MetricsUtil.name(MessagesManager.class, "mayHaveMessages");
 
@@ -276,6 +279,9 @@ public class MessagesManager {
       messagesRemovedFromCache = messagesCache.remove(destinationUuid, destinationDevice.getId(), messageGuids)
           .get(30, TimeUnit.SECONDS).size();
       PERSIST_MESSAGE_COUNTER.increment(messages.size());
+      PERSIST_MESSAGE_BYTES_COUNTER.increment(messages.stream()
+          .mapToInt(Envelope::getSerializedSize)
+          .sum());
 
     } catch (InterruptedException | ExecutionException | TimeoutException e) {
       logger.warn("Failed to remove messages from cache", e);
