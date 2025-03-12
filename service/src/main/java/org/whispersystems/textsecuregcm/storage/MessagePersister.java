@@ -51,15 +51,15 @@ public class MessagePersister implements Managed {
       Metrics.counter(name(MessagePersister.class, "persistQueueException"));
   private static final Counter TRIMMED_MESSAGE_COUNTER = Metrics.counter(name(MessagePersister.class, "trimmedMessage"));
   private static final Counter TRIMMED_MESSAGE_BYTES_COUNTER = Metrics.counter(name(MessagePersister.class, "trimmedMessageBytes"));
+
   private static final DistributionSummary QUEUE_COUNT_DISTRIBUTION_SUMMARY = DistributionSummary.builder(
           name(MessagePersister.class, "queueCount"))
-      .publishPercentiles(0.5, 0.75, 0.95, 0.99, 0.999)
-      .distributionStatisticExpiry(Duration.ofMinutes(10))
+      .publishPercentileHistogram(true)
       .register(Metrics.globalRegistry);
+
   private static final DistributionSummary QUEUE_SIZE_DISTRIBUTION_SUMMARY = DistributionSummary.builder(
           name(MessagePersister.class, "queueSize"))
-      .publishPercentiles(0.5, 0.75, 0.95, 0.99, 0.999)
-      .distributionStatisticExpiry(Duration.ofMinutes(10))
+      .publishPercentileHistogram(true)
       .register(Metrics.globalRegistry);
 
   static final int QUEUE_BATCH_LIMIT = 100;
