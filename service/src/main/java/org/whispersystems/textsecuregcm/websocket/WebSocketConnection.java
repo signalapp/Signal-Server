@@ -508,8 +508,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
       code = 4409;
       message = "Connected elsewhere";
     } else {
-      code = 1000;
-      message = "OK";
+      code = 4401;
+      message = "Reauthentication required";
     }
 
     client.close(code, message);
