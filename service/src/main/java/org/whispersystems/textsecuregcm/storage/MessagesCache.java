@@ -134,6 +134,7 @@ public class MessagesCache {
   private final Timer removeByGuidTimer = Metrics.timer(name(MessagesCache.class, "removeByGuid"));
   private final Timer removeRecipientViewTimer = Metrics.timer(name(MessagesCache.class, "removeRecipientView"));
   private final Timer clearQueueTimer = Metrics.timer(name(MessagesCache.class, "clear"));
+  private final Counter removeMessageCounter = Metrics.counter(name(MessagesCache.class, "remove"));
   private final Counter staleEphemeralMessagesCounter = Metrics.counter(
       name(MessagesCache.class, "staleEphemeralMessages"));
   private final Counter staleMrmMessagesCounter = Metrics.counter(name(MessagesCache.class, "staleMrmMessages"));
@@ -273,7 +274,13 @@ public class MessagesCache {
               (serviceId, keysToUpdate) -> removeRecipientViewFromMrmData(keysToUpdate, serviceId, destinationDevice));
 
           return removedMessages;
-        }, messageDeletionExecutorService).whenComplete((ignored, throwable) -> sample.stop(removeByGuidTimer));
+        }, messageDeletionExecutorService).whenComplete((removedMessages, throwable) -> {
+          if (removedMessages != null) {
+            removeMessageCounter.increment(removedMessages.size());
+          }
+
+          sample.stop(removeByGuidTimer);
+        });
 
   }
 
