@@ -73,6 +73,7 @@
     <reactor-bom.version>2024.0.4</reactor-bom.version> <!-- 3.7.4, see https://github.com/reactor/reactor#bom-versioning-scheme -->
     <resilience4j.version>2.3.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
+    <simple-grpc.version>0.1.0</simple-grpc.version>
     <slf4j.version>2.0.17</slf4j.version>
     <stripe.version>23.10.0</stripe.version>
     <swagger.version>2.2.27</swagger.version>
@@ -268,6 +269,11 @@
         <version>0.67.6</version>
       </dependency>
       <dependency>
+        <groupId>org.signal</groupId>
+        <artifactId>simple-grpc-runtime</artifactId>
+        <version>${simple-grpc.version}</version>
+      </dependency>
+      <dependency>
         <groupId>org.signal.forks</groupId>
         <artifactId>noise-java</artifactId>
         <version>0.1.1</version>
@@ -448,6 +454,14 @@
               <artifactId>reactor-grpc</artifactId>
               <version>${reactive.grpc.version}</version>
               <mainClass>com.salesforce.reactorgrpc.ReactorGrpcGenerator</mainClass>
+            </protocPlugin>
+
+            <protocPlugin>
+              <id>simple</id>
+              <groupId>org.signal</groupId>
+              <artifactId>simple-grpc-generator</artifactId>
+              <version>${simple-grpc.version}</version>
+              <mainClass>org.signal.grpc.simple.SimpleGrpcGenerator</mainClass>
             </protocPlugin>
           </protocPlugins>
         </configuration>

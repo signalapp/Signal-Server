@@ -81,6 +81,11 @@
     </dependency>
 
     <dependency>
+      <groupId>org.signal</groupId>
+      <artifactId>simple-grpc-runtime</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>io.dropwizard</groupId>
       <artifactId>dropwizard-core</artifactId>
     </dependency>
