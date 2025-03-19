@@ -12,6 +12,7 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.binder.jetty.JettySslHandshakeMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
 import io.micrometer.core.instrument.binder.system.FileDescriptorMetrics;
@@ -71,6 +72,9 @@ public class MetricsUtil {
       configureMeterFilters(dogstatsdMeterRegistry.config(), dynamicConfigurationManager);
       Metrics.addRegistry(dogstatsdMeterRegistry);
     }
+
+    environment.lifecycle().addServerLifecycleListener(
+        server -> JettySslHandshakeMetrics.addToAllConnectors(server, Metrics.globalRegistry));
 
     environment.lifecycle().addEventListener(new ApplicationShutdownMonitor(Metrics.globalRegistry));
     environment.lifecycle().addEventListener(
