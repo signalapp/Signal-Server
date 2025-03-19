@@ -301,27 +301,6 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private VirtualThreadConfiguration virtualThread = new VirtualThreadConfiguration(Duration.ofMillis(1));
 
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private S3ObjectMonitorFactory maxmindCityDatabase;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private S3ObjectMonitorFactory callingTurnDnsRecords;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private S3ObjectMonitorFactory callingTurnPerformanceTable;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private S3ObjectMonitorFactory callingTurnManualTable;
-
   @Valid
   @NotNull
   @JsonProperty
@@ -537,22 +516,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public VirtualThreadConfiguration getVirtualThreadConfiguration() {
     return virtualThread;
-  }
-
-  public S3ObjectMonitorFactory getMaxmindCityDatabase() {
-    return maxmindCityDatabase;
-  }
-
-  public S3ObjectMonitorFactory getCallingTurnDnsRecords() {
-    return callingTurnDnsRecords;
-  }
-
-  public S3ObjectMonitorFactory getCallingTurnPerformanceTable() {
-    return callingTurnPerformanceTable;
-  }
-
-  public S3ObjectMonitorFactory getCallingTurnManualTable() {
-    return callingTurnManualTable;
   }
 
   public NoiseWebSocketTunnelConfiguration getNoiseWebSocketTunnelConfiguration() {

@@ -473,7 +473,6 @@ keyTransparencyService:
   clientPrivateKey: secret://keyTransparencyService.clientPrivateKey
 
 turn:
-  secret: secret://turn.secret
   cloudflare:
     apiToken: secret://turn.cloudflare.apiToken
     endpoint: https://rtc.live.cloudflare.com/v1/turn/keys/LMNOP/credentials/generate
@@ -489,30 +488,6 @@ turn:
 
 linkDevice:
   secret: secret://linkDevice.secret
-
-maxmindCityDatabase:
-  s3Region: a-region
-  s3Bucket: a-bucket
-  objectKey: an-object.tar.gz
-  maxSize: 32777216
-
-callingTurnDnsRecords:
-  s3Region: a-region
-  s3Bucket: a-bucket
-  objectKey: an-object.tar.gz
-  maxSize: 32777216
-
-callingTurnPerformanceTable:
-  s3Region: a-region
-  s3Bucket: a-bucket
-  objectKey: an-object.tar.gz
-  maxSize: 32777216
-
-callingTurnManualTable:
-  s3Region: a-region
-  s3Bucket: a-bucket
-  objectKey: an-object.tar.gz
-  maxSize: 32777216
 
 noiseTunnel:
   port: 8443

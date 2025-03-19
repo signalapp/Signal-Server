@@ -59,7 +59,6 @@ import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.StoredRegistrationLock;
-import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
@@ -130,7 +129,6 @@ class AccountControllerTest {
   private static final RateLimiter usernameReserveLimiter = mock(RateLimiter.class);
   private static final RateLimiter usernameLookupLimiter = mock(RateLimiter.class);
   private static final RateLimiter checkAccountExistence = mock(RateLimiter.class);
-  private static final TurnTokenGenerator turnTokenGenerator = mock(TurnTokenGenerator.class);
   private static final Account senderPinAccount = mock(Account.class);
   private static final Account senderRegLockAccount = mock(Account.class);
   private static final Account senderHasStorage = mock(Account.class);
@@ -234,7 +232,6 @@ class AccountControllerTest {
         usernameSetLimiter,
         usernameReserveLimiter,
         usernameLookupLimiter,
-        turnTokenGenerator,
         senderPinAccount,
         senderRegLockAccount,
         senderHasStorage,

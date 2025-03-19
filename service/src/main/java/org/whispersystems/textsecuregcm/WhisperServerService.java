@@ -85,7 +85,6 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.auth.IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
-import org.whispersystems.textsecuregcm.auth.TurnTokenGenerator;
 import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.auth.grpc.ProhibitAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.auth.grpc.RequireAuthenticationInterceptor;
@@ -667,7 +666,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final MessageSender messageSender = new MessageSender(messagesManager, pushNotificationManager);
     final ReceiptSender receiptSender = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
-    final TurnTokenGenerator turnTokenGenerator = new TurnTokenGenerator(config.getTurnConfiguration().secret().value());
     final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager = new CloudflareTurnCredentialsManager(
         config.getTurnConfiguration().cloudflare().apiToken().value(),
         config.getTurnConfiguration().cloudflare().endpoint(),

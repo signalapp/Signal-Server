@@ -336,67 +336,6 @@ class DynamicConfigurationTest {
   }
 
   @Test
-  void testParseTurnConfig() throws JsonProcessingException {
-    {
-      final String config = REQUIRED_CONFIG.concat("""
-          turn:
-            secret: bloop
-            uriConfigs:
-                - uris:
-                    - turn:test.org
-                  weight: -1
-           """);
-      assertThat(DynamicConfigurationManager.parseConfiguration(config, DynamicConfiguration.class)).isEmpty();
-    }
-    {
-      final String config = REQUIRED_CONFIG.concat("""
-          turn:
-            uriConfigs:
-                - uris:
-                    - turn:test0.org
-                    - turn:test1.org
-                - uris:
-                    - turn:test2.org
-                  weight: 2
-                  enrolledAcis:
-                    - 732506d7-d04f-43a4-b1d7-8a3a91ebe8a6
-            randomizeRate: 100_000
-            hostname: test.domain.org
-           """);
-      DynamicTurnConfiguration turnConfiguration = DynamicConfigurationManager
-          .parseConfiguration(config, DynamicConfiguration.class)
-          .orElseThrow()
-          .getTurnConfiguration();
-      assertThat(turnConfiguration.getUriConfigs().get(0).getUris()).hasSize(2);
-      assertThat(turnConfiguration.getUriConfigs().get(1).getUris()).hasSize(1);
-      assertThat(turnConfiguration.getUriConfigs().get(0).getWeight()).isEqualTo(1);
-      assertThat(turnConfiguration.getUriConfigs().get(1).getWeight()).isEqualTo(2);
-      assertThat(turnConfiguration.getUriConfigs().get(1).getEnrolledAcis())
-          .containsExactly(UUID.fromString("732506d7-d04f-43a4-b1d7-8a3a91ebe8a6"));
-
-      assertThat(turnConfiguration.getHostname()).isEqualTo("test.domain.org");
-      assertThat(turnConfiguration.getRandomizeRate()).isEqualTo(100_000L);
-      assertThat(turnConfiguration.getDefaultInstanceIpCount()).isEqualTo(0);
-    }
-
-    {
-      final String config = REQUIRED_CONFIG.concat("""
-          turn:
-            uriConfigs:
-                - uris:
-                    - turn:test0.org
-                    - turn:test1.org
-            defaultInstanceIpCount: 5
-           """);
-      DynamicTurnConfiguration turnConfiguration = DynamicConfigurationManager
-          .parseConfiguration(config, DynamicConfiguration.class)
-          .orElseThrow()
-          .getTurnConfiguration();
-      assertThat(turnConfiguration.getDefaultInstanceIpCount()).isEqualTo(5);
-    }
-  }
-
-  @Test
   void testMessagePersister() throws JsonProcessingException {
     {
       final String emptyConfigYaml = REQUIRED_CONFIG.concat("test: true");

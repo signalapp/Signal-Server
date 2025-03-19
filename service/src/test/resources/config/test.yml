@@ -467,7 +467,6 @@ keyTransparencyService:
   clientPrivateKey: secret://keyTransparencyService.clientPrivateKey
 
 turn:
-  secret: secret://turn.secret
   cloudflare:
     apiToken: secret://turn.cloudflare.apiToken
     endpoint: https://rtc.live.cloudflare.com/v1/turn/keys/LMNOP/credentials/generate
@@ -483,18 +482,6 @@ turn:
 
 linkDevice:
   secret: secret://linkDevice.secret
-
-maxmindCityDatabase:
-  type: static
-
-callingTurnDnsRecords:
-  type: static
-
-callingTurnPerformanceTable:
-  type: static
-
-callingTurnManualTable:
-  type: static
 
 noiseTunnel:
   port: 8443

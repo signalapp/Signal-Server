@@ -5,7 +5,5 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
-import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
-
-public record TurnConfiguration(SecretBytes secret, CloudflareTurnConfiguration cloudflare) {
+public record TurnConfiguration(CloudflareTurnConfiguration cloudflare) {
 }
