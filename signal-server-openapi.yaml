@@ -3897,6 +3897,7 @@ components:
             - TRANSFER
             - DELETE_SYNC
             - STORAGE_SERVICE_RECORD_KEY_ROTATION
+            - ATTACHMENT_BACKFILL
         discoverableByPhoneNumber:
           type: boolean
         recoveryPassword:
