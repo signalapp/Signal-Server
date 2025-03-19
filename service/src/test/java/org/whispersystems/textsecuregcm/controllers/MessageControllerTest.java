@@ -73,8 +73,6 @@ import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicInboundMessageByteLimitConfiguration;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -105,7 +103,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RemovedMessage;
@@ -177,10 +174,6 @@ class MessageControllerTest {
   private static final ReportMessageManager reportMessageManager = mock(ReportMessageManager.class);
   private static final Scheduler messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
 
-  @SuppressWarnings("unchecked")
-  private static final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-      mock(DynamicConfigurationManager.class);
-
   private static final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
 
   private static final TestClock clock = TestClock.now();
@@ -198,7 +191,7 @@ class MessageControllerTest {
           new MessageController(rateLimiters, cardinalityEstimator, messageSender, receiptSender, accountsManager,
               messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
               reportMessageManager, messageDeliveryScheduler, mock(ClientReleaseManager.class),
-              dynamicConfigurationManager, serverSecretParams, SpamChecker.noop(), new MessageMetrics(), mock(MessageDeliveryLoopMonitor.class),
+              serverSecretParams, SpamChecker.noop(), new MessageMetrics(), mock(MessageDeliveryLoopMonitor.class),
               clock))
       .build();
 
@@ -238,16 +231,6 @@ class MessageControllerTest {
     when(accountsManager.getByServiceIdentifierAsync(MULTI_DEVICE_ACI_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(multiDeviceAccount)));
     when(accountsManager.getByServiceIdentifierAsync(MULTI_DEVICE_PNI_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(multiDeviceAccount)));
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(INTERNATIONAL_UUID))).thenReturn(CompletableFuture.completedFuture(Optional.of(internationalAccount)));
-
-    final DynamicInboundMessageByteLimitConfiguration inboundMessageByteLimitConfiguration =
-        mock(DynamicInboundMessageByteLimitConfiguration.class);
-
-    when(inboundMessageByteLimitConfiguration.enforceInboundLimit()).thenReturn(false);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfiguration.getInboundMessageByteLimitConfiguration()).thenReturn(inboundMessageByteLimitConfiguration);
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getStoriesLimiter()).thenReturn(rateLimiter);

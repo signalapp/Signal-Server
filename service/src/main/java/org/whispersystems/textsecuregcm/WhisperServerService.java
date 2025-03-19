@@ -1090,7 +1090,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
             reportMessageManager, messageDeliveryScheduler, clientReleaseManager,
-            dynamicConfigurationManager, zkSecretParams, spamChecker, messageMetrics, messageDeliveryLoopMonitor,
+            zkSecretParams, spamChecker, messageMetrics, messageDeliveryLoopMonitor,
             Clock.systemUTC()),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,

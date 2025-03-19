@@ -59,7 +59,6 @@ import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -80,7 +79,6 @@ import org.whispersystems.textsecuregcm.auth.CombinedUnidentifiedSenderAccessKey
 import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountMismatchedDevices;
 import org.whispersystems.textsecuregcm.entities.AccountStaleDevices;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -113,7 +111,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -149,7 +146,6 @@ public class MessageController {
   private final ReportMessageManager reportMessageManager;
   private final Scheduler messageDeliveryScheduler;
   private final ClientReleaseManager clientReleaseManager;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ServerSecretParams serverSecretParams;
   private final SpamChecker spamChecker;
   private final MessageMetrics messageMetrics;
@@ -213,7 +209,6 @@ public class MessageController {
       ReportMessageManager reportMessageManager,
       Scheduler messageDeliveryScheduler,
       final ClientReleaseManager clientReleaseManager,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final ServerSecretParams serverSecretParams,
       final SpamChecker spamChecker,
       final MessageMetrics messageMetrics,
@@ -231,7 +226,6 @@ public class MessageController {
     this.reportMessageManager = reportMessageManager;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.serverSecretParams = serverSecretParams;
     this.spamChecker = spamChecker;
     this.messageMetrics = messageMetrics;
@@ -340,10 +334,8 @@ public class MessageController {
       try {
         rateLimiters.getInboundMessageBytes().validate(destinationIdentifier.uuid(), totalContentLength);
       } catch (final RateLimitExceededException e) {
-        if (dynamicConfigurationManager.getConfiguration().getInboundMessageByteLimitConfiguration().enforceInboundLimit()) {
-          messageByteLimitEstimator.add(destinationIdentifier.uuid().toString());
-          throw e;
-        }
+        messageByteLimitEstimator.add(destinationIdentifier.uuid().toString());
+        throw e;
       }
 
       try {

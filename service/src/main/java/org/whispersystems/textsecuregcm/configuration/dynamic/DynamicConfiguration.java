@@ -52,10 +52,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  DynamicInboundMessageByteLimitConfiguration inboundMessageByteLimit = new DynamicInboundMessageByteLimitConfiguration(true);
-
-  @JsonProperty
-  @Valid
   DynamicRegistrationConfiguration registrationConfiguration = new DynamicRegistrationConfiguration(false);
 
   @JsonProperty
@@ -106,10 +102,6 @@ public class DynamicConfiguration {
 
   public DynamicRateLimitPolicy getRateLimitPolicy() {
     return rateLimitPolicy;
-  }
-
-  public DynamicInboundMessageByteLimitConfiguration getInboundMessageByteLimitConfiguration() {
-    return inboundMessageByteLimit;
   }
 
   public DynamicRegistrationConfiguration getRegistrationConfiguration() {
