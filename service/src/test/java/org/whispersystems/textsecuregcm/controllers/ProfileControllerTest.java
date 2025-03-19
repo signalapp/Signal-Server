@@ -442,8 +442,10 @@ class ProfileControllerTest {
 
   @CartesianTest
   void testProfileCapabilities(
-      @CartesianTest.Values(booleans = {true, false}) final boolean isDeleteSyncSupported) {
+      @CartesianTest.Values(booleans = {true, false}) final boolean isDeleteSyncSupported,
+      @CartesianTest.Values(booleans = {true, false}) final boolean isAttachmentBackfillSupported) {
     when(capabilitiesAccount.hasCapability(DeviceCapability.DELETE_SYNC)).thenReturn(isDeleteSyncSupported);
+    when(capabilitiesAccount.hasCapability(DeviceCapability.ATTACHMENT_BACKFILL)).thenReturn(isAttachmentBackfillSupported);
     final BaseProfileResponse profile = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID)
         .request()
@@ -451,6 +453,7 @@ class ProfileControllerTest {
         .get(BaseProfileResponse.class);
 
     assertEquals(isDeleteSyncSupported, profile.getCapabilities().get("deleteSync"));
+    assertEquals(isAttachmentBackfillSupported, profile.getCapabilities().get("attachmentBackfill"));
   }
 
   @Test

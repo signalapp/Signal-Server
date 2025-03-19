@@ -19,6 +19,7 @@ public class DeviceCapabilityUtil {
       case DEVICE_CAPABILITY_TRANSFER -> DeviceCapability.TRANSFER;
       case DEVICE_CAPABILITY_DELETE_SYNC -> DeviceCapability.DELETE_SYNC;
       case DEVICE_CAPABILITY_STORAGE_SERVICE_RECORD_KEY_ROTATION -> DeviceCapability.STORAGE_SERVICE_RECORD_KEY_ROTATION;
+      case DEVICE_CAPABILITY_ATTACHMENT_BACKFILL -> DeviceCapability.ATTACHMENT_BACKFILL;
       case DEVICE_CAPABILITY_UNSPECIFIED, UNRECOGNIZED -> throw Status.INVALID_ARGUMENT.withDescription("Unrecognized device capability").asRuntimeException();
     };
   }
@@ -29,6 +30,7 @@ public class DeviceCapabilityUtil {
       case TRANSFER -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_TRANSFER;
       case DELETE_SYNC -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC;
       case STORAGE_SERVICE_RECORD_KEY_ROTATION -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_STORAGE_SERVICE_RECORD_KEY_ROTATION;
+      case ATTACHMENT_BACKFILL -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_ATTACHMENT_BACKFILL;
     };
   }
 }

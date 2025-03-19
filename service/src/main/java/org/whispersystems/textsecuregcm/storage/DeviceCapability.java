@@ -11,11 +11,21 @@ public enum DeviceCapability {
   STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false),
   TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false),
   DELETE_SYNC("deleteSync", AccountCapabilityMode.ALL_DEVICES, true, true),
-  STORAGE_SERVICE_RECORD_KEY_ROTATION("ssre2", AccountCapabilityMode.ALL_DEVICES, true, true);
+  STORAGE_SERVICE_RECORD_KEY_ROTATION("ssre2", AccountCapabilityMode.ALL_DEVICES, true, true),
+  ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true);
 
   public enum AccountCapabilityMode {
+    /**
+     * The account will have the capability iff the primary device has the capability
+     */
     PRIMARY_DEVICE,
+    /**
+     * The account will have the capability iff any device on the account has the capability
+     */
     ANY_DEVICE,
+    /**
+     * The account will have the capability iff all devices on the account have the capability
+     */
     ALL_DEVICES,
   }
 
@@ -24,6 +34,18 @@ public enum DeviceCapability {
   private final boolean preventDowngrade;
   private final boolean includeInProfile;
 
+  /**
+   * Create a DeviceCapability
+   *
+   * @param name                  The name of the device capability that clients will see
+   * @param accountCapabilityMode How to combine the constituent device's capabilities in the account to an overall
+   *                              account capability
+   * @param preventDowngrade      If true, don't let linked devices join that don't have a device capability if the
+   *                              overall account has the capability. Most of the time this should only be used in
+   *                              conjunction with AccountCapabilityMode.ALL_DEVICES
+   * @param includeInProfile      Whether to return this capability on the account's profile. If false, the capability
+   *                              is only visible to the server
+   */
   DeviceCapability(final String name,
       final AccountCapabilityMode accountCapabilityMode,
       final boolean preventDowngrade,
