@@ -7,13 +7,11 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
+import io.grpc.StatusException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.Arrays;
-import java.util.List;
-
-import io.grpc.StatusException;
 import org.signal.chat.keys.CheckIdentityKeyRequest;
 import org.signal.chat.keys.CheckIdentityKeyResponse;
 import org.signal.chat.keys.GetPreKeysAnonymousRequest;
@@ -55,7 +53,7 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
     return switch (request.getAuthorizationCase()) {
       case GROUP_SEND_TOKEN -> {
         try {
-          groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), List.of(serviceIdentifier));
+          groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), serviceIdentifier);
 
           yield lookUpAccount(serviceIdentifier, Status.NOT_FOUND)
               .flatMap(targetAccount -> KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier.identityType(), deviceId, keysManager));

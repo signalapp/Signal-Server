@@ -9,6 +9,7 @@ import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import java.time.Clock;
+import java.util.Collection;
 import java.util.List;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -29,11 +30,16 @@ public class GroupSendTokenUtil {
   }
 
   public void checkGroupSendToken(final ByteString serializedGroupSendToken,
-      final List<ServiceIdentifier> serviceIdentifiers) throws StatusException {
+      final ServiceIdentifier serviceIdentifier) throws StatusException {
+
+    checkGroupSendToken(serializedGroupSendToken, List.of(serviceIdentifier.toLibsignal()));
+  }
+
+  public void checkGroupSendToken(final ByteString serializedGroupSendToken,
+      final Collection<ServiceId> serviceIds) throws StatusException {
 
     try {
       final GroupSendFullToken token = new GroupSendFullToken(serializedGroupSendToken.toByteArray());
-      final List<ServiceId> serviceIds = serviceIdentifiers.stream().map(ServiceIdentifier::toLibsignal).toList();
       token.verify(serviceIds, clock.instant(), GroupSendDerivedKeyPair.forExpiration(token.getExpiration(), serverSecretParams));
     } catch (final InvalidInputException e) {
       throw Status.INVALID_ARGUMENT.asException();

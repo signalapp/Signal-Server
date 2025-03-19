@@ -6,11 +6,8 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import io.grpc.Status;
-
-import java.time.Clock;
-import java.util.List;
-
 import io.grpc.StatusException;
+import java.time.Clock;
 import org.signal.chat.profile.CredentialType;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
@@ -62,7 +59,7 @@ public class ProfileAnonymousGrpcService extends ReactorProfileAnonymousGrpc.Pro
     final Mono<Account> account = switch (request.getAuthenticationCase()) {
       case GROUP_SEND_TOKEN -> {
         try {
-          groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), List.of(targetIdentifier));
+          groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), targetIdentifier);
 
           yield Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier))
               .flatMap(Mono::justOrEmpty)
