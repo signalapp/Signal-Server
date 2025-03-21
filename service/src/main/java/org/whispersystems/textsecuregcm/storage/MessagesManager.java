@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
@@ -41,7 +42,9 @@ import reactor.core.publisher.Mono;
 public class MessagesManager {
 
   private static final int RESULT_SET_CHUNK_SIZE = 100;
-  final String GET_MESSAGES_FOR_DEVICE_FLUX_NAME = name(MessagesManager.class, "getMessagesForDevice");
+  private final static String GET_MESSAGES_FOR_DEVICE_FLUX_NAME = name(MessagesManager.class, "getMessagesForDevice");
+  // shared payloads have some overhead, which sometimes exceeds the size if we just wrote the content directly
+  private static final int MULTI_RECIPIENT_MESSAGE_MINIMUM_SIZE_FOR_SHARED_PAYLOAD = 150;
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesManager.class);
 
@@ -139,17 +142,50 @@ public class MessagesManager {
 
     final long serverTimestamp = clock.millis();
 
-    return insertSharedMultiRecipientMessagePayload(multiRecipientMessage)
-        .thenCompose(sharedMrmKey -> {
-          final Envelope prototypeMessage = Envelope.newBuilder()
-              .setType(Envelope.Type.UNIDENTIFIED_SENDER)
-              .setClientTimestamp(clientTimestamp == 0 ? serverTimestamp : clientTimestamp)
-              .setServerTimestamp(serverTimestamp)
-              .setStory(isStory)
-              .setEphemeral(isEphemeral)
-              .setUrgent(isUrgent)
-              .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey))
+    final Envelope.Builder prototypeMessageBuilder = Envelope.newBuilder()
+        .setType(Envelope.Type.UNIDENTIFIED_SENDER)
+        .setClientTimestamp(clientTimestamp == 0 ? serverTimestamp : clientTimestamp)
+        .setServerTimestamp(serverTimestamp)
+        .setStory(isStory)
+        .setEphemeral(isEphemeral)
+        .setUrgent(isUrgent);
+
+    final CompletableFuture<Envelope> prototypeMessageFuture;
+    final BiFunction<ServiceIdentifier, Envelope, Envelope> recipientEnvelopeBuilder;
+
+    // A shortcut -- message sizes do not vary by recipient in the current SealedSenderMultiRecipientMessage version
+    final int perRecipientMessageSize = multiRecipientMessage.getRecipients().values().stream().findAny()
+        .map(multiRecipientMessage::messageSizeForRecipient)
+        .orElse(0);
+
+    multiRecipientMessage.messageSizeForRecipient(
+        multiRecipientMessage.getRecipients().values().iterator().next());
+    if (perRecipientMessageSize >= MULTI_RECIPIENT_MESSAGE_MINIMUM_SIZE_FOR_SHARED_PAYLOAD) {
+
+      // the message is large enough that the shared payload overhead is worth it, so insert into the cache
+      prototypeMessageFuture = insertSharedMultiRecipientMessagePayload((multiRecipientMessage))
+          .thenApply(sharedMrmKey -> prototypeMessageBuilder
+          .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey))
+          .build());
+
+      recipientEnvelopeBuilder = (serviceIdentifier, prototype) -> prototype.toBuilder()
+          .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+          .build();
+
+    } else {
+
+      prototypeMessageFuture = CompletableFuture.completedFuture(prototypeMessageBuilder.build());
+
+      recipientEnvelopeBuilder = (serviceIdentifier, prototype) ->
+          prototype.toBuilder()
+              .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+              .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(
+                  multiRecipientMessage.getRecipients().get(serviceIdentifier.toLibsignal()))))
               .build();
+    }
+
+    return prototypeMessageFuture
+        .thenCompose(prototypeMessage -> {
 
           final Map<Account, Map<Byte, Boolean>> clientPresenceByAccountAndDevice = new ConcurrentHashMap<>();
 
@@ -162,9 +198,7 @@ public class MessagesManager {
 
                     return insertAsync(resolvedRecipients.get(recipient).getIdentifier(IdentityType.ACI),
                         IntStream.range(0, devices.length).mapToObj(i -> devices[i])
-                            .collect(Collectors.toMap(deviceId -> deviceId, deviceId -> prototypeMessage.toBuilder()
-                                .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
-                                .build())))
+                            .collect(Collectors.toMap(deviceId -> deviceId, deviceId -> recipientEnvelopeBuilder.apply(serviceIdentifier, prototypeMessage))))
                         .thenAccept(clientPresenceByDeviceId ->
                             clientPresenceByAccountAndDevice.put(resolvedRecipients.get(recipient),
                                 clientPresenceByDeviceId));

@@ -28,6 +28,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -83,8 +86,15 @@ class MessagesManagerTest {
     verifyNoMoreInteractions(reportMessageManager);
   }
 
-  @Test
-  void insertMultiRecipientMessage() throws InvalidMessageException, InvalidVersionException {
+  @ParameterizedTest
+  @CsvSource({
+      "32, false",
+      "99, false",
+      "100, true",
+      "200, true",
+      "1024, true",
+  })
+  void insertMultiRecipientMessage(final int sharedPayloadSize, final boolean expectSharedMrm) throws InvalidMessageException, InvalidVersionException {
     final ServiceIdentifier singleDeviceAccountAciServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     final ServiceIdentifier singleDeviceAccountPniServiceIdentifier = new PniServiceIdentifier(UUID.randomUUID());
     final ServiceIdentifier multiDeviceAccountAciServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
@@ -105,7 +115,7 @@ class MessagesManagerTest {
         new TestRecipient(multiDeviceAccountAciServiceIdentifier, (byte) (Device.PRIMARY_ID + 1), 3, new byte[48]),
         new TestRecipient(unresolvedAccountAciServiceIdentifier, Device.PRIMARY_ID, 4, new byte[48]),
         new TestRecipient(singleDeviceAccountPniServiceIdentifier, Device.PRIMARY_ID, 5, new byte[48])
-    ));
+    ), sharedPayloadSize);
 
     final SealedSenderMultiRecipientMessage multiRecipientMessage =
         SealedSenderMultiRecipientMessage.parse(multiRecipientMessageBytes);
@@ -158,8 +168,28 @@ class MessagesManagerTest {
         .setStory(isStory)
         .setEphemeral(isEphemeral)
         .setUrgent(isUrgent)
-        .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey))
         .build();
+
+    final Map<ServiceIdentifier, Envelope> expectedEnvelopesByServiceIdentifier = Stream.of(singleDeviceAccountAciServiceIdentifier, singleDeviceAccountPniServiceIdentifier, multiDeviceAccountAciServiceIdentifier)
+        .collect(Collectors.toMap(
+            Function.identity(),
+            serviceIdentifier -> {
+
+              final Envelope.Builder envelopeBuilder = prototypeExpectedMessage.toBuilder()
+                  .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString());
+
+              if (expectSharedMrm) {
+                return envelopeBuilder
+                    .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey))
+                    .build();
+              }
+
+              return envelopeBuilder.setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(
+                  multiRecipientMessage.getRecipients().get(serviceIdentifier.toLibsignal()))))
+                  .build();
+
+            }
+        ));
 
     assertEquals(expectedPresenceByAccountAndDeviceId,
         messagesManager.insertMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, clientTimestamp, isStory, isEphemeral, isUrgent).join());
@@ -167,17 +197,17 @@ class MessagesManagerTest {
     verify(messagesCache).insert(any(),
         eq(singleDeviceAccountAciServiceIdentifier.uuid()),
         eq(Device.PRIMARY_ID),
-        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountAciServiceIdentifier.toServiceIdentifierString()).build()));
+        eq(expectedEnvelopesByServiceIdentifier.get(singleDeviceAccountAciServiceIdentifier)));
 
     verify(messagesCache).insert(any(),
         eq(singleDeviceAccountAciServiceIdentifier.uuid()),
         eq(Device.PRIMARY_ID),
-        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountPniServiceIdentifier.toServiceIdentifierString()).build()));
+        eq(expectedEnvelopesByServiceIdentifier.get(singleDeviceAccountPniServiceIdentifier)));
 
     verify(messagesCache).insert(any(),
         eq(multiDeviceAccountAciServiceIdentifier.uuid()),
         eq((byte) (Device.PRIMARY_ID + 1)),
-        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toServiceIdentifierString()).build()));
+        eq(expectedEnvelopesByServiceIdentifier.get(multiDeviceAccountAciServiceIdentifier)));
 
     verify(messagesCache, never()).insert(any(),
         eq(unresolvedAccountAciServiceIdentifier.uuid()),
