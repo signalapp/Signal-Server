@@ -52,7 +52,6 @@
     <httpcore.version>4.4.16</httpcore.version>
     <httpclient.version>4.5.14</httpclient.version>
     <jackson.version>2.18.2</jackson.version>
-    <jaxb.version>2.3.1</jaxb.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>1.9.25</kotlin.version>
@@ -196,11 +195,6 @@
         <version>${lettuce.version}</version>
       </dependency>
       <dependency>
-        <groupId>javax.xml.bind</groupId>
-        <artifactId>jaxb-api</artifactId>
-        <version>${jaxb.version}</version>
-      </dependency>
-      <dependency>
         <groupId>net.logstash.logback</groupId>
         <artifactId>logstash-logback-encoder</artifactId>
         <version>${logstash.logback.version}</version>
@@ -214,12 +208,6 @@
         <groupId>org.coursera</groupId>
         <artifactId>dropwizard-metrics-datadog</artifactId>
         <version>${dropwizard-metrics-datadog.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.glassfish.jaxb</groupId>
-        <artifactId>jaxb-runtime</artifactId>
-        <version>${jaxb.version}</version>
-        <scope>runtime</scope>
       </dependency>
       <dependency>
         <groupId>org.slf4j</groupId>
