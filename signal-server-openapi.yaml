@@ -447,6 +447,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StaleDevices'
+        "413":
+          description: One or more device messages was too large
         "422":
           description: The request did not pass validation
         "423":
@@ -511,6 +513,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StaleDevices'
+        "413":
+          description: One or more device messages was too large
       security:
       - authenticatedAccount: []
   /v2/accounts/data_report:
@@ -4177,6 +4181,8 @@ components:
       description: |
         The PNI-associated identity key for the account, encoded as a base64 string.
     IncomingMessage:
+      required:
+      - content
       type: object
       properties:
         type:
@@ -4189,7 +4195,10 @@ components:
           type: integer
           format: int32
         content:
+          maxLength: 2147483647
+          minLength: 1
           type: string
+          format: byte
         validEnvelopeType:
           type: boolean
     KEMSignedPreKey:
