@@ -9,8 +9,8 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.base.Preconditions;
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -79,6 +79,7 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -121,7 +122,7 @@ public class ProfileController {
 
   private static final String EXPIRING_PROFILE_KEY_CREDENTIAL_TYPE = "expiringProfileKey";
 
-  private static final Counter VERSION_NOT_FOUND_COUNTER = Metrics.counter(name(ProfileController.class, "versionNotFound"));
+  private static final String VERSION_NOT_FOUND_COUNTER_NAME = name(ProfileController.class, "versionNotFound");
 
   public ProfileController(
       Clock clock,
@@ -237,6 +238,7 @@ public class ProfileController {
     return buildVersionedProfileResponse(targetAccount,
         version,
         maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), accountIdentifier)).orElse(false),
+        false,
         containerRequestContext);
   }
 
@@ -390,20 +392,27 @@ public class ProfileController {
         .orElse(null);
 
     return new ExpiringProfileKeyCredentialProfileResponse(
-        buildVersionedProfileResponse(account, version, isSelf, containerRequestContext),
+        buildVersionedProfileResponse(account, version, isSelf, true, containerRequestContext),
         expiringProfileKeyCredentialResponse);
   }
 
   private VersionedProfileResponse buildVersionedProfileResponse(final Account account,
       final String version,
       final boolean isSelf,
+      final boolean hasCredentialRequest,
       final ContainerRequestContext containerRequestContext) {
 
     final Optional<VersionedProfile> maybeProfile = profilesManager.get(account.getUuid(), version);
 
     if (maybeProfile.isEmpty()) {
       // Hypothesis: this should basically never happen since clients can't delete versions
-      VERSION_NOT_FOUND_COUNTER.increment();
+      Metrics.counter(
+          VERSION_NOT_FOUND_COUNTER_NAME,
+          Tags.of(
+              "self", String.valueOf(isSelf),
+              "credential_request", String.valueOf(hasCredentialRequest),
+              "platform", UserAgentTagUtil.getPlatformTag(containerRequestContext.getHeaderString("User-Agent")).getValue()))
+          .increment();
     }
 
     final byte[] name = maybeProfile.map(VersionedProfile::name).orElse(null);
