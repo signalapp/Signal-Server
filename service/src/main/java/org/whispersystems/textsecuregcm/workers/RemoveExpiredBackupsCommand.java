@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.backup.ExpiredBackup;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
 
 public class RemoveExpiredBackupsCommand extends AbstractCommandWithDependencies {
 
@@ -119,6 +120,7 @@ public class RemoveExpiredBackupsCommand extends AbstractCommandWithDependencies
     }
 
     return mono
+        .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
         .doOnSuccess(ignored -> {
           logger.trace("Successfully expired {} for {}",
               expiredBackup.expirationType(),
