@@ -56,6 +56,9 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   @VisibleForTesting
   static final String LOCAL_INDEX_MESSAGE_UUID_KEY_SORT = "U";
 
+  @VisibleForTesting
+  static final int MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT = 20;
+
   private static final String KEY_TTL = "E";
   private static final String KEY_ENVELOPE_BYTES = "EB";
 
@@ -66,8 +69,6 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private final Duration timeToLive;
   private final ExecutorService messageDeletionExecutor;
   private final Scheduler messageDeletionScheduler;
-
-  private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture<?>[0];
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesDynamoDb.class);
 
@@ -126,7 +127,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   public CompletableFuture<Boolean> mayHaveUrgentMessages(final UUID accountIdentifier, final Device device) {
-    return Flux.from(load(accountIdentifier, device, null))
+    return Flux.from(load(accountIdentifier, device, MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT))
         .any(MessageProtos.Envelope::getUrgent)
         .toFuture();
   }

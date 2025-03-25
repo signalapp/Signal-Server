@@ -313,11 +313,14 @@ class MessagesDynamoDbTest {
 
     assertThat(messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice).join()).isFalse();
 
+    // used as the stable sort key, and the urgent message should be sorted last
+    int serverTimestamp = 1;
     {
       final MessageProtos.Envelope nonUrgentMessage = MessageProtos.Envelope.newBuilder()
           .setUrgent(false)
           .setServerGuid(UUID.randomUUID().toString())
-          .setDestinationServiceId(UUID.randomUUID().toString())
+          .setDestinationServiceId(destinationUuid.toString())
+          .setServerTimestamp(serverTimestamp++)
           .build();
 
       messagesDynamoDb.store(List.of(nonUrgentMessage), destinationUuid, destinationDevice);
@@ -326,13 +329,26 @@ class MessagesDynamoDbTest {
     assertThat(messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice).join()).isFalse();
 
     {
-      final MessageProtos.Envelope urgentMessage = MessageProtos.Envelope.newBuilder()
+      final List<MessageProtos.Envelope> messages = new ArrayList<>();
+      // store more non-urgent messages
+      for (int i = 0; i < MessagesDynamoDb.MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT * 5; i++) {
+        messages.add(MessageProtos.Envelope.newBuilder()
+            .setUrgent(false)
+            .setServerGuid(UUID.randomUUID().toString())
+            .setDestinationServiceId(destinationUuid.toString())
+                .setServerTimestamp(serverTimestamp++)
+            .build());
+      }
+
+      // and one urgent message
+      messages.add(MessageProtos.Envelope.newBuilder()
           .setUrgent(true)
           .setServerGuid(UUID.randomUUID().toString())
-          .setDestinationServiceId(UUID.randomUUID().toString())
-          .build();
+          .setDestinationServiceId(destinationUuid.toString())
+          .setServerTimestamp(serverTimestamp++)
+          .build());
 
-      messagesDynamoDb.store(List.of(urgentMessage), destinationUuid, destinationDevice);
+      messagesDynamoDb.store(messages, destinationUuid, destinationDevice);
     }
 
     assertThat(messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice).join()).isTrue();
