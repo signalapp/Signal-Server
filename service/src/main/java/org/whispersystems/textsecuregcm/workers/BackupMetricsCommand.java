@@ -101,7 +101,7 @@ public class BackupMetricsCommand extends AbstractCommandWithDependencies {
   }
 
   private Duration timeSince(Instant t) {
-    Duration between = Duration.between(clock.instant(), t);
+    final Duration between = Duration.between(t, clock.instant());
     if (between.isNegative()) {
       return Duration.ZERO;
     }
