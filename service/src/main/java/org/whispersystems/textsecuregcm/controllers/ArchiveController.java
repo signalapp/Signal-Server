@@ -836,7 +836,7 @@ public class ArchiveController {
   @Path("/media/delete")
   @Operation(summary = "Delete media objects",
       description = "Delete media objects stored with this backup-id")
-  @ApiResponse(responseCode = "204")
+  @ApiResponse(responseCode = "204", description = "The provided objects were successfully deleted or they do not exist")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<Response> deleteMedia(
