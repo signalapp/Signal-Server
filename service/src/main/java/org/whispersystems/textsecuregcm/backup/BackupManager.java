@@ -46,7 +46,7 @@ public class BackupManager {
 
   static final String MESSAGE_BACKUP_NAME = "messageBackup";
   public static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = DataSize.gibibytes(100).toBytes();
-  static final long MAX_MEDIA_OBJECT_SIZE = DataSize.mebibytes(101).toBytes();
+  public static final long MAX_MEDIA_OBJECT_SIZE = DataSize.mebibytes(101).toBytes();
 
   // If the last media usage recalculation is over MAX_QUOTA_STALENESS, force a recalculation before quota enforcement.
   static final Duration MAX_QUOTA_STALENESS = Duration.ofDays(1);

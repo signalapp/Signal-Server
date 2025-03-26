@@ -57,6 +57,7 @@ import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupUploadDescriptor;
 import org.whispersystems.textsecuregcm.backup.CopyResult;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import reactor.core.publisher.Flux;
 
@@ -74,7 +75,7 @@ class BackupsAnonymousGrpcServiceTest extends
 
   @Override
   protected BackupsAnonymousGrpcService createServiceBeforeEachTest() {
-    return new BackupsAnonymousGrpcService(backupManager);
+    return new BackupsAnonymousGrpcService(backupManager, new BackupMetrics());
   }
 
   @BeforeEach

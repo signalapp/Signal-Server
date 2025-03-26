@@ -8,6 +8,9 @@ import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.signal.chat.backup.CopyMediaRequest;
 import org.signal.chat.backup.CopyMediaResponse;
 import org.signal.chat.backup.DeleteAllRequest;
@@ -36,15 +39,22 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.CopyParameters;
 import org.whispersystems.textsecuregcm.backup.MediaEncryptionParameters;
+import org.whispersystems.textsecuregcm.controllers.ArchiveController;
+import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class BackupsAnonymousGrpcService extends ReactorBackupsAnonymousGrpc.BackupsAnonymousImplBase {
 
   private final BackupManager backupManager;
+  private final BackupMetrics backupMetrics;
 
-  public BackupsAnonymousGrpcService(final BackupManager backupManager) {
+  public BackupsAnonymousGrpcService(final BackupManager backupManager, final BackupMetrics backupMetrics) {
     this.backupManager = backupManager;
+    this.backupMetrics = backupMetrics;
   }
 
   @Override
@@ -115,6 +125,9 @@ public class BackupsAnonymousGrpcService extends ReactorBackupsAnonymousGrpc.Bac
                 fromUnsignedExact(item.getObjectLength()),
                 new MediaEncryptionParameters(item.getEncryptionKey().toByteArray(), item.getHmacKey().toByteArray()),
                 item.getMediaId().toByteArray())).toList()))
+        .doOnNext(result -> backupMetrics.updateCopyCounter(
+            result,
+            UserAgentTagUtil.getPlatformTag(RequestAttributesUtil.getUserAgent().orElse(null))))
         .map(copyResult -> {
           CopyMediaResponse.Builder builder = CopyMediaResponse
               .newBuilder()

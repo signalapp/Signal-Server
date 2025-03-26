@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonParser;
@@ -13,13 +15,16 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -69,6 +74,8 @@ import org.whispersystems.textsecuregcm.backup.CopyParameters;
 import org.whispersystems.textsecuregcm.backup.CopyResult;
 import org.whispersystems.textsecuregcm.backup.MediaEncryptionParameters;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
+import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.util.BackupAuthCredentialAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
@@ -80,7 +87,7 @@ import org.whispersystems.websocket.auth.ReadOnly;
 import reactor.core.publisher.Mono;
 
 @Path("/v1/archives")
-@Tag(name = "Archive")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Archive")
 public class ArchiveController {
 
   public final static String X_SIGNAL_ZK_AUTH = "X-Signal-ZK-Auth";
@@ -88,12 +95,15 @@ public class ArchiveController {
 
   private final BackupAuthManager backupAuthManager;
   private final BackupManager backupManager;
+  private final BackupMetrics backupMetrics;
 
   public ArchiveController(
       final BackupAuthManager backupAuthManager,
-      final BackupManager backupManager) {
+      final BackupManager backupManager,
+      final BackupMetrics backupMetrics) {
     this.backupAuthManager = backupAuthManager;
     this.backupManager = backupManager;
+    this.backupMetrics = backupMetrics;
   }
 
   public record SetBackupIdRequest(
@@ -247,6 +257,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public CompletionStage<BackupAuthCredentialsResponse> getBackupZKCredentials(
       @Mutable @Auth AuthenticatedDevice auth,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @QueryParam("redemptionStartSeconds") Long startSeconds,
       @NotNull @QueryParam("redemptionEndSeconds") Long endSeconds) {
 
@@ -258,11 +269,17 @@ public class ArchiveController {
                     auth.getAccount(),
                     credentialType,
                     Instant.ofEpochSecond(startSeconds), Instant.ofEpochSecond(endSeconds))
-                .thenAccept(credentials -> credentialsByType.put(credentialType, credentials.stream()
-                    .map(credential -> new BackupAuthCredentialsResponse.BackupAuthCredential(
-                        credential.credential().serialize(),
-                        credential.redemptionTime().getEpochSecond()))
-                    .toList())))
+                .thenAccept(credentials -> {
+                  backupMetrics.updateGetCredentialCounter(
+                      UserAgentTagUtil.getPlatformTag(userAgent),
+                      credentialType,
+                      credentials.size());
+                  credentialsByType.put(credentialType, credentials.stream()
+                      .map(credential -> new BackupAuthCredentialsResponse.BackupAuthCredential(
+                          credential.credential().serialize(),
+                          credential.redemptionTime().getEpochSecond()))
+                      .toList());
+                }))
             .toArray(CompletableFuture[]::new))
         .thenApply(ignored -> new BackupAuthCredentialsResponse(credentialsByType.entrySet().stream()
             .collect(Collectors.toMap(
@@ -586,6 +603,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<CopyMediaResponse> copyMedia(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -605,6 +623,7 @@ public class ArchiveController {
         .fromFuture(backupManager.authenticateBackupUser(presentation.presentation, signature.signature))
         .flatMap(backupUser -> backupManager.copyToBackup(backupUser, List.of(copyMediaRequest.toCopyParameters()))
             .next()
+            .doOnNext(result -> backupMetrics.updateCopyCounter(result, UserAgentTagUtil.getPlatformTag(userAgent)))
             .map(copyResult -> switch (copyResult.outcome()) {
               case SUCCESS -> new CopyMediaResponse(copyResult.cdn());
               case SOURCE_WRONG_LENGTH -> throw new BadRequestException("Invalid length");
@@ -683,6 +702,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<Response> copyMedia(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -701,6 +721,7 @@ public class ArchiveController {
     final Stream<CopyParameters> copyParams = copyMediaRequest.items().stream().map(CopyMediaRequest::toCopyParameters);
     return Mono.fromFuture(backupManager.authenticateBackupUser(presentation.presentation, signature.signature))
         .flatMapMany(backupUser -> backupManager.copyToBackup(backupUser, copyParams.toList()))
+        .doOnNext(result -> backupMetrics.updateCopyCounter(result, UserAgentTagUtil.getPlatformTag(userAgent)))
         .map(CopyMediaBatchResponse.Entry::fromCopyResult)
         .collectList()
         .map(list -> Response.status(207).entity(new CopyMediaBatchResponse(list)).build())

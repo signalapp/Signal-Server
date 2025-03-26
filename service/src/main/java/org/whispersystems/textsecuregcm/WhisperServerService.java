@@ -178,6 +178,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsHttpChannelListener;
@@ -955,6 +956,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
     metricsHttpChannelListener.configure(environment);
     final MessageMetrics messageMetrics = new MessageMetrics();
+    final BackupMetrics backupMetrics = new BackupMetrics();
 
     // BufferingInterceptor is needed on the base environment but not the WebSocketEnvironment,
     // because we handle serialization of http responses on the websocket on our own and can
@@ -1071,7 +1073,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             registrationLockVerificationManager, rateLimiters),
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
             experimentEnrollmentManager),
-        new ArchiveController(backupAuthManager, backupManager),
+        new ArchiveController(backupAuthManager, backupManager, backupMetrics),
         new CallRoutingControllerV2(rateLimiters, cloudflareTurnCredentialsManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),

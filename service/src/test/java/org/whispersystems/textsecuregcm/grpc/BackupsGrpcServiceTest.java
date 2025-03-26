@@ -54,6 +54,7 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupAuthTestUtil;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
@@ -77,7 +78,7 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
 
   @Override
   protected BackupsGrpcService createServiceBeforeEachTest() {
-    return new BackupsGrpcService(accountsManager, backupAuthManager);
+    return new BackupsGrpcService(accountsManager, backupAuthManager, new BackupMetrics());
   }
 
   @BeforeEach

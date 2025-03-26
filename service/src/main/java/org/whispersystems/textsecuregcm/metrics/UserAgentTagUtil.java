@@ -12,6 +12,7 @@ import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
+import javax.annotation.Nullable;
 
 /**
  * Utility class for extracting platform/version metrics tags from User-Agent strings.
@@ -26,15 +27,19 @@ public class UserAgentTagUtil {
   }
 
   public static Tag getPlatformTag(final String userAgentString) {
-    String platform;
+
+    UserAgent userAgent = null;
 
     try {
-      platform = UserAgentUtil.parseUserAgentString(userAgentString).getPlatform().name().toLowerCase();
-    } catch (final UnrecognizedUserAgentException e) {
-      platform = "unrecognized";
+      userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
+    } catch (final UnrecognizedUserAgentException ignored) {
     }
 
-    return Tag.of(PLATFORM_TAG, platform);
+    return getPlatformTag(userAgent);
+  }
+
+  public static Tag getPlatformTag(@Nullable final UserAgent userAgent) {
+    return Tag.of(PLATFORM_TAG, userAgent != null ? userAgent.getPlatform().name().toLowerCase() : "unrecognized");
   }
 
   public static Optional<Tag> getClientVersionTag(final String userAgentString, final ClientReleaseManager clientReleaseManager) {

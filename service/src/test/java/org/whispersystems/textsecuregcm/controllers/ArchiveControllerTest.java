@@ -72,6 +72,7 @@ import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -94,7 +95,7 @@ public class ArchiveControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new ArchiveController(backupAuthManager, backupManager))
+      .addResource(new ArchiveController(backupAuthManager, backupManager, new BackupMetrics()))
       .build();
 
   private final UUID aci = UUID.randomUUID();

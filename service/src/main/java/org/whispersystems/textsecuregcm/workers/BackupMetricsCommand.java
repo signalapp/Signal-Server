@@ -93,7 +93,14 @@ public class BackupMetricsCommand extends AbstractCommandWithDependencies {
           }
           timeSinceLastRefresh.record(timeSince(backupMetadata.lastRefresh()).getSeconds());
           timeSinceLastMediaRefresh.record(timeSince(backupMetadata.lastMediaRefresh()).getSeconds());
-          Metrics.counter(backupsCounterName, "subscribed", String.valueOf(subscribed)).increment();
+
+          // Report that the backup is out of quota if it cannot store a max size media object
+          final boolean quotaExhausted = backupMetadata.bytesUsed() >=
+              (BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - BackupManager.MAX_MEDIA_OBJECT_SIZE);
+
+          Metrics.counter(backupsCounterName,
+              "subscribed", String.valueOf(subscribed),
+              "quotaExhausted", String.valueOf(quotaExhausted)).increment();
         })
         .count()
         .block();
