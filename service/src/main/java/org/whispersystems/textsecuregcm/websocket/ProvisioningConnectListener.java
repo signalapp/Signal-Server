@@ -61,16 +61,14 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
   public void onWebSocketConnect(WebSocketSessionContext context) {
     openWebSocketCounter.countOpenWebSocket(context);
 
-    final Optional<ScheduledFuture<?>> maybeTimeoutFuture = context.getClient().supportsProvisioningSocketTimeouts()
-        ? Optional.of(timeoutExecutor.schedule(() ->
-            context.getClient().close(1000, "Timeout"), timeout.toSeconds(), TimeUnit.SECONDS))
-        : Optional.empty();
+    final ScheduledFuture<?> timeoutFuture = timeoutExecutor.schedule(() ->
+            context.getClient().close(1000, "Timeout"), timeout.toSeconds(), TimeUnit.SECONDS);
 
     final String provisioningAddress = generateProvisioningAddress();
 
     context.addWebsocketClosedListener((context1, statusCode, reason) -> {
       provisioningManager.removeListener(provisioningAddress);
-      maybeTimeoutFuture.ifPresent(future -> future.cancel(false));
+      timeoutFuture.cancel(false);
     });
 
     provisioningManager.addListener(provisioningAddress, message -> {

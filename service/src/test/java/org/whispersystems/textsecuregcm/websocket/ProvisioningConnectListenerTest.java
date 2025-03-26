@@ -47,6 +47,8 @@ class ProvisioningConnectListenerTest {
   void onWebSocketConnect() {
     final WebSocketClient webSocketClient = mock(WebSocketClient.class);
     final WebSocketSessionContext context = new WebSocketSessionContext(webSocketClient);
+    final ScheduledFuture<?> scheduledFuture = mock(ScheduledFuture.class);
+    doReturn(scheduledFuture).when(scheduledExecutorService).schedule(any(Runnable.class), anyLong(), any());
 
     provisioningConnectListener.onWebSocketConnect(context);
     context.notifyClosed(1000, "Test");
@@ -81,7 +83,6 @@ class ProvisioningConnectListenerTest {
     final WebSocketClient webSocketClient = mock(WebSocketClient.class);
     final WebSocketSessionContext context = new WebSocketSessionContext(webSocketClient);
 
-    when(webSocketClient.supportsProvisioningSocketTimeouts()).thenReturn(true);
     final ScheduledFuture<?> scheduledFuture = mock(ScheduledFuture.class);
     doReturn(scheduledFuture).when(scheduledExecutorService).schedule(any(Runnable.class), anyLong(), any());
 
@@ -99,7 +100,6 @@ class ProvisioningConnectListenerTest {
     final WebSocketClient webSocketClient = mock(WebSocketClient.class);
     final WebSocketSessionContext context = new WebSocketSessionContext(webSocketClient);
 
-    when(webSocketClient.supportsProvisioningSocketTimeouts()).thenReturn(true);
     final ScheduledFuture<?> scheduledFuture = mock(ScheduledFuture.class);
     doReturn(scheduledFuture).when(scheduledExecutorService).schedule(any(Runnable.class), anyLong(), any());
 
@@ -110,14 +110,5 @@ class ProvisioningConnectListenerTest {
 
     verify(scheduledFuture).cancel(false);
     verify(webSocketClient, never()).close(anyInt(), any());
-  }
-
-  @Test
-  void skipsTimeoutIfUnsupported() {
-    final WebSocketClient webSocketClient = mock(WebSocketClient.class);
-    final WebSocketSessionContext context = new WebSocketSessionContext(webSocketClient);
-    provisioningConnectListener.onWebSocketConnect(context);
-    verify(scheduledExecutorService, never())
-        .schedule(any(Runnable.class), eq(TIMEOUT.getSeconds()), eq(TimeUnit.SECONDS));
   }
 }

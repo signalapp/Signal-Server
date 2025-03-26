@@ -102,10 +102,6 @@ public class WebSocketClient {
     return WebsocketHeaders.parseReceiveStoriesHeader(value);
   }
 
-  public boolean supportsProvisioningSocketTimeouts() {
-    return session.getUpgradeRequest().getHeader(WebsocketHeaders.X_SIGNAL_WEBSOCKET_TIMEOUT_HEADER) != null;
-  }
-
   private long generateRequestId() {
     return Math.abs(SECURE_RANDOM.nextLong());
   }

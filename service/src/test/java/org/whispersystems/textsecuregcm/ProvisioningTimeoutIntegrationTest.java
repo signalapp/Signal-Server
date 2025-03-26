@@ -133,7 +133,6 @@ public class ProvisioningTimeoutIntegrationTest {
         .thenReturn(mock(ScheduledFuture.class));
 
     final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest();
-    upgradeRequest.setHeader(WebsocketHeaders.X_SIGNAL_WEBSOCKET_TIMEOUT_HEADER, "");
     try (Session ignored = client.connect(testWebsocketListener,
         URI.create(String.format("ws://127.0.0.1:%d/websocket", DROPWIZARD_APP_EXTENSION.getLocalPort())),
         upgradeRequest).join()) {
@@ -152,22 +151,6 @@ public class ProvisioningTimeoutIntegrationTest {
   }
 
   @Test
-  public void websocketTimeoutNoHeader() throws IOException {
-    final TestProvisioningListener testWebsocketListener = new TestProvisioningListener();
-
-    final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest();
-    try (Session ignored = client.connect(testWebsocketListener,
-        URI.create(String.format("ws://127.0.0.1:%d/websocket", DROPWIZARD_APP_EXTENSION.getLocalPort())),
-        upgradeRequest).join()) {
-      assertThat(testWebsocketListener.closeFuture()).isNotDone();
-
-      final TestApplication testApplication = DROPWIZARD_APP_EXTENSION.getApplication();
-      verify(testApplication.scheduler, never()).schedule(any(Runnable.class), anyLong(), any());
-      assertThat(testWebsocketListener.closeFuture()).isNotDone();
-    }
-  }
-
-  @Test
   public void websocketTimeoutCancelled() throws IOException {
     final TestProvisioningListener testWebsocketListener = new TestProvisioningListener();
 
@@ -176,7 +159,6 @@ public class ProvisioningTimeoutIntegrationTest {
     doReturn(scheduled).when(testApplication.scheduler).schedule(any(Runnable.class), anyLong(), any());
 
     final ClientUpgradeRequest upgradeRequest = new ClientUpgradeRequest();
-    upgradeRequest.setHeader(WebsocketHeaders.X_SIGNAL_WEBSOCKET_TIMEOUT_HEADER, "");
     final Session session = client.connect(testWebsocketListener,
         URI.create(String.format("ws://127.0.0.1:%d/websocket", DROPWIZARD_APP_EXTENSION.getLocalPort())),
         upgradeRequest).join();
