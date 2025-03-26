@@ -11,13 +11,13 @@ option java_outer_classname = "MessageProtos";
 
 message Envelope {
   enum Type {
+    reserved 2, 7;
+
     UNKNOWN = 0;
     CIPHERTEXT = 1;
-    KEY_EXCHANGE = 2;
     PREKEY_BUNDLE = 3;
     SERVER_DELIVERY_RECEIPT = 5;
     UNIDENTIFIED_SENDER = 6;
-    reserved 7;
     PLAINTEXT_CONTENT = 8;  // for decryption error receipts
   }
 
