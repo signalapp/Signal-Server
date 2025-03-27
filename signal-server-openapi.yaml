@@ -939,6 +939,9 @@ paths:
               $ref: '#/components/schemas/DeleteMedia'
         required: true
       responses:
+        "204":
+          description: The provided objects were successfully deleted or they do not
+            exist
         "429":
           description: Rate limited.
         "403":
