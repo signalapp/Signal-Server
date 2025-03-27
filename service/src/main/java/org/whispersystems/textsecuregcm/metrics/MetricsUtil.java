@@ -83,7 +83,7 @@ public class MetricsUtil {
   }
 
   @VisibleForTesting
-  static MeterRegistry.Config configureMeterFilters(MeterRegistry.Config config,
+  static void configureMeterFilters(MeterRegistry.Config config,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     final DistributionStatisticConfig defaultDistributionStatisticConfig = DistributionStatisticConfig.builder()
         .percentiles(.75, .95, .99, .999)
@@ -91,8 +91,7 @@ public class MetricsUtil {
 
     final String awsSdkMetricNamePrefix = MetricsUtil.name(MicrometerAwsSdkMetricPublisher.class);
 
-    return config
-        .meterFilter(new MeterFilter() {
+    config.meterFilter(new MeterFilter() {
           @Override
           public DistributionStatisticConfig configure(final Meter.Id id, final DistributionStatisticConfig config) {
             return defaultDistributionStatisticConfig.merge(config);

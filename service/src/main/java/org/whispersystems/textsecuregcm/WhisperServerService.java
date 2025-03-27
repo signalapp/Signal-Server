@@ -185,6 +185,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsHttpChannelListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
+import org.whispersystems.textsecuregcm.metrics.TlsCertificateExpirationUtil;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.providers.RedisClusterHealthCheck;
@@ -365,6 +366,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           .forEach(connectorFactory -> {
             if (connectorFactory instanceof HttpsConnectorFactory h) {
               h.setKeyStorePassword(config.getTlsKeyStoreConfiguration().password().value());
+
+              TlsCertificateExpirationUtil.configureMetrics(h.getKeyStorePath(), h.getKeyStorePassword(), h.getKeyStoreType(), h.getKeyStoreProvider());
             }
           });
     }
