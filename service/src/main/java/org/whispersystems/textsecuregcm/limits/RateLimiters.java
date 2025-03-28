@@ -26,7 +26,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     STORIES("stories", false, new RateLimiterConfig(5_000, Duration.ofSeconds(8))),
     ALLOCATE_DEVICE("allocateDevice", false, new RateLimiterConfig(6, Duration.ofMinutes(2))),
     VERIFY_DEVICE("verifyDevice", false, new RateLimiterConfig(6, Duration.ofMinutes(2))),
-    TURN("turnAllocate", false, new RateLimiterConfig(60, Duration.ofSeconds(1))),
     PROFILE("profile", false, new RateLimiterConfig(4320, Duration.ofSeconds(20))),
     STICKER_PACK("stickerPack", false, new RateLimiterConfig(50, Duration.ofMinutes(72))),
     USERNAME_LOOKUP("usernameLookup", false, new RateLimiterConfig(100, Duration.ofMinutes(15))),
@@ -129,10 +128,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getPinLimiter() {
     return forDescriptor(For.PIN);
-  }
-
-  public RateLimiter getTurnLimiter() {
-    return forDescriptor(For.TURN);
   }
 
   public RateLimiter getProfileLimiter() {
