@@ -9,7 +9,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.lettuce.core.RedisException;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
@@ -67,7 +66,7 @@ public class StaticRateLimiter implements RateLimiter {
             (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
         throw new RateLimitExceededException(retryAfter);
       }
-    } catch (RedisException e) {
+    } catch (final Exception e) {
       if (!failOpen()) {
         throw e;
       }
@@ -87,7 +86,7 @@ public class StaticRateLimiter implements RateLimiter {
           return failedFuture(new RateLimitExceededException(retryAfter));
         })
         .exceptionally(throwable -> {
-          if (ExceptionUtils.unwrap(throwable) instanceof RedisException && failOpen()) {
+          if (failOpen()) {
             return null;
           }
           throw ExceptionUtils.wrap(throwable);
@@ -99,7 +98,7 @@ public class StaticRateLimiter implements RateLimiter {
     try {
       final long deficitPermitsAmount = executeValidateScript(key, amount, false);
       return deficitPermitsAmount == 0;
-    } catch (RedisException e) {
+    } catch (final Exception e) {
       if (failOpen()) {
         return true;
       } else {
@@ -113,7 +112,7 @@ public class StaticRateLimiter implements RateLimiter {
     return executeValidateScriptAsync(key, amount, false)
         .thenApply(deficitPermitsAmount -> deficitPermitsAmount == 0)
         .exceptionally(throwable -> {
-          if (ExceptionUtils.unwrap(throwable) instanceof RedisException && failOpen()) {
+          if (failOpen()) {
             return true;
           }
           throw ExceptionUtils.wrap(throwable);
