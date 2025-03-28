@@ -87,7 +87,7 @@ public class DynamicRateLimiter implements RateLimiter {
     final RateLimiterConfig cfg = configResolver.get();
     return currentHolder.updateAndGet(p -> p != null && p.getLeft().equals(cfg)
         ? p
-        : Pair.of(cfg, new StaticRateLimiter(name, cfg, validateScript, cluster, clock, dynamicConfigurationManager))
+        : Pair.of(cfg, new StaticRateLimiter(name, cfg, validateScript, cluster, clock))
     );
   }
 }

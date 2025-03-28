@@ -15,12 +15,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -30,8 +28,7 @@ public class StaticRateLimiter implements RateLimiter {
 
   private final RateLimiterConfig config;
 
-  private final Counter counter;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final Counter limitExceededCounter;
 
   private final ClusterLuaScript validateScript;
 
@@ -45,15 +42,13 @@ public class StaticRateLimiter implements RateLimiter {
       final RateLimiterConfig config,
       final ClusterLuaScript validateScript,
       final FaultTolerantRedisClusterClient cacheCluster,
-      final Clock clock,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      final Clock clock) {
     this.name = requireNonNull(name);
     this.config = requireNonNull(config);
     this.validateScript = requireNonNull(validateScript);
     this.cacheCluster = requireNonNull(cacheCluster);
     this.clock = requireNonNull(clock);
-    this.counter = Metrics.counter(MetricsUtil.name(getClass(), "exceeded"), "rateLimiterName", name);
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.limitExceededCounter = Metrics.counter(MetricsUtil.name(getClass(), "exceeded"), "rateLimiterName", name);
   }
 
   @Override
@@ -61,13 +56,13 @@ public class StaticRateLimiter implements RateLimiter {
     try {
       final long deficitPermitsAmount = executeValidateScript(key, amount, true);
       if (deficitPermitsAmount > 0) {
-        counter.increment();
+        limitExceededCounter.increment();
         final Duration retryAfter = Duration.ofMillis(
             (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
         throw new RateLimitExceededException(retryAfter);
       }
     } catch (final Exception e) {
-      if (!failOpen()) {
+      if (!config.failOpen()) {
         throw e;
       }
     }
@@ -80,16 +75,16 @@ public class StaticRateLimiter implements RateLimiter {
           if (deficitPermitsAmount == 0) {
             return completedFuture((Void) null);
           }
-          counter.increment();
+          limitExceededCounter.increment();
           final Duration retryAfter = Duration.ofMillis(
               (long) Math.ceil((double) deficitPermitsAmount / config.leakRatePerMillis()));
           return failedFuture(new RateLimitExceededException(retryAfter));
         })
         .exceptionally(throwable -> {
-          if (failOpen()) {
+          if (config.failOpen()) {
             return null;
           }
-          throw ExceptionUtils.wrap(throwable);
+          throw ExceptionUtils.wrap(new RateLimitExceededException(null));
         });
   }
 
@@ -99,7 +94,7 @@ public class StaticRateLimiter implements RateLimiter {
       final long deficitPermitsAmount = executeValidateScript(key, amount, false);
       return deficitPermitsAmount == 0;
     } catch (final Exception e) {
-      if (failOpen()) {
+      if (config.failOpen()) {
         return true;
       } else {
         throw e;
@@ -112,7 +107,7 @@ public class StaticRateLimiter implements RateLimiter {
     return executeValidateScriptAsync(key, amount, false)
         .thenApply(deficitPermitsAmount -> deficitPermitsAmount == 0)
         .exceptionally(throwable -> {
-          if (failOpen()) {
+          if (config.failOpen()) {
             return true;
           }
           throw ExceptionUtils.wrap(throwable);
@@ -133,10 +128,6 @@ public class StaticRateLimiter implements RateLimiter {
   @Override
   public RateLimiterConfig config() {
     return config;
-  }
-
-  private boolean failOpen() {
-    return this.dynamicConfigurationManager.getConfiguration().getRateLimitPolicy().failOpen();
   }
 
   private long executeValidateScript(final String key, final int amount, final boolean applyChanges) {

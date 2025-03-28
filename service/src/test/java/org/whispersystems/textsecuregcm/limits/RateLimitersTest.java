@@ -5,9 +5,9 @@
 
 package org.whispersystems.textsecuregcm.limits;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRateLimitPolicy;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -56,30 +55,31 @@ public class RateLimitersTest {
         prekeys:
           bucketSize: 150
           permitRegenerationDuration: PT6S
+          failOpen: true
         attachmentCreate:
           bucketSize: 4
           permitRegenerationDuration: PT30S
-      rateLimitPolicy:
-        failOpen: true
+          failOpen: true
       """;
 
-  public record GenericHolder(
-      @Valid @NotNull @JsonProperty Map<String, RateLimiterConfig> limits,
-      @Valid @JsonProperty DynamicRateLimitPolicy rateLimitPolicy) {
+  public record SimpleDynamicConfiguration(@Valid @NotNull @JsonProperty Map<String, RateLimiterConfig> limits) {
   }
 
   @Test
   public void testValidateConfigs() throws Exception {
     assertThrows(IllegalArgumentException.class, () -> {
-      final GenericHolder cfg = DynamicConfigurationManager.parseConfiguration(BAD_YAML, GenericHolder.class).orElseThrow();
-      final RateLimiters rateLimiters = new RateLimiters(cfg.limits(), dynamicConfig, validateScript, redisCluster, clock);
+      final SimpleDynamicConfiguration dynamicConfiguration =
+          DynamicConfigurationManager.parseConfiguration(BAD_YAML, SimpleDynamicConfiguration.class).orElseThrow();
+
+      final RateLimiters rateLimiters = new RateLimiters(dynamicConfiguration.limits(), dynamicConfig, validateScript, redisCluster, clock);
       rateLimiters.validateValuesAndConfigs();
     });
 
-    final GenericHolder cfg = DynamicConfigurationManager.parseConfiguration(GOOD_YAML, GenericHolder.class).orElseThrow();
-    assertTrue(cfg.rateLimitPolicy.failOpen());
-    final RateLimiters rateLimiters = new RateLimiters(cfg.limits(), dynamicConfig, validateScript, redisCluster, clock);
-    rateLimiters.validateValuesAndConfigs();
+    final SimpleDynamicConfiguration dynamicConfiguration =
+        DynamicConfigurationManager.parseConfiguration(GOOD_YAML, SimpleDynamicConfiguration.class).orElseThrow();
+
+    final RateLimiters rateLimiters = new RateLimiters(dynamicConfiguration.limits(), dynamicConfig, validateScript, redisCluster, clock);
+    assertDoesNotThrow(rateLimiters::validateValuesAndConfigs);
   }
 
   @Test
@@ -116,9 +116,9 @@ public class RateLimitersTest {
 
   @Test
   void testChangingConfiguration() {
-    final RateLimiterConfig initialRateLimiterConfig = new RateLimiterConfig(4, Duration.ofMinutes(1));
-    final RateLimiterConfig updatedRateLimiterCongig = new RateLimiterConfig(17, Duration.ofSeconds(3));
-    final RateLimiterConfig baseConfig = new RateLimiterConfig(1, Duration.ofMinutes(1));
+    final RateLimiterConfig initialRateLimiterConfig = new RateLimiterConfig(4, Duration.ofMinutes(1), false);
+    final RateLimiterConfig updatedRateLimiterCongig = new RateLimiterConfig(17, Duration.ofSeconds(3), false);
+    final RateLimiterConfig baseConfig = new RateLimiterConfig(1, Duration.ofMinutes(1), false);
 
     final Map<String, RateLimiterConfig> limitsConfigMap = new HashMap<>();
 
@@ -146,8 +146,8 @@ public class RateLimitersTest {
   @Test
   public void testRateLimiterHasItsPrioritiesStraight() throws Exception {
     final RateLimiters.For descriptor = RateLimiters.For.CAPTCHA_CHALLENGE_ATTEMPT;
-    final RateLimiterConfig configForDynamic = new RateLimiterConfig(1, Duration.ofMinutes(1));
-    final RateLimiterConfig configForStatic = new RateLimiterConfig(2, Duration.ofSeconds(30));
+    final RateLimiterConfig configForDynamic = new RateLimiterConfig(1, Duration.ofMinutes(1), false);
+    final RateLimiterConfig configForStatic = new RateLimiterConfig(2, Duration.ofSeconds(30), false);
     final RateLimiterConfig defaultConfig = descriptor.defaultConfig();
 
     final Map<String, RateLimiterConfig> mapForDynamic = new HashMap<>();
@@ -188,7 +188,7 @@ public class RateLimitersTest {
 
     @Override
     public RateLimiterConfig defaultConfig() {
-      return new RateLimiterConfig(1, Duration.ofMinutes(1));
+      return new RateLimiterConfig(1, Duration.ofMinutes(1), false);
     }
   }
 

@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.limits;
 import jakarta.validation.constraints.AssertTrue;
 import java.time.Duration;
 
-public record RateLimiterConfig(int bucketSize, Duration permitRegenerationDuration) {
+public record RateLimiterConfig(int bucketSize, Duration permitRegenerationDuration, boolean failOpen) {
 
   public double leakRatePerMillis() {
     return 1.0 / (permitRegenerationDuration.toNanos() / 1e6);

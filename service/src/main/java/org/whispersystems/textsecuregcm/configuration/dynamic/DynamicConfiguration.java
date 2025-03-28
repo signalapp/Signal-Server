@@ -48,10 +48,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  DynamicRateLimitPolicy rateLimitPolicy = new DynamicRateLimitPolicy(false);
-
-  @JsonProperty
-  @Valid
   DynamicRegistrationConfiguration registrationConfiguration = new DynamicRegistrationConfiguration(false);
 
   @JsonProperty
@@ -98,10 +94,6 @@ public class DynamicConfiguration {
 
   public DynamicMessagePersisterConfiguration getMessagePersisterConfiguration() {
     return messagePersister;
-  }
-
-  public DynamicRateLimitPolicy getRateLimitPolicy() {
-    return rateLimitPolicy;
   }
 
   public DynamicRegistrationConfiguration getRegistrationConfiguration() {

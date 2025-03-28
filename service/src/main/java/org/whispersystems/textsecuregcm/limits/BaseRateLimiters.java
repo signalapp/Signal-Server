@@ -95,6 +95,6 @@ public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
       return new DynamicRateLimiter(descriptor.id(), dynamicConfigurationManager, configResolver, validateScript, cacheCluster, clock);
     }
     final RateLimiterConfig cfg = configs.getOrDefault(descriptor.id(), descriptor.defaultConfig());
-    return new StaticRateLimiter(descriptor.id(), cfg, validateScript, cacheCluster, clock, dynamicConfigurationManager);
+    return new StaticRateLimiter(descriptor.id(), cfg, validateScript, cacheCluster, clock);
   }
 }
