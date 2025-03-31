@@ -24,10 +24,12 @@ service Messages {
    * destination account.
    *
    * This RPC may fail with a `NOT_FOUND` status if the destination account was
-   * not found. It may also fail with a `RESOURCE_EXHAUSTED` status if a rate
-   * limit for sending messages has been exceeded, in which case a `retry-after`
-   * header containing an ISO 8601 duration string may be present in the
-   * response trailers.
+   * not found. It may also fail with an `INVALID_ARGUMENT` status if the
+   * destination account is the same as the authenticated caller (callers should
+   * use `SendSyncMessage` to send messages to themselves). It may also fail
+   * with a `RESOURCE_EXHAUSTED` status if a rate limit for sending messages has
+   * been exceeded, in which case a `retry-after` header containing an ISO 8601
+   * duration string may be present in the response trailers.
    *
    * Note that message delivery may not succeed even if this RPC returns an `OK`
    * status; callers must check the response object to verify that the message
