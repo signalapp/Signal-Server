@@ -13,7 +13,8 @@ public class RequestAttributesUtil {
 
   static final Context.Key<List<Locale.LanguageRange>> ACCEPT_LANGUAGE_CONTEXT_KEY = Context.key("accept-language");
   static final Context.Key<InetAddress> REMOTE_ADDRESS_CONTEXT_KEY = Context.key("remote-address");
-  static final Context.Key<UserAgent> USER_AGENT_CONTEXT_KEY = Context.key("user-agent");
+  static final Context.Key<String> RAW_USER_AGENT_CONTEXT_KEY = Context.key("unparsed-user-agent");
+  static final Context.Key<UserAgent> USER_AGENT_CONTEXT_KEY = Context.key("parsed-user-agent");
 
   private static final List<Locale> AVAILABLE_LOCALES = Arrays.asList(Locale.getAvailableLocales());
 
@@ -51,9 +52,18 @@ public class RequestAttributesUtil {
   /**
    * Returns the parsed user-agent of the remote client in the current gRPC request context.
    *
-   * @return the parsed user-agent of the remote client; may be null if unparseable or not specified
+   * @return the parsed user-agent of the remote client; may be empty if unparseable or not specified
    */
   public static Optional<UserAgent> getUserAgent() {
     return Optional.ofNullable(USER_AGENT_CONTEXT_KEY.get());
+  }
+
+  /**
+   * Returns the unparsed user-agent of the remote client in the current gRPC request context.
+   *
+   * @return the unparsed user-agent of the remote client; may be empty if not specified
+   */
+  public static Optional<String> getRawUserAgent() {
+    return Optional.ofNullable(RAW_USER_AGENT_CONTEXT_KEY.get());
   }
 }

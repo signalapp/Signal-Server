@@ -23,7 +23,8 @@ message GetRequestAttributesResponse {
   repeated string acceptable_languages = 1;
   repeated string available_accepted_locales = 2;
   string remote_address = 3;
-  UserAgent user_agent = 4;
+  string raw_user_agent = 4;
+  UserAgent user_agent = 5;
 }
 
 message UserAgent {

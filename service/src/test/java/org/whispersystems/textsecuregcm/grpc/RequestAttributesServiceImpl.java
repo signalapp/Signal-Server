@@ -33,6 +33,8 @@ public class RequestAttributesServiceImpl extends RequestAttributesGrpc.RequestA
             .setAdditionalSpecifiers(userAgent.getAdditionalSpecifiers().orElse(""))
         .build()));
 
+    RequestAttributesUtil.getRawUserAgent().ifPresent(responseBuilder::setRawUserAgent);
+
     responseObserver.onNext(responseBuilder.build());
     responseObserver.onCompleted();
   }

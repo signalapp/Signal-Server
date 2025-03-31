@@ -60,6 +60,15 @@ public class RequestAttributesInterceptor implements ServerInterceptor {
       }
 
       {
+        final Optional<String> maybeRawUserAgent =
+            grpcClientConnectionManager.getRawUserAgent(localAddress);
+
+        if (maybeRawUserAgent.isPresent()) {
+          context = context.withValue(RequestAttributesUtil.RAW_USER_AGENT_CONTEXT_KEY, maybeRawUserAgent.get());
+        }
+      }
+
+      {
         final Optional<UserAgent> maybeUserAgent = grpcClientConnectionManager.getUserAgent(localAddress);
 
         if (maybeUserAgent.isPresent()) {

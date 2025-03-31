@@ -106,7 +106,21 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
   }
 
   /**
-   * Returns the parsed user agent provided by the client the opened the connection associated with the given local
+   * Returns the unparsed user agent provided by the client that opened the connection associated with the given local
+   * address. This method may return an empty value if no active local connection is associated with the given local
+   * address.
+   *
+   * @param localAddress the local address for which to find a User-Agent string
+   *
+   * @return the user agent string associated with the given local address
+   */
+  public Optional<String> getRawUserAgent(final LocalAddress localAddress) {
+    return Optional.ofNullable(remoteChannelsByLocalAddress.get(localAddress))
+        .map(remoteChannel -> remoteChannel.attr(RAW_USER_AGENT_ATTRIBUTE_KEY).get());
+  }
+
+  /**
+   * Returns the parsed user agent provided by the client that opened the connection associated with the given local
    * address. This method may return an empty value if no active local connection is associated with the given local
    * address or if the client's user-agent string was not recognized.
    *

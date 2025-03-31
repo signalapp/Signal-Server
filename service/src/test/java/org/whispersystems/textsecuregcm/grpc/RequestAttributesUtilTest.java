@@ -152,6 +152,21 @@ class RequestAttributesUtilTest {
     assertEquals("Linux", response.getUserAgent().getAdditionalSpecifiers());
   }
 
+  @Test
+  void getRawUserAgent() {
+    when(grpcClientConnectionManager.getRawUserAgent(any()))
+        .thenReturn(Optional.empty());
+
+    assertTrue(getRequestAttributes().getRawUserAgent().isBlank());
+
+    final String userAgentString = "Signal-Desktop/1.2.3 Linux";
+
+    when(grpcClientConnectionManager.getRawUserAgent(any()))
+        .thenReturn(Optional.of(userAgentString));
+
+    assertEquals(userAgentString, getRequestAttributes().getRawUserAgent());
+  }
+
   private GetRequestAttributesResponse getRequestAttributes() {
     return RequestAttributesGrpc.newBlockingStub(managedChannel)
         .getRequestAttributes(GetRequestAttributesRequest.newBuilder().build());
