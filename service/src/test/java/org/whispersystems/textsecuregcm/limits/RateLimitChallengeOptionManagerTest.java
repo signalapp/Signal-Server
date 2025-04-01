@@ -64,15 +64,15 @@ class RateLimitChallengeOptionManagerTest {
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(UUID.randomUUID());
 
-    final List<String> options = rateLimitChallengeOptionManager.getChallengeOptions(account);
+    final List<RateLimitChallengeOption> options = rateLimitChallengeOptionManager.getChallengeOptions(account);
     assertEquals(expectedLength, options.size());
 
     if (expectCaptcha) {
-      assertTrue(options.contains(RateLimitChallengeOptionManager.OPTION_CAPTCHA));
+      assertTrue(options.contains(RateLimitChallengeOption.CAPTCHA));
     }
 
     if (expectPushChallenge) {
-      assertTrue(options.contains(RateLimitChallengeOptionManager.OPTION_PUSH_CHALLENGE));
+      assertTrue(options.contains(RateLimitChallengeOption.PUSH_CHALLENGE));
     }
   }
 
