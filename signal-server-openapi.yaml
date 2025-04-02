@@ -743,6 +743,10 @@ paths:
         be provided as a separate entry in the response.
       operationId: copyMedia
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
@@ -863,6 +867,10 @@ paths:
         parameters.
       operationId: copyMedia_1
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
@@ -977,6 +985,10 @@ paths:
         Clients must validate the receipt level on the credential matches a known receipt level before using it.
       operationId: getBackupZKCredentials
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: redemptionStartSeconds
         in: query
         required: true
@@ -4950,10 +4962,10 @@ components:
         created:
           type: string
           format: date-time
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
