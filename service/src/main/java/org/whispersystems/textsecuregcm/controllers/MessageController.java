@@ -103,6 +103,8 @@ import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.spam.MessageType;
+import org.whispersystems.textsecuregcm.spam.SpamCheckResult;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -303,13 +305,26 @@ public class MessageController {
         maybeDestination = source.map(AuthenticatedDevice::getAccount);
       }
 
-      final SpamChecker.SpamCheckResult spamCheck = spamChecker.checkForSpam(
-          context, source, maybeDestination, Optional.of(destinationIdentifier));
-      final Optional<byte[]> reportSpamToken;
-      switch (spamCheck) {
-        case final SpamChecker.Spam spam: return spam.response();
-        case final SpamChecker.NotSpam notSpam: reportSpamToken = notSpam.token();
+      final MessageType messageType;
+
+      if (isStory) {
+        messageType = MessageType.INDIVIDUAL_STORY;
+      } else if (isSyncMessage) {
+        messageType = MessageType.SYNC;
+      } else if (source.isPresent()) {
+        messageType = MessageType.INDIVIDUAL_IDENTIFIED_SENDER;
+      } else {
+        messageType = MessageType.INDIVIDUAL_SEALED_SENDER;
       }
+
+      final SpamCheckResult<Response> spamCheckResult =
+          spamChecker.checkForIndividualRecipientSpamHttp(messageType, context, source, maybeDestination, Optional.of(destinationIdentifier));
+
+      if (spamCheckResult.response().isPresent()) {
+        return spamCheckResult.response().get();
+      }
+
+      final Optional<byte[]> reportSpamToken = spamCheckResult.token();
 
       int totalContentLength = 0;
 
@@ -534,9 +549,12 @@ public class MessageController {
       }
     }
 
-    final SpamChecker.SpamCheckResult spamCheck = spamChecker.checkForSpam(context, Optional.empty(), Optional.empty(), Optional.empty());
-    if (spamCheck instanceof final SpamChecker.Spam spam) {
-      return spam.response();
+    final SpamCheckResult<Response> spamCheckResult = spamChecker.checkForMultiRecipientSpamHttp(
+        isStory ? MessageType.MULTI_RECIPIENT_STORY : MessageType.MULTI_RECIPIENT_SEALED_SENDER,
+        context);
+
+    if (spamCheckResult.response().isPresent()) {
+      return spamCheckResult.response().get();
     }
 
     if (groupSendToken == null && accessKeys == null && !isStory) {
