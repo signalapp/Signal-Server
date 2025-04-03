@@ -94,13 +94,14 @@ class MetricsHttpChannelListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(5, tags.size());
+    assertEquals(6, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.PATH_TAG, path)));
     assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.METHOD_TAG, method)));
     assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
     assertTrue(
         tags.contains(Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TrafficSource.HTTP.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
+    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
   }
 
   @ParameterizedTest
