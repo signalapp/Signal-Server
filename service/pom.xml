@@ -11,14 +11,20 @@
   <artifactId>service</artifactId>
 
   <properties>
-    <firebase-admin.version>9.4.2</firebase-admin.version>
+    <firebase-admin.version>9.4.3</firebase-admin.version>
     <java-uuid-generator.version>5.1.0</java-uuid-generator.version>
-    <google-androidpublisher.version>v3-rev20250102-2.0.0</google-androidpublisher.version>
-    <storekit.version>3.2.0</storekit.version>
-    <webauthn4j.version>0.28.4.RELEASE</webauthn4j.version>
+    <google-androidpublisher.version>v3-rev20250318-2.0.0</google-androidpublisher.version>
+    <storekit.version>3.4.0</storekit.version>
+    <webauthn4j.version>0.28.6.RELEASE</webauthn4j.version>
+    <java-jwt.version>4.5.0</java-jwt.version>
   </properties>
 
   <dependencies>
+    <dependency>
+      <groupId>com.auth0</groupId>
+      <artifactId>java-jwt</artifactId>
+      <version>${java-jwt.version}</version>
+    </dependency>
     <dependency>
       <groupId>com.google.apis</groupId>
       <artifactId>google-api-services-androidpublisher</artifactId>
@@ -137,8 +143,8 @@
       <artifactId>logback-core</artifactId>
     </dependency>
     <dependency>
-      <groupId>ch.qos.logback</groupId>
-      <artifactId>logback-access</artifactId>
+      <groupId>ch.qos.logback.access</groupId>
+      <artifactId>logback-access-common</artifactId>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
@@ -233,21 +239,26 @@
       <artifactId>google-cloud-pubsub</artifactId>
     </dependency>
 
+    <!-- resolve opentelemetry-semconv conflicts from lower in firebase-admin and firestore dependency trees -->
     <dependency>
       <groupId>com.google.firebase</groupId>
       <artifactId>firebase-admin</artifactId>
       <version>${firebase-admin.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>io.opentelemetry.semconv</groupId>
+          <artifactId>opentelemetry-semconv</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry.semconv</groupId>
       <artifactId>opentelemetry-semconv</artifactId>
-      <version>1.27.0-alpha</version>
+      <version>1.30.0</version>
     </dependency>
-    <!-- resolve opentelemetry-semconv conflict from lower in firebase-admin dependency tree -->
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-firestore</artifactId>
-      <version>3.30.2</version>
       <exclusions>
         <exclusion>
           <groupId>io.opentelemetry.semconv</groupId>
@@ -400,7 +411,7 @@
     <dependency>
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>geocoder</artifactId>
-      <version>2.246</version>
+      <version>3.2</version>
     </dependency>
 
     <dependency>

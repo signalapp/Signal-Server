@@ -116,7 +116,8 @@ public class CircuitBreakerConfiguration {
         .permittedNumberOfCallsInHalfOpenState(getPermittedNumberOfCallsInHalfOpenState())
         .waitDurationInOpenState(getWaitDurationInOpenState())
         .slidingWindow(getSlidingWindowSize(), getSlidingWindowMinimumNumberOfCalls(),
-            CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
+            CircuitBreakerConfig.SlidingWindowType.COUNT_BASED,
+            CircuitBreakerConfig.SlidingWindowSynchronizationStrategy.SYNCHRONIZED)
         .build();
   }
 }

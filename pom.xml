@@ -37,43 +37,48 @@
   </modules>
 
   <properties>
-    <aws.sdk2.version>2.31.7</aws.sdk2.version>
-    <braintree.version>3.37.0</braintree.version>
-    <commons-csv.version>1.12.0</commons-csv.version>
+    <aws.sdk2.version>2.31.9</aws.sdk2.version>
+    <braintree.version>3.40.0</braintree.version>
+    <commons-csv.version>1.14.0</commons-csv.version>
     <commons-io.version>2.18.0</commons-io.version>
-    <dropwizard.version>4.0.11</dropwizard.version>
-    <dropwizard-metrics-datadog.version>1.1.13</dropwizard-metrics-datadog.version>
+    <dropwizard.version>4.0.12</dropwizard.version>
+    <dropwizard-metrics-datadog.version>1.1.14</dropwizard-metrics-datadog.version>
     <!-- can be updated to latest version with Dropwizard 5 (Jetty 12); will then need to disable telemetry -->
     <dynamodblocal.version>2.2.1</dynamodblocal.version>
-    <google-cloud-libraries.version>26.52.0</google-cloud-libraries.version>
+    <google-cloud-libraries.version>26.57.0</google-cloud-libraries.version>
     <grpc.version>1.69.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
-    <gson.version>2.11.0</gson.version>
+    <gson.version>2.12.1</gson.version>
     <!-- several libraries (AWS, Google Cloud) use Apache http components transitively, and we need to align them -->
     <httpcore.version>4.4.16</httpcore.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <jackson.version>2.18.2</jackson.version>
+    <jackson.version>2.18.3</jackson.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
-    <kotlin.version>1.9.25</kotlin.version>
-    <lettuce.version>6.5.1.RELEASE</lettuce.version>
-    <libphonenumber.version>8.13.52</libphonenumber.version>
+    <kotlin.version>2.1.20</kotlin.version>
+    <!-- Logback 1.5.14+ has a null pointer bug: https://github.com/qos-ch/logback/issues/929. -->
+    <logback.version>1.5.13</logback.version>
+    <logback-access.version>2.0.5</logback-access.version>
+    <lettuce.version>6.5.5.RELEASE</lettuce.version>
+    <libphonenumber.version>9.0.2</libphonenumber.version>
     <logstash.logback.version>7.3</logstash.logback.version>
     <log4j-bom.version>2.24.3</log4j-bom.version>
     <luajava.version>3.5.0</luajava.version>
-    <micrometer.version>1.14.2</micrometer.version>
-    <netty.version>4.1.116.Final</netty.version>
-    <protobuf.version>3.25.5</protobuf.version> <!-- must be greater than or equal to the value from Google libraries-bom, see https://protobuf.dev/support/cross-version-runtime-guarantee/ -->
+    <micrometer.version>1.14.5</micrometer.version>
+    <netty.version>4.1.119.Final</netty.version>
+    <!-- Must be greater than or equal to the value from Google libraries-bom
+    since some of its libraries generate code. See https://protobuf.dev/support/cross-version-runtime-guarantee/. -->
+    <protobuf.version>3.25.5</protobuf.version>
     <pushy.version>0.15.4</pushy.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
-    <reactor-bom.version>2024.0.1</reactor-bom.version> <!-- 3.7.1, see https://github.com/reactor/reactor#bom-versioning-scheme -->
-    <resilience4j.version>2.2.0</resilience4j.version>
+    <reactor-bom.version>2024.0.4</reactor-bom.version> <!-- 3.7.4, see https://github.com/reactor/reactor#bom-versioning-scheme -->
+    <resilience4j.version>2.3.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
-    <slf4j.version>2.0.16</slf4j.version>
+    <slf4j.version>2.0.17</slf4j.version>
     <stripe.version>23.10.0</stripe.version>
     <swagger.version>2.2.27</swagger.version>
 
-    <!-- eclipse-temurin:21.0.5_11-jre-jammy (note: always use the multi-arch manifest *LIST* here) -->
-    <docker.image.sha256>5f8358c9d5615c18e95728e8b8528bda7ff40a7a5da2ac9a35b7a01f5d9b231a</docker.image.sha256>
+    <!-- eclipse-temurin:21.0.6_7-jre-jammy (note: always use the multi-arch manifest *LIST* here) -->
+    <docker.image.sha256>02fc89fa8766a9ba221e69225f8d1c10bb91885ddbd3c112448e23488ba40ab6</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -121,7 +126,7 @@
       </dependency>
       <dependency>
         <groupId>com.google.cloud</groupId>
-        <artifactId>libraries-bom</artifactId>
+        <artifactId>libraries-bom-protobuf3</artifactId>
         <version>${google-cloud-libraries.version}</version>
         <type>pom</type>
         <scope>import</scope>
@@ -223,12 +228,12 @@
       <dependency>
         <groupId>commons-logging</groupId>
         <artifactId>commons-logging</artifactId>
-        <version>1.2</version>
+        <version>1.3.5</version>
       </dependency>
       <dependency>
         <groupId>org.ow2.asm</groupId>
         <artifactId>asm</artifactId>
-        <version>9.5</version>
+        <version>9.7.1 </version>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -260,7 +265,7 @@
       <dependency>
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
-        <version>0.60.0</version>
+        <version>0.67.6</version>
       </dependency>
       <dependency>
         <groupId>org.signal.forks</groupId>
@@ -290,6 +295,21 @@
         <version>${dynamodblocal.version}</version>
         <scope>test</scope>
       </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-core</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback.access</groupId>
+        <artifactId>logback-access-common</artifactId>
+        <version>${logback-access.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -307,7 +327,7 @@
     <dependency>
       <groupId>org.wiremock</groupId>
       <artifactId>wiremock</artifactId>
-      <version>3.9.1</version>
+      <version>3.12.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>

@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.util.logging;
 
-import ch.qos.logback.access.spi.IAccessEvent;
+import ch.qos.logback.access.common.spi.IAccessEvent;
 import ch.qos.logback.core.filter.Filter;
 
 public class RequestLogManager {

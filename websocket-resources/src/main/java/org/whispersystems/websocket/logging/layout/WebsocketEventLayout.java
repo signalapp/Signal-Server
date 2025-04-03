@@ -5,6 +5,7 @@
 package org.whispersystems.websocket.logging.layout;
 
 import ch.qos.logback.core.Context;
+import ch.qos.logback.core.pattern.DynamicConverter;
 import ch.qos.logback.core.pattern.PatternLayoutBase;
 import org.whispersystems.websocket.logging.WebsocketEvent;
 import org.whispersystems.websocket.logging.layout.converters.ContentLengthConverter;
@@ -18,9 +19,25 @@ import org.whispersystems.websocket.logging.layout.converters.StatusCodeConverte
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 public class WebsocketEventLayout extends PatternLayoutBase<WebsocketEvent> {
 
+  // Provides a mapping of conversion words to converter classes;
+  // required for extending PatternLayoutBase.
+  // See https://logback.qos.ch/manual/layouts.html#ClassicPatternLayout for more details.
+  private static final Map<String, Supplier<DynamicConverter>> DEFAULT_CONVERTER_SUPPLIERS = Map.of(
+      "h", RemoteHostConverter::new,
+      "l", NAConverter::new,
+      "u", NAConverter::new,
+      "t", DateConverter::new,
+      "r", RequestUrlConverter::new,
+      "s", StatusCodeConverter::new,
+      "b", ContentLengthConverter::new,
+      "i", RequestHeaderConverter::new
+  );
+
+  // Provided for backwards compatibility
   private static final Map<String, String> DEFAULT_CONVERTERS = new HashMap<>() {{
     put("h", RemoteHostConverter.class.getName());
     put("l", NAConverter.class.getName());
@@ -45,6 +62,11 @@ public class WebsocketEventLayout extends PatternLayoutBase<WebsocketEvent> {
     setContext(context);
 
     this.postCompileProcessor = new EnsureLineSeparation();
+  }
+
+  @Override
+  protected Map<String, Supplier<DynamicConverter>> getDefaultConverterSupplierMap() {
+    return DEFAULT_CONVERTER_SUPPLIERS;
   }
 
   @Override
