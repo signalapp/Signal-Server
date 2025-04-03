@@ -18,7 +18,7 @@ import org.whispersystems.textsecuregcm.util.HttpServletRequestUtil;
 
 /**
  * Sets a {@link HttpServletRequest} attribute (that will also be available as a
- * {@link javax.ws.rs.container.ContainerRequestContext} property) with the remote address of the connection, using
+ * {@link jakarta.ws.rs.container.ContainerRequestContext} property) with the remote address of the connection, using
  * {@link HttpServletRequest#getRemoteAddr()}.
  */
 public class RemoteAddressFilter implements Filter {

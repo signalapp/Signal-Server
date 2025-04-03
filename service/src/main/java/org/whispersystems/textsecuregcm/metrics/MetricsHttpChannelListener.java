@@ -34,7 +34,7 @@ import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
 
 /**
  * Gathers and reports HTTP request metrics at the Jetty container level, which sits above Jersey. In order to get
- * templated Jersey request paths, it implements {@link javax.ws.rs.container.ContainerResponseFilter}, in order to give
+ * templated Jersey request paths, it implements {@link jakarta.ws.rs.container.ContainerResponseFilter}, in order to give
  * itself access to the template. It is limited to {@link TrafficSource#HTTP} requests.
  * <p>
  * It implements {@link LifeCycle.Listener} without overriding methods, so that it can be an event listener that
