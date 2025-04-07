@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -46,7 +47,9 @@ class UserAgentTagUtilTest {
         Arguments.of("Signal-Android/4.68.3.0-bobsbootlegclient", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
         Arguments.of("Signal-Desktop/1.22.45-foo-0", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
         Arguments.of("Signal-Desktop/1.34.5-beta.1-fakeclientemporium", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
-        Arguments.of("Signal-Desktop/1.32.0-beta.3", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop"))
+        Arguments.of("Signal-Desktop/1.32.0-beta.3", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "desktop")),
+        Arguments.of(UserAgentTagUtil.SERVER_UA, Tag.of(UserAgentTagUtil.PLATFORM_TAG, "server")),
+        Arguments.of("Signal-Server/1.2.3 (" + UUID.randomUUID() + ")", Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized"))
     );
   }
 

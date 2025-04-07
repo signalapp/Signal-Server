@@ -16,6 +16,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -68,7 +69,8 @@ public class ReceiptSender {
                 messageSender.sendMessages(destinationAccount,
                     destinationIdentifier,
                     messagesByDeviceId,
-                    registrationIdsByDeviceId, null);
+                    registrationIdsByDeviceId,
+                    UserAgentTagUtil.SERVER_UA);
               } catch (final Exception e) {
                 logger.warn("Could not send delivery receipt", e);
               }

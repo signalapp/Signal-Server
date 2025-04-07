@@ -8,6 +8,8 @@ package org.whispersystems.textsecuregcm.metrics;
 import io.micrometer.core.instrument.Tag;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgent;
@@ -23,10 +25,17 @@ public class UserAgentTagUtil {
   public static final String VERSION_TAG = "clientVersion";
   public static final String LIBSIGNAL_TAG = "libsignal";
 
+  public static final String SERVER_UA =
+      String.format("Signal-Server/%s (%s)", WhisperServerVersion.getServerVersion(), UUID.randomUUID());
+
   private UserAgentTagUtil() {
   }
 
   public static Tag getPlatformTag(final String userAgentString) {
+
+    if (SERVER_UA.equals(userAgentString)) {
+      return Tag.of(PLATFORM_TAG, "server");
+    }
 
     UserAgent userAgent = null;
 
