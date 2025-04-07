@@ -40,6 +40,7 @@ import jakarta.ws.rs.client.Invocation;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -56,6 +57,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.hamcrest.Matcher;
@@ -73,7 +75,6 @@ import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
-import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -95,6 +96,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -121,7 +123,6 @@ import org.whispersystems.websocket.WebsocketHeaders;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
-import javax.annotation.Nullable;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class MessageControllerTest {
@@ -197,10 +198,10 @@ class MessageControllerTest {
       .build();
 
   @BeforeEach
-  void setup() throws MultiRecipientMismatchedDevicesException {
+  void setup() throws MultiRecipientMismatchedDevicesException, MessageTooLargeException {
     reset(pushNotificationScheduler);
 
-    when(messageSender.sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean()))
+    when(messageSender.sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     final List<Device> singleDeviceList = List.of(
@@ -289,7 +290,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-      verify(messageSender).sendMessages(any(), any(), captor.capture(), any());
+      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
 
       assertEquals(1, captor.getValue().size());
       final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -334,7 +335,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-      verify(messageSender).sendMessages(any(), any(), captor.capture(), any());
+      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
 
       assertEquals(1, captor.getValue().size());
       final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -359,7 +360,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-      verify(messageSender).sendMessages(any(), any(), captor.capture(), any());
+      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
 
       assertEquals(1, captor.getValue().size());
       final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -397,7 +398,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-      verify(messageSender).sendMessages(any(), any(), captor.capture(), any());
+      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
 
       assertEquals(1, captor.getValue().size());
       final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -436,7 +437,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(expectedResponse)));
       if (expectedResponse == 200) {
         @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(messageSender).sendMessages(any(), any(), captor.capture(), any());
+        verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
 
         assertEquals(1, captor.getValue().size());
         final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -533,7 +534,7 @@ class MessageControllerTest {
   @Test
   void testMultiDeviceMissing() throws Exception {
     doThrow(new MismatchedDevicesException(new MismatchedDevices(Set.of((byte) 2, (byte) 3), Collections.emptySet(), Collections.emptySet())))
-        .when(messageSender).sendMessages(any(), any(), any(), any());
+        .when(messageSender).sendMessages(any(), any(), any(), any(), any());
 
     try (final Response response =
         resources.getJerseyTest()
@@ -555,7 +556,7 @@ class MessageControllerTest {
   @Test
   void testMultiDeviceExtra() throws Exception {
     doThrow(new MismatchedDevicesException(new MismatchedDevices(Set.of((byte) 2), Set.of((byte) 4), Collections.emptySet())))
-        .when(messageSender).sendMessages(any(), any(), any(), any());
+        .when(messageSender).sendMessages(any(), any(), any(), any(), any());
 
     try (final Response response =
         resources.getJerseyTest()
@@ -606,7 +607,7 @@ class MessageControllerTest {
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> envelopeCaptor =
           ArgumentCaptor.forClass(Map.class);
 
-      verify(messageSender).sendMessages(any(Account.class), any(), envelopeCaptor.capture(), any());
+      verify(messageSender).sendMessages(any(Account.class), any(), envelopeCaptor.capture(), any(), any());
 
       assertEquals(3, envelopeCaptor.getValue().size());
 
@@ -630,7 +631,7 @@ class MessageControllerTest {
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> envelopeCaptor =
           ArgumentCaptor.forClass(Map.class);
 
-      verify(messageSender).sendMessages(any(Account.class), any(), envelopeCaptor.capture(), any());
+      verify(messageSender).sendMessages(any(Account.class), any(), envelopeCaptor.capture(), any(), any());
 
       assertEquals(3, envelopeCaptor.getValue().size());
 
@@ -654,6 +655,7 @@ class MessageControllerTest {
       verify(messageSender).sendMessages(any(Account.class),
           any(),
           argThat(messagesByDeviceId -> messagesByDeviceId.size() == 3),
+          any(),
           any());
     }
   }
@@ -661,7 +663,7 @@ class MessageControllerTest {
   @Test
   void testRegistrationIdMismatch() throws Exception {
     doThrow(new MismatchedDevicesException(new MismatchedDevices(Collections.emptySet(), Collections.emptySet(), Set.of((byte) 2))))
-        .when(messageSender).sendMessages(any(), any(), any(), any());
+        .when(messageSender).sendMessages(any(), any(), any(), any(), any());
 
     try (final Response response =
         resources.getJerseyTest().target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
@@ -1085,24 +1087,19 @@ class MessageControllerTest {
   }
 
   @Test
-  void testValidateContentLength() throws MismatchedDevicesException {
-    final int contentLength = Math.toIntExact(MessageSender.MAX_MESSAGE_SIZE + 1);
-    final byte[] contentBytes = new byte[contentLength];
-    Arrays.fill(contentBytes, (byte) 1);
+  void testValidateContentLength() throws MismatchedDevicesException, MessageTooLargeException, IOException {
+    doThrow(new MessageTooLargeException()).when(messageSender).sendMessages(any(), any(), any(), any(), any());
 
     try (final Response response =
         resources.getJerseyTest()
             .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
             .request()
-            .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
-            .put(Entity.entity(new IncomingMessageList(
-                    List.of(new IncomingMessage(1, (byte) 1, 1, contentBytes)), false, true,
-                    System.currentTimeMillis()),
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+                    IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE))) {
 
-      assertThat("Bad response", response.getStatus(), is(equalTo(413)));
-
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any());
+      assertThat(response.getStatus(), is(equalTo(413)));
     }
   }
 
@@ -1120,10 +1117,10 @@ class MessageControllerTest {
 
       if (expectOk) {
         assertEquals(200, response.getStatus());
-        verify(messageSender).sendMessages(any(), any(), any(), any());
+        verify(messageSender).sendMessages(any(), any(), any(), any(), any());
       } else {
         assertEquals(422, response.getStatus());
-        verify(messageSender, never()).sendMessages(any(), any(), any(), any());
+        verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
       }
     }
   }
@@ -1149,7 +1146,7 @@ class MessageControllerTest {
       final Set<Account> expectedResolvedAccounts,
       final Set<ServiceIdentifier> expectedUuids404,
       @Nullable final MultiRecipientMismatchedDevicesException mismatchedDevicesException)
-      throws MultiRecipientMismatchedDevicesException {
+      throws MultiRecipientMismatchedDevicesException, MessageTooLargeException {
 
     clock.pin(START_OF_DAY);
 
@@ -1162,7 +1159,7 @@ class MessageControllerTest {
 
     if (mismatchedDevicesException != null) {
       doThrow(mismatchedDevicesException)
-          .when(messageSender).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean());
+          .when(messageSender).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
     }
 
     final boolean ephemeral = true;
@@ -1208,9 +1205,11 @@ class MessageControllerTest {
             anyLong(),
             eq(isStory),
             eq(ephemeral),
-            eq(urgent));
+            eq(urgent),
+            any());
       } else {
-        verify(messageSender, never()).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean());
+        verify(messageSender, never())
+            .sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
       }
     }
   }
@@ -1388,23 +1387,6 @@ class MessageControllerTest {
             Optional.empty(),
             Optional.empty(),
             401,
-            Set.of(singleDeviceAccount, multiDeviceAccount),
-            Set.of(),
-            null),
-
-        Arguments.argumentSet("Oversized payload",
-            accountsByServiceIdentifier,
-            MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(
-                new TestRecipient(new AciServiceIdentifier(singleDeviceAccountAci), Device.PRIMARY_ID, singleDevicePrimaryRegistrationId, new byte[48]),
-                new TestRecipient(new AciServiceIdentifier(multiDeviceAccountAci), Device.PRIMARY_ID, multiDevicePrimaryRegistrationId, new byte[48]),
-                new TestRecipient(new AciServiceIdentifier(multiDeviceAccountAci), (byte) (Device.PRIMARY_ID + 1), multiDeviceLinkedRegistrationId, new byte[48])),
-                MultiRecipientMessageProvider.MAX_MESSAGE_SIZE),
-            clock.instant().toEpochMilli(),
-            false,
-            false,
-            Optional.empty(),
-            Optional.of(groupSendEndorsement),
-            413,
             Set.of(singleDeviceAccount, multiDeviceAccount),
             Set.of(),
             null),
@@ -1644,6 +1626,97 @@ class MessageControllerTest {
             Set.of(),
             null)
     );
+  }
+
+  @Test
+  void sendMultiRecipientMessageOversized() throws Exception {
+
+    clock.pin(START_OF_DAY);
+
+    final UUID singleDeviceAccountAci = UUID.randomUUID();
+    final UUID singleDeviceAccountPni = UUID.randomUUID();
+    final UUID multiDeviceAccountAci = UUID.randomUUID();
+    final UUID multiDeviceAccountPni = UUID.randomUUID();
+
+    final byte[] singleDeviceAccountUak = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+    final byte[] multiDeviceAccountUak = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+
+    final int singleDevicePrimaryRegistrationId = 1;
+    final int multiDevicePrimaryRegistrationId = 2;
+    final int multiDeviceLinkedRegistrationId = 3;
+
+    final Device singleDeviceAccountPrimary = mock(Device.class);
+    when(singleDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
+    when(singleDeviceAccountPrimary.getRegistrationId()).thenReturn(singleDevicePrimaryRegistrationId);
+
+    final Device multiDeviceAccountPrimary = mock(Device.class);
+    when(multiDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
+    when(multiDeviceAccountPrimary.getRegistrationId()).thenReturn(multiDevicePrimaryRegistrationId);
+
+    final Device multiDeviceAccountLinked = mock(Device.class);
+    when(multiDeviceAccountLinked.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
+    when(multiDeviceAccountLinked.getRegistrationId()).thenReturn(multiDeviceLinkedRegistrationId);
+
+    final Account singleDeviceAccount = mock(Account.class);
+    when(singleDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(singleDeviceAccountAci);
+    when(singleDeviceAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(singleDeviceAccountUak));
+    when(singleDeviceAccount.getDevices()).thenReturn(List.of(singleDeviceAccountPrimary));
+    when(singleDeviceAccount.getDevice(anyByte())).thenReturn(Optional.empty());
+    when(singleDeviceAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(singleDeviceAccountPrimary));
+
+    final Account multiDeviceAccount = mock(Account.class);
+    when(multiDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(multiDeviceAccountAci);
+    when(multiDeviceAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(multiDeviceAccountUak));
+    when(multiDeviceAccount.getDevices()).thenReturn(List.of(multiDeviceAccountPrimary, multiDeviceAccountLinked));
+    when(multiDeviceAccount.getDevice(anyByte())).thenReturn(Optional.empty());
+    when(multiDeviceAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(multiDeviceAccountPrimary));
+    when(multiDeviceAccount.getDevice((byte) (Device.PRIMARY_ID + 1))).thenReturn(Optional.of(multiDeviceAccountLinked));
+
+    final Map<ServiceIdentifier, Account> accountsByServiceIdentifier = Map.of(
+        new AciServiceIdentifier(singleDeviceAccountAci), singleDeviceAccount,
+        new AciServiceIdentifier(multiDeviceAccountAci), multiDeviceAccount,
+        new PniServiceIdentifier(singleDeviceAccountPni), singleDeviceAccount,
+        new PniServiceIdentifier(multiDeviceAccountPni), multiDeviceAccount);
+
+    final byte[] aciMessage = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(
+        new TestRecipient(new AciServiceIdentifier(singleDeviceAccountAci), Device.PRIMARY_ID, singleDevicePrimaryRegistrationId, new byte[48]),
+        new TestRecipient(new AciServiceIdentifier(multiDeviceAccountAci), Device.PRIMARY_ID, multiDevicePrimaryRegistrationId, new byte[48]),
+        new TestRecipient(new AciServiceIdentifier(multiDeviceAccountAci), (byte) (Device.PRIMARY_ID + 1), multiDeviceLinkedRegistrationId, new byte[48])));
+
+    when(accountsManager.getByServiceIdentifierAsync(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
+    accountsByServiceIdentifier.forEach(((serviceIdentifier, account) ->
+        when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
+            .thenReturn(CompletableFuture.completedFuture(Optional.of(account)))));
+
+    final boolean ephemeral = true;
+    final boolean urgent = false;
+    final boolean story = false;
+
+    final Invocation.Builder invocationBuilder = resources
+        .getJerseyTest()
+        .target("/v1/messages/multi_recipient")
+        .queryParam("ts", clock.millis())
+        .queryParam("online", ephemeral)
+        .queryParam("story", story)
+        .queryParam("urgent", urgent)
+        .request()
+        .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(serverSecretParams,
+            List.of(new AciServiceIdentifier(singleDeviceAccountAci), new AciServiceIdentifier(multiDeviceAccountAci)),
+            START_OF_DAY.plus(Duration.ofDays(1))));
+
+    when(rateLimiter.validateAsync(any(UUID.class)))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    doThrow(new MessageTooLargeException())
+        .when(messageSender).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
+
+    try (final Response response = invocationBuilder
+        .put(Entity.entity(aciMessage, MultiRecipientMessageProvider.MEDIA_TYPE))) {
+
+      assertThat(response.getStatus(), is(equalTo(413)));
+    }
   }
 
   @SuppressWarnings("SameParameterValue")

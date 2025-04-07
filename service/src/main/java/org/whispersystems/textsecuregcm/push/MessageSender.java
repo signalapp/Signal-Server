@@ -35,6 +35,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Util;
+import javax.annotation.Nullable;
 
 /**
  * A MessageSender sends Signal messages to destination devices. Messages may be "normal" user-to-user messages,
@@ -86,11 +87,18 @@ public class MessageSender {
    * @param destinationIdentifier the service identifier to which the messages are addressed
    * @param messagesByDeviceId a map of device IDs to message payloads
    * @param registrationIdsByDeviceId a map of device IDs to device registration IDs
+   * @param userAgent the User-Agent string for the sender; may be {@code null} if not known
+   *
+   * @throws MismatchedDevicesException if the given bundle of messages did not include a message for all required
+   * devices, contained messages for devices not linked to the destination account, or devices with outdated
+   * registration IDs
+   * @throws MessageTooLargeException if the given message payload is too large
    */
   public void sendMessages(final Account destination,
       final ServiceIdentifier destinationIdentifier,
       final Map<Byte, Envelope> messagesByDeviceId,
-      final Map<Byte, Integer> registrationIdsByDeviceId) throws MismatchedDevicesException {
+      final Map<Byte, Integer> registrationIdsByDeviceId,
+      @Nullable final String userAgent) throws MismatchedDevicesException, MessageTooLargeException {
 
     if (messagesByDeviceId.isEmpty()) {
       return;
@@ -104,6 +112,10 @@ public class MessageSender {
 
     final boolean isSyncMessage = StringUtils.isNotBlank(firstMessage.getSourceServiceId()) &&
         destination.isIdentifiedBy(ServiceIdentifier.valueOf(firstMessage.getSourceServiceId()));
+
+    final boolean isStory = firstMessage.getStory();
+
+    validateIndividualMessageContentLength(messagesByDeviceId.values(), isSyncMessage, isStory, userAgent);
 
     final Optional<MismatchedDevices> maybeMismatchedDevices = getMismatchedDevices(destination,
         destinationIdentifier,
@@ -152,15 +164,24 @@ public class MessageSender {
    * @param isEphemeral {@code true} if the message should only be delivered to devices with active connections or
    * {@code false otherwise}
    * @param isUrgent {@code true} if the message is urgent or {@code false otherwise}
+   * @param userAgent the User-Agent string for the sender; may be {@code null} if not known
    *
    * @return a future that completes when all messages have been inserted into delivery queues
+   *
+   * @throws MultiRecipientMismatchedDevicesException if the given multi-recipient message had did not have all required
+   * recipient devices for a recipient account, contained recipients for devices not linked to a destination account, or
+   * recipient devices with outdated registration IDs
+   * @throws MessageTooLargeException if the given message payload is too large
    */
   public CompletableFuture<Void> sendMultiRecipientMessage(final SealedSenderMultiRecipientMessage multiRecipientMessage,
       final Map<SealedSenderMultiRecipientMessage.Recipient, Account> resolvedRecipients,
       final long clientTimestamp,
       final boolean isStory,
       final boolean isEphemeral,
-      final boolean isUrgent) throws MultiRecipientMismatchedDevicesException {
+      final boolean isUrgent,
+      @Nullable final String userAgent) throws MultiRecipientMismatchedDevicesException, MessageTooLargeException {
+
+    validateMultiRecipientMessageContentLength(multiRecipientMessage, isStory, userAgent);
 
     final Map<ServiceIdentifier, MismatchedDevices> mismatchedDevicesByServiceIdentifier = new HashMap<>();
 
@@ -224,7 +245,8 @@ public class MessageSender {
     }
   }
 
-  public static void validateContentLength(final int contentLength,
+  @VisibleForTesting
+  static void validateContentLength(final int contentLength,
       final boolean isMultiRecipientMessage,
       final boolean isSyncMessage,
       final boolean isStory,
@@ -301,5 +323,32 @@ public class MessageSender {
     return (!missingDeviceIds.isEmpty() || !extraDeviceIds.isEmpty() || !staleDeviceIds.isEmpty())
         ? Optional.of(new MismatchedDevices(missingDeviceIds, extraDeviceIds, staleDeviceIds))
         : Optional.empty();
+  }
+
+  private static void validateIndividualMessageContentLength(final Iterable<Envelope> messages,
+      final boolean isSyncMessage,
+      final boolean isStory,
+      @Nullable final String userAgent) throws MessageTooLargeException {
+
+    for (final Envelope message : messages) {
+      MessageSender.validateContentLength(message.getContent().size(),
+          false,
+          isSyncMessage,
+          isStory,
+          userAgent);
+    }
+  }
+
+  private static void validateMultiRecipientMessageContentLength(final SealedSenderMultiRecipientMessage multiRecipientMessage,
+      final boolean isStory,
+      @Nullable final String userAgent) throws MessageTooLargeException {
+
+    for (final SealedSenderMultiRecipientMessage.Recipient recipient : multiRecipientMessage.getRecipients().values()) {
+      MessageSender.validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipient),
+          true,
+          false,
+          isStory,
+          userAgent);
+    }
   }
 }

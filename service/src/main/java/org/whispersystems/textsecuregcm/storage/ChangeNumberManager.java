@@ -19,7 +19,6 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
@@ -96,14 +95,6 @@ public class ChangeNumberManager {
       final List<IncomingMessage> deviceMessages,
       final String senderUserAgent) throws MessageTooLargeException, MismatchedDevicesException {
 
-    for (final IncomingMessage message : deviceMessages) {
-      MessageSender.validateContentLength(message.content().length,
-          false,
-          true,
-          false,
-          senderUserAgent);
-    }
-
     try {
       final long serverTimestamp = System.currentTimeMillis();
       final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(account.getUuid());
@@ -125,7 +116,7 @@ public class ChangeNumberManager {
       final Map<Byte, Integer> registrationIdsByDeviceId = account.getDevices().stream()
           .collect(Collectors.toMap(Device::getId, Device::getRegistrationId));
 
-      messageSender.sendMessages(account, serviceIdentifier, messagesByDeviceId, registrationIdsByDeviceId);
+      messageSender.sendMessages(account, serviceIdentifier, messagesByDeviceId, registrationIdsByDeviceId, senderUserAgent);
     } catch (final RuntimeException e) {
       logger.warn("Changed number but could not send all device messages on {}", account.getUuid(), e);
       throw e;

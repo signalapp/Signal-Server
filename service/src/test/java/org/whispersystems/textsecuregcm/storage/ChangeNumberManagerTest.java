@@ -31,13 +31,10 @@ import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
-import org.signal.libsignal.protocol.ecc.ECPublicKey;
-import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
@@ -106,7 +103,7 @@ public class ChangeNumberManagerTest {
     changeNumberManager.changeNumber(account, "+18025551234", null, null, null, null, null, null);
     verify(accountsManager).changeNumber(account, "+18025551234", null, null, null, null);
     verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
-    verify(messageSender, never()).sendMessages(eq(account), any(), any(), any());
+    verify(messageSender, never()).sendMessages(eq(account), any(), any(), any(), any());
   }
 
   @Test
@@ -120,7 +117,7 @@ public class ChangeNumberManagerTest {
 
     changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyList(), Collections.emptyMap(), null);
     verify(accountsManager).changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyMap());
-    verify(messageSender, never()).sendMessages(eq(account), any(), any(), any());
+    verify(messageSender, never()).sendMessages(eq(account), any(), any(), any(), any());
   }
 
   @Test
@@ -160,7 +157,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
@@ -213,7 +210,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
@@ -264,7 +261,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
@@ -311,7 +308,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
@@ -360,7 +357,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());

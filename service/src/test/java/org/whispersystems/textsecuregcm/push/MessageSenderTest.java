@@ -104,7 +104,8 @@ class MessageSenderTest {
     assertDoesNotThrow(() -> messageSender.sendMessages(account,
         serviceIdentifier,
         Map.of(device.getId(), message),
-        Map.of(device.getId(), registrationId)));
+        Map.of(device.getId(), registrationId),
+        null));
 
     final MessageProtos.Envelope expectedMessage = ephemeral
         ? message.toBuilder().setEphemeral(true).build()
@@ -143,7 +144,8 @@ class MessageSenderTest {
         assertThrows(MismatchedDevicesException.class, () -> messageSender.sendMessages(account,
             serviceIdentifier,
             Map.of(device.getId(), message),
-            Map.of(device.getId(), registrationId + 1)));
+            Map.of(device.getId(), registrationId + 1),
+            null));
 
     assertEquals(new MismatchedDevices(Collections.emptySet(), Collections.emptySet(), Set.of(deviceId)),
         mismatchedDevicesException.getMismatchedDevices());
@@ -197,7 +199,8 @@ class MessageSenderTest {
             System.currentTimeMillis(),
             false,
             ephemeral,
-            urgent)
+            urgent,
+            null)
         .join());
 
     if (expectPushNotificationAttempt) {
@@ -243,7 +246,8 @@ class MessageSenderTest {
                     System.currentTimeMillis(),
                     false,
                     false,
-                    true)
+                    true,
+                    null)
                 .join());
 
     assertEquals(Map.of(serviceIdentifier, new MismatchedDevices(Collections.emptySet(), Collections.emptySet(), Set.of(deviceId))),

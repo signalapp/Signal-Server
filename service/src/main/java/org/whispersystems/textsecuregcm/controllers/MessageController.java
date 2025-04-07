@@ -322,21 +322,10 @@ public class MessageController {
 
       final Optional<byte[]> reportSpamToken = spamCheckResult.token();
 
-      int totalContentLength = 0;
-
-      for (final IncomingMessage message : messages.messages()) {
-        final int contentLength = message.content().length;
-
-        try {
-          MessageSender.validateContentLength(contentLength, false, isSyncMessage, isStory, userAgent);
-        } catch (final MessageTooLargeException e) {
-          throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
-        }
-
-        totalContentLength += contentLength;
-      }
-
       try {
+        final int totalContentLength =
+            messages.messages().stream().mapToInt(message -> message.content().length).sum();
+
         rateLimiters.getInboundMessageBytes().validate(destinationIdentifier.uuid(), totalContentLength);
       } catch (final RateLimitExceededException e) {
         messageByteLimitEstimator.add(destinationIdentifier.uuid().toString());
@@ -409,7 +398,7 @@ public class MessageController {
           authType = AUTH_TYPE_ACCESS_KEY;
         }
 
-        messageSender.sendMessages(destination, destinationIdentifier, messagesByDeviceId, registrationIdsByDeviceId);
+        messageSender.sendMessages(destination, destinationIdentifier, messagesByDeviceId, registrationIdsByDeviceId, userAgent);
 
         Metrics.counter(SENT_MESSAGE_COUNTER_NAME, List.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(ENDPOINT_TYPE_TAG_NAME, ENDPOINT_TYPE_SINGLE),
@@ -433,6 +422,8 @@ public class MessageController {
                   e.getMismatchedDevices().extraDeviceIds()))
               .build());
         }
+      } catch (final MessageTooLargeException e) {
+        throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
       }
     } finally {
       sample.stop(Timer.builder(SEND_MESSAGE_LATENCY_TIMER_NAME)
@@ -504,15 +495,6 @@ public class MessageController {
     if (multiRecipientMessage.getRecipients().isEmpty()) {
       throw new BadRequestException("Recipient list is empty");
     }
-
-    // Verify that the message isn't too large before performing more expensive validations
-    multiRecipientMessage.getRecipients().values().forEach(recipient -> {
-      try {
-        MessageSender.validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipient), true, false, isStory, userAgent);
-      } catch (final MessageTooLargeException e) {
-        throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
-      }
-    });
 
     // Check that the request is well-formed and doesn't contain repeated entries for the same device for the same
     // recipient
@@ -616,7 +598,7 @@ public class MessageController {
 
     try {
       if (!resolvedRecipients.isEmpty()) {
-        messageSender.sendMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, timestamp, isStory, online, isUrgent).get();
+        messageSender.sendMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, timestamp, isStory, online, isUrgent, userAgent).get();
       }
 
       final List<ServiceIdentifier> unresolvedRecipientServiceIds;
@@ -695,6 +677,8 @@ public class MessageController {
       }
 
       throw new RuntimeException(e);
+    } catch (final MessageTooLargeException e) {
+      throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
     }
   }
 

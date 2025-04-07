@@ -68,7 +68,7 @@ public class ReceiptSender {
                 messageSender.sendMessages(destinationAccount,
                     destinationIdentifier,
                     messagesByDeviceId,
-                    registrationIdsByDeviceId);
+                    registrationIdsByDeviceId, null);
               } catch (final Exception e) {
                 logger.warn("Could not send delivery receipt", e);
               }
