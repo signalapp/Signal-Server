@@ -305,7 +305,7 @@ public class MessageController {
       }
 
       final SpamCheckResult<Response> spamCheckResult =
-          spamChecker.checkForIndividualRecipientSpamHttp(messageType, context, source, maybeDestination, Optional.of(destinationIdentifier));
+          spamChecker.checkForIndividualRecipientSpamHttp(messageType, context, source, maybeDestination, destinationIdentifier);
 
       if (spamCheckResult.response().isPresent()) {
         return spamCheckResult.response().get();

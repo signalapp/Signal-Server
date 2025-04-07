@@ -19,10 +19,12 @@ public interface SpamChecker {
   /**
    * Determine if a message sent to an individual recipient via HTTP may be spam.
    *
-   * @param requestContext   The request context for a message send attempt
-   * @param maybeSource      The sender of the message, could be empty if this as message sent with sealed sender
-   * @param maybeDestination The destination of the message, could be empty if the destination does not exist or could
+   * @param messageType      the type of message to check
+   * @param requestContext   the request context for a message send attempt
+   * @param maybeSource      the sender of the message, could be empty if this as message sent with sealed sender
+   * @param maybeDestination the destination of the message, could be empty if the destination does not exist or could
    *                         not be retrieved
+   * @param destinationIdentifier the service identifier for the destination account
    * @return A {@link SpamCheckResult}
    */
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -31,12 +33,13 @@ public interface SpamChecker {
       final ContainerRequestContext requestContext,
       final Optional<? extends AccountAndAuthenticatedDeviceHolder> maybeSource,
       final Optional<Account> maybeDestination,
-      final Optional<ServiceIdentifier> maybeDestinationIdentifier);
+      final ServiceIdentifier destinationIdentifier);
 
   /**
    * Determine if a message sent to multiple recipients via HTTP may be spam.
    *
-   * @param requestContext   The request context for a message send attempt
+   * @param messageType      the type of message to check
+   * @param requestContext   the request context for a message send attempt
    * @return A {@link SpamCheckResult}
    */
   SpamCheckResult<Response> checkForMultiRecipientSpamHttp(
@@ -46,9 +49,11 @@ public interface SpamChecker {
   /**
    * Determine if a message sent to an individual recipient via gRPC may be spam.
    *
-   * @param maybeSource      The sender of the message, could be empty if this as message sent with sealed sender
-   * @param maybeDestination The destination of the message, could be empty if the destination does not exist or could
+   * @param messageType      the type of message to check
+   * @param maybeSource      the sender of the message, could be empty if this as message sent with sealed sender
+   * @param maybeDestination the destination of the message, could be empty if the destination does not exist or could
    *                         not be retrieved
+   * @param destinationIdentifier the service identifier for the destination account
    * @return A {@link SpamCheckResult}
    */
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -56,10 +61,12 @@ public interface SpamChecker {
       final MessageType messageType,
       final Optional<org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice> maybeSource,
       final Optional<Account> maybeDestination,
-      final Optional<ServiceIdentifier> maybeDestinationIdentifier);
+      final ServiceIdentifier destinationIdentifier);
 
   /**
    * Determine if a message sent to multiple recipients via gRPC may be spam.
+   *
+   * @param messageType the type of message to check
    *
    * @return A {@link SpamCheckResult}
    */
@@ -74,7 +81,7 @@ public interface SpamChecker {
           final ContainerRequestContext requestContext,
           final Optional<? extends AccountAndAuthenticatedDeviceHolder> maybeSource,
           final Optional<Account> maybeDestination,
-          final Optional<ServiceIdentifier> maybeDestinationIdentifier) {
+          final ServiceIdentifier destinationIdentifier) {
 
         return new SpamCheckResult<>(Optional.empty(), Optional.empty());
       }
@@ -90,7 +97,7 @@ public interface SpamChecker {
       public SpamCheckResult<GrpcResponse<SendMessageResponse>> checkForIndividualRecipientSpamGrpc(final MessageType messageType,
           final Optional<AuthenticatedDevice> maybeSource,
           final Optional<Account> maybeDestination,
-          final Optional<ServiceIdentifier> maybeDestinationIdentifier) {
+          final ServiceIdentifier destinationIdentifier) {
 
         return new SpamCheckResult<>(Optional.empty(), Optional.empty());
       }
