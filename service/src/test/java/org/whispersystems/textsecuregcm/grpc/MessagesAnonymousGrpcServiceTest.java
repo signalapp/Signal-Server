@@ -13,7 +13,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -49,13 +48,16 @@ import org.signal.chat.messages.MultiRecipientMismatchedDevices;
 import org.signal.chat.messages.SendMessageResponse;
 import org.signal.chat.messages.SendMultiRecipientMessageRequest;
 import org.signal.chat.messages.SendMultiRecipientMessageResponse;
+import org.signal.chat.messages.SendMultiRecipientStoryRequest;
 import org.signal.chat.messages.SendSealedSenderMessageRequest;
+import org.signal.chat.messages.SendStoryMessageRequest;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -124,6 +126,7 @@ class MessagesAnonymousGrpcServiceTest extends
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     when(rateLimiters.getInboundMessageBytes()).thenReturn(rateLimiter);
+    when(rateLimiters.getStoriesLimiter()).thenReturn(rateLimiter);
 
     doThrow(Status.UNAUTHENTICATED.asException()).when(groupSendTokenUtil)
         .checkGroupSendToken(any(), any(ServiceIdentifier.class));
@@ -188,6 +191,7 @@ class MessagesAnonymousGrpcServiceTest extends
           .setServerTimestamp(CLOCK.millis())
           .setEphemeral(ephemeral)
           .setUrgent(urgent)
+          .setStory(false)
           .setContent(ByteString.copyFrom(payload))
           .build();
 
@@ -516,7 +520,7 @@ class MessagesAnonymousGrpcServiceTest extends
           eq(false),
           eq(ephemeral),
           eq(urgent),
-          isNull());
+          any());
     }
 
     @Test
@@ -784,6 +788,517 @@ class MessagesAnonymousGrpcServiceTest extends
       assertEquals(response, unauthenticatedServiceStub().sendMultiRecipientMessage(request));
 
       verify(spamChecker).checkForMultiRecipientSpamGrpc(MessageType.MULTI_RECIPIENT_SEALED_SENDER);
+
+      verify(messageSender, never())
+          .sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
+    }
+  }
+
+  @Nested
+  class SingleRecipientStory {
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void sendStory(final boolean urgent) throws MessageTooLargeException, MismatchedDevicesException {
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(destinationAccount));
+
+      final byte[] payload = TestRandomUtil.nextBytes(128);
+
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
+          Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(registrationId)
+              .setPayload(ByteString.copyFrom(payload))
+              .build());
+
+      final SendMessageResponse response =
+          unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, urgent, messages));
+
+      assertEquals(SendMessageResponse.newBuilder().build(), response);
+
+      final MessageProtos.Envelope expectedEnvelope = MessageProtos.Envelope.newBuilder()
+          .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
+          .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+          .setClientTimestamp(CLOCK.millis())
+          .setServerTimestamp(CLOCK.millis())
+          .setEphemeral(false)
+          .setUrgent(urgent)
+          .setStory(true)
+          .setContent(ByteString.copyFrom(payload))
+          .build();
+
+      verify(messageSender).sendMessages(destinationAccount,
+          serviceIdentifier,
+          Map.of(deviceId, expectedEnvelope),
+          Map.of(deviceId, registrationId),
+          null);
+    }
+
+    @Test
+    void mismatchedDevices() throws MessageTooLargeException, MismatchedDevicesException {
+      final byte missingDeviceId = Device.PRIMARY_ID;
+      final byte extraDeviceId = missingDeviceId + 1;
+      final byte staleDeviceId = extraDeviceId + 1;
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(destinationAccount));
+
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages = Map.of(
+          staleDeviceId, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(Device.PRIMARY_ID)
+              .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .build());
+
+      doThrow(new MismatchedDevicesException(new org.whispersystems.textsecuregcm.controllers.MismatchedDevices(
+          Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of(staleDeviceId))))
+          .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+
+      final SendMessageResponse response = unauthenticatedServiceStub().sendStory(
+          generateRequest(serviceIdentifier, false, messages));
+
+      final SendMessageResponse expectedResponse = SendMessageResponse.newBuilder()
+          .setMismatchedDevices(MismatchedDevices.newBuilder()
+              .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+              .addMissingDevices(missingDeviceId)
+              .addStaleDevices(staleDeviceId)
+              .addExtraDevices(extraDeviceId)
+              .build())
+          .build();
+
+      assertEquals(expectedResponse, response);
+    }
+
+    @Test
+    void destinationNotFound() throws MessageTooLargeException, MismatchedDevicesException {
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
+          Map.of(Device.PRIMARY_ID, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(7)
+              .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .build());
+
+      final SendMessageResponse response = unauthenticatedServiceStub().sendStory(
+          generateRequest(new AciServiceIdentifier(UUID.randomUUID()), true, messages));
+
+      assertEquals(SendMessageResponse.newBuilder().build(), response);
+
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void rateLimited() throws RateLimitExceededException, MessageTooLargeException, MismatchedDevicesException {
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+      when(destinationAccount.getIdentifier(IdentityType.ACI)).thenReturn(serviceIdentifier.uuid());
+
+      when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(destinationAccount));
+
+      final Duration retryDuration = Duration.ofHours(7);
+      doThrow(new RateLimitExceededException(retryDuration)).when(rateLimiter).validate(eq(serviceIdentifier.uuid()));
+
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
+          Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(registrationId)
+              .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .build());
+
+      //noinspection ResultOfMethodCallIgnored
+      GrpcTestUtils.assertRateLimitExceeded(retryDuration,
+          () -> unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, true, messages)));
+
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void oversizedMessage() throws MessageTooLargeException, MismatchedDevicesException {
+      final byte missingDeviceId = Device.PRIMARY_ID;
+      final byte extraDeviceId = missingDeviceId + 1;
+      final byte staleDeviceId = extraDeviceId + 1;
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(destinationAccount));
+
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages = Map.of(
+          staleDeviceId, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(Device.PRIMARY_ID)
+              .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .build());
+
+      doThrow(new MessageTooLargeException()).when(messageSender).sendMessages(any(), any(), any(), any(), any());
+
+      //noinspection ResultOfMethodCallIgnored
+      GrpcTestUtils.assertStatusInvalidArgument(
+          () -> unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, false, messages)));
+    }
+
+    @Test
+    void spamWithStatus() throws MessageTooLargeException, MismatchedDevicesException {
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(destinationAccount));
+
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
+          Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(registrationId)
+              .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .build());
+
+      when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
+          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withStatus(Status.RESOURCE_EXHAUSTED)), Optional.empty()));
+
+      //noinspection ResultOfMethodCallIgnored
+      GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
+          () -> unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, true, messages)));
+
+      verify(spamChecker).checkForIndividualRecipientSpamGrpc(MessageType.INDIVIDUAL_STORY,
+          Optional.empty(),
+          Optional.of(destinationAccount),
+          serviceIdentifier);
+
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void spamWithResponse() throws MessageTooLargeException, MismatchedDevicesException {
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(destinationAccount));
+
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
+          Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(registrationId)
+              .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .build());
+
+      final SendMessageResponse response = SendMessageResponse.newBuilder()
+          .setChallengeRequired(ChallengeRequired.newBuilder()
+              .addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA))
+          .build();
+
+      when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
+          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withResponse(response)), Optional.empty()));
+
+      assertEquals(response, unauthenticatedServiceStub().sendStory(
+          generateRequest(serviceIdentifier, true, messages)));
+
+      verify(spamChecker).checkForIndividualRecipientSpamGrpc(MessageType.INDIVIDUAL_STORY,
+          Optional.empty(),
+          Optional.of(destinationAccount),
+          serviceIdentifier);
+
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+    }
+
+    private static SendStoryMessageRequest generateRequest(final ServiceIdentifier serviceIdentifier,
+        final boolean urgent,
+        final Map<Byte, IndividualRecipientMessageBundle.Message> messages) {
+
+      final IndividualRecipientMessageBundle.Builder messageBundleBuilder = IndividualRecipientMessageBundle.newBuilder()
+          .setTimestamp(CLOCK.millis());
+
+      messages.forEach(messageBundleBuilder::putMessages);
+
+      return SendStoryMessageRequest.newBuilder()
+          .setDestination(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+          .setMessages(messageBundleBuilder)
+          .setUrgent(urgent)
+          .build();
+    }
+  }
+
+  @Nested
+  class MultiRecipientStory {
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void sendStory(final boolean urgent) throws MessageTooLargeException, MultiRecipientMismatchedDevicesException {
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+
+      final Account resolvedAccount = mock(Account.class);
+      when(resolvedAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(resolvedAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+
+      final AciServiceIdentifier resolvedServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      final AciServiceIdentifier unresolvedServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+      when(accountsManager.getByServiceIdentifierAsync(resolvedServiceIdentifier))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(resolvedAccount)));
+
+      final TestRecipient resolvedRecipient =
+          new TestRecipient(resolvedServiceIdentifier, deviceId, registrationId, new byte[48]);
+
+      final TestRecipient unresolvedRecipient =
+          new TestRecipient(unresolvedServiceIdentifier, Device.PRIMARY_ID, 1, new byte[48]);
+
+      final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(
+          resolvedRecipient, unresolvedRecipient));
+
+      final SendMultiRecipientStoryRequest request = SendMultiRecipientStoryRequest.newBuilder()
+          .setMessage(MultiRecipientMessage.newBuilder()
+              .setTimestamp(CLOCK.millis())
+              .setPayload(ByteString.copyFrom(payload))
+              .build())
+          .setUrgent(urgent)
+          .build();
+
+      assertEquals(SendMultiRecipientMessageResponse.newBuilder().build(),
+          unauthenticatedServiceStub().sendMultiRecipientStory(request));
+
+      verify(messageSender).sendMultiRecipientMessage(any(),
+          argThat(resolvedRecipients -> resolvedRecipients.containsValue(resolvedAccount)),
+          eq(CLOCK.millis()),
+          eq(true),
+          eq(false),
+          eq(urgent),
+          any());
+    }
+
+    @Test
+    void mismatchedDevices() throws MessageTooLargeException, MultiRecipientMismatchedDevicesException {
+      final byte missingDeviceId = Device.PRIMARY_ID;
+      final byte extraDeviceId = missingDeviceId + 1;
+      final byte staleDeviceId = extraDeviceId + 1;
+
+      final Account destinationAccount = mock(Account.class);
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+      when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(destinationAccount)));
+
+      final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(
+          new TestRecipient(serviceIdentifier, staleDeviceId, 17, new byte[48])));
+
+      final SendMultiRecipientStoryRequest request = SendMultiRecipientStoryRequest.newBuilder()
+          .setMessage(MultiRecipientMessage.newBuilder()
+              .setTimestamp(CLOCK.millis())
+              .setPayload(ByteString.copyFrom(payload))
+              .build())
+          .setUrgent(true)
+          .build();
+
+      doThrow(new MultiRecipientMismatchedDevicesException(Map.of(serviceIdentifier,
+          new org.whispersystems.textsecuregcm.controllers.MismatchedDevices(
+              Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of(staleDeviceId)))))
+          .when(messageSender).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
+
+      final SendMultiRecipientMessageResponse response =
+          unauthenticatedServiceStub().sendMultiRecipientStory(request);
+
+      final SendMultiRecipientMessageResponse expectedResponse = SendMultiRecipientMessageResponse.newBuilder()
+          .setMismatchedDevices(MultiRecipientMismatchedDevices.newBuilder()
+              .addMismatchedDevices(MismatchedDevices.newBuilder()
+                  .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+                  .addMissingDevices(missingDeviceId)
+                  .addExtraDevices(extraDeviceId)
+                  .addStaleDevices(staleDeviceId)
+                  .build())
+              .build())
+          .build();
+
+      assertEquals(expectedResponse, response);
+    }
+
+    @Test
+    void badPayload() throws MessageTooLargeException, MultiRecipientMismatchedDevicesException {
+      //noinspection ResultOfMethodCallIgnored
+      GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
+          unauthenticatedServiceStub().sendMultiRecipientStory(SendMultiRecipientStoryRequest.newBuilder()
+              .setMessage(MultiRecipientMessage.newBuilder()
+                  .setTimestamp(CLOCK.millis())
+                  .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+                  .build())
+              .build()));
+
+      //noinspection ResultOfMethodCallIgnored
+      GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
+          unauthenticatedServiceStub().sendMultiRecipientMessage(
+              SendMultiRecipientMessageRequest.newBuilder().build()));
+
+      verify(messageSender, never())
+          .sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
+    }
+
+    @Test
+    void repeatedRecipient() throws MessageTooLargeException, MultiRecipientMismatchedDevicesException {
+      final Device destinationDevice = DevicesHelper.createDevice(Device.PRIMARY_ID, CLOCK.millis(), 1);
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(destinationDevice));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+      when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(destinationAccount)));
+
+      final TestRecipient recipient = new TestRecipient(serviceIdentifier, Device.PRIMARY_ID, 1, new byte[48]);
+
+      final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(recipient, recipient));
+
+      //noinspection ResultOfMethodCallIgnored
+      GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
+          unauthenticatedServiceStub().sendMultiRecipientStory(SendMultiRecipientStoryRequest.newBuilder()
+              .setMessage(MultiRecipientMessage.newBuilder()
+                  .setTimestamp(CLOCK.millis())
+                  .setPayload(ByteString.copyFrom(payload))
+                  .build())
+              .setUrgent(true)
+              .build()));
+
+      verify(messageSender, never())
+          .sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
+    }
+
+    @Test
+    void oversizedMessage() throws MessageTooLargeException, MultiRecipientMismatchedDevicesException {
+      final Account destinationAccount = mock(Account.class);
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+      when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(destinationAccount)));
+
+      final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(
+          new TestRecipient(serviceIdentifier, Device.PRIMARY_ID, 17, new byte[48])));
+
+      final SendMultiRecipientStoryRequest request = SendMultiRecipientStoryRequest.newBuilder()
+          .setMessage(MultiRecipientMessage.newBuilder()
+              .setTimestamp(CLOCK.millis())
+              .setPayload(ByteString.copyFrom(payload))
+              .build())
+          .setUrgent(true)
+          .build();
+
+      doThrow(new MessageTooLargeException())
+          .when(messageSender).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
+
+      //noinspection ResultOfMethodCallIgnored
+      GrpcTestUtils.assertStatusInvalidArgument(() -> unauthenticatedServiceStub().sendMultiRecipientStory(request));
+    }
+
+    @Test
+    void spamWithStatus() throws MessageTooLargeException, MultiRecipientMismatchedDevicesException {
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+      when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(destinationAccount)));
+
+      final TestRecipient recipient =
+          new TestRecipient(serviceIdentifier, deviceId, registrationId, new byte[48]);
+
+      final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(recipient));
+
+      final SendMultiRecipientStoryRequest request = SendMultiRecipientStoryRequest.newBuilder()
+          .setMessage(MultiRecipientMessage.newBuilder()
+              .setTimestamp(CLOCK.millis())
+              .setPayload(ByteString.copyFrom(payload))
+              .build())
+          .setUrgent(true)
+          .build();
+
+      when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
+          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withStatus(Status.RESOURCE_EXHAUSTED)), Optional.empty()));
+
+      //noinspection ResultOfMethodCallIgnored
+      GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
+          () -> unauthenticatedServiceStub().sendMultiRecipientStory(request));
+
+      verify(spamChecker).checkForMultiRecipientSpamGrpc(MessageType.MULTI_RECIPIENT_STORY);
+
+      verify(messageSender, never())
+          .sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
+    }
+
+    @Test
+    void spamWithResponse() throws MessageTooLargeException, MultiRecipientMismatchedDevicesException {
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
+      when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(destinationAccount)));
+
+      final TestRecipient recipient =
+          new TestRecipient(serviceIdentifier, deviceId, registrationId, new byte[48]);
+
+      final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(recipient));
+
+      final SendMultiRecipientStoryRequest request = SendMultiRecipientStoryRequest.newBuilder()
+          .setMessage(MultiRecipientMessage.newBuilder()
+              .setTimestamp(CLOCK.millis())
+              .setPayload(ByteString.copyFrom(payload))
+              .build())
+          .setUrgent(true)
+          .build();
+
+      final SendMultiRecipientMessageResponse response = SendMultiRecipientMessageResponse.newBuilder()
+          .setChallengeRequired(ChallengeRequired.newBuilder()
+              .addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA))
+          .build();
+
+      when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
+          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withResponse(response)), Optional.empty()));
+
+      assertEquals(response, unauthenticatedServiceStub().sendMultiRecipientStory(request));
+
+      verify(spamChecker).checkForMultiRecipientSpamGrpc(MessageType.MULTI_RECIPIENT_STORY);
 
       verify(messageSender, never())
           .sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
