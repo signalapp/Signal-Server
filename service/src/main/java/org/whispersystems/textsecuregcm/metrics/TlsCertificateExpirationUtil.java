@@ -8,8 +8,8 @@ package org.whispersystems.textsecuregcm.metrics;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.cert.Certificate;
@@ -45,10 +45,13 @@ public class TlsCertificateExpirationUtil {
     }
 
     getIdentifiersAndExpirations(keyStore, keyStorePassword)
-        .forEach((id, expiration) -> {
-          Metrics.gauge(CERTIFICATE_EXPIRATION_GAUGE_NAME,
-              Tags.of("id", id), expiration, then -> Duration.between(Instant.now(), then).toSeconds());
-        });
+        .forEach((id, expiration) ->
+            Gauge.builder(CERTIFICATE_EXPIRATION_GAUGE_NAME, expiration,
+                    then -> Duration.between(Instant.now(), then).toSeconds())
+                .tags("id", id)
+                .strongReference(true)
+                .register(Metrics.globalRegistry)
+        );
   }
 
   @VisibleForTesting
