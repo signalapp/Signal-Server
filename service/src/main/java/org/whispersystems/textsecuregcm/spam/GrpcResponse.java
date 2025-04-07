@@ -6,19 +6,27 @@
 package org.whispersystems.textsecuregcm.spam;
 
 import io.grpc.Status;
+import io.grpc.StatusException;
+import javax.annotation.Nullable;
 import java.util.Optional;
 
 /**
  * A combination of a gRPC status and response message to communicate to callers that a message has been flagged as
  * potential spam.
  *
- * @param status The gRPC status for this response. If the status is {@link Status#OK}, then a response object will be
- *               available via {@link #response}. Otherwise, callers should transmit the status as an error to clients.
- * @param response a response object to send to clients; will be present if {@link #status} is not {@link Status#OK}
- *
  * @param <R> the type of response object
  */
-public record GrpcResponse<R>(Status status, Optional<R> response) {
+public class GrpcResponse<R> {
+
+  private final Status status;
+
+  @Nullable
+  private final R response;
+
+  private GrpcResponse(final Status status, @Nullable final R response) {
+    this.status = status;
+    this.response = response;
+  }
 
   /**
    * Constructs a new response object with the given status and no response message.
@@ -30,7 +38,7 @@ public record GrpcResponse<R>(Status status, Optional<R> response) {
    * @param <R> the type of response object
    */
   public static <R> GrpcResponse<R> withStatus(final Status status) {
-    return new GrpcResponse<>(status, Optional.empty());
+    return new GrpcResponse<>(status, null);
   }
 
   /**
@@ -43,6 +51,22 @@ public record GrpcResponse<R>(Status status, Optional<R> response) {
    * @param <R> the type of response object
    */
   public static <R> GrpcResponse<R> withResponse(final R response) {
-    return new GrpcResponse<>(Status.OK, Optional.of(response));
+    return new GrpcResponse<>(Status.OK, response);
+  }
+
+  /**
+   * Returns the message body contained within this response or throws the contained status as a {@link StatusException}
+   * if no message body is specified.
+   *
+   * @return the message body contained within this response
+   *
+   * @throws StatusException if no message body is specified
+   */
+  public R getResponseOrThrowStatus() throws StatusException {
+    if (response != null) {
+      return response;
+    }
+
+    throw status.asException();
   }
 }

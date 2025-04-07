@@ -106,13 +106,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
             destinationServiceIdentifier);
 
     if (spamCheckResult.response().isPresent()) {
-      final GrpcResponse<SendMessageResponse> response = spamCheckResult.response().get();
-
-      if (response.response().isPresent()) {
-        return response.response().get();
-      }
-
-      throw response.status().asException();
+      return spamCheckResult.response().get().getResponseOrThrowStatus();
     }
 
     try {
@@ -205,13 +199,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
         spamChecker.checkForMultiRecipientSpamGrpc(MessageType.MULTI_RECIPIENT_SEALED_SENDER);
 
     if (spamCheckResult.response().isPresent()) {
-      final GrpcResponse<SendMultiRecipientMessageResponse> response = spamCheckResult.response().get();
-
-      if (response.response().isPresent()) {
-        return response.response().get();
-      }
-
-      throw response.status().asException();
+      return spamCheckResult.response().get().getResponseOrThrowStatus();
     }
 
     // At this point, the caller has at least superficially provided the information needed to send a multi-recipient
