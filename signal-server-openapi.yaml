@@ -440,13 +440,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MismatchedDevices'
+                $ref: '#/components/schemas/MismatchedDevicesResponse'
         "410":
           description: Mismatched registration ids in 'devices to notify' list
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StaleDevices'
+                $ref: '#/components/schemas/StaleDevicesResponse'
         "413":
           description: One or more device messages was too large
         "422":
@@ -505,14 +505,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MismatchedDevices'
+                $ref: '#/components/schemas/MismatchedDevicesResponse'
         "410":
           description: The registration IDs provided for some devices do not match
             those stored on the server.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StaleDevices'
+                $ref: '#/components/schemas/StaleDevicesResponse'
         "413":
           description: One or more device messages was too large
       security:
@@ -2439,13 +2439,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MismatchedDevices'
+                $ref: '#/components/schemas/MismatchedDevicesResponse'
         "410":
           description: Mismatched registration ids supplied for some recipient devices
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StaleDevices'
+                $ref: '#/components/schemas/StaleDevicesResponse'
         "428":
           description: The sender should complete a challenge before proceeding
       security:
@@ -4045,10 +4045,11 @@ components:
         backup:
           $ref: '#/components/schemas/BackupEntitlement'
       description: entitlements for this account and their current expirations
-    MismatchedDevices:
+    MismatchedDevicesResponse:
       type: object
       properties:
         missingDevices:
+          uniqueItems: true
           type: array
           description: Devices present on the account but absent in the request
           items:
@@ -4056,16 +4057,18 @@ components:
             description: Devices present on the account but absent in the request
             format: byte
         extraDevices:
+          uniqueItems: true
           type: array
           description: Devices absent on the request but present in the account
           items:
             type: string
             description: Devices absent on the request but present in the account
             format: byte
-    StaleDevices:
+    StaleDevicesResponse:
       type: object
       properties:
         staleDevices:
+          uniqueItems: true
           type: array
           description: Devices that are no longer active
           items:
@@ -5289,7 +5292,7 @@ components:
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
         devices:
-          $ref: '#/components/schemas/MismatchedDevices'
+          $ref: '#/components/schemas/MismatchedDevicesResponse'
     AccountStaleDevices:
       type: object
       properties:
@@ -5298,7 +5301,7 @@ components:
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
         devices:
-          $ref: '#/components/schemas/StaleDevices'
+          $ref: '#/components/schemas/StaleDevicesResponse'
     CombinedUnidentifiedSenderAccessKeys:
       type: object
       properties:
