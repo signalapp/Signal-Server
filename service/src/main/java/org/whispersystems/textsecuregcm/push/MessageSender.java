@@ -55,20 +55,18 @@ public class MessageSender {
 
   // Note that these names deliberately reference `MessageController` for metric continuity
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageController.class, "rejectOversizeMessage");
-  private static final String LARGE_BUT_NOT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageController.class, "largeMessage");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = MetricsUtil.name(MessageController.class, "messageContentSize");
 
   private static final String SEND_COUNTER_NAME = name(MessageSender.class, "sendMessage");
-  private static final String CHANNEL_TAG_NAME = "channel";
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
   private static final String CLIENT_ONLINE_TAG_NAME = "clientOnline";
   private static final String URGENT_TAG_NAME = "urgent";
   private static final String STORY_TAG_NAME = "story";
   private static final String SEALED_SENDER_TAG_NAME = "sealedSender";
+  private static final String MULTI_RECIPIENT_TAG_NAME = "multiRecipient";
 
   @VisibleForTesting
   public static final int MAX_MESSAGE_SIZE = (int) DataSize.kibibytes(256).toBytes();
-  private static final long LARGE_MESSAGE_SIZE = DataSize.kibibytes(8).toBytes();
 
   @VisibleForTesting
   static final byte NO_EXCLUDED_DEVICE_ID = -1;
@@ -137,14 +135,16 @@ public class MessageSender {
             }
           }
 
-          Metrics.counter(SEND_COUNTER_NAME,
-                  CHANNEL_TAG_NAME, destination.getDevice(deviceId).map(MessageSender::getDeliveryChannelName).orElse("unknown"),
+          final Tags tags = Tags.of(
                   EPHEMERAL_TAG_NAME, String.valueOf(message.getEphemeral()),
                   CLIENT_ONLINE_TAG_NAME, String.valueOf(destinationPresent),
                   URGENT_TAG_NAME, String.valueOf(message.getUrgent()),
                   STORY_TAG_NAME, String.valueOf(message.getStory()),
-                  SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceServiceId()))
-              .increment();
+                  SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceServiceId()),
+                  MULTI_RECIPIENT_TAG_NAME, "false")
+              .and(UserAgentTagUtil.getPlatformTag(userAgent));
+
+          Metrics.counter(SEND_COUNTER_NAME, tags).increment();
         });
   }
 
@@ -219,30 +219,18 @@ public class MessageSender {
                     }
                   }
 
-                  Metrics.counter(SEND_COUNTER_NAME,
-                          CHANNEL_TAG_NAME,
-                          account.getDevice(deviceId).map(MessageSender::getDeliveryChannelName).orElse("unknown"),
+                  final Tags tags = Tags.of(
                           EPHEMERAL_TAG_NAME, String.valueOf(isEphemeral),
                           CLIENT_ONLINE_TAG_NAME, String.valueOf(clientPresent),
                           URGENT_TAG_NAME, String.valueOf(isUrgent),
                           STORY_TAG_NAME, String.valueOf(isStory),
-                          SEALED_SENDER_TAG_NAME, String.valueOf(true))
-                      .increment();
+                          SEALED_SENDER_TAG_NAME, "true",
+                          MULTI_RECIPIENT_TAG_NAME, "true")
+                      .and(UserAgentTagUtil.getPlatformTag(userAgent));
+
+                  Metrics.counter(SEND_COUNTER_NAME, tags).increment();
                 })))
         .thenRun(Util.NOOP);
-  }
-
-  @VisibleForTesting
-  static String getDeliveryChannelName(final Device device) {
-    if (device.getGcmId() != null) {
-      return "gcm";
-    } else if (device.getApnId() != null) {
-      return "apn";
-    } else if (device.getFetchesMessages()) {
-      return "websocket";
-    } else {
-      return "none";
-    }
   }
 
   @VisibleForTesting
@@ -272,13 +260,6 @@ public class MessageSender {
           .increment();
 
       throw new MessageTooLargeException();
-    }
-
-    if (contentLength > LARGE_MESSAGE_SIZE) {
-      Metrics.counter(
-              LARGE_BUT_NOT_OVERSIZE_MESSAGE_COUNTER_NAME,
-              Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage))))
-          .increment();
     }
   }
 

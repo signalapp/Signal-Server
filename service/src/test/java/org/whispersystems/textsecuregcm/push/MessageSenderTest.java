@@ -18,7 +18,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -252,41 +251,6 @@ class MessageSenderTest {
 
     assertEquals(Map.of(serviceIdentifier, new MismatchedDevices(Collections.emptySet(), Collections.emptySet(), Set.of(deviceId))),
         mismatchedDevicesException.getMismatchedDevicesByServiceIdentifier());
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void getDeliveryChannelName(final Device device, final String expectedChannelName) {
-    assertEquals(expectedChannelName, MessageSender.getDeliveryChannelName(device));
-  }
-
-  private static List<Arguments> getDeliveryChannelName() {
-    final List<Arguments> arguments = new ArrayList<>();
-
-    {
-      final Device apnDevice = mock(Device.class);
-      when(apnDevice.getApnId()).thenReturn("apns-token");
-
-      arguments.add(Arguments.of(apnDevice, "apn"));
-    }
-
-    {
-      final Device fcmDevice = mock(Device.class);
-      when(fcmDevice.getGcmId()).thenReturn("fcm-token");
-
-      arguments.add(Arguments.of(fcmDevice, "gcm"));
-    }
-
-    {
-      final Device fetchesMessagesDevice = mock(Device.class);
-      when(fetchesMessagesDevice.getFetchesMessages()).thenReturn(true);
-
-      arguments.add(Arguments.of(fetchesMessagesDevice, "websocket"));
-    }
-
-    arguments.add(Arguments.of(mock(Device.class), "none"));
-
-    return arguments;
   }
 
   @Test
