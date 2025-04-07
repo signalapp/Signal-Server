@@ -37,10 +37,12 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -55,6 +57,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.crypto.Mac;
@@ -67,6 +70,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
@@ -83,7 +87,6 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
-import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -780,24 +783,33 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     }
 
     // Check that all including primary ID are in signed pre-keys
-    DestinationDeviceValidator.validateCompleteDeviceList(
-        account,
-        pniSignedPreKeys.keySet(),
-        Collections.emptySet());
+    validateCompleteDeviceList(account, pniSignedPreKeys.keySet());
 
     // Check that all including primary ID are in Pq pre-keys
     if (pniPqLastResortPreKeys != null) {
-      DestinationDeviceValidator.validateCompleteDeviceList(
-          account,
-          pniPqLastResortPreKeys.keySet(),
-          Collections.emptySet());
+      validateCompleteDeviceList(account, pniPqLastResortPreKeys.keySet());
     }
 
     // Check that all devices are accounted for in the map of new PNI registration IDs
-    DestinationDeviceValidator.validateCompleteDeviceList(
-        account,
-        pniRegistrationIds.keySet(),
-        Collections.emptySet());
+    validateCompleteDeviceList(account, pniRegistrationIds.keySet());
+  }
+
+  @VisibleForTesting
+  static void validateCompleteDeviceList(final Account account, final Set<Byte> deviceIds) throws MismatchedDevicesException {
+    final Set<Byte> accountDeviceIds = account.getDevices().stream()
+        .map(Device::getId)
+        .collect(Collectors.toSet());
+
+    final Set<Byte> missingDeviceIds = new HashSet<>(accountDeviceIds);
+    missingDeviceIds.removeAll(deviceIds);
+
+    final Set<Byte> extraDeviceIds = new HashSet<>(deviceIds);
+    extraDeviceIds.removeAll(accountDeviceIds);
+
+    if (!missingDeviceIds.isEmpty() || !extraDeviceIds.isEmpty()) {
+      throw new MismatchedDevicesException(
+          new MismatchedDevices(missingDeviceIds, extraDeviceIds, Collections.emptySet()));
+    }
   }
 
   public record UsernameReservation(Account account, byte[] reservedUsernameHash){}

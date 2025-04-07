@@ -5,23 +5,15 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import java.util.List;
-
 public class MismatchedDevicesException extends Exception {
 
-  private final List<Byte> missingDevices;
-  private final List<Byte> extraDevices;
+  private final MismatchedDevices mismatchedDevices;
 
-  public MismatchedDevicesException(List<Byte> missingDevices, List<Byte> extraDevices) {
-    this.missingDevices = missingDevices;
-    this.extraDevices   = extraDevices;
+  public MismatchedDevicesException(final MismatchedDevices mismatchedDevices) {
+    this.mismatchedDevices = mismatchedDevices;
   }
 
-  public List<Byte> getMissingDevices() {
-    return missingDevices;
-  }
-
-  public List<Byte> getExtraDevices() {
-    return extraDevices;
+  public MismatchedDevices getMismatchedDevices() {
+    return mismatchedDevices;
   }
 }

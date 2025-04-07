@@ -14,5 +14,5 @@ public record AccountMismatchedDevices(@JsonSerialize(using = ServiceIdentifierA
                                        @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
                                        ServiceIdentifier uuid,
 
-                                       MismatchedDevices devices) {
+                                       MismatchedDevicesResponse devices) {
 }

@@ -43,12 +43,12 @@ import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager
 import org.whispersystems.textsecuregcm.entities.AccountDataReportResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
-import org.whispersystems.textsecuregcm.entities.MismatchedDevices;
+import org.whispersystems.textsecuregcm.entities.MismatchedDevicesResponse;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
-import org.whispersystems.textsecuregcm.entities.StaleDevices;
+import org.whispersystems.textsecuregcm.entities.StaleDevicesResponse;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
@@ -93,8 +93,8 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "200", description = "The phone number associated with the authenticated account was changed successfully", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "Verification failed for the provided Registration Recovery Password")
-  @ApiResponse(responseCode = "409", description = "Mismatched number of devices or device ids in 'devices to notify' list", content = @Content(schema = @Schema(implementation = MismatchedDevices.class)))
-  @ApiResponse(responseCode = "410", description = "Mismatched registration ids in 'devices to notify' list", content = @Content(schema = @Schema(implementation = StaleDevices.class)))
+  @ApiResponse(responseCode = "409", description = "Mismatched number of devices or device ids in 'devices to notify' list", content = @Content(schema = @Schema(implementation = MismatchedDevicesResponse.class)))
+  @ApiResponse(responseCode = "410", description = "Mismatched registration ids in 'devices to notify' list", content = @Content(schema = @Schema(implementation = StaleDevicesResponse.class)))
   @ApiResponse(responseCode = "413", description = "One or more device messages was too large")
   @ApiResponse(responseCode = "422", description = "The request did not pass validation")
   @ApiResponse(responseCode = "423", content = @Content(schema = @Schema(implementation = RegistrationLockFailure.class)))
@@ -150,16 +150,18 @@ public class AccountControllerV2 {
 
       return AccountIdentityResponseBuilder.fromAccount(updatedAccount);
     } catch (MismatchedDevicesException e) {
-      throw new WebApplicationException(Response.status(409)
-          .type(MediaType.APPLICATION_JSON_TYPE)
-          .entity(new MismatchedDevices(e.getMissingDevices(),
-              e.getExtraDevices()))
-          .build());
-    } catch (StaleDevicesException e) {
-      throw new WebApplicationException(Response.status(410)
-          .type(MediaType.APPLICATION_JSON)
-          .entity(new StaleDevices(e.getStaleDevices()))
-          .build());
+      if (!e.getMismatchedDevices().staleDeviceIds().isEmpty()) {
+        throw new WebApplicationException(Response.status(410)
+            .type(MediaType.APPLICATION_JSON)
+            .entity(new StaleDevicesResponse(e.getMismatchedDevices().staleDeviceIds()))
+            .build());
+      } else {
+        throw new WebApplicationException(Response.status(409)
+            .type(MediaType.APPLICATION_JSON_TYPE)
+            .entity(new MismatchedDevicesResponse(e.getMismatchedDevices().missingDeviceIds(),
+                e.getMismatchedDevices().extraDeviceIds()))
+            .build());
+      }
     } catch (IllegalArgumentException e) {
       throw new BadRequestException(e);
     } catch (MessageTooLargeException e) {
@@ -178,9 +180,9 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "403", description = "This endpoint can only be invoked from the account's primary device.")
   @ApiResponse(responseCode = "422", description = "The request body failed validation.")
   @ApiResponse(responseCode = "409", description = "The set of devices specified in the request does not match the set of devices active on the account.",
-      content = @Content(schema = @Schema(implementation = MismatchedDevices.class)))
+      content = @Content(schema = @Schema(implementation = MismatchedDevicesResponse.class)))
   @ApiResponse(responseCode = "410", description = "The registration IDs provided for some devices do not match those stored on the server.",
-      content = @Content(schema = @Schema(implementation = StaleDevices.class)))
+      content = @Content(schema = @Schema(implementation = StaleDevicesResponse.class)))
   @ApiResponse(responseCode = "413", description = "One or more device messages was too large")
   public AccountIdentityResponse distributePhoneNumberIdentityKeys(
       @Mutable @Auth final AuthenticatedDevice authenticatedDevice,
@@ -207,16 +209,18 @@ public class AccountControllerV2 {
 
       return AccountIdentityResponseBuilder.fromAccount(updatedAccount);
     } catch (MismatchedDevicesException e) {
-      throw new WebApplicationException(Response.status(409)
-          .type(MediaType.APPLICATION_JSON_TYPE)
-          .entity(new MismatchedDevices(e.getMissingDevices(),
-                  e.getExtraDevices()))
-          .build());
-    } catch (StaleDevicesException e) {
-      throw new WebApplicationException(Response.status(410)
-          .type(MediaType.APPLICATION_JSON)
-          .entity(new StaleDevices(e.getStaleDevices()))
-          .build());
+      if (!e.getMismatchedDevices().staleDeviceIds().isEmpty()) {
+        throw new WebApplicationException(Response.status(410)
+            .type(MediaType.APPLICATION_JSON)
+            .entity(new StaleDevicesResponse(e.getMismatchedDevices().staleDeviceIds()))
+            .build());
+      } else {
+        throw new WebApplicationException(Response.status(409)
+            .type(MediaType.APPLICATION_JSON_TYPE)
+            .entity(new MismatchedDevicesResponse(e.getMismatchedDevices().missingDeviceIds(),
+                e.getMismatchedDevices().extraDeviceIds()))
+            .build());
+      }
     } catch (IllegalArgumentException e) {
       throw new BadRequestException(e);
     } catch (MessageTooLargeException e) {

@@ -32,11 +32,12 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
-import org.whispersystems.textsecuregcm.controllers.StaleDevicesException;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
@@ -105,7 +106,7 @@ public class ChangeNumberManagerTest {
     changeNumberManager.changeNumber(account, "+18025551234", null, null, null, null, null, null);
     verify(accountsManager).changeNumber(account, "+18025551234", null, null, null, null);
     verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
-    verify(messageSender, never()).sendMessages(eq(account), any());
+    verify(messageSender, never()).sendMessages(eq(account), any(), any(), any());
   }
 
   @Test
@@ -119,7 +120,7 @@ public class ChangeNumberManagerTest {
 
     changeNumberManager.changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyList(), Collections.emptyMap(), null);
     verify(accountsManager).changeNumber(account, "+18025551234", pniIdentityKey, prekeys, null, Collections.emptyMap());
-    verify(messageSender, never()).sendMessages(eq(account), any());
+    verify(messageSender, never()).sendMessages(eq(account), any(), any(), any());
   }
 
   @Test
@@ -159,7 +160,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
@@ -212,7 +213,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
@@ -263,7 +264,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
@@ -310,7 +311,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
@@ -359,7 +360,7 @@ public class ChangeNumberManagerTest {
     @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, MessageProtos.Envelope>> envelopeCaptor =
         ArgumentCaptor.forClass(Map.class);
 
-    verify(messageSender).sendMessages(any(), envelopeCaptor.capture());
+    verify(messageSender).sendMessages(any(), any(), envelopeCaptor.capture(), any());
 
     assertEquals(1, envelopeCaptor.getValue().size());
     assertEquals(Set.of(deviceId2), envelopeCaptor.getValue().keySet());
@@ -370,82 +371,6 @@ public class ChangeNumberManagerTest {
     assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
     assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertFalse(updatedPhoneNumberIdentifiersByAccount.containsKey(account));
-  }
-
-  @Test
-  void changeNumberMismatchedRegistrationId() {
-    final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn("+18005551234");
-
-    final List<Device> devices = new ArrayList<>();
-
-    for (byte i = 1; i <= 3; i++) {
-      final Device device = mock(Device.class);
-      when(device.getId()).thenReturn(i);
-      when(device.getRegistrationId()).thenReturn((int) i);
-
-      devices.add(device);
-      when(account.getDevice(i)).thenReturn(Optional.of(device));
-    }
-
-    when(account.getDevices()).thenReturn(devices);
-
-    final byte destinationDeviceId2 = 2;
-    final byte destinationDeviceId3 = 3;
-    final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, destinationDeviceId2, 1, "foo".getBytes(StandardCharsets.UTF_8)),
-        new IncomingMessage(1, destinationDeviceId3, 1, "foo".getBytes(StandardCharsets.UTF_8)));
-
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-    final ECPublicKey pniIdentityKey = pniIdentityKeyPair.getPublicKey();
-
-    final Map<Byte, ECSignedPreKey> preKeys = Map.of(Device.PRIMARY_ID,
-        KeysHelper.signedECPreKey(1, pniIdentityKeyPair),
-        destinationDeviceId2, KeysHelper.signedECPreKey(2, pniIdentityKeyPair),
-        destinationDeviceId3, KeysHelper.signedECPreKey(3, pniIdentityKeyPair));
-    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, 17, destinationDeviceId2, 47,
-        destinationDeviceId3, 89);
-
-    assertThrows(StaleDevicesException.class,
-        () -> changeNumberManager.changeNumber(account, "+18005559876", new IdentityKey(Curve.generateKeyPair().getPublicKey()), preKeys, null, messages, registrationIds, null));
-  }
-
-  @Test
-  void updatePniKeysMismatchedRegistrationId() {
-    final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn("+18005551234");
-
-    final List<Device> devices = new ArrayList<>();
-
-    for (byte i = 1; i <= 3; i++) {
-      final Device device = mock(Device.class);
-      when(device.getId()).thenReturn(i);
-      when(device.getRegistrationId()).thenReturn((int) i);
-
-      devices.add(device);
-      when(account.getDevice(i)).thenReturn(Optional.of(device));
-    }
-
-    when(account.getDevices()).thenReturn(devices);
-
-    final byte destinationDeviceId2 = 2;
-    final byte destinationDeviceId3 = 3;
-    final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, destinationDeviceId2, 1, "foo".getBytes(StandardCharsets.UTF_8)),
-        new IncomingMessage(1, destinationDeviceId3, 1, "foo".getBytes(StandardCharsets.UTF_8)));
-
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-    final ECPublicKey pniIdentityKey = pniIdentityKeyPair.getPublicKey();
-
-    final Map<Byte, ECSignedPreKey> preKeys = Map.of(Device.PRIMARY_ID,
-        KeysHelper.signedECPreKey(1, pniIdentityKeyPair),
-        destinationDeviceId2, KeysHelper.signedECPreKey(2, pniIdentityKeyPair),
-        destinationDeviceId3, KeysHelper.signedECPreKey(3, pniIdentityKeyPair));
-    final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, 17, destinationDeviceId2, 47,
-        destinationDeviceId3, 89);
-
-    assertThrows(StaleDevicesException.class,
-        () -> changeNumberManager.updatePniKeys(account, new IdentityKey(Curve.generateKeyPair().getPublicKey()), preKeys, null, messages, registrationIds, null));
   }
 
   @Test

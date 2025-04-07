@@ -8,9 +8,9 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.util.List;
+import java.util.Set;
 
-public record StaleDevices(@JsonProperty
-                           @Schema(description = "Devices that are no longer active")
-                           List<Byte> staleDevices) {
+public record StaleDevicesResponse(@JsonProperty
+                                   @Schema(description = "Devices that are no longer active")
+                                   Set<Byte> staleDevices) {
 }

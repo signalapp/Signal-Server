@@ -60,10 +60,12 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -76,6 +78,7 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -1703,6 +1706,49 @@ class AccountsManagerTest {
 
         // Invalid signature
         Arguments.of("e552603a-1492-4de6-872d-bac19a2825b4.1691096565171:This is not valid base64", tokenTimestamp)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void validateCompleteDeviceList(final Account account, final Set<Byte> deviceIds, @Nullable final MismatchedDevicesException expectedException) {
+    final Executable validateCompleteDeviceListExecutable =
+        () -> AccountsManager.validateCompleteDeviceList(account, deviceIds);
+
+    if (expectedException != null) {
+      final MismatchedDevicesException caughtException =
+          assertThrows(MismatchedDevicesException.class, validateCompleteDeviceListExecutable);
+
+      assertEquals(expectedException.getMismatchedDevices(), caughtException.getMismatchedDevices());
+    } else {
+      assertDoesNotThrow(validateCompleteDeviceListExecutable);
+    }
+  }
+
+  private static List<Arguments> validateCompleteDeviceList() {
+    final byte deviceId = Device.PRIMARY_ID;
+    final byte extraDeviceId = deviceId + 1;
+
+    final Device device = mock(Device.class);
+    when(device.getId()).thenReturn(deviceId);
+
+    final Account account = mock(Account.class);
+    when(account.getDevices()).thenReturn(List.of(device));
+
+    return List.of(
+        Arguments.of(account, Set.of(deviceId), null),
+
+        Arguments.of(account, Set.of(deviceId, extraDeviceId),
+            new MismatchedDevicesException(
+                new MismatchedDevices(Collections.emptySet(), Set.of(extraDeviceId), Collections.emptySet()))),
+
+        Arguments.of(account, Collections.emptySet(),
+            new MismatchedDevicesException(
+                new MismatchedDevices(Set.of(deviceId), Collections.emptySet(), Collections.emptySet()))),
+
+        Arguments.of(account, Set.of(extraDeviceId),
+            new MismatchedDevicesException(
+                new MismatchedDevices(Set.of(deviceId), Set.of((byte) (extraDeviceId)), Collections.emptySet())))
     );
   }
 }

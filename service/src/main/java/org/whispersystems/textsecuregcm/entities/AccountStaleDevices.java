@@ -14,5 +14,5 @@ public record AccountStaleDevices(@JsonSerialize(using = ServiceIdentifierAdapte
                                   @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
                                   ServiceIdentifier uuid,
 
-                                  StaleDevices devices) {
+                                  StaleDevicesResponse devices) {
 }

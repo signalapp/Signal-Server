@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.protobuf.ByteString;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
@@ -15,15 +14,15 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
-import org.whispersystems.textsecuregcm.controllers.StaleDevicesException;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
-import org.whispersystems.textsecuregcm.util.DestinationDeviceValidator;
 
 public class ChangeNumberManager {
 
@@ -45,12 +44,10 @@ public class ChangeNumberManager {
       @Nullable final List<IncomingMessage> deviceMessages,
       @Nullable final Map<Byte, Integer> pniRegistrationIds,
       @Nullable final String senderUserAgent)
-      throws InterruptedException, MismatchedDevicesException, StaleDevicesException, MessageTooLargeException {
+      throws InterruptedException, MismatchedDevicesException, MessageTooLargeException {
 
-    if (ObjectUtils.allNotNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
-      // AccountsManager validates the device set on deviceSignedPreKeys and pniRegistrationIds
-      validateDeviceMessages(account, deviceMessages);
-    } else if (!ObjectUtils.allNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds)) {
+    if (!(ObjectUtils.allNotNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds) ||
+        ObjectUtils.allNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds))) {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, device messages, and registration IDs must be all null or all non-null");
     }
 
@@ -84,9 +81,7 @@ public class ChangeNumberManager {
       @Nullable final Map<Byte, KEMSignedPreKey> devicePqLastResortPreKeys,
       final List<IncomingMessage> deviceMessages,
       final Map<Byte, Integer> pniRegistrationIds,
-      final String senderUserAgent) throws MismatchedDevicesException, StaleDevicesException, MessageTooLargeException {
-
-    validateDeviceMessages(account, deviceMessages);
+      final String senderUserAgent) throws MismatchedDevicesException, MessageTooLargeException {
 
     // Don't try to be smart about ignoring unnecessary retries. If we make literally no change we will skip the ddb
     // write anyway. Linked devices can handle some wasted extra key rotations.
@@ -97,26 +92,9 @@ public class ChangeNumberManager {
     return updatedAccount;
   }
 
-  private void validateDeviceMessages(final Account account,
-      final List<IncomingMessage> deviceMessages) throws MismatchedDevicesException, StaleDevicesException {
-    // Check that all except primary ID are in device messages
-    DestinationDeviceValidator.validateCompleteDeviceList(
-        account,
-        deviceMessages.stream().map(IncomingMessage::destinationDeviceId).collect(Collectors.toSet()),
-        Set.of(Device.PRIMARY_ID));
-
-    // check that all sync messages are to the current registration ID for the matching device
-    DestinationDeviceValidator.validateRegistrationIds(
-        account,
-        deviceMessages,
-        IncomingMessage::destinationDeviceId,
-        IncomingMessage::destinationRegistrationId,
-        false);
-  }
-
   private void sendDeviceMessages(final Account account,
       final List<IncomingMessage> deviceMessages,
-      final String senderUserAgent) throws MessageTooLargeException {
+      final String senderUserAgent) throws MessageTooLargeException, MismatchedDevicesException {
 
     for (final IncomingMessage message : deviceMessages) {
       MessageSender.validateContentLength(message.content().length,
@@ -128,20 +106,26 @@ public class ChangeNumberManager {
 
     try {
       final long serverTimestamp = System.currentTimeMillis();
+      final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(account.getUuid());
 
-      messageSender.sendMessages(account, deviceMessages.stream()
+      final Map<Byte, Envelope> messagesByDeviceId = deviceMessages.stream()
           .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, message -> Envelope.newBuilder()
               .setType(Envelope.Type.forNumber(message.type()))
               .setClientTimestamp(serverTimestamp)
               .setServerTimestamp(serverTimestamp)
-              .setDestinationServiceId(new AciServiceIdentifier(account.getUuid()).toServiceIdentifierString())
+              .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
               .setContent(ByteString.copyFrom(message.content()))
-              .setSourceServiceId(new AciServiceIdentifier(account.getUuid()).toServiceIdentifierString())
+              .setSourceServiceId(serviceIdentifier.toServiceIdentifierString())
               .setSourceDevice(Device.PRIMARY_ID)
               .setUpdatedPni(account.getPhoneNumberIdentifier().toString())
               .setUrgent(true)
               .setEphemeral(false)
-              .build())));
+              .build()));
+
+      final Map<Byte, Integer> registrationIdsByDeviceId = account.getDevices().stream()
+          .collect(Collectors.toMap(Device::getId, Device::getRegistrationId));
+
+      messageSender.sendMessages(account, serviceIdentifier, messagesByDeviceId, registrationIdsByDeviceId);
     } catch (final RuntimeException e) {
       logger.warn("Changed number but could not send all device messages on {}", account.getUuid(), e);
       throw e;
