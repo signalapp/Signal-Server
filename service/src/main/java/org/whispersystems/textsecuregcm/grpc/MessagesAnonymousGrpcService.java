@@ -8,8 +8,6 @@ package org.whispersystems.textsecuregcm.grpc;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import java.time.Clock;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -37,17 +35,13 @@ import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
+import org.whispersystems.textsecuregcm.push.MessageUtil;
 import org.whispersystems.textsecuregcm.spam.GrpcResponse;
 import org.whispersystems.textsecuregcm.spam.MessageType;
 import org.whispersystems.textsecuregcm.spam.SpamCheckResult;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 
 public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.MessagesAnonymousImplBase {
 
@@ -60,8 +54,6 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
   private final Clock clock;
 
   private static final SendMessageResponse SEND_MESSAGE_SUCCESS_RESPONSE = SendMessageResponse.newBuilder().build();
-
-  private static final int MAX_FETCH_ACCOUNT_CONCURRENCY = 8;
 
   public MessagesAnonymousGrpcService(final AccountsManager accountsManager,
       final RateLimiters rateLimiters,
@@ -256,7 +248,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
     // At this point, the caller has at least superficially provided the information needed to send a multi-recipient
     // message. Attempt to resolve the destination service identifiers to Signal accounts.
     final Map<SealedSenderMultiRecipientMessage.Recipient, Account> resolvedRecipients =
-        resolveRecipients(multiRecipientMessage);
+        MessageUtil.resolveRecipients(accountsManager, multiRecipientMessage);
 
     try {
       messageSender.sendMultiRecipientMessage(multiRecipientMessage,
@@ -269,10 +261,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
 
       final SendMultiRecipientMessageResponse.Builder responseBuilder = SendMultiRecipientMessageResponse.newBuilder();
 
-      multiRecipientMessage.getRecipients().entrySet()
-          .stream()
-          .filter(entry -> !resolvedRecipients.containsKey(entry.getValue()))
-          .map(entry -> ServiceIdentifier.fromLibsignal(entry.getKey()))
+      MessageUtil.getUnresolvedRecipients(multiRecipientMessage, resolvedRecipients).stream()
           .map(ServiceIdentifierUtil::toGrpcServiceIdentifier)
           .forEach(responseBuilder::addUnresolvedRecipients);
 
@@ -308,47 +297,11 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
 
     // Check that the request is well-formed and doesn't contain repeated entries for the same device for the same
     // recipient
-    validateNoDuplicateDevices(multiRecipientMessage);
+    if (MessageUtil.hasDuplicateDevices(multiRecipientMessage)) {
+      throw Status.INVALID_ARGUMENT.withDescription("Multi-recipient message contains duplicate recipient").asException();
+    }
 
     return multiRecipientMessage;
-  }
-
-  private void validateNoDuplicateDevices(final SealedSenderMultiRecipientMessage multiRecipientMessage)
-      throws StatusException {
-
-    final boolean[] usedDeviceIds = new boolean[Device.MAXIMUM_DEVICE_ID + 1];
-
-    for (final SealedSenderMultiRecipientMessage.Recipient recipient : multiRecipientMessage.getRecipients().values()) {
-      if (recipient.getDevices().length == 1) {
-        // A recipient can't have repeated devices if they only have one device
-        continue;
-      }
-
-      Arrays.fill(usedDeviceIds, false);
-
-      for (final byte deviceId : recipient.getDevices()) {
-        if (usedDeviceIds[deviceId]) {
-          throw Status.INVALID_ARGUMENT.withDescription("Request contains repeated device entries").asException();
-        }
-
-        usedDeviceIds[deviceId] = true;
-      }
-    }
-  }
-
-  private Map<SealedSenderMultiRecipientMessage.Recipient, Account> resolveRecipients(final SealedSenderMultiRecipientMessage multiRecipientMessage) {
-    return Flux.fromIterable(multiRecipientMessage.getRecipients().entrySet())
-        .flatMap(serviceIdAndRecipient -> {
-          final ServiceIdentifier serviceIdentifier =
-              ServiceIdentifier.fromLibsignal(serviceIdAndRecipient.getKey());
-
-          return Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
-              .flatMap(Mono::justOrEmpty)
-              .map(account -> Tuples.of(serviceIdAndRecipient.getValue(), account));
-        }, MAX_FETCH_ACCOUNT_CONCURRENCY)
-        .collectMap(Tuple2::getT1, Tuple2::getT2)
-        .blockOptional()
-        .orElse(Collections.emptyMap());
   }
 
   private MismatchedDevices buildMismatchedDevices(final ServiceIdentifier serviceIdentifier,

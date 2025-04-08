@@ -43,7 +43,6 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -96,6 +95,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
+import org.whispersystems.textsecuregcm.push.MessageUtil;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -105,7 +105,6 @@ import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -114,11 +113,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.websocket.WebsocketHeaders;
 import org.whispersystems.websocket.auth.ReadOnly;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/messages")
@@ -144,8 +139,6 @@ public class MessageController {
   private final MessageMetrics messageMetrics;
   private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
   private final Clock clock;
-
-  private static final int MAX_FETCH_ACCOUNT_CONCURRENCY = 8;
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture<?>[0];
 
@@ -563,7 +556,9 @@ public class MessageController {
       final ContainerRequestContext context) {
 
     // Perform fast, inexpensive checks before attempting to resolve recipients
-    validateNoDuplicateDevices(multiRecipientMessage);
+    if (MessageUtil.hasDuplicateDevices(multiRecipientMessage)) {
+      throw new BadRequestException("Multi-recipient message contains duplicate recipient");
+    }
 
     if (groupSendTokenHeader == null && combinedUnidentifiedSenderAccessKeys == null) {
       throw new NotAuthorizedException("A group send endorsement token or unidentified access key is required for non-story messages");
@@ -582,7 +577,14 @@ public class MessageController {
     // At this point, the caller has at least superficially provided the information needed to send a multi-recipient
     // message. Attempt to resolve the destination service identifiers to Signal accounts.
     final Map<SealedSenderMultiRecipientMessage.Recipient, Account> resolvedRecipients =
-        resolveRecipients(multiRecipientMessage, groupSendTokenHeader == null);
+        MessageUtil.resolveRecipients(accountsManager, multiRecipientMessage);
+
+    final List<ServiceIdentifier> unresolvedRecipientServiceIdentifiers =
+        MessageUtil.getUnresolvedRecipients(multiRecipientMessage, resolvedRecipients);
+
+    if (groupSendTokenHeader == null && !unresolvedRecipientServiceIdentifiers.isEmpty()) {
+      throw new NotFoundException();
+    }
 
     // Access keys are checked against the UAK in the resolved accounts, so we have to check after resolving accounts above.
     // Group send endorsements are checked earlier; for stories, we don't check permissions at all because only clients check them
@@ -598,17 +600,6 @@ public class MessageController {
         urgent,
         context);
 
-    final List<ServiceIdentifier> unresolvedRecipientServiceIdentifiers;
-
-    if (groupSendTokenHeader != null) {
-      unresolvedRecipientServiceIdentifiers = multiRecipientMessage.getRecipients().entrySet().stream()
-          .filter(entry -> !resolvedRecipients.containsKey(entry.getValue()))
-          .map(entry -> ServiceIdentifier.fromLibsignal(entry.getKey()))
-          .toList();
-    } else {
-      unresolvedRecipientServiceIdentifiers = List.of();
-    }
-
     return new SendMultiRecipientMessageResponse(unresolvedRecipientServiceIdentifiers);
   }
 
@@ -620,12 +611,14 @@ public class MessageController {
       final ContainerRequestContext context) {
 
     // Perform fast, inexpensive checks before attempting to resolve recipients
-    validateNoDuplicateDevices(multiRecipientMessage);
+    if (MessageUtil.hasDuplicateDevices(multiRecipientMessage)) {
+      throw new BadRequestException("Multi-recipient message contains duplicate recipient");
+    }
 
     // At this point, the caller has at least superficially provided the information needed to send a multi-recipient
     // message. Attempt to resolve the destination service identifiers to Signal accounts.
     final Map<SealedSenderMultiRecipientMessage.Recipient, Account> resolvedRecipients =
-        resolveRecipients(multiRecipientMessage, false);
+        MessageUtil.resolveRecipients(accountsManager, multiRecipientMessage);
 
     // We might filter out all the recipients of a story (if none exist).
     // In this case there is no error so we should just return 200 now.
@@ -908,44 +901,5 @@ public class MessageController {
 
     return Response.status(Status.ACCEPTED)
         .build();
-  }
-
-  private static void validateNoDuplicateDevices(final SealedSenderMultiRecipientMessage multiRecipientMessage) {
-    final boolean[] usedDeviceIds = new boolean[Device.MAXIMUM_DEVICE_ID + 1];
-
-    for (final SealedSenderMultiRecipientMessage.Recipient recipient : multiRecipientMessage.getRecipients().values()) {
-      if (recipient.getDevices().length == 1) {
-        // A recipient can't have repeated devices if they only have one device
-        continue;
-      }
-
-      Arrays.fill(usedDeviceIds, false);
-
-      for (final byte deviceId : recipient.getDevices()) {
-        if (usedDeviceIds[deviceId]) {
-          throw new BadRequestException();
-        }
-
-        usedDeviceIds[deviceId] = true;
-      }
-    }
-  }
-
-  private Map<SealedSenderMultiRecipientMessage.Recipient, Account> resolveRecipients(final SealedSenderMultiRecipientMessage multiRecipientMessage,
-      final boolean throwOnNotFound) {
-
-    return Flux.fromIterable(multiRecipientMessage.getRecipients().entrySet())
-        .flatMap(serviceIdAndRecipient -> {
-          final ServiceIdentifier serviceIdentifier =
-              ServiceIdentifier.fromLibsignal(serviceIdAndRecipient.getKey());
-
-          return Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
-              .flatMap(Mono::justOrEmpty)
-              .switchIfEmpty(throwOnNotFound ? Mono.error(NotFoundException::new) : Mono.empty())
-              .map(account -> Tuples.of(serviceIdAndRecipient.getValue(), account));
-        }, MAX_FETCH_ACCOUNT_CONCURRENCY)
-        .collectMap(Tuple2::getT1, Tuple2::getT2)
-        .blockOptional()
-        .orElse(Collections.emptyMap());
   }
 }
