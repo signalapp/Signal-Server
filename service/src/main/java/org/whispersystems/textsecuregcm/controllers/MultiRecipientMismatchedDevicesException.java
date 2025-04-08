@@ -15,6 +15,10 @@ public class MultiRecipientMismatchedDevicesException extends Exception {
   public MultiRecipientMismatchedDevicesException(
       final Map<ServiceIdentifier, MismatchedDevices> mismatchedDevicesByServiceIdentifier) {
 
+    if (mismatchedDevicesByServiceIdentifier.isEmpty()) {
+      throw new IllegalArgumentException("Must provide non-empty map of service identifiers to mismatched devices");
+    }
+
     this.mismatchedDevicesByServiceIdentifier = mismatchedDevicesByServiceIdentifier;
   }
 
