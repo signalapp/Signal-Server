@@ -39,8 +39,8 @@ public class RangeFieldValidator extends BaseFieldValidator<Range> {
   @Override
   protected Range resolveExtensionValue(final Object extensionValue) throws StatusException {
     final ValueRangeConstraint rangeConstraint = (ValueRangeConstraint) extensionValue;
-    final int min = rangeConstraint.hasMin() ? rangeConstraint.getMin() : Integer.MIN_VALUE;
-    final int max = rangeConstraint.hasMax() ? rangeConstraint.getMax() : Integer.MAX_VALUE;
+    final long min = rangeConstraint.hasMin() ? rangeConstraint.getMin() : Long.MIN_VALUE;
+    final long max = rangeConstraint.hasMax() ? rangeConstraint.getMax() : Long.MAX_VALUE;
     return new Range(min, max);
   }
 
