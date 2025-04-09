@@ -153,7 +153,8 @@ class MessagesAnonymousGrpcServiceTest extends
     @CartesianTest
     void sendMessage(@CartesianTest.Values(booleans = {true, false}) final boolean useUak,
         @CartesianTest.Values(booleans = {true, false}) final boolean ephemeral,
-        @CartesianTest.Values(booleans = {true, false}) final boolean urgent)
+        @CartesianTest.Values(booleans = {true, false}) final boolean urgent,
+        @CartesianTest.Values(booleans = {true, false}) final boolean includeReportSpamToken)
         throws MessageTooLargeException, MismatchedDevicesException {
 
       final byte deviceId = Device.PRIMARY_ID;
@@ -177,6 +178,13 @@ class MessagesAnonymousGrpcServiceTest extends
               .setPayload(ByteString.copyFrom(payload))
               .build());
 
+      final byte[] reportSpamToken = TestRandomUtil.nextBytes(64);
+
+      if (includeReportSpamToken) {
+        when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
+            .thenReturn(new SpamCheckResult<>(Optional.empty(), Optional.of(reportSpamToken)));
+      }
+
       final SendMessageResponse response = unauthenticatedServiceStub().sendSingleRecipientMessage(
           generateRequest(serviceIdentifier, ephemeral, urgent, messages,
               useUak ? UNIDENTIFIED_ACCESS_KEY : null,
@@ -184,7 +192,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       assertEquals(SendMessageResponse.newBuilder().build(), response);
 
-      final MessageProtos.Envelope expectedEnvelope = MessageProtos.Envelope.newBuilder()
+      final MessageProtos.Envelope.Builder expectedEnvelopeBuilder = MessageProtos.Envelope.newBuilder()
           .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
           .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
           .setClientTimestamp(CLOCK.millis())
@@ -192,12 +200,20 @@ class MessagesAnonymousGrpcServiceTest extends
           .setEphemeral(ephemeral)
           .setUrgent(urgent)
           .setStory(false)
-          .setContent(ByteString.copyFrom(payload))
-          .build();
+          .setContent(ByteString.copyFrom(payload));
+
+      if (includeReportSpamToken) {
+        expectedEnvelopeBuilder.setReportSpamToken(ByteString.copyFrom(reportSpamToken));
+      }
+
+      verify(spamChecker).checkForIndividualRecipientSpamGrpc(MessageType.INDIVIDUAL_SEALED_SENDER,
+          Optional.empty(),
+          Optional.of(destinationAccount),
+          serviceIdentifier);
 
       verify(messageSender).sendMessages(destinationAccount,
           serviceIdentifier,
-          Map.of(deviceId, expectedEnvelope),
+          Map.of(deviceId, expectedEnvelopeBuilder.build()),
           Map.of(deviceId, registrationId),
           null);
     }
@@ -797,9 +813,11 @@ class MessagesAnonymousGrpcServiceTest extends
   @Nested
   class SingleRecipientStory {
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void sendStory(final boolean urgent) throws MessageTooLargeException, MismatchedDevicesException {
+    @CartesianTest
+    void sendStory(@CartesianTest.Values(booleans = {true, false}) final boolean urgent,
+        @CartesianTest.Values(booleans = {true, false}) final boolean includeReportSpamToken)
+        throws MessageTooLargeException, MismatchedDevicesException {
+
       final byte deviceId = Device.PRIMARY_ID;
       final int registrationId = 7;
 
@@ -820,12 +838,19 @@ class MessagesAnonymousGrpcServiceTest extends
               .setPayload(ByteString.copyFrom(payload))
               .build());
 
+      final byte[] reportSpamToken = TestRandomUtil.nextBytes(64);
+
+      if (includeReportSpamToken) {
+        when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
+            .thenReturn(new SpamCheckResult<>(Optional.empty(), Optional.of(reportSpamToken)));
+      }
+
       final SendMessageResponse response =
           unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, urgent, messages));
 
       assertEquals(SendMessageResponse.newBuilder().build(), response);
 
-      final MessageProtos.Envelope expectedEnvelope = MessageProtos.Envelope.newBuilder()
+      final MessageProtos.Envelope.Builder expectedEnvelopeBuilder = MessageProtos.Envelope.newBuilder()
           .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
           .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
           .setClientTimestamp(CLOCK.millis())
@@ -833,12 +858,20 @@ class MessagesAnonymousGrpcServiceTest extends
           .setEphemeral(false)
           .setUrgent(urgent)
           .setStory(true)
-          .setContent(ByteString.copyFrom(payload))
-          .build();
+          .setContent(ByteString.copyFrom(payload));
+
+      if (includeReportSpamToken) {
+        expectedEnvelopeBuilder.setReportSpamToken(ByteString.copyFrom(reportSpamToken));
+      }
+
+      verify(spamChecker).checkForIndividualRecipientSpamGrpc(MessageType.INDIVIDUAL_STORY,
+          Optional.empty(),
+          Optional.of(destinationAccount),
+          serviceIdentifier);
 
       verify(messageSender).sendMessages(destinationAccount,
           serviceIdentifier,
-          Map.of(deviceId, expectedEnvelope),
+          Map.of(deviceId, expectedEnvelopeBuilder.build()),
           Map.of(deviceId, registrationId),
           null);
     }

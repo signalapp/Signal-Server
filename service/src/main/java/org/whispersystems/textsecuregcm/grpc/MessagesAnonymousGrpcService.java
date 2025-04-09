@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import java.time.Clock;
@@ -159,16 +160,22 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
         .stream()
         .collect(Collectors.toMap(
             entry -> DeviceIdUtil.validate(entry.getKey()),
-            entry -> MessageProtos.Envelope.newBuilder()
-                .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
-                .setClientTimestamp(messages.getTimestamp())
-                .setServerTimestamp(clock.millis())
-                .setDestinationServiceId(destinationServiceIdentifier.toServiceIdentifierString())
-                .setEphemeral(ephemeral)
-                .setUrgent(urgent)
-                .setStory(story)
-                .setContent(entry.getValue().getPayload())
-                .build()
+            entry -> {
+              final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder()
+                  .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
+                  .setClientTimestamp(messages.getTimestamp())
+                  .setServerTimestamp(clock.millis())
+                  .setDestinationServiceId(destinationServiceIdentifier.toServiceIdentifierString())
+                  .setEphemeral(ephemeral)
+                  .setUrgent(urgent)
+                  .setStory(story)
+                  .setContent(entry.getValue().getPayload());
+
+              spamCheckResult.token().ifPresent(reportSpamToken ->
+                  envelopeBuilder.setReportSpamToken(ByteString.copyFrom(reportSpamToken)));
+
+              return envelopeBuilder.build();
+            }
         ));
 
     final Map<Byte, Integer> registrationIdsByDeviceId = messages.getMessagesMap().entrySet().stream()
