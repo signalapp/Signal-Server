@@ -142,9 +142,12 @@ message IndividualRecipientMessageBundle {
 
   /**
    * The time, in milliseconds since the epoch, at which this message was
-   * originally sent from the perspective of the sender.
+   * originally sent from the perspective of the sender. Note that the maximum
+   * allowable timestamp for JavaScript clients is less than Long.MAX_VALUE; see
+   * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
+   * for additional details and discussion.
    */
-  uint64 timestamp = 1;
+  uint64 timestamp = 1 [(require.range).min = 1, (require.range).max = 8640000000000000];
 
   /**
    * A map of device IDs to individual messages. Generally, callers must include
@@ -327,9 +330,12 @@ message MultiRecipientMessage {
 
   /**
    * The time, in milliseconds since the epoch, at which this message was
-   * originally sent from the perspective of the sender.
+   * originally sent from the perspective of the sender. Note that the maximum
+   * allowable timestamp for JavaScript clients is less than Long.MAX_VALUE; see
+   * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
+   * for additional details and discussion.
    */
-  uint64 timestamp = 1;
+  uint64 timestamp = 1 [(require.range).min = 1, (require.range).max = 8640000000000000];
 
   /**
    * The serialized multi-recipient message payload.
