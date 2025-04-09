@@ -139,8 +139,13 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
    * @param authenticatedDevice the authenticated device for which to close connections
    */
   public void closeConnection(final AuthenticatedDevice authenticatedDevice) {
-    // Channels will actually get removed from the list/map by their closeFuture listeners
-    remoteChannelsByAuthenticatedDevice.getOrDefault(authenticatedDevice, Collections.emptyList()).forEach(channel ->
+    // Channels will actually get removed from the list/map by their closeFuture listeners. We copy the list to avoid
+    // concurrent modification; it's possible (though practically unlikely) that a channel can close and remove itself
+    // from the list while we're still iterating, resulting in a `ConcurrentModificationException`.
+    final List<Channel> channelsToClose =
+        new ArrayList<>(remoteChannelsByAuthenticatedDevice.getOrDefault(authenticatedDevice, Collections.emptyList()));
+
+    channelsToClose.forEach(channel ->
         channel.writeAndFlush(new CloseWebSocketFrame(ApplicationWebSocketCloseReason.REAUTHENTICATION_REQUIRED
                 .toWebSocketCloseStatus("Reauthentication required")))
             .addListener(ChannelFutureListener.CLOSE_ON_FAILURE));
