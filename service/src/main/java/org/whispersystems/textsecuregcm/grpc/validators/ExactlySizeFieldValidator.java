@@ -9,7 +9,7 @@ import static org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils.in
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.GeneratedMessageV3;
+import com.google.protobuf.Message;
 import io.grpc.StatusException;
 import java.util.List;
 import java.util.Set;
@@ -53,7 +53,7 @@ public class ExactlySizeFieldValidator extends BaseFieldValidator<Set<Integer>> 
   protected void validateRepeatedField(
       final Set<Integer> permittedSizes,
       final Descriptors.FieldDescriptor fd,
-      final GeneratedMessageV3 msg) throws StatusException {
+      final Message msg) throws StatusException {
     final int size = msg.getRepeatedFieldCount(fd);
     if (permittedSizes.contains(size)) {
       return;

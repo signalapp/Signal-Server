@@ -6,11 +6,11 @@
 package org.whispersystems.textsecuregcm.grpc.validators;
 
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.GeneratedMessageV3;
+import com.google.protobuf.Message;
 import io.grpc.StatusException;
 
 public interface FieldValidator {
 
-  void validate(Object extensionValue, Descriptors.FieldDescriptor fd, GeneratedMessageV3 msg)
+  void validate(Object extensionValue, Descriptors.FieldDescriptor fd, Message msg)
       throws StatusException;
 }

@@ -9,7 +9,7 @@ import static org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils.in
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.GeneratedMessageV3;
+import com.google.protobuf.Message;
 import io.grpc.StatusException;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
@@ -52,7 +52,7 @@ public class NonEmptyFieldValidator extends BaseFieldValidator<Boolean> {
   protected void validateRepeatedField(
       final Boolean extensionValue,
       final Descriptors.FieldDescriptor fd,
-      final GeneratedMessageV3 msg) throws StatusException {
+      final Message msg) throws StatusException {
     if (msg.getRepeatedFieldCount(fd) > 0) {
       return;
     }

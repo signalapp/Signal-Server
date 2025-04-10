@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils.internalError;
 
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.GeneratedMessageV3;
+import com.google.protobuf.Message;
 import io.grpc.ForwardingServerCallListener;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
@@ -75,7 +75,7 @@ public class ValidatingInterceptor implements ServerInterceptor {
   }
 
   private void validateMessage(final Object message) throws StatusException {
-    if (message instanceof GeneratedMessageV3 msg) {
+    if (message instanceof Message msg) {
       try {
         for (final Descriptors.FieldDescriptor fd: msg.getDescriptorForType().getFields()) {
           for (final Map.Entry<Descriptors.FieldDescriptor, Object> entry: fd.getOptions().getAllFields().entrySet()) {

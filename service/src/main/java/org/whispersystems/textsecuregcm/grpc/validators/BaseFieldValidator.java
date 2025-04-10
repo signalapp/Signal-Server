@@ -11,7 +11,6 @@ import static org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils.in
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.GeneratedMessageV3;
 import com.google.protobuf.Message;
 import io.grpc.Status;
 import io.grpc.StatusException;
@@ -49,7 +48,7 @@ public abstract class BaseFieldValidator<T> implements FieldValidator {
   public void validate(
       final Object extensionValue,
       final Descriptors.FieldDescriptor fd,
-      final GeneratedMessageV3 msg) throws StatusException {
+      final Message msg) throws StatusException {
     try {
       final T extensionValueTyped = resolveExtensionValue(extensionValue);
 
@@ -116,7 +115,7 @@ public abstract class BaseFieldValidator<T> implements FieldValidator {
   protected void validateRepeatedField(
       final T extensionValue,
       final Descriptors.FieldDescriptor fd,
-      final GeneratedMessageV3 msg) throws StatusException {
+      final Message msg) throws StatusException {
     throw internalError("`validateRepeatedField` method needs to be implemented");
   }
 

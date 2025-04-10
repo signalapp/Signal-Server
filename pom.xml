@@ -46,7 +46,7 @@
     <!-- can be updated to latest version with Dropwizard 5 (Jetty 12); will then need to disable telemetry -->
     <dynamodblocal.version>2.2.1</dynamodblocal.version>
     <google-cloud-libraries.version>26.57.0</google-cloud-libraries.version>
-    <grpc.version>1.69.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
+    <grpc.version>1.70.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <gson.version>2.12.1</gson.version>
     <!-- several libraries (AWS, Google Cloud) use Apache http components transitively, and we need to align them -->
     <httpcore.version>4.4.16</httpcore.version>
@@ -65,9 +65,9 @@
     <luajava.version>3.5.0</luajava.version>
     <micrometer.version>1.14.5</micrometer.version>
     <netty.version>4.1.119.Final</netty.version>
-    <!-- Must be greater than or equal to the value from Google libraries-bom
-    since some of its libraries generate code. See https://protobuf.dev/support/cross-version-runtime-guarantee/. -->
-    <protobuf.version>3.25.5</protobuf.version>
+    <!-- Must be less than or equal to the value from Google libraries-bom which controls the protobuf runtime version.
+    See https://protobuf.dev/support/cross-version-runtime-guarantee/. -->
+    <protoc.version>4.29.4</protoc.version>
     <pushy.version>0.15.4</pushy.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
     <reactor-bom.version>2024.0.4</reactor-bom.version> <!-- 3.7.4, see https://github.com/reactor/reactor#bom-versioning-scheme -->
@@ -127,7 +127,7 @@
       </dependency>
       <dependency>
         <groupId>com.google.cloud</groupId>
-        <artifactId>libraries-bom-protobuf3</artifactId>
+        <artifactId>libraries-bom</artifactId>
         <version>${google-cloud-libraries.version}</version>
         <type>pom</type>
         <scope>import</scope>
@@ -174,11 +174,6 @@
         <groupId>com.eatthepath</groupId>
         <artifactId>pushy-dropwizard-metrics-listener</artifactId>
         <version>${pushy.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.google.protobuf</groupId>
-        <artifactId>protobuf-java</artifactId>
-        <version>${protobuf.version}</version>
       </dependency>
       <dependency>
         <groupId>com.googlecode.libphonenumber</groupId>
@@ -443,7 +438,7 @@
         <version>0.6.1</version>
         <configuration>
           <checkStaleness>false</checkStaleness>
-          <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+          <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
 
