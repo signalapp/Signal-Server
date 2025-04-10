@@ -215,6 +215,7 @@ class MessagesAnonymousGrpcServiceTest extends
           serviceIdentifier,
           Map.of(deviceId, expectedEnvelopeBuilder.build()),
           Map.of(deviceId, registrationId),
+          Optional.empty(),
           null);
     }
 
@@ -238,7 +239,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       doThrow(new MismatchedDevicesException(new org.whispersystems.textsecuregcm.controllers.MismatchedDevices(
           Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of(staleDeviceId))))
-          .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+          .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
       final SendMessageResponse response = unauthenticatedServiceStub().sendSingleRecipientMessage(
           generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null));
@@ -290,7 +291,7 @@ class MessagesAnonymousGrpcServiceTest extends
                   useUak ? incorrectUnidentifiedAccessKey : null,
                   useUak ? null : incorrectGroupSendToken)));
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -308,7 +309,7 @@ class MessagesAnonymousGrpcServiceTest extends
           () -> unauthenticatedServiceStub().sendSingleRecipientMessage(
               generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null)));
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -341,7 +342,7 @@ class MessagesAnonymousGrpcServiceTest extends
           () -> unauthenticatedServiceStub().sendSingleRecipientMessage(
               generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null)));
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
       verify(messageByteLimitEstimator).add(serviceIdentifier.uuid().toString());
     }
 
@@ -364,7 +365,7 @@ class MessagesAnonymousGrpcServiceTest extends
               .build());
 
       doThrow(new MessageTooLargeException())
-          .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+          .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
       //noinspection ResultOfMethodCallIgnored
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
@@ -406,7 +407,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Optional.of(destinationAccount),
           serviceIdentifier);
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -446,7 +447,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Optional.of(destinationAccount),
           serviceIdentifier);
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     private static SendSealedSenderMessageRequest generateRequest(final ServiceIdentifier serviceIdentifier,
@@ -873,6 +874,7 @@ class MessagesAnonymousGrpcServiceTest extends
           serviceIdentifier,
           Map.of(deviceId, expectedEnvelopeBuilder.build()),
           Map.of(deviceId, registrationId),
+          Optional.empty(),
           null);
     }
 
@@ -896,7 +898,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       doThrow(new MismatchedDevicesException(new org.whispersystems.textsecuregcm.controllers.MismatchedDevices(
           Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of(staleDeviceId))))
-          .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+          .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
       final SendMessageResponse response = unauthenticatedServiceStub().sendStory(
           generateRequest(serviceIdentifier, false, messages));
@@ -926,7 +928,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       assertEquals(SendMessageResponse.newBuilder().build(), response);
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -957,7 +959,7 @@ class MessagesAnonymousGrpcServiceTest extends
       GrpcTestUtils.assertRateLimitExceeded(retryDuration,
           () -> unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, true, messages)));
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -978,7 +980,7 @@ class MessagesAnonymousGrpcServiceTest extends
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
               .build());
 
-      doThrow(new MessageTooLargeException()).when(messageSender).sendMessages(any(), any(), any(), any(), any());
+      doThrow(new MessageTooLargeException()).when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
       //noinspection ResultOfMethodCallIgnored
       GrpcTestUtils.assertStatusInvalidArgument(
@@ -1017,7 +1019,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Optional.of(destinationAccount),
           serviceIdentifier);
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -1056,7 +1058,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Optional.of(destinationAccount),
           serviceIdentifier);
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     private static SendStoryMessageRequest generateRequest(final ServiceIdentifier serviceIdentifier,

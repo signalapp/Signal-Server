@@ -104,6 +104,7 @@ class MessageSenderTest {
         serviceIdentifier,
         Map.of(device.getId(), message),
         Map.of(device.getId(), registrationId),
+        Optional.empty(),
         null));
 
     final MessageProtos.Envelope expectedMessage = ephemeral
@@ -144,6 +145,7 @@ class MessageSenderTest {
             serviceIdentifier,
             Map.of(device.getId(), message),
             Map.of(device.getId(), registrationId + 1),
+            Optional.empty(),
             null));
 
     assertEquals(new MismatchedDevices(Collections.emptySet(), Collections.emptySet(), Set.of(deviceId)),
@@ -347,16 +349,61 @@ class MessageSenderTest {
 
   @Test
   void sendMessageEmptyMessageList() {
+    final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
 
     final Account account = mock(Account.class);
     when(account.getDevices()).thenReturn(List.of(device));
+    when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
 
     assertThrows(MismatchedDevicesException.class, () -> messageSender.sendMessages(account,
-        new AciServiceIdentifier(UUID.randomUUID()),
+        serviceIdentifier,
         Collections.emptyMap(),
         Collections.emptyMap(),
+        Optional.empty(),
         null));
+
+    assertDoesNotThrow(() -> messageSender.sendMessages(account,
+        serviceIdentifier,
+        Collections.emptyMap(),
+        Collections.emptyMap(),
+        Optional.of(Device.PRIMARY_ID),
+        null));
+  }
+
+  @Test
+  void sendSyncMessageMismatchedAddressing() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(accountIdentifier);
+    final byte deviceId = Device.PRIMARY_ID;
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
+
+    final Account nonSyncDestination = mock(Account.class);
+    when(nonSyncDestination.isIdentifiedBy(any())).thenReturn(true);
+
+    assertThrows(IllegalArgumentException.class, () -> messageSender.sendMessages(nonSyncDestination,
+            new AciServiceIdentifier(UUID.randomUUID()),
+            Map.of(deviceId, MessageProtos.Envelope.newBuilder().build()),
+            Map.of(deviceId, 17),
+            Optional.of(deviceId),
+            null),
+        "Should throw an IllegalArgumentException for inter-account messages with a sync message device ID");
+
+    assertThrows(IllegalArgumentException.class, () -> messageSender.sendMessages(account,
+        serviceIdentifier,
+        Map.of(deviceId, MessageProtos.Envelope.newBuilder()
+            .setSourceServiceId(serviceIdentifier.toServiceIdentifierString())
+            .setSourceDevice(deviceId)
+            .build()),
+        Map.of(deviceId, 17),
+        Optional.empty(),
+        null),
+        "Should throw an IllegalArgumentException for self-addressed messages without a sync message device ID");
   }
 }

@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 import com.google.protobuf.ByteString;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
@@ -116,7 +117,12 @@ public class ChangeNumberManager {
       final Map<Byte, Integer> registrationIdsByDeviceId = account.getDevices().stream()
           .collect(Collectors.toMap(Device::getId, Device::getRegistrationId));
 
-      messageSender.sendMessages(account, serviceIdentifier, messagesByDeviceId, registrationIdsByDeviceId, senderUserAgent);
+      messageSender.sendMessages(account,
+          serviceIdentifier,
+          messagesByDeviceId,
+          registrationIdsByDeviceId,
+          Optional.of(Device.PRIMARY_ID),
+          senderUserAgent);
     } catch (final RuntimeException e) {
       logger.warn("Changed number but could not send all device messages on {}", account.getUuid(), e);
       throw e;

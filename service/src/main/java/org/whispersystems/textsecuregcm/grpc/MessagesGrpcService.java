@@ -172,7 +172,8 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
         destination,
         destinationServiceIdentifier,
         messagesByDeviceId,
-        registrationIdsByDeviceId);
+        registrationIdsByDeviceId,
+        messageType == MessageType.SYNC ? Optional.of(sender.deviceId()) : Optional.empty());
   }
 
   private static MessageProtos.Envelope.Type getEnvelopeType(final AuthenticatedSenderMessageType type) {

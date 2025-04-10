@@ -187,7 +187,8 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
         destination,
         destinationServiceIdentifier,
         messagesByDeviceId,
-        registrationIdsByDeviceId);
+        registrationIdsByDeviceId,
+        Optional.empty());
   }
 
   @Override

@@ -292,7 +292,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
+      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), eq(Optional.empty()), any());
 
       assertEquals(1, captor.getValue().size());
       final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -319,7 +319,19 @@ class MessageControllerTest {
                     IncomingMessageList.class),
                 MediaType.APPLICATION_JSON_TYPE))) {
 
-      assertThat(response.getStatus(), is(equalTo(sendToPni ? 403 : 200)));
+      if (sendToPni) {
+        assertThat(response.getStatus(), is(equalTo(403)));
+        verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
+      } else {
+        assertThat(response.getStatus(), is(equalTo(200)));
+
+        verify(messageSender).sendMessages(any(),
+            eq(serviceIdentifier),
+            any(),
+            any(),
+            eq(Optional.of(Device.PRIMARY_ID)),
+            any());
+      }
     }
   }
 
@@ -337,7 +349,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
+      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), eq(Optional.empty()), any());
 
       assertEquals(1, captor.getValue().size());
       final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -362,7 +374,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
+      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), eq(Optional.empty()), any());
 
       assertEquals(1, captor.getValue().size());
       final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -400,7 +412,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(200)));
 
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
+      verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), eq(Optional.empty()), any());
 
       assertEquals(1, captor.getValue().size());
       final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -439,7 +451,7 @@ class MessageControllerTest {
       assertThat("Good Response", response.getStatus(), is(equalTo(expectedResponse)));
       if (expectedResponse == 200) {
         @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), any());
+        verify(messageSender).sendMessages(any(), any(), captor.capture(), any(), eq(Optional.empty()), any());
 
         assertEquals(1, captor.getValue().size());
         final Envelope message = captor.getValue().values().stream().findFirst().orElseThrow();
@@ -536,7 +548,7 @@ class MessageControllerTest {
   @Test
   void testMultiDeviceMissing() throws Exception {
     doThrow(new MismatchedDevicesException(new MismatchedDevices(Set.of((byte) 2, (byte) 3), Collections.emptySet(), Collections.emptySet())))
-        .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+        .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
     try (final Response response =
         resources.getJerseyTest()
@@ -558,7 +570,7 @@ class MessageControllerTest {
   @Test
   void testMultiDeviceExtra() throws Exception {
     doThrow(new MismatchedDevicesException(new MismatchedDevices(Set.of((byte) 2), Set.of((byte) 4), Collections.emptySet())))
-        .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+        .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
     try (final Response response =
         resources.getJerseyTest()
@@ -609,7 +621,7 @@ class MessageControllerTest {
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> envelopeCaptor =
           ArgumentCaptor.forClass(Map.class);
 
-      verify(messageSender).sendMessages(any(Account.class), any(), envelopeCaptor.capture(), any(), any());
+      verify(messageSender).sendMessages(any(Account.class), any(), envelopeCaptor.capture(), any(), eq(Optional.empty()), any());
 
       assertEquals(3, envelopeCaptor.getValue().size());
 
@@ -633,7 +645,7 @@ class MessageControllerTest {
       @SuppressWarnings("unchecked") final ArgumentCaptor<Map<Byte, Envelope>> envelopeCaptor =
           ArgumentCaptor.forClass(Map.class);
 
-      verify(messageSender).sendMessages(any(Account.class), any(), envelopeCaptor.capture(), any(), any());
+      verify(messageSender).sendMessages(any(Account.class), any(), envelopeCaptor.capture(), any(), eq(Optional.empty()), any());
 
       assertEquals(3, envelopeCaptor.getValue().size());
 
@@ -658,6 +670,7 @@ class MessageControllerTest {
           any(),
           argThat(messagesByDeviceId -> messagesByDeviceId.size() == 3),
           any(),
+          eq(Optional.empty()),
           any());
     }
   }
@@ -665,7 +678,7 @@ class MessageControllerTest {
   @Test
   void testRegistrationIdMismatch() throws Exception {
     doThrow(new MismatchedDevicesException(new MismatchedDevices(Collections.emptySet(), Collections.emptySet(), Set.of((byte) 2))))
-        .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+        .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
     try (final Response response =
         resources.getJerseyTest().target(String.format("/v1/messages/%s", MULTI_DEVICE_UUID))
@@ -1090,7 +1103,7 @@ class MessageControllerTest {
 
   @Test
   void testValidateContentLength() throws MismatchedDevicesException, MessageTooLargeException, IOException {
-    doThrow(new MessageTooLargeException()).when(messageSender).sendMessages(any(), any(), any(), any(), any());
+    doThrow(new MessageTooLargeException()).when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
     try (final Response response =
         resources.getJerseyTest()
@@ -1119,10 +1132,10 @@ class MessageControllerTest {
 
       if (expectOk) {
         assertEquals(200, response.getStatus());
-        verify(messageSender).sendMessages(any(), any(), any(), any(), any());
+        verify(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
       } else {
         assertEquals(422, response.getStatus());
-        verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+        verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
       }
     }
   }

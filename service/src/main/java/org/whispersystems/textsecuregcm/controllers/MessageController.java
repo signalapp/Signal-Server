@@ -436,11 +436,16 @@ public class MessageController {
     final Map<Byte, Integer> registrationIdsByDeviceId = messages.messages().stream()
         .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, IncomingMessage::destinationRegistrationId));
 
+    final Optional<Byte> syncMessageSenderDeviceId = messageType == MessageType.SYNC
+        ? Optional.ofNullable(sender).map(authenticatedDevice -> authenticatedDevice.getAuthenticatedDevice().getId())
+        : Optional.empty();
+
     try {
       messageSender.sendMessages(destination,
           destinationIdentifier,
           messagesByDeviceId,
           registrationIdsByDeviceId,
+          syncMessageSenderDeviceId,
           userAgent);
     } catch (final MismatchedDevicesException e) {
       if (!e.getMismatchedDevices().staleDeviceIds().isEmpty()) {

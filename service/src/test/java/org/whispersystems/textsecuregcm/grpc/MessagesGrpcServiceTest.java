@@ -218,6 +218,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
           serviceIdentifier,
           Map.of(deviceId, expectedEnvelopeBuilder.build()),
           Map.of(deviceId, registrationId),
+          Optional.empty(),
           null);
     }
 
@@ -240,7 +241,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
 
       doThrow(new MismatchedDevicesException(new org.whispersystems.textsecuregcm.controllers.MismatchedDevices(
           Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of(staleDeviceId))))
-          .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+          .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
       final SendMessageResponse response = authenticatedServiceStub().sendMessage(
           generateRequest(serviceIdentifier, AuthenticatedSenderMessageType.DOUBLE_RATCHET, false, true, messages));
@@ -272,7 +273,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
           () -> authenticatedServiceStub().sendMessage(
               generateRequest(serviceIdentifier, AuthenticatedSenderMessageType.DOUBLE_RATCHET, false, true, messages)));
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -305,7 +306,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
           () -> authenticatedServiceStub().sendMessage(
               generateRequest(serviceIdentifier, AuthenticatedSenderMessageType.DOUBLE_RATCHET, false, true, messages)));
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
       verify(messageByteLimitEstimator).add(serviceIdentifier.uuid().toString());
     }
 
@@ -327,7 +328,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .build());
 
       doThrow(new MessageTooLargeException())
-          .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+          .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
       //noinspection ResultOfMethodCallIgnored
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
@@ -368,7 +369,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
           Optional.of(destinationAccount),
           serviceIdentifier);
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -407,7 +408,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
           Optional.of(destinationAccount),
           serviceIdentifier);
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
 
     private static SendAuthenticatedSenderMessageRequest generateRequest(final ServiceIdentifier serviceIdentifier,
@@ -515,6 +516,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
           expectedEnvelopes,
           Map.of(LINKED_DEVICE_ID, LINKED_DEVICE_REGISTRATION_ID,
               SECOND_LINKED_DEVICE_ID, SECOND_LINKED_DEVICE_REGISTRATION_ID),
+          Optional.of(AUTHENTICATED_DEVICE_ID),
           null);
     }
 
@@ -532,7 +534,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
 
       doThrow(new MismatchedDevicesException(new org.whispersystems.textsecuregcm.controllers.MismatchedDevices(
           Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of(staleDeviceId))))
-          .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+          .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
       final SendMessageResponse response = authenticatedServiceStub().sendSyncMessage(
           generateRequest(AuthenticatedSenderMessageType.DOUBLE_RATCHET, true, messages));
@@ -566,7 +568,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
           () -> authenticatedServiceStub().sendSyncMessage(
               generateRequest(AuthenticatedSenderMessageType.DOUBLE_RATCHET, true, messages)));
 
-      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any());
+      verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
       verify(messageByteLimitEstimator).add(AUTHENTICATED_ACI.toString());
     }
 
@@ -588,7 +590,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .build());
 
       doThrow(new MessageTooLargeException())
-          .when(messageSender).sendMessages(any(), any(), any(), any(), any());
+          .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
       //noinspection ResultOfMethodCallIgnored
       GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,

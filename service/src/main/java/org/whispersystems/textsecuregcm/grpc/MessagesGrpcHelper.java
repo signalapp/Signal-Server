@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import java.util.Map;
+import java.util.Optional;
 import org.signal.chat.messages.MismatchedDevices;
 import org.signal.chat.messages.SendMessageResponse;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
@@ -31,6 +32,8 @@ public class MessagesGrpcHelper {
    * @param destinationServiceIdentifier the service identifier for the destination account
    * @param messagesByDeviceId a map of device IDs to message payloads
    * @param registrationIdsByDeviceId a map of device IDs to device registration IDs
+   * @param syncMessageSenderDeviceId if the message is a sync message (i.e. a message to other devices linked to the
+   *                                  caller's own account), contains the ID of the device that sent the message
    *
    * @return a response object to send to callers
    *
@@ -42,13 +45,16 @@ public class MessagesGrpcHelper {
       final Account destination,
       final ServiceIdentifier destinationServiceIdentifier,
       final Map<Byte, MessageProtos.Envelope> messagesByDeviceId,
-      final Map<Byte, Integer> registrationIdsByDeviceId) throws StatusException, RateLimitExceededException {
+      final Map<Byte, Integer> registrationIdsByDeviceId,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId)
+      throws StatusException, RateLimitExceededException {
 
     try {
       messageSender.sendMessages(destination,
           destinationServiceIdentifier,
           messagesByDeviceId,
           registrationIdsByDeviceId,
+          syncMessageSenderDeviceId,
           RequestAttributesUtil.getRawUserAgent().orElse(null));
 
       return SEND_MESSAGE_SUCCESS_RESPONSE;

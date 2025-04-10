@@ -13,7 +13,6 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -21,6 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.util.Pair;
@@ -36,7 +36,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Util;
-import javax.annotation.Nullable;
 
 /**
  * A MessageSender sends Signal messages to destination devices. Messages may be "normal" user-to-user messages,
@@ -86,6 +85,8 @@ public class MessageSender {
    * @param destinationIdentifier the service identifier to which the messages are addressed
    * @param messagesByDeviceId a map of device IDs to message payloads
    * @param registrationIdsByDeviceId a map of device IDs to device registration IDs
+   * @param syncMessageSenderDeviceId if the message is a sync message (i.e. a message to other devices linked to the
+   *                                  caller's own account), contains the ID of the device that sent the message
    * @param userAgent the User-Agent string for the sender; may be {@code null} if not known
    *
    * @throws MismatchedDevicesException if the given bundle of messages did not include a message for all required
@@ -97,37 +98,54 @@ public class MessageSender {
       final ServiceIdentifier destinationIdentifier,
       final Map<Byte, Envelope> messagesByDeviceId,
       final Map<Byte, Integer> registrationIdsByDeviceId,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId,
       @Nullable final String userAgent) throws MismatchedDevicesException, MessageTooLargeException {
-
-    if (messagesByDeviceId.isEmpty()) {
-      // TODO Simply return and don't throw an exception when iOS clients no longer depend on this behavior
-      throw new MismatchedDevicesException(new MismatchedDevices(
-          destination.getDevices().stream().map(Device::getId).collect(Collectors.toSet()),
-          Collections.emptySet(),
-          Collections.emptySet()));
-    }
 
     if (!destination.isIdentifiedBy(destinationIdentifier)) {
       throw new IllegalArgumentException("Destination account not identified by destination service identifier");
     }
 
-    final Envelope firstMessage = messagesByDeviceId.values().iterator().next();
+    final boolean isSyncMessage;
+    final boolean isStory;
+    final byte excludedDeviceId;
 
-    final boolean isSyncMessage = StringUtils.isNotBlank(firstMessage.getSourceServiceId()) &&
-        destination.isIdentifiedBy(ServiceIdentifier.valueOf(firstMessage.getSourceServiceId()));
+    if (syncMessageSenderDeviceId.isPresent()) {
+      if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isBlank(message.getSourceServiceId()) ||
+          !destination.isIdentifiedBy(ServiceIdentifier.valueOf(message.getSourceServiceId())))) {
 
-    final boolean isStory = firstMessage.getStory();
+        throw new IllegalArgumentException("Sync message sender device ID specified, but one or more messages are not addressed to sender");
+      }
 
-    validateIndividualMessageContentLength(messagesByDeviceId.values(), isSyncMessage, isStory, userAgent);
+      isSyncMessage = true;
+      isStory = false;
+      excludedDeviceId = syncMessageSenderDeviceId.get();
+    } else {
+      if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isNotBlank(message.getSourceServiceId()) &&
+          destination.isIdentifiedBy(ServiceIdentifier.valueOf(message.getSourceServiceId())))) {
+
+        throw new IllegalArgumentException("Sync message sender device ID not specified, but one or more messages are addressed to sender");
+      }
+
+      isSyncMessage = false;
+      excludedDeviceId = NO_EXCLUDED_DEVICE_ID;
+
+      // It's technically possible that the caller tried to send a story with an empty message list, in which case we'd
+      // incorrectly set this to `false`, but the mismatched device check will throw an exception before that matters.
+      isStory = messagesByDeviceId.values().stream().findAny()
+          .map(Envelope::getStory)
+          .orElse(false);
+    }
 
     final Optional<MismatchedDevices> maybeMismatchedDevices = getMismatchedDevices(destination,
         destinationIdentifier,
         registrationIdsByDeviceId,
-        isSyncMessage ? (byte) firstMessage.getSourceDevice() : NO_EXCLUDED_DEVICE_ID);
+        excludedDeviceId);
 
     if (maybeMismatchedDevices.isPresent()) {
       throw new MismatchedDevicesException(maybeMismatchedDevices.get());
     }
+
+    validateIndividualMessageContentLength(messagesByDeviceId.values(), isSyncMessage, isStory, userAgent);
 
     messagesManager.insert(destination.getIdentifier(IdentityType.ACI), messagesByDeviceId)
         .forEach((deviceId, destinationPresent) -> {
