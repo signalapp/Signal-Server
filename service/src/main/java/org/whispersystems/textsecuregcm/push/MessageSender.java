@@ -105,19 +105,13 @@ public class MessageSender {
       throw new IllegalArgumentException("Destination account not identified by destination service identifier");
     }
 
-    final boolean isSyncMessage;
-    final boolean isStory;
     final byte excludedDeviceId;
-
     if (syncMessageSenderDeviceId.isPresent()) {
       if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isBlank(message.getSourceServiceId()) ||
           !destination.isIdentifiedBy(ServiceIdentifier.valueOf(message.getSourceServiceId())))) {
 
         throw new IllegalArgumentException("Sync message sender device ID specified, but one or more messages are not addressed to sender");
       }
-
-      isSyncMessage = true;
-      isStory = false;
       excludedDeviceId = syncMessageSenderDeviceId.get();
     } else {
       if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isNotBlank(message.getSourceServiceId()) &&
@@ -125,15 +119,7 @@ public class MessageSender {
 
         throw new IllegalArgumentException("Sync message sender device ID not specified, but one or more messages are addressed to sender");
       }
-
-      isSyncMessage = false;
       excludedDeviceId = NO_EXCLUDED_DEVICE_ID;
-
-      // It's technically possible that the caller tried to send a story with an empty message list, in which case we'd
-      // incorrectly set this to `false`, but the mismatched device check will throw an exception before that matters.
-      isStory = messagesByDeviceId.values().stream().findAny()
-          .map(Envelope::getStory)
-          .orElse(false);
     }
 
     final Optional<MismatchedDevices> maybeMismatchedDevices = getMismatchedDevices(destination,
@@ -145,7 +131,7 @@ public class MessageSender {
       throw new MismatchedDevicesException(maybeMismatchedDevices.get());
     }
 
-    validateIndividualMessageContentLength(messagesByDeviceId.values(), isSyncMessage, isStory, userAgent);
+    validateIndividualMessageContentLength(messagesByDeviceId.values(), syncMessageSenderDeviceId.isPresent(), userAgent);
 
     messagesManager.insert(destination.getIdentifier(IdentityType.ACI), messagesByDeviceId)
         .forEach((deviceId, destinationPresent) -> {
@@ -331,14 +317,13 @@ public class MessageSender {
 
   private static void validateIndividualMessageContentLength(final Iterable<Envelope> messages,
       final boolean isSyncMessage,
-      final boolean isStory,
       @Nullable final String userAgent) throws MessageTooLargeException {
 
     for (final Envelope message : messages) {
       MessageSender.validateContentLength(message.getContent().size(),
           false,
           isSyncMessage,
-          isStory,
+          message.getStory(),
           userAgent);
     }
   }
