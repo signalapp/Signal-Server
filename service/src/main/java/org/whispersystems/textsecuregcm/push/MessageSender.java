@@ -13,6 +13,7 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -99,7 +100,11 @@ public class MessageSender {
       @Nullable final String userAgent) throws MismatchedDevicesException, MessageTooLargeException {
 
     if (messagesByDeviceId.isEmpty()) {
-      return;
+      // TODO Simply return and don't throw an exception when iOS clients no longer depend on this behavior
+      throw new MismatchedDevicesException(new MismatchedDevices(
+          destination.getDevices().stream().map(Device::getId).collect(Collectors.toSet()),
+          Collections.emptySet(),
+          Collections.emptySet()));
     }
 
     if (!destination.isIdentifiedBy(destinationIdentifier)) {

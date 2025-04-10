@@ -344,4 +344,19 @@ class MessageSenderTest {
             Optional.of(new MismatchedDevices(Set.of(primaryDeviceId), Set.of(extraDeviceId), Set.of(linkedDeviceId))))
     );
   }
+
+  @Test
+  void sendMessageEmptyMessageList() {
+    final Device device = mock(Device.class);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
+
+    final Account account = mock(Account.class);
+    when(account.getDevices()).thenReturn(List.of(device));
+
+    assertThrows(MismatchedDevicesException.class, () -> messageSender.sendMessages(account,
+        new AciServiceIdentifier(UUID.randomUUID()),
+        Collections.emptyMap(),
+        Collections.emptyMap(),
+        null));
+  }
 }
