@@ -204,11 +204,12 @@ public class ProfileController {
           .build()));
     }
 
-    final List<AccountBadge> updatedBadges = request.badges()
-        .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges, auth.getAccount().getBadges()))
-        .orElseGet(() -> auth.getAccount().getBadges());
-
     accountsManager.update(auth.getAccount(), a -> {
+
+      final List<AccountBadge> updatedBadges = request.badges()
+          .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges, a.getBadges()))
+          .orElseGet(a::getBadges);
+
       a.setBadges(clock, updatedBadges);
       a.setCurrentProfileVersion(request.version());
     });

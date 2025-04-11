@@ -145,11 +145,13 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
                   request.getCommitment().toByteArray())));
 
           final List<Mono<?>> updates = new ArrayList<>(2);
-          final List<AccountBadge> updatedBadges = Optional.of(request.getBadgeIdsList())
-              .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges, account.getBadges()))
-              .orElseGet(account::getBadges);
 
           updates.add(Mono.fromFuture(() -> accountsManager.updateAsync(account, a -> {
+
+            final List<AccountBadge> updatedBadges = Optional.of(request.getBadgeIdsList())
+                .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges, a.getBadges()))
+                .orElseGet(a::getBadges);
+
             a.setBadges(clock, updatedBadges);
             a.setCurrentProfileVersion(request.getVersion());
           })));

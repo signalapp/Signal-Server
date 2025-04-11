@@ -19,7 +19,6 @@ import static org.whispersystems.textsecuregcm.tests.util.DevicesHelper.createDe
 import com.fasterxml.jackson.annotation.JsonFilter;
 import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -187,7 +186,7 @@ class AccountTest {
   @Test
   void addAndRemoveBadges() {
     final Account account = AccountsHelper.generateTestAccount("+14151234567", UUID.randomUUID(), UUID.randomUUID(), List.of(createDevice(Device.PRIMARY_ID)), new byte[0]);
-    final Clock clock = TestClock.pinned(Instant.ofEpochSecond(40));
+    final TestClock clock = TestClock.pinned(Instant.ofEpochSecond(40));
 
     account.addBadge(clock, new AccountBadge("foo", Instant.ofEpochSecond(42), false));
     account.addBadge(clock, new AccountBadge("bar", Instant.ofEpochSecond(44), true));
@@ -212,6 +211,17 @@ class AccountTest {
     assertThat(account.getBadges()).hasSize(2).element(0).satisfies(badge -> {
       assertThat(badge.id()).isEqualTo("foo");
       assertThat(badge.expiration().getEpochSecond()).isEqualTo(51);
+      assertThat(badge.visible()).isTrue();
+    });
+
+    clock.pin(Instant.ofEpochSecond(52));
+
+    // for a merged badge, visible = true is preferred
+    account.addBadge(clock, new AccountBadge("foo", Instant.ofEpochSecond(53), false));
+
+    assertThat(account.getBadges()).hasSize(1).element(0).satisfies(badge -> {
+      assertThat(badge.id()).isEqualTo("foo");
+      assertThat(badge.expiration().getEpochSecond()).isEqualTo(53);
       assertThat(badge.visible()).isTrue();
     });
   }

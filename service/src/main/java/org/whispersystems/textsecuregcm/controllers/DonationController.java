@@ -97,21 +97,22 @@ public class DonationController {
       return redeemedReceiptsManager.put(
               receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.getAccount().getUuid())
           .thenCompose(receiptMatched -> {
-        if (!receiptMatched) {
-          return CompletableFuture.completedFuture(
-              Response.status(Status.BAD_REQUEST).entity("receipt serial is already redeemed")
-                  .type(MediaType.TEXT_PLAIN_TYPE).build());
-        }
+            if (!receiptMatched) {
 
-        return accountsManager.getByAccountIdentifierAsync(auth.getAccount().getUuid())
-            .thenCompose(optionalAccount ->
-                optionalAccount.map(account -> accountsManager.updateAsync(account, a -> {
-                  a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
-                  if (request.isPrimary()) {
-                    a.makeBadgePrimaryIfExists(clock, badgeId);
-                  }
-                })).orElse(CompletableFuture.completedFuture(null)))
-            .thenApply(ignored -> Response.ok().build());
+              return CompletableFuture.completedFuture(
+                  Response.status(Status.BAD_REQUEST).entity("receipt serial is already redeemed")
+                      .type(MediaType.TEXT_PLAIN_TYPE).build());
+            }
+
+            return accountsManager.getByAccountIdentifierAsync(auth.getAccount().getUuid())
+                .thenCompose(optionalAccount ->
+                    optionalAccount.map(account -> accountsManager.updateAsync(account, a -> {
+                      a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
+                      if (request.isPrimary()) {
+                        a.makeBadgePrimaryIfExists(clock, badgeId);
+                      }
+                    })).orElse(CompletableFuture.completedFuture(null)))
+                .thenApply(ignored -> Response.ok().build());
       });
     }).thenCompose(Function.identity());
   }
