@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.grpc.ChannelNotFoundException;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
+import org.whispersystems.textsecuregcm.util.ClosableEpoch;
 
 /**
  * A client connection manager associates a local connection to a local gRPC server with a remote connection through a
@@ -57,6 +58,10 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
   @VisibleForTesting
   public static final AttributeKey<RequestAttributes> REQUEST_ATTRIBUTES_KEY =
       AttributeKey.valueOf(GrpcClientConnectionManager.class, "requestAttributes");
+
+  @VisibleForTesting
+  static final AttributeKey<ClosableEpoch> EPOCH_ATTRIBUTE_KEY =
+      AttributeKey.valueOf(GrpcClientConnectionManager.class, "epoch");
 
   private static final Logger log = LoggerFactory.getLogger(GrpcClientConnectionManager.class);
 
@@ -108,6 +113,39 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
   }
 
   /**
+   * Handles the start of a server call, incrementing the active call count for the remote channel associated with the
+   * given server call.
+   *
+   * @param serverCall the server call to start
+   *
+   * @return {@code true} if the call should start normally or {@code false} if the call should be aborted because the
+   * underlying channel is closing
+   */
+  public boolean handleServerCallStart(final ServerCall<?, ?> serverCall) {
+    try {
+      return getRemoteChannel(serverCall).attr(EPOCH_ATTRIBUTE_KEY).get().tryArrive();
+    } catch (final ChannelNotFoundException e) {
+      // This would only happen if the channel had already closed, which is certainly possible. In this case, the call
+      // should certainly not proceed.
+      return false;
+    }
+  }
+
+  /**
+   * Handles completion (successful or not) of a server call, decrementing the active call count for the remote channel
+   * associated with the given server call.
+   *
+   * @param serverCall the server call to complete
+   */
+  public void handleServerCallComplete(final ServerCall<?, ?> serverCall) {
+    try {
+      getRemoteChannel(serverCall).attr(EPOCH_ATTRIBUTE_KEY).get().depart();
+    } catch (final ChannelNotFoundException ignored) {
+      // In practice, we'd only get here if the channel has already closed, so we can just ignore the exception
+    }
+  }
+
+  /**
    * Closes any client connections to this host associated with the given authenticated device.
    *
    * @param authenticatedDevice the authenticated device for which to close connections
@@ -119,10 +157,13 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
     final List<Channel> channelsToClose =
         new ArrayList<>(remoteChannelsByAuthenticatedDevice.getOrDefault(authenticatedDevice, Collections.emptyList()));
 
-    channelsToClose.forEach(channel ->
-        channel.writeAndFlush(new CloseWebSocketFrame(ApplicationWebSocketCloseReason.REAUTHENTICATION_REQUIRED
-                .toWebSocketCloseStatus("Reauthentication required")))
-            .addListener(ChannelFutureListener.CLOSE_ON_FAILURE));
+    channelsToClose.forEach(channel -> channel.attr(EPOCH_ATTRIBUTE_KEY).get().close());
+  }
+
+  private static void closeRemoteChannel(final Channel channel) {
+    channel.writeAndFlush(new CloseWebSocketFrame(ApplicationWebSocketCloseReason.REAUTHENTICATION_REQUIRED
+            .toWebSocketCloseStatus("Reauthentication required")))
+        .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
   }
 
   @VisibleForTesting
@@ -199,6 +240,9 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
 
     maybeAuthenticatedDevice.ifPresent(authenticatedDevice ->
         remoteChannel.attr(GrpcClientConnectionManager.AUTHENTICATED_DEVICE_ATTRIBUTE_KEY).set(authenticatedDevice));
+
+    remoteChannel.attr(EPOCH_ATTRIBUTE_KEY)
+        .set(new ClosableEpoch(() -> closeRemoteChannel(remoteChannel)));
 
     remoteChannelsByLocalAddress.put(localChannel.localAddress(), remoteChannel);
 

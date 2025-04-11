@@ -13,6 +13,7 @@ package org.signal.chat.rpc;
 service EchoService {
   rpc echo (EchoRequest) returns (EchoResponse) {}
   rpc echo2 (EchoRequest) returns (EchoResponse) {}
+  rpc echoStream (stream EchoRequest) returns (stream EchoResponse) {}
 }
 
 message EchoRequest {
