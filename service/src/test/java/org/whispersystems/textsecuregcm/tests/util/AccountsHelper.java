@@ -31,8 +31,8 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class AccountsHelper {
@@ -62,6 +62,71 @@ public class AccountsHelper {
     setupMockUpdate(mockAccountsManager, false);
   }
 
+  /**
+   * Sets up stubbing for:
+   * <ul>
+   *    <li>{@link AccountsManager#update(Account, Consumer)}</li>
+   *    <li>{@link AccountsManager#updateAsync(Account, Consumer)}</li>
+   *    <li>{@link AccountsManager#updateDevice(Account, byte, Consumer)}</li>
+   *    <li>{@link AccountsManager#updateDeviceAsync(Account, byte, Consumer)}</li>
+   * </ul>
+   *
+   * with multiple calls to the {@link Consumer<Account>}. This simulates retries from {@link org.whispersystems.textsecuregcm.storage.ContestedOptimisticLockException}.
+   * Callers will typically set up stubbing for relevant {@link Account} methods with multiple {@link org.mockito.stubbing.OngoingStubbing#thenReturn(Object)}
+   * calls:
+   * <pre>
+   *   // example stubbing
+   *   when(account.getNextDeviceId())
+   *     .thenReturn(2)
+   *     .thenReturn(3);
+   * </pre>
+   */
+  @SuppressWarnings("unchecked")
+  public static void setupMockUpdateWithRetries(final AccountsManager mockAccountsManager, final int retryCount) {
+    when(mockAccountsManager.update(any(), any())).thenAnswer(answer -> {
+      final Account account = answer.getArgument(0, Account.class);
+
+      for (int i = 0; i < retryCount; i++) {
+        answer.getArgument(1, Consumer.class).accept(account);
+      }
+
+      return copyAndMarkStale(account);
+    });
+
+    when(mockAccountsManager.updateAsync(any(), any())).thenAnswer(answer -> {
+      final Account account = answer.getArgument(0, Account.class);
+
+      for (int i = 0; i < retryCount; i++) {
+        answer.getArgument(1, Consumer.class).accept(account);
+      }
+
+      return CompletableFuture.completedFuture(copyAndMarkStale(account));
+    });
+
+    when(mockAccountsManager.updateDevice(any(), anyByte(), any())).thenAnswer(answer -> {
+      final Account account = answer.getArgument(0, Account.class);
+      final byte deviceId = answer.getArgument(1, Byte.class);
+
+      for (int i = 0; i < retryCount; i++) {
+        account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
+      }
+
+      return copyAndMarkStale(account);
+    });
+
+    when(mockAccountsManager.updateDeviceAsync(any(), anyByte(), any())).thenAnswer(answer -> {
+      final Account account = answer.getArgument(0, Account.class);
+      final byte deviceId = answer.getArgument(1, Byte.class);
+
+      for (int i = 0; i < retryCount; i++) {
+        account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
+      }
+
+      return CompletableFuture.completedFuture(copyAndMarkStale(account));
+    });
+  }
+
+  @SuppressWarnings("unchecked")
   private static void setupMockUpdate(final AccountsManager mockAccountsManager, final boolean markStale) {
     when(mockAccountsManager.update(any(), any())).thenAnswer(answer -> {
       final Account account = answer.getArgument(0, Account.class);

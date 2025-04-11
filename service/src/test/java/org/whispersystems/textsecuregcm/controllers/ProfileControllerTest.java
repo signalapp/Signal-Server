@@ -1140,6 +1140,58 @@ class ProfileControllerTest {
           new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), false),
           new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), false));
     }
+
+  }
+
+  @Test
+  void testSetProfileBadgeAfterUpdateTries() throws Exception {
+    final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(
+        new ServiceId.Aci(AuthHelper.VALID_UUID));
+
+    final byte[] name = TestRandomUtil.nextBytes(81);
+    final byte[] emoji = TestRandomUtil.nextBytes(60);
+    final byte[] about = TestRandomUtil.nextBytes(156);
+    final String version = versionHex("anotherversion");
+
+    clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
+    reset(accountsManager);
+    final int accountsManagerUpdateRetryCount = 2;
+    AccountsHelper.setupMockUpdateWithRetries(accountsManager, accountsManagerUpdateRetryCount);
+    // set up two invocations -- one for each AccountsManager#update try
+    when(AuthHelper.VALID_ACCOUNT_TWO.getBadges())
+        .thenReturn(List.of(
+            new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), true),
+            new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), true)
+        ))
+        .thenReturn(List.of(
+            new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), true),
+            new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), true),
+            new AccountBadge("TEST4", Instant.ofEpochSecond(43 + 86400), true)
+        ));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/profile/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .put(Entity.entity(new CreateProfileRequest(commitment, version, name, emoji, about, null, false, false,
+            Optional.of(List.of("TEST1")), null), MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.hasEntity()).isFalse();
+
+      //noinspection unchecked
+      final ArgumentCaptor<List<AccountBadge>> badgeCaptor = ArgumentCaptor.forClass(List.class);
+      verify(AuthHelper.VALID_ACCOUNT_TWO, times(accountsManagerUpdateRetryCount)).setBadges(refEq(clock), badgeCaptor.capture());
+      // since the stubbing of getBadges() is brittle, we need to verify the number of invocations, to protect against upstream changes
+      verify(AuthHelper.VALID_ACCOUNT_TWO, times(accountsManagerUpdateRetryCount)).getBadges();
+
+      final List<AccountBadge> badges = badgeCaptor.getValue();
+      assertThat(badges).isNotNull().hasSize(4).containsOnly(
+          new AccountBadge("TEST1", Instant.ofEpochSecond(42 + 86400), true),
+          new AccountBadge("TEST2", Instant.ofEpochSecond(42 + 86400), false),
+          new AccountBadge("TEST3", Instant.ofEpochSecond(42 + 86400), false),
+          new AccountBadge("TEST4", Instant.ofEpochSecond(43 + 86400), false));
+    }
   }
 
   @ParameterizedTest

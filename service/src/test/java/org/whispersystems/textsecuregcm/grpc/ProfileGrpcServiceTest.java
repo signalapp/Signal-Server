@@ -15,7 +15,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -30,6 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
@@ -93,11 +96,13 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
@@ -143,6 +148,8 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
   @Mock
   private ServerZkProfileOperations serverZkProfileOperations;
+
+  private Clock clock;
 
   @Override
   protected ProfileGrpcService createServiceBeforeEachTest() {
@@ -203,8 +210,10 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     when(asyncS3client.deleteObject(any(DeleteObjectRequest.class))).thenReturn(CompletableFuture.completedFuture(null));
 
+    clock = Clock.fixed(Instant.ofEpochSecond(42), ZoneId.of("Etc/UTC"));
+
     return new ProfileGrpcService(
-        Clock.systemUTC(),
+        clock,
         accountsManager,
         profilesManager,
         dynamicConfigurationManager,
@@ -390,6 +399,42 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     } else {
       assertStatusException(Status.PERMISSION_DENIED, () -> authenticatedServiceStub().setProfile(request));
     }
+  }
+
+  @Test
+  void setProfileBadges() throws InvalidInputException {
+
+    final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AUTHENTICATED_ACI)).serialize();
+
+    final SetProfileRequest request = SetProfileRequest.newBuilder()
+        .setVersion(VERSION)
+        .setName(ByteString.copyFrom(VALID_NAME))
+        .setAvatarChange(AvatarChange.AVATAR_CHANGE_UNCHANGED)
+        .addAllBadgeIds(List.of("TEST3"))
+        .setCommitment(ByteString.copyFrom(commitment))
+        .build();
+
+    final int accountsManagerUpdateRetryCount = 2;
+    AccountsHelper.setupMockUpdateWithRetries(accountsManager, accountsManagerUpdateRetryCount);
+    // set up two invocations -- one for each AccountsManager#update try
+    when(account.getBadges())
+        .thenReturn(List.of(new AccountBadge("TEST3", Instant.ofEpochSecond(41), false)))
+        .thenReturn(List.of(new AccountBadge("TEST2", Instant.ofEpochSecond(41), true),
+            new AccountBadge("TEST3", Instant.ofEpochSecond(41), false)));
+
+    //noinspection ResultOfMethodCallIgnored
+    authenticatedServiceStub().setProfile(request);
+
+    //noinspection unchecked
+    final ArgumentCaptor<List<AccountBadge>> badgeCaptor = ArgumentCaptor.forClass(List.class);
+    verify(account, times(2)).setBadges(refEq(clock), badgeCaptor.capture());
+    // since the stubbing of getBadges() is brittle, we need to verify the number of invocations, to protect against upstream changes
+    verify(account, times(accountsManagerUpdateRetryCount)).getBadges();
+
+    assertEquals(List.of(
+        new AccountBadge("TEST3", Instant.ofEpochSecond(41), true),
+        new AccountBadge("TEST2", Instant.ofEpochSecond(41), false)),
+        badgeCaptor.getValue());
   }
 
   @ParameterizedTest
