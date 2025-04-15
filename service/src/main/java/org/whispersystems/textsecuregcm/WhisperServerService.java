@@ -693,7 +693,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager,
         pushChallengeDynamoDb);
 
-    ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager);
+    ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager, Clock.systemUTC());
 
     HttpClient currencyClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
     FixerClient fixerClient = config.getPaymentsServiceConfiguration().externalClients()

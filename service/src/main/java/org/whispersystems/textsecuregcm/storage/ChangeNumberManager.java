@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.protobuf.ByteString;
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,12 +30,16 @@ public class ChangeNumberManager {
   private static final Logger logger = LoggerFactory.getLogger(ChangeNumberManager.class);
   private final MessageSender messageSender;
   private final AccountsManager accountsManager;
+  private final Clock clock;
 
   public ChangeNumberManager(
       final MessageSender messageSender,
-      final AccountsManager accountsManager) {
+      final AccountsManager accountsManager,
+      final Clock clock) {
+
     this.messageSender = messageSender;
     this.accountsManager = accountsManager;
+    this.clock = clock;
   }
 
   public Account changeNumber(final Account account, final String number,
@@ -97,7 +102,7 @@ public class ChangeNumberManager {
       final String senderUserAgent) throws MessageTooLargeException, MismatchedDevicesException {
 
     try {
-      final long serverTimestamp = System.currentTimeMillis();
+      final long serverTimestamp = clock.millis();
       final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(account.getUuid());
 
       final Map<Byte, Envelope> messagesByDeviceId = deviceMessages.stream()
@@ -114,8 +119,8 @@ public class ChangeNumberManager {
               .setEphemeral(false)
               .build()));
 
-      final Map<Byte, Integer> registrationIdsByDeviceId = account.getDevices().stream()
-          .collect(Collectors.toMap(Device::getId, Device::getRegistrationId));
+      final Map<Byte, Integer> registrationIdsByDeviceId = deviceMessages.stream()
+          .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, IncomingMessage::destinationRegistrationId));
 
       messageSender.sendMessages(account,
           serviceIdentifier,
