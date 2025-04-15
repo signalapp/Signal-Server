@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.util.ua;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.vdurmont.semver4j.Semver;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,26 +20,15 @@ public class UserAgentUtil {
     }
 
     try {
-      final UserAgent standardUserAgent = parseStandardUserAgentString(userAgentString);
+      final Matcher matcher = STANDARD_UA_PATTERN.matcher(userAgentString);
 
-      if (standardUserAgent != null) {
-        return standardUserAgent;
+      if (matcher.matches()) {
+        return new UserAgent(ClientPlatform.valueOf(matcher.group(1).toUpperCase()), new Semver(matcher.group(2)), StringUtils.stripToNull(matcher.group(4)));
       }
     } catch (final Exception e) {
       throw new UnrecognizedUserAgentException(e);
     }
 
     throw new UnrecognizedUserAgentException();
-  }
-
-  @VisibleForTesting
-  static UserAgent parseStandardUserAgentString(final String userAgentString) {
-    final Matcher matcher = STANDARD_UA_PATTERN.matcher(userAgentString);
-
-    if (matcher.matches()) {
-      return new UserAgent(ClientPlatform.valueOf(matcher.group(1).toUpperCase()), new Semver(matcher.group(2)), StringUtils.stripToNull(matcher.group(4)));
-    }
-
-    return null;
   }
 }

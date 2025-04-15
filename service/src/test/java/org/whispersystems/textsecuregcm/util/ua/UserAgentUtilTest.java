@@ -13,28 +13,20 @@ import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import javax.annotation.Nullable;
 
 class UserAgentUtilTest {
 
   @ParameterizedTest
-  @MethodSource
-  void testParseBogusUserAgentString(final String userAgentString) {
-    assertThrows(UnrecognizedUserAgentException.class, () -> UserAgentUtil.parseUserAgentString(userAgentString));
-  }
-
-  @SuppressWarnings("unused")
-  private static Stream<String> testParseBogusUserAgentString() {
-    return Stream.of(
-        null,
-        "This is obviously not a reasonable User-Agent string.",
-        "Signal-Android/4.6-8.3.unreasonableversionstring-17"
-    );
-  }
-
-  @ParameterizedTest
   @MethodSource("argumentsForTestParseStandardUserAgentString")
-  void testParseStandardUserAgentString(final String userAgentString, final UserAgent expectedUserAgent) {
-    assertEquals(expectedUserAgent, UserAgentUtil.parseStandardUserAgentString(userAgentString));
+  void testParseStandardUserAgentString(final String userAgentString, @Nullable final UserAgent expectedUserAgent)
+      throws UnrecognizedUserAgentException {
+
+    if (expectedUserAgent != null) {
+      assertEquals(expectedUserAgent, UserAgentUtil.parseUserAgentString(userAgentString));
+    } else {
+      assertThrows(UnrecognizedUserAgentException.class, () -> UserAgentUtil.parseUserAgentString(userAgentString));
+    }
   }
 
   private static Stream<Arguments> argumentsForTestParseStandardUserAgentString() {
