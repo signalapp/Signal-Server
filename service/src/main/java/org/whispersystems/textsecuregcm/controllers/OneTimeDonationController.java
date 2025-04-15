@@ -428,7 +428,7 @@ public class OneTimeDonationController {
   @Nullable
   private static ClientPlatform getClientPlatform(@Nullable final String userAgentString) {
     try {
-      return UserAgentUtil.parseUserAgentString(userAgentString).getPlatform();
+      return UserAgentUtil.parseUserAgentString(userAgentString).platform();
     } catch (final UnrecognizedUserAgentException e) {
       return null;
     }

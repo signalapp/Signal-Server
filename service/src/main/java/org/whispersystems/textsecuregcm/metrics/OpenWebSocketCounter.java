@@ -67,7 +67,7 @@ public class OpenWebSocketCounter {
 
       try {
         final ClientPlatform clientPlatform =
-            UserAgentUtil.parseUserAgentString(context.getClient().getUserAgent()).getPlatform();
+            UserAgentUtil.parseUserAgentString(context.getClient().getUserAgent()).platform();
 
         calculatedOpenWebSocketCounter = openWebsocketsByClientPlatform.get(clientPlatform);
         calculatedDurationTimer = durationTimersByClientPlatform.get(clientPlatform);

@@ -402,7 +402,7 @@ public class DeviceController {
 
   private AtomicInteger getCounterForLinkedDeviceListeners(final String userAgent) {
     try {
-      return linkedDeviceListenersByPlatform.get(UserAgentUtil.parseUserAgentString(userAgent).getPlatform());
+      return linkedDeviceListenersByPlatform.get(UserAgentUtil.parseUserAgentString(userAgent).platform());
     } catch (final UnrecognizedUserAgentException ignored) {
       return linkedDeviceListenersForUnrecognizedPlatforms;
     }

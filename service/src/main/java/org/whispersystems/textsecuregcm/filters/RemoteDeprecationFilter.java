@@ -108,28 +108,28 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
       return true;
     }
 
-    if (blockedVersionsByPlatform.containsKey(userAgent.getPlatform())) {
-      if (blockedVersionsByPlatform.get(userAgent.getPlatform()).contains(userAgent.getVersion())) {
+    if (blockedVersionsByPlatform.containsKey(userAgent.platform())) {
+      if (blockedVersionsByPlatform.get(userAgent.platform()).contains(userAgent.version())) {
         recordDeprecation(userAgent, BLOCKED_CLIENT_REASON);
         shouldBlock = true;
       }
     }
 
-    if (minimumVersionsByPlatform.containsKey(userAgent.getPlatform())) {
-      if (userAgent.getVersion().isLowerThan(minimumVersionsByPlatform.get(userAgent.getPlatform()))) {
+    if (minimumVersionsByPlatform.containsKey(userAgent.platform())) {
+      if (userAgent.version().isLowerThan(minimumVersionsByPlatform.get(userAgent.platform()))) {
         recordDeprecation(userAgent, EXPIRED_CLIENT_REASON);
         shouldBlock = true;
       }
     }
 
-    if (versionsPendingBlockByPlatform.containsKey(userAgent.getPlatform())) {
-      if (versionsPendingBlockByPlatform.get(userAgent.getPlatform()).contains(userAgent.getVersion())) {
+    if (versionsPendingBlockByPlatform.containsKey(userAgent.platform())) {
+      if (versionsPendingBlockByPlatform.get(userAgent.platform()).contains(userAgent.version())) {
         recordPendingDeprecation(userAgent, BLOCKED_CLIENT_REASON);
       }
     }
 
-    if (versionsPendingDeprecationByPlatform.containsKey(userAgent.getPlatform())) {
-      if (userAgent.getVersion().isLowerThan(versionsPendingDeprecationByPlatform.get(userAgent.getPlatform()))) {
+    if (versionsPendingDeprecationByPlatform.containsKey(userAgent.platform())) {
+      if (userAgent.version().isLowerThan(versionsPendingDeprecationByPlatform.get(userAgent.platform()))) {
         recordPendingDeprecation(userAgent, EXPIRED_CLIENT_REASON);
       }
     }
@@ -139,13 +139,13 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
 
   private void recordDeprecation(final UserAgent userAgent, final String reason) {
     Metrics.counter(DEPRECATED_CLIENT_COUNTER_NAME,
-        PLATFORM_TAG, userAgent != null ? userAgent.getPlatform().name().toLowerCase() : "unrecognized",
+        PLATFORM_TAG, userAgent != null ? userAgent.platform().name().toLowerCase() : "unrecognized",
         REASON_TAG_NAME, reason).increment();
   }
 
   private void recordPendingDeprecation(final UserAgent userAgent, final String reason) {
     Metrics.counter(PENDING_DEPRECATION_COUNTER_NAME,
-        PLATFORM_TAG, userAgent.getPlatform().name().toLowerCase(),
+        PLATFORM_TAG, userAgent.platform().name().toLowerCase(),
         REASON_TAG_NAME, reason).increment();
   }
 }

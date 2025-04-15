@@ -9,6 +9,7 @@ import io.micrometer.core.instrument.Tag;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -48,15 +49,15 @@ public class UserAgentTagUtil {
   }
 
   public static Tag getPlatformTag(@Nullable final UserAgent userAgent) {
-    return Tag.of(PLATFORM_TAG, userAgent != null ? userAgent.getPlatform().name().toLowerCase() : "unrecognized");
+    return Tag.of(PLATFORM_TAG, userAgent != null ? userAgent.platform().name().toLowerCase() : "unrecognized");
   }
 
   public static Optional<Tag> getClientVersionTag(final String userAgentString, final ClientReleaseManager clientReleaseManager) {
     try {
       final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
 
-      if (clientReleaseManager.isVersionActive(userAgent.getPlatform(), userAgent.getVersion())) {
-        return Optional.of(Tag.of(VERSION_TAG, userAgent.getVersion().toString()));
+      if (clientReleaseManager.isVersionActive(userAgent.platform(), userAgent.version())) {
+        return Optional.of(Tag.of(VERSION_TAG, userAgent.version().toString()));
       }
     } catch (final UnrecognizedUserAgentException ignored) {
     }
@@ -70,10 +71,8 @@ public class UserAgentTagUtil {
 
     try {
       final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
-      platform = userAgent.getPlatform().name().toLowerCase();
-      libsignal = userAgent.getAdditionalSpecifiers()
-          .map(additionalSpecifiers -> additionalSpecifiers.contains("libsignal"))
-          .orElse(false);
+      platform = userAgent.platform().name().toLowerCase();
+      libsignal = StringUtils.contains(userAgent.additionalSpecifiers(), "libsignal");
     } catch (final UnrecognizedUserAgentException e) {
       platform = "unrecognized";
       libsignal = false;

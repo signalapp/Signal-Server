@@ -15,8 +15,6 @@ import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.SecurityContext;
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -70,8 +68,8 @@ public class RestDeprecationFilter implements ContainerRequestFilter {
 
     try {
       final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
-      final ClientPlatform platform = userAgent.getPlatform();
-      final Semver version = userAgent.getVersion();
+      final ClientPlatform platform = userAgent.platform();
+      final Semver version = userAgent.version();
       if (!minimumRestFreeVersion.containsKey(platform)) {
         return;
       }

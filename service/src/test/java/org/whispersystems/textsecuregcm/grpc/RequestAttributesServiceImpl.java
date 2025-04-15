@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import io.grpc.stub.StreamObserver;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.chat.rpc.GetAuthenticatedDeviceRequest;
 import org.signal.chat.rpc.GetAuthenticatedDeviceResponse;
 import org.signal.chat.rpc.GetRequestAttributesRequest;
@@ -28,9 +29,9 @@ public class RequestAttributesServiceImpl extends RequestAttributesGrpc.RequestA
     responseBuilder.setRemoteAddress(RequestAttributesUtil.getRemoteAddress().getHostAddress());
 
     RequestAttributesUtil.getUserAgent().ifPresent(userAgent -> responseBuilder.setUserAgent(UserAgent.newBuilder()
-            .setPlatform(userAgent.getPlatform().toString())
-            .setVersion(userAgent.getVersion().toString())
-            .setAdditionalSpecifiers(userAgent.getAdditionalSpecifiers().orElse(""))
+            .setPlatform(userAgent.platform().toString())
+            .setVersion(userAgent.version().toString())
+            .setAdditionalSpecifiers(StringUtils.stripToEmpty(userAgent.additionalSpecifiers()))
         .build()));
 
     RequestAttributesUtil.getRawUserAgent().ifPresent(responseBuilder::setRawUserAgent);

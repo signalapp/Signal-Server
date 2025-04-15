@@ -46,7 +46,7 @@ public class LoggingUnhandledExceptionMapper extends LoggingExceptionMapper<Thro
 
       // streamline the user-agent if it is recognized
       final UserAgent ua = UserAgentUtil.parseUserAgentString(userAgent);
-      userAgent = String.format("%s %s", ua.getPlatform(), ua.getVersion());
+      userAgent = String.format("%s %s", ua.platform(), ua.version());
     } catch (final UnrecognizedUserAgentException ignored) {
 
     } catch (final Exception e) {
