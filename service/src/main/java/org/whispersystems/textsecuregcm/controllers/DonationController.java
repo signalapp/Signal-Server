@@ -104,14 +104,12 @@ public class DonationController {
                       .type(MediaType.TEXT_PLAIN_TYPE).build());
             }
 
-            return accountsManager.getByAccountIdentifierAsync(auth.getAccount().getUuid())
-                .thenCompose(optionalAccount ->
-                    optionalAccount.map(account -> accountsManager.updateAsync(account, a -> {
-                      a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
-                      if (request.isPrimary()) {
-                        a.makeBadgePrimaryIfExists(clock, badgeId);
-                      }
-                    })).orElse(CompletableFuture.completedFuture(null)))
+            return accountsManager.updateAsync(auth.getAccount(), a -> {
+                  a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
+                  if (request.isPrimary()) {
+                    a.makeBadgePrimaryIfExists(clock, badgeId);
+                  }
+                })
                 .thenApply(ignored -> Response.ok().build());
       });
     }).thenCompose(Function.identity());
