@@ -56,6 +56,7 @@ public class MessageSender {
   // Note that these names deliberately reference `MessageController` for metric continuity
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageController.class, "rejectOversizeMessage");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = MetricsUtil.name(MessageController.class, "messageContentSize");
+  private static final String EMPTY_MESSAGE_LIST_COUNTER_NAME = MetricsUtil.name(MessageSender.class, "emptyMessageList");
 
   private static final String SEND_COUNTER_NAME = name(MessageSender.class, "sendMessage");
   private static final String EPHEMERAL_TAG_NAME = "ephemeral";
@@ -105,6 +106,13 @@ public class MessageSender {
       throw new IllegalArgumentException("Destination account not identified by destination service identifier");
     }
 
+    final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+
+    if (messagesByDeviceId.isEmpty()) {
+      Metrics.counter(EMPTY_MESSAGE_LIST_COUNTER_NAME,
+          Tags.of("sync", String.valueOf(syncMessageSenderDeviceId.isPresent())).and(platformTag)).increment();
+    }
+
     final byte excludedDeviceId;
     if (syncMessageSenderDeviceId.isPresent()) {
       if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isBlank(message.getSourceServiceId()) ||
@@ -151,7 +159,7 @@ public class MessageSender {
                   STORY_TAG_NAME, String.valueOf(message.getStory()),
                   SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceServiceId()),
                   MULTI_RECIPIENT_TAG_NAME, "false")
-              .and(UserAgentTagUtil.getPlatformTag(userAgent));
+              .and(platformTag);
 
           Metrics.counter(SEND_COUNTER_NAME, tags).increment();
         });
