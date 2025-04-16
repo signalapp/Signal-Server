@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.subscriptions;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.stripe.Stripe;
 import com.stripe.StripeClient;
 import com.stripe.exception.CardException;
 import com.stripe.exception.IdempotencyException;
@@ -71,6 +72,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.util.Conversions;
@@ -97,6 +99,9 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     if (Strings.isNullOrEmpty(apiKey)) {
       throw new IllegalArgumentException("apiKey cannot be empty");
     }
+
+    Stripe.setAppInfo("Signal-Server", WhisperServerVersion.getServerVersion());
+
     this.stripeClient = new StripeClient(apiKey);
     this.executor = Objects.requireNonNull(executor);
     this.idempotencyKeyGenerator = Objects.requireNonNull(idempotencyKeyGenerator);
