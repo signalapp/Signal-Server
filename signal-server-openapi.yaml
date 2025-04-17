@@ -4688,6 +4688,9 @@ components:
             type: string
         hostname:
           type: string
+        ttl:
+          type: integer
+          format: int64
     DeliveryCertificate:
       type: object
       properties:
