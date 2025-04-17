@@ -482,7 +482,8 @@ turn:
       - turn:%s
       - turn:%s:80?transport=tcp
       - turns:%s:443?transport=tcp
-    ttl: 86400
+    requestedCredentialTtl: PT24H
+    clientCredentialTtl: PT12H
     hostname: turn.cloudflare.example.com
     numHttpClients: 1
 

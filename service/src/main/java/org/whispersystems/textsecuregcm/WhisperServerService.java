@@ -673,7 +673,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager = new CloudflareTurnCredentialsManager(
         config.getTurnConfiguration().cloudflare().apiToken().value(),
         config.getTurnConfiguration().cloudflare().endpoint(),
-        config.getTurnConfiguration().cloudflare().ttl(),
+        config.getTurnConfiguration().cloudflare().requestedCredentialTtl(),
+        config.getTurnConfiguration().cloudflare().clientCredentialTtl(),
         config.getTurnConfiguration().cloudflare().urls(),
         config.getTurnConfiguration().cloudflare().urlsWithIps(),
         config.getTurnConfiguration().cloudflare().hostname(),

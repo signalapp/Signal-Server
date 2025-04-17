@@ -15,6 +15,7 @@ import java.net.Inet6Address;
 import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
@@ -39,16 +40,18 @@ public class CloudflareTurnCredentialsManager {
   private final List<String> cloudflareTurnUrls;
   private final List<String> cloudflareTurnUrlsWithIps;
   private final String cloudflareTurnHostname;
-  private final HttpRequest request;
+  private final HttpRequest getCredentialsRequest;
 
   private final FaultTolerantHttpClient cloudflareTurnClient;
   private final DnsNameResolver dnsNameResolver;
 
-  record CredentialRequest(long ttl) {}
+  private final Duration clientCredentialTtl;
 
-  record CloudflareTurnResponse(IceServer iceServers) {
+  private record CredentialRequest(long ttl) {}
 
-    record IceServer(
+  private record CloudflareTurnResponse(IceServer iceServers) {
+
+    private record IceServer(
         String username,
         String credential,
         List<String> urls) {
@@ -56,10 +59,17 @@ public class CloudflareTurnCredentialsManager {
   }
 
   public CloudflareTurnCredentialsManager(final String cloudflareTurnApiToken,
-      final String cloudflareTurnEndpoint, final long cloudflareTurnTtl, final List<String> cloudflareTurnUrls,
-      final List<String> cloudflareTurnUrlsWithIps, final String cloudflareTurnHostname,
-      final int cloudflareTurnNumHttpClients, final CircuitBreakerConfiguration circuitBreaker,
-      final ExecutorService executor, final RetryConfiguration retry, final ScheduledExecutorService retryExecutor,
+      final String cloudflareTurnEndpoint,
+      final Duration requestedCredentialTtl,
+      final Duration clientCredentialTtl,
+      final List<String> cloudflareTurnUrls,
+      final List<String> cloudflareTurnUrlsWithIps,
+      final String cloudflareTurnHostname,
+      final int cloudflareTurnNumHttpClients,
+      final CircuitBreakerConfiguration circuitBreaker,
+      final ExecutorService executor,
+      final RetryConfiguration retry,
+      final ScheduledExecutorService retryExecutor,
       final DnsNameResolver dnsNameResolver) {
 
     this.cloudflareTurnClient = FaultTolerantHttpClient.newBuilder()
@@ -75,17 +85,24 @@ public class CloudflareTurnCredentialsManager {
     this.cloudflareTurnHostname = cloudflareTurnHostname;
     this.dnsNameResolver = dnsNameResolver;
 
+    final String credentialsRequestBody;
+
     try {
-      final String body = SystemMapper.jsonMapper().writeValueAsString(new CredentialRequest(cloudflareTurnTtl));
-      this.request = HttpRequest.newBuilder()
-          .uri(URI.create(cloudflareTurnEndpoint))
-          .header("Content-Type", "application/json")
-          .header("Authorization", String.format("Bearer %s", cloudflareTurnApiToken))
-          .POST(HttpRequest.BodyPublishers.ofString(body))
-          .build();
-    } catch (JsonProcessingException e) {
+      credentialsRequestBody =
+          SystemMapper.jsonMapper().writeValueAsString(new CredentialRequest(requestedCredentialTtl.toSeconds()));
+    } catch (final JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
+
+    // We repeat the same request to Cloudflare every time, so we can construct it once and re-use it
+    this.getCredentialsRequest = HttpRequest.newBuilder()
+        .uri(URI.create(cloudflareTurnEndpoint))
+        .header("Content-Type", "application/json")
+        .header("Authorization", String.format("Bearer %s", cloudflareTurnApiToken))
+        .POST(HttpRequest.BodyPublishers.ofString(credentialsRequestBody))
+        .build();
+
+    this.clientCredentialTtl = clientCredentialTtl;
   }
 
   public TurnToken retrieveFromCloudflare() throws IOException {
@@ -105,7 +122,7 @@ public class CloudflareTurnCredentialsManager {
     final Timer.Sample sample = Timer.start();
     final HttpResponse<String> response;
     try {
-      response = cloudflareTurnClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+      response = cloudflareTurnClient.sendAsync(getCredentialsRequest, HttpResponse.BodyHandlers.ofString()).join();
       sample.stop(Timer.builder(CREDENTIAL_FETCH_TIMER_NAME)
           .publishPercentileHistogram(true)
           .tags("outcome", "success")
@@ -130,6 +147,7 @@ public class CloudflareTurnCredentialsManager {
     return new TurnToken(
         cloudflareTurnResponse.iceServers().username(),
         cloudflareTurnResponse.iceServers().credential(),
+        clientCredentialTtl.toSeconds(),
         cloudflareTurnUrls == null ? Collections.emptyList() : cloudflareTurnUrls,
         cloudflareTurnComposedUrls,
         cloudflareTurnHostname

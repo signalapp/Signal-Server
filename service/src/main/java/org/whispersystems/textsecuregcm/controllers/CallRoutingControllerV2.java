@@ -15,16 +15,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.container.ContainerRequestContext;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CloudflareTurnCredentialsManager;
-import org.whispersystems.textsecuregcm.auth.TurnToken;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.websocket.auth.ReadOnly;
 
@@ -32,14 +28,16 @@ import org.whispersystems.websocket.auth.ReadOnly;
 @Path("/v2/calling")
 public class CallRoutingControllerV2 {
 
-  private static final Counter CLOUDFLARE_TURN_ERROR_COUNTER = Metrics.counter(name(CallRoutingControllerV2.class, "cloudflareTurnError"));
   private final RateLimiters rateLimiters;
   private final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager;
 
+  private static final Counter CLOUDFLARE_TURN_ERROR_COUNTER =
+      Metrics.counter(name(CallRoutingControllerV2.class, "cloudflareTurnError"));
+
   public CallRoutingControllerV2(
       final RateLimiters rateLimiters,
-      final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager
-  ) {
+      final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager) {
+
     this.rateLimiters = rateLimiters;
     this.cloudflareTurnCredentialsManager = cloudflareTurnCredentialsManager;
   }
@@ -58,25 +56,17 @@ public class CallRoutingControllerV2 {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
-  public GetCallingRelaysResponse getCallingRelays(
-      final @ReadOnly @Auth AuthenticatedDevice auth
-  ) throws RateLimitExceededException, IOException {
-    UUID aci = auth.getAccount().getUuid();
+  public GetCallingRelaysResponse getCallingRelays(final @ReadOnly @Auth AuthenticatedDevice auth)
+      throws RateLimitExceededException, IOException {
+
+    final UUID aci = auth.getAccount().getUuid();
     rateLimiters.getCallEndpointLimiter().validate(aci);
 
-    List<TurnToken> tokens = new ArrayList<>();
     try {
-      tokens.add(cloudflareTurnCredentialsManager.retrieveFromCloudflare());
-    } catch (Exception e) {
-      CallRoutingControllerV2.CLOUDFLARE_TURN_ERROR_COUNTER.increment();
+      return new GetCallingRelaysResponse(List.of(cloudflareTurnCredentialsManager.retrieveFromCloudflare()));
+    } catch (final Exception e) {
+      CLOUDFLARE_TURN_ERROR_COUNTER.increment();
       throw e;
     }
-
-    return new GetCallingRelaysResponse(tokens);
-  }
-
-  public record GetCallingRelaysResponse(
-      List<TurnToken> relays
-  ) {
   }
 }

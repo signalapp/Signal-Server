@@ -470,7 +470,8 @@ turn:
   cloudflare:
     apiToken: secret://turn.cloudflare.apiToken
     endpoint: https://rtc.live.cloudflare.com/v1/turn/keys/LMNOP/credentials/generate
-    ttl: 86400
+    requestedCredentialTtl: PT24H
+    clientCredentialTtl: PT12H
     urls:
       - turn:turn.example.com:80
     urlsWithIps:

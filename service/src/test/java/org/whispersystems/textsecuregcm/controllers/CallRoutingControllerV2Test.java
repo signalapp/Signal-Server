@@ -40,14 +40,15 @@ class CallRoutingControllerV2Test {
   private static final TurnToken CLOUDFLARE_TURN_TOKEN = new TurnToken(
       "ABC",
       "XYZ",
+      43_200,
       List.of("turn:cloudflare.example.com:3478?transport=udp"),
       null,
       "cf.example.com");
 
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
   private static final RateLimiter getCallEndpointLimiter = mock(RateLimiter.class);
-  private static final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager = mock(
-      CloudflareTurnCredentialsManager.class);
+  private static final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager =
+      mock(CloudflareTurnCredentialsManager.class);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -66,21 +67,14 @@ class CallRoutingControllerV2Test {
 
   @AfterEach
   void tearDown() {
-    reset( rateLimiters, getCallEndpointLimiter);
-  }
-
-  void initializeMocksWith(TurnToken cloudflareToken) {
-      try {
-        when(cloudflareTurnCredentialsManager.retrieveFromCloudflare()).thenReturn(cloudflareToken);
-      } catch (IOException ignored) {
-      }
+    reset(rateLimiters, getCallEndpointLimiter);
   }
 
   @Test
-  void testGetRelaysBothRouting() {
-    initializeMocksWith(CLOUDFLARE_TURN_TOKEN);
+  void testGetRelaysBothRouting() throws IOException {
+    when(cloudflareTurnCredentialsManager.retrieveFromCloudflare()).thenReturn(CLOUDFLARE_TURN_TOKEN);
 
-    try (Response rawResponse = resources.getJerseyTest()
+    try (final Response rawResponse = resources.getJerseyTest()
         .target(GET_CALL_RELAYS_PATH)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
@@ -88,11 +82,8 @@ class CallRoutingControllerV2Test {
 
       assertThat(rawResponse.getStatus()).isEqualTo(200);
 
-      CallRoutingControllerV2.GetCallingRelaysResponse response = rawResponse.readEntity(
-          CallRoutingControllerV2.GetCallingRelaysResponse.class);
-
-      List<TurnToken> relays = response.relays();
-      assertThat(relays).isEqualTo(List.of(CLOUDFLARE_TURN_TOKEN));
+      assertThat(rawResponse.readEntity(GetCallingRelaysResponse.class).relays())
+          .isEqualTo(List.of(CLOUDFLARE_TURN_TOKEN));
     }
   }
 
