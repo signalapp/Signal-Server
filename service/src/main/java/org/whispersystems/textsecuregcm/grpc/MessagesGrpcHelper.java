@@ -55,7 +55,7 @@ public class MessagesGrpcHelper {
           messagesByDeviceId,
           registrationIdsByDeviceId,
           syncMessageSenderDeviceId,
-          RequestAttributesUtil.getRawUserAgent().orElse(null));
+          RequestAttributesUtil.getUserAgent().orElse(null));
 
       return SEND_MESSAGE_SUCCESS_RESPONSE;
     } catch (final MismatchedDevicesException e) {

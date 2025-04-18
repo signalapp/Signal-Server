@@ -1,7 +1,11 @@
 package org.whispersystems.textsecuregcm.grpc.net;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.common.net.InetAddresses;
-import com.vdurmont.semver4j.Semver;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -12,6 +16,12 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
 import io.netty.channel.local.LocalServerChannel;
+import java.net.InetAddress;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,20 +31,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.grpc.ChannelNotFoundException;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
-
-import javax.annotation.Nullable;
-import java.net.InetAddress;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 class GrpcClientConnectionManagerTest {
 
@@ -103,7 +102,7 @@ class GrpcClientConnectionManagerTest {
     grpcClientConnectionManager.handleConnectionEstablished(localChannel, remoteChannel, maybeAuthenticatedDevice);
 
     assertEquals(maybeAuthenticatedDevice,
-        grpcClientConnectionManager.getAuthenticatedDevice(localChannel.localAddress()));
+        grpcClientConnectionManager.getAuthenticatedDevice(remoteChannel));
   }
 
   private static List<Optional<AuthenticatedDevice>> getAuthenticatedDevice() {
@@ -114,170 +113,115 @@ class GrpcClientConnectionManagerTest {
   }
 
   @Test
-  void getAcceptableLanguages() {
+  void getRequestAttributes() {
     grpcClientConnectionManager.handleConnectionEstablished(localChannel, remoteChannel, Optional.empty());
 
-    assertEquals(Optional.empty(),
-        grpcClientConnectionManager.getAcceptableLanguages(localChannel.localAddress()));
+    assertThrows(IllegalStateException.class, () -> grpcClientConnectionManager.getRequestAttributes(remoteChannel));
 
-    final List<Locale.LanguageRange> acceptLanguageRanges = Locale.LanguageRange.parse("en,ja");
-    remoteChannel.attr(GrpcClientConnectionManager.ACCEPT_LANGUAGE_ATTRIBUTE_KEY).set(acceptLanguageRanges);
+    final RequestAttributes requestAttributes = new RequestAttributes(InetAddresses.forString("6.7.8.9"), null, null);
+    remoteChannel.attr(GrpcClientConnectionManager.REQUEST_ATTRIBUTES_KEY).set(requestAttributes);
 
-    assertEquals(Optional.of(acceptLanguageRanges),
-        grpcClientConnectionManager.getAcceptableLanguages(localChannel.localAddress()));
+    assertEquals(requestAttributes, grpcClientConnectionManager.getRequestAttributes(remoteChannel));
   }
 
   @Test
-  void getRemoteAddress() {
-    grpcClientConnectionManager.handleConnectionEstablished(localChannel, remoteChannel, Optional.empty());
-
-    assertEquals(Optional.empty(),
-        grpcClientConnectionManager.getRemoteAddress(localChannel.localAddress()));
-
-    final InetAddress remoteAddress = InetAddresses.forString("6.7.8.9");
-    remoteChannel.attr(GrpcClientConnectionManager.REMOTE_ADDRESS_ATTRIBUTE_KEY).set(remoteAddress);
-
-    assertEquals(Optional.of(remoteAddress),
-        grpcClientConnectionManager.getRemoteAddress(localChannel.localAddress()));
-  }
-
-  @Test
-  void getUserAgent() throws UnrecognizedUserAgentException {
-    grpcClientConnectionManager.handleConnectionEstablished(localChannel, remoteChannel, Optional.empty());
-
-    assertEquals(Optional.empty(),
-        grpcClientConnectionManager.getUserAgent(localChannel.localAddress()));
-
-    final UserAgent userAgent = UserAgentUtil.parseUserAgentString("Signal-Desktop/1.2.3 Linux");
-    remoteChannel.attr(GrpcClientConnectionManager.PARSED_USER_AGENT_ATTRIBUTE_KEY).set(userAgent);
-
-    assertEquals(Optional.of(userAgent),
-        grpcClientConnectionManager.getUserAgent(localChannel.localAddress()));
-  }
-
-  @Test
-  void closeConnection() throws InterruptedException {
+  void closeConnection() throws InterruptedException, ChannelNotFoundException {
     final AuthenticatedDevice authenticatedDevice = new AuthenticatedDevice(UUID.randomUUID(), Device.PRIMARY_ID);
 
     grpcClientConnectionManager.handleConnectionEstablished(localChannel, remoteChannel, Optional.of(authenticatedDevice));
 
     assertTrue(remoteChannel.isOpen());
 
-    assertEquals(remoteChannel, grpcClientConnectionManager.getRemoteChannelByLocalAddress(localChannel.localAddress()));
+    assertEquals(remoteChannel, grpcClientConnectionManager.getRemoteChannel(localChannel.localAddress()));
     assertEquals(List.of(remoteChannel),
         grpcClientConnectionManager.getRemoteChannelsByAuthenticatedDevice(authenticatedDevice));
 
     remoteChannel.close().await();
 
-    assertNull(grpcClientConnectionManager.getRemoteChannelByLocalAddress(localChannel.localAddress()));
+    assertThrows(ChannelNotFoundException.class,
+        () -> grpcClientConnectionManager.getRemoteChannel(localChannel.localAddress()));
+
     assertNull(grpcClientConnectionManager.getRemoteChannelsByAuthenticatedDevice(authenticatedDevice));
   }
 
-  @Test
-  void handleWebSocketHandshakeCompleteRemoteAddress() {
+  @ParameterizedTest
+  @MethodSource
+  void handleHandshakeCompleteRequestAttributes(final InetAddress preferredRemoteAddress,
+      final String userAgentHeader,
+      final String acceptLanguageHeader,
+      final RequestAttributes expectedRequestAttributes) {
+
     final EmbeddedChannel embeddedChannel = new EmbeddedChannel();
 
-    final InetAddress preferredRemoteAddress = InetAddresses.forString("192.168.1.1");
-
-    GrpcClientConnectionManager.handleWebSocketHandshakeComplete(embeddedChannel,
+    GrpcClientConnectionManager.handleHandshakeComplete(embeddedChannel,
         preferredRemoteAddress,
-        null,
-        null);
-
-    assertEquals(preferredRemoteAddress,
-        embeddedChannel.attr(GrpcClientConnectionManager.REMOTE_ADDRESS_ATTRIBUTE_KEY).get());
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void handleWebSocketHandshakeCompleteUserAgent(@Nullable final String userAgentHeader,
-      @Nullable final UserAgent expectedParsedUserAgent) {
-
-    final EmbeddedChannel embeddedChannel = new EmbeddedChannel();
-
-    GrpcClientConnectionManager.handleWebSocketHandshakeComplete(embeddedChannel,
-        InetAddresses.forString("127.0.0.1"),
         userAgentHeader,
-        null);
-
-    assertEquals(userAgentHeader,
-        embeddedChannel.attr(GrpcClientConnectionManager.RAW_USER_AGENT_ATTRIBUTE_KEY).get());
-
-    assertEquals(expectedParsedUserAgent,
-        embeddedChannel.attr(GrpcClientConnectionManager.PARSED_USER_AGENT_ATTRIBUTE_KEY).get());
-  }
-
-  private static List<Arguments> handleWebSocketHandshakeCompleteUserAgent() {
-    return List.of(
-        // Recognized user-agent
-        Arguments.of("Signal-Desktop/1.2.3 Linux", new UserAgent(ClientPlatform.DESKTOP, new Semver("1.2.3"), "Linux")),
-
-        // Unrecognized user-agent
-        Arguments.of("Not a valid user-agent string", null),
-
-        // Missing user-agent
-        Arguments.of(null, null)
-    );
-  }
-
-
-  @ParameterizedTest
-  @MethodSource
-  void handleWebSocketHandshakeCompleteAcceptLanguage(@Nullable final String acceptLanguageHeader,
-      @Nullable final List<Locale.LanguageRange> expectedLanguageRanges) {
-
-    final EmbeddedChannel embeddedChannel = new EmbeddedChannel();
-
-    GrpcClientConnectionManager.handleWebSocketHandshakeComplete(embeddedChannel,
-        InetAddresses.forString("127.0.0.1"),
-        null,
         acceptLanguageHeader);
 
-    assertEquals(expectedLanguageRanges,
-        embeddedChannel.attr(GrpcClientConnectionManager.ACCEPT_LANGUAGE_ATTRIBUTE_KEY).get());
+    assertEquals(expectedRequestAttributes,
+        embeddedChannel.attr(GrpcClientConnectionManager.REQUEST_ATTRIBUTES_KEY).get());
   }
 
-  private static List<Arguments> handleWebSocketHandshakeCompleteAcceptLanguage() {
+  private static List<Arguments> handleHandshakeCompleteRequestAttributes() {
+    final InetAddress preferredRemoteAddress = InetAddresses.forString("192.168.1.1");
+
     return List.of(
-        // Parseable list
-        Arguments.of("ja,en;q=0.4", Locale.LanguageRange.parse("ja,en;q=0.4")),
+        Arguments.argumentSet("Null User-Agent and Accept-Language headers",
+            preferredRemoteAddress, null, null,
+            new RequestAttributes(preferredRemoteAddress, null, Collections.emptyList())),
 
-        // Unparsable list
-        Arguments.of("This is not a valid language preference list", null),
+        Arguments.argumentSet("Recognized User-Agent and null Accept-Language header",
+            preferredRemoteAddress, "Signal-Desktop/1.2.3 Linux", null,
+            new RequestAttributes(preferredRemoteAddress, "Signal-Desktop/1.2.3 Linux", Collections.emptyList())),
 
-        // Missing list
-        Arguments.of(null, null)
+        Arguments.argumentSet("Unparsable User-Agent and null Accept-Language header",
+            preferredRemoteAddress, "Not a valid user-agent string", null,
+            new RequestAttributes(preferredRemoteAddress, "Not a valid user-agent string", Collections.emptyList())),
+
+        Arguments.argumentSet("Null User-Agent and parsable Accept-Language header",
+            preferredRemoteAddress, null, "ja,en;q=0.4",
+            new RequestAttributes(preferredRemoteAddress, null, Locale.LanguageRange.parse("ja,en;q=0.4"))),
+
+        Arguments.argumentSet("Null User-Agent and unparsable Accept-Language header",
+            preferredRemoteAddress, null, "This is not a valid language preference list",
+            new RequestAttributes(preferredRemoteAddress, null, Collections.emptyList()))
     );
   }
 
   @Test
-  void handleConnectionEstablishedAuthenticated() throws InterruptedException {
+  void handleConnectionEstablishedAuthenticated() throws InterruptedException, ChannelNotFoundException {
     final AuthenticatedDevice authenticatedDevice = new AuthenticatedDevice(UUID.randomUUID(), Device.PRIMARY_ID);
 
-    assertNull(grpcClientConnectionManager.getRemoteChannelByLocalAddress(localChannel.localAddress()));
+    assertThrows(ChannelNotFoundException.class,
+        () -> grpcClientConnectionManager.getRemoteChannel(localChannel.localAddress()));
+
     assertNull(grpcClientConnectionManager.getRemoteChannelsByAuthenticatedDevice(authenticatedDevice));
 
     grpcClientConnectionManager.handleConnectionEstablished(localChannel, remoteChannel, Optional.of(authenticatedDevice));
 
-    assertEquals(remoteChannel, grpcClientConnectionManager.getRemoteChannelByLocalAddress(localChannel.localAddress()));
+    assertEquals(remoteChannel, grpcClientConnectionManager.getRemoteChannel(localChannel.localAddress()));
     assertEquals(List.of(remoteChannel), grpcClientConnectionManager.getRemoteChannelsByAuthenticatedDevice(authenticatedDevice));
 
     remoteChannel.close().await();
 
-    assertNull(grpcClientConnectionManager.getRemoteChannelByLocalAddress(localChannel.localAddress()));
+    assertThrows(ChannelNotFoundException.class,
+        () -> grpcClientConnectionManager.getRemoteChannel(localChannel.localAddress()));
+
     assertNull(grpcClientConnectionManager.getRemoteChannelsByAuthenticatedDevice(authenticatedDevice));
   }
 
   @Test
-  void handleConnectionEstablishedAnonymous() throws InterruptedException {
-    assertNull(grpcClientConnectionManager.getRemoteChannelByLocalAddress(localChannel.localAddress()));
+  void handleConnectionEstablishedAnonymous() throws InterruptedException, ChannelNotFoundException {
+    assertThrows(ChannelNotFoundException.class,
+        () -> grpcClientConnectionManager.getRemoteChannel(localChannel.localAddress()));
 
     grpcClientConnectionManager.handleConnectionEstablished(localChannel, remoteChannel, Optional.empty());
 
-    assertEquals(remoteChannel, grpcClientConnectionManager.getRemoteChannelByLocalAddress(localChannel.localAddress()));
+    assertEquals(remoteChannel, grpcClientConnectionManager.getRemoteChannel(localChannel.localAddress()));
 
     remoteChannel.close().await();
 
-    assertNull(grpcClientConnectionManager.getRemoteChannelByLocalAddress(localChannel.localAddress()));
+    assertThrows(ChannelNotFoundException.class,
+        () -> grpcClientConnectionManager.getRemoteChannel(localChannel.localAddress()));
   }
 }

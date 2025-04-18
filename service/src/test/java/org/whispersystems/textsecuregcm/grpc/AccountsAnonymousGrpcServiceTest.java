@@ -72,7 +72,8 @@ class AccountsAnonymousGrpcServiceTest extends
 
     when(rateLimiter.validateReactive(anyString())).thenReturn(Mono.empty());
 
-    getMockRequestAttributesInterceptor().setRemoteAddress(InetAddresses.forString("127.0.0.1"));
+    getMockRequestAttributesInterceptor().setRequestAttributes(
+        new RequestAttributes(InetAddresses.forString("127.0.0.1"), null, null));
 
     return new AccountsAnonymousGrpcService(accountsManager, rateLimiters);
   }

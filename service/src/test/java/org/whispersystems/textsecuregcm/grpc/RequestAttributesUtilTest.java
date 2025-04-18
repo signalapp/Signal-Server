@@ -3,172 +3,84 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.common.net.InetAddresses;
-import io.grpc.ManagedChannel;
-import io.grpc.Server;
-import io.grpc.Status;
-import io.grpc.netty.NettyChannelBuilder;
-import io.grpc.netty.NettyServerBuilder;
-import io.netty.channel.DefaultEventLoopGroup;
-import io.netty.channel.local.LocalAddress;
-import io.netty.channel.local.LocalChannel;
-import io.netty.channel.local.LocalServerChannel;
-import java.io.IOException;
+import io.grpc.Context;
+import java.net.InetAddress;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.concurrent.Callable;
+import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
-import org.signal.chat.rpc.GetRequestAttributesRequest;
-import org.signal.chat.rpc.GetRequestAttributesResponse;
-import org.signal.chat.rpc.RequestAttributesGrpc;
-import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 class RequestAttributesUtilTest {
 
-  private static DefaultEventLoopGroup eventLoopGroup;
+  private static final InetAddress REMOTE_ADDRESS = InetAddresses.forString("127.0.0.1");
 
-  private GrpcClientConnectionManager grpcClientConnectionManager;
+  @Test
+  void getAcceptableLanguages() throws Exception {
+    assertEquals(Collections.emptyList(),
+        callWithRequestAttributes(buildRequestAttributes(Collections.emptyList()),
+            RequestAttributesUtil::getAcceptableLanguages));
 
-  private Server server;
-  private ManagedChannel managedChannel;
-
-  @BeforeAll
-  static void setUpBeforeAll() {
-    eventLoopGroup = new DefaultEventLoopGroup();
-  }
-
-  @BeforeEach
-  void setUp() throws IOException {
-    final LocalAddress serverAddress = new LocalAddress("test-request-metadata-server");
-
-    grpcClientConnectionManager = mock(GrpcClientConnectionManager.class);
-
-    when(grpcClientConnectionManager.getRemoteAddress(any()))
-        .thenReturn(Optional.of(InetAddresses.forString("127.0.0.1")));
-
-    // `RequestAttributesInterceptor` operates on `LocalAddresses`, so we need to do some slightly fancy plumbing to make
-    // sure that we're using local channels and addresses
-    server = NettyServerBuilder.forAddress(serverAddress)
-        .channelType(LocalServerChannel.class)
-        .bossEventLoopGroup(eventLoopGroup)
-        .workerEventLoopGroup(eventLoopGroup)
-        .intercept(new RequestAttributesInterceptor(grpcClientConnectionManager))
-        .addService(new RequestAttributesServiceImpl())
-        .build()
-        .start();
-
-    managedChannel = NettyChannelBuilder.forAddress(serverAddress)
-        .channelType(LocalChannel.class)
-        .eventLoopGroup(eventLoopGroup)
-        .usePlaintext()
-        .build();
-  }
-
-  @AfterEach
-  void tearDown() {
-    managedChannel.shutdown();
-    server.shutdown();
-  }
-
-  @AfterAll
-  static void tearDownAfterAll() throws InterruptedException {
-    eventLoopGroup.shutdownGracefully().await();
+    assertEquals(Locale.LanguageRange.parse("en,ja"),
+        callWithRequestAttributes(buildRequestAttributes(Locale.LanguageRange.parse("en,ja")),
+            RequestAttributesUtil::getAcceptableLanguages));
   }
 
   @Test
-  void getAcceptableLanguages() {
-    when(grpcClientConnectionManager.getAcceptableLanguages(any()))
-        .thenReturn(Optional.empty());
+  void getAvailableAcceptedLocales() throws Exception {
+    assertEquals(Collections.emptyList(),
+        callWithRequestAttributes(buildRequestAttributes(Collections.emptyList()),
+            RequestAttributesUtil::getAvailableAcceptedLocales));
 
-    assertTrue(getRequestAttributes().getAcceptableLanguagesList().isEmpty());
+    final List<Locale> availableAcceptedLocales =
+        callWithRequestAttributes(buildRequestAttributes(Locale.LanguageRange.parse("en,ja")),
+            RequestAttributesUtil::getAvailableAcceptedLocales);
 
-    when(grpcClientConnectionManager.getAcceptableLanguages(any()))
-        .thenReturn(Optional.of(Locale.LanguageRange.parse("en,ja")));
+    assertFalse(availableAcceptedLocales.isEmpty());
 
-    assertEquals(List.of("en", "ja"), getRequestAttributes().getAcceptableLanguagesList());
+    availableAcceptedLocales.forEach(locale ->
+        assertTrue("en".equals(locale.getLanguage()) || "ja".equals(locale.getLanguage())));
   }
 
   @Test
-  void getAvailableAcceptedLocales() {
-    when(grpcClientConnectionManager.getAcceptableLanguages(any()))
-        .thenReturn(Optional.empty());
-
-    assertTrue(getRequestAttributes().getAvailableAcceptedLocalesList().isEmpty());
-
-    when(grpcClientConnectionManager.getAcceptableLanguages(any()))
-        .thenReturn(Optional.of(Locale.LanguageRange.parse("en,ja")));
-
-    final GetRequestAttributesResponse response = getRequestAttributes();
-
-    assertFalse(response.getAvailableAcceptedLocalesList().isEmpty());
-    response.getAvailableAcceptedLocalesList().forEach(languageTag -> {
-      final Locale locale = Locale.forLanguageTag(languageTag);
-      assertTrue("en".equals(locale.getLanguage()) || "ja".equals(locale.getLanguage()));
-    });
+  void getRemoteAddress() throws Exception {
+    assertEquals(REMOTE_ADDRESS,
+        callWithRequestAttributes(new RequestAttributes(REMOTE_ADDRESS, null, null),
+            RequestAttributesUtil::getRemoteAddress));
   }
 
   @Test
-  void getRemoteAddress() {
-    when(grpcClientConnectionManager.getRemoteAddress(any()))
-        .thenReturn(Optional.empty());
+  void getUserAgent() throws Exception {
+    assertEquals(Optional.empty(),
+        callWithRequestAttributes(buildRequestAttributes((String) null),
+            RequestAttributesUtil::getUserAgent));
 
-    GrpcTestUtils.assertStatusException(Status.INTERNAL, this::getRequestAttributes);
-
-    final String remoteAddressString = "6.7.8.9";
-
-    when(grpcClientConnectionManager.getRemoteAddress(any()))
-        .thenReturn(Optional.of(InetAddresses.forString(remoteAddressString)));
-
-    assertEquals(remoteAddressString, getRequestAttributes().getRemoteAddress());
+    assertEquals(Optional.of("Signal-Desktop/1.2.3 Linux"),
+        callWithRequestAttributes(buildRequestAttributes("Signal-Desktop/1.2.3 Linux"),
+            RequestAttributesUtil::getUserAgent));
   }
 
-  @Test
-  void getUserAgent() throws UnrecognizedUserAgentException {
-    when(grpcClientConnectionManager.getUserAgent(any()))
-        .thenReturn(Optional.empty());
-
-    assertFalse(getRequestAttributes().hasUserAgent());
-
-    final UserAgent userAgent = UserAgentUtil.parseUserAgentString("Signal-Desktop/1.2.3 Linux");
-
-    when(grpcClientConnectionManager.getUserAgent(any()))
-        .thenReturn(Optional.of(userAgent));
-
-    final GetRequestAttributesResponse response = getRequestAttributes();
-    assertTrue(response.hasUserAgent());
-    assertEquals("DESKTOP", response.getUserAgent().getPlatform());
-    assertEquals("1.2.3", response.getUserAgent().getVersion());
-    assertEquals("Linux", response.getUserAgent().getAdditionalSpecifiers());
+  private static <V> V callWithRequestAttributes(final RequestAttributes requestAttributes, final Callable<V> callable) throws Exception {
+    return Context.current()
+        .withValue(RequestAttributesUtil.REQUEST_ATTRIBUTES_CONTEXT_KEY, requestAttributes)
+        .call(callable);
   }
 
-  @Test
-  void getRawUserAgent() {
-    when(grpcClientConnectionManager.getRawUserAgent(any()))
-        .thenReturn(Optional.empty());
-
-    assertTrue(getRequestAttributes().getRawUserAgent().isBlank());
-
-    final String userAgentString = "Signal-Desktop/1.2.3 Linux";
-
-    when(grpcClientConnectionManager.getRawUserAgent(any()))
-        .thenReturn(Optional.of(userAgentString));
-
-    assertEquals(userAgentString, getRequestAttributes().getRawUserAgent());
+  private static RequestAttributes buildRequestAttributes(final String userAgent) {
+    return buildRequestAttributes(userAgent, Collections.emptyList());
   }
 
-  private GetRequestAttributesResponse getRequestAttributes() {
-    return RequestAttributesGrpc.newBlockingStub(managedChannel)
-        .getRequestAttributes(GetRequestAttributesRequest.newBuilder().build());
+  private static RequestAttributes buildRequestAttributes(final List<Locale.LanguageRange> acceptLanguage) {
+    return buildRequestAttributes(null, acceptLanguage);
+  }
+
+  private static RequestAttributes buildRequestAttributes(@Nullable final String userAgent,
+      final List<Locale.LanguageRange> acceptLanguage) {
+
+    return new RequestAttributes(REMOTE_ADDRESS, userAgent, acceptLanguage);
   }
 }

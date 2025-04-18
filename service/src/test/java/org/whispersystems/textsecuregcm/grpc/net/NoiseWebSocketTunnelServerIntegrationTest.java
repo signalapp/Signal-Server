@@ -523,10 +523,7 @@ class NoiseWebSocketTunnelServerIntegrationTest extends AbstractLeakDetectionTes
 
         assertEquals(remoteAddress, response.getRemoteAddress());
         assertEquals(List.of(acceptLanguage), response.getAcceptableLanguagesList());
-
-        assertEquals("DESKTOP", response.getUserAgent().getPlatform());
-        assertEquals("1.2.3", response.getUserAgent().getVersion());
-        assertEquals("Linux", response.getUserAgent().getAdditionalSpecifiers());
+        assertEquals(userAgent, response.getUserAgent());
       } finally {
         channel.shutdown();
       }

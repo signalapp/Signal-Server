@@ -74,7 +74,7 @@ class WebsocketHandshakeCompleteHandler extends ChannelInboundHandlerAdapter {
         preferredRemoteAddress = maybePreferredRemoteAddress.get();
       }
 
-      GrpcClientConnectionManager.handleWebSocketHandshakeComplete(context.channel(),
+      GrpcClientConnectionManager.handleHandshakeComplete(context.channel(),
           preferredRemoteAddress,
           handshakeCompleteEvent.requestHeaders().getAsString(HttpHeaderNames.USER_AGENT),
           handshakeCompleteEvent.requestHeaders().getAsString(HttpHeaderNames.ACCEPT_LANGUAGE));

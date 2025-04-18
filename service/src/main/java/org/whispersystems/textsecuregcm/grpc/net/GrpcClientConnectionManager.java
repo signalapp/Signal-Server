@@ -1,6 +1,8 @@
 package org.whispersystems.textsecuregcm.grpc.net;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.grpc.Grpc;
+import io.grpc.ServerCall;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.local.LocalAddress;
@@ -23,15 +25,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
+import org.whispersystems.textsecuregcm.grpc.ChannelNotFoundException;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
 
 /**
  * A client connection manager associates a local connection to a local gRPC server with a remote connection through a
- * Noise-over-WebSocket tunnel. It provides access to metadata associated with the remote connection, including the
- * authenticated identity of the device that opened the connection (for non-anonymous connections). It can also close
- * connections associated with a given device if that device's credentials have changed and clients must reauthenticate.
+ * Noise tunnel. It provides access to metadata associated with the remote connection, including the authenticated
+ * identity of the device that opened the connection (for non-anonymous connections). It can also close connections
+ * associated with a given device if that device's credentials have changed and clients must reauthenticate.
+ * <p>
+ * In general, all {@link ServerCall}s <em>must</em> have a local address that in turn <em>should</em> be resolvable to
+ * a remote channel, which <em>must</em> have associated request attributes and authentication status. It is possible
+ * that a server call's local address may not be resolvable to a remote channel if the remote channel closed in the
+ * narrow window between a server call being created and the start of call execution, in which case accessor methods
+ * in this class will throw a {@link ChannelNotFoundException}.
+ * <p>
+ * A gRPC client connection manager's methods for getting request attributes accept {@link ServerCall} entities to
+ * identify connections. In general, these methods should only be called from {@link io.grpc.ServerInterceptor}s.
+ * Methods for requesting connection closure accept an {@link AuthenticatedDevice} to identify the connection and may
+ * be called from any application code.
  */
 public class GrpcClientConnectionManager implements DisconnectionRequestListener {
 
@@ -43,94 +55,56 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
       AttributeKey.valueOf(GrpcClientConnectionManager.class, "authenticatedDevice");
 
   @VisibleForTesting
-  static final AttributeKey<InetAddress> REMOTE_ADDRESS_ATTRIBUTE_KEY =
-      AttributeKey.valueOf(WebsocketHandshakeCompleteHandler.class, "remoteAddress");
-
-  @VisibleForTesting
-  static final AttributeKey<String> RAW_USER_AGENT_ATTRIBUTE_KEY =
-      AttributeKey.valueOf(WebsocketHandshakeCompleteHandler.class, "rawUserAgent");
-
-  @VisibleForTesting
-  static final AttributeKey<UserAgent> PARSED_USER_AGENT_ATTRIBUTE_KEY =
-      AttributeKey.valueOf(WebsocketHandshakeCompleteHandler.class, "userAgent");
-
-  @VisibleForTesting
-  static final AttributeKey<List<Locale.LanguageRange>> ACCEPT_LANGUAGE_ATTRIBUTE_KEY =
-      AttributeKey.valueOf(WebsocketHandshakeCompleteHandler.class, "acceptLanguage");
+  public static final AttributeKey<RequestAttributes> REQUEST_ATTRIBUTES_KEY =
+      AttributeKey.valueOf(GrpcClientConnectionManager.class, "requestAttributes");
 
   private static final Logger log = LoggerFactory.getLogger(GrpcClientConnectionManager.class);
 
   /**
-   * Returns the authenticated device associated with the given local address, if any. An authenticated device is
-   * available if and only if the given local address maps to an active local connection and that connection is
-   * authenticated (i.e. not anonymous).
+   * Returns the authenticated device associated with the given server call, if any. If the connection is anonymous
+   * (i.e. unauthenticated), the returned value will be empty.
    *
-   * @param localAddress the local address for which to find an authenticated device
+   * @param serverCall the gRPC server call for which to find an authenticated device
    *
    * @return the authenticated device associated with the given local address, if any
+   *
+   * @throws ChannelNotFoundException if the server call is not associated with a known channel; in practice, this
+   * generally indicates that the channel has closed while request processing is still in progress
    */
-  public Optional<AuthenticatedDevice> getAuthenticatedDevice(final LocalAddress localAddress) {
-    return getAuthenticatedDevice(remoteChannelsByLocalAddress.get(localAddress));
+  public Optional<AuthenticatedDevice> getAuthenticatedDevice(final ServerCall<?, ?> serverCall)
+      throws ChannelNotFoundException {
+
+    return getAuthenticatedDevice(getRemoteChannel(serverCall));
   }
 
-  private Optional<AuthenticatedDevice> getAuthenticatedDevice(@Nullable final Channel remoteChannel) {
-    return Optional.ofNullable(remoteChannel)
-        .map(channel -> channel.attr(AUTHENTICATED_DEVICE_ATTRIBUTE_KEY).get());
-  }
-
-  /**
-   * Returns the parsed acceptable languages associated with the given local address, if any. Acceptable languages may
-   * be unavailable if the local connection associated with the given local address has already closed, if the client
-   * did not provide a list of acceptable languages, or the list provided by the client could not be parsed.
-   *
-   * @param localAddress the local address for which to find acceptable languages
-   *
-   * @return the acceptable languages associated with the given local address, if any
-   */
-  public Optional<List<Locale.LanguageRange>> getAcceptableLanguages(final LocalAddress localAddress) {
-    return Optional.ofNullable(remoteChannelsByLocalAddress.get(localAddress))
-        .map(remoteChannel -> remoteChannel.attr(ACCEPT_LANGUAGE_ATTRIBUTE_KEY).get());
+  @VisibleForTesting
+  Optional<AuthenticatedDevice> getAuthenticatedDevice(final Channel remoteChannel) {
+    return Optional.ofNullable(remoteChannel.attr(AUTHENTICATED_DEVICE_ATTRIBUTE_KEY).get());
   }
 
   /**
-   * Returns the remote address associated with the given local address, if any. A remote address may be unavailable if
-   * the local connection associated with the given local address has already closed.
+   * Returns the request attributes associated with the given server call.
    *
-   * @param localAddress the local address for which to find a remote address
+   * @param serverCall the gRPC server call for which to retrieve request attributes
    *
-   * @return the remote address associated with the given local address, if any
+   * @return the request attributes associated with the given server call
+   *
+   * @throws ChannelNotFoundException if the server call is not associated with a known channel; in practice, this
+   * generally indicates that the channel has closed while request processing is still in progress
    */
-  public Optional<InetAddress> getRemoteAddress(final LocalAddress localAddress) {
-    return Optional.ofNullable(remoteChannelsByLocalAddress.get(localAddress))
-        .map(remoteChannel -> remoteChannel.attr(REMOTE_ADDRESS_ATTRIBUTE_KEY).get());
+  public RequestAttributes getRequestAttributes(final ServerCall<?, ?> serverCall) throws ChannelNotFoundException {
+    return getRequestAttributes(getRemoteChannel(serverCall));
   }
 
-  /**
-   * Returns the unparsed user agent provided by the client that opened the connection associated with the given local
-   * address. This method may return an empty value if no active local connection is associated with the given local
-   * address.
-   *
-   * @param localAddress the local address for which to find a User-Agent string
-   *
-   * @return the user agent string associated with the given local address
-   */
-  public Optional<String> getRawUserAgent(final LocalAddress localAddress) {
-    return Optional.ofNullable(remoteChannelsByLocalAddress.get(localAddress))
-        .map(remoteChannel -> remoteChannel.attr(RAW_USER_AGENT_ATTRIBUTE_KEY).get());
-  }
+  @VisibleForTesting
+  RequestAttributes getRequestAttributes(final Channel remoteChannel) {
+    final RequestAttributes requestAttributes = remoteChannel.attr(REQUEST_ATTRIBUTES_KEY).get();
 
-  /**
-   * Returns the parsed user agent provided by the client that opened the connection associated with the given local
-   * address. This method may return an empty value if no active local connection is associated with the given local
-   * address or if the client's user-agent string was not recognized.
-   *
-   * @param localAddress the local address for which to find a User-Agent string
-   *
-   * @return the user agent associated with the given local address
-   */
-  public Optional<UserAgent> getUserAgent(final LocalAddress localAddress) {
-    return Optional.ofNullable(remoteChannelsByLocalAddress.get(localAddress))
-        .map(remoteChannel -> remoteChannel.attr(PARSED_USER_AGENT_ATTRIBUTE_KEY).get());
+    if (requestAttributes == null) {
+      throw new IllegalStateException("Channel does not have request attributes");
+    }
+
+    return requestAttributes;
   }
 
   /**
@@ -156,9 +130,30 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
     return remoteChannelsByAuthenticatedDevice.get(authenticatedDevice);
   }
 
+  private Channel getRemoteChannel(final ServerCall<?, ?> serverCall) throws ChannelNotFoundException {
+    return getRemoteChannel(getLocalAddress(serverCall));
+  }
+
   @VisibleForTesting
-  Channel getRemoteChannelByLocalAddress(final LocalAddress localAddress) {
+  Channel getRemoteChannel(final LocalAddress localAddress) throws ChannelNotFoundException {
+    final Channel remoteChannel = remoteChannelsByLocalAddress.get(localAddress);
+
+    if (remoteChannel == null) {
+      throw new ChannelNotFoundException();
+    }
+
     return remoteChannelsByLocalAddress.get(localAddress);
+  }
+
+  private static LocalAddress getLocalAddress(final ServerCall<?, ?> serverCall) {
+    // In this server, gRPC's "remote" channel is actually a local channel that proxies to a distinct Noise channel.
+    // The gRPC "remote" address is the "local address" for the proxy connection, and the local address uniquely maps to
+    // a proxied Noise channel.
+    if (!(serverCall.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR) instanceof LocalAddress localAddress)) {
+      throw new IllegalArgumentException("Unexpected channel type: " + serverCall.getAttributes().get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR));
+    }
+
+    return localAddress;
   }
 
   /**
@@ -171,30 +166,23 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
    * @param acceptLanguageHeader the value of the Accept-Language header provided in the handshake request; may be
    * {@code null}
    */
-  static void handleWebSocketHandshakeComplete(final Channel channel,
+  static void handleHandshakeComplete(final Channel channel,
       final InetAddress preferredRemoteAddress,
       @Nullable final String userAgentHeader,
       @Nullable final String acceptLanguageHeader) {
 
-    channel.attr(GrpcClientConnectionManager.REMOTE_ADDRESS_ATTRIBUTE_KEY).set(preferredRemoteAddress);
-
-    if (StringUtils.isNotBlank(userAgentHeader)) {
-      channel.attr(GrpcClientConnectionManager.RAW_USER_AGENT_ATTRIBUTE_KEY).set(userAgentHeader);
-
-      try {
-        channel.attr(GrpcClientConnectionManager.PARSED_USER_AGENT_ATTRIBUTE_KEY)
-            .set(UserAgentUtil.parseUserAgentString(userAgentHeader));
-      } catch (final UnrecognizedUserAgentException ignored) {
-      }
-    }
+    @Nullable List<Locale.LanguageRange> acceptLanguages = Collections.emptyList();
 
     if (StringUtils.isNotBlank(acceptLanguageHeader)) {
       try {
-        channel.attr(GrpcClientConnectionManager.ACCEPT_LANGUAGE_ATTRIBUTE_KEY).set(Locale.LanguageRange.parse(acceptLanguageHeader));
+        acceptLanguages = Locale.LanguageRange.parse(acceptLanguageHeader);
       } catch (final IllegalArgumentException e) {
         log.debug("Invalid Accept-Language header from User-Agent {}: {}", userAgentHeader, acceptLanguageHeader, e);
       }
     }
+
+    channel.attr(REQUEST_ATTRIBUTES_KEY)
+        .set(new RequestAttributes(preferredRemoteAddress, userAgentHeader, acceptLanguages));
   }
 
   /**

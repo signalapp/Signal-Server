@@ -12,8 +12,10 @@ import io.netty.handler.codec.http.websocketx.WebSocketCloseStatus;
 import io.netty.util.ReferenceCountUtil;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 
 /**
  * An "establish local connection" handler waits for a Noise handshake to complete upstream in the pipeline, buffering
@@ -48,12 +50,12 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
 
   @Override
   public void userEventTriggered(final ChannelHandlerContext remoteChannelContext, final Object event) {
-    if (event instanceof NoiseIdentityDeterminedEvent noiseIdentityDeterminedEvent) {
+    if (event instanceof NoiseIdentityDeterminedEvent(final Optional<AuthenticatedDevice> authenticatedDevice)) {
       // We assume that we'll only get a completed handshake event if the handshake met all authentication requirements
       // for the requested service. If the handshake doesn't have an authenticated device, we assume we're trying to
       // connect to the anonymous service. If it does have an authenticated device, we assume we're aiming for the
       // authenticated service.
-      final LocalAddress grpcServerAddress = noiseIdentityDeterminedEvent.authenticatedDevice().isPresent()
+      final LocalAddress grpcServerAddress = authenticatedDevice.isPresent()
           ? authenticatedGrpcServerAddress
           : anonymousGrpcServerAddress;
 
@@ -72,7 +74,7 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
             if (localChannelFuture.isSuccess()) {
               grpcClientConnectionManager.handleConnectionEstablished((LocalChannel) localChannelFuture.channel(),
                   remoteChannelContext.channel(),
-                  noiseIdentityDeterminedEvent.authenticatedDevice());
+                  authenticatedDevice);
 
               // Close the local connection if the remote channel closes and vice versa
               remoteChannelContext.channel().closeFuture().addListener(closeFuture -> localChannelFuture.channel().close());

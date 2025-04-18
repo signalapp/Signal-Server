@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.argumentSet;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.mock;
 
@@ -16,6 +17,7 @@ import io.netty.channel.local.LocalAddress;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
+import io.netty.util.Attribute;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -31,6 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.ecc.Curve;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 
 class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
@@ -134,8 +137,13 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
     embeddedChannel.setRemoteAddress(remoteAddress);
     embeddedChannel.pipeline().fireUserEventTriggered(handshakeCompleteEvent);
 
+
+
     assertEquals(expectedRemoteAddress,
-        embeddedChannel.attr(GrpcClientConnectionManager.REMOTE_ADDRESS_ATTRIBUTE_KEY).get());
+        Optional.ofNullable(embeddedChannel.attr(GrpcClientConnectionManager.REQUEST_ATTRIBUTES_KEY))
+            .map(Attribute::get)
+            .map(RequestAttributes::remoteAddress)
+            .orElse(null));
   }
 
   private static List<Arguments> getRemoteAddress() {
@@ -144,53 +152,53 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
     final InetAddress proxyAddress = InetAddresses.forString("4.3.2.1");
 
     return List.of(
-        // Recognized proxy, single forwarded-for address
-        Arguments.of(new DefaultHttpHeaders()
-            .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET)
-            .add(WebsocketHandshakeCompleteHandler.FORWARDED_FOR_HEADER, clientAddress.getHostAddress()),
+        argumentSet("Recognized proxy, single forwarded-for address",
+            new DefaultHttpHeaders()
+                .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET)
+                .add(WebsocketHandshakeCompleteHandler.FORWARDED_FOR_HEADER, clientAddress.getHostAddress()),
             remoteAddress,
             clientAddress),
 
-        // Recognized proxy, multiple forwarded-for addresses
-        Arguments.of(new DefaultHttpHeaders()
+        argumentSet("Recognized proxy, multiple forwarded-for addresses",
+            new DefaultHttpHeaders()
                 .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET)
                 .add(WebsocketHandshakeCompleteHandler.FORWARDED_FOR_HEADER, clientAddress.getHostAddress() + "," + proxyAddress.getHostAddress()),
             remoteAddress,
             proxyAddress),
 
-        // No recognized proxy header, single forwarded-for address
-        Arguments.of(new DefaultHttpHeaders()
+        argumentSet("No recognized proxy header, single forwarded-for address",
+            new DefaultHttpHeaders()
                 .add(WebsocketHandshakeCompleteHandler.FORWARDED_FOR_HEADER, clientAddress.getHostAddress()),
             remoteAddress,
             remoteAddress.getAddress()),
 
-        // No recognized proxy header, no forwarded-for address
-        Arguments.of(new DefaultHttpHeaders(),
+        argumentSet("No recognized proxy header, no forwarded-for address",
+            new DefaultHttpHeaders(),
             remoteAddress,
             remoteAddress.getAddress()),
 
-        // Incorrect proxy header, single forwarded-for address
-        Arguments.of(new DefaultHttpHeaders()
+        argumentSet("Incorrect proxy header, single forwarded-for address",
+            new DefaultHttpHeaders()
                 .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET + "-incorrect")
                 .add(WebsocketHandshakeCompleteHandler.FORWARDED_FOR_HEADER, clientAddress.getHostAddress()),
             remoteAddress,
             remoteAddress.getAddress()),
 
-        // Recognized proxy, no forwarded-for address
-        Arguments.of(new DefaultHttpHeaders()
+        argumentSet("Recognized proxy, no forwarded-for address",
+            new DefaultHttpHeaders()
                 .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET),
             remoteAddress,
             remoteAddress.getAddress()),
 
-        // Recognized proxy, bogus forwarded-for address
-        Arguments.of(new DefaultHttpHeaders()
+        argumentSet("Recognized proxy, bogus forwarded-for address",
+            new DefaultHttpHeaders()
                 .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET)
                 .add(WebsocketHandshakeCompleteHandler.FORWARDED_FOR_HEADER, "not a valid address"),
             remoteAddress,
             null),
 
-        // No forwarded-for address, non-InetSocketAddress remote address
-        Arguments.of(new DefaultHttpHeaders()
+        argumentSet("No forwarded-for address, non-InetSocketAddress remote address",
+            new DefaultHttpHeaders()
                 .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET),
             new LocalAddress("local-address"),
             null)

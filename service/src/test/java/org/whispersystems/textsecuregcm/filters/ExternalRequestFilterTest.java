@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.filters;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 import io.dropwizard.core.Application;
 import io.dropwizard.core.Configuration;
@@ -24,7 +25,6 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.core.Response;
-import java.net.InetAddress;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
@@ -39,6 +39,7 @@ import org.signal.chat.rpc.EchoServiceGrpc;
 import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
 import org.whispersystems.textsecuregcm.grpc.GrpcTestUtils;
 import org.whispersystems.textsecuregcm.grpc.MockRequestAttributesInterceptor;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
 import org.whispersystems.textsecuregcm.util.InetAddressRange;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -157,7 +158,7 @@ class ExternalRequestFilterTest {
       @BeforeEach
       void setUp() throws Exception {
         final MockRequestAttributesInterceptor mockRequestAttributesInterceptor = new MockRequestAttributesInterceptor();
-        mockRequestAttributesInterceptor.setRemoteAddress(InetAddress.getByName("127.0.0.1"));
+        mockRequestAttributesInterceptor.setRequestAttributes(new RequestAttributes(InetAddresses.forString("127.0.0.1"), null, null));
 
         testServer = InProcessServerBuilder.forName("ExternalRequestFilterTest")
             .directExecutor()

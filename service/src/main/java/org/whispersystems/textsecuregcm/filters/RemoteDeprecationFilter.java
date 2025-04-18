@@ -81,7 +81,16 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
       final Metadata headers,
       final ServerCallHandler<ReqT, RespT> next) {
 
-    if (shouldBlock(RequestAttributesUtil.getUserAgent().orElse(null))) {
+    @Nullable final UserAgent userAgent = RequestAttributesUtil.getUserAgent()
+        .map(userAgentString -> {
+          try {
+            return UserAgentUtil.parseUserAgentString(userAgentString);
+          } catch (final UnrecognizedUserAgentException e) {
+            return null;
+          }
+        }).orElse(null);
+
+    if (shouldBlock(userAgent)) {
       call.close(StatusConstants.UPGRADE_NEEDED_STATUS, new Metadata());
       return new ServerCall.Listener<>() {};
     } else {

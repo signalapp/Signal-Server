@@ -253,7 +253,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
           story,
           ephemeral,
           urgent,
-          RequestAttributesUtil.getRawUserAgent().orElse(null));
+          RequestAttributesUtil.getUserAgent().orElse(null));
 
       final SendMultiRecipientMessageResponse.Builder responseBuilder = SendMultiRecipientMessageResponse.newBuilder();
 

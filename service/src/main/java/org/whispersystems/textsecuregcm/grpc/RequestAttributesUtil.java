@@ -3,18 +3,13 @@ package org.whispersystems.textsecuregcm.grpc;
 import io.grpc.Context;
 import java.net.InetAddress;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 
 public class RequestAttributesUtil {
 
-  static final Context.Key<List<Locale.LanguageRange>> ACCEPT_LANGUAGE_CONTEXT_KEY = Context.key("accept-language");
-  static final Context.Key<InetAddress> REMOTE_ADDRESS_CONTEXT_KEY = Context.key("remote-address");
-  static final Context.Key<String> RAW_USER_AGENT_CONTEXT_KEY = Context.key("unparsed-user-agent");
-  static final Context.Key<UserAgent> USER_AGENT_CONTEXT_KEY = Context.key("parsed-user-agent");
+  static final Context.Key<RequestAttributes> REQUEST_ATTRIBUTES_CONTEXT_KEY = Context.key("request-attributes");
 
   private static final List<Locale> AVAILABLE_LOCALES = Arrays.asList(Locale.getAvailableLocales());
 
@@ -23,8 +18,8 @@ public class RequestAttributesUtil {
    *
    * @return the acceptable languages listed by the remote client; may be empty if unparseable or not specified
    */
-  public static Optional<List<Locale.LanguageRange>> getAcceptableLanguages() {
-    return Optional.ofNullable(ACCEPT_LANGUAGE_CONTEXT_KEY.get());
+  public static List<Locale.LanguageRange> getAcceptableLanguages() {
+    return REQUEST_ATTRIBUTES_CONTEXT_KEY.get().acceptLanguage();
   }
 
   /**
@@ -35,9 +30,7 @@ public class RequestAttributesUtil {
    * @return a list of distinct locales acceptable to the remote client and available in this JVM
    */
   public static List<Locale> getAvailableAcceptedLocales() {
-    return getAcceptableLanguages()
-        .map(languageRanges -> Locale.filter(languageRanges, AVAILABLE_LOCALES))
-        .orElseGet(Collections::emptyList);
+    return Locale.filter(getAcceptableLanguages(), AVAILABLE_LOCALES);
   }
 
   /**
@@ -46,16 +39,7 @@ public class RequestAttributesUtil {
    * @return the remote address of the remote client
    */
   public static InetAddress getRemoteAddress() {
-    return REMOTE_ADDRESS_CONTEXT_KEY.get();
-  }
-
-  /**
-   * Returns the parsed user-agent of the remote client in the current gRPC request context.
-   *
-   * @return the parsed user-agent of the remote client; may be empty if unparseable or not specified
-   */
-  public static Optional<UserAgent> getUserAgent() {
-    return Optional.ofNullable(USER_AGENT_CONTEXT_KEY.get());
+    return REQUEST_ATTRIBUTES_CONTEXT_KEY.get().remoteAddress();
   }
 
   /**
@@ -63,7 +47,7 @@ public class RequestAttributesUtil {
    *
    * @return the unparsed user-agent of the remote client; may be empty if not specified
    */
-  public static Optional<String> getRawUserAgent() {
-    return Optional.ofNullable(RAW_USER_AGENT_CONTEXT_KEY.get());
+  public static Optional<String> getUserAgent() {
+    return Optional.ofNullable(REQUEST_ATTRIBUTES_CONTEXT_KEY.get().userAgent());
   }
 }

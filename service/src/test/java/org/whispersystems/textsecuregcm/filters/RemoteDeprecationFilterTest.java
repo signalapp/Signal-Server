@@ -15,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.net.HttpHeaders;
+import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 import com.vdurmont.semver4j.Semver;
 import io.grpc.ManagedChannel;
@@ -40,11 +41,10 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRemoteDeprecationConfiguration;
 import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
 import org.whispersystems.textsecuregcm.grpc.MockRequestAttributesInterceptor;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
 import org.whispersystems.textsecuregcm.grpc.StatusConstants;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 class RemoteDeprecationFilterTest {
 
@@ -130,11 +130,7 @@ class RemoteDeprecationFilterTest {
   @MethodSource(value="testFilter")
   void testGrpcFilter(final String userAgentString, final boolean expectDeprecation) throws IOException, InterruptedException {
     final MockRequestAttributesInterceptor mockRequestAttributesInterceptor = new MockRequestAttributesInterceptor();
-
-    try {
-      mockRequestAttributesInterceptor.setUserAgent(UserAgentUtil.parseUserAgentString(userAgentString));
-    } catch (UnrecognizedUserAgentException ignored) {
-    }
+    mockRequestAttributesInterceptor.setRequestAttributes(new RequestAttributes(InetAddresses.forString("127.0.0.1"), userAgentString, null));
 
     final Server testServer = InProcessServerBuilder.forName("RemoteDeprecationFilterTest")
         .directExecutor()
