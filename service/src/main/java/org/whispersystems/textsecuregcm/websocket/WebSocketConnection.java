@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
@@ -46,6 +47,7 @@ import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventListener;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
@@ -120,6 +122,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
   private final PushNotificationManager pushNotificationManager;
   private final PushNotificationScheduler pushNotificationScheduler;
   private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private final AuthenticatedDevice auth;
   private final WebSocketClient client;
@@ -159,7 +162,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
       ClientReleaseManager clientReleaseManager,
-      MessageDeliveryLoopMonitor messageDeliveryLoopMonitor) {
+      MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
+      ExperimentEnrollmentManager experimentEnrollmentManager) {
 
     this(receiptSender,
         messagesManager,
@@ -172,7 +176,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
         scheduledExecutorService,
         messageDeliveryScheduler,
         clientReleaseManager,
-        messageDeliveryLoopMonitor);
+        messageDeliveryLoopMonitor, experimentEnrollmentManager);
   }
 
   @VisibleForTesting
@@ -187,7 +191,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
       ClientReleaseManager clientReleaseManager,
-      MessageDeliveryLoopMonitor messageDeliveryLoopMonitor) {
+      MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
+      ExperimentEnrollmentManager experimentEnrollmentManager) {
 
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
@@ -201,6 +206,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
     this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   public void start() {
@@ -331,7 +337,13 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
               // Cleared the queue! Send a queue empty message if we need to
               consecutiveRetries.set(0);
               if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
-                final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
+                final boolean inSkipExperiment = auth.getAuthenticatedDevice().getGcmId() != null && experimentEnrollmentManager.isEnrolled(
+                    auth.getAccount().getUuid(),
+                    MessageSender.ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT);
+
+                final Tags tags = Tags
+                    .of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))
+                    .and("lowUrgencySkip", Boolean.toString(inSkipExperiment));
                 final long drainDuration = System.currentTimeMillis() - queueDrainStartTime.get();
 
                 Metrics.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, tags).record(sentMessageCounter.sum());

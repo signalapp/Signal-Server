@@ -24,16 +24,19 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.util.Pair;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -52,6 +55,9 @@ public class MessageSender {
 
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
+
+  public static final String ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT = "androidSkipLowUrgencyPush";
 
   // Note that these names deliberately reference `MessageController` for metric continuity
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageController.class, "rejectOversizeMessage");
@@ -72,9 +78,13 @@ public class MessageSender {
   @VisibleForTesting
   static final byte NO_EXCLUDED_DEVICE_ID = -1;
 
-  public MessageSender(final MessagesManager messagesManager, final PushNotificationManager pushNotificationManager) {
+  public MessageSender(
+      final MessagesManager messagesManager,
+      final PushNotificationManager pushNotificationManager,
+      final ExperimentEnrollmentManager experimentEnrollmentManager) {
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   /**
@@ -145,7 +155,7 @@ public class MessageSender {
         .forEach((deviceId, destinationPresent) -> {
           final Envelope message = messagesByDeviceId.get(deviceId);
 
-          if (!destinationPresent && !message.getEphemeral()) {
+          if (!destinationPresent && !message.getEphemeral() && !shouldSkipPush(destination, deviceId, message.getUrgent())) {
             try {
               pushNotificationManager.sendNewMessageNotification(destination, deviceId, message.getUrgent());
             } catch (final NotPushRegisteredException ignored) {
@@ -163,6 +173,13 @@ public class MessageSender {
 
           Metrics.counter(SEND_COUNTER_NAME, tags).increment();
         });
+  }
+
+  private boolean shouldSkipPush(final Account account, byte deviceId, boolean urgent) {
+    final boolean isAndroidFcm = account.getDevice(deviceId).map(Device::getGcmId).isPresent();
+    return !urgent
+        && isAndroidFcm
+        && experimentEnrollmentManager.isEnrolled(account.getUuid(), ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT);
   }
 
   /**

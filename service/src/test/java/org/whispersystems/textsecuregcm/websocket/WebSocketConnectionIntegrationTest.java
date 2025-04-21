@@ -47,6 +47,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -141,7 +142,8 @@ class WebSocketConnectionIntegrationTest {
         scheduledExecutorService,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(MessageDeliveryLoopMonitor.class));
+        mock(MessageDeliveryLoopMonitor.class),
+        mock(ExperimentEnrollmentManager.class));
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
@@ -229,7 +231,8 @@ class WebSocketConnectionIntegrationTest {
         scheduledExecutorService,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(MessageDeliveryLoopMonitor.class));
+        mock(MessageDeliveryLoopMonitor.class),
+        mock(ExperimentEnrollmentManager.class));
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;
@@ -299,7 +302,8 @@ class WebSocketConnectionIntegrationTest {
         scheduledExecutorService,
         messageDeliveryScheduler,
         clientReleaseManager,
-        mock(MessageDeliveryLoopMonitor.class));
+        mock(MessageDeliveryLoopMonitor.class),
+        mock(ExperimentEnrollmentManager.class));
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;

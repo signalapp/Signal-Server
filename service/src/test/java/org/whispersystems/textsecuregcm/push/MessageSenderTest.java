@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -39,6 +40,7 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
@@ -54,13 +56,67 @@ class MessageSenderTest {
   private MessagesManager messagesManager;
   private PushNotificationManager pushNotificationManager;
   private MessageSender messageSender;
+  private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   @BeforeEach
   void setUp() {
     messagesManager = mock(MessagesManager.class);
     pushNotificationManager = mock(PushNotificationManager.class);
+    experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
-    messageSender = new MessageSender(messagesManager, pushNotificationManager);
+    messageSender = new MessageSender(messagesManager, pushNotificationManager, experimentEnrollmentManager);
+  }
+
+
+  @CartesianTest
+  void pushSkippedExperiment(
+      @CartesianTest.Values(booleans = {true, false}) final boolean hasGcmToken,
+      @CartesianTest.Values(booleans = {true, false}) final boolean isUrgent,
+      @CartesianTest.Values(booleans = {true, false}) final boolean inExperiment) throws NotPushRegisteredException {
+
+    final boolean shouldSkip = hasGcmToken && !isUrgent && inExperiment;
+
+    final UUID accountIdentifier = UUID.randomUUID();
+    final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(accountIdentifier);
+    final byte deviceId = Device.PRIMARY_ID;
+    final int registrationId = 17;
+
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+    final MessageProtos.Envelope message = MessageProtos.Envelope.newBuilder()
+        .setEphemeral(false)
+        .setUrgent(isUrgent)
+        .build();
+
+    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
+    when(account.getDevices()).thenReturn(List.of(device));
+    when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
+    when(device.getId()).thenReturn(deviceId);
+    when(device.getRegistrationId()).thenReturn(registrationId);
+
+    if (hasGcmToken) {
+      when(device.getGcmId()).thenReturn("gcm-token");
+    } else {
+      when(device.getApnId()).thenReturn("apn-token");
+    }
+    when(messagesManager.insert(any(), any())).thenReturn(Map.of(deviceId, false));
+    when(experimentEnrollmentManager.isEnrolled(accountIdentifier, MessageSender.ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT))
+        .thenReturn(inExperiment);
+
+    assertDoesNotThrow(() -> messageSender.sendMessages(account,
+        serviceIdentifier,
+        Map.of(device.getId(), message),
+        Map.of(device.getId(), registrationId),
+        Optional.empty(),
+        null));
+
+    if (shouldSkip) {
+      verifyNoInteractions(pushNotificationManager);
+    } else {
+      verify(pushNotificationManager).sendNewMessageNotification(account, deviceId, isUrgent);
+    }
   }
 
   @CartesianTest

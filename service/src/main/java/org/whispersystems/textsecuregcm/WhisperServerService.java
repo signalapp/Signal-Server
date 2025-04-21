@@ -668,7 +668,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final AccountAuthenticator accountAuthenticator = new AccountAuthenticator(accountsManager);
 
-    final MessageSender messageSender = new MessageSender(messagesManager, pushNotificationManager);
+    final MessageSender messageSender = new MessageSender(messagesManager, pushNotificationManager, experimentEnrollmentManager);
     final ReceiptSender receiptSender = new ReceiptSender(accountsManager, messageSender, receiptSenderExecutor);
     final CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager = new CloudflareTurnCredentialsManager(
         config.getTurnConfiguration().cloudflare().apiToken().value(),
@@ -988,7 +988,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(receiptSender, messagesManager, messageMetrics, pushNotificationManager,
             pushNotificationScheduler, webSocketConnectionEventManager, websocketScheduledExecutor,
-            messageDeliveryScheduler, clientReleaseManager, messageDeliveryLoopMonitor));
+            messageDeliveryScheduler, clientReleaseManager, messageDeliveryLoopMonitor, experimentEnrollmentManager));
     webSocketEnvironment.jersey()
         .register(new WebsocketRefreshApplicationEventListener(accountsManager, disconnectionRequestManager));
     webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));

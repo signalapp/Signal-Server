@@ -27,8 +27,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
+import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -41,6 +43,7 @@ public class MessagePersister implements Managed {
   private final MessagesManager messagesManager;
   private final AccountsManager accountsManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private final Duration persistDelay;
 
@@ -78,6 +81,7 @@ public class MessagePersister implements Managed {
       final MessagesManager messagesManager,
       final AccountsManager accountsManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final ExperimentEnrollmentManager experimentEnrollmentManager,
       final Duration persistDelay,
       final int dedicatedProcessWorkerThreadCount) {
 
@@ -85,6 +89,7 @@ public class MessagePersister implements Managed {
     this.messagesManager = messagesManager;
     this.accountsManager = accountsManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.persistDelay = persistDelay;
     this.workerThreads = new Thread[dedicatedProcessWorkerThreadCount];
 
@@ -234,8 +239,11 @@ public class MessagePersister implements Managed {
 
       } while (!messages.isEmpty());
 
+      final boolean inSkipExperiment = device.getGcmId() != null && experimentEnrollmentManager.isEnrolled(
+          accountUuid,
+          MessageSender.ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT);
       DistributionSummary.builder(QUEUE_SIZE_DISTRIBUTION_SUMMARY_NAME)
-          .tags(Tags.of(platformTag))
+          .tags(Tags.of(platformTag).and("lowUrgencySkip", Boolean.toString(inSkipExperiment)))
           .publishPercentileHistogram(true)
           .register(Metrics.globalRegistry)
           .record(messageCount);

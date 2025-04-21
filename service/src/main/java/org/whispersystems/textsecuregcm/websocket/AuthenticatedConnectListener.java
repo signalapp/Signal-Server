@@ -12,6 +12,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.OpenWebSocketCounter;
@@ -45,6 +46,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final Scheduler messageDeliveryScheduler;
   private final ClientReleaseManager clientReleaseManager;
   private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private final OpenWebSocketCounter openAuthenticatedWebSocketCounter;
   private final OpenWebSocketCounter openUnauthenticatedWebSocketCounter;
@@ -58,7 +60,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
       ClientReleaseManager clientReleaseManager,
-      MessageDeliveryLoopMonitor messageDeliveryLoopMonitor) {
+      MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
+      final ExperimentEnrollmentManager experimentEnrollmentManager) {
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
     this.messageMetrics = messageMetrics;
@@ -69,6 +72,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
     this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
 
     openAuthenticatedWebSocketCounter =
         new OpenWebSocketCounter(OPEN_WEBSOCKET_GAUGE_NAME, CONNECTED_DURATION_TIMER_NAME, Tags.of(AUTHENTICATED_TAG_NAME, "true"));
@@ -98,7 +102,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           scheduledExecutorService,
           messageDeliveryScheduler,
           clientReleaseManager,
-          messageDeliveryLoopMonitor);
+          messageDeliveryLoopMonitor,
+          experimentEnrollmentManager);
 
       context.addWebsocketClosedListener((closingContext, statusCode, reason) -> {
         // We begin the shutdown process by removing this client's "presence," which means it will again begin to

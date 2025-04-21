@@ -54,6 +54,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
@@ -125,7 +126,8 @@ class WebSocketConnectionTest {
     AuthenticatedConnectListener connectListener = new AuthenticatedConnectListener(receiptSender, messagesManager,
         new MessageMetrics(), mock(PushNotificationManager.class), mock(PushNotificationScheduler.class),
         mock(WebSocketConnectionEventManager.class), retrySchedulingExecutor,
-        messageDeliveryScheduler, clientReleaseManager, mock(MessageDeliveryLoopMonitor.class));
+        messageDeliveryScheduler, clientReleaseManager, mock(MessageDeliveryLoopMonitor.class),
+        mock(ExperimentEnrollmentManager.class));
     WebSocketSessionContext sessionContext = mock(WebSocketSessionContext.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
@@ -629,7 +631,8 @@ class WebSocketConnectionTest {
   private WebSocketConnection webSocketConnection(final WebSocketClient client) {
     return new WebSocketConnection(receiptSender, messagesManager, new MessageMetrics(),
         mock(PushNotificationManager.class), mock(PushNotificationScheduler.class), auth, client,
-        retrySchedulingExecutor, Schedulers.immediate(), clientReleaseManager, mock(MessageDeliveryLoopMonitor.class));
+        retrySchedulingExecutor, Schedulers.immediate(), clientReleaseManager,
+        mock(MessageDeliveryLoopMonitor.class), mock(ExperimentEnrollmentManager.class));
   }
 
   @Test
