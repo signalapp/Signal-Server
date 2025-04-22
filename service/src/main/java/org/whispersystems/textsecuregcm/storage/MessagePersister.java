@@ -48,6 +48,7 @@ public class MessagePersister implements Managed {
 
   private static final String OVERSIZED_QUEUE_COUNTER_NAME = name(MessagePersister.class, "persistQueueOversized");
   private static final String PERSISTED_MESSAGE_COUNTER_NAME = name(MessagePersister.class, "persistMessage");
+  private static final String PERSISTED_BYTES_COUNTER_NAME = name(MessagePersister.class, "persistBytes");
 
   private static final Timer GET_QUEUES_TIMER = Metrics.timer(name(MessagePersister.class, "getQueues"));
   private static final Timer PERSIST_QUEUE_TIMER = Metrics.timer(name(MessagePersister.class, "persistQueue"));
@@ -217,6 +218,8 @@ public class MessagePersister implements Managed {
 
         Metrics.counter(PERSISTED_MESSAGE_COUNTER_NAME, tags.and("urgent", "true")).increment(urgentMessageCount);
         Metrics.counter(PERSISTED_MESSAGE_COUNTER_NAME, tags.and("urgent", "false")).increment(nonUrgentMessageCount);
+        Metrics.counter(PERSISTED_BYTES_COUNTER_NAME, tags)
+            .increment(messages.stream().mapToInt(MessageProtos.Envelope::getSerializedSize).sum());
 
         int messagesRemovedFromCache = messagesManager.persistMessages(accountUuid, device, messages);
         messageCount += messages.size();
