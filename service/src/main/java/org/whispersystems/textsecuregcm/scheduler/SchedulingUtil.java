@@ -38,8 +38,8 @@ public class SchedulingUtil {
       final LocalTime preferredTime,
       final Clock clock) {
 
-    final ZonedDateTime candidateNotificationTime = getZoneOffset(account, clock)
-        .map(zoneOffset -> ZonedDateTime.now(zoneOffset).with(preferredTime))
+    final ZonedDateTime candidateNotificationTime = getZoneId(account, clock)
+        .map(zoneId -> ZonedDateTime.now(clock.withZone(zoneId)).with(preferredTime))
         .orElseGet(() -> {
           // We couldn't find a reasonable timezone for the account for some reason, so make an educated guess at a
           // reasonable time to send a notification based on the account's creation time.
@@ -59,7 +59,7 @@ public class SchedulingUtil {
   }
 
   @VisibleForTesting
-  static Optional<ZoneOffset> getZoneOffset(final Account account, final Clock clock) {
+  static Optional<ZoneId> getZoneId(final Account account, final Clock clock) {
     try {
       final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(account.getNumber(), null);
 
@@ -70,7 +70,7 @@ public class SchedulingUtil {
         return Optional.empty();
       }
 
-      final List<ZoneOffset> sortedZoneOffsets = timeZonesForNumber
+      final List<ZoneId> sortedZoneOffsets = timeZonesForNumber
           .stream()
           .map(id -> {
             try {
@@ -80,9 +80,6 @@ public class SchedulingUtil {
             }
           })
           .filter(Objects::nonNull)
-          .map(ZoneId::getRules)
-          .distinct()
-          .map(zoneRules -> zoneRules.getOffset(clock.instant()))
           .sorted()
           .toList();
 

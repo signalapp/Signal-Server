@@ -6,8 +6,10 @@ import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -64,5 +66,27 @@ class SchedulingUtilTest {
           SchedulingUtil.getNextRecommendedNotificationTime(account, LocalTime.of(14, 0),
               Clock.fixed(afterNotificationTime.toInstant(), ZoneId.systemDefault())));
     }
+  }
+
+  @Test
+  void getNextRecommendedNotificationTimeDaylightSavings() {
+    final Account account = mock(Account.class);
+
+    // The account has a phone number that can be resolved to a region with known timezones
+    when(account.getNumber()).thenReturn(PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164));
+
+    final LocalDateTime afterNotificationTime = LocalDateTime.of(2025, 3, 29, 15, 0);
+    final ZoneId berlinZoneId = ZoneId.of("Europe/Berlin");
+    final ZoneOffset berlineZoneOffset = berlinZoneId.getRules().getOffset(afterNotificationTime);
+
+    // Daylight Savings Time started on 2025-03-30 at 2:00AM in Germany.
+    // Instantiating a ZonedDateTime with a zone ID factors in daylight savings when we adjust the time.
+    final ZonedDateTime afterNotificationTimeWithZoneId = ZonedDateTime.of(afterNotificationTime, berlinZoneId);
+    
+    assertEquals(
+        afterNotificationTimeWithZoneId.with(LocalTime.of(14, 0)).plusDays(1).toInstant(),
+        SchedulingUtil.getNextRecommendedNotificationTime(account, LocalTime.of(14, 0),
+            Clock.fixed(afterNotificationTime.toInstant(berlineZoneOffset), berlinZoneId)));
   }
 }
