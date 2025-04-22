@@ -71,6 +71,7 @@ public class MessageSender {
   private static final String STORY_TAG_NAME = "story";
   private static final String SEALED_SENDER_TAG_NAME = "sealedSender";
   private static final String MULTI_RECIPIENT_TAG_NAME = "multiRecipient";
+  private static final String SYNC_MESSAGE_TAG_NAME = "sync";
 
   @VisibleForTesting
   public static final int MAX_MESSAGE_SIZE = (int) DataSize.kibibytes(256).toBytes();
@@ -120,7 +121,7 @@ public class MessageSender {
 
     if (messagesByDeviceId.isEmpty()) {
       Metrics.counter(EMPTY_MESSAGE_LIST_COUNTER_NAME,
-          Tags.of("sync", String.valueOf(syncMessageSenderDeviceId.isPresent())).and(platformTag)).increment();
+          Tags.of(SYNC_MESSAGE_TAG_NAME, String.valueOf(syncMessageSenderDeviceId.isPresent())).and(platformTag)).increment();
     }
 
     final byte excludedDeviceId;
@@ -168,6 +169,7 @@ public class MessageSender {
                   URGENT_TAG_NAME, String.valueOf(message.getUrgent()),
                   STORY_TAG_NAME, String.valueOf(message.getStory()),
                   SEALED_SENDER_TAG_NAME, String.valueOf(!message.hasSourceServiceId()),
+                  SYNC_MESSAGE_TAG_NAME, String.valueOf(syncMessageSenderDeviceId.isPresent()),
                   MULTI_RECIPIENT_TAG_NAME, "false")
               .and(platformTag);
 
@@ -259,6 +261,7 @@ public class MessageSender {
                           URGENT_TAG_NAME, String.valueOf(isUrgent),
                           STORY_TAG_NAME, String.valueOf(isStory),
                           SEALED_SENDER_TAG_NAME, "true",
+                          SYNC_MESSAGE_TAG_NAME, "false",
                           MULTI_RECIPIENT_TAG_NAME, "true")
                       .and(UserAgentTagUtil.getPlatformTag(userAgent));
 
