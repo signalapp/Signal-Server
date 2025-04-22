@@ -44,7 +44,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -52,7 +51,6 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
@@ -74,6 +72,7 @@ import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -600,25 +599,9 @@ public class DeviceController {
   }
 
   private static io.micrometer.core.instrument.Tag primaryPlatformTag(final Account account) {
-    final Device primaryDevice = account.getPrimaryDevice();
-
-    Optional<ClientPlatform> clientPlatform = Optional.empty();
-    if (StringUtils.isNotBlank(primaryDevice.getGcmId())) {
-      clientPlatform = Optional.of(ClientPlatform.ANDROID);
-    } else if (StringUtils.isNotBlank(primaryDevice.getApnId())) {
-      clientPlatform = Optional.of(ClientPlatform.IOS);
-    }
-    clientPlatform = clientPlatform.or(() -> Optional.ofNullable(
-        switch (primaryDevice.getUserAgent()) {
-          case "OWA" -> ClientPlatform.ANDROID;
-          case "OWI", "OWP" -> ClientPlatform.IOS;
-          case "OWD" -> ClientPlatform.DESKTOP;
-          case null, default -> null;
-        }));
-
     return io.micrometer.core.instrument.Tag.of(
         "primaryPlatform",
-        clientPlatform
+        DevicePlatformUtil.getDevicePlatform(account.getPrimaryDevice())
             .map(p -> p.name().toLowerCase(Locale.ROOT))
             .orElse("unknown"));
   }
