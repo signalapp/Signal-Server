@@ -120,10 +120,7 @@ public class MetricsUtil {
 
   public static void registerSystemResourceMetrics(final Environment environment) {
     new ProcessorMetrics().bindTo(Metrics.globalRegistry);
-    new FreeMemoryGauge().bindTo(Metrics.globalRegistry);
     new FileDescriptorMetrics().bindTo(Metrics.globalRegistry);
-    new OperatingSystemMemoryGauge("Buffers").bindTo(Metrics.globalRegistry);
-    new OperatingSystemMemoryGauge("Cached").bindTo(Metrics.globalRegistry);
 
     new JvmMemoryMetrics().bindTo(Metrics.globalRegistry);
     new JvmThreadMetrics().bindTo(Metrics.globalRegistry);
