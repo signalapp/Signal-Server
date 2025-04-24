@@ -670,11 +670,10 @@ public class MessagesCache {
         .thenRun(() -> sample.stop(clearQueueTimer));
   }
 
-  // expensive—use for rare error logging only
   public String shardForSlot(int slot) {
     try {
       return redisCluster.withBinaryCluster(
-          connection -> ClusterPartitionParser.parse(connection.sync().clusterNodes()).getPartitionBySlot(slot).getUri().getHost());
+          connection -> connection.getPartitions().getPartitionBySlot(slot).getUri().getHost());
     } catch (Throwable ignored) {
       return "unknown";
     }
