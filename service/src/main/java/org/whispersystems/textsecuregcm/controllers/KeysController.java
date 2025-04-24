@@ -152,7 +152,7 @@ public class KeysController {
 
     final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(4);
 
-    if (setKeysRequest.preKeys() != null && !setKeysRequest.preKeys().isEmpty()) {
+    if (!setKeysRequest.preKeys().isEmpty()) {
       Metrics.counter(STORE_KEYS_COUNTER_NAME,
           Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec")))
           .increment();
@@ -168,7 +168,7 @@ public class KeysController {
       storeFutures.add(keysManager.storeEcSignedPreKeys(identifier, device.getId(), setKeysRequest.signedPreKey()));
     }
 
-    if (setKeysRequest.pqPreKeys() != null && !setKeysRequest.pqPreKeys().isEmpty()) {
+    if (!setKeysRequest.pqPreKeys().isEmpty()) {
       Metrics.counter(STORE_KEYS_COUNTER_NAME,
               Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber")))
           .increment();
@@ -192,11 +192,7 @@ public class KeysController {
       final IdentityKey identityKey,
       @Nullable final String userAgent) {
 
-    final List<SignedPreKey<?>> signedPreKeys = new ArrayList<>();
-
-    if (setKeysRequest.pqPreKeys() != null) {
-      signedPreKeys.addAll(setKeysRequest.pqPreKeys());
-    }
+    final List<SignedPreKey<?>> signedPreKeys = new ArrayList<>(setKeysRequest.pqPreKeys());
 
     if (setKeysRequest.pqLastResortPreKey() != null) {
       signedPreKeys.add(setKeysRequest.pqLastResortPreKey());
