@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -940,6 +941,45 @@ class KeysControllerTest {
                  .put(Entity.entity(preKeyState, MediaType.APPLICATION_JSON_TYPE));
 
     assertThat(response.getStatus()).isEqualTo(400);
+  }
+
+  @Test
+  void putKeysTooManySingleUseECKeys() {
+    final List<ECPreKey> preKeys = IntStream.range(31337, 31438).mapToObj(KeysHelper::ecPreKey).toList();
+    final ECSignedPreKey signedPreKey = KeysHelper.signedECPreKey(31338, AuthHelper.VALID_IDENTITY_KEY_PAIR);
+
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(preKeys, signedPreKey, null, null);
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v2/keys")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+
+    verifyNoMoreInteractions(KEYS);
+  }
+
+  @Test
+  void putKeysTooManySingleUseKEMKeys() {
+    final List<KEMSignedPreKey> pqPreKeys = IntStream.range(31337, 31438)
+        .mapToObj(id -> KeysHelper.signedKEMPreKey(id, AuthHelper.VALID_IDENTITY_KEY_PAIR))
+        .toList();
+
+    final SetKeysRequest setKeysRequest = new SetKeysRequest(null, null, pqPreKeys, null);
+
+    Response response =
+        resources.getJerseyTest()
+                 .target("/v2/keys")
+                 .request()
+                 .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+                 .put(Entity.entity(setKeysRequest, MediaType.APPLICATION_JSON_TYPE));
+
+    assertThat(response.getStatus()).isEqualTo(422);
+
+    verifyNoMoreInteractions(KEYS);
   }
 
   @Test
