@@ -2749,6 +2749,10 @@ paths:
         required: true
         schema:
           type: string
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       responses:
         default:
           description: default response
@@ -2786,6 +2790,10 @@ paths:
           type: string
       - name: credentialType
         in: query
+        schema:
+          type: string
+      - name: User-Agent
+        in: header
         schema:
           type: string
       responses:
