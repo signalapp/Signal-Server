@@ -5,11 +5,13 @@
 package org.whispersystems.textsecuregcm.entities;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import java.util.List;
 
 public record SetKeysRequest(
+    @NotNull
     @Valid
     @Size(max=100)
     @Schema(description = """
@@ -27,6 +29,7 @@ public record SetKeysRequest(
         """)
     ECSignedPreKey signedPreKey,
 
+    @NotNull
     @Valid
     @Size(max=100)
     @Schema(description = """
@@ -43,4 +46,16 @@ public record SetKeysRequest(
         deleted. If present, must have a valid signature from the identity key in this request.
         """)
     KEMSignedPreKey pqLastResortPreKey) {
+  public SetKeysRequest {
+    // It’s a little counter-intuitive, but this compact constructor allows a default value
+    // to be used when one isn’t specified, allowing the field to still be
+    // validated as @NotNull
+    if (preKeys == null) {
+      preKeys = List.of();
+    }
+
+    if (pqPreKeys == null) {
+      pqPreKeys = List.of();
+    }
+  }
 }
