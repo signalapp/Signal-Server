@@ -2829,10 +2829,6 @@ paths:
         required: true
         schema:
           $ref: '#/components/schemas/ServiceIdentifier'
-      - name: ca
-        in: query
-        schema:
-          type: boolean
       responses:
         default:
           description: default response
@@ -4972,10 +4968,10 @@ components:
         created:
           type: string
           format: date-time
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
@@ -5234,9 +5230,14 @@ components:
             device
           format: int32
     SetKeysRequest:
+      required:
+      - pqPreKeys
+      - preKeys
       type: object
       properties:
         preKeys:
+          maxItems: 100
+          minItems: 0
           type: array
           description: |
             A list of unsigned elliptic-curve prekeys to use for this device. If present and not empty, replaces all stored
@@ -5247,6 +5248,8 @@ components:
         signedPreKey:
           $ref: '#/components/schemas/ECSignedPreKey'
         pqPreKeys:
+          maxItems: 100
+          minItems: 0
           type: array
           description: |
             A list of signed post-quantum one-time prekeys to use for this device. Each key must have a valid signature from
