@@ -19,10 +19,10 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
   public enum For implements RateLimiterDescriptor {
     BACKUP_AUTH_CHECK("backupAuthCheck", false, new RateLimiterConfig(100, Duration.ofMinutes(15), false)),
     PIN("pin", false, new RateLimiterConfig(10, Duration.ofDays(1), false)),
-    ATTACHMENT("attachmentCreate", false, new RateLimiterConfig(50, Duration.ofMillis(1200), false)),
-    BACKUP_ATTACHMENT("backupAttachmentCreate", true, new RateLimiterConfig(10_000, Duration.ofSeconds(1), false)),
+    ATTACHMENT("attachmentCreate", false, new RateLimiterConfig(50, Duration.ofMillis(1200), true)),
+    BACKUP_ATTACHMENT("backupAttachmentCreate", true, new RateLimiterConfig(10_000, Duration.ofSeconds(1), true)),
     PRE_KEYS("prekeys", false, new RateLimiterConfig(6, Duration.ofMinutes(10), false)),
-    MESSAGES("messages", false, new RateLimiterConfig(60, Duration.ofSeconds(1), false)),
+    MESSAGES("messages", false, new RateLimiterConfig(60, Duration.ofSeconds(1), true)),
     STORIES("stories", false, new RateLimiterConfig(5_000, Duration.ofSeconds(8), false)),
     ALLOCATE_DEVICE("allocateDevice", false, new RateLimiterConfig(6, Duration.ofMinutes(2), false)),
     VERIFY_DEVICE("verifyDevice", false, new RateLimiterConfig(6, Duration.ofMinutes(2), false)),
@@ -54,8 +54,8 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     WAIT_FOR_LINKED_DEVICE("waitForLinkedDevice", true, new RateLimiterConfig(10, Duration.ofSeconds(30), false)),
     UPLOAD_TRANSFER_ARCHIVE("uploadTransferArchive", true, new RateLimiterConfig(10, Duration.ofMinutes(1), false)),
     WAIT_FOR_TRANSFER_ARCHIVE("waitForTransferArchive", true, new RateLimiterConfig(10, Duration.ofSeconds(30), false)),
-    RECORD_DEVICE_TRANSFER_REQUEST("recordDeviceTransferRequest", true, new RateLimiterConfig(10, Duration.ofMillis(100), false)),
-    WAIT_FOR_DEVICE_TRANSFER_REQUEST("waitForDeviceTransferRequest", true, new RateLimiterConfig(10, Duration.ofMillis(100), false)),
+    RECORD_DEVICE_TRANSFER_REQUEST("recordDeviceTransferRequest", true, new RateLimiterConfig(10, Duration.ofMillis(100), true)),
+    WAIT_FOR_DEVICE_TRANSFER_REQUEST("waitForDeviceTransferRequest", true, new RateLimiterConfig(10, Duration.ofMillis(100), true)),
     DEVICE_CHECK_CHALLENGE("deviceCheckChallenge", true, new RateLimiterConfig(10, Duration.ofMinutes(1), false)),
     ;
 
