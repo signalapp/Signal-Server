@@ -4968,10 +4968,10 @@ components:
         created:
           type: string
           format: date-time
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
     WebSocketSessionContext:
       type: object
       properties:
