@@ -76,6 +76,7 @@ public class RemoveLinkedDevicesWithoutPqKeysCommand extends AbstractSinglePassC
     final KeysManager keysManager = getCommandDependencies().keysManager();
 
     accounts
+        .filter(account -> account.getDevices().size() > 1)
         .flatMap(
             account -> Mono.fromFuture(() -> keysManager.getPqEnabledDevices(account.getIdentifier(IdentityType.ACI)))
                 .retryWhen(Retry.backoff(maxRetries, Duration.ofSeconds(1))
