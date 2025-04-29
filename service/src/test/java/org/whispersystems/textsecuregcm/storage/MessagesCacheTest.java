@@ -9,8 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertIterableEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,7 +54,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -459,7 +456,7 @@ class MessagesCacheTest {
           do {
             exists = 1 == REDIS_CLUSTER_EXTENSION.getRedisCluster()
                 .withBinaryCluster(conn ->
-                    conn.sync().hlen(MessagesCache.getMessageQueueKey(destinationServiceId.uuid(), deviceId)));
+                    conn.sync().exists(MessagesCache.getMessageQueueKey(destinationServiceId.uuid(), deviceId)));
           } while (exists);
         }, "Stale MRM message should be deleted asynchronously");
 
