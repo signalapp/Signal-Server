@@ -196,6 +196,9 @@ message FullTreeHead {
   optional AuditorTreeHead auditor_tree_head = 4;
 }
 
+/**
+ * TreeHead represents the key transparency service's view of the transparency log.
+ */
 message TreeHead {
   /**
    * The number of entries in the log tree.
@@ -206,28 +209,70 @@ message TreeHead {
    */
   int64 timestamp = 2;
   /**
-   * A signature computed over the log tree's current state and long-term log configuration.
+   * A list of the key transparency service's signatures over the transparency log. Since the
+   * signed data structure assumes one auditor, the key transparency service generates
+   * one signature per auditor.
+   */
+  repeated Signature signatures = 3;
+}
+
+/**
+ * The key transparency service provides one Signature per auditor.
+ */
+message Signature {
+  /**
+   * The public component of the Ed25519 key pair that the auditor used to sign its view
+   * of the transparency log. This value allows clients to identify the corresponding signature.
+   */
+  bytes auditor_public_key = 1;
+  /**
+   * The key transparency service's signature over the transparency log using the
+   * the given public auditor key.
+   */
+  bytes signature = 2;
+}
+
+/**
+ * AuditorTreeHead represents an auditor's view of the transparency log.
+ */
+message AuditorTreeHead {
+  /**
+   * The number of entries in the auditor's view of the transparency log.
+   */
+  uint64 tree_size = 1;
+  /**
+   * The time in milliseconds since epoch when the auditor's signature was generated.
+   */
+  int64 timestamp = 2;
+  /**
+   * The auditor's signature computed over its view of the transparency log's current state
+   * and long-term log configuration.
    */
   bytes signature = 3;
 }
 
-message AuditorTreeHead {
+message FullAuditorTreeHead {
   /**
    * A representation of the log tree state signed by a third-party auditor.
    */
-  TreeHead tree_head = 1;
+  AuditorTreeHead tree_head = 1;
   /**
+   * The root hash of the log tree when the auditor produced the tree head signature.
    * Provided if the auditor tree head size is smaller than the size of the most recent
    * tree head provided to the user.
-   * The root hash of the log tree when the auditor produced the tree head signature.
    */
   optional bytes root_value = 2;
   /**
+   * A consistency proof between the auditor tree head and the most recent tree head.
    * Provided if the auditor tree head size is smaller than the size of the most recent
    * tree head provided by the key transparency service to the user.
-   * A consistency proof between the auditor tree head and the most recent tree head.
    */
   repeated bytes consistency = 3;
+  /**
+   * The public component of the Ed25519 key pair that the third-party auditor used to generate
+   * a signature. This value allows clients to identify the auditor tree head and signature.
+   */
+  bytes public_key = 4;
 }
 
 /**
