@@ -17,7 +17,7 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
  * Once the handler receives the handshake initiator message, it will fire a {@link NoiseIdentityDeterminedEvent}
  * indicating that initiator connected anonymously.
  */
-class NoiseAnonymousHandler extends NoiseHandler {
+public class NoiseAnonymousHandler extends NoiseHandler {
 
   public NoiseAnonymousHandler(final ECKeyPair ecKeyPair) {
     super(new NoiseHandshakeHelper(HandshakePattern.NK, ecKeyPair));

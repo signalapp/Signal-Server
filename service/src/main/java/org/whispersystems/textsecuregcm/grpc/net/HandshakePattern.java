@@ -4,7 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.grpc.net;
 
-enum HandshakePattern {
+public enum HandshakePattern {
   NK("Noise_NK_25519_ChaChaPoly_BLAKE2b"),
   IK("Noise_IK_25519_ChaChaPoly_BLAKE2b");
 

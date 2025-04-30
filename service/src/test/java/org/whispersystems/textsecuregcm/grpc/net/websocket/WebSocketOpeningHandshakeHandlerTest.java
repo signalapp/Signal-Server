@@ -1,4 +1,4 @@
-package org.whispersystems.textsecuregcm.grpc.net;
+package org.whispersystems.textsecuregcm.grpc.net.websocket;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.grpc.net.AbstractLeakDetectionTest;
 
 class WebSocketOpeningHandshakeHandlerTest extends AbstractLeakDetectionTest {
 

@@ -1,4 +1,4 @@
-package org.whispersystems.textsecuregcm.grpc.net;
+package org.whispersystems.textsecuregcm.grpc.net.client;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;

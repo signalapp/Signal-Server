@@ -7,8 +7,6 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
-import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
-import io.netty.handler.codec.http.websocketx.WebSocketCloseStatus;
 import io.netty.util.ReferenceCountUtil;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +20,7 @@ import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
  * any inbound messages until the connection is fully-established, and then opens a proxy connection to a local gRPC
  * server.
  */
-class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
+public class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
 
   private final GrpcClientConnectionManager grpcClientConnectionManager;
 
@@ -79,7 +77,9 @@ class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
               // Close the local connection if the remote channel closes and vice versa
               remoteChannelContext.channel().closeFuture().addListener(closeFuture -> localChannelFuture.channel().close());
               localChannelFuture.channel().closeFuture().addListener(closeFuture ->
-                  remoteChannelContext.write(new CloseWebSocketFrame(WebSocketCloseStatus.SERVICE_RESTART)));
+                  remoteChannelContext.channel()
+                      .write(new OutboundCloseErrorMessage(OutboundCloseErrorMessage.Code.SERVER_CLOSED, "server closed"))
+                      .addListener(ChannelFutureListener.CLOSE_ON_FAILURE));
 
               remoteChannelContext.pipeline()
                   .addAfter(remoteChannelContext.name(), null, new ProxyHandler(localChannelFuture.channel()));

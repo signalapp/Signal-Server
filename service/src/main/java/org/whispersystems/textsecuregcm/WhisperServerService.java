@@ -154,7 +154,7 @@ import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedDefaultEventLoopGroup;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedLocalGrpcServer;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedNioEventLoopGroup;
-import org.whispersystems.textsecuregcm.grpc.net.NoiseWebSocketTunnelServer;
+import org.whispersystems.textsecuregcm.grpc.net.websocket.NoiseWebSocketTunnelServer;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;

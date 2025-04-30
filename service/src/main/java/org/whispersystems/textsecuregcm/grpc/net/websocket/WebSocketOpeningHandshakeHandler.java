@@ -1,4 +1,4 @@
-package org.whispersystems.textsecuregcm.grpc.net;
+package org.whispersystems.textsecuregcm.grpc.net.websocket;
 
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;

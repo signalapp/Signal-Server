@@ -146,14 +146,14 @@ class GrpcClientConnectionManagerTest {
 
   @ParameterizedTest
   @MethodSource
-  void handleHandshakeCompleteRequestAttributes(final InetAddress preferredRemoteAddress,
+  void handleHandshakeInitiatedRequestAttributes(final InetAddress preferredRemoteAddress,
       final String userAgentHeader,
       final String acceptLanguageHeader,
       final RequestAttributes expectedRequestAttributes) {
 
     final EmbeddedChannel embeddedChannel = new EmbeddedChannel();
 
-    GrpcClientConnectionManager.handleHandshakeComplete(embeddedChannel,
+    GrpcClientConnectionManager.handleHandshakeInitiated(embeddedChannel,
         preferredRemoteAddress,
         userAgentHeader,
         acceptLanguageHeader);
@@ -162,7 +162,7 @@ class GrpcClientConnectionManagerTest {
         embeddedChannel.attr(GrpcClientConnectionManager.REQUEST_ATTRIBUTES_KEY).get());
   }
 
-  private static List<Arguments> handleHandshakeCompleteRequestAttributes() {
+  private static List<Arguments> handleHandshakeInitiatedRequestAttributes() {
     final InetAddress preferredRemoteAddress = InetAddresses.forString("192.168.1.1");
 
     return List.of(

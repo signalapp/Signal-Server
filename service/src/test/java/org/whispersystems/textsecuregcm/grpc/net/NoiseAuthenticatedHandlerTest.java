@@ -15,10 +15,10 @@ import static org.mockito.Mockito.when;
 import com.southernstorm.noise.protocol.CipherStatePair;
 import com.southernstorm.noise.protocol.HandshakeState;
 import com.southernstorm.noise.protocol.Noise;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.util.internal.EmptyArrays;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
@@ -34,6 +34,7 @@ import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.grpc.net.client.NoiseClientTransportHandler;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -204,13 +205,12 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     final CompletableFuture<Optional<ECPublicKey>> findPublicKeyFuture = new CompletableFuture<>();
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId)).thenReturn(findPublicKeyFuture);
 
-    final BinaryWebSocketFrame initiatorMessageFrame = new BinaryWebSocketFrame(Unpooled.wrappedBuffer(
-        initiatorHandshakeMessage(clientHandshakeState, identityPayload(accountIdentifier, deviceId))));
+    final ByteBuf initiatorMessageFrame = Unpooled.wrappedBuffer(
+        initiatorHandshakeMessage(clientHandshakeState, identityPayload(accountIdentifier, deviceId)));
     assertTrue(embeddedChannel.writeOneInbound(initiatorMessageFrame).await().isSuccess());
 
     // While waiting for the public key, send another message
-    final ChannelFuture f = embeddedChannel.writeOneInbound(
-        new BinaryWebSocketFrame(Unpooled.wrappedBuffer(new byte[0]))).await();
+    final ChannelFuture f = embeddedChannel.writeOneInbound(Unpooled.wrappedBuffer(new byte[0])).await();
     assertInstanceOf(NoiseHandshakeException.class, f.exceptionNow());
 
     findPublicKeyFuture.complete(Optional.of(clientKeyPair.getPublicKey()));
@@ -267,8 +267,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     final HandshakeState clientHandshakeState = clientHandshakeState();
     final byte[] initiatorMessage = initiatorHandshakeMessage(clientHandshakeState, payload);
 
-    final BinaryWebSocketFrame initiatorMessageFrame = new BinaryWebSocketFrame(
-        Unpooled.wrappedBuffer(initiatorMessage));
+    final ByteBuf initiatorMessageFrame = Unpooled.wrappedBuffer(initiatorMessage);
     final ChannelFuture await = embeddedChannel.writeOneInbound(initiatorMessageFrame).await();
     assertEquals(0, initiatorMessageFrame.refCnt());
     if (!await.isSuccess()) {
@@ -286,11 +285,10 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
 
     assertFalse(embeddedChannel.outboundMessages().isEmpty());
 
-    final BinaryWebSocketFrame serverStaticKeyMessageFrame =
-        (BinaryWebSocketFrame) embeddedChannel.outboundMessages().poll();
+    final ByteBuf serverStaticKeyMessageFrame = (ByteBuf) embeddedChannel.outboundMessages().poll();
     @SuppressWarnings("DataFlowIssue") final byte[] serverStaticKeyMessageBytes =
-        new byte[serverStaticKeyMessageFrame.content().readableBytes()];
-    serverStaticKeyMessageFrame.content().readBytes(serverStaticKeyMessageBytes);
+        new byte[serverStaticKeyMessageFrame.readableBytes()];
+    serverStaticKeyMessageFrame.readBytes(serverStaticKeyMessageBytes);
 
     assertEquals(readHandshakeResponse(clientHandshakeState, serverStaticKeyMessageBytes).length, 0);
 

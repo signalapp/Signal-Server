@@ -119,15 +119,15 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
    * waiting messages in the channel, return null.
    */
   byte[] readNextPlaintext(final CipherStatePair clientCipherPair) throws ShortBufferException, BadPaddingException {
-    final BinaryWebSocketFrame responseFrame = (BinaryWebSocketFrame) embeddedChannel.outboundMessages().poll();
+    final ByteBuf responseFrame = (ByteBuf) embeddedChannel.outboundMessages().poll();
     if (responseFrame == null) {
       return null;
     }
-    final byte[] plaintext = new byte[responseFrame.content().readableBytes() - 16];
+    final byte[] plaintext = new byte[responseFrame.readableBytes() - 16];
     final int read = clientCipherPair.getReceiver().decryptWithAd(null,
-        ByteBufUtil.getBytes(responseFrame.content()), 0,
+        ByteBufUtil.getBytes(responseFrame), 0,
         plaintext, 0,
-        responseFrame.content().readableBytes());
+        responseFrame.readableBytes());
     assertEquals(read, plaintext.length);
     return plaintext;
   }
@@ -140,7 +140,7 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
 
     final ByteBuf content = Unpooled.wrappedBuffer(contentBytes);
 
-    final ChannelFuture writeFuture = embeddedChannel.writeOneInbound(new BinaryWebSocketFrame(content)).await();
+    final ChannelFuture writeFuture = embeddedChannel.writeOneInbound(content).await();
 
     assertFalse(writeFuture.isSuccess());
     assertInstanceOf(NoiseHandshakeException.class, writeFuture.cause());
@@ -150,18 +150,18 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
 
   @Test
   void handleMessagesAfterInitialHandshakeFailure() throws InterruptedException {
-    final BinaryWebSocketFrame[] frames = new BinaryWebSocketFrame[7];
+    final ByteBuf[] frames = new ByteBuf[7];
 
     for (int i = 0; i < frames.length; i++) {
       final byte[] contentBytes = new byte[17];
       ThreadLocalRandom.current().nextBytes(contentBytes);
 
-      frames[i] = new BinaryWebSocketFrame(Unpooled.wrappedBuffer(contentBytes));
+      frames[i] = Unpooled.wrappedBuffer(contentBytes);
 
       embeddedChannel.writeOneInbound(frames[i]).await();
     }
 
-    for (final BinaryWebSocketFrame frame : frames) {
+    for (final ByteBuf frame : frames) {
       assertEquals(0, frame.refCnt());
     }
 
@@ -169,11 +169,11 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
   }
 
   @Test
-  void handleNonWebSocketBinaryFrame() throws Throwable {
+  void handleNonByteBufBinaryFrame() throws Throwable {
     final byte[] contentBytes = new byte[17];
     ThreadLocalRandom.current().nextBytes(contentBytes);
 
-    final ByteBuf message = Unpooled.wrappedBuffer(contentBytes);
+    final BinaryWebSocketFrame message = new BinaryWebSocketFrame(Unpooled.wrappedBuffer(contentBytes));
 
     final ChannelFuture writeFuture = embeddedChannel.writeOneInbound(message).await();
 
@@ -192,7 +192,7 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
     final byte[] ciphertext = new byte[plaintext.length + clientCipherStatePair.getSender().getMACLength()];
     clientCipherStatePair.getSender().encryptWithAd(null, plaintext, 0, ciphertext, 0, plaintext.length);
 
-    final BinaryWebSocketFrame ciphertextFrame = new BinaryWebSocketFrame(Unpooled.wrappedBuffer(ciphertext));
+    final ByteBuf ciphertextFrame = Unpooled.wrappedBuffer(ciphertext);
     assertTrue(embeddedChannel.writeOneInbound(ciphertextFrame).await().isSuccess());
     assertEquals(0, ciphertextFrame.refCnt());
 
@@ -206,7 +206,7 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
     final byte[] bogusCiphertext = new byte[32];
     io.netty.util.internal.ThreadLocalRandom.current().nextBytes(bogusCiphertext);
 
-    final BinaryWebSocketFrame ciphertextFrame = new BinaryWebSocketFrame(Unpooled.wrappedBuffer(bogusCiphertext));
+    final ByteBuf ciphertextFrame = Unpooled.wrappedBuffer(bogusCiphertext);
     final ChannelFuture readCiphertextFuture = embeddedChannel.writeOneInbound(ciphertextFrame).await();
 
     assertEquals(0, ciphertextFrame.refCnt());
@@ -235,11 +235,11 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
     assertTrue(writePlaintextFuture.await().isSuccess());
     assertEquals(0, plaintextBuffer.refCnt());
 
-    final BinaryWebSocketFrame ciphertextFrame = (BinaryWebSocketFrame) embeddedChannel.outboundMessages().poll();
+    final ByteBuf ciphertextFrame = (ByteBuf) embeddedChannel.outboundMessages().poll();
     assertNotNull(ciphertextFrame);
     assertTrue(embeddedChannel.outboundMessages().isEmpty());
 
-    final byte[] ciphertext = ByteBufUtil.getBytes(ciphertextFrame.content());
+    final byte[] ciphertext = ByteBufUtil.getBytes(ciphertextFrame);
     ciphertextFrame.release();
 
     final byte[] decryptedPlaintext = new byte[ciphertext.length - clientCipherStatePair.getReceiver().getMACLength()];
@@ -272,10 +272,10 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
 
     final byte[] decryptedPlaintext = new byte[plaintextLength];
     int plaintextOffset = 0;
-    BinaryWebSocketFrame ciphertextFrame;
-    while ((ciphertextFrame = (BinaryWebSocketFrame) embeddedChannel.outboundMessages().poll()) != null) {
-      assertTrue(ciphertextFrame.content().readableBytes() <= Noise.MAX_PACKET_LEN);
-      final byte[] ciphertext = ByteBufUtil.getBytes(ciphertextFrame.content());
+    ByteBuf ciphertextFrame;
+    while ((ciphertextFrame = (ByteBuf) embeddedChannel.outboundMessages().poll()) != null) {
+      assertTrue(ciphertextFrame.readableBytes() <= Noise.MAX_PACKET_LEN);
+      final byte[] ciphertext = ByteBufUtil.getBytes(ciphertextFrame);
       ciphertextFrame.release();
       plaintextOffset += clientCipherStatePair.getReceiver()
           .decryptWithAd(null, ciphertext, 0, decryptedPlaintext, plaintextOffset, ciphertext.length);
@@ -289,7 +289,7 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
   public void writeHugeInboundMessage() throws Throwable {
     doHandshake();
     final byte[] big = TestRandomUtil.nextBytes(Noise.MAX_PACKET_LEN + 1);
-    embeddedChannel.pipeline().fireChannelRead(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(big)));
+    embeddedChannel.pipeline().fireChannelRead(Unpooled.wrappedBuffer(big));
     assertThrows(NoiseException.class, embeddedChannel::checkException);
   }
 }

@@ -2,7 +2,7 @@
  * Copyright 2024 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-package org.whispersystems.textsecuregcm.grpc.net;
+package org.whispersystems.textsecuregcm.grpc.net.client;
 
 import com.southernstorm.noise.protocol.CipherStatePair;
 import com.southernstorm.noise.protocol.HandshakeState;
@@ -11,6 +11,8 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.ShortBufferException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.grpc.net.HandshakePattern;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseHandshakeException;
 
 public class NoiseClientHandshakeHelper {
 
@@ -22,7 +24,7 @@ public class NoiseClientHandshakeHelper {
     this.handshakeState = handshakeState;
   }
 
-  static NoiseClientHandshakeHelper IK(ECPublicKey serverStaticKey, ECKeyPair clientStaticKey) {
+  public static NoiseClientHandshakeHelper IK(ECPublicKey serverStaticKey, ECKeyPair clientStaticKey) {
     try {
       final HandshakeState state = new HandshakeState(HandshakePattern.IK.protocol(), HandshakeState.INITIATOR);
       state.getLocalKeyPair().setPrivateKey(clientStaticKey.getPrivateKey().serialize(), 0);
@@ -34,7 +36,7 @@ public class NoiseClientHandshakeHelper {
     }
   }
 
-  static NoiseClientHandshakeHelper NK(ECPublicKey serverStaticKey) {
+  public static NoiseClientHandshakeHelper NK(ECPublicKey serverStaticKey) {
     try {
       final HandshakeState state = new HandshakeState(HandshakePattern.NK.protocol(), HandshakeState.INITIATOR);
       state.getRemotePublicKey().setPublicKey(serverStaticKey.getPublicKeyBytes(), 0);
@@ -45,7 +47,7 @@ public class NoiseClientHandshakeHelper {
     }
   }
 
-  byte[] write(final byte[] requestPayload) throws ShortBufferException {
+  public byte[] write(final byte[] requestPayload) throws ShortBufferException {
     final byte[] initiateHandshakeMessage = new byte[initiateHandshakeKeysLength() + requestPayload.length + 16];
     handshakeState.writeMessage(initiateHandshakeMessage, 0, requestPayload, 0, requestPayload.length);
     return initiateHandshakeMessage;
@@ -60,7 +62,7 @@ public class NoiseClientHandshakeHelper {
     };
   }
 
-  byte[] read(final byte[] responderHandshakeMessage) throws NoiseHandshakeException {
+  public byte[] read(final byte[] responderHandshakeMessage) throws NoiseHandshakeException {
     // Don't process additional messages if the handshake failed and we're just waiting to close
     if (handshakeState.getAction() != HandshakeState.READ_MESSAGE) {
       throw new NoiseHandshakeException("Received message with handshake state " + handshakeState.getAction());
@@ -83,11 +85,11 @@ public class NoiseClientHandshakeHelper {
     }
   }
 
-  CipherStatePair split() {
+  public CipherStatePair split() {
     return this.handshakeState.split();
   }
 
-  void destroy() {
+  public void destroy() {
     this.handshakeState.destroy();
   }
 }

@@ -1,4 +1,4 @@
-package org.whispersystems.textsecuregcm.grpc.net;
+package org.whispersystems.textsecuregcm.grpc.net.websocket;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.InetAddresses;
@@ -20,6 +20,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseAnonymousHandler;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseAuthenticatedHandler;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 
 /**
@@ -74,7 +77,7 @@ class WebsocketHandshakeCompleteHandler extends ChannelInboundHandlerAdapter {
         preferredRemoteAddress = maybePreferredRemoteAddress.get();
       }
 
-      GrpcClientConnectionManager.handleHandshakeComplete(context.channel(),
+      GrpcClientConnectionManager.handleHandshakeInitiated(context.channel(),
           preferredRemoteAddress,
           handshakeCompleteEvent.requestHeaders().getAsString(HttpHeaderNames.USER_AGENT),
           handshakeCompleteEvent.requestHeaders().getAsString(HttpHeaderNames.ACCEPT_LANGUAGE));

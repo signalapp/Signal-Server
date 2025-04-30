@@ -10,9 +10,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.southernstorm.noise.protocol.CipherStatePair;
 import com.southernstorm.noise.protocol.HandshakeState;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import java.util.Optional;
 import javax.crypto.BadPaddingException;
 import javax.crypto.ShortBufferException;
@@ -49,22 +49,18 @@ class NoiseAnonymousHandlerTest extends AbstractNoiseHandlerTest {
     assertEquals(
         initiateHandshakeMessageLength,
         clientHandshakeState.writeMessage(initiateHandshakeMessage, 0, requestPayload, 0, requestPayload.length));
-
-    final BinaryWebSocketFrame initiateHandshakeFrame = new BinaryWebSocketFrame(
-        Unpooled.wrappedBuffer(initiateHandshakeMessage));
-
-    assertTrue(embeddedChannel.writeOneInbound(initiateHandshakeFrame).await().isSuccess());
-    assertEquals(0, initiateHandshakeFrame.refCnt());
+    final ByteBuf initiateHandshakeMessageBuf = Unpooled.wrappedBuffer(initiateHandshakeMessage);
+    assertTrue(embeddedChannel.writeOneInbound(initiateHandshakeMessageBuf).await().isSuccess());
+    assertEquals(0, initiateHandshakeMessageBuf.refCnt());
 
     embeddedChannel.runPendingTasks();
 
     // Read responder handshake message
     assertFalse(embeddedChannel.outboundMessages().isEmpty());
-    final BinaryWebSocketFrame responderHandshakeFrame = (BinaryWebSocketFrame)
-        embeddedChannel.outboundMessages().poll();
+    final ByteBuf responderHandshakeFrame = (ByteBuf) embeddedChannel.outboundMessages().poll();
     @SuppressWarnings("DataFlowIssue") final byte[] responderHandshakeBytes =
-        new byte[responderHandshakeFrame.content().readableBytes()];
-    responderHandshakeFrame.content().readBytes(responderHandshakeBytes);
+        new byte[responderHandshakeFrame.readableBytes()];
+    responderHandshakeFrame.readBytes(responderHandshakeBytes);
 
     // ephemeral key, empty encrypted payload AEAD tag
     final byte[] handshakeResponsePayload = new byte[32 + 16];

@@ -1,0 +1,22 @@
+/*
+ * Copyright 2025 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_package = "org.whispersystems.textsecuregcm.grpc.net.noisedirect";
+option java_outer_classname = "NoiseDirectProtos";
+
+message Error {
+  enum Type {
+    UNSPECIFIED = 0;
+    HANDSHAKE_ERROR = 1;
+    ENCRYPTION_ERROR = 2;
+    UNAVAILABLE = 3;
+    INTERNAL_ERROR = 4;
+    AUTHENTICATION_ERROR = 5;
+  }
+  Type type = 1;
+  string message = 2;
+}

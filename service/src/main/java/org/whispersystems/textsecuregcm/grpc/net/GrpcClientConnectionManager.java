@@ -7,7 +7,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
-import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.util.AttributeKey;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -62,6 +61,9 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
   @VisibleForTesting
   static final AttributeKey<ClosableEpoch> EPOCH_ATTRIBUTE_KEY =
       AttributeKey.valueOf(GrpcClientConnectionManager.class, "epoch");
+
+  private static OutboundCloseErrorMessage SERVER_CLOSED =
+      new OutboundCloseErrorMessage(OutboundCloseErrorMessage.Code.SERVER_CLOSED, "server closed");
 
   private static final Logger log = LoggerFactory.getLogger(GrpcClientConnectionManager.class);
 
@@ -161,9 +163,7 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
   }
 
   private static void closeRemoteChannel(final Channel channel) {
-    channel.writeAndFlush(new CloseWebSocketFrame(ApplicationWebSocketCloseReason.REAUTHENTICATION_REQUIRED
-            .toWebSocketCloseStatus("Reauthentication required")))
-        .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+    channel.writeAndFlush(SERVER_CLOSED).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
   }
 
   @VisibleForTesting
@@ -198,16 +198,16 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
   }
 
   /**
-   * Handles successful completion of a WebSocket handshake and associates attributes and headers from the handshake
+   * Handles receipt of a handshake message and associates attributes and headers from the handshake
    * request with the channel via which the handshake took place.
    *
-   * @param channel the channel that completed a WebSocket handshake
+   * @param channel the channel where the handshake was initiated
    * @param preferredRemoteAddress the preferred remote address (potentially from a request header) for the handshake
    * @param userAgentHeader the value of the User-Agent header provided in the handshake request; may be {@code null}
    * @param acceptLanguageHeader the value of the Accept-Language header provided in the handshake request; may be
    * {@code null}
    */
-  static void handleHandshakeComplete(final Channel channel,
+  public static void handleHandshakeInitiated(final Channel channel,
       final InetAddress preferredRemoteAddress,
       @Nullable final String userAgentHeader,
       @Nullable final String acceptLanguageHeader) {
@@ -227,11 +227,10 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
   }
 
   /**
-   * Handles successful establishment of a Noise-over-WebSocket connection from a remote client to a local gRPC server.
+   * Handles successful establishment of a Noise connection from a remote client to a local gRPC server.
    *
-   * @param localChannel the newly-opened local channel between the Noise-over-WebSocket tunnel and the local gRPC
-   *                     server
-   * @param remoteChannel the channel from the remote client to the Noise-over-WebSocket tunnel
+   * @param localChannel the newly-opened local channel between the Noise tunnel and the local gRPC server
+   * @param remoteChannel the channel from the remote client to the Noise tunnel
    * @param maybeAuthenticatedDevice the authenticated device (if any) associated with the new connection
    */
   void handleConnectionEstablished(final LocalChannel localChannel,

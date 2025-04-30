@@ -4,7 +4,7 @@ import io.netty.util.ResourceLeakDetector;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
-abstract class AbstractLeakDetectionTest {
+public abstract class AbstractLeakDetectionTest {
 
   private static ResourceLeakDetector.Level originalResourceLeakDetectorLevel;
 

@@ -32,11 +32,11 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
  * <p>
  * As soon as the handler authenticates the caller, it will fire a {@link NoiseIdentityDeterminedEvent}.
  */
-class NoiseAuthenticatedHandler extends NoiseHandler {
+public class NoiseAuthenticatedHandler extends NoiseHandler {
 
   private final ClientPublicKeysManager clientPublicKeysManager;
 
-  NoiseAuthenticatedHandler(final ClientPublicKeysManager clientPublicKeysManager,
+  public NoiseAuthenticatedHandler(final ClientPublicKeysManager clientPublicKeysManager,
       final ECKeyPair ecKeyPair) {
     super(new NoiseHandshakeHelper(HandshakePattern.IK, ecKeyPair));
     this.clientPublicKeysManager = clientPublicKeysManager;

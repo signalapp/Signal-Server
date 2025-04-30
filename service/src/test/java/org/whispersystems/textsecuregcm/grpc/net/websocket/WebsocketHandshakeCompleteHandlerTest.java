@@ -1,4 +1,4 @@
-package org.whispersystems.textsecuregcm.grpc.net;
+package org.whispersystems.textsecuregcm.grpc.net.websocket;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -34,6 +34,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
+import org.whispersystems.textsecuregcm.grpc.net.AbstractLeakDetectionTest;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseAnonymousHandler;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseAuthenticatedHandler;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 
 class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {

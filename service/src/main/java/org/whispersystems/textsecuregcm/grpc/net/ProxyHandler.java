@@ -8,7 +8,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 /**
  * A proxy handler writes all data read from one channel to another peer channel.
  */
-class ProxyHandler extends ChannelInboundHandlerAdapter {
+public class ProxyHandler extends ChannelInboundHandlerAdapter {
 
   private final Channel peerChannel;
 

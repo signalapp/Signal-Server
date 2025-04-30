@@ -26,13 +26,14 @@ import javax.crypto.ShortBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectFrame;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 /**
  * A bidirectional {@link io.netty.channel.ChannelHandler} that establishes a noise session with an initiator, decrypts
  * inbound messages, and encrypts outbound messages
  */
-abstract class NoiseHandler extends ChannelDuplexHandler {
+public abstract class NoiseHandler extends ChannelDuplexHandler {
 
   private static final Logger log = LoggerFactory.getLogger(NoiseHandler.class);
 
@@ -82,17 +83,16 @@ abstract class NoiseHandler extends ChannelDuplexHandler {
   @Override
   public void channelRead(final ChannelHandlerContext context, final Object message) throws Exception {
     try {
-      if (message instanceof BinaryWebSocketFrame frame) {
-        if (frame.content().readableBytes() > Noise.MAX_PACKET_LEN) {
-          final String error = "Invalid noise message length " + frame.content().readableBytes();
+      if (message instanceof ByteBuf frame) {
+        if (frame.readableBytes() > Noise.MAX_PACKET_LEN) {
+          final String error = "Invalid noise message length " + frame.readableBytes();
           throw state == State.HANDSHAKE ? new NoiseHandshakeException(error) : new NoiseException(error);
         }
         // We've read this frame off the wire, and so it's most likely a direct buffer that's not backed by an array.
         // We'll need to copy it to a heap buffer.
-        handleInboundMessage(context, ByteBufUtil.getBytes(frame.content()));
+        handleInboundMessage(context, ByteBufUtil.getBytes(frame));
       } else {
-        // Anything except binary WebSocket frames should have been filtered out of the pipeline by now; treat this as an
-        // error
+        // Anything except ByteBufs should have been filtered out of the pipeline by now; treat this as an error
         throw new IllegalArgumentException("Unexpected message in pipeline: " + message);
       }
     } catch (Exception e) {
@@ -122,7 +122,7 @@ abstract class NoiseHandler extends ChannelDuplexHandler {
 
               // Now that we've authenticated, write the handshake response
               byte[] handshakeMessage = handshakeHelper.write(EmptyArrays.EMPTY_BYTES);
-              context.writeAndFlush(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(handshakeMessage)))
+              context.writeAndFlush(Unpooled.wrappedBuffer(handshakeMessage))
                   .addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
 
               // The handshake is complete. We can start intercepting read/write for noise encryption/decryption
@@ -193,16 +193,16 @@ abstract class NoiseHandler extends ChannelDuplexHandler {
           // Overwrite the plaintext with the ciphertext to avoid an extra allocation for a dedicated ciphertext buffer
           cipherState.encryptWithAd(null, noiseBuffer, 0, noiseBuffer, 0, plaintextLength);
 
-          pc.add(context.write(new BinaryWebSocketFrame(Unpooled.wrappedBuffer(noiseBuffer))));
+          pc.add(context.write(Unpooled.wrappedBuffer(noiseBuffer)));
         }
         pc.finish(promise);
       } finally {
         ReferenceCountUtil.release(byteBuf);
       }
     } else {
-      if (!(message instanceof WebSocketFrame)) {
-        // Downstream handlers may write WebSocket frames that don't need to be encrypted (e.g. "close" frames that
-        // get issued in response to exceptions)
+      if (!(message instanceof OutboundCloseErrorMessage)) {
+        // Downstream handlers may write OutboundCloseErrorMessages that don't need to be encrypted (e.g. "close" frames
+        // that get issued in response to exceptions)
         log.warn("Unexpected object in pipeline: {}", message);
       }
       context.write(message, promise);

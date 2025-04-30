@@ -1,12 +1,11 @@
-package org.whispersystems.textsecuregcm.grpc.net;
+package org.whispersystems.textsecuregcm.grpc.net.websocket;
 
 import io.netty.handler.codec.http.websocketx.WebSocketCloseStatus;
 
 enum ApplicationWebSocketCloseReason {
   NOISE_HANDSHAKE_ERROR(4001),
   CLIENT_AUTHENTICATION_ERROR(4002),
-  NOISE_ENCRYPTION_ERROR(4003),
-  REAUTHENTICATION_REQUIRED(4004);
+  NOISE_ENCRYPTION_ERROR(4003);
 
   private final int statusCode;
 
@@ -16,9 +15,5 @@ enum ApplicationWebSocketCloseReason {
 
   public int getStatusCode() {
     return statusCode;
-  }
-
-  WebSocketCloseStatus toWebSocketCloseStatus(final String reason) {
-    return new WebSocketCloseStatus(statusCode, reason);
   }
 }

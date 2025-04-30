@@ -2,7 +2,7 @@
  * Copyright 2024 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-package org.whispersystems.textsecuregcm.grpc.net;
+package org.whispersystems.textsecuregcm.grpc.net.client;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -12,6 +12,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.ReferenceCountUtil;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -27,12 +28,12 @@ import java.util.stream.Stream;
  * Once an entire request has been buffered, the handler will remove itself from the pipeline and emit a
  * {@link FastOpenRequestBufferedEvent}
  */
-class Http2Buffering {
+public class Http2Buffering {
 
   /**
    * Create a pipeline handler that consumes serialized HTTP/2 ByteBufs and emits a fast-open request
    */
-  static ChannelInboundHandler handler() {
+  public static ChannelInboundHandler handler() {
     return new Http2PrefaceHandler();
   }
 

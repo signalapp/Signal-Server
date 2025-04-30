@@ -1,4 +1,4 @@
-package org.whispersystems.textsecuregcm.grpc.net;
+package org.whispersystems.textsecuregcm.grpc.net.websocket;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.southernstorm.noise.protocol.Noise;
@@ -28,6 +28,7 @@ import javax.net.ssl.SSLException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.grpc.net.*;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 
 /**
@@ -103,7 +104,10 @@ public class NoiseWebSocketTunnelServer implements Managed {
                 // request and passed it down the pipeline
                 .addLast(new WebSocketOpeningHandshakeHandler(AUTHENTICATED_SERVICE_PATH, ANONYMOUS_SERVICE_PATH, HEALTH_CHECK_PATH))
                 .addLast(new WebSocketServerProtocolHandler("/", true))
+                // Turn generic OutboundCloseErrorMessages into websocket close frames
+                .addLast(new WebSocketOutboundErrorHandler())
                 .addLast(new RejectUnsupportedMessagesHandler())
+                .addLast(new WebsocketPayloadCodec())
                 // The WebSocket handshake complete listener will replace itself with an appropriate Noise handshake handler once
                 // a WebSocket handshake has been completed
                 .addLast(new WebsocketHandshakeCompleteHandler(clientPublicKeysManager, ecKeyPair, recognizedProxySecret))
