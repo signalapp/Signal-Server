@@ -232,9 +232,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondPni));
 
     assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
-
-    assertEquals(OptionalInt.of(rotatedPniRegistrationId),
-        updatedAccount.getPrimaryDevice().getPhoneNumberIdentityRegistrationId());
+    assertEquals(rotatedPniRegistrationId, updatedAccount.getPrimaryDevice().getPhoneNumberIdentityRegistrationId());
 
     assertEquals(Optional.of(rotatedSignedPreKey),
         keysManager.getEcSignedPreKey(updatedAccount.getIdentifier(IdentityType.PNI), Device.PRIMARY_ID).join());

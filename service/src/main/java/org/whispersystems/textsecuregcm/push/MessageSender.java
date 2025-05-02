@@ -321,7 +321,7 @@ public class MessageSender {
 
           final int expectedRegistrationId = switch (serviceIdentifier.identityType()) {
             case ACI -> device.getRegistrationId();
-            case PNI -> device.getPhoneNumberIdentityRegistrationId().orElseGet(device::getRegistrationId);
+            case PNI -> device.getPhoneNumberIdentityRegistrationId();
           };
 
           return registrationId != expectedRegistrationId;

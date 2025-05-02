@@ -63,7 +63,7 @@ public class ReceiptSender {
               final Map<Byte, Integer> registrationIdsByDeviceId = destinationAccount.getDevices().stream()
                   .collect(Collectors.toMap(Device::getId, device -> switch (destinationIdentifier.identityType()) {
                     case ACI -> device.getRegistrationId();
-                    case PNI -> device.getPhoneNumberIdentityRegistrationId().orElseGet(device::getRegistrationId);
+                    case PNI -> device.getPhoneNumberIdentityRegistrationId();
                   }));
 
               try {

@@ -38,7 +38,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
@@ -219,7 +218,7 @@ class KeysControllerTest {
     when(sampleDevice2.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
     when(sampleDevice3.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
     when(sampleDevice4.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID4);
-    when(sampleDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.of(SAMPLE_PNI_REGISTRATION_ID));
+    when(sampleDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(SAMPLE_PNI_REGISTRATION_ID);
     when(sampleDevice.getId()).thenReturn(sampleDeviceId);
     when(sampleDevice2.getId()).thenReturn(sampleDevice2Id);
     when(sampleDevice3.getId()).thenReturn(sampleDevice3Id);
@@ -429,29 +428,6 @@ class KeysControllerTest {
     assertEquals(SAMPLE_KEY_PNI, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isEqualTo(SAMPLE_PQ_KEY_PNI);
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_PNI_REGISTRATION_ID);
-    assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
-
-    verify(KEYS).takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID);
-    verify(KEYS).takePQ(EXISTS_PNI, SAMPLE_DEVICE_ID);
-    verify(KEYS).getEcSignedPreKey(EXISTS_PNI, SAMPLE_DEVICE_ID);
-    verifyNoMoreInteractions(KEYS);
-  }
-
-  @Test
-  void validSingleRequestByPhoneNumberIdentifierNoPniRegistrationIdTestV2() {
-    when(sampleDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.empty());
-
-    PreKeyResponse result = resources.getJerseyTest()
-        .target(String.format("/v2/keys/PNI:%s/1", EXISTS_PNI))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(PreKeyResponse.class);
-
-    assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.PNI));
-    assertThat(result.getDevicesCount()).isEqualTo(1);
-    assertEquals(SAMPLE_KEY_PNI, result.getDevice(SAMPLE_DEVICE_ID).getPreKey());
-    assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isEqualTo(SAMPLE_PQ_KEY_PNI);
-    assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
     assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
     verify(KEYS).takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID);

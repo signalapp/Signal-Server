@@ -1013,7 +1013,7 @@ class AccountsManagerTest {
     assertEquals(signalAgent, device.getUserAgent());
     assertEquals(Collections.emptySet(), device.getCapabilities());
     assertEquals(aciRegistrationId, device.getRegistrationId());
-    assertEquals(pniRegistrationId, device.getPhoneNumberIdentityRegistrationId().getAsInt());
+    assertEquals(pniRegistrationId, device.getPhoneNumberIdentityRegistrationId());
     assertTrue(device.getFetchesMessages());
     assertNull(device.getApnId());
     assertNull(device.getGcmId());
@@ -1270,7 +1270,7 @@ class AccountsManagerTest {
     // PNI stuff should
     assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
     assertEquals(newRegistrationIds,
-        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, d -> d.getPhoneNumberIdentityRegistrationId().getAsInt())));
+        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getPhoneNumberIdentityRegistrationId)));
 
     verify(accounts).updateTransactionallyAsync(any(), any());
 

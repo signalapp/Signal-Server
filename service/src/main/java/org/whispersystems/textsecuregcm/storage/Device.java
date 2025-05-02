@@ -64,9 +64,8 @@ public class Device {
   @JsonProperty
   private int registrationId;
 
-  @Nullable
   @JsonProperty("pniRegistrationId")
-  private Integer phoneNumberIdentityRegistrationId;
+  private int phoneNumberIdentityRegistrationId;
 
   @JsonProperty
   private long lastSeen;
@@ -216,8 +215,8 @@ public class Device {
     this.registrationId = registrationId;
   }
 
-  public OptionalInt getPhoneNumberIdentityRegistrationId() {
-    return phoneNumberIdentityRegistrationId != null ? OptionalInt.of(phoneNumberIdentityRegistrationId) : OptionalInt.empty();
+  public int getPhoneNumberIdentityRegistrationId() {
+    return phoneNumberIdentityRegistrationId;
   }
 
   public void setPhoneNumberIdentityRegistrationId(final int phoneNumberIdentityRegistrationId) {

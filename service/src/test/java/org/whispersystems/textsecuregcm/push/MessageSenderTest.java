@@ -12,7 +12,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -23,7 +22,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -294,12 +292,12 @@ class MessageSenderTest {
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(primaryDeviceId);
     when(primaryDevice.getRegistrationId()).thenReturn(primaryDeviceAciRegistrationId);
-    when(primaryDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.of(primaryDevicePniRegistrationId));
+    when(primaryDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(primaryDevicePniRegistrationId);
 
     final Device linkedDevice = mock(Device.class);
     when(linkedDevice.getId()).thenReturn(linkedDeviceId);
     when(linkedDevice.getRegistrationId()).thenReturn(linkedDeviceAciRegistrationId);
-    when(linkedDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(OptionalInt.of(linkedDevicePniRegistrationId));
+    when(linkedDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(linkedDevicePniRegistrationId);
 
     final Account account = mock(Account.class);
     when(account.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
