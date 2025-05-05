@@ -32,7 +32,7 @@ public class LockAccountsWithoutPniIdentityKeysCommand extends AbstractSinglePas
   static final String RETRIES_ARGUMENT = "retries";
 
   private static final String LOCKED_ACCOUNT_COUNTER_NAME =
-      MetricsUtil.name(LockAccountsWithoutPqKeysCommand.class, "lockedAccount");
+      MetricsUtil.name(LockAccountsWithoutPniIdentityKeysCommand.class, "lockedAccount");
 
   private static final Logger log = LoggerFactory.getLogger(LockAccountsWithoutPniIdentityKeysCommand.class);
 

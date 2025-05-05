@@ -35,7 +35,7 @@ public class RemoveLinkedDevicesWithoutPniKeysCommand extends AbstractSinglePass
   static final String RETRIES_ARGUMENT = "retries";
 
   private static final String REMOVED_DEVICE_COUNTER_NAME =
-      MetricsUtil.name(RemoveLinkedDevicesWithoutPqKeysCommand.class, "removedDevice");
+      MetricsUtil.name(RemoveLinkedDevicesWithoutPniKeysCommand.class, "removedDevice");
 
   private static final Logger log = LoggerFactory.getLogger(RemoveLinkedDevicesWithoutPniKeysCommand.class);
 

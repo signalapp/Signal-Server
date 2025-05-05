@@ -32,7 +32,7 @@ public class RemoveAccountsWithoutPniIdentityKeysCommand extends AbstractSingleP
   static final String RETRIES_ARGUMENT = "retries";
 
   private static final String REMOVED_ACCOUNT_COUNTER_NAME =
-      MetricsUtil.name(LockAccountsWithoutPqKeysCommand.class, "removedAccount");
+      MetricsUtil.name(RemoveAccountsWithoutPniIdentityKeysCommand.class, "removedAccount");
 
   private static final Logger log = LoggerFactory.getLogger(RemoveAccountsWithoutPniIdentityKeysCommand.class);
 
