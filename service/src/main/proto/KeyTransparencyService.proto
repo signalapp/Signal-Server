@@ -191,9 +191,9 @@ message FullTreeHead {
    */
   repeated bytes distinguished = 3;
   /**
-   * A tree head signed by a third-party auditor.
+   * A list of tree heads signed by third-party auditors.
    */
-  optional AuditorTreeHead auditor_tree_head = 4;
+  repeated FullAuditorTreeHead full_auditor_tree_heads = 4;
 }
 
 /**
