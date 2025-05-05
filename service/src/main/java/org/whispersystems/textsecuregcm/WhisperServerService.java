@@ -266,19 +266,13 @@ import org.whispersystems.textsecuregcm.workers.CertificateCommand;
 import org.whispersystems.textsecuregcm.workers.CheckDynamicConfigurationCommand;
 import org.whispersystems.textsecuregcm.workers.DeleteUserCommand;
 import org.whispersystems.textsecuregcm.workers.IdleDeviceNotificationSchedulerFactory;
-import org.whispersystems.textsecuregcm.workers.LockAccountsWithoutPniIdentityKeysCommand;
-import org.whispersystems.textsecuregcm.workers.LockAccountsWithoutPqKeysCommand;
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
 import org.whispersystems.textsecuregcm.workers.NotifyIdleDevicesCommand;
 import org.whispersystems.textsecuregcm.workers.ProcessScheduledJobsServiceCommand;
-import org.whispersystems.textsecuregcm.workers.RemoveAccountsWithoutPniIdentityKeysCommand;
-import org.whispersystems.textsecuregcm.workers.RemoveAccountsWithoutPqKeysCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredBackupsCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredLinkedDevicesCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredUsernameHoldsCommand;
-import org.whispersystems.textsecuregcm.workers.RemoveLinkedDevicesWithoutPniKeysCommand;
-import org.whispersystems.textsecuregcm.workers.RemoveLinkedDevicesWithoutPqKeysCommand;
 import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSenderServiceCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
@@ -341,14 +335,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new ProcessScheduledJobsServiceCommand("process-idle-device-notification-jobs",
         "Processes scheduled jobs to send notifications to idle devices",
         new IdleDeviceNotificationSchedulerFactory()));
-
-    bootstrap.addCommand(new RemoveLinkedDevicesWithoutPqKeysCommand());
-    bootstrap.addCommand(new LockAccountsWithoutPqKeysCommand());
-    bootstrap.addCommand(new RemoveAccountsWithoutPqKeysCommand());
-
-    bootstrap.addCommand(new RemoveLinkedDevicesWithoutPniKeysCommand());
-    bootstrap.addCommand(new LockAccountsWithoutPniIdentityKeysCommand());
-    bootstrap.addCommand(new RemoveAccountsWithoutPniIdentityKeysCommand());
   }
 
   @Override
