@@ -36,6 +36,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -173,7 +174,14 @@ class AccountsManagerChangeNumberIntegrationTest {
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
-    accountsManager.changeNumber(account, secondNumber, null, null, null, null);
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    accountsManager.changeNumber(account,
+        secondNumber,
+        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, 1));
 
     assertTrue(accountsManager.getByE164(originalNumber).isEmpty());
 
@@ -193,6 +201,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final int rotatedPniRegistrationId = 17;
     final ECKeyPair rotatedPniIdentityKeyPair = Curve.generateKeyPair();
     final ECSignedPreKey rotatedSignedPreKey = KeysHelper.signedECPreKey(1L, rotatedPniIdentityKeyPair);
+    final KEMSignedPreKey rotatedKemSignedPreKey = KeysHelper.signedKEMPreKey(2L, rotatedPniIdentityKeyPair);
     final AccountAttributes accountAttributes = new AccountAttributes(true, rotatedPniRegistrationId + 1, rotatedPniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of());
     final Account account = AccountsHelper.createAccount(accountsManager, originalNumber, accountAttributes);
 
@@ -204,9 +213,10 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     final IdentityKey pniIdentityKey = new IdentityKey(rotatedPniIdentityKeyPair.getPublicKey());
     final Map<Byte, ECSignedPreKey> preKeys = Map.of(Device.PRIMARY_ID, rotatedSignedPreKey);
+    final Map<Byte, KEMSignedPreKey> kemSignedPreKeys = Map.of(Device.PRIMARY_ID, rotatedKemSignedPreKey);
     final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, rotatedPniRegistrationId);
 
-    final Account updatedAccount = accountsManager.changeNumber(account, secondNumber, pniIdentityKey, preKeys, null, registrationIds);
+    final Account updatedAccount = accountsManager.changeNumber(account, secondNumber, pniIdentityKey, preKeys, kemSignedPreKeys, registrationIds);
     final UUID secondPni = updatedAccount.getPhoneNumberIdentifier();
 
     assertTrue(accountsManager.getByE164(originalNumber).isEmpty());
@@ -240,9 +250,24 @@ class AccountsManagerChangeNumberIntegrationTest {
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
-    account = accountsManager.changeNumber(account, secondNumber, null, null, null, null);
+    final ECKeyPair originalIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair secondIdentityKeyPair = Curve.generateKeyPair();
+
+    account = accountsManager.changeNumber(account,
+        secondNumber,
+        new IdentityKey(secondIdentityKeyPair.getPublicKey()),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, secondIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, secondIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, 1));
+
     final UUID secondPni = account.getPhoneNumberIdentifier();
-    accountsManager.changeNumber(account, originalNumber, null, null, null, null);
+
+    accountsManager.changeNumber(account,
+        originalNumber,
+        new IdentityKey(originalIdentityKeyPair.getPublicKey()),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(3, originalIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(4, originalIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, 2));
 
     assertTrue(accountsManager.getByE164(originalNumber).isPresent());
     assertEquals(originalUuid, accountsManager.getByE164(originalNumber).map(Account::getUuid).orElseThrow());
@@ -266,11 +291,20 @@ class AccountsManagerChangeNumberIntegrationTest {
     final UUID originalUuid = account.getUuid();
     final UUID originalPni = account.getPhoneNumberIdentifier();
 
+    final ECKeyPair originalIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair secondIdentityKeyPair = Curve.generateKeyPair();
+
     final Account existingAccount = AccountsHelper.createAccount(accountsManager, secondNumber);
 
     final UUID existingAccountUuid = existingAccount.getUuid();
 
-    accountsManager.changeNumber(account, secondNumber, null, null, null, null);
+    accountsManager.changeNumber(account,
+        secondNumber,
+        new IdentityKey(secondIdentityKeyPair.getPublicKey()),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, secondIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, secondIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, 1));
+
     final UUID secondPni = accountsManager.getByE164(secondNumber).get().getPhoneNumberIdentifier();
 
     assertTrue(accountsManager.getByE164(originalNumber).isEmpty());
@@ -285,7 +319,12 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(Optional.of(existingAccountUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalPni));
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondPni));
 
-    accountsManager.changeNumber(accountsManager.getByAccountIdentifier(originalUuid).orElseThrow(), originalNumber, null, null, null, null);
+    accountsManager.changeNumber(accountsManager.getByAccountIdentifier(originalUuid).orElseThrow(),
+        originalNumber,
+        new IdentityKey(originalIdentityKeyPair.getPublicKey()),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, originalIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, originalIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, 1));
 
     final Account existingAccount2 = AccountsHelper.createAccount(accountsManager, secondNumber);
 
@@ -305,8 +344,15 @@ class AccountsManagerChangeNumberIntegrationTest {
     final Account existingAccount = AccountsHelper.createAccount(accountsManager, secondNumber);
 
     final UUID existingAccountUuid = existingAccount.getUuid();
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
 
-    final Account changedNumberAccount = accountsManager.changeNumber(account, secondNumber, null, null, null, null);
+    final Account changedNumberAccount = accountsManager.changeNumber(account,
+        secondNumber,
+        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, 1));
+
     final UUID secondPni = changedNumberAccount.getPhoneNumberIdentifier();
 
     final Account reRegisteredAccount = AccountsHelper.createAccount(accountsManager, originalNumber);
@@ -317,7 +363,14 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(originalPni));
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondPni));
 
-    final Account changedNumberReRegisteredAccount = accountsManager.changeNumber(reRegisteredAccount, secondNumber, null, null, null, null);
+    final ECKeyPair reRegisteredPniIdentityKeyPair = Curve.generateKeyPair();
+
+    final Account changedNumberReRegisteredAccount = accountsManager.changeNumber(reRegisteredAccount,
+        secondNumber,
+        new IdentityKey(reRegisteredPniIdentityKeyPair.getPublicKey()),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, reRegisteredPniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, reRegisteredPniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, 1));
 
     assertEquals(Optional.of(originalUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalPni));
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondPni));

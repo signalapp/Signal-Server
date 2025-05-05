@@ -42,13 +42,14 @@ public class ChangeNumberManager {
     this.clock = clock;
   }
 
-  public Account changeNumber(final Account account, final String number,
-      @Nullable final IdentityKey pniIdentityKey,
-      @Nullable final Map<Byte, ECSignedPreKey> deviceSignedPreKeys,
-      @Nullable final Map<Byte, KEMSignedPreKey> devicePqLastResortPreKeys,
-      @Nullable final List<IncomingMessage> deviceMessages,
-      @Nullable final Map<Byte, Integer> pniRegistrationIds,
-      @Nullable final String senderUserAgent)
+  public Account changeNumber(final Account account,
+      final String number,
+      final IdentityKey pniIdentityKey,
+      final Map<Byte, ECSignedPreKey> deviceSignedPreKeys,
+      final Map<Byte, KEMSignedPreKey> devicePqLastResortPreKeys,
+      final List<IncomingMessage> deviceMessages,
+      final Map<Byte, Integer> pniRegistrationIds,
+      final String senderUserAgent)
       throws InterruptedException, MismatchedDevicesException, MessageTooLargeException {
 
     if (!(ObjectUtils.allNotNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds) ||

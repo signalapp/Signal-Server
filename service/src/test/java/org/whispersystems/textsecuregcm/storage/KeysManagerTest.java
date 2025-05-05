@@ -7,13 +7,10 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -184,8 +181,6 @@ class KeysManagerTest {
 
   @Test
   void testStorePqLastResort() {
-    assertEquals(0, keysManager.getPqEnabledDevices(ACCOUNT_UUID).join().size());
-
     final ECKeyPair identityKeyPair = Curve.generateKeyPair();
 
     final byte deviceId2 = 2;
@@ -194,33 +189,19 @@ class KeysManagerTest {
     keysManager.storePqLastResort(ACCOUNT_UUID, DEVICE_ID, KeysHelper.signedKEMPreKey(1, identityKeyPair)).join();
     keysManager.storePqLastResort(ACCOUNT_UUID, (byte) 2, KeysHelper.signedKEMPreKey(2, identityKeyPair)).join();
 
-    assertEquals(2, keysManager.getPqEnabledDevices(ACCOUNT_UUID).join().size());
-    assertEquals(1L, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).join().get().keyId());
-    assertEquals(2L, keysManager.getLastResort(ACCOUNT_UUID, deviceId2).join().get().keyId());
+    assertEquals(1L, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).join().orElseThrow().keyId());
+    assertEquals(2L, keysManager.getLastResort(ACCOUNT_UUID, deviceId2).join().orElseThrow().keyId());
     assertFalse(keysManager.getLastResort(ACCOUNT_UUID, deviceId3).join().isPresent());
 
     keysManager.storePqLastResort(ACCOUNT_UUID, DEVICE_ID, KeysHelper.signedKEMPreKey(3, identityKeyPair)).join();
     keysManager.storePqLastResort(ACCOUNT_UUID, deviceId3, KeysHelper.signedKEMPreKey(4, identityKeyPair)).join();
 
-    assertEquals(3, keysManager.getPqEnabledDevices(ACCOUNT_UUID).join().size(), "storing new last-resort keys should not create duplicates");
-    assertEquals(3L, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).join().get().keyId(),
+    assertEquals(3L, keysManager.getLastResort(ACCOUNT_UUID, DEVICE_ID).join().orElseThrow().keyId(),
         "storing new last-resort keys should overwrite old ones");
-    assertEquals(2L, keysManager.getLastResort(ACCOUNT_UUID, deviceId2).join().get().keyId(),
+    assertEquals(2L, keysManager.getLastResort(ACCOUNT_UUID, deviceId2).join().orElseThrow().keyId(),
         "storing new last-resort keys should leave untouched ones alone");
-    assertEquals(4L, keysManager.getLastResort(ACCOUNT_UUID, deviceId3).join().get().keyId(),
+    assertEquals(4L, keysManager.getLastResort(ACCOUNT_UUID, deviceId3).join().orElseThrow().keyId(),
         "storing new last-resort keys should overwrite old ones");
-  }
-
-  @Test
-  void testGetPqEnabledDevices() {
-    keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestKEMSignedPreKey(1))).join();
-    keysManager.storePqLastResort(ACCOUNT_UUID, (byte) (DEVICE_ID + 1), generateTestKEMSignedPreKey(2)).join();
-    keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, (byte) (DEVICE_ID + 2), List.of(generateTestKEMSignedPreKey(3))).join();
-    keysManager.storePqLastResort(ACCOUNT_UUID, (byte) (DEVICE_ID + 2), generateTestKEMSignedPreKey(4)).join();
-
-    assertIterableEquals(
-        Set.of((byte) (DEVICE_ID + 1), (byte) (DEVICE_ID + 2)),
-        Set.copyOf(keysManager.getPqEnabledDevices(ACCOUNT_UUID).join()));
   }
 
   private static ECPreKey generateTestPreKey(final long keyId) {

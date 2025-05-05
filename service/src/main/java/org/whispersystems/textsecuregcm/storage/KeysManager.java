@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.common.annotations.VisibleForTesting;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -112,10 +111,6 @@ public class KeysManager {
 
   public CompletableFuture<Optional<ECSignedPreKey>> getEcSignedPreKey(final UUID identifier, final byte deviceId) {
     return ecSignedPreKeys.find(identifier, deviceId);
-  }
-
-  public CompletableFuture<List<Byte>> getPqEnabledDevices(final UUID identifier) {
-    return pqLastResortKeys.getDeviceIdsWithKeys(identifier).collectList().toFuture();
   }
 
   public CompletableFuture<Integer> getEcCount(final UUID identifier, final byte deviceId) {

@@ -62,7 +62,6 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
@@ -641,19 +640,16 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   public Account changeNumber(final Account account,
-                              final String targetNumber,
-                              @Nullable final IdentityKey pniIdentityKey,
-      @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
-      @Nullable final Map<Byte, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
+      final String targetNumber,
+      final IdentityKey pniIdentityKey,
+      final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
+      final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
+      final Map<Byte, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
 
     final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
     final UUID targetPhoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber).join();
 
     if (originalPhoneNumberIdentifier.equals(targetPhoneNumberIdentifier)) {
-      if (pniIdentityKey != null) {
-        throw new IllegalArgumentException("change number must supply a changed phone number; otherwise use updatePniKeys");
-      }
       return account;
     }
 
@@ -694,7 +690,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           .join();
 
       final Collection<TransactWriteItem> keyWriteItems =
-          buildPniKeyWriteItems(uuid, targetPhoneNumberIdentifier, pniSignedPreKeys, pniPqLastResortPreKeys);
+          buildPniKeyWriteItems(targetPhoneNumberIdentifier, pniSignedPreKeys, pniPqLastResortPreKeys);
 
       final Account numberChangedAccount = updateWithRetries(
           account,
@@ -715,7 +711,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   public Account updatePniKeys(final Account account,
       final IdentityKey pniIdentityKey,
       final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
+      final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
       final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
 
     validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
@@ -724,7 +720,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final UUID pni = account.getIdentifier(IdentityType.PNI);
 
     final Collection<TransactWriteItem> keyWriteItems =
-        buildPniKeyWriteItems(pni, pni, pniSignedPreKeys, pniPqLastResortPreKeys);
+        buildPniKeyWriteItems(pni, pniSignedPreKeys, pniPqLastResortPreKeys);
 
     return redisDeleteAsync(account)
         .thenCompose(ignored -> keysManager.deleteSingleUsePreKeys(pni))
@@ -739,41 +735,24 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   private Collection<TransactWriteItem> buildPniKeyWriteItems(
-      final UUID enabledDevicesIdentifier,
       final UUID phoneNumberIdentifier,
-      @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys) {
+      final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
+      final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys) {
 
     final List<TransactWriteItem> keyWriteItems = new ArrayList<>();
 
-    if (pniSignedPreKeys != null) {
-      pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
-          keyWriteItems.add(keysManager.buildWriteItemForEcSignedPreKey(phoneNumberIdentifier, deviceId, signedPreKey)));
-    }
+    pniSignedPreKeys.forEach((deviceId, signedPreKey) ->
+        keyWriteItems.add(keysManager.buildWriteItemForEcSignedPreKey(phoneNumberIdentifier, deviceId, signedPreKey)));
 
-    if (pniPqLastResortPreKeys != null) {
-      keysManager.getPqEnabledDevices(enabledDevicesIdentifier)
-          .thenAccept(deviceIds -> deviceIds.stream()
-              .filter(pniPqLastResortPreKeys::containsKey)
-              .map(deviceId -> keysManager.buildWriteItemForLastResortKey(phoneNumberIdentifier,
-                  deviceId,
-                  pniPqLastResortPreKeys.get(deviceId)))
-              .forEach(keyWriteItems::add))
-          .join();
-    }
+    pniPqLastResortPreKeys.forEach((deviceId, lastResortKey) ->
+        keyWriteItems.add(keysManager.buildWriteItemForLastResortKey(phoneNumberIdentifier, deviceId, lastResortKey)));
 
     return keyWriteItems;
   }
 
   private void setPniKeys(final Account account,
-      @Nullable final IdentityKey pniIdentityKey,
-      @Nullable final Map<Byte, Integer> pniRegistrationIds) {
-
-    if (ObjectUtils.allNull(pniIdentityKey, pniRegistrationIds)) {
-      return;
-    } else if (!ObjectUtils.allNotNull(pniIdentityKey, pniRegistrationIds)) {
-      throw new IllegalArgumentException("PNI identity key and registration IDs must be all null or all non-null");
-    }
+      final IdentityKey pniIdentityKey,
+      final Map<Byte, Integer> pniRegistrationIds) {
 
     account.getDevices()
         .forEach(device -> device.setPhoneNumberIdentityRegistrationId(pniRegistrationIds.get(device.getId())));
@@ -782,22 +761,15 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   private void validateDevices(final Account account,
-      @Nullable final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
-      @Nullable final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
-      @Nullable final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
-    if (pniSignedPreKeys == null && pniRegistrationIds == null) {
-      return;
-    } else if (pniSignedPreKeys == null || pniRegistrationIds == null) {
-      throw new IllegalArgumentException("Signed pre-keys and registration IDs must both be null or both be non-null");
-    }
+      final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
+      final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
+      final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
 
     // Check that all including primary ID are in signed pre-keys
     validateCompleteDeviceList(account, pniSignedPreKeys.keySet());
 
     // Check that all including primary ID are in Pq pre-keys
-    if (pniPqLastResortPreKeys != null) {
-      validateCompleteDeviceList(account, pniPqLastResortPreKeys.keySet());
-    }
+    validateCompleteDeviceList(account, pniPqLastResortPreKeys.keySet());
 
     // Check that all devices are accounted for in the map of new PNI registration IDs
     validateCompleteDeviceList(account, pniRegistrationIds.keySet());
@@ -816,8 +788,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     extraDeviceIds.removeAll(accountDeviceIds);
 
     if (!missingDeviceIds.isEmpty() || !extraDeviceIds.isEmpty()) {
-      throw new MismatchedDevicesException(
-          new MismatchedDevices(missingDeviceIds, extraDeviceIds, Collections.emptySet()));
+      throw new MismatchedDevicesException(new MismatchedDevices(missingDeviceIds, extraDeviceIds, Set.of()));
     }
   }
 

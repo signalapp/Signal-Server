@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,36 +30,36 @@ public record PhoneNumberIdentityKeyDistributionRequest(
         arraySchema=@Schema(description="""
             A list of synchronization messages to send to companion devices to supply the private keys
             associated with the new identity key and their new prekeys.
-            Exactly one message must be supplied for each enabled device other than the sending (primary) device.
+            Exactly one message must be supplied for each device other than the sending (primary) device.
             """))
     List<@NotNull @Valid IncomingMessage> deviceMessages,
 
     @NotNull
+    @NotEmpty
     @Valid
     @Schema(description="""
-        A new signed elliptic-curve prekey for each enabled device on the account, including this one.
+        A new signed elliptic-curve prekey for each device on the account, including this one.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
     Map<Byte, @NotNull @Valid ECSignedPreKey> devicePniSignedPrekeys,
 
+    @NotNull
+    @NotEmpty
+    @Valid
     @Schema(description="""
-        A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
-        May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
-        If present, must contain one prekey per enabled device including this one.
-        Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
+        A new signed post-quantum last-resort prekey for each device on the account, including this one.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
-    @Valid Map<Byte, @NotNull @Valid KEMSignedPreKey> devicePniPqLastResortPrekeys,
+    Map<Byte, @NotNull @Valid KEMSignedPreKey> devicePniPqLastResortPrekeys,
 
     @NotNull
+    @NotEmpty
     @Valid
     @Schema(description="The new registration ID to use for the phone-number identity of each device, including this one.")
     Map<Byte, Integer> pniRegistrationIds) {
 
   public boolean isSignatureValidOnEachSignedPreKey(@Nullable final String userAgent) {
-    List<SignedPreKey<?>> spks = new ArrayList<>(devicePniSignedPrekeys.values());
-    if (devicePniPqLastResortPrekeys != null) {
-      spks.addAll(devicePniPqLastResortPrekeys.values());
-    }
-    return spks.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey, spks, userAgent, "distribute-pni-keys");
-  }
+    final List<SignedPreKey<?>> signedPreKeys = new ArrayList<>(devicePniSignedPrekeys.values());
+    signedPreKeys.addAll(devicePniPqLastResortPrekeys.values());
 
+    return PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey, signedPreKeys, userAgent, "distribute-pni-keys");
+  }
 }

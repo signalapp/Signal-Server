@@ -72,6 +72,8 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.AccountDataReportResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
+import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -92,6 +94,7 @@ import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -100,7 +103,8 @@ class AccountControllerV2Test {
 
   private static final long SESSION_EXPIRATION_SECONDS = Duration.ofMinutes(10).toSeconds();
 
-  private static final IdentityKey IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+  private static final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private static final IdentityKey IDENTITY_KEY = new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey());
 
   private static final String NEW_NUMBER = PhoneNumberUtil.getInstance().format(
       PhoneNumberUtil.getInstance().getExampleNumber("US"),
@@ -185,9 +189,11 @@ class AccountControllerV2Test {
               .header(HttpHeaders.AUTHORIZATION,
                   AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
               .put(Entity.entity(
-                  new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", new IdentityKey(Curve.generateKeyPair().getPublicKey()),
+                  new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", IDENTITY_KEY,
                       Collections.emptyList(),
-                      Collections.emptyMap(), null, Collections.emptyMap()),
+                      Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
+                      Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR)),
+                      Map.of(Device.PRIMARY_ID, 17)),
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
       verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(NEW_NUMBER), any(), any(), any(),
@@ -207,10 +213,11 @@ class AccountControllerV2Test {
               .header(HttpHeaders.AUTHORIZATION,
                   AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
               .put(Entity.entity(
-                  new ChangeNumberRequest(encodeSessionId("session"), null, AuthHelper.VALID_NUMBER, null,
-                      new IdentityKey(Curve.generateKeyPair().getPublicKey()),
+                  new ChangeNumberRequest(encodeSessionId("session"), null, AuthHelper.VALID_NUMBER, null, IDENTITY_KEY,
                       Collections.emptyList(),
-                      Collections.emptyMap(), null, Collections.emptyMap()),
+                      Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
+                      Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR)),
+                      Map.of(Device.PRIMARY_ID, 17)),
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
       verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_NUMBER), any(), any(), any(),
@@ -291,9 +298,11 @@ class AccountControllerV2Test {
           .thenReturn(CompletableFuture.completedFuture(
               Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
                   SESSION_EXPIRATION_SECONDS))));
-      final ChangeNumberRequest changeNumberRequest = new ChangeNumberRequest(encodeSessionId("session"),
-          null, NEW_NUMBER, "123", new IdentityKey(Curve.generateKeyPair().getPublicKey()),
-          Collections.emptyList(), Collections.emptyMap(), null, Map.of((byte) 1, pniRegistrationId));
+      final ChangeNumberRequest changeNumberRequest = new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", IDENTITY_KEY,
+          Collections.emptyList(),
+          Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
+          Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR)),
+          Map.of(Device.PRIMARY_ID, pniRegistrationId));
 
       try (final Response response = resources.getJerseyTest()
           .target("/v2/accounts/number")
@@ -503,9 +512,11 @@ class AccountControllerV2Test {
               .header(HttpHeaders.AUTHORIZATION,
                   AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
               .put(Entity.entity(
-                  new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", new IdentityKey(Curve.generateKeyPair().getPublicKey()),
+                  new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", IDENTITY_KEY,
                       Collections.emptyList(),
-                      Collections.emptyMap(), null, Collections.emptyMap()),
+                      Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
+                      Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR)),
+                      Map.of(Device.PRIMARY_ID, 17)),
                   MediaType.APPLICATION_JSON_TYPE))) {
 
         assertEquals(413, response.getStatus());
@@ -520,16 +531,16 @@ class AccountControllerV2Test {
     }
 
     /**
-     * Valid request JSON with the given pniRegistrationId
-     */
-    private static String requestJsonRegistrationIds(final Integer pniRegistrationId) {
-      return requestJson("", new byte[0], "+18005551234", pniRegistrationId);
-    }
-
-    /**
      * Valid request JSON with the give session ID and recovery password
      */
-    private static String requestJson(final String sessionId, final byte[] recoveryPassword, final String newNumber, final Integer pniRegistrationId) {
+    private static String requestJson(final String sessionId,
+        final byte[] recoveryPassword,
+        final String newNumber,
+        final Integer pniRegistrationId) {
+
+      final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR);
+      final KEMSignedPreKey pniLastResortPreKey = KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR);
+
       return String.format("""
           {
             "sessionId": "%s",
@@ -538,10 +549,17 @@ class AccountControllerV2Test {
             "reglock": "1234",
             "pniIdentityKey": "%s",
             "deviceMessages": [],
-            "devicePniSignedPrekeys": {},
+            "devicePniSignedPrekeys": {"1": {"keyId": %d, "publicKey": "%s", "signature": "%s"}},
+            "devicePniPqLastResortPrekeys": {"1": {"keyId": %d, "publicKey": "%s", "signature": "%s"}},
             "pniRegistrationIds": {"1": %d}
           }
-          """, encodeSessionId(sessionId), encodeRecoveryPassword(recoveryPassword), newNumber, Base64.getEncoder().encodeToString(IDENTITY_KEY.serialize()), pniRegistrationId);
+          """, encodeSessionId(sessionId),
+          encodeRecoveryPassword(recoveryPassword),
+          newNumber,
+          Base64.getEncoder().encodeToString(IDENTITY_KEY.serialize()),
+          pniSignedPreKey.keyId(), Base64.getEncoder().encodeToString(pniSignedPreKey.serializedPublicKey()), Base64.getEncoder().encodeToString(pniSignedPreKey.signature()),
+          pniLastResortPreKey.keyId(), Base64.getEncoder().encodeToString(pniLastResortPreKey.serializedPublicKey()), Base64.getEncoder().encodeToString(pniLastResortPreKey.signature()),
+          pniRegistrationId);
     }
 
     /**
@@ -698,15 +716,21 @@ class AccountControllerV2Test {
      * Valid request JSON for a {@link org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest}
      */
     private static String requestJson() {
+      final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR);
+      final KEMSignedPreKey pniLastResortPreKey = KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR);
+
       return String.format("""
           {
             "pniIdentityKey": "%s",
             "deviceMessages": [],
             "devicePniSignedPrekeys": {},
-            "devicePniSignedPqPrekeys": {},
-            "pniRegistrationIds": {}
+            "devicePniSignedPrekeys": {"1": {"keyId": %d, "publicKey": "%s", "signature": "%s"}},
+            "devicePniPqLastResortPrekeys": {"1": {"keyId": %d, "publicKey": "%s", "signature": "%s"}},
+            "pniRegistrationIds": {"1": 17}
           }
-      """, Base64.getEncoder().encodeToString(IDENTITY_KEY.serialize()));
+      """, Base64.getEncoder().encodeToString(IDENTITY_KEY.serialize()),
+          pniSignedPreKey.keyId(), Base64.getEncoder().encodeToString(pniSignedPreKey.serializedPublicKey()), Base64.getEncoder().encodeToString(pniSignedPreKey.signature()),
+          pniLastResortPreKey.keyId(), Base64.getEncoder().encodeToString(pniLastResortPreKey.serializedPublicKey()), Base64.getEncoder().encodeToString(pniLastResortPreKey.signature()));
     }
 
     /**

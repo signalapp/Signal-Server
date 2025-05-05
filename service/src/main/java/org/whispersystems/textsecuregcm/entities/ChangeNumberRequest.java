@@ -17,6 +17,7 @@ import javax.annotation.Nullable;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
@@ -51,34 +52,27 @@ public record ChangeNumberRequest(
         arraySchema=@Schema(description="""
         A list of synchronization messages to send to companion devices to supply the private keysManager
         associated with the new identity key and their new prekeys.
-        Exactly one message must be supplied for each enabled device other than the sending (primary) device."""))
+        Exactly one message must be supplied for each device other than the sending (primary) device."""))
     @NotNull @Valid List<@NotNull @Valid IncomingMessage> deviceMessages,
 
     @Schema(description="""
-        A new signed elliptic-curve prekey for each enabled device on the account, including this one.
+        A new signed elliptic-curve prekey for each device on the account, including this one.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
-    @NotNull @Valid Map<Byte, @NotNull @Valid ECSignedPreKey> devicePniSignedPrekeys,
+    @NotNull @NotEmpty @Valid Map<Byte, @NotNull @Valid ECSignedPreKey> devicePniSignedPrekeys,
 
     @Schema(description="""
-        A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
-        May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
-        If present, must contain one prekey per enabled device including this one.
-        Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
+        A new signed post-quantum last-resort prekey for each device on the account, including this one.
         Each must be accompanied by a valid signature from the new identity key in this request.""")
-    @Valid Map<Byte, @NotNull @Valid KEMSignedPreKey> devicePniPqLastResortPrekeys,
+    @NotNull @NotEmpty @Valid Map<Byte, @NotNull @Valid KEMSignedPreKey> devicePniPqLastResortPrekeys,
 
-    @Schema(description="the new phone-number-identity registration ID for each enabled device on the account, including this one")
-    @NotNull Map<Byte, Integer> pniRegistrationIds) implements PhoneVerificationRequest {
+    @Schema(description="the new phone-number-identity registration ID for each device on the account, including this one")
+    @NotNull @NotEmpty Map<Byte, Integer> pniRegistrationIds) implements PhoneVerificationRequest {
 
   public boolean isSignatureValidOnEachSignedPreKey(@Nullable final String userAgent) {
-    List<SignedPreKey<?>> spks = new ArrayList<>();
-    if (devicePniSignedPrekeys != null) {
-      spks.addAll(devicePniSignedPrekeys.values());
-    }
-    if (devicePniPqLastResortPrekeys != null) {
-      spks.addAll(devicePniPqLastResortPrekeys.values());
-    }
-    return spks.isEmpty() || PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey, spks, userAgent, "change-number");
+    final List<SignedPreKey<?>> spks = new ArrayList<>(devicePniSignedPrekeys.values());
+    spks.addAll(devicePniPqLastResortPrekeys.values());
+
+    return PreKeySignatureValidator.validatePreKeySignatures(pniIdentityKey, spks, userAgent, "change-number");
   }
 
   @AssertTrue
