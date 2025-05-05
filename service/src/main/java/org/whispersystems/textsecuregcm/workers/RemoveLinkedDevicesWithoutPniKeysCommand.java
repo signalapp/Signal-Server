@@ -77,6 +77,7 @@ public class RemoveLinkedDevicesWithoutPniKeysCommand extends AbstractSinglePass
     final KeysManager keysManager = getCommandDependencies().keysManager();
 
     accounts
+        .filter(account -> !account.hasLockedCredentials())
         .filter(account -> account.getDevices().size() > 1)
         .flatMap(account -> Flux.fromIterable(account.getDevices())
             .filter(device -> !device.isPrimary())

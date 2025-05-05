@@ -73,6 +73,7 @@ public class LockAccountsWithoutPniIdentityKeysCommand extends AbstractSinglePas
     final AccountsManager accountsManager = getCommandDependencies().accountsManager();
 
     accounts
+        .filter(account -> !account.hasLockedCredentials())
         .filter(account -> account.getIdentityKey(IdentityType.PNI) == null)
         .flatMap(accountWithoutPniIdentityKey -> {
           final String platform = DevicePlatformUtil.getDevicePlatform(accountWithoutPniIdentityKey.getPrimaryDevice())
