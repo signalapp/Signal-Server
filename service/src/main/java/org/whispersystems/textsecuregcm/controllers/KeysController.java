@@ -240,8 +240,7 @@ public class KeysController {
   @ApiResponse(responseCode = "422", description = "Invalid request format")
   public CompletableFuture<Response> checkKeys(
       @ReadOnly @Auth final AuthenticatedDevice auth,
-      @RequestBody @NotNull @Valid final CheckKeysRequest checkKeysRequest,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+      @RequestBody @NotNull @Valid final CheckKeysRequest checkKeysRequest) {
 
     final UUID identifier = auth.getAccount().getIdentifier(checkKeysRequest.identityType());
     final byte deviceId = auth.getAuthenticatedDevice().getId();
