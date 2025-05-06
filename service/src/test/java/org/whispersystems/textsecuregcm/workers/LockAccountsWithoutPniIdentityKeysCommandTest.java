@@ -59,6 +59,7 @@ class LockAccountsWithoutPniIdentityKeysCommandTest {
           null,
           null,
           null,
+          null,
           null);
 
       namespace = new Namespace(Map.of(

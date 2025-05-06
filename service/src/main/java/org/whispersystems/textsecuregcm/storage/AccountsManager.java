@@ -580,6 +580,15 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return Optional.of(aci);
   }
 
+  /**
+   * Unlink a device from the given account. The device will be immediately disconnected if it is
+   * connected to any chat frontend, but it is the caller's responsibility to make sure that the
+   * account's *other* devices are disconnected, either by use of
+   * {@link org.whispersystems.textsecuregcm.auth.LinkedDeviceRefreshRequirementProvider} or
+   * directly by calling {@link DeviceDisconnectionManager#requestDisconnection}.
+   *
+   * @returns the updated Account
+   */
   public CompletableFuture<Account> removeDevice(final Account account, final byte deviceId) {
     if (deviceId == Device.PRIMARY_ID) {
       throw new IllegalArgumentException("Cannot remove primary device");

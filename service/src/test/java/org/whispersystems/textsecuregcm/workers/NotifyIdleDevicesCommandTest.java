@@ -50,6 +50,7 @@ class NotifyIdleDevicesCommandTest {
           null,
           null,
           null,
+          null,
           messagesManager,
           null,
           null,

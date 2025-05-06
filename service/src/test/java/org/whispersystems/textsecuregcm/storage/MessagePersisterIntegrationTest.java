@@ -30,6 +30,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
@@ -98,7 +99,8 @@ class MessagePersisterIntegrationTest {
     webSocketConnectionEventManager.start();
 
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        dynamicConfigurationManager, mock(ExperimentEnrollmentManager.class), PERSIST_DELAY, 1);
+        dynamicConfigurationManager, mock(ExperimentEnrollmentManager.class), mock(DisconnectionRequestManager.class),
+        PERSIST_DELAY, 1);
 
     account = mock(Account.class);
 

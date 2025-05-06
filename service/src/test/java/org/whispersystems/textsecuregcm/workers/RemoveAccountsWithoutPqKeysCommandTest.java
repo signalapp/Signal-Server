@@ -50,6 +50,7 @@ class RemoveAccountsWithoutPqKeysCommandTest {
           null,
           null,
           null,
+          null,
           keysManager,
           null,
           null,

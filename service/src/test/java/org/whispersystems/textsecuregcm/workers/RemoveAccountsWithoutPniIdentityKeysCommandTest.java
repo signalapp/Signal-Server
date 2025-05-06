@@ -54,6 +54,7 @@ class RemoveAccountsWithoutPniIdentityKeysCommandTest {
           null,
           null,
           null,
+          null,
           null);
 
       namespace = new Namespace(Map.of(

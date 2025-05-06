@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
@@ -44,6 +45,7 @@ public class MessagePersister implements Managed {
   private final AccountsManager accountsManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
+  private final DisconnectionRequestManager disconnectionRequestManager;
 
   private final Duration persistDelay;
 
@@ -82,6 +84,7 @@ public class MessagePersister implements Managed {
       final AccountsManager accountsManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
+      final DisconnectionRequestManager disconnectionRequestManager,
       final Duration persistDelay,
       final int dedicatedProcessWorkerThreadCount) {
 
@@ -90,6 +93,7 @@ public class MessagePersister implements Managed {
     this.accountsManager = accountsManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
+    this.disconnectionRequestManager = disconnectionRequestManager;
     this.persistDelay = persistDelay;
     this.workerThreads = new Thread[dedicatedProcessWorkerThreadCount];
 
@@ -257,9 +261,10 @@ public class MessagePersister implements Managed {
         trimQueue(account, deviceId);
         throw new MessagePersistenceException("Could not persist due to an overfull queue. Trimmed primary queue, a subsequent retry may succeed");
       } else {
-        logger.warn("Failed to persist queue {}::{} due to overfull queue; will unlink device", account.getUuid(),
-            deviceId);
-        accountsManager.removeDevice(account, deviceId).join();
+        logger.warn("Failed to persist queue {}::{} due to overfull queue; will unlink device", accountUuid, deviceId);
+        accountsManager.removeDevice(account, deviceId)
+            .thenRun(() -> disconnectionRequestManager.requestDisconnection(accountUuid))
+            .join();
       }
     } finally {
       messagesCache.unlockQueueForPersistence(accountUuid, deviceId);

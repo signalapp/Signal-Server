@@ -47,6 +47,7 @@ class RemoveLinkedDevicesWithoutPqKeysCommandTest {
           null,
           null,
           null,
+          null,
           keysManager,
           null,
           null,
