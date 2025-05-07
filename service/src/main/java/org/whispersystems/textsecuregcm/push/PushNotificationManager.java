@@ -105,7 +105,7 @@ public class PushNotificationManager {
       // APNs imposes a per-device limit on background push notifications; schedule a notification for some time in the
       // future (possibly even now!) rather than sending a notification directly
       return pushNotificationScheduler
-          .scheduleBackgroundApnsNotification(pushNotification.destination(), pushNotification.destinationDevice())
+          .scheduleBackgroundNotification(pushNotification.tokenType(), pushNotification.destination(), pushNotification.destinationDevice())
           .whenComplete(logErrors())
           .thenApply(ignored -> Optional.<SendPushNotificationResult>empty())
           .toCompletableFuture();

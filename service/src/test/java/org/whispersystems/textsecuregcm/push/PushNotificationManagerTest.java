@@ -171,7 +171,7 @@ class PushNotificationManagerTest {
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
 
     if (!urgent) {
-      when(pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device))
+      when(pushNotificationScheduler.scheduleBackgroundNotification(PushNotification.TokenType.APN, account, device))
           .thenReturn(CompletableFuture.completedFuture(null));
     }
 
@@ -184,7 +184,7 @@ class PushNotificationManagerTest {
       verifyNoInteractions(pushNotificationScheduler);
     } else {
       verifyNoInteractions(apnSender);
-      verify(pushNotificationScheduler).scheduleBackgroundApnsNotification(account, device);
+      verify(pushNotificationScheduler).scheduleBackgroundNotification(PushNotification.TokenType.APN, account, device);
     }
   }
 

@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -56,6 +57,7 @@ class PushNotificationSchedulerTest {
   private static final String ACCOUNT_NUMBER = "+18005551234";
   private static final byte DEVICE_ID = 1;
   private static final String APN_ID = RandomStringUtils.secure().nextAlphanumeric(32);
+  private static final String GCM_ID = RandomStringUtils.secure().nextAlphanumeric(32);
 
   @BeforeEach
   void setUp() throws Exception {
@@ -63,6 +65,7 @@ class PushNotificationSchedulerTest {
     device = mock(Device.class);
     when(device.getId()).thenReturn(DEVICE_ID);
     when(device.getApnId()).thenReturn(APN_ID);
+    when(device.getGcmId()).thenReturn(GCM_ID);
     when(device.getLastSeen()).thenReturn(System.currentTimeMillis());
 
     account = mock(Account.class);
@@ -90,8 +93,9 @@ class PushNotificationSchedulerTest {
         apnSender, fcmSender, accountsManager, clock, 1, 1);
   }
 
-  @Test
-  void testScheduleBackgroundNotificationWithNoRecentApnsNotification() throws ExecutionException, InterruptedException {
+  @ParameterizedTest
+  @EnumSource(PushNotification.TokenType.class)
+  void testScheduleBackgroundNotificationWithNoRecentApnsNotification(PushNotification.TokenType tokenType) throws ExecutionException, InterruptedException {
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     clock.pin(now);
 
@@ -99,97 +103,107 @@ class PushNotificationSchedulerTest {
         pushNotificationScheduler.getLastBackgroundApnsNotificationTimestamp(account, device));
 
     assertEquals(Optional.empty(),
-        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+        pushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(tokenType, account, device));
 
-    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().get();
+    pushNotificationScheduler.scheduleBackgroundNotification(tokenType, account, device).toCompletableFuture().get();
 
     assertEquals(Optional.of(now),
-        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+        pushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(tokenType, account, device));
   }
 
-  @Test
-  void testScheduleBackgroundNotificationWithRecentApnsNotification() throws ExecutionException, InterruptedException {
+  @ParameterizedTest
+  @EnumSource(PushNotification.TokenType.class)
+  void testScheduleBackgroundNotificationWithRecentNotification(PushNotification.TokenType tokenType) throws ExecutionException, InterruptedException {
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     final Instant recentNotificationTimestamp =
         now.minus(PushNotificationScheduler.BACKGROUND_NOTIFICATION_PERIOD.dividedBy(2));
 
     // Insert a timestamp for a recently-sent background push notification
     clock.pin(Instant.ofEpochMilli(recentNotificationTimestamp.toEpochMilli()));
-    pushNotificationScheduler.sendBackgroundApnsNotification(account, device);
+    pushNotificationScheduler.sendBackgroundNotification(tokenType, account, device);
 
     clock.pin(now);
-    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().get();
+    pushNotificationScheduler.scheduleBackgroundNotification(tokenType, account, device).toCompletableFuture().get();
 
     final Instant expectedScheduledTimestamp =
         recentNotificationTimestamp.plus(PushNotificationScheduler.BACKGROUND_NOTIFICATION_PERIOD);
 
     assertEquals(Optional.of(expectedScheduledTimestamp),
-        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+        pushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(tokenType, account, device));
   }
 
-  @Test
-  void testCancelBackgroundApnsNotifications() {
+  @ParameterizedTest
+  @EnumSource(PushNotification.TokenType.class)
+  void testCancelBackgroundApnsNotifications(PushNotification.TokenType tokenType) {
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     clock.pin(now);
 
-    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().join();
-    pushNotificationScheduler.cancelBackgroundApnsNotifications(account, device).join();
+    pushNotificationScheduler.scheduleBackgroundNotification(tokenType, account, device).toCompletableFuture().join();
+    pushNotificationScheduler.cancelBackgroundNotifications(tokenType, account, device).join();
 
     assertEquals(Optional.empty(),
         pushNotificationScheduler.getLastBackgroundApnsNotificationTimestamp(account, device));
 
     assertEquals(Optional.empty(),
-        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+        pushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(tokenType, account, device));
   }
 
-  @Test
-  void testProcessScheduledBackgroundNotifications() {
+  @ParameterizedTest
+  @EnumSource(PushNotification.TokenType.class)
+  void testProcessScheduledBackgroundNotifications(PushNotification.TokenType tokenType) {
     final PushNotificationScheduler.NotificationWorker worker = pushNotificationScheduler.new NotificationWorker(1);
 
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     clock.pin(Instant.ofEpochMilli(now.toEpochMilli()));
-    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().join();
+    pushNotificationScheduler.scheduleBackgroundNotification(tokenType, account, device).toCompletableFuture().join();
 
     final int slot =
-        SlotHash.getSlot(PushNotificationScheduler.getPendingBackgroundApnsNotificationQueueKey(account, device));
+        SlotHash.getSlot(PushNotificationScheduler.getPendingBackgroundNotificationQueueKey(tokenType, account, device));
 
     clock.pin(Instant.ofEpochMilli(now.minusMillis(1).toEpochMilli()));
-    assertEquals(0, worker.processScheduledBackgroundApnsNotifications(slot));
+    assertEquals(0, worker.processScheduledBackgroundNotifications(tokenType, slot));
 
     clock.pin(now);
-    assertEquals(1, worker.processScheduledBackgroundApnsNotifications(slot));
+    assertEquals(1, worker.processScheduledBackgroundNotifications(tokenType, slot));
 
     final ArgumentCaptor<PushNotification> notificationCaptor = ArgumentCaptor.forClass(PushNotification.class);
-    verify(apnSender).sendNotification(notificationCaptor.capture());
+    verify(switch (tokenType) {
+      case FCM -> fcmSender;
+      case APN -> apnSender;
+    }).sendNotification(notificationCaptor.capture());
 
     final PushNotification pushNotification = notificationCaptor.getValue();
 
-    assertEquals(PushNotification.TokenType.APN, pushNotification.tokenType());
-    assertEquals(APN_ID, pushNotification.deviceToken());
+    assertEquals(tokenType, pushNotification.tokenType());
+    assertEquals(switch (tokenType) {
+      case FCM -> GCM_ID;
+      case APN -> APN_ID;
+    }, pushNotification.deviceToken());
     assertEquals(account, pushNotification.destination());
     assertEquals(device, pushNotification.destinationDevice());
     assertEquals(PushNotification.NotificationType.NOTIFICATION, pushNotification.notificationType());
     assertFalse(pushNotification.urgent());
 
     assertEquals(Optional.empty(),
-        pushNotificationScheduler.getNextScheduledBackgroundApnsNotificationTimestamp(account, device));
+        pushNotificationScheduler.getNextScheduledBackgroundNotificationTimestamp(tokenType, account, device));
   }
 
-  @Test
-  void testProcessScheduledBackgroundNotificationsCancelled() throws ExecutionException, InterruptedException {
+  @ParameterizedTest
+  @EnumSource(PushNotification.TokenType.class)
+  void testProcessScheduledBackgroundNotificationsCancelled(PushNotification.TokenType tokenType) throws ExecutionException, InterruptedException {
     final PushNotificationScheduler.NotificationWorker worker = pushNotificationScheduler.new NotificationWorker(1);
 
     final Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     clock.pin(now);
-    pushNotificationScheduler.scheduleBackgroundApnsNotification(account, device).toCompletableFuture().get();
+    pushNotificationScheduler.scheduleBackgroundNotification(tokenType, account, device).toCompletableFuture().get();
     pushNotificationScheduler.cancelScheduledNotifications(account, device).toCompletableFuture().get();
 
     final int slot =
-        SlotHash.getSlot(PushNotificationScheduler.getPendingBackgroundApnsNotificationQueueKey(account, device));
+        SlotHash.getSlot(PushNotificationScheduler.getPendingBackgroundNotificationQueueKey(tokenType, account, device));
 
-    assertEquals(0, worker.processScheduledBackgroundApnsNotifications(slot));
+    assertEquals(0, worker.processScheduledBackgroundNotifications(tokenType, slot));
 
     verify(apnSender, never()).sendNotification(any());
   }
