@@ -23,6 +23,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -34,6 +36,7 @@ class PushNotificationManagerTest {
   private APNSender apnSender;
   private FcmSender fcmSender;
   private PushNotificationScheduler pushNotificationScheduler;
+  private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private PushNotificationManager pushNotificationManager;
 
@@ -43,11 +46,12 @@ class PushNotificationManagerTest {
     apnSender = mock(APNSender.class);
     fcmSender = mock(FcmSender.class);
     pushNotificationScheduler = mock(PushNotificationScheduler.class);
+    experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
-    pushNotificationManager =
-        new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
+    pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender,
+        pushNotificationScheduler, experimentEnrollmentManager);
   }
 
   @ParameterizedTest
@@ -155,36 +159,48 @@ class PushNotificationManagerTest {
     verifyNoInteractions(pushNotificationScheduler);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testSendNotificationApn(final boolean urgent) {
+  @CartesianTest
+  void testSendOrScheduleNotification(
+      @CartesianTest.Enum(PushNotification.TokenType.class) PushNotification.TokenType tokenType,
+      @CartesianTest.Values(booleans = {false, true}) final boolean urgent,
+      @CartesianTest.Values(booleans = {false, true}) final boolean inExperiment) {
+
+    final boolean expectSchedule = !urgent && (tokenType == PushNotification.TokenType.APN || inExperiment);
+
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
+    final UUID aci = UUID.randomUUID();
 
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
+    when(account.getUuid()).thenReturn(aci);
+
+    when(experimentEnrollmentManager.isEnrolled(aci, PushNotificationManager.SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT))
+        .thenReturn(inExperiment);
 
     final PushNotification pushNotification = new PushNotification(
-        "token", PushNotification.TokenType.APN, PushNotification.NotificationType.NOTIFICATION, null, account, device, urgent);
+        "token", tokenType, PushNotification.NotificationType.NOTIFICATION, null, account, device, urgent);
 
-    when(apnSender.sendNotification(pushNotification))
+    final PushNotificationSender sender = switch (tokenType) {
+      case FCM -> fcmSender;
+      case APN -> apnSender;
+    };
+    when(sender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
 
-    if (!urgent) {
-      when(pushNotificationScheduler.scheduleBackgroundNotification(PushNotification.TokenType.APN, account, device))
+    if (expectSchedule) {
+      when(pushNotificationScheduler.scheduleBackgroundNotification(tokenType, account, device))
           .thenReturn(CompletableFuture.completedFuture(null));
     }
 
     pushNotificationManager.sendNotification(pushNotification);
 
-    verifyNoInteractions(fcmSender);
-
-    if (urgent) {
-      verify(apnSender).sendNotification(pushNotification);
+    if (!expectSchedule) {
+      verify(sender).sendNotification(pushNotification);
       verifyNoInteractions(pushNotificationScheduler);
     } else {
-      verifyNoInteractions(apnSender);
-      verify(pushNotificationScheduler).scheduleBackgroundNotification(PushNotification.TokenType.APN, account, device);
+      verifyNoInteractions(sender);
+      verify(pushNotificationScheduler).scheduleBackgroundNotification(tokenType, account, device);
     }
   }
 

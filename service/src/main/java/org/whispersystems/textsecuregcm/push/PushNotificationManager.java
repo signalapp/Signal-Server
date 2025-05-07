@@ -17,6 +17,7 @@ import java.util.function.BiConsumer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -28,6 +29,9 @@ public class PushNotificationManager {
   private final APNSender apnSender;
   private final FcmSender fcmSender;
   private final PushNotificationScheduler pushNotificationScheduler;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
+
+  private static final String SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT = "scheduleLowUregencyFcmPush";
 
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
   private static final String FAILED_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "failedPushNotification");
@@ -38,12 +42,14 @@ public class PushNotificationManager {
   public PushNotificationManager(final AccountsManager accountsManager,
       final APNSender apnSender,
       final FcmSender fcmSender,
-      final PushNotificationScheduler pushNotificationScheduler) {
+      final PushNotificationScheduler pushNotificationScheduler,
+      final ExperimentEnrollmentManager experimentEnrollmentManager) {
 
     this.accountsManager = accountsManager;
     this.apnSender = apnSender;
     this.fcmSender = fcmSender;
     this.pushNotificationScheduler = pushNotificationScheduler;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   public CompletableFuture<Optional<SendPushNotificationResult>> sendNewMessageNotification(final Account destination, final byte destinationDeviceId, final boolean urgent) throws NotPushRegisteredException {
@@ -101,9 +107,9 @@ public class PushNotificationManager {
 
   @VisibleForTesting
   CompletableFuture<Optional<SendPushNotificationResult>> sendNotification(final PushNotification pushNotification) {
-    if (pushNotification.tokenType() == PushNotification.TokenType.APN && !pushNotification.urgent()) {
-      // APNs imposes a per-device limit on background push notifications; schedule a notification for some time in the
-      // future (possibly even now!) rather than sending a notification directly
+    if (shouldScheduleNotification(pushNotification)) {
+      // Schedule a notification for some time in the future (possibly even now!) rather than sending a notification
+      // directly
       return pushNotificationScheduler
           .scheduleBackgroundNotification(pushNotification.tokenType(), pushNotification.destination(), pushNotification.destinationDevice())
           .whenComplete(logErrors())
@@ -148,6 +154,16 @@ public class PushNotificationManager {
       }
     })
         .thenApply(Optional::of);
+  }
+
+  private boolean shouldScheduleNotification(final PushNotification pushNotification) {
+    return !pushNotification.urgent() && switch (pushNotification.tokenType()) {
+      // APNs imposes a per-device limit on background push notifications
+      case APN -> true;
+      case FCM -> experimentEnrollmentManager.isEnrolled(
+          pushNotification.destination().getUuid(),
+          SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT);
+    };
   }
 
   private static <T> BiConsumer<T, Throwable> logErrors() {
