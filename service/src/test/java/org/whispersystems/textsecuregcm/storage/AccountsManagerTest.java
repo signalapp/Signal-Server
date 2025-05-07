@@ -1012,8 +1012,8 @@ class AccountsManagerTest {
     assertTrue(device.getAuthTokenHash().verify(password));
     assertEquals(signalAgent, device.getUserAgent());
     assertEquals(Collections.emptySet(), device.getCapabilities());
-    assertEquals(aciRegistrationId, device.getRegistrationId());
-    assertEquals(pniRegistrationId, device.getPhoneNumberIdentityRegistrationId());
+    assertEquals(aciRegistrationId, device.getRegistrationId(IdentityType.ACI));
+    assertEquals(pniRegistrationId, device.getRegistrationId(IdentityType.PNI));
     assertTrue(device.getFetchesMessages());
     assertNull(device.getApnId());
     assertNull(device.getGcmId());
@@ -1265,12 +1265,12 @@ class AccountsManagerTest {
     assertEquals(oldPni, updatedAccount.getPhoneNumberIdentifier());
     assertNull(updatedAccount.getIdentityKey(IdentityType.ACI));
     assertEquals(Map.of(Device.PRIMARY_ID, 101, deviceId2, 102),
-        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getRegistrationId)));
+        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, device -> device.getRegistrationId(IdentityType.ACI))));
 
     // PNI stuff should
     assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
     assertEquals(newRegistrationIds,
-        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, Device::getPhoneNumberIdentityRegistrationId)));
+        updatedAccount.getDevices().stream().collect(Collectors.toMap(Device::getId, device -> device.getRegistrationId(IdentityType.PNI))));
 
     verify(accounts).updateTransactionallyAsync(any(), any());
 
@@ -1509,9 +1509,8 @@ class AccountsManagerTest {
     final Device parsedDevice = parsedAccount.getPrimaryDevice();
 
     assertEquals(originalDevice.getId(), parsedDevice.getId());
-    assertEquals(originalDevice.getRegistrationId(), parsedDevice.getRegistrationId());
-    assertEquals(originalDevice.getPhoneNumberIdentityRegistrationId(),
-        parsedDevice.getPhoneNumberIdentityRegistrationId());
+    assertEquals(originalDevice.getRegistrationId(IdentityType.ACI), parsedDevice.getRegistrationId(IdentityType.ACI));
+    assertEquals(originalDevice.getRegistrationId(IdentityType.PNI), parsedDevice.getRegistrationId(IdentityType.PNI));
     assertEquals(originalDevice.getCapabilities(), parsedDevice.getCapabilities());
     assertEquals(originalDevice.getFetchesMessages(), parsedDevice.getFetchesMessages());
   }

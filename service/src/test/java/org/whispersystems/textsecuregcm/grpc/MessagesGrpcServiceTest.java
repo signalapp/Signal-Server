@@ -125,13 +125,13 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
         .thenReturn(new SpamCheckResult<>(Optional.empty(), Optional.empty()));
 
     when(authenticatedDevice.getId()).thenReturn(AUTHENTICATED_DEVICE_ID);
-    when(authenticatedDevice.getRegistrationId()).thenReturn(AUTHENTICATED_REGISTRATION_ID);
+    when(authenticatedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(AUTHENTICATED_REGISTRATION_ID);
 
     when(linkedDevice.getId()).thenReturn(LINKED_DEVICE_ID);
-    when(linkedDevice.getRegistrationId()).thenReturn(LINKED_DEVICE_REGISTRATION_ID);
+    when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(LINKED_DEVICE_REGISTRATION_ID);
 
     when(secondLinkedDevice.getId()).thenReturn(SECOND_LINKED_DEVICE_ID);
-    when(secondLinkedDevice.getRegistrationId()).thenReturn(SECOND_LINKED_DEVICE_REGISTRATION_ID);
+    when(secondLinkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(SECOND_LINKED_DEVICE_REGISTRATION_ID);
 
     when(authenticatedAccount.getUuid()).thenReturn(AUTHENTICATED_ACI);
     when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);

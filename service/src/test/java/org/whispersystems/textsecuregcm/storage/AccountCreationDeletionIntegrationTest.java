@@ -506,8 +506,8 @@ public class AccountCreationDeletionIntegrationTest {
     assertEquals(number, account.getNumber());
     assertEquals(signalAgent, primaryDevice.getUserAgent());
     assertEquals(deliveryChannels.fetchesMessages(), primaryDevice.getFetchesMessages());
-    assertEquals(registrationId, primaryDevice.getRegistrationId());
-    assertEquals(pniRegistrationId, primaryDevice.getPhoneNumberIdentityRegistrationId());
+    assertEquals(registrationId, primaryDevice.getRegistrationId(IdentityType.ACI));
+    assertEquals(pniRegistrationId, primaryDevice.getRegistrationId(IdentityType.PNI));
     assertArrayEquals(deviceName, primaryDevice.getName());
     assertEquals(discoverableByPhoneNumber, account.isDiscoverableByPhoneNumber());
     assertEquals(deviceCapabilities, primaryDevice.getCapabilities());

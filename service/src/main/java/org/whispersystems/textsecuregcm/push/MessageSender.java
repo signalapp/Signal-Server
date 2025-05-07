@@ -24,7 +24,6 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.util.Pair;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
@@ -36,7 +35,6 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -318,11 +316,7 @@ public class MessageSender {
           // We know the device must be present because we've already filtered out device IDs that aren't associated
           // with the given account
           final Device device = account.getDevice(deviceId).orElseThrow();
-
-          final int expectedRegistrationId = switch (serviceIdentifier.identityType()) {
-            case ACI -> device.getRegistrationId();
-            case PNI -> device.getPhoneNumberIdentityRegistrationId();
-          };
+          final int expectedRegistrationId = device.getRegistrationId(serviceIdentifier.identityType());
 
           return registrationId != expectedRegistrationId;
         })

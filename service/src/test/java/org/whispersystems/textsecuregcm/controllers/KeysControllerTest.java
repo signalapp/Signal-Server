@@ -214,11 +214,11 @@ class KeysControllerTest {
 
     AccountsHelper.setupMockUpdate(accounts);
 
-    when(sampleDevice.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID);
-    when(sampleDevice2.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
-    when(sampleDevice3.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID2);
-    when(sampleDevice4.getRegistrationId()).thenReturn(SAMPLE_REGISTRATION_ID4);
-    when(sampleDevice.getPhoneNumberIdentityRegistrationId()).thenReturn(SAMPLE_PNI_REGISTRATION_ID);
+    when(sampleDevice.getRegistrationId(IdentityType.ACI)).thenReturn(SAMPLE_REGISTRATION_ID);
+    when(sampleDevice2.getRegistrationId(IdentityType.ACI)).thenReturn(SAMPLE_REGISTRATION_ID2);
+    when(sampleDevice3.getRegistrationId(IdentityType.ACI)).thenReturn(SAMPLE_REGISTRATION_ID2);
+    when(sampleDevice4.getRegistrationId(IdentityType.ACI)).thenReturn(SAMPLE_REGISTRATION_ID4);
+    when(sampleDevice.getRegistrationId(IdentityType.PNI)).thenReturn(SAMPLE_PNI_REGISTRATION_ID);
     when(sampleDevice.getId()).thenReturn(sampleDeviceId);
     when(sampleDevice2.getId()).thenReturn(sampleDevice2Id);
     when(sampleDevice3.getId()).thenReturn(sampleDevice3Id);

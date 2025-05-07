@@ -17,7 +17,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -232,7 +231,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondPni));
 
     assertEquals(pniIdentityKey, updatedAccount.getIdentityKey(IdentityType.PNI));
-    assertEquals(rotatedPniRegistrationId, updatedAccount.getPrimaryDevice().getPhoneNumberIdentityRegistrationId());
+    assertEquals(rotatedPniRegistrationId, updatedAccount.getPrimaryDevice().getRegistrationId(IdentityType.PNI));
 
     assertEquals(Optional.of(rotatedSignedPreKey),
         keysManager.getEcSignedPreKey(updatedAccount.getIdentifier(IdentityType.PNI), Device.PRIMARY_ID).join());

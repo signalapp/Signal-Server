@@ -1244,15 +1244,15 @@ class MessageControllerTest {
 
     final Device singleDeviceAccountPrimary = mock(Device.class);
     when(singleDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-    when(singleDeviceAccountPrimary.getRegistrationId()).thenReturn(singleDevicePrimaryRegistrationId);
+    when(singleDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(singleDevicePrimaryRegistrationId);
 
     final Device multiDeviceAccountPrimary = mock(Device.class);
     when(multiDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-    when(multiDeviceAccountPrimary.getRegistrationId()).thenReturn(multiDevicePrimaryRegistrationId);
+    when(multiDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(multiDevicePrimaryRegistrationId);
 
     final Device multiDeviceAccountLinked = mock(Device.class);
     when(multiDeviceAccountLinked.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
-    when(multiDeviceAccountLinked.getRegistrationId()).thenReturn(multiDeviceLinkedRegistrationId);
+    when(multiDeviceAccountLinked.getRegistrationId(IdentityType.ACI)).thenReturn(multiDeviceLinkedRegistrationId);
 
     final Account singleDeviceAccount = mock(Account.class);
     when(singleDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(singleDeviceAccountAci);
@@ -1662,15 +1662,15 @@ class MessageControllerTest {
 
     final Device singleDeviceAccountPrimary = mock(Device.class);
     when(singleDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-    when(singleDeviceAccountPrimary.getRegistrationId()).thenReturn(singleDevicePrimaryRegistrationId);
+    when(singleDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(singleDevicePrimaryRegistrationId);
 
     final Device multiDeviceAccountPrimary = mock(Device.class);
     when(multiDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
-    when(multiDeviceAccountPrimary.getRegistrationId()).thenReturn(multiDevicePrimaryRegistrationId);
+    when(multiDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(multiDevicePrimaryRegistrationId);
 
     final Device multiDeviceAccountLinked = mock(Device.class);
     when(multiDeviceAccountLinked.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
-    when(multiDeviceAccountLinked.getRegistrationId()).thenReturn(multiDeviceLinkedRegistrationId);
+    when(multiDeviceAccountLinked.getRegistrationId(IdentityType.ACI)).thenReturn(multiDeviceLinkedRegistrationId);
 
     final Account singleDeviceAccount = mock(Account.class);
     when(singleDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(singleDeviceAccountAci);

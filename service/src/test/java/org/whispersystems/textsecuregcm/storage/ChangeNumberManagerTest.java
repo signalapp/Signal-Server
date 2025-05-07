@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -141,13 +142,13 @@ public class ChangeNumberManagerTest {
 
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(primaryDevice.getRegistrationId()).thenReturn(7);
+    when(primaryDevice.getRegistrationId(IdentityType.ACI)).thenReturn(7);
 
     final Device linkedDevice = mock(Device.class);
     final byte linkedDeviceId = Device.PRIMARY_ID + 1;
     final int linkedDeviceRegistrationId = 17;
     when(linkedDevice.getId()).thenReturn(linkedDeviceId);
-    when(linkedDevice.getRegistrationId()).thenReturn(linkedDeviceRegistrationId);
+    when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(linkedDeviceRegistrationId);
 
     when(account.getDevice(anyByte())).thenReturn(Optional.empty());
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(primaryDevice));
@@ -401,7 +402,7 @@ public class ChangeNumberManagerTest {
     for (byte i = 1; i <= 3; i++) {
       final Device device = mock(Device.class);
       when(device.getId()).thenReturn(i);
-      when(device.getRegistrationId()).thenReturn((int) i);
+      when(device.getRegistrationId(IdentityType.ACI)).thenReturn((int) i);
 
       devices.add(device);
       when(account.getDevice(i)).thenReturn(Optional.of(device));

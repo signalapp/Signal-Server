@@ -381,10 +381,7 @@ public class KeysController {
                     .increment();
 
                 if (signedEcPreKey != null || unsignedEcPreKey != null || pqPreKey != null) {
-                  final int registrationId = switch (targetIdentifier.identityType()) {
-                    case ACI -> device.getRegistrationId();
-                    case PNI -> device.getPhoneNumberIdentityRegistrationId();
-                  };
+                  final int registrationId = device.getRegistrationId(targetIdentifier.identityType());
 
                   responseItems.add(
                       new PreKeyResponseItem(device.getId(), registrationId, signedEcPreKey, unsignedEcPreKey,
