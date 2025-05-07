@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
 import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -245,7 +246,7 @@ public class MessagePersister implements Managed {
 
       final boolean inSkipExperiment = device.getGcmId() != null && experimentEnrollmentManager.isEnrolled(
           accountUuid,
-          MessageSender.ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT);
+          PushNotificationManager.SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT);
       DistributionSummary.builder(QUEUE_SIZE_DISTRIBUTION_SUMMARY_NAME)
           .tags(Tags.of(platformTag).and("lowUrgencySkip", Boolean.toString(inSkipExperiment)))
           .publishPercentileHistogram(true)

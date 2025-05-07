@@ -69,57 +69,6 @@ class MessageSenderTest {
 
 
   @CartesianTest
-  void pushSkippedExperiment(
-      @CartesianTest.Values(booleans = {true, false}) final boolean hasGcmToken,
-      @CartesianTest.Values(booleans = {true, false}) final boolean isUrgent,
-      @CartesianTest.Values(booleans = {true, false}) final boolean inExperiment) throws NotPushRegisteredException {
-
-    final boolean shouldSkip = hasGcmToken && !isUrgent && inExperiment;
-
-    final UUID accountIdentifier = UUID.randomUUID();
-    final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(accountIdentifier);
-    final byte deviceId = Device.PRIMARY_ID;
-    final int registrationId = 17;
-
-    final Account account = mock(Account.class);
-    final Device device = mock(Device.class);
-    final MessageProtos.Envelope message = MessageProtos.Envelope.newBuilder()
-        .setEphemeral(false)
-        .setUrgent(isUrgent)
-        .build();
-
-    when(account.getUuid()).thenReturn(accountIdentifier);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
-    when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
-    when(account.getDevices()).thenReturn(List.of(device));
-    when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
-    when(device.getId()).thenReturn(deviceId);
-    when(device.getRegistrationId()).thenReturn(registrationId);
-
-    if (hasGcmToken) {
-      when(device.getGcmId()).thenReturn("gcm-token");
-    } else {
-      when(device.getApnId()).thenReturn("apn-token");
-    }
-    when(messagesManager.insert(any(), any())).thenReturn(Map.of(deviceId, false));
-    when(experimentEnrollmentManager.isEnrolled(accountIdentifier, MessageSender.ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT))
-        .thenReturn(inExperiment);
-
-    assertDoesNotThrow(() -> messageSender.sendMessages(account,
-        serviceIdentifier,
-        Map.of(device.getId(), message),
-        Map.of(device.getId(), registrationId),
-        Optional.empty(),
-        null));
-
-    if (shouldSkip) {
-      verifyNoInteractions(pushNotificationManager);
-    } else {
-      verify(pushNotificationManager).sendNewMessageNotification(account, deviceId, isUrgent);
-    }
-  }
-
-  @CartesianTest
   void sendMessage(@CartesianTest.Values(booleans = {true, false}) final boolean clientPresent,
       @CartesianTest.Values(booleans = {true, false}) final boolean ephemeral,
       @CartesianTest.Values(booleans = {true, false}) final boolean urgent,

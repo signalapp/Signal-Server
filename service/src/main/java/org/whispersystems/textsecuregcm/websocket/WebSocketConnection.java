@@ -339,7 +339,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
               if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
                 final boolean inSkipExperiment = auth.getAuthenticatedDevice().getGcmId() != null && experimentEnrollmentManager.isEnrolled(
                     auth.getAccount().getUuid(),
-                    MessageSender.ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT);
+                    PushNotificationManager.SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT);
 
                 final Tags tags = Tags
                     .of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))

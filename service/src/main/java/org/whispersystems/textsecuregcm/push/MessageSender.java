@@ -57,8 +57,6 @@ public class MessageSender {
   private final PushNotificationManager pushNotificationManager;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
-  public static final String ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT = "androidSkipLowUrgencyPush";
-
   // Note that these names deliberately reference `MessageController` for metric continuity
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageController.class, "rejectOversizeMessage");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = MetricsUtil.name(MessageController.class, "messageContentSize");
@@ -156,7 +154,7 @@ public class MessageSender {
         .forEach((deviceId, destinationPresent) -> {
           final Envelope message = messagesByDeviceId.get(deviceId);
 
-          if (!destinationPresent && !message.getEphemeral() && !shouldSkipPush(destination, deviceId, message.getUrgent())) {
+          if (!destinationPresent && !message.getEphemeral()) {
             try {
               pushNotificationManager.sendNewMessageNotification(destination, deviceId, message.getUrgent());
             } catch (final NotPushRegisteredException ignored) {
@@ -175,13 +173,6 @@ public class MessageSender {
 
           Metrics.counter(SEND_COUNTER_NAME, tags).increment();
         });
-  }
-
-  private boolean shouldSkipPush(final Account account, byte deviceId, boolean urgent) {
-    final boolean isAndroidFcm = account.getDevice(deviceId).map(Device::getGcmId).isPresent();
-    return !urgent
-        && isAndroidFcm
-        && experimentEnrollmentManager.isEnrolled(account.getUuid(), ANDROID_SKIP_LOW_URGENCY_PUSH_EXPERIMENT);
   }
 
   /**

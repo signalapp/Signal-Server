@@ -31,7 +31,7 @@ public class PushNotificationManager {
   private final PushNotificationScheduler pushNotificationScheduler;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
-  private static final String SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT = "scheduleLowUregencyFcmPush";
+  public static final String SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT = "scheduleLowUregencyFcmPush";
 
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
   private static final String FAILED_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "failedPushNotification");
