@@ -102,9 +102,9 @@ public class AccountControllerV2 {
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public AccountIdentityResponse changeNumber(@Mutable @Auth final AuthenticatedDevice authenticatedDevice,
-      @NotNull @Valid final ChangeNumberRequest request, @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString,
-      @Context final ContainerRequestContext requestContext)
-      throws RateLimitExceededException, InterruptedException {
+      @NotNull @Valid final ChangeNumberRequest request,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString,
+      @Context final ContainerRequestContext requestContext) throws RateLimitExceededException, InterruptedException {
 
     if (!authenticatedDevice.getAuthenticatedDevice().isPrimary()) {
       throw new ForbiddenException();

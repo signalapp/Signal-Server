@@ -72,13 +72,11 @@ public final class Operations {
   }
 
   public static TestUser newRegisteredUser(final String number) {
-    final byte[] registrationPassword = randomBytes(32);
+    final byte[] registrationPassword = populateRandomRecoveryPassword(number);
     final String accountPassword = Base64.getEncoder().encodeToString(randomBytes(32));
 
     final TestUser user = TestUser.create(number, accountPassword, registrationPassword);
     final AccountAttributes accountAttributes = user.accountAttributes();
-
-    INTEGRATION_TOOLS.populateRecoveryPassword(number, registrationPassword).join();
 
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
@@ -108,6 +106,7 @@ public final class Operations {
   }
 
   public record PrescribedVerificationNumber(String number, String verificationCode) {}
+
   public static PrescribedVerificationNumber prescribedVerificationNumber() {
       return new PrescribedVerificationNumber(
           CONFIG.prescribedRegistrationNumber(),
@@ -121,6 +120,13 @@ public final class Operations {
   public static String peekVerificationSessionPushChallenge(final String sessionId) {
     return INTEGRATION_TOOLS.peekVerificationSessionPushChallenge(sessionId).join()
         .orElseThrow(() -> new RuntimeException("push challenge not found for the verification session"));
+  }
+
+  public static byte[] populateRandomRecoveryPassword(final String number) {
+    final byte[] recoveryPassword = randomBytes(32);
+    INTEGRATION_TOOLS.populateRecoveryPassword(number, recoveryPassword).join();
+
+    return recoveryPassword;
   }
 
   public static <T> T sendEmptyRequestAuthenticated(
@@ -329,15 +335,15 @@ public final class Operations {
     }
   }
 
-  private static ECSignedPreKey generateSignedECPreKey(long id, final ECKeyPair identityKeyPair) {
+  public static ECSignedPreKey generateSignedECPreKey(final long id, final ECKeyPair identityKeyPair) {
     final ECPublicKey pubKey = Curve.generateKeyPair().getPublicKey();
-    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey.serialize());
-    return new ECSignedPreKey(id, pubKey, sig);
+    final byte[] signature = identityKeyPair.getPrivateKey().calculateSignature(pubKey.serialize());
+    return new ECSignedPreKey(id, pubKey, signature);
   }
 
-  private static KEMSignedPreKey generateSignedKEMPreKey(long id, final ECKeyPair identityKeyPair) {
+  public static KEMSignedPreKey generateSignedKEMPreKey(final long id, final ECKeyPair identityKeyPair) {
     final KEMPublicKey pubKey = KEMKeyPair.generate(KEMKeyType.KYBER_1024).getPublicKey();
-    final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey.serialize());
-    return new KEMSignedPreKey(id, pubKey, sig);
+    final byte[] signature = identityKeyPair.getPrivateKey().calculateSignature(pubKey.serialize());
+    return new KEMSignedPreKey(id, pubKey, signature);
   }
 }

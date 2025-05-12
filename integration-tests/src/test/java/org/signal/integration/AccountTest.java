@@ -6,27 +6,35 @@
 package org.signal.integration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.Test;
+import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.signal.libsignal.usernames.Username;
 import org.whispersystems.textsecuregcm.entities.AccountIdentifierResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
+import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.ConfirmUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashRequest;
 import org.whispersystems.textsecuregcm.entities.ReserveUsernameHashResponse;
 import org.whispersystems.textsecuregcm.entities.UsernameHashResponse;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.storage.Device;
 
 public class AccountTest {
 
   @Test
-  public void testCreateAccount() throws Exception {
+  public void testCreateAccount() {
     final TestUser user = Operations.newRegisteredUser("+19995550101");
     try {
       final Pair<Integer, AccountIdentityResponse> execute = Operations.apiGet("/v1/accounts/whoami")
@@ -39,7 +47,7 @@ public class AccountTest {
   }
 
   @Test
-  public void testCreateAccountAtomic() throws Exception {
+  public void testCreateAccountAtomic() {
     final TestUser user = Operations.newRegisteredUser("+19995550201");
     try {
       final Pair<Integer, AccountIdentityResponse> execute = Operations.apiGet("/v1/accounts/whoami")
@@ -49,6 +57,33 @@ public class AccountTest {
     } finally {
       Operations.deleteUser(user);
     }
+  }
+
+  @Test
+  public void changePhoneNumber() {
+    final TestUser user = Operations.newRegisteredUser("+19995550301");
+    final String targetNumber = "+19995550302";
+
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    final ChangeNumberRequest changeNumberRequest = new ChangeNumberRequest(null,
+        Operations.populateRandomRecoveryPassword(targetNumber),
+        targetNumber,
+        null,
+        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+        Collections.emptyList(),
+        Map.of(Device.PRIMARY_ID, Operations.generateSignedECPreKey(1, pniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, Operations.generateSignedKEMPreKey(2, pniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, 17));
+
+    final AccountIdentityResponse accountIdentityResponse =
+        Operations.apiPut("/v2/accounts/number", changeNumberRequest)
+            .authorized(user)
+            .executeExpectSuccess(AccountIdentityResponse.class);
+
+    assertEquals(user.aciUuid(), accountIdentityResponse.uuid());
+    assertNotEquals(user.pniUuid(), accountIdentityResponse.pni());
+    assertEquals(targetNumber, accountIdentityResponse.number());
   }
 
   @Test
