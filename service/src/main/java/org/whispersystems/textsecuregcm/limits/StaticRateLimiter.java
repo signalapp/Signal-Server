@@ -62,6 +62,10 @@ public class StaticRateLimiter implements RateLimiter {
         throw new RateLimitExceededException(retryAfter);
       }
     } catch (final Exception e) {
+      if (e instanceof RateLimitExceededException rateLimitExceededException) {
+        throw rateLimitExceededException;
+      }
+
       if (!config.failOpen()) {
         throw e;
       }
@@ -81,10 +85,15 @@ public class StaticRateLimiter implements RateLimiter {
           return failedFuture(new RateLimitExceededException(retryAfter));
         })
         .exceptionally(throwable -> {
+          if (ExceptionUtils.unwrap(throwable) instanceof RateLimitExceededException rateLimitExceededException) {
+            throw ExceptionUtils.wrap(rateLimitExceededException);
+          }
+
           if (config.failOpen()) {
             return null;
           }
-          throw ExceptionUtils.wrap(new RateLimitExceededException(null));
+
+          throw ExceptionUtils.wrap(throwable);
         });
   }
 
