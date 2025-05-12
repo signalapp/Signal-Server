@@ -673,8 +673,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       return account;
     }
 
-    validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
-
     try {
       return accountLockManager.withLock(List.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier),
           () -> changeNumber(account, targetNumber, targetPhoneNumberIdentifier, pniIdentityKey, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds), accountLockExecutor);
@@ -696,7 +694,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final IdentityKey pniIdentityKey,
       final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
       final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
-      final Map<Byte, Integer> pniRegistrationIds) {
+      final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
+
+    validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
     final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
 
@@ -751,24 +751,37 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
       final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
 
-    validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
+    try {
+      return accountLockManager.withLock(List.of(account.getIdentifier(IdentityType.PNI)), () -> {
+        validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
-    final UUID aci = account.getIdentifier(IdentityType.ACI);
-    final UUID pni = account.getIdentifier(IdentityType.PNI);
+        final UUID aci = account.getIdentifier(IdentityType.ACI);
+        final UUID pni = account.getIdentifier(IdentityType.PNI);
 
-    final Collection<TransactWriteItem> keyWriteItems =
-        buildPniKeyWriteItems(pni, pniSignedPreKeys, pniPqLastResortPreKeys);
+        final Collection<TransactWriteItem> keyWriteItems =
+            buildPniKeyWriteItems(pni, pniSignedPreKeys, pniPqLastResortPreKeys);
 
-    return redisDeleteAsync(account)
-        .thenCompose(ignored -> keysManager.deleteSingleUsePreKeys(pni))
-        .thenCompose(ignored -> updateTransactionallyWithRetriesAsync(account,
-            a -> setPniKeys(a, pniIdentityKey, pniRegistrationIds),
-            accounts::updateTransactionallyAsync,
-            () -> accounts.getByAccountIdentifierAsync(aci).thenApply(Optional::orElseThrow),
-            a -> keyWriteItems,
-            AccountChangeValidator.GENERAL_CHANGE_VALIDATOR,
-            MAX_UPDATE_ATTEMPTS))
-        .join();
+        return redisDeleteAsync(account)
+            .thenCompose(ignored -> keysManager.deleteSingleUsePreKeys(pni))
+            .thenCompose(ignored -> updateTransactionallyWithRetriesAsync(account,
+                a -> setPniKeys(a, pniIdentityKey, pniRegistrationIds),
+                accounts::updateTransactionallyAsync,
+                () -> accounts.getByAccountIdentifierAsync(aci).thenApply(Optional::orElseThrow),
+                a -> keyWriteItems,
+                AccountChangeValidator.GENERAL_CHANGE_VALIDATOR,
+                MAX_UPDATE_ATTEMPTS))
+            .join();
+      }, accountLockExecutor);
+    } catch (final Exception e) {
+      if (e instanceof MismatchedDevicesException mismatchedDevicesException) {
+        throw mismatchedDevicesException;
+      } else if (e instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+
+      logger.error("Unexpected exception when updating PNI key material", e);
+      throw new RuntimeException(e);
+    }
   }
 
   private Collection<TransactWriteItem> buildPniKeyWriteItems(
