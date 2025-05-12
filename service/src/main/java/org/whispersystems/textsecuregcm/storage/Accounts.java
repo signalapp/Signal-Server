@@ -41,6 +41,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -59,6 +60,7 @@ import software.amazon.awssdk.services.dynamodb.model.Delete;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
@@ -89,7 +91,8 @@ public class Accounts {
 
   static final List<String> ACCOUNT_FIELDS_TO_EXCLUDE_FROM_SERIALIZATION = List.of("uuid", "usernameLinkHandle");
 
-  private static final ObjectWriter ACCOUNT_DDB_JSON_WRITER = SystemMapper.jsonMapper()
+  @VisibleForTesting
+  static final ObjectWriter ACCOUNT_DDB_JSON_WRITER = SystemMapper.jsonMapper()
       .writer(SystemMapper.excludingField(Account.class, ACCOUNT_FIELDS_TO_EXCLUDE_FROM_SERIALIZATION));
 
   private static final Timer CREATE_TIMER = Metrics.timer(name(Accounts.class, "create"));
@@ -1404,8 +1407,7 @@ public class Accounts {
       final String tableName,
       final AttributeValue uuidAttr,
       final String keyName,
-      final AttributeValue keyValue
-  ) {
+      final AttributeValue keyValue) {
     return TransactWriteItem.builder()
         .put(Put.builder()
             .tableName(tableName)
@@ -1468,6 +1470,68 @@ public class Accounts {
             .key(Map.of(keyName, keyValue))
             .build())
         .build();
+  }
+
+  public CompletableFuture<Void> regenerateConstraints(final Account account) {
+    final List<CompletableFuture<?>> constraintFutures = new ArrayList<>();
+
+    constraintFutures.add(writeConstraint(phoneNumberConstraintTableName,
+        account.getIdentifier(IdentityType.ACI),
+        ATTR_ACCOUNT_E164,
+        AttributeValues.fromString(account.getNumber())));
+
+    constraintFutures.add(writeConstraint(phoneNumberIdentifierConstraintTableName,
+        account.getIdentifier(IdentityType.ACI),
+        ATTR_PNI_UUID,
+        AttributeValues.fromUUID(account.getPhoneNumberIdentifier())));
+
+    account.getUsernameHash().ifPresent(usernameHash ->
+        constraintFutures.add(writeUsernameConstraint(account.getIdentifier(IdentityType.ACI),
+            usernameHash,
+            Optional.empty())));
+
+    account.getUsernameHolds().forEach(usernameHold ->
+        constraintFutures.add(writeUsernameConstraint(account.getIdentifier(IdentityType.ACI),
+            usernameHold.usernameHash(),
+            Optional.of(Instant.ofEpochSecond(usernameHold.expirationSecs())))));
+
+    return CompletableFuture.allOf(constraintFutures.toArray(CompletableFuture[]::new));
+  }
+
+  private CompletableFuture<Void> writeConstraint(
+      final String tableName,
+      final UUID accountIdentifier,
+      final String keyName,
+      final AttributeValue keyValue) {
+
+    return dynamoDbAsyncClient.putItem(PutItemRequest.builder()
+            .tableName(tableName)
+            .item(Map.of(
+                keyName, keyValue,
+                KEY_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier)))
+        .build())
+        .thenRun(Util.NOOP);
+  }
+
+  private CompletableFuture<Void> writeUsernameConstraint(
+      final UUID accountIdentifier,
+      final byte[] usernameHash,
+      final Optional<Instant> maybeExpiration) {
+
+    final Map<String, AttributeValue> item = new HashMap<>(Map.of(
+        UsernameTable.KEY_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash),
+        UsernameTable.ATTR_ACCOUNT_UUID, AttributeValues.fromUUID(accountIdentifier),
+        UsernameTable.ATTR_CONFIRMED, AttributeValues.fromBool(maybeExpiration.isEmpty())
+    ));
+
+    maybeExpiration.ifPresent(expiration ->
+        item.put(UsernameTable.ATTR_TTL, AttributeValues.fromLong(expiration.getEpochSecond())));
+
+    return dynamoDbAsyncClient.putItem(PutItemRequest.builder()
+            .tableName(usernamesConstraintTableName)
+            .item(item)
+        .build())
+        .thenRun(Util.NOOP);
   }
 
   @Nonnull

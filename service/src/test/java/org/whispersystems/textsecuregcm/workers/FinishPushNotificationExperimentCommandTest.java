@@ -64,7 +64,8 @@ class FinishPushNotificationExperimentCommandTest {
               new PushNotificationExperimentSample<>(accountIdentifier, deviceId, true, "test", "test"));
         });
 
-    commandDependencies = new CommandDependencies(accountsManager,
+    commandDependencies = new CommandDependencies(null,
+        accountsManager,
         null,
         null,
         null,

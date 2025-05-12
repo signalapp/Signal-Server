@@ -25,11 +25,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +80,7 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.Put;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsResponse;
@@ -117,6 +120,9 @@ class AccountsTest {
 
   private final TestClock clock = TestClock.pinned(Instant.EPOCH);
   private Accounts accounts;
+
+  private record UsernameConstraint(UUID accountIdentifier, boolean confirmed, Optional<Instant> expiration) {
+  }
 
   @BeforeEach
   void setupAccountsDao() {
@@ -1685,7 +1691,7 @@ class AccountsTest {
   }
 
   @Test
-  public void testInvalidDeviceIdDeserialization() throws Exception {
+  void testInvalidDeviceIdDeserialization() throws Exception {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     final Device device2 = generateDevice((byte) 64);
     account.addDevice(device2);
@@ -1725,6 +1731,189 @@ class AccountsTest {
     }
 
     assertInstanceOf(DeviceIdDeserializer.DeviceIdDeserializationException.class, cause);
+  }
+
+  @Test
+  void testRegenerateConstraints() {
+    final Instant usernameHoldExpiration = clock.instant().plus(Accounts.USERNAME_HOLD_DURATION).truncatedTo(ChronoUnit.SECONDS);
+
+    final Account account = nextRandomAccount();
+    account.setUsernameHash(USERNAME_HASH_1);
+    account.setUsernameLinkDetails(UUID.randomUUID(), ENCRYPTED_USERNAME_1);
+    account.setUsernameHolds(List.of(new Account.UsernameHold(USERNAME_HASH_2, usernameHoldExpiration.getEpochSecond())));
+
+    writeAccountRecordWithoutConstraints(account);
+    accounts.regenerateConstraints(account).join();
+
+    // Check that constraints do what they should from a functional perspective
+    {
+      final Account conflictingNumberAccount = nextRandomAccount();
+      conflictingNumberAccount.setNumber(account.getNumber(), account.getIdentifier(IdentityType.PNI));
+
+      assertThrows(AccountAlreadyExistsException.class,
+          () -> accounts.create(conflictingNumberAccount, Collections.emptyList()));
+    }
+
+    {
+      final Account conflictingUsernameAccount = nextRandomAccount();
+      createAccount(conflictingUsernameAccount);
+
+      final CompletionException completionException = assertThrows(CompletionException.class,
+          () -> accounts.reserveUsernameHash(conflictingUsernameAccount, USERNAME_HASH_1, Accounts.USERNAME_HOLD_DURATION).join());
+
+      assertInstanceOf(UsernameHashNotAvailableException.class, completionException.getCause());
+    }
+
+    {
+      final Account conflictingUsernameHoldAccount = nextRandomAccount();
+      createAccount(conflictingUsernameHoldAccount);
+
+      final CompletionException completionException = assertThrows(CompletionException.class,
+          () -> accounts.reserveUsernameHash(conflictingUsernameHoldAccount, USERNAME_HASH_2, Accounts.USERNAME_HOLD_DURATION).join());
+
+      assertInstanceOf(UsernameHashNotAvailableException.class, completionException.getCause());
+    }
+
+    // Check that bare constraint records are written as expected
+    assertEquals(Optional.of(account.getIdentifier(IdentityType.ACI)),
+        getConstraintValue(Tables.NUMBERS.tableName(), Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber())));
+
+    assertEquals(Optional.of(account.getIdentifier(IdentityType.ACI)),
+        getConstraintValue(Tables.PNI_ASSIGNMENTS.tableName(), Accounts.ATTR_PNI_UUID, AttributeValues.fromUUID(account.getIdentifier(IdentityType.PNI))));
+
+    assertEquals(Optional.of(new UsernameConstraint(account.getIdentifier(IdentityType.ACI), true, Optional.empty())),
+        getUsernameConstraint(USERNAME_HASH_1));
+
+    assertEquals(Optional.of(new UsernameConstraint(account.getIdentifier(IdentityType.ACI), false, Optional.of(usernameHoldExpiration))),
+        getUsernameConstraint(USERNAME_HASH_2));
+  }
+
+  @Test
+  void testRegeneratedConstraintsMatchOriginalConstraints() {
+    final Instant usernameHoldExpiration = clock.instant().plus(Accounts.USERNAME_HOLD_DURATION).truncatedTo(ChronoUnit.SECONDS);
+
+    final Account account = nextRandomAccount();
+    account.setUsernameHash(USERNAME_HASH_1);
+    account.setUsernameLinkDetails(UUID.randomUUID(), ENCRYPTED_USERNAME_1);
+    account.setUsernameHolds(List.of(new Account.UsernameHold(USERNAME_HASH_2, usernameHoldExpiration.getEpochSecond())));
+
+    createAccount(account);
+    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Accounts.USERNAME_HOLD_DURATION).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Accounts.USERNAME_HOLD_DURATION).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+
+    final Map<String, AttributeValue> originalE164ConstraintItem =
+        DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
+                .tableName(Tables.NUMBERS.tableName())
+                .key(Map.of(Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber())))
+                .build())
+            .item();
+
+    final Map<String, AttributeValue> originalPniConstraintItem =
+        DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
+                .tableName(Tables.PNI_ASSIGNMENTS.tableName())
+                .key(Map.of(Accounts.ATTR_PNI_UUID, AttributeValues.fromUUID(account.getIdentifier(IdentityType.PNI))))
+                .build())
+            .item();
+
+    final Set<Map<String, AttributeValue>> originalUsernameConstraints = new HashSet<>(
+        DYNAMO_DB_EXTENSION.getDynamoDbClient().scan(ScanRequest.builder()
+                .tableName(Tables.USERNAMES.tableName())
+                .build())
+            .items());
+
+    accounts.delete(account.getIdentifier(IdentityType.ACI), Collections.emptyList()).join();
+
+    writeAccountRecordWithoutConstraints(account);
+    accounts.regenerateConstraints(account).join();
+
+    final Map<String, AttributeValue> regeneratedE164ConstraintItem =
+        DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
+                .tableName(Tables.NUMBERS.tableName())
+                .key(Map.of(Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber())))
+                .build())
+            .item();
+
+    final Map<String, AttributeValue> regeneratedPniConstraintItem =
+        DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
+                .tableName(Tables.PNI_ASSIGNMENTS.tableName())
+                .key(Map.of(Accounts.ATTR_PNI_UUID, AttributeValues.fromUUID(account.getIdentifier(IdentityType.PNI))))
+                .build())
+            .item();
+
+    final Set<Map<String, AttributeValue>> regeneratedUsernameConstraints = new HashSet<>(
+        DYNAMO_DB_EXTENSION.getDynamoDbClient().scan(ScanRequest.builder()
+                .tableName(Tables.USERNAMES.tableName())
+                .build())
+            .items());
+
+    assertEquals(originalE164ConstraintItem, regeneratedE164ConstraintItem);
+    assertEquals(originalPniConstraintItem, regeneratedPniConstraintItem);
+    assertEquals(originalUsernameConstraints, regeneratedUsernameConstraints);
+  }
+
+  private void writeAccountRecordWithoutConstraints(final Account account) {
+    final AttributeValue accountData;
+
+    try {
+      accountData = AttributeValues.fromByteArray(Accounts.ACCOUNT_DDB_JSON_WRITER.writeValueAsBytes(account));
+    } catch (final JsonProcessingException e) {
+      throw new IllegalArgumentException(e);
+    }
+
+    final Map<String, AttributeValue> item = new HashMap<>(Map.of(
+        Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid()),
+        Accounts.ATTR_ACCOUNT_E164, AttributeValues.fromString(account.getNumber()),
+        Accounts.ATTR_PNI_UUID, AttributeValues.fromUUID(account.getPhoneNumberIdentifier()),
+        Accounts.ATTR_ACCOUNT_DATA, accountData,
+        Accounts.ATTR_VERSION, AttributeValues.fromInt(account.getVersion()),
+        Accounts.ATTR_CANONICALLY_DISCOVERABLE, AttributeValues.fromBool(account.isDiscoverableByPhoneNumber())));
+
+    account.getUnidentifiedAccessKey()
+        .map(AttributeValues::fromByteArray)
+        .ifPresent(uak -> item.put(Accounts.ATTR_UAK, uak));
+
+    DYNAMO_DB_EXTENSION.getDynamoDbClient().putItem(PutItemRequest.builder()
+            .tableName(Tables.ACCOUNTS.tableName())
+            .item(item)
+        .build());
+  }
+
+  private Optional<UUID> getConstraintValue(final String tableName,
+      final String keyName,
+      final AttributeValue keyValue) {
+
+    final GetItemResponse response = DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
+            .tableName(tableName)
+            .key(Map.of(keyName, keyValue))
+        .build());
+
+    return response.hasItem()
+        ? Optional.ofNullable(AttributeValues.getUUID(response.item(), Accounts.KEY_ACCOUNT_UUID, null))
+        : Optional.empty();
+  }
+
+  private Optional<UsernameConstraint> getUsernameConstraint(final byte[] usernameHash) {
+    final GetItemResponse response = DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
+            .tableName(Tables.USERNAMES.tableName())
+            .key(Map.of(Accounts.UsernameTable.KEY_USERNAME_HASH, AttributeValues.fromByteArray(usernameHash)))
+        .build());
+
+    if (response.hasItem()) {
+      final UUID accountIdentifier =
+          AttributeValues.getUUID(response.item(), Accounts.UsernameTable.ATTR_ACCOUNT_UUID, null);
+
+      final boolean confirmed = AttributeValues.getBool(response.item(), Accounts.UsernameTable.ATTR_CONFIRMED, false);
+
+      final Optional<Instant> expiration = response.item().containsKey(Accounts.UsernameTable.ATTR_TTL)
+          ? Optional.of(Instant.ofEpochSecond(AttributeValues.getLong(response.item(), Accounts.UsernameTable.ATTR_TTL, 0)))
+          : Optional.empty();
+
+      return Optional.of(new UsernameConstraint(accountIdentifier, confirmed, expiration));
+    }
+
+    return Optional.empty();
   }
 
   private static Device generateDevice(byte id) {

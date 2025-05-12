@@ -75,6 +75,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
  * Construct utilities commonly used by worker commands
  */
 record CommandDependencies(
+    Accounts accounts,
     AccountsManager accountsManager,
     ProfilesManager profilesManager,
     ReportMessageManager reportMessageManager,
@@ -290,6 +291,7 @@ record CommandDependencies(
     environment.lifecycle().manage(new ManagedAwsCrt());
 
     return new CommandDependencies(
+        accounts,
         accountsManager,
         profilesManager,
         reportMessageManager,
