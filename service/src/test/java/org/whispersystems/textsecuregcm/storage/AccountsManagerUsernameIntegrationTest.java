@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
@@ -81,12 +82,12 @@ class AccountsManagerUsernameIntegrationTest {
   private Accounts accounts;
 
   @BeforeEach
-  void setup() throws InterruptedException {
+  void setup() throws Exception {
     buildAccountsManager(1, 2, 10);
   }
 
   private void buildAccountsManager(final int initialWidth, int discriminatorMaxWidth, int attemptsPerWidth)
-      throws InterruptedException {
+      throws Exception {
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
 
@@ -115,10 +116,8 @@ class AccountsManagerUsernameIntegrationTest {
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
     doAnswer(invocation -> {
-      final Runnable task = invocation.getArgument(1);
-      task.run();
-
-      return null;
+      final Callable<?> task = invocation.getArgument(1);
+      return task.call();
     }).when(accountLockManager).withLock(anyList(), any(), any());
 
     when(accountLockManager.withLockAsync(anyList(), any(), any())).thenAnswer(invocation -> {

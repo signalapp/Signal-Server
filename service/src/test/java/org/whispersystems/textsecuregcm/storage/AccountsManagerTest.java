@@ -52,6 +52,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -153,7 +154,7 @@ class AccountsManagerTest {
   };
 
   @BeforeEach
-  void setup() throws InterruptedException {
+  void setup() throws Exception {
     accounts = mock(Accounts.class);
     keysManager = mock(KeysManager.class);
     messagesManager = mock(MessagesManager.class);
@@ -213,10 +214,8 @@ class AccountsManagerTest {
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
     doAnswer(invocation -> {
-      final Runnable task = invocation.getArgument(1);
-      task.run();
-
-      return null;
+      final Callable<?> task = invocation.getArgument(1);
+      return task.call();
     }).when(accountLockManager).withLock(anyList(), any(), any());
 
     when(accountLockManager.withLockAsync(anyList(), any(), any())).thenAnswer(invocation -> {

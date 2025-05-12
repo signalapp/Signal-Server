@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -49,10 +50,15 @@ public class AccountLockManager {
    * @param task                    the task to execute once locks have been acquired
    * @param lockAcquisitionExecutor the executor on which to run blocking lock acquire/release tasks. this executor
    *                                should not use virtual threads.
-   * @throws InterruptedException if interrupted while acquiring a lock
+   *
+   * @return the value returned by the given {@code task}
+   *
+   * @throws Exception if an exception is thrown by the given {@code task}
    */
-  public void withLock(final List<UUID> phoneNumberIdentifiers, final Runnable task,
-      final Executor lockAcquisitionExecutor) {
+  public <V> V withLock(final List<UUID> phoneNumberIdentifiers,
+      final Callable<V> task,
+      final Executor lockAcquisitionExecutor) throws Exception {
+
     if (phoneNumberIdentifiers.isEmpty()) {
       throw new IllegalArgumentException("List of PNIs to lock must not be empty");
     }
@@ -75,7 +81,7 @@ public class AccountLockManager {
         }
       }, lockAcquisitionExecutor).join();
 
-      task.run();
+      return task.call();
     } finally {
       CompletableFuture.runAsync(() -> {
         for (final LockItem lockItem : lockItems) {

@@ -47,9 +47,8 @@ class AccountLockManagerTest {
   }
 
   @Test
-  void withLock() throws InterruptedException {
-    accountLockManager.withLock(List.of(FIRST_PNI, SECOND_PNI), () -> {
-    }, executor);
+  void withLock() throws Exception {
+    accountLockManager.withLock(List.of(FIRST_PNI, SECOND_PNI), () -> null, executor);
 
     verify(lockClient, times(2)).acquireLock(any());
     verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
@@ -69,8 +68,7 @@ class AccountLockManagerTest {
   void withLockEmptyList() {
     final Runnable task = mock(Runnable.class);
 
-    assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptyList(), () -> {
-        },
+    assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptyList(), () -> null,
         executor));
     verify(task, never()).run();
   }
