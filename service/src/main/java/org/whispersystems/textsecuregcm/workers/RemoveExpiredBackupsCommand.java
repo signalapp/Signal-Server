@@ -34,7 +34,7 @@ public class RemoveExpiredBackupsCommand extends AbstractCommandWithDependencies
   private static final String GRACE_PERIOD_ARGUMENT = "grace-period";
 
   // A backup that has not been refreshed after a grace period is eligible for deletion
-  private static final Duration DEFAULT_GRACE_PERIOD = Duration.ofDays(60);
+  private static final Duration DEFAULT_GRACE_PERIOD = RemoveExpiredAccountsCommand.MAX_IDLE_DURATION;
   private static final int DEFAULT_SEGMENT_COUNT = 1;
   private static final int DEFAULT_CONCURRENCY = 16;
 
