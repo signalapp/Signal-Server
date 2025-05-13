@@ -11,6 +11,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
@@ -36,6 +37,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -301,6 +303,9 @@ public class Accounts {
     if (!existingAccount.getUuid().equals(accountToCreate.getUuid()) ||
         !existingAccount.getNumber().equals(accountToCreate.getNumber())) {
 
+      log.error("Reclaimed accounts must match. Old account {}:{}:{}, New account {}:{}:{}",
+          existingAccount.getUuid(), redactPhoneNumber(existingAccount.getNumber()), existingAccount.getPhoneNumberIdentifier(),
+          accountToCreate.getUuid(), redactPhoneNumber(accountToCreate.getNumber()), accountToCreate.getPhoneNumberIdentifier());
       throw new IllegalArgumentException("reclaimed accounts must match");
     }
 
@@ -1521,5 +1526,16 @@ public class Accounts {
 
   private static boolean isTransactionConflict(final CancellationReason reason) {
     return TRANSACTION_CONFLICT.equals(reason.code());
+  }
+
+  private static String redactPhoneNumber(final String phoneNumber) {
+    final StringBuilder sb = new StringBuilder();
+    sb.append("+");
+    sb.append(Util.getCountryCode(phoneNumber));
+    sb.append("???");
+    sb.append(StringUtils.length(phoneNumber) < 3
+        ? ""
+        : phoneNumber.substring(phoneNumber.length() - 2, phoneNumber.length()));
+    return sb.toString();
   }
 }
