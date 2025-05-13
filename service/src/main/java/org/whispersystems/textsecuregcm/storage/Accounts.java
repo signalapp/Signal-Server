@@ -301,7 +301,7 @@ public class Accounts {
       final Collection<TransactWriteItem> additionalWriteItems) {
 
     if (!existingAccount.getUuid().equals(accountToCreate.getUuid()) ||
-        !existingAccount.getNumber().equals(accountToCreate.getNumber())) {
+        !existingAccount.getPhoneNumberIdentifier().equals(accountToCreate.getPhoneNumberIdentifier())) {
 
       log.error("Reclaimed accounts must match. Old account {}:{}:{}, New account {}:{}:{}",
           existingAccount.getUuid(), redactPhoneNumber(existingAccount.getNumber()), existingAccount.getPhoneNumberIdentifier(),
