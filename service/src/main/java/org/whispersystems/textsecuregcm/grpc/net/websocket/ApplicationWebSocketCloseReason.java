@@ -4,8 +4,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketCloseStatus;
 
 enum ApplicationWebSocketCloseReason {
   NOISE_HANDSHAKE_ERROR(4001),
-  CLIENT_AUTHENTICATION_ERROR(4002),
-  NOISE_ENCRYPTION_ERROR(4003);
+  NOISE_ENCRYPTION_ERROR(4002);
 
   private final int statusCode;
 

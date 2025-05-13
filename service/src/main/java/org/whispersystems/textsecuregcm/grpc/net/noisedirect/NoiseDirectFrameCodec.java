@@ -76,7 +76,7 @@ public class NoiseDirectFrameCodec extends ChannelDuplexHandler {
       case 1 -> NoiseDirectFrame.FrameType.NK_HANDSHAKE;
       case 2 -> NoiseDirectFrame.FrameType.IK_HANDSHAKE;
       case 3 -> NoiseDirectFrame.FrameType.DATA;
-      case 4 -> NoiseDirectFrame.FrameType.ERROR;
+      case 4 -> NoiseDirectFrame.FrameType.CLOSE;
       default -> throw new NoiseHandshakeException("Invalid NoiseDirect frame type: " + frameTypeBits);
     };
 

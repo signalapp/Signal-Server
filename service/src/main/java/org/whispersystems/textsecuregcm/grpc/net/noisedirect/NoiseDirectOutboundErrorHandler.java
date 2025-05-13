@@ -17,20 +17,19 @@ class NoiseDirectOutboundErrorHandler extends ChannelOutboundHandlerAdapter {
   @Override
   public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
     if (msg instanceof OutboundCloseErrorMessage err) {
-      final NoiseDirectProtos.Error.Type type = switch (err.code()) {
-        case SERVER_CLOSED -> NoiseDirectProtos.Error.Type.UNAVAILABLE;
-        case NOISE_ERROR -> NoiseDirectProtos.Error.Type.ENCRYPTION_ERROR;
-        case NOISE_HANDSHAKE_ERROR -> NoiseDirectProtos.Error.Type.HANDSHAKE_ERROR;
-        case AUTHENTICATION_ERROR -> NoiseDirectProtos.Error.Type.AUTHENTICATION_ERROR;
-        case INTERNAL_SERVER_ERROR -> NoiseDirectProtos.Error.Type.INTERNAL_ERROR;
+      final NoiseDirectProtos.CloseReason.Code code = switch (err.code()) {
+        case SERVER_CLOSED -> NoiseDirectProtos.CloseReason.Code.UNAVAILABLE;
+        case NOISE_ERROR -> NoiseDirectProtos.CloseReason.Code.ENCRYPTION_ERROR;
+        case NOISE_HANDSHAKE_ERROR -> NoiseDirectProtos.CloseReason.Code.HANDSHAKE_ERROR;
+        case INTERNAL_SERVER_ERROR -> NoiseDirectProtos.CloseReason.Code.INTERNAL_ERROR;
       };
-      final NoiseDirectProtos.Error proto = NoiseDirectProtos.Error.newBuilder()
-          .setType(type)
+      final NoiseDirectProtos.CloseReason proto = NoiseDirectProtos.CloseReason.newBuilder()
+          .setCode(code)
           .setMessage(err.message())
           .build();
       final ByteBuf byteBuf = ctx.alloc().buffer(proto.getSerializedSize());
       proto.writeTo(new ByteBufOutputStream(byteBuf));
-      ctx.writeAndFlush(new NoiseDirectFrame(NoiseDirectFrame.FrameType.ERROR, byteBuf))
+      ctx.writeAndFlush(new NoiseDirectFrame(NoiseDirectFrame.FrameType.CLOSE, byteBuf))
           .addListener(ChannelFutureListener.CLOSE);
     } else {
       ctx.write(msg, promise);

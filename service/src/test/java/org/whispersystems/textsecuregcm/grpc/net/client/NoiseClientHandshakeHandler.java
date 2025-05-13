@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.grpc.net.client;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
@@ -7,9 +8,10 @@ import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import org.whispersystems.textsecuregcm.grpc.net.NoiseHandshakeException;
-
 import java.util.Optional;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseHandshakeException;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseTunnelProtos;
+import org.whispersystems.textsecuregcm.grpc.net.OutboundCloseErrorMessage;
 
 public class NoiseClientHandshakeHandler extends ChannelDuplexHandler {
 
@@ -38,9 +40,13 @@ public class NoiseClientHandshakeHandler extends ChannelDuplexHandler {
     if (message instanceof ByteBuf frame) {
       try {
         final byte[] payload = handshakeHelper.read(ByteBufUtil.getBytes(frame));
-        final Optional<byte[]> fastResponse = Optional.ofNullable(payload.length == 0 ? null : payload);
+        final NoiseTunnelProtos.HandshakeResponse handshakeResponse =
+            NoiseTunnelProtos.HandshakeResponse.parseFrom(payload);
+
         context.pipeline().replace(this, null, new NoiseClientTransportHandler(handshakeHelper.split()));
-        context.fireUserEventTriggered(new NoiseClientHandshakeCompleteEvent(fastResponse));
+        context.fireUserEventTriggered(new NoiseClientHandshakeCompleteEvent(handshakeResponse));
+      } catch (InvalidProtocolBufferException e) {
+        throw new NoiseHandshakeException("Failed to parse handshake response");
       } finally {
         frame.release();
       }

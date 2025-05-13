@@ -11,159 +11,59 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelDuplexHandler;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
-import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.PromiseCombiner;
-import io.netty.util.internal.EmptyArrays;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import javax.crypto.BadPaddingException;
 import javax.crypto.ShortBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectFrame;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 /**
- * A bidirectional {@link io.netty.channel.ChannelHandler} that establishes a noise session with an initiator, decrypts
- * inbound messages, and encrypts outbound messages
+ * A bidirectional {@link io.netty.channel.ChannelHandler} that  decrypts inbound messages, and encrypts outbound
+ * messages
  */
-public abstract class NoiseHandler extends ChannelDuplexHandler {
+public class NoiseHandler extends ChannelDuplexHandler {
 
   private static final Logger log = LoggerFactory.getLogger(NoiseHandler.class);
+  private final CipherStatePair cipherStatePair;
 
-  private enum State {
-    // Waiting for handshake to complete
-    HANDSHAKE,
-    // Can freely exchange encrypted noise messages on an established session
-    TRANSPORT,
-    // Finished with error
-    ERROR
+  NoiseHandler(CipherStatePair cipherStatePair) {
+    this.cipherStatePair = cipherStatePair;
   }
-
-  private final NoiseHandshakeHelper handshakeHelper;
-
-  private State state = State.HANDSHAKE;
-  private CipherStatePair cipherStatePair;
-
-  NoiseHandler(NoiseHandshakeHelper handshakeHelper) {
-    this.handshakeHelper = handshakeHelper;
-  }
-
-  /**
-   * The result of processing an initiator handshake payload
-   *
-   * @param fastOpenRequest     A fast-open request included in the handshake. If none was present, this should be an
-   *                            empty ByteBuf
-   * @param authenticatedDevice If present, the successfully authenticated initiator identity
-   */
-  record HandshakeResult(ByteBuf fastOpenRequest, Optional<AuthenticatedDevice> authenticatedDevice) {}
-
-  /**
-   * Parse and potentially authenticate the initiator handshake message
-   *
-   * @param context            A {@link ChannelHandlerContext}
-   * @param initiatorPublicKey The initiator's static public key, if a handshake pattern that includes it was used
-   * @param handshakePayload   The handshake payload provided in the initiator message
-   * @return A {@link HandshakeResult} that includes an authenticated device and a parsed fast-open request if one was
-   * present in the handshake payload.
-   * @throws NoiseHandshakeException       If the handshake payload was invalid
-   * @throws ClientAuthenticationException If the initiatorPublicKey could not be authenticated
-   */
-  abstract CompletableFuture<HandshakeResult> handleHandshakePayload(
-      final ChannelHandlerContext context,
-      final Optional<byte[]> initiatorPublicKey,
-      final ByteBuf handshakePayload) throws NoiseHandshakeException, ClientAuthenticationException;
 
   @Override
   public void channelRead(final ChannelHandlerContext context, final Object message) throws Exception {
     try {
       if (message instanceof ByteBuf frame) {
         if (frame.readableBytes() > Noise.MAX_PACKET_LEN) {
-          final String error = "Invalid noise message length " + frame.readableBytes();
-          throw state == State.HANDSHAKE ? new NoiseHandshakeException(error) : new NoiseException(error);
+          throw new NoiseException("Invalid noise message length " + frame.readableBytes());
         }
         // We've read this frame off the wire, and so it's most likely a direct buffer that's not backed by an array.
         // We'll need to copy it to a heap buffer.
-        handleInboundMessage(context, ByteBufUtil.getBytes(frame));
+        handleInboundDataMessage(context, ByteBufUtil.getBytes(frame));
       } else {
         // Anything except ByteBufs should have been filtered out of the pipeline by now; treat this as an error
         throw new IllegalArgumentException("Unexpected message in pipeline: " + message);
       }
-    } catch (Exception e) {
-      fail(context, e);
     } finally {
       ReferenceCountUtil.release(message);
     }
   }
 
-  private void handleInboundMessage(final ChannelHandlerContext context, final byte[] frameBytes)
-      throws NoiseHandshakeException, ShortBufferException, BadPaddingException, ClientAuthenticationException {
-    switch (state) {
 
-      // Got an initiator handshake message
-      case HANDSHAKE -> {
-        final ByteBuf payload = handshakeHelper.read(frameBytes);
-        handleHandshakePayload(context, handshakeHelper.remotePublicKey(), payload).whenCompleteAsync(
-            (result, throwable) -> {
-              if (state == State.ERROR) {
-                return;
-              }
-              if (throwable != null) {
-                fail(context, ExceptionUtils.unwrap(throwable));
-                return;
-              }
-              context.fireUserEventTriggered(new NoiseIdentityDeterminedEvent(result.authenticatedDevice()));
+  private void handleInboundDataMessage(final ChannelHandlerContext context, final byte[] frameBytes)
+      throws ShortBufferException, BadPaddingException {
+    final CipherState cipherState = cipherStatePair.getReceiver();
+    // Overwrite the ciphertext with the plaintext to avoid an extra allocation for a dedicated plaintext buffer
+    final int plaintextLength = cipherState.decryptWithAd(null,
+        frameBytes, 0,
+        frameBytes, 0,
+        frameBytes.length);
 
-              // Now that we've authenticated, write the handshake response
-              byte[] handshakeMessage = handshakeHelper.write(EmptyArrays.EMPTY_BYTES);
-              context.writeAndFlush(Unpooled.wrappedBuffer(handshakeMessage))
-                  .addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
-
-              // The handshake is complete. We can start intercepting read/write for noise encryption/decryption
-              this.state = State.TRANSPORT;
-              this.cipherStatePair = handshakeHelper.getHandshakeState().split();
-              if (result.fastOpenRequest().isReadable()) {
-                // The handshake had a fast-open request. Forward the plaintext of the request to the server, we'll
-                // encrypt the response when the server writes back through us
-                context.fireChannelRead(result.fastOpenRequest());
-              } else {
-                ReferenceCountUtil.release(result.fastOpenRequest());
-              }
-            }, context.executor());
-      }
-
-      // Got a client message that should be decrypted and forwarded
-      case TRANSPORT -> {
-        final CipherState cipherState = cipherStatePair.getReceiver();
-        // Overwrite the ciphertext with the plaintext to avoid an extra allocation for a dedicated plaintext buffer
-        final int plaintextLength = cipherState.decryptWithAd(null,
-            frameBytes, 0,
-            frameBytes, 0,
-            frameBytes.length);
-
-        // Forward the decrypted plaintext along
-        context.fireChannelRead(Unpooled.wrappedBuffer(frameBytes, 0, plaintextLength));
-      }
-
-      // The session is already in an error state, drop the message
-      case ERROR -> {
-      }
-    }
-  }
-
-  /**
-   * Set the state to the error state (so subsequent messages fast-fail) and propagate the failure reason on the
-   * context
-   */
-  private void fail(final ChannelHandlerContext context, final Throwable cause) {
-    this.state = State.ERROR;
-    context.fireExceptionCaught(cause);
+    // Forward the decrypted plaintext along
+    context.fireChannelRead(Unpooled.wrappedBuffer(frameBytes, 0, plaintextLength));
   }
 
   @Override
@@ -208,4 +108,12 @@ public abstract class NoiseHandler extends ChannelDuplexHandler {
       context.write(message, promise);
     }
   }
+
+  @Override
+  public void handlerRemoved(ChannelHandlerContext var1) {
+    if (cipherStatePair != null) {
+      cipherStatePair.destroy();
+    }
+  }
+
 }

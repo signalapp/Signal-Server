@@ -9,6 +9,7 @@ package org.whispersystems.textsecuregcm.grpc.net;
  */
 public record OutboundCloseErrorMessage(Code code, String message) {
   public enum Code {
+
     /**
      * The server decided to close the connection. This could be because the server is going away, or it could be
      * because the credentials for the connected client have been updated.
@@ -24,11 +25,6 @@ public record OutboundCloseErrorMessage(Code code, String message) {
      * There was an error establishing the noise handshake
      */
     NOISE_HANDSHAKE_ERROR,
-
-    /**
-     * The provided credentials were not valid
-     */
-    AUTHENTICATION_ERROR,
 
     INTERNAL_SERVER_ERROR
   }

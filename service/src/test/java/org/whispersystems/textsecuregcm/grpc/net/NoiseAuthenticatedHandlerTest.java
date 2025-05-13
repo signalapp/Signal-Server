@@ -8,18 +8,20 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.protobuf.ByteString;
 import com.southernstorm.noise.protocol.CipherStatePair;
 import com.southernstorm.noise.protocol.HandshakeState;
 import com.southernstorm.noise.protocol.Noise;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.util.internal.EmptyArrays;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.Optional;
@@ -28,40 +30,24 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import javax.crypto.BadPaddingException;
 import javax.crypto.ShortBufferException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.grpc.net.client.NoiseClientTransportHandler;
-import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
 
-  private ClientPublicKeysManager clientPublicKeysManager;
   private final ECKeyPair clientKeyPair = Curve.generateKeyPair();
-
-  @Override
-  @BeforeEach
-  void setUp() {
-    clientPublicKeysManager = mock(ClientPublicKeysManager.class);
-
-    super.setUp();
-  }
-
-  @Override
-  protected NoiseAuthenticatedHandler getHandler(final ECKeyPair serverKeyPair) {
-    return new NoiseAuthenticatedHandler(clientPublicKeysManager, serverKeyPair);
-  }
 
   @Override
   protected CipherStatePair doHandshake() throws Throwable {
     final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(1, Device.MAXIMUM_DEVICE_ID + 1);
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(clientKeyPair.getPublicKey())));
     return doHandshake(identityPayload(accountIdentifier, deviceId));
@@ -71,7 +57,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
   void handleCompleteHandshakeNoInitialRequest() throws Throwable {
 
     final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class));
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
@@ -81,7 +67,10 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
 
     assertNull(readNextPlaintext(doHandshake(identityPayload(accountIdentifier, deviceId))));
 
-    assertEquals(new NoiseIdentityDeterminedEvent(Optional.of(new AuthenticatedDevice(accountIdentifier, deviceId))),
+    assertEquals(
+        new NoiseIdentityDeterminedEvent(
+            Optional.of(new AuthenticatedDevice(accountIdentifier, deviceId)),
+            REMOTE_ADDRESS, USER_AGENT, ACCEPT_LANGUAGE),
         getNoiseHandshakeCompleteEvent());
   }
 
@@ -89,7 +78,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
   void handleCompleteHandshakeWithInitialRequest() throws Throwable {
 
     final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class));
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
@@ -97,15 +86,19 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(clientKeyPair.getPublicKey())));
 
-    final ByteBuffer bb = ByteBuffer.allocate(17 + 4);
-    bb.put(identityPayload(accountIdentifier, deviceId));
-    bb.put("ping".getBytes());
+    final byte[] handshakeInit = identifiedHandshakeInit(accountIdentifier, deviceId)
+        .setFastOpenRequest(ByteString.copyFromUtf8("ping"))
+        .build()
+        .toByteArray();
 
-    final byte[] response = readNextPlaintext(doHandshake(bb.array()));
-    assertEquals(response.length, 4);
-    assertEquals(new String(response), "pong");
+    final byte[] response = readNextPlaintext(doHandshake(handshakeInit));
+    assertEquals(4, response.length);
+    assertEquals("pong", new String(response));
 
-    assertEquals(new NoiseIdentityDeterminedEvent(Optional.of(new AuthenticatedDevice(accountIdentifier, deviceId))),
+    assertEquals(
+        new NoiseIdentityDeterminedEvent(
+            Optional.of(new AuthenticatedDevice(accountIdentifier, deviceId)),
+            REMOTE_ADDRESS, USER_AGENT, ACCEPT_LANGUAGE),
         getNoiseHandshakeCompleteEvent());
   }
 
@@ -113,7 +106,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
   void handleCompleteHandshakeMissingIdentityInformation() {
 
     final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class));
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     assertThrows(NoiseHandshakeException.class, () -> doHandshake(EmptyArrays.EMPTY_BYTES));
 
@@ -121,7 +114,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
 
     assertNull(getNoiseHandshakeCompleteEvent());
 
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class),
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class),
         "Handshake handler should not remove self from pipeline after failed handshake");
 
     assertNull(embeddedChannel.pipeline().get(NoiseClientTransportHandler.class),
@@ -132,7 +125,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
   void handleCompleteHandshakeMalformedIdentityInformation() {
 
     final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class));
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     // no deviceId byte
     byte[] malformedIdentityPayload = UUIDUtil.toBytes(UUID.randomUUID());
@@ -142,7 +135,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
 
     assertNull(getNoiseHandshakeCompleteEvent());
 
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class),
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class),
         "Handshake handler should not remove self from pipeline after failed handshake");
 
     assertNull(embeddedChannel.pipeline().get(NoiseClientTransportHandler.class),
@@ -150,10 +143,10 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
   }
 
   @Test
-  void handleCompleteHandshakeUnrecognizedDevice() {
+  void handleCompleteHandshakeUnrecognizedDevice() throws Throwable {
 
     final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class));
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
@@ -161,11 +154,13 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    assertThrows(ClientAuthenticationException.class, () -> doHandshake(identityPayload(accountIdentifier, deviceId)));
+    doHandshake(
+        identityPayload(accountIdentifier, deviceId),
+        NoiseTunnelProtos.HandshakeResponse.Code.WRONG_PUBLIC_KEY);
 
     assertNull(getNoiseHandshakeCompleteEvent());
 
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class),
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class),
         "Handshake handler should not remove self from pipeline after failed handshake");
 
     assertNull(embeddedChannel.pipeline().get(NoiseClientTransportHandler.class),
@@ -173,10 +168,10 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
   }
 
   @Test
-  void handleCompleteHandshakePublicKeyMismatch() {
+  void handleCompleteHandshakePublicKeyMismatch() throws Throwable {
 
     final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class));
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
@@ -184,18 +179,21 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(Curve.generateKeyPair().getPublicKey())));
 
-    assertThrows(ClientAuthenticationException.class, () -> doHandshake(identityPayload(accountIdentifier, deviceId)));
+    doHandshake(
+        identityPayload(accountIdentifier, deviceId),
+        NoiseTunnelProtos.HandshakeResponse.Code.WRONG_PUBLIC_KEY);
 
     assertNull(getNoiseHandshakeCompleteEvent());
 
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class),
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class),
         "Handshake handler should not remove self from pipeline after failed handshake");
   }
 
   @Test
-  void handleInvalidExtraWrites() throws NoSuchAlgorithmException, ShortBufferException, InterruptedException {
+  void handleInvalidExtraWrites()
+      throws NoSuchAlgorithmException, ShortBufferException, InterruptedException {
     final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
-    assertNotNull(embeddedChannel.pipeline().get(NoiseAuthenticatedHandler.class));
+    assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
@@ -205,30 +203,37 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     final CompletableFuture<Optional<ECPublicKey>> findPublicKeyFuture = new CompletableFuture<>();
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId)).thenReturn(findPublicKeyFuture);
 
-    final ByteBuf initiatorMessageFrame = Unpooled.wrappedBuffer(
-        initiatorHandshakeMessage(clientHandshakeState, identityPayload(accountIdentifier, deviceId)));
-    assertTrue(embeddedChannel.writeOneInbound(initiatorMessageFrame).await().isSuccess());
+    final NoiseHandshakeInit handshakeInit = new NoiseHandshakeInit(
+        REMOTE_ADDRESS,
+        HandshakePattern.IK,
+        Unpooled.wrappedBuffer(
+            initiatorHandshakeMessage(clientHandshakeState, identityPayload(accountIdentifier, deviceId))));
+    assertTrue(embeddedChannel.writeOneInbound(handshakeInit).await().isSuccess());
 
     // While waiting for the public key, send another message
     final ChannelFuture f = embeddedChannel.writeOneInbound(Unpooled.wrappedBuffer(new byte[0])).await();
-    assertInstanceOf(NoiseHandshakeException.class, f.exceptionNow());
+    assertInstanceOf(IllegalArgumentException.class, f.exceptionNow());
 
     findPublicKeyFuture.complete(Optional.of(clientKeyPair.getPublicKey()));
     embeddedChannel.runPendingTasks();
-
-    // shouldn't return any response or error, we've already processed an error
-    embeddedChannel.checkException();
-    assertNull(embeddedChannel.outboundMessages().poll());
   }
 
   @Test
   public void handleOversizeHandshakeMessage() {
-    final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
     final byte[] big = TestRandomUtil.nextBytes(Noise.MAX_PACKET_LEN + 1);
     ByteBuffer.wrap(big)
         .put(UUIDUtil.toBytes(UUID.randomUUID()))
         .put((byte) 0x01);
     assertThrows(NoiseHandshakeException.class, () -> doHandshake(big));
+  }
+
+  @Test
+  public void handleKeyLookupError() throws Throwable {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
+        .thenReturn(CompletableFuture.failedFuture(new IOException()));
+    assertThrows(IOException.class, () -> doHandshake(identityPayload(accountIdentifier, deviceId)));
   }
 
   private HandshakeState clientHandshakeState() throws NoSuchAlgorithmException {
@@ -262,15 +267,22 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
   }
 
   private CipherStatePair doHandshake(final byte[] payload) throws Throwable {
+    return doHandshake(payload, NoiseTunnelProtos.HandshakeResponse.Code.OK);
+  }
+
+  private CipherStatePair doHandshake(final byte[] payload, final NoiseTunnelProtos.HandshakeResponse.Code expectedStatus) throws Throwable {
     final EmbeddedChannel embeddedChannel = getEmbeddedChannel();
 
     final HandshakeState clientHandshakeState = clientHandshakeState();
     final byte[] initiatorMessage = initiatorHandshakeMessage(clientHandshakeState, payload);
 
-    final ByteBuf initiatorMessageFrame = Unpooled.wrappedBuffer(initiatorMessage);
-    final ChannelFuture await = embeddedChannel.writeOneInbound(initiatorMessageFrame).await();
-    assertEquals(0, initiatorMessageFrame.refCnt());
-    if (!await.isSuccess()) {
+    final NoiseHandshakeInit initMessage = new NoiseHandshakeInit(
+        REMOTE_ADDRESS,
+        HandshakePattern.IK,
+        Unpooled.wrappedBuffer(initiatorMessage));
+    final ChannelFuture await = embeddedChannel.writeOneInbound(initMessage).await();
+    assertEquals(0, initMessage.refCnt());
+    if (!await.isSuccess() && expectedStatus == NoiseTunnelProtos.HandshakeResponse.Code.OK) {
       throw await.cause();
     }
 
@@ -280,17 +292,27 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     // and issue a "handshake complete" event.
     embeddedChannel.runPendingTasks();
 
-    // rethrow if running the task caused an error
-    embeddedChannel.checkException();
+    // rethrow if running the task caused an error, and the caller isn't expecting an error
+    if (expectedStatus == NoiseTunnelProtos.HandshakeResponse.Code.OK) {
+      embeddedChannel.checkException();
+    }
 
     assertFalse(embeddedChannel.outboundMessages().isEmpty());
 
-    final ByteBuf serverStaticKeyMessageFrame = (ByteBuf) embeddedChannel.outboundMessages().poll();
-    @SuppressWarnings("DataFlowIssue") final byte[] serverStaticKeyMessageBytes =
-        new byte[serverStaticKeyMessageFrame.readableBytes()];
-    serverStaticKeyMessageFrame.readBytes(serverStaticKeyMessageBytes);
+    final ByteBuf handshakeResponseFrame = (ByteBuf) embeddedChannel.outboundMessages().poll();
+    assertNotNull(handshakeResponseFrame);
+    final byte[] handshakeResponseCiphertextBytes = ByteBufUtil.getBytes(handshakeResponseFrame);
 
-    assertEquals(readHandshakeResponse(clientHandshakeState, serverStaticKeyMessageBytes).length, 0);
+    final NoiseTunnelProtos.HandshakeResponse expectedHandshakeResponsePlaintext = NoiseTunnelProtos.HandshakeResponse.newBuilder()
+        .setCode(expectedStatus)
+        .build();
+
+    final byte[] actualHandshakeResponsePlaintext =
+        readHandshakeResponse(clientHandshakeState, handshakeResponseCiphertextBytes);
+
+    assertEquals(
+        expectedHandshakeResponsePlaintext,
+        NoiseTunnelProtos.HandshakeResponse.parseFrom(actualHandshakeResponsePlaintext));
 
     final byte[] serverPublicKey = new byte[32];
     clientHandshakeState.getRemotePublicKey().getPublicKey(serverPublicKey, 0);
@@ -299,13 +321,15 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     return clientHandshakeState.split();
   }
 
+  private NoiseTunnelProtos.HandshakeInit.Builder identifiedHandshakeInit(final UUID accountIdentifier, final byte deviceId) {
+    return baseHandshakeInit()
+        .setAci(UUIDUtil.toByteString(accountIdentifier))
+        .setDeviceId(deviceId);
+  }
 
-  private static byte[] identityPayload(final UUID accountIdentifier, final byte deviceId) {
-    final ByteBuffer clientIdentityPayloadBuffer = ByteBuffer.allocate(17);
-    clientIdentityPayloadBuffer.putLong(accountIdentifier.getMostSignificantBits());
-    clientIdentityPayloadBuffer.putLong(accountIdentifier.getLeastSignificantBits());
-    clientIdentityPayloadBuffer.put(deviceId);
-    clientIdentityPayloadBuffer.flip();
-    return clientIdentityPayloadBuffer.array();
+  private byte[] identityPayload(final UUID accountIdentifier, final byte deviceId) {
+    return identifiedHandshakeInit(accountIdentifier, deviceId)
+        .build()
+        .toByteArray();
   }
 }

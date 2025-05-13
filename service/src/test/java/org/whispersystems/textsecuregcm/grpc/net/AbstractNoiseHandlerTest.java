@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import com.southernstorm.noise.protocol.CipherStatePair;
 import com.southernstorm.noise.protocol.Noise;
@@ -16,12 +17,13 @@ import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.util.ReferenceCountUtil;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
@@ -36,15 +38,28 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
 
   protected ECKeyPair serverKeyPair;
+  protected ClientPublicKeysManager clientPublicKeysManager;
 
   private NoiseHandshakeCompleteHandler noiseHandshakeCompleteHandler;
 
   private EmbeddedChannel embeddedChannel;
+
+  static final String USER_AGENT = "Test/User-Agent";
+  static final String  ACCEPT_LANGUAGE = "test-lang";
+  static final InetAddress REMOTE_ADDRESS;
+  static {
+    try {
+      REMOTE_ADDRESS = InetAddress.getByAddress(new byte[]{0,1,2,3});
+    } catch (UnknownHostException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   private static class PongHandler extends ChannelInboundHandlerAdapter {
 
@@ -93,7 +108,10 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
   void setUp() {
     serverKeyPair = Curve.generateKeyPair();
     noiseHandshakeCompleteHandler = new NoiseHandshakeCompleteHandler();
-    embeddedChannel = new EmbeddedChannel(getHandler(serverKeyPair), noiseHandshakeCompleteHandler);
+    clientPublicKeysManager = mock(ClientPublicKeysManager.class);
+    embeddedChannel = new EmbeddedChannel(
+        new NoiseHandshakeHandler(clientPublicKeysManager, serverKeyPair),
+        noiseHandshakeCompleteHandler);
   }
 
   @AfterEach
@@ -109,8 +127,6 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
   protected NoiseIdentityDeterminedEvent getNoiseHandshakeCompleteEvent() {
     return noiseHandshakeCompleteHandler.getHandshakeCompleteEvent();
   }
-
-  protected abstract ChannelHandler getHandler(final ECKeyPair serverKeyPair);
 
   protected abstract CipherStatePair doHandshake() throws Throwable;
 
@@ -140,7 +156,7 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
 
     final ByteBuf content = Unpooled.wrappedBuffer(contentBytes);
 
-    final ChannelFuture writeFuture = embeddedChannel.writeOneInbound(content).await();
+    final ChannelFuture writeFuture = embeddedChannel.writeOneInbound(new NoiseHandshakeInit(REMOTE_ADDRESS, HandshakePattern.IK, content)).await();
 
     assertFalse(writeFuture.isSuccess());
     assertInstanceOf(NoiseHandshakeException.class, writeFuture.cause());
@@ -291,5 +307,20 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
     final byte[] big = TestRandomUtil.nextBytes(Noise.MAX_PACKET_LEN + 1);
     embeddedChannel.pipeline().fireChannelRead(Unpooled.wrappedBuffer(big));
     assertThrows(NoiseException.class, embeddedChannel::checkException);
+  }
+
+  @Test
+  public void channelAttributes() throws Throwable {
+    doHandshake();
+    final NoiseIdentityDeterminedEvent event = getNoiseHandshakeCompleteEvent();
+    assertEquals(REMOTE_ADDRESS, event.remoteAddress());
+    assertEquals(USER_AGENT, event.userAgent());
+    assertEquals(ACCEPT_LANGUAGE, event.acceptLanguage());
+  }
+
+  protected NoiseTunnelProtos.HandshakeInit.Builder baseHandshakeInit() {
+    return NoiseTunnelProtos.HandshakeInit.newBuilder()
+        .setUserAgent(USER_AGENT)
+        .setAcceptLanguage(ACCEPT_LANGUAGE);
   }
 }

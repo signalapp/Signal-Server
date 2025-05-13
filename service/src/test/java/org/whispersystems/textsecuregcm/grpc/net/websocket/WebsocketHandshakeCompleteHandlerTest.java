@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.argumentSet;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
-import static org.mockito.Mockito.mock;
 
 import com.google.common.net.InetAddresses;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -17,7 +17,6 @@ import io.netty.channel.local.LocalAddress;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
-import io.netty.util.Attribute;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -32,13 +31,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.signal.libsignal.protocol.ecc.Curve;
-import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
 import org.whispersystems.textsecuregcm.grpc.net.AbstractLeakDetectionTest;
-import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
-import org.whispersystems.textsecuregcm.grpc.net.NoiseAnonymousHandler;
-import org.whispersystems.textsecuregcm.grpc.net.NoiseAuthenticatedHandler;
-import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
+import org.whispersystems.textsecuregcm.grpc.net.HandshakePattern;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseHandshakeInit;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
 
@@ -84,9 +80,7 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
     userEventRecordingHandler = new UserEventRecordingHandler();
 
     embeddedChannel = new MutableRemoteAddressEmbeddedChannel(
-        new WebsocketHandshakeCompleteHandler(mock(ClientPublicKeysManager.class),
-            Curve.generateKeyPair(),
-            RECOGNIZED_PROXY_SECRET),
+        new WebsocketHandshakeCompleteHandler(RECOGNIZED_PROXY_SECRET),
         userEventRecordingHandler);
 
     embeddedChannel.setRemoteAddress(new InetSocketAddress("127.0.0.1", 0));
@@ -94,22 +88,25 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
 
   @ParameterizedTest
   @MethodSource
-  void handleWebSocketHandshakeComplete(final String uri, final Class<? extends ChannelHandler> expectedHandlerClass) {
+  void handleWebSocketHandshakeComplete(final String uri, final HandshakePattern pattern) {
     final WebSocketServerProtocolHandler.HandshakeComplete handshakeCompleteEvent =
         new WebSocketServerProtocolHandler.HandshakeComplete(uri, new DefaultHttpHeaders(), null);
 
     embeddedChannel.pipeline().fireUserEventTriggered(handshakeCompleteEvent);
-
-    assertNull(embeddedChannel.pipeline().get(WebsocketHandshakeCompleteHandler.class));
-    assertNotNull(embeddedChannel.pipeline().get(expectedHandlerClass));
-
     assertEquals(List.of(handshakeCompleteEvent), userEventRecordingHandler.getReceivedEvents());
+
+    final byte[] payload = TestRandomUtil.nextBytes(100);
+    embeddedChannel.pipeline().fireChannelRead(Unpooled.wrappedBuffer(payload));
+    assertNull(embeddedChannel.pipeline().get(WebsocketHandshakeCompleteHandler.class));
+    final NoiseHandshakeInit init = (NoiseHandshakeInit) embeddedChannel.inboundMessages().poll();
+    assertNotNull(init);
+    assertEquals(init.getHandshakePattern(), pattern);
   }
 
   private static List<Arguments> handleWebSocketHandshakeComplete() {
     return List.of(
-        Arguments.of(NoiseWebSocketTunnelServer.AUTHENTICATED_SERVICE_PATH, NoiseAuthenticatedHandler.class),
-        Arguments.of(NoiseWebSocketTunnelServer.ANONYMOUS_SERVICE_PATH, NoiseAnonymousHandler.class));
+        Arguments.of(NoiseWebSocketTunnelServer.AUTHENTICATED_SERVICE_PATH, HandshakePattern.IK),
+        Arguments.of(NoiseWebSocketTunnelServer.ANONYMOUS_SERVICE_PATH, HandshakePattern.NK));
   }
 
   @Test
@@ -141,13 +138,19 @@ class WebsocketHandshakeCompleteHandlerTest extends AbstractLeakDetectionTest {
     embeddedChannel.setRemoteAddress(remoteAddress);
     embeddedChannel.pipeline().fireUserEventTriggered(handshakeCompleteEvent);
 
-
-
-    assertEquals(expectedRemoteAddress,
-        Optional.ofNullable(embeddedChannel.attr(GrpcClientConnectionManager.REQUEST_ATTRIBUTES_KEY))
-            .map(Attribute::get)
-            .map(RequestAttributes::remoteAddress)
+    final byte[] payload = TestRandomUtil.nextBytes(100);
+    embeddedChannel.pipeline().fireChannelRead(Unpooled.wrappedBuffer(payload));
+    final NoiseHandshakeInit init = (NoiseHandshakeInit) embeddedChannel.inboundMessages().poll();
+    assertEquals(
+        expectedRemoteAddress,
+        Optional.ofNullable(init)
+            .map(NoiseHandshakeInit::getRemoteAddress)
             .orElse(null));
+    if (expectedRemoteAddress == null) {
+      assertThrows(IllegalStateException.class, embeddedChannel::checkException);
+    } else {
+      assertNull(embeddedChannel.pipeline().get(WebsocketHandshakeCompleteHandler.class));
+    }
   }
 
   private static List<Arguments> getRemoteAddress() {

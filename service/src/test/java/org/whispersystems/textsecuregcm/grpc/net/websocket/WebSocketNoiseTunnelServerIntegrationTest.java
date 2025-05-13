@@ -3,12 +3,10 @@ package org.whispersystems.textsecuregcm.grpc.net.websocket;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.nio.NioEventLoopGroup;
 import java.util.concurrent.Executor;
-import io.netty.handler.codec.http.websocketx.WebSocketCloseStatus;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.grpc.net.AbstractNoiseTunnelServerIntegrationTest;
 import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
-import org.whispersystems.textsecuregcm.grpc.net.OutboundCloseErrorMessage;
 import org.whispersystems.textsecuregcm.grpc.net.client.NoiseTunnelClient;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 

@@ -7,14 +7,9 @@ import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketCloseStatus;
 import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
-import javax.crypto.BadPaddingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.grpc.net.ClientAuthenticationException;
-import org.whispersystems.textsecuregcm.grpc.net.NoiseException;
-import org.whispersystems.textsecuregcm.grpc.net.NoiseHandshakeException;
 import org.whispersystems.textsecuregcm.grpc.net.OutboundCloseErrorMessage;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 /**
  * Converts {@link OutboundCloseErrorMessage}s written to the pipeline into WebSocket close frames
@@ -46,7 +41,6 @@ class WebSocketOutboundErrorHandler extends ChannelDuplexHandler {
           case SERVER_CLOSED -> WebSocketCloseStatus.SERVICE_RESTART.code();
           case NOISE_ERROR -> ApplicationWebSocketCloseReason.NOISE_ENCRYPTION_ERROR.getStatusCode();
           case NOISE_HANDSHAKE_ERROR -> ApplicationWebSocketCloseReason.NOISE_HANDSHAKE_ERROR.getStatusCode();
-          case AUTHENTICATION_ERROR -> ApplicationWebSocketCloseReason.CLIENT_AUTHENTICATION_ERROR.getStatusCode();
           case INTERNAL_SERVER_ERROR -> WebSocketCloseStatus.INTERNAL_SERVER_ERROR.code();
         };
         ctx.write(new CloseWebSocketFrame(new WebSocketCloseStatus(status, err.message())), promise)

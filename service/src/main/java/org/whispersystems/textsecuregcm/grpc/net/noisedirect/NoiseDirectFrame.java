@@ -30,12 +30,12 @@ public class NoiseDirectFrame extends DefaultByteBufHolder {
 
   public enum FrameType {
     /**
-     * The payload is the initiator message or the responder message for a Noise NK handshake. If established, the
+     * The payload is the initiator message for a Noise NK handshake. If established, the
      * session will be unauthenticated.
      */
     NK_HANDSHAKE((byte) 1),
     /**
-     * The payload is the initiator message or the responder message for a Noise IK handshake. If established, the
+     * The payload is the initiator message for a Noise IK handshake. If established, the
      * session will be authenticated.
      */
     IK_HANDSHAKE((byte) 2),
@@ -44,9 +44,10 @@ public class NoiseDirectFrame extends DefaultByteBufHolder {
      */
     DATA((byte) 3),
     /**
-     * A framing layer error occurred. The payload carries error details.
+     * A frame sent before the connection is closed. The payload is a protobuf indicating why the connection is being
+     * closed.
      */
-    ERROR((byte) 4);
+    CLOSE((byte) 4);
 
     private final byte frameType;
 
@@ -64,7 +65,7 @@ public class NoiseDirectFrame extends DefaultByteBufHolder {
     public boolean isHandshake() {
       return switch (this) {
         case IK_HANDSHAKE, NK_HANDSHAKE -> true;
-        case DATA, ERROR -> false;
+        case DATA, CLOSE -> false;
       };
     }
   }

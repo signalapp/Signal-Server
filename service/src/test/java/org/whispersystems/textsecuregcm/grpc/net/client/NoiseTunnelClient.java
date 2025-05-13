@@ -1,11 +1,21 @@
 package org.whispersystems.textsecuregcm.grpc.net.client;
 
+import com.google.protobuf.ByteString;
 import com.southernstorm.noise.protocol.Noise;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufUtil;
-import io.netty.channel.*;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelDuplexHandler;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
 import io.netty.channel.local.LocalServerChannel;
@@ -17,6 +27,13 @@ import io.netty.handler.codec.haproxy.HAProxyMessageEncoder;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler;
+import io.netty.handler.codec.http.websocketx.WebSocketCloseStatus;
+import io.netty.handler.codec.http.websocketx.WebSocketVersion;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.util.ReferenceCountUtil;
 import java.net.SocketAddress;
 import java.net.URI;
 import java.security.cert.X509Certificate;
@@ -26,26 +43,21 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
-import io.netty.handler.codec.http.websocketx.WebSocketClientProtocolHandler;
-import io.netty.handler.codec.http.websocketx.WebSocketVersion;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.util.ReferenceCountUtil;
+import javax.net.ssl.SSLException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
-import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseTunnelProtos;
 import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectFrame;
 import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectFrameCodec;
 import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectProtos;
 import org.whispersystems.textsecuregcm.grpc.net.websocket.WebsocketPayloadCodec;
-
-import javax.net.ssl.SSLException;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class NoiseTunnelClient implements AutoCloseable {
 
   private final CompletableFuture<CloseFrameEvent> closeEventFuture;
+  private final CompletableFuture<NoiseClientHandshakeCompleteEvent> handshakeEventFuture;
+  private final CompletableFuture<Void> userCloseFuture;
   private final ServerBootstrap serverBootstrap;
   private Channel serverChannel;
 
@@ -66,11 +78,10 @@ public class NoiseTunnelClient implements AutoCloseable {
     FramingType framingType = FramingType.WEBSOCKET;
     URI websocketUri = ANONYMOUS_WEBSOCKET_URI;
     HttpHeaders headers = new DefaultHttpHeaders();
+    NoiseTunnelProtos.HandshakeInit.Builder handshakeInit = NoiseTunnelProtos.HandshakeInit.newBuilder();
 
     boolean authenticated = false;
     ECKeyPair ecKeyPair = null;
-    UUID accountIdentifier = null;
-    byte deviceId = 0x00;
     boolean useTls;
     X509Certificate trustedServerCertificate = null;
     Supplier<HAProxyMessage> proxyMessageSupplier = null;
@@ -86,8 +97,8 @@ public class NoiseTunnelClient implements AutoCloseable {
 
     public Builder setAuthenticated(final ECKeyPair ecKeyPair, final UUID accountIdentifier, final byte deviceId) {
       this.authenticated = true;
-      this.accountIdentifier = accountIdentifier;
-      this.deviceId = deviceId;
+      handshakeInit.setAci(UUIDUtil.toByteString(accountIdentifier));
+      handshakeInit.setDeviceId(deviceId);
       this.ecKeyPair = ecKeyPair;
       this.websocketUri = AUTHENTICATED_WEBSOCKET_URI;
       return this;
@@ -106,6 +117,16 @@ public class NoiseTunnelClient implements AutoCloseable {
 
     public Builder setProxyMessageSupplier(Supplier<HAProxyMessage> proxyMessageSupplier) {
       this.proxyMessageSupplier = proxyMessageSupplier;
+      return this;
+    }
+
+    public Builder setUserAgent(final String userAgent) {
+      handshakeInit.setUserAgent(userAgent);
+      return this;
+    }
+
+    public Builder setAcceptLanguage(final String acceptLanguage) {
+      handshakeInit.setAcceptLanguage(acceptLanguage);
       return this;
     }
 
@@ -155,17 +176,41 @@ public class NoiseTunnelClient implements AutoCloseable {
 
       handlers.add(new NoiseClientHandshakeHandler(helper));
 
+      // When the noise handshake completes we'll save the response from the server so client users can inspect it
+      final UserEventFuture<NoiseClientHandshakeCompleteEvent> handshakeEventHandler =
+          new UserEventFuture<>(NoiseClientHandshakeCompleteEvent.class);
+      handlers.add(handshakeEventHandler);
+
       // Whenever the framing layer sends or receives a close frame, it will emit a CloseFrameEvent and we'll save off
       // information about why the connection was closed.
       final UserEventFuture<CloseFrameEvent> closeEventHandler = new UserEventFuture<>(CloseFrameEvent.class);
       handlers.add(closeEventHandler);
 
+      // When the user closes the client, write a normal closure close frame
+      final CompletableFuture<Void> userCloseFuture = new CompletableFuture<>();
+      handlers.add(new ChannelInboundHandlerAdapter() {
+        @Override
+        public void handlerAdded(final ChannelHandlerContext ctx) {
+          userCloseFuture.thenRunAsync(() -> ctx.pipeline().writeAndFlush(switch (framingType) {
+                    case WEBSOCKET -> new CloseWebSocketFrame(WebSocketCloseStatus.NORMAL_CLOSURE);
+                    case NOISE_DIRECT -> new NoiseDirectFrame(
+                        NoiseDirectFrame.FrameType.CLOSE,
+                        Unpooled.wrappedBuffer(NoiseDirectProtos.CloseReason
+                            .newBuilder()
+                            .setCode(NoiseDirectProtos.CloseReason.Code.OK)
+                            .build()
+                            .toByteArray()));
+                  })
+                  .addListener(ChannelFutureListener.CLOSE),
+              ctx.executor());
+        }
+      });
+
       final NoiseTunnelClient client =
-          new NoiseTunnelClient(eventLoopGroup, closeEventHandler.future, fastOpenRequest -> new EstablishRemoteConnectionHandler(
+          new NoiseTunnelClient(eventLoopGroup, closeEventHandler.future, handshakeEventHandler.future, userCloseFuture, fastOpenRequest -> new EstablishRemoteConnectionHandler(
               handlers,
-              authenticated ? new AuthenticatedDevice(accountIdentifier, deviceId) : null,
               remoteServerAddress,
-              fastOpenRequest));
+              handshakeInit.setFastOpenRequest(ByteString.copyFrom(fastOpenRequest)).build()));
       client.start();
       return client;
     }
@@ -173,9 +218,13 @@ public class NoiseTunnelClient implements AutoCloseable {
 
   private NoiseTunnelClient(NioEventLoopGroup eventLoopGroup,
                             CompletableFuture<CloseFrameEvent> closeEventFuture,
+                            CompletableFuture<NoiseClientHandshakeCompleteEvent> handshakeEventFuture,
+                            CompletableFuture<Void> userCloseFuture,
                             Function<byte[], EstablishRemoteConnectionHandler> handler) {
 
+    this.userCloseFuture = userCloseFuture;
     this.closeEventFuture = closeEventFuture;
+    this.handshakeEventFuture = handshakeEventFuture;
     this.serverBootstrap = new ServerBootstrap()
         .localAddress(new LocalAddress("websocket-noise-tunnel-client"))
         .channel(LocalServerChannel.class)
@@ -194,10 +243,10 @@ public class NoiseTunnelClient implements AutoCloseable {
                 .addLast(new ChannelInboundHandlerAdapter() {
                   @Override
                   public void userEventTriggered(final ChannelHandlerContext ctx, final Object evt) throws Exception {
-                    if (evt instanceof FastOpenRequestBufferedEvent requestBufferedEvent) {
-                      byte[] fastOpenRequest = ByteBufUtil.getBytes(requestBufferedEvent.fastOpenRequest());
-                      requestBufferedEvent.fastOpenRequest().release();
-                      ctx.pipeline().addLast(handler.apply(fastOpenRequest));
+                    if (evt instanceof FastOpenRequestBufferedEvent(ByteBuf fastOpenRequest)) {
+                      byte[] fastOpenRequestBytes = ByteBufUtil.getBytes(fastOpenRequest);
+                      fastOpenRequest.release();
+                      ctx.pipeline().addLast(handler.apply(fastOpenRequestBytes));
                     }
                     super.userEventTriggered(ctx, evt);
                   }
@@ -216,7 +265,7 @@ public class NoiseTunnelClient implements AutoCloseable {
     }
 
     @Override
-    public void userEventTriggered(final ChannelHandlerContext ctx, final Object evt) throws Exception {
+    public void userEventTriggered(final ChannelHandlerContext ctx, final Object evt) {
       if (cls.isInstance(evt)) {
         future.complete((T) evt);
       }
@@ -236,6 +285,7 @@ public class NoiseTunnelClient implements AutoCloseable {
 
   @Override
   public void close() throws InterruptedException {
+    userCloseFuture.complete(null);
     serverChannel.close().await();
   }
 
@@ -245,6 +295,14 @@ public class NoiseTunnelClient implements AutoCloseable {
   public CompletableFuture<CloseFrameEvent> closeFrameFuture() {
     return closeEventFuture;
   }
+
+  /**
+   * @return A future that completes when the noise handshake finishes
+   */
+  public CompletableFuture<NoiseClientHandshakeCompleteEvent> getHandshakeEventFuture() {
+    return handshakeEventFuture;
+  }
+
 
   private static List<ChannelHandler> noiseDirectHandlerStack(boolean authenticated) {
     return List.of(
@@ -259,12 +317,12 @@ public class NoiseTunnelClient implements AutoCloseable {
 
           @Override
           public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-            if (msg instanceof NoiseDirectFrame ndf && ndf.frameType() == NoiseDirectFrame.FrameType.ERROR) {
+            if (msg instanceof NoiseDirectFrame ndf && ndf.frameType() == NoiseDirectFrame.FrameType.CLOSE) {
               try {
-                final NoiseDirectProtos.Error errorPayload =
-                    NoiseDirectProtos.Error.parseFrom(ByteBufUtil.getBytes(ndf.content()));
+                final NoiseDirectProtos.CloseReason closeReason =
+                    NoiseDirectProtos.CloseReason.parseFrom(ByteBufUtil.getBytes(ndf.content()));
                 ctx.fireUserEventTriggered(
-                    CloseFrameEvent.fromNoiseDirectErrorFrame(errorPayload, CloseFrameEvent.CloseInitiator.SERVER));
+                    CloseFrameEvent.fromNoiseDirectCloseFrame(closeReason, CloseFrameEvent.CloseInitiator.SERVER));
               } finally {
                 ReferenceCountUtil.release(msg);
               }
@@ -275,11 +333,11 @@ public class NoiseTunnelClient implements AutoCloseable {
 
           @Override
           public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-            if (msg instanceof NoiseDirectFrame ndf && ndf.frameType() == NoiseDirectFrame.FrameType.ERROR) {
-              final NoiseDirectProtos.Error errorPayload =
-                  NoiseDirectProtos.Error.parseFrom(ByteBufUtil.getBytes(ndf.content()));
+            if (msg instanceof NoiseDirectFrame ndf && ndf.frameType() == NoiseDirectFrame.FrameType.CLOSE) {
+              final NoiseDirectProtos.CloseReason errorPayload =
+                  NoiseDirectProtos.CloseReason.parseFrom(ByteBufUtil.getBytes(ndf.content()));
               ctx.fireUserEventTriggered(
-                  CloseFrameEvent.fromNoiseDirectErrorFrame(errorPayload, CloseFrameEvent.CloseInitiator.CLIENT));
+                  CloseFrameEvent.fromNoiseDirectCloseFrame(errorPayload, CloseFrameEvent.CloseInitiator.CLIENT));
             }
             ctx.write(msg, promise);
           }

@@ -8,9 +8,11 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import io.netty.util.ReferenceCountUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectFrame;
 
 /**
  * A Noise transport handler manages a bidirectional Noise session after a handshake has completed.
@@ -72,8 +74,10 @@ public class NoiseClientTransportHandler extends ChannelDuplexHandler {
         ReferenceCountUtil.release(plaintext);
       }
     } else {
-      // Clients only write ByteBufs or close the connection on errors, so any other message is unexpected
-      log.warn("Unexpected object in pipeline: {}", message);
+      if (!(message instanceof CloseWebSocketFrame || message instanceof NoiseDirectFrame)) {
+        // Clients only write ByteBufs or a close frame on errors, so any other message is unexpected
+        log.warn("Unexpected object in pipeline: {}", message);
+      }
       context.write(message, promise);
     }
   }

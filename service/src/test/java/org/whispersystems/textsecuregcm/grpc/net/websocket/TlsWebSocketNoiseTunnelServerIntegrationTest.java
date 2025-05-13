@@ -126,11 +126,13 @@ class TlsWebSocketNoiseTunnelServerIntegrationTest extends AbstractNoiseTunnelSe
 
     final HttpHeaders headers = new DefaultHttpHeaders()
         .add(WebsocketHandshakeCompleteHandler.RECOGNIZED_PROXY_SECRET_HEADER, RECOGNIZED_PROXY_SECRET)
-        .add("X-Forwarded-For", remoteAddress)
-        .add("Accept-Language", acceptLanguage)
-        .add("User-Agent", userAgent);
+        .add("X-Forwarded-For", remoteAddress);
 
-    try (final NoiseTunnelClient client = anonymous().setHeaders(headers).build()) {
+    try (final NoiseTunnelClient client = anonymous()
+        .setHeaders(headers)
+        .setUserAgent(userAgent)
+        .setAcceptLanguage(acceptLanguage)
+        .build()) {
 
       final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 

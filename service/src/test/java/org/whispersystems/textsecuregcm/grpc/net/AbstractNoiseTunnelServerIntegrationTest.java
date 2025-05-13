@@ -248,7 +248,10 @@ public abstract class AbstractNoiseTunnelServerIntegrationTest extends AbstractL
       } finally {
         channel.shutdown();
       }
-      assertClosedWith(client, CloseFrameEvent.CloseReason.AUTHENTICATION_ERROR);
+      assertEquals(
+          NoiseTunnelProtos.HandshakeResponse.Code.WRONG_PUBLIC_KEY,
+          client.getHandshakeEventFuture().get(1, TimeUnit.SECONDS).handshakeResponse().getCode());
+      assertClosedWith(client, CloseFrameEvent.CloseReason.NOISE_HANDSHAKE_ERROR);
     }
   }
 
@@ -269,10 +272,33 @@ public abstract class AbstractNoiseTunnelServerIntegrationTest extends AbstractL
       } finally {
         channel.shutdown();
       }
-
-      assertClosedWith(client, CloseFrameEvent.CloseReason.AUTHENTICATION_ERROR);
+      assertEquals(
+          NoiseTunnelProtos.HandshakeResponse.Code.WRONG_PUBLIC_KEY,
+          client.getHandshakeEventFuture().get(1, TimeUnit.SECONDS).handshakeResponse().getCode());
+      assertClosedWith(client, CloseFrameEvent.CloseReason.NOISE_HANDSHAKE_ERROR);
     }
 
+  }
+
+  @Test
+  void clientNormalClosure() throws InterruptedException {
+    final NoiseTunnelClient client = anonymous().build();
+    final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
+    try {
+      final GetAuthenticatedDeviceResponse response = RequestAttributesGrpc.newBlockingStub(channel)
+          .getAuthenticatedDevice(GetAuthenticatedDeviceRequest.newBuilder().build());
+
+      assertTrue(response.getAccountIdentifier().isEmpty());
+      assertEquals(0, response.getDeviceId());
+      client.close();
+
+      // When we gracefully close the tunnel client, we should send an OK close frame
+      final CloseFrameEvent closeFrame = client.closeFrameFuture().join();
+      assertEquals(CloseFrameEvent.CloseInitiator.CLIENT, closeFrame.closeInitiator());
+      assertEquals(CloseFrameEvent.CloseReason.OK, closeFrame.closeReason());
+    } finally {
+      channel.shutdown();
+    }
   }
 
   @Test

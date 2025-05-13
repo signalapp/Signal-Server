@@ -10,8 +10,12 @@ import org.whispersystems.textsecuregcm.storage.Device;
 
 public class DeviceIdUtil {
 
+  public static boolean isValid(int deviceId) {
+    return deviceId >= Device.PRIMARY_ID && deviceId <= Byte.MAX_VALUE;
+  }
+
   static byte validate(int deviceId) {
-    if (deviceId < Device.PRIMARY_ID || deviceId > Byte.MAX_VALUE) {
+    if (!isValid(deviceId)) {
       throw Status.INVALID_ARGUMENT.withDescription("Device ID is out of range").asRuntimeException();
     }
 

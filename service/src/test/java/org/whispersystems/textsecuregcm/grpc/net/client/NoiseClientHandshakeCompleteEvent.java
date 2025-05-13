@@ -4,6 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.grpc.net.client;
 
+import org.whispersystems.textsecuregcm.grpc.net.NoiseTunnelProtos;
+
 import java.util.Optional;
 
 /**
@@ -12,4 +14,4 @@ import java.util.Optional;
  * @param fastResponse A response if the client included a request to send in the initiate handshake message payload and
  *                     the server included a payload in the handshake response.
  */
-public record NoiseClientHandshakeCompleteEvent(Optional<byte[]> fastResponse) {}
+public record NoiseClientHandshakeCompleteEvent(NoiseTunnelProtos.HandshakeResponse handshakeResponse) {}

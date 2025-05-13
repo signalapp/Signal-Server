@@ -19,6 +19,7 @@ import org.whispersystems.textsecuregcm.grpc.net.ErrorHandler;
 import org.whispersystems.textsecuregcm.grpc.net.EstablishLocalGrpcConnectionHandler;
 import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.grpc.net.HAProxyMessageHandler;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseHandshakeHandler;
 import org.whispersystems.textsecuregcm.grpc.net.ProxyProtocolDetectionHandler;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 
@@ -50,18 +51,20 @@ public class NoiseDirectTunnelServer implements Managed {
           protected void initChannel(SocketChannel socketChannel) {
             socketChannel.pipeline()
                 .addLast(new ProxyProtocolDetectionHandler())
-                .addLast(new HAProxyMessageHandler());
-
-            socketChannel.pipeline()
+                .addLast(new HAProxyMessageHandler())
                 // frame byte followed by a 2-byte length field
                 .addLast(new LengthFieldBasedFrameDecoder(Noise.MAX_PACKET_LEN, 1, 2))
                 // Parses NoiseDirectFrames from wire bytes and vice versa
                 .addLast(new NoiseDirectFrameCodec())
+                // Terminate the connection if the client sends us a close frame
+                .addLast(new NoiseDirectInboundCloseHandler())
                 // Turn generic OutboundCloseErrorMessages into noise direct error frames
                 .addLast(new NoiseDirectOutboundErrorHandler())
-                // Waits for the handshake to finish and then replaces itself with a NoiseDirectFrameCodec and a
-                // NoiseHandler to handle noise encryption/decryption
-                .addLast(new NoiseDirectHandshakeSelector(clientPublicKeysManager, ecKeyPair))
+                // Forwards the first payload supplemented with handshake metadata, and then replaces itself with a
+                // NoiseDirectDataFrameCodec to handle subsequent data frames
+                .addLast(new NoiseDirectHandshakeSelector())
+                // Performs the noise handshake and then replace itself with a NoiseHandler
+                .addLast(new NoiseHandshakeHandler(clientPublicKeysManager, ecKeyPair))
                 // This handler will open a local connection to the appropriate gRPC server and install a ProxyHandler
                 // once the Noise handshake has completed
                 .addLast(new EstablishLocalGrpcConnectionHandler(

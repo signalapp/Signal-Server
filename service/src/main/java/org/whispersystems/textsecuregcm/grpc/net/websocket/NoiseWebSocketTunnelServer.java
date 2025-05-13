@@ -108,9 +108,12 @@ public class NoiseWebSocketTunnelServer implements Managed {
                 .addLast(new WebSocketOutboundErrorHandler())
                 .addLast(new RejectUnsupportedMessagesHandler())
                 .addLast(new WebsocketPayloadCodec())
-                // The WebSocket handshake complete listener will replace itself with an appropriate Noise handshake handler once
-                // a WebSocket handshake has been completed
-                .addLast(new WebsocketHandshakeCompleteHandler(clientPublicKeysManager, ecKeyPair, recognizedProxySecret))
+                // The WebSocket handshake complete listener will forward the first payload supplemented with
+                // data from the websocket handshake completion event, and then remove itself from the pipeline
+                .addLast(new WebsocketHandshakeCompleteHandler(recognizedProxySecret))
+                // The NoiseHandshakeHandler will perform the noise handshake and then replace itself with a
+                // NoiseHandler
+                .addLast(new NoiseHandshakeHandler(clientPublicKeysManager, ecKeyPair))
                 // This handler will open a local connection to the appropriate gRPC server and install a ProxyHandler
                 // once the Noise handshake has completed
                 .addLast(new EstablishLocalGrpcConnectionHandler(grpcClientConnectionManager, authenticatedGrpcServerAddress, anonymousGrpcServerAddress))

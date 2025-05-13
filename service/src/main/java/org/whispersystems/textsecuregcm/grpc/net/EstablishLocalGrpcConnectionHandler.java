@@ -8,6 +8,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.local.LocalChannel;
 import io.netty.util.ReferenceCountUtil;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +49,9 @@ public class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAd
 
   @Override
   public void userEventTriggered(final ChannelHandlerContext remoteChannelContext, final Object event) {
-    if (event instanceof NoiseIdentityDeterminedEvent(final Optional<AuthenticatedDevice> authenticatedDevice)) {
+    if (event instanceof NoiseIdentityDeterminedEvent(
+        final Optional<AuthenticatedDevice> authenticatedDevice,
+        InetAddress remoteAddress, String userAgent, String acceptLanguage)) {
       // We assume that we'll only get a completed handshake event if the handshake met all authentication requirements
       // for the requested service. If the handshake doesn't have an authenticated device, we assume we're trying to
       // connect to the anonymous service. If it does have an authenticated device, we assume we're aiming for the
@@ -56,6 +59,9 @@ public class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAd
       final LocalAddress grpcServerAddress = authenticatedDevice.isPresent()
           ? authenticatedGrpcServerAddress
           : anonymousGrpcServerAddress;
+
+      GrpcClientConnectionManager.handleHandshakeInitiated(
+          remoteChannelContext.channel(), remoteAddress, userAgent, acceptLanguage);
 
       new Bootstrap()
           .remoteAddress(grpcServerAddress)

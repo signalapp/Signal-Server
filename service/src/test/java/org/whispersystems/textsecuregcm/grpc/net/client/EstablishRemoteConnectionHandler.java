@@ -11,12 +11,10 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.ReferenceCountUtil;
 import java.net.SocketAddress;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import javax.annotation.Nullable;
-import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.grpc.net.NoiseTunnelProtos;
 import org.whispersystems.textsecuregcm.grpc.net.ProxyHandler;
 
 /**
@@ -31,12 +29,10 @@ import org.whispersystems.textsecuregcm.grpc.net.ProxyHandler;
 class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
 
   private final List<ChannelHandler> remoteHandlerStack;
-  @Nullable
-  private final AuthenticatedDevice authenticatedDevice;
+  private final NoiseTunnelProtos.HandshakeInit handshakeInit;
 
   private final SocketAddress remoteServerAddress;
   // If provided, will be sent with the payload in the noise handshake
-  private final byte[] fastOpenRequest;
 
   private final List<Object> pendingReads = new ArrayList<>();
 
@@ -44,13 +40,11 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
 
   EstablishRemoteConnectionHandler(
       final List<ChannelHandler> remoteHandlerStack,
-      @Nullable final AuthenticatedDevice authenticatedDevice,
       final SocketAddress remoteServerAddress,
-      @Nullable byte[] fastOpenRequest) {
+      final NoiseTunnelProtos.HandshakeInit handshakeInit) {
     this.remoteHandlerStack = remoteHandlerStack;
-    this.authenticatedDevice = authenticatedDevice;
+    this.handshakeInit = handshakeInit;
     this.remoteServerAddress = remoteServerAddress;
-    this.fastOpenRequest = fastOpenRequest == null ? new byte[0] : fastOpenRequest;
   }
 
   @Override
@@ -72,16 +66,19 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
                       throws Exception {
                     switch (event) {
                       case ReadyForNoiseHandshakeEvent ignored ->
-                          remoteContext.writeAndFlush(Unpooled.wrappedBuffer(initialPayload()))
+                          remoteContext.writeAndFlush(Unpooled.wrappedBuffer(handshakeInit.toByteArray()))
                               .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
-                      case NoiseClientHandshakeCompleteEvent(Optional<byte[]> fastResponse) -> {
+                      case NoiseClientHandshakeCompleteEvent(NoiseTunnelProtos.HandshakeResponse handshakeResponse) -> {
                         remoteContext.pipeline()
                             .replace(NOISE_HANDSHAKE_HANDLER_NAME, null, new ProxyHandler(localContext.channel()));
                         localContext.pipeline().addLast(new ProxyHandler(remoteContext.channel()));
 
                         // If there was a payload response on the handshake, write it back to our gRPC client
-                        fastResponse.ifPresent(plaintext ->
-                            localContext.writeAndFlush(Unpooled.wrappedBuffer(plaintext)));
+                        if (!handshakeResponse.getFastOpenResponse().isEmpty()) {
+                          localContext.writeAndFlush(Unpooled.wrappedBuffer(handshakeResponse
+                              .getFastOpenResponse()
+                              .asReadOnlyByteBuffer()));
+                        }
 
                         // Forward any messages we got from our gRPC client, now will be proxied to the remote context
                         pendingReads.forEach(localContext::fireChannelRead);
@@ -120,17 +117,4 @@ class EstablishRemoteConnectionHandler extends ChannelInboundHandlerAdapter {
     pendingReads.clear();
   }
 
-  private byte[] initialPayload() {
-    if (authenticatedDevice == null) {
-      return fastOpenRequest;
-    }
-
-    final ByteBuffer bb = ByteBuffer.allocate(17 + fastOpenRequest.length);
-    bb.putLong(authenticatedDevice.accountIdentifier().getMostSignificantBits());
-    bb.putLong(authenticatedDevice.accountIdentifier().getLeastSignificantBits());
-    bb.put(authenticatedDevice.deviceId());
-    bb.put(fastOpenRequest);
-    bb.flip();
-    return bb.array();
-  }
 }

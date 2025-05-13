@@ -1,10 +1,9 @@
 package org.whispersystems.textsecuregcm.grpc.net;
 
-import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import javax.crypto.BadPaddingException;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import javax.crypto.BadPaddingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -16,9 +15,6 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 public class ErrorHandler extends ChannelInboundHandlerAdapter {
   private static final Logger log = LoggerFactory.getLogger(ErrorHandler.class);
 
-  private static OutboundCloseErrorMessage UNAUTHENTICATED_CLOSE = new OutboundCloseErrorMessage(
-      OutboundCloseErrorMessage.Code.AUTHENTICATION_ERROR,
-      "Not authenticated");
   private static OutboundCloseErrorMessage NOISE_ENCRYPTION_ERROR_CLOSE = new OutboundCloseErrorMessage(
       OutboundCloseErrorMessage.Code.NOISE_ERROR,
       "Noise encryption error");
@@ -29,7 +25,6 @@ public class ErrorHandler extends ChannelInboundHandlerAdapter {
         case NoiseHandshakeException e -> new OutboundCloseErrorMessage(
             OutboundCloseErrorMessage.Code.NOISE_HANDSHAKE_ERROR,
             e.getMessage());
-        case ClientAuthenticationException ignored -> UNAUTHENTICATED_CLOSE;
         case BadPaddingException ignored -> NOISE_ENCRYPTION_ERROR_CLOSE;
         case NoiseException ignored -> NOISE_ENCRYPTION_ERROR_CLOSE;
         default -> {

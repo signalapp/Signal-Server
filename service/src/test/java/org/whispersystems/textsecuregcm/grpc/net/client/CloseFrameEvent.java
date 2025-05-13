@@ -10,10 +10,10 @@ import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectProtos;
 public record CloseFrameEvent(CloseReason closeReason, CloseInitiator closeInitiator, String reason) {
 
   public enum CloseReason {
+    OK,
     SERVER_CLOSED,
     NOISE_ERROR,
     NOISE_HANDSHAKE_ERROR,
-    AUTHENTICATION_ERROR,
     INTERNAL_SERVER_ERROR,
     UNKNOWN
   }
@@ -27,27 +27,27 @@ public record CloseFrameEvent(CloseReason closeReason, CloseInitiator closeIniti
       CloseWebSocketFrame closeWebSocketFrame,
       CloseInitiator closeInitiator) {
     final CloseReason code = switch (closeWebSocketFrame.statusCode()) {
-      case 4003 -> CloseReason.NOISE_ERROR;
       case 4001 -> CloseReason.NOISE_HANDSHAKE_ERROR;
-      case 4002 -> CloseReason.AUTHENTICATION_ERROR;
+      case 4002 -> CloseReason.NOISE_ERROR;
       case 1011 -> CloseReason.INTERNAL_SERVER_ERROR;
       case 1012 -> CloseReason.SERVER_CLOSED;
+      case 1000 -> CloseReason.OK;
       default -> CloseReason.UNKNOWN;
     };
     return new CloseFrameEvent(code, closeInitiator, closeWebSocketFrame.reasonText());
   }
 
-  public static CloseFrameEvent fromNoiseDirectErrorFrame(
-      NoiseDirectProtos.Error noiseDirectError,
+  public static CloseFrameEvent fromNoiseDirectCloseFrame(
+      NoiseDirectProtos.CloseReason noiseDirectCloseReason,
       CloseInitiator closeInitiator) {
-    final CloseReason code = switch (noiseDirectError.getType()) {
+    final CloseReason code = switch (noiseDirectCloseReason.getCode()) {
+      case OK -> CloseReason.OK;
       case HANDSHAKE_ERROR -> CloseReason.NOISE_HANDSHAKE_ERROR;
       case ENCRYPTION_ERROR -> CloseReason.NOISE_ERROR;
       case UNAVAILABLE -> CloseReason.SERVER_CLOSED;
       case INTERNAL_ERROR -> CloseReason.INTERNAL_SERVER_ERROR;
-      case AUTHENTICATION_ERROR -> CloseReason.AUTHENTICATION_ERROR;
       case UNRECOGNIZED, UNSPECIFIED -> CloseReason.UNKNOWN;
     };
-    return new CloseFrameEvent(code, closeInitiator, noiseDirectError.getMessage());
+    return new CloseFrameEvent(code, closeInitiator, noiseDirectCloseReason.getMessage());
   }
 }
