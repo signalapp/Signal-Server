@@ -2151,11 +2151,6 @@ paths:
         - lastResortKeyBytes: the serialized form of the client's last-resort Kyber key as produced by libsignal (i.e. one
           version byte followed by 1568 bytes of key material for a total of 1569 bytes)
       operationId: checkKeys
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       responses:
         "200":
           description: Indicates that client and server have consistent views of repeated-use
@@ -4098,6 +4093,7 @@ components:
     ChangeNumberRequest:
       required:
       - deviceMessages
+      - devicePniPqLastResortPrekeys
       - devicePniSignedPrekeys
       - number
       - pniIdentityKey
@@ -4124,7 +4120,7 @@ components:
           description: |-
             A list of synchronization messages to send to companion devices to supply the private keysManager
             associated with the new identity key and their new prekeys.
-            Exactly one message must be supplied for each enabled device other than the sending (primary) device.
+            Exactly one message must be supplied for each device other than the sending (primary) device.
           items:
             $ref: '#/components/schemas/IncomingMessage'
         devicePniSignedPrekeys:
@@ -4132,27 +4128,24 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/ECSignedPreKey'
           description: |-
-            A new signed elliptic-curve prekey for each enabled device on the account, including this one.
+            A new signed elliptic-curve prekey for each device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         devicePniPqLastResortPrekeys:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/KEMSignedPreKey'
           description: |-
-            A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
-            May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
-            If present, must contain one prekey per enabled device including this one.
-            Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
+            A new signed post-quantum last-resort prekey for each device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         pniRegistrationIds:
           type: object
           additionalProperties:
             type: integer
-            description: "the new phone-number-identity registration ID for each enabled\
-              \ device on the account, including this one"
+            description: "the new phone-number-identity registration ID for each device\
+              \ on the account, including this one"
             format: int32
-          description: "the new phone-number-identity registration ID for each enabled\
-            \ device on the account, including this one"
+          description: "the new phone-number-identity registration ID for each device\
+            \ on the account, including this one"
         eachPniRegistrationIdValid:
           type: boolean
         valid:
@@ -4242,6 +4235,7 @@ components:
     PhoneNumberIdentityKeyDistributionRequest:
       required:
       - deviceMessages
+      - devicePniPqLastResortPrekeys
       - devicePniSignedPrekeys
       - pniIdentityKey
       - pniRegistrationIds
@@ -4254,7 +4248,7 @@ components:
           description: |
             A list of synchronization messages to send to companion devices to supply the private keys
             associated with the new identity key and their new prekeys.
-            Exactly one message must be supplied for each enabled device other than the sending (primary) device.
+            Exactly one message must be supplied for each device other than the sending (primary) device.
           items:
             $ref: '#/components/schemas/IncomingMessage'
         devicePniSignedPrekeys:
@@ -4262,17 +4256,14 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/ECSignedPreKey'
           description: |-
-            A new signed elliptic-curve prekey for each enabled device on the account, including this one.
+            A new signed elliptic-curve prekey for each device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         devicePniPqLastResortPrekeys:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/KEMSignedPreKey'
           description: |-
-            A new signed post-quantum last-resort prekey for each enabled device on the account, including this one.
-            May be absent, in which case the last resort PQ prekeys for each device will be deleted if any had been stored.
-            If present, must contain one prekey per enabled device including this one.
-            Prekeys for devices that did not previously have any post-quantum prekeys stored will be silently dropped.
+            A new signed post-quantum last-resort prekey for each device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         pniRegistrationIds:
           type: object
