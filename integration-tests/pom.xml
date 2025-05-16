@@ -57,4 +57,17 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>aws-sso</id>
+
+      <dependencies>
+        <dependency>
+          <groupId>software.amazon.awssdk</groupId>
+          <artifactId>sso</artifactId>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
 </project>
