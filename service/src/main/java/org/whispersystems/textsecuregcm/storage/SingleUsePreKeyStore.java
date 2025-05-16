@@ -145,6 +145,7 @@ public abstract class SingleUsePreKeyStore<K extends PreKey<?>> {
                     ":sortprefix", getSortKeyPrefix(deviceId)))
                 .projectionExpression(KEY_DEVICE_ID_KEY_ID)
                 .consistentRead(false)
+                .limit(1)
                 .build())
             .items())
         .map(item -> DeleteItemRequest.builder()
