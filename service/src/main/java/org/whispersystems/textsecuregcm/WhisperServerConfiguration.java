@@ -45,6 +45,7 @@ import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalit
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.NoiseTunnelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
+import org.whispersystems.textsecuregcm.configuration.PagedSingleUseKEMPreKeyStoreConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RegistrationServiceClientFactory;
 import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
@@ -256,6 +257,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   @NotNull
   private OneTimeDonationConfiguration oneTimeDonations;
+
+  @Valid
+  @JsonProperty
+  @NotNull
+  private PagedSingleUseKEMPreKeyStoreConfiguration pagedSingleUseKEMPreKeyStore;
 
   @Valid
   @NotNull
@@ -476,6 +482,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public OneTimeDonationConfiguration getOneTimeDonations() {
     return oneTimeDonations;
+  }
+
+  public PagedSingleUseKEMPreKeyStoreConfiguration getPagedSingleUseKEMPreKeyStore() {
+    return pagedSingleUseKEMPreKeyStore;
   }
 
   public ReportMessageConfiguration getReportMessageConfiguration() {

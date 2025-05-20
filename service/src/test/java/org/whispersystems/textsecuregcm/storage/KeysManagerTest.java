@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 
 class KeysManagerTest {
 
@@ -31,6 +32,9 @@ class KeysManagerTest {
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       Tables.EC_KEYS, Tables.PQ_KEYS, Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS, Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
 
+  @RegisterExtension
+  static final S3LocalStackExtension S3_EXTENSION = new S3LocalStackExtension("testbucket");
+
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final byte DEVICE_ID = 1;
 
@@ -38,13 +42,16 @@ class KeysManagerTest {
 
   @BeforeEach
   void setup() {
+    final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
     keysManager = new KeysManager(
-        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        Tables.EC_KEYS.tableName(),
-        Tables.PQ_KEYS.tableName(),
-        Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
-        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()
-    );
+        new SingleUseECPreKeyStore(dynamoDbAsyncClient, Tables.EC_KEYS.tableName()),
+        new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, Tables.PQ_KEYS.tableName()),
+        new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient,
+            S3_EXTENSION.getS3Client(),
+            DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS.tableName(),
+            S3_EXTENSION.getBucketName()),
+        new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName()),
+        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
   }
 
   @Test

@@ -57,13 +57,18 @@ import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
 import org.whispersystems.textsecuregcm.storage.MessagesDynamoDb;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.storage.PagedSingleUseKEMPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.RepeatedUseECSignedPreKeyStore;
+import org.whispersystems.textsecuregcm.storage.RepeatedUseKEMSignedPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
+import org.whispersystems.textsecuregcm.storage.SingleUseECPreKeyStore;
+import org.whispersystems.textsecuregcm.storage.SingleUseKEMPreKeyStore;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -204,13 +209,20 @@ record CommandDependencies(
         configuration.getDynamoDbTables().getPhoneNumberIdentifiers().getTableName());
     Profiles profiles = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getProfiles().getTableName());
+    S3AsyncClient asyncKeysS3Client = S3AsyncClient.builder()
+        .credentialsProvider(awsCredentialsProvider)
+        .region(Region.of(configuration.getPagedSingleUseKEMPreKeyStore().region()))
+        .build();
     KeysManager keys = new KeysManager(
-            dynamoDbAsyncClient,
-        configuration.getDynamoDbTables().getEcKeys().getTableName(),
-        configuration.getDynamoDbTables().getKemKeys().getTableName(),
-        configuration.getDynamoDbTables().getEcSignedPreKeys().getTableName(),
-        configuration.getDynamoDbTables().getKemLastResortKeys().getTableName()
-    );
+        new SingleUseECPreKeyStore(dynamoDbAsyncClient, configuration.getDynamoDbTables().getEcKeys().getTableName()),
+        new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, configuration.getDynamoDbTables().getKemKeys().getTableName()),
+        new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient, asyncKeysS3Client,
+            configuration.getDynamoDbTables().getPagedKemKeys().getTableName(),
+            configuration.getPagedSingleUseKEMPreKeyStore().bucket()),
+        new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient,
+            configuration.getDynamoDbTables().getEcSignedPreKeys().getTableName()),
+        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
+            configuration.getDynamoDbTables().getKemLastResortKeys().getTableName()));
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),

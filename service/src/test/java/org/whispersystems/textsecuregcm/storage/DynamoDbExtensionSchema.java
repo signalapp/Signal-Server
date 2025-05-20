@@ -143,6 +143,20 @@ public final class DynamoDbExtensionSchema {
                 .build()),
         List.of(), List.of()),
 
+    PAGED_PQ_KEYS("paged_pq_keys_test",
+        PagedSingleUseKEMPreKeyStore.KEY_ACCOUNT_UUID,
+        PagedSingleUseKEMPreKeyStore.KEY_DEVICE_ID,
+        List.of(
+            AttributeDefinition.builder()
+                .attributeName(PagedSingleUseKEMPreKeyStore.KEY_ACCOUNT_UUID)
+                .attributeType(ScalarAttributeType.B)
+                .build(),
+            AttributeDefinition.builder()
+                .attributeName(PagedSingleUseKEMPreKeyStore.KEY_DEVICE_ID)
+                .attributeType(ScalarAttributeType.N)
+                .build()),
+        List.of(), List.of()),
+
     PUSH_NOTIFICATION_EXPERIMENT_SAMPLES("push_notification_experiment_samples_test",
         PushNotificationExperimentSamples.KEY_EXPERIMENT_NAME,
         PushNotificationExperimentSamples.ATTR_ACI_AND_DEVICE_ID,

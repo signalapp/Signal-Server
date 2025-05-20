@@ -135,6 +135,8 @@ dynamoDbTables:
     tableName: repeated_use_signed_ec_pre_keys_test
   pqKeys:
     tableName: pq_keys_test
+  pagedPqKeys:
+    tableName: paged_pq_keys_test
   pqLastResortKeys:
     tableName: repeated_use_signed_kem_pre_keys_test
   messages:
@@ -170,6 +172,10 @@ dynamoDbTables:
     tableName: client_public_keys_test
   verificationSessions:
     tableName: verification_sessions_test
+
+pagedSingleUseKEMPreKeyStore:
+  bucket: preKeyBucket # S3 Bucket name
+  region: us-west-2    # AWS region
 
 cacheCluster: # Redis server configuration for cache cluster
   type: local

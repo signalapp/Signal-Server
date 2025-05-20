@@ -47,6 +47,7 @@ import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
@@ -78,6 +79,9 @@ class AccountsManagerUsernameIntegrationTest {
   @RegisterExtension
   static RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
+  @RegisterExtension
+  static final S3LocalStackExtension S3_EXTENSION = new S3LocalStackExtension("testbucket");
+
   private AccountsManager accountsManager;
   private Accounts accounts;
 
@@ -94,13 +98,18 @@ class AccountsManagerUsernameIntegrationTest {
     DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
+    final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
     final KeysManager keysManager = new KeysManager(
-        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        Tables.EC_KEYS.tableName(),
-        Tables.PQ_KEYS.tableName(),
-        Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
-        Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()
-    );
+        new SingleUseECPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.EC_KEYS.tableName()),
+        new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.PQ_KEYS.tableName()),
+        new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient,
+            S3_EXTENSION.getS3Client(),
+            DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS.tableName(),
+            S3_EXTENSION.getBucketName()),
+        new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient,
+            DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName()),
+        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
+            DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
 
     accounts = Mockito.spy(new Accounts(
         Clock.systemUTC(),

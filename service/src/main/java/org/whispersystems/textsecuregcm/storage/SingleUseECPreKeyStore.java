@@ -19,7 +19,7 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 public class SingleUseECPreKeyStore extends SingleUsePreKeyStore<ECPreKey> {
   private static final String PARSE_BYTE_ARRAY_COUNTER_NAME = name(SingleUseECPreKeyStore.class, "parseByteArray");
 
-  protected SingleUseECPreKeyStore(final DynamoDbAsyncClient dynamoDbAsyncClient, final String tableName) {
+  public SingleUseECPreKeyStore(final DynamoDbAsyncClient dynamoDbAsyncClient, final String tableName) {
     super(dynamoDbAsyncClient, tableName);
   }
 

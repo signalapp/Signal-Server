@@ -50,6 +50,7 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 
 public class AccountCreationDeletionIntegrationTest {
 
@@ -71,6 +72,9 @@ public class AccountCreationDeletionIntegrationTest {
   @RegisterExtension
   static final RedisClusterExtension CACHE_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
+  @RegisterExtension
+  static final S3LocalStackExtension S3_EXTENSION = new S3LocalStackExtension("testbucket");
+
   private static final Clock CLOCK = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
   private ScheduledExecutorService executor;
@@ -90,13 +94,18 @@ public class AccountCreationDeletionIntegrationTest {
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
+    final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
     keysManager = new KeysManager(
-        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        DynamoDbExtensionSchema.Tables.EC_KEYS.tableName(),
-        DynamoDbExtensionSchema.Tables.PQ_KEYS.tableName(),
-        DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName(),
-        DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()
-    );
+        new SingleUseECPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.EC_KEYS.tableName()),
+        new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.PQ_KEYS.tableName()),
+        new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient,
+            S3_EXTENSION.getS3Client(),
+            DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS.tableName(),
+            S3_EXTENSION.getBucketName()),
+        new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient,
+            DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName()),
+        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
+            DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
 
     final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());

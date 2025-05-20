@@ -138,6 +138,8 @@ dynamoDbTables:
     tableName: Example_EC_Signed_Pre_Keys
   pqKeys:
     tableName: Example_PQ_Keys
+  pagedPqKeys:
+    tableName: Example_PQ_Paged_Keys
   pqLastResortKeys:
     tableName: Example_PQ_Last_Resort_Keys
   messages:
@@ -173,6 +175,10 @@ dynamoDbTables:
     tableName: Example_ClientPublicKeys
   verificationSessions:
     tableName: Example_VerificationSessions
+
+pagedSingleUseKEMPreKeyStore:
+  bucket: preKeyBucket # S3 Bucket name
+  region: us-west-2    # AWS region
 
 cacheCluster: # Redis server configuration for cache cluster
   configurationUri: redis://redis.example.com:6379/

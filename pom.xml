@@ -77,6 +77,10 @@
     <slf4j.version>2.0.17</slf4j.version>
     <stripe.version>23.10.0</stripe.version>
     <swagger.version>2.2.27</swagger.version>
+    <testcontainers.version>1.21.1</testcontainers.version>
+
+    <!-- image to use in tests that run localstack via docker. -->
+    <localstack.image>localstack/localstack:3.5.0</localstack.image>
 
     <!-- eclipse-temurin:21.0.6_7-jre-jammy (note: always use the multi-arch manifest *LIST* here) -->
     <docker.image.sha256>02fc89fa8766a9ba221e69225f8d1c10bb91885ddbd3c112448e23488ba40ab6</docker.image.sha256>
@@ -310,6 +314,13 @@
         <groupId>ch.qos.logback.access</groupId>
         <artifactId>logback-access-common</artifactId>
         <version>${logback-access.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>${testcontainers.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
     </dependencies>
   </dependencyManagement>

@@ -12,26 +12,27 @@ import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class KeysManager {
 
   private final SingleUseECPreKeyStore ecPreKeys;
   private final SingleUseKEMPreKeyStore pqPreKeys;
+  private final PagedSingleUseKEMPreKeyStore pagedPqPreKeys;
   private final RepeatedUseECSignedPreKeyStore ecSignedPreKeys;
   private final RepeatedUseKEMSignedPreKeyStore pqLastResortKeys;
 
   public KeysManager(
-      final DynamoDbAsyncClient dynamoDbAsyncClient,
-      final String ecTableName,
-      final String pqTableName,
-      final String ecSignedPreKeysTableName,
-      final String pqLastResortTableName) {
-    this.ecPreKeys = new SingleUseECPreKeyStore(dynamoDbAsyncClient, ecTableName);
-    this.pqPreKeys = new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, pqTableName);
-    this.ecSignedPreKeys = new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, ecSignedPreKeysTableName);
-    this.pqLastResortKeys = new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, pqLastResortTableName);
+      final SingleUseECPreKeyStore ecPreKeys,
+      final SingleUseKEMPreKeyStore pqPreKeys,
+      final PagedSingleUseKEMPreKeyStore pagedPqPreKeys,
+      final RepeatedUseECSignedPreKeyStore ecSignedPreKeys,
+      final RepeatedUseKEMSignedPreKeyStore pqLastResortKeys) {
+    this.ecPreKeys = ecPreKeys;
+    this.pqPreKeys = pqPreKeys;
+    this.pagedPqPreKeys = pagedPqPreKeys;
+    this.ecSignedPreKeys = ecSignedPreKeys;
+    this.pqLastResortKeys = pqLastResortKeys;
   }
 
   public TransactWriteItem buildWriteItemForEcSignedPreKey(final UUID identifier,
