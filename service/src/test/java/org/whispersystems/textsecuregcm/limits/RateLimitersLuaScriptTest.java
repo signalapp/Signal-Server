@@ -57,9 +57,11 @@ public class RateLimitersLuaScriptTest {
   @Test
   public void testWithEmbeddedRedis() throws Exception {
     final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
+    final Map<String, RateLimiterConfig> limiterConfig = Map.of(descriptor.id(), new RateLimiterConfig(60, Duration.ofSeconds(1), false));
+    when(configuration.getLimits()).thenReturn(limiterConfig);
+
     final FaultTolerantRedisClusterClient redisCluster = REDIS_CLUSTER_EXTENSION.getRedisCluster();
     final RateLimiters limiters = new RateLimiters(
-        Map.of(descriptor.id(), new RateLimiterConfig(60, Duration.ofSeconds(1), false)),
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,
@@ -74,9 +76,11 @@ public class RateLimitersLuaScriptTest {
   @Test
   public void testTtl() throws Exception {
     final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
+    final Map<String, RateLimiterConfig> limiterConfig = Map.of(descriptor.id(), new RateLimiterConfig(1000, Duration.ofSeconds(1), false));
+    when(configuration.getLimits()).thenReturn(limiterConfig);
+
     final FaultTolerantRedisClusterClient redisCluster = REDIS_CLUSTER_EXTENSION.getRedisCluster();
     final RateLimiters limiters = new RateLimiters(
-        Map.of(descriptor.id(), new RateLimiterConfig(1000, Duration.ofSeconds(1), false)),
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,
@@ -126,8 +130,11 @@ public class RateLimitersLuaScriptTest {
   public void testFailOpen(final boolean failOpen) {
     final RateLimiters.For descriptor = RateLimiters.For.REGISTRATION;
     final FaultTolerantRedisClusterClient redisCluster = mock(FaultTolerantRedisClusterClient.class);
+
+    final Map<String, RateLimiterConfig> limiterConfig = Map.of(descriptor.id(), new RateLimiterConfig(1, Duration.ofSeconds(1), failOpen));
+    when(configuration.getLimits()).thenReturn(limiterConfig);
+
     final RateLimiters limiters = new RateLimiters(
-        Map.of(descriptor.id(), new RateLimiterConfig(1000, Duration.ofSeconds(1), failOpen)),
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,

@@ -16,13 +16,8 @@ public interface RateLimiterDescriptor {
   String id();
 
   /**
-   * @return {@code true} if this rate limiter needs to watch for dynamic configuration changes.
-   */
-  boolean isDynamic();
-
-  /**
    * @return an instance of {@link RateLimiterConfig} to be used by default,
-   *         i.e. if there is no overrides in the application configuration files (static or dynamic).
+   *         i.e. if there is no override in the application dynamic configuration.
    */
   RateLimiterConfig defaultConfig();
 }

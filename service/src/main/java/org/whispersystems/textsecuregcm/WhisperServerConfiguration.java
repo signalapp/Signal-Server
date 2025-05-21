@@ -407,10 +407,6 @@ public class WhisperServerConfiguration extends Configuration {
     return rateLimitersCluster;
   }
 
-  public Map<String, RateLimiterConfig> getLimitsConfiguration() {
-    return limits;
-  }
-
   public FcmConfiguration getFcmConfiguration() {
     return fcm;
   }
