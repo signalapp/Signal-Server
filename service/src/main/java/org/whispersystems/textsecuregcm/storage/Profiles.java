@@ -261,7 +261,12 @@ public class Profiles {
     return AttributeValues.extractByteArray(attributeValue, PARSE_BYTE_ARRAY_COUNTER_NAME);
   }
 
-  public CompletableFuture<Void> deleteAll(final UUID uuid) {
+  /**
+   * Deletes all profile versions for the given UUID
+   *
+   * @return a list of avatar URLs to be deleted
+   */
+  public CompletableFuture<List<String>> deleteAll(final UUID uuid) {
     final Timer.Sample sample = Timer.start();
 
     final AttributeValue uuidAttributeValue = AttributeValues.fromUUID(uuid);
@@ -271,7 +276,7 @@ public class Profiles {
                 .keyConditionExpression("#uuid = :uuid")
                 .expressionAttributeNames(Map.of("#uuid", KEY_ACCOUNT_UUID))
                 .expressionAttributeValues(Map.of(":uuid", uuidAttributeValue))
-                .projectionExpression(ATTR_VERSION)
+                .projectionExpression(String.join(", ", ATTR_VERSION, ATTR_AVATAR))
                 .consistentRead(true)
                 .build())
             .items())
@@ -280,8 +285,9 @@ public class Profiles {
             .key(Map.of(
                 KEY_ACCOUNT_UUID, uuidAttributeValue,
                 ATTR_VERSION, item.get(ATTR_VERSION)))
-            .build())), MAX_CONCURRENCY)
-        .then()
+            .build()))
+            .flatMap(ignored -> Mono.justOrEmpty(item.get(ATTR_AVATAR)).map(AttributeValue::s)), MAX_CONCURRENCY)
+        .collectList()
         .doOnSuccess(ignored -> sample.stop(Metrics.timer(DELETE_PROFILES_TIMER_NAME, "outcome", "success")))
         .doOnError(ignored -> sample.stop(Metrics.timer(DELETE_PROFILES_TIMER_NAME, "outcome", "error")))
         .toFuture();

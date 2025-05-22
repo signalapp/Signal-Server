@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64WithPaddingAdapter;
 
@@ -15,6 +16,7 @@ public record VersionedProfile (String version,
                                 @JsonDeserialize(using = ByteArrayBase64WithPaddingAdapter.Deserializing.class)
                                 byte[] name,
 
+                                @Nullable
                                 String avatar,
 
                                 @JsonSerialize(using = ByteArrayBase64WithPaddingAdapter.Serializing.class)

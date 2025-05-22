@@ -68,8 +68,10 @@ import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 /**
  * Construct utilities commonly used by worker commands
@@ -175,6 +177,13 @@ record CommandDependencies(
     DynamoDbClient dynamoDbClient = configuration.getDynamoDbClientConfiguration()
         .buildSyncClient(awsCredentialsProvider, new MicrometerAwsSdkMetricPublisher(awsSdkMetricsExecutor, "dynamoDbSyncCommand"));
 
+    final AwsCredentialsProvider cdnCredentialsProvider = configuration.getCdnConfiguration().credentials().build();
+    final S3AsyncClient asyncCdnS3Client = S3AsyncClient.builder()
+        .credentialsProvider(cdnCredentialsProvider)
+        .region(Region.of(configuration.getCdnConfiguration().region()))
+        .build();
+
+
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         configuration.getDynamoDbTables().getRegistrationRecovery().getTableName(),
         configuration.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
@@ -222,7 +231,8 @@ record CommandDependencies(
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, disconnectionRequestListenerExecutor);
     MessagesCache messagesCache = new MessagesCache(messagesCluster,
         messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
-    ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster);
+    ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster, asyncCdnS3Client,
+        configuration.getCdnConfiguration().bucket());
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getReportMessage().getTableName(),
         configuration.getReportMessageConfiguration().getReportTtl());

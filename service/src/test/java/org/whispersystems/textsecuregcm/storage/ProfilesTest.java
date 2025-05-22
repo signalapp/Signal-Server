@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -226,6 +227,7 @@ public class ProfilesTest {
   void testDelete() throws InvalidInputException {
     final String versionOne = "versionOne";
     final String versionTwo = "versionTwo";
+    final String versionThree = "versionThree";
 
     final byte[] nameOne = TestRandomUtil.nextBytes(81);
     final byte[] nameTwo = TestRandomUtil.nextBytes(81);
@@ -238,23 +240,27 @@ public class ProfilesTest {
 
     final byte[] commitmentOne = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
     final byte[] commitmentTwo = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
+    final byte[] commitmentThree = new ProfileKey(TestRandomUtil.nextBytes(32)).getCommitment(new ServiceId.Aci(ACI)).serialize();
 
     VersionedProfile profileOne = new VersionedProfile(versionOne, nameOne, avatarOne, null, null,
         null, null, commitmentOne);
     VersionedProfile profileTwo = new VersionedProfile(versionTwo, nameTwo, avatarTwo, aboutEmoji, about, null, null, commitmentTwo);
+    VersionedProfile profileThree = new VersionedProfile(versionThree, nameTwo, null, aboutEmoji, about, null, null,
+        commitmentThree);
 
     profiles.set(ACI, profileOne);
     profiles.set(ACI, profileTwo);
+    profiles.set(ACI, profileThree);
 
-    profiles.deleteAll(ACI).join();
+    final List<String> avatars = profiles.deleteAll(ACI).join();
 
-    Optional<VersionedProfile> retrieved = profiles.get(ACI, versionOne);
+    for (String version : List.of(versionOne, versionTwo, versionThree)) {
+      final Optional<VersionedProfile> retrieved = profiles.get(ACI, version);
+      assertThat(retrieved.isPresent()).isFalse();
+    }
 
-    assertThat(retrieved.isPresent()).isFalse();
-
-    retrieved = profiles.get(ACI, versionTwo);
-
-    assertThat(retrieved.isPresent()).isFalse();
+    assertThat(avatars.size()).isEqualTo(2);
+    assertThat(avatars.containsAll(List.of(avatarOne, avatarTwo))).isTrue();
   }
 
   @ParameterizedTest
@@ -266,7 +272,7 @@ public class ProfilesTest {
   private static Stream<Arguments> buildUpdateExpression() throws InvalidInputException {
     final String version = "someVersion";
     final byte[] name = TestRandomUtil.nextBytes(81);
-    final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);;
+    final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
@@ -313,7 +319,7 @@ public class ProfilesTest {
   private static Stream<Arguments> buildUpdateExpressionAttributeValues() throws InvalidInputException {
     final String version = "someVersion";
     final byte[] name = TestRandomUtil.nextBytes(81);
-    final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);;
+    final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
