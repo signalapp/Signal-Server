@@ -96,8 +96,6 @@ import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.websocket.auth.Mutable;
 import org.whispersystems.websocket.auth.ReadOnly;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
@@ -116,9 +114,6 @@ public class ProfileController {
   private final ServerSecretParams serverSecretParams;
   private final ServerZkProfileOperations zkProfileOperations;
 
-  private final S3Client s3client;
-  private final String bucket;
-
   private final Executor batchIdentityCheckExecutor;
 
   private static final String EXPIRING_PROFILE_KEY_CREDENTIAL_TYPE = "expiringProfileKey";
@@ -134,10 +129,8 @@ public class ProfileController {
       DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       ProfileBadgeConverter profileBadgeConverter,
       BadgesConfiguration badgesConfiguration,
-      S3Client s3client,
       PostPolicyGenerator policyGenerator,
       PolicySigner policySigner,
-      String bucket,
       ServerSecretParams serverSecretParams,
       ServerZkProfileOperations zkProfileOperations,
       Executor batchIdentityCheckExecutor) {
@@ -151,8 +144,6 @@ public class ProfileController {
         BadgeConfiguration::getId, Function.identity()));
     this.serverSecretParams = serverSecretParams;
     this.zkProfileOperations = zkProfileOperations;
-    this.bucket = bucket;
-    this.s3client = s3client;
     this.policyGenerator = policyGenerator;
     this.policySigner = policySigner;
     this.batchIdentityCheckExecutor = Preconditions.checkNotNull(batchIdentityCheckExecutor);
@@ -200,10 +191,7 @@ public class ProfileController {
             request.commitment().serialize()));
 
     if (request.getAvatarChange() != CreateProfileRequest.AvatarChange.UNCHANGED) {
-      currentAvatar.ifPresent(s -> s3client.deleteObject(DeleteObjectRequest.builder()
-          .bucket(bucket)
-          .key(s)
-          .build()));
+      currentAvatar.ifPresent(s -> profilesManager.deleteAvatar(s).join());
     }
 
     accountsManager.update(auth.getAccount(), a -> {

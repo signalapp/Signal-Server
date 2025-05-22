@@ -249,7 +249,9 @@ public class ProfilesManagerTest {
     final String avatarTwo = "avatar2";
     when(profiles.deleteAll(uuid)).thenReturn(CompletableFuture.completedFuture(List.of(avatarOne, avatarTwo)));
     when(asyncCommands.del(ProfilesManager.getCacheKey(uuid))).thenReturn(MockRedisFuture.completedFuture(null));
-    when(s3Client.deleteObject(any(DeleteObjectRequest.class))).thenReturn(CompletableFuture.completedFuture(null));
+    when(s3Client.deleteObject(any(DeleteObjectRequest.class)))
+        .thenReturn(CompletableFuture.completedFuture(null))
+        .thenReturn(CompletableFuture.failedFuture(new RuntimeException("some error")));
 
     profilesManager.deleteAll(uuid).join();
 

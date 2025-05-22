@@ -50,8 +50,6 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
 public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
 
@@ -60,13 +58,11 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
   private final ProfilesManager  profilesManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
-  private final S3AsyncClient asyncS3client;
   private final PostPolicyGenerator policyGenerator;
   private final PolicySigner policySigner;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final RateLimiters rateLimiters;
   private final ServerZkProfileOperations zkProfileOperations;
-  private final String bucket;
 
   private record AvatarData(Optional<String> currentAvatar,
                             Optional<String>  finalAvatar,
@@ -78,26 +74,22 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
       final ProfilesManager profilesManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final BadgesConfiguration badgesConfiguration,
-      final S3AsyncClient asyncS3client,
       final PostPolicyGenerator policyGenerator,
       final PolicySigner policySigner,
       final ProfileBadgeConverter profileBadgeConverter,
       final RateLimiters rateLimiters,
-      final ServerZkProfileOperations zkProfileOperations,
-      final String bucket) {
+      final ServerZkProfileOperations zkProfileOperations) {
     this.clock = clock;
     this.accountsManager = accountsManager;
     this.profilesManager = profilesManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.badgeConfigurationMap = badgesConfiguration.getBadges().stream().collect(Collectors.toMap(
         BadgeConfiguration::getId, Function.identity()));
-    this.asyncS3client  = asyncS3client;
     this.policyGenerator = policyGenerator;
     this.policySigner = policySigner;
     this.profileBadgeConverter = profileBadgeConverter;
     this.rateLimiters = rateLimiters;
     this.zkProfileOperations = zkProfileOperations;
-    this.bucket = bucket;
   }
 
   @Override
@@ -157,10 +149,7 @@ public class ProfileGrpcService extends ReactorProfileGrpc.ProfileImplBase {
           })));
 
           if (request.getAvatarChange() != AvatarChange.AVATAR_CHANGE_UNCHANGED && avatarData.currentAvatar().isPresent()) {
-            updates.add(Mono.fromFuture(() -> asyncS3client.deleteObject(DeleteObjectRequest.builder()
-                .bucket(bucket)
-                .key(avatarData.currentAvatar().get())
-                .build())));
+            updates.add(Mono.fromFuture(() -> profilesManager.deleteAvatar(avatarData.currentAvatar.get())));
           }
           return profileSetMono.thenMany(Flux.merge(updates)).then(Mono.just(avatarData));
         })

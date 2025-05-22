@@ -872,7 +872,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             .addService(ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters))
             .addService(new KeysGrpcService(accountsManager, keysManager, rateLimiters))
             .addService(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
-                config.getBadges(), asyncCdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations, config.getCdnConfiguration().bucket()));
+                config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations));
       }
     };
 
@@ -1100,8 +1100,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             Clock.systemUTC()),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
-            profileBadgeConverter, config.getBadges(), cdnS3Client, profileCdnPolicyGenerator, profileCdnPolicySigner,
-            config.getCdnConfiguration().bucket(), zkSecretParams, zkProfileOperations, batchIdentityCheckExecutor),
+            profileBadgeConverter, config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner,
+            zkSecretParams, zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
         new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
             rateLimiters),

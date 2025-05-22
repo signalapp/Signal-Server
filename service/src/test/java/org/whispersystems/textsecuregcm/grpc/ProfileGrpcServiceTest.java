@@ -17,9 +17,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimitExceeded;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
@@ -110,12 +110,8 @@ import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Mono;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
 public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcService, ProfileGrpc.ProfileBlockingStub> {
-
-  private static final String S3_BUCKET = "profileBucket";
 
   private static final String VERSION = "someVersion";
 
@@ -129,9 +125,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
   @Mock
   private DynamicPaymentsConfiguration dynamicPaymentsConfiguration;
-
-  @Mock
-  private S3AsyncClient asyncS3client;
 
   @Mock
   private VersionedProfile profile;
@@ -203,7 +196,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
     when(dynamicPaymentsConfiguration.getDisallowedPrefixes()).thenReturn(Collections.emptyList());
 
-    when(asyncS3client.deleteObject(any(DeleteObjectRequest.class))).thenReturn(CompletableFuture.completedFuture(null));
+    when(profilesManager.deleteAvatar(anyString())).thenReturn(CompletableFuture.completedFuture(null));
 
     clock = Clock.fixed(Instant.ofEpochSecond(42), ZoneId.of("Etc/UTC"));
 
@@ -213,13 +206,11 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         profilesManager,
         dynamicConfigurationManager,
         badgesConfiguration,
-        asyncS3client,
         policyGenerator,
         policySigner,
         profileBadgeConverter,
         rateLimiters,
-        serverZkProfileOperations,
-        S3_BUCKET
+        serverZkProfileOperations
     );
   }
 
@@ -289,12 +280,9 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     }
 
     if (expectDeleteS3Object) {
-      verify(asyncS3client).deleteObject(DeleteObjectRequest.builder()
-          .bucket(S3_BUCKET)
-          .key(currentAvatar)
-          .build());
+      verify(profilesManager).deleteAvatar(currentAvatar);
     } else {
-      verifyNoInteractions(asyncS3client);
+      verify(profilesManager, never()).deleteAvatar(anyString());
     }
   }
 
