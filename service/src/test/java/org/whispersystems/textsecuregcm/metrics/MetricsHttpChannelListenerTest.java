@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.metrics;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -49,14 +48,11 @@ class MetricsHttpChannelListenerTest {
     requestCounter = mock(Counter.class);
     requestsByVersionCounter = mock(Counter.class);
 
-    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), anyIterable()))
+    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(requestCounter);
 
-    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUESTS_BY_VERSION_COUNTER_NAME), anyIterable()))
+    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUESTS_BY_VERSION_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(requestsByVersionCounter);
-
-    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUESTS_BY_AUTHENTICATION_COUNTER_NAME), anyIterable()))
-        .thenReturn(mock(Counter.class));
 
     clientReleaseManager = mock(ClientReleaseManager.class);
 
@@ -138,8 +134,8 @@ class MetricsHttpChannelListenerTest {
       final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
       verify(meterRegistry).counter(eq(MetricsHttpChannelListener.REQUESTS_BY_VERSION_COUNTER_NAME),
           tagCaptor.capture());
-
       final Set<Tag> tags = new HashSet<>();
+      tags.clear();
       for (final Tag tag : tagCaptor.getValue()) {
         tags.add(tag);
       }
