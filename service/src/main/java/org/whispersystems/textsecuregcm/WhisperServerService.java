@@ -1080,7 +1080,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ArchiveController(backupAuthManager, backupManager, backupMetrics),
         new CallRoutingControllerV2(rateLimiters, cloudflareTurnCredentialsManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
-        new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate().value(),
+        new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate(),
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),
             zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(rateLimitChallengeManager, challengeConstraintChecker),

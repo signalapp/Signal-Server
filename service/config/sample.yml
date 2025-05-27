@@ -265,7 +265,7 @@ dogstatsd:
   host: 127.0.0.1
 
 unidentifiedDelivery:
-  certificate: secret://unidentifiedDelivery.certificate
+  certificate: CgIIAQ==
   privateKey: secret://unidentifiedDelivery.privateKey
   expiresDays: 7
 
