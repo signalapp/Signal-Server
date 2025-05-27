@@ -34,8 +34,8 @@ import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
 
 /**
  * Gathers and reports HTTP request metrics at the Jetty container level, which sits above Jersey. In order to get
- * templated Jersey request paths, it implements {@link jakarta.ws.rs.container.ContainerResponseFilter}, in order to give
- * itself access to the template. It is limited to {@link TrafficSource#HTTP} requests.
+ * templated Jersey request paths, it implements {@link jakarta.ws.rs.container.ContainerResponseFilter}. It is limited
+ * to {@link TrafficSource#HTTP} requests.
  * <p>
  * It implements {@link LifeCycle.Listener} without overriding methods, so that it can be an event listener that
  * Dropwizard will attach to the container&mdash;the {@link Container.Listener} implementation is where it attaches
@@ -58,6 +58,8 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   // Use the same counter namespace as MetricsRequestEventListener for continuity
   public static final String REQUEST_COUNTER_NAME = MetricsRequestEventListener.REQUEST_COUNTER_NAME;
   public static final String REQUESTS_BY_VERSION_COUNTER_NAME = MetricsRequestEventListener.REQUESTS_BY_VERSION_COUNTER_NAME;
+  public static final String REQUESTS_BY_AUTHENTICATION_COUNTER_NAME = MetricsRequestEventListener.REQUESTS_BY_AUTHENTICATION_COUNTER_NAME;
+
   @VisibleForTesting
   static final String URI_INFO_PROPERTY_NAME = MetricsHttpChannelListener.class.getName() + ".uriInfo";
 
@@ -141,9 +143,19 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
 
     meterRegistry.counter(REQUEST_COUNTER_NAME, tags).increment();
 
+    final Tag clientPlatformTag = UserAgentTagUtil.getPlatformTag(requestInfo.userAgent());
+
     UserAgentTagUtil.getClientVersionTag(requestInfo.userAgent(), clientReleaseManager).ifPresent(
         clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,
-            Tags.of(clientVersionTag, UserAgentTagUtil.getPlatformTag(requestInfo.userAgent()))).increment());
+            Tags.of(clientVersionTag, clientPlatformTag)).increment());
+
+    meterRegistry.counter(REQUESTS_BY_AUTHENTICATION_COUNTER_NAME, Tags.of(
+                TRAFFIC_SOURCE_TAG, TrafficSource.HTTP.name().toLowerCase(),
+                PATH_TAG, requestInfo.path(),
+                METHOD_TAG, requestInfo.method(),
+                "authenticated", String.valueOf(request.getHeader(HttpHeaders.AUTHORIZATION) != null))
+            .and(clientPlatformTag))
+        .increment();
   }
 
   @Override

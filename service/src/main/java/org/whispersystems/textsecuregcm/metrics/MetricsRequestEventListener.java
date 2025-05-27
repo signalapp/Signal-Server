@@ -17,6 +17,8 @@ import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
+import org.whispersystems.websocket.ReusableAuth;
+import org.whispersystems.websocket.WebSocketResourceProvider;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -32,6 +34,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
 
   public static final String REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "request");
   public static final String REQUESTS_BY_VERSION_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "requestByVersion");
+  public static final String REQUESTS_BY_AUTHENTICATION_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "requestByAuthentication");
 
   @VisibleForTesting
   static final String PATH_TAG = "path";
@@ -78,17 +81,31 @@ public class MetricsRequestEventListener implements RequestEventListener {
         @Nullable final String userAgent;
         {
           final List<String> userAgentValues = event.getContainerRequest().getRequestHeader(HttpHeaders.USER_AGENT);
-          userAgent = userAgentValues != null && !userAgentValues.isEmpty() ? userAgentValues.get(0) : null;
+          userAgent = userAgentValues != null && !userAgentValues.isEmpty() ? userAgentValues.getFirst() : null;
         }
 
         tags.addAll(UserAgentTagUtil.getLibsignalAndPlatformTags(userAgent));
 
         meterRegistry.counter(REQUEST_COUNTER_NAME, tags).increment();
 
+        final Tag clientPlatformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+
         UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager)
             .ifPresent(clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,
-                    Tags.of(clientVersionTag, UserAgentTagUtil.getPlatformTag(userAgent)))
+                    Tags.of(clientVersionTag, clientPlatformTag))
                 .increment());
+
+        final boolean authenticated =
+            event.getContainerRequest().getProperty(WebSocketResourceProvider.REUSABLE_AUTH_PROPERTY) instanceof ReusableAuth<?> reusableAuth &&
+                reusableAuth.ref().isPresent();
+
+        meterRegistry.counter(REQUESTS_BY_AUTHENTICATION_COUNTER_NAME, Tags.of(
+                TRAFFIC_SOURCE_TAG, trafficSource.name().toLowerCase(),
+                PATH_TAG, UriInfoUtil.getPathTemplate(event.getUriInfo()),
+                METHOD_TAG, event.getContainerRequest().getMethod(),
+                "authenticated", String.valueOf(authenticated))
+            .and(clientPlatformTag))
+            .increment();
       }
     }
   }

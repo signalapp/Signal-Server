@@ -9,6 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyIterable;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -70,6 +72,8 @@ class MetricsRequestEventListenerTest {
   void setup() {
     meterRegistry = mock(MeterRegistry.class);
     counter = mock(Counter.class);
+
+    when(meterRegistry.counter(anyString(), anyIterable())).thenReturn(mock(Counter.class));
 
     final ClientReleaseManager clientReleaseManager = mock(ClientReleaseManager.class);
     when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(false);

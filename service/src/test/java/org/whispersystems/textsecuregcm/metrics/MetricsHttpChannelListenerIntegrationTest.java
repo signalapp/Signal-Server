@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -89,6 +89,12 @@ class MetricsHttpChannelListenerIntegrationTest {
   private static final DropwizardAppExtension<Configuration> EXTENSION = new DropwizardAppExtension<>(
       MetricsHttpChannelListenerIntegrationTest.TestApplication.class);
 
+  @BeforeEach
+  void setUpBefore() {
+    when(METER_REGISTRY.counter(anyString(), anyIterable())).thenReturn(mock(Counter.class));
+    when(METER_REGISTRY.counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), anyIterable())).thenReturn(COUNTER);
+  }
+
   @AfterEach
   void teardown() {
     reset(METER_REGISTRY);
@@ -104,14 +110,7 @@ class MetricsHttpChannelListenerIntegrationTest {
     final CountDownLatch countDownLatch = new CountDownLatch(1);
     COUNT_DOWN_LATCH_FUTURE_REFERENCE.set(countDownLatch);
 
-    final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
-    when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
-        .thenAnswer(a -> MetricsHttpChannelListener.REQUEST_COUNTER_NAME.equals(a.getArgument(0, String.class))
-            ? COUNTER
-            : mock(Counter.class))
-        .thenReturn(COUNTER);
-
-    Client client = EXTENSION.client();
+    final Client client = EXTENSION.client();
 
     final Supplier<String> request = () -> client.target(
             String.format("http://localhost:%d%s", EXTENSION.getLocalPort(), requestPath))
@@ -140,6 +139,7 @@ class MetricsHttpChannelListenerIntegrationTest {
 
     assertTrue(countDownLatch.await(1000, TimeUnit.MILLISECONDS));
 
+    @SuppressWarnings("unchecked") final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
     verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
     verify(COUNTER).increment();
 
@@ -185,13 +185,6 @@ class MetricsHttpChannelListenerIntegrationTest {
       final CountDownLatch countDownLatch = new CountDownLatch(1);
       COUNT_DOWN_LATCH_FUTURE_REFERENCE.set(countDownLatch);
 
-      final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
-      when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
-          .thenAnswer(a -> MetricsHttpChannelListener.REQUEST_COUNTER_NAME.equals(a.getArgument(0, String.class))
-              ? COUNTER
-              : mock(Counter.class))
-          .thenReturn(COUNTER);
-
       client.connect(new WebSocketListener() {
                        @Override
                        public void onWebSocketConnect(final Session session) {
@@ -202,6 +195,7 @@ class MetricsHttpChannelListenerIntegrationTest {
 
       assertTrue(countDownLatch.await(1000, TimeUnit.MILLISECONDS));
 
+      @SuppressWarnings("unchecked") final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
       verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
       verify(COUNTER).increment();
 
@@ -306,7 +300,7 @@ class MetricsHttpChannelListenerIntegrationTest {
     @Override
     public void beanAdded(final Container parent, final Object child) {
       if (child instanceof Connector connector) {
-          connector.addBean(this);
+        connector.addBean(this);
       }
     }
 
@@ -331,7 +325,7 @@ class MetricsHttpChannelListenerIntegrationTest {
 
     @GET
     @Path("/greet/{name}")
-    public String testGreetByName(@PathParam("name") String name, @Context ContainerRequestContext context) {
+    public String testGreetByName(@PathParam("name") String name, @Context ContainerRequestContext ignored) {
 
       if ("exception".equals(name)) {
         throw new InternalServerErrorException();
