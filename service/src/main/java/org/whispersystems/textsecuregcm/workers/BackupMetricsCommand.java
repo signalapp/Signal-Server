@@ -11,7 +11,6 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
-import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
@@ -64,43 +63,17 @@ public class BackupMetricsCommand extends AbstractCommandWithDependencies {
         segments,
         Runtime.getRuntime().availableProcessors());
 
-    final DistributionSummary numObjectsMediaTier = Metrics.summary(name(getClass(), "numObjects"),
-        "tier", BackupLevel.PAID.name());
-    final DistributionSummary bytesUsedMediaTier = Metrics.summary(name(getClass(), "bytesUsed"),
-        "tier", BackupLevel.PAID.name());
-    final DistributionSummary numObjectsMessagesTier = Metrics.summary(name(getClass(), "numObjects"),
-        "tier", BackupLevel.FREE.name());
-    final DistributionSummary bytesUsedMessagesTier = Metrics.summary(name(getClass(), "bytesUsed"),
-        "tier", BackupLevel.FREE.name());
-
     final DistributionSummary timeSinceLastRefresh = Metrics.summary(name(getClass(),
         "timeSinceLastRefresh"));
     final DistributionSummary timeSinceLastMediaRefresh = Metrics.summary(name(getClass(),
         "timeSinceLastMediaRefresh"));
-    final String backupsCounterName = name(getClass(), "backups");
 
     final BackupManager backupManager = commandDependencies.backupManager();
     final Long backupsExpired = backupManager
         .listBackupAttributes(segments, Schedulers.parallel())
         .doOnNext(backupMetadata -> {
-          final boolean subscribed = backupMetadata.lastMediaRefresh().equals(backupMetadata.lastRefresh());
-          if (subscribed) {
-            numObjectsMediaTier.record(backupMetadata.numObjects());
-            bytesUsedMediaTier.record(backupMetadata.bytesUsed());
-          } else {
-            numObjectsMessagesTier.record(backupMetadata.numObjects());
-            bytesUsedMessagesTier.record(backupMetadata.bytesUsed());
-          }
           timeSinceLastRefresh.record(timeSince(backupMetadata.lastRefresh()).getSeconds());
           timeSinceLastMediaRefresh.record(timeSince(backupMetadata.lastMediaRefresh()).getSeconds());
-
-          // Report that the backup is out of quota if it cannot store a max size media object
-          final boolean quotaExhausted = backupMetadata.bytesUsed() >=
-              (BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - BackupManager.MAX_MEDIA_OBJECT_SIZE);
-
-          Metrics.counter(backupsCounterName,
-              "subscribed", String.valueOf(subscribed),
-              "quotaExhausted", String.valueOf(quotaExhausted)).increment();
         })
         .count()
         .block();

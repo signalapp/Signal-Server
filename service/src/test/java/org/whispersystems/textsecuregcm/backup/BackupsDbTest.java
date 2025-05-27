@@ -10,12 +10,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.assertj.core.util.Streams;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -89,13 +93,13 @@ public class BackupsDbTest {
   @Test
   public void expirationDetectedOnce() {
     final byte[] backupId = TestRandomUtil.nextBytes(16);
-    // Refresh media/messages at t=0
-    testClock.pin(Instant.ofEpochSecond(0L));
+    // Refresh media/messages at t=0D
+    testClock.pin(days(0));
     backupsDb.setPublicKey(backupId, BackupLevel.PAID, Curve.generateKeyPair().getPublicKey()).join();
     this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)).join();
 
-    // refresh only messages at t=2
-    testClock.pin(Instant.ofEpochSecond(2L));
+    // refresh only messages on t=2D
+    testClock.pin(days(2).plus(Duration.ofSeconds(123)));
     this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.FREE)).join();
 
     final Function<Instant, List<ExpiredBackup>> expiredBackups = purgeTime -> backupsDb
@@ -103,7 +107,8 @@ public class BackupsDbTest {
         .collectList()
         .block();
 
-    List<ExpiredBackup> expired = expiredBackups.apply(Instant.ofEpochSecond(1));
+    // the media should be expired at t=1D
+    List<ExpiredBackup> expired = expiredBackups.apply(days(1));
     assertThat(expired).hasSize(1).first()
         .matches(eb -> eb.expirationType() == ExpiredBackup.ExpirationType.MEDIA);
 
@@ -111,11 +116,11 @@ public class BackupsDbTest {
     backupsDb.startExpiration(expired.getFirst()).join();
     backupsDb.finishExpiration(expired.getFirst()).join();
 
-    // should be nothing to expire at t=1
-    assertThat(expiredBackups.apply(Instant.ofEpochSecond(1))).isEmpty();
+    // should be nothing left to expire at t=1D
+    assertThat(expiredBackups.apply(days(1))).isEmpty();
 
-    // at t=3, should now expire messages as well
-    expired = expiredBackups.apply(Instant.ofEpochSecond(3));
+    // at t=3D, should now expire messages as well
+    expired = expiredBackups.apply(days(3));
     assertThat(expired).hasSize(1).first()
         .matches(eb -> eb.expirationType() == ExpiredBackup.ExpirationType.ALL);
 
@@ -124,21 +129,21 @@ public class BackupsDbTest {
     backupsDb.finishExpiration(expired.getFirst()).join();
 
     // should be nothing to expire at t=3
-    assertThat(expiredBackups.apply(Instant.ofEpochSecond(3))).isEmpty();
+    assertThat(expiredBackups.apply(days(3))).isEmpty();
   }
 
   @ParameterizedTest
   @EnumSource(names = {"MEDIA", "ALL"})
   public void expirationFailed(ExpiredBackup.ExpirationType expirationType) {
     final byte[] backupId = TestRandomUtil.nextBytes(16);
-    // Refresh media/messages at t=0
-    testClock.pin(Instant.ofEpochSecond(0L));
+    // Refresh media/messages at t=0D
+    testClock.pin(days(0));
     backupsDb.setPublicKey(backupId, BackupLevel.PAID, Curve.generateKeyPair().getPublicKey()).join();
     this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)).join();
 
     if (expirationType == ExpiredBackup.ExpirationType.MEDIA) {
-      // refresh only messages at t=2 so that we only expire media at t=1
-      testClock.pin(Instant.ofEpochSecond(2L));
+      // refresh only messages at t=2D so that we only expire media at t=1D
+      testClock.pin(days(2));
       this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.FREE)).join();
     }
 
@@ -155,7 +160,7 @@ public class BackupsDbTest {
     final String originalBackupDir = info.backupDir();
     final String originalMediaDir = info.mediaDir();
 
-    ExpiredBackup expired = expiredBackups.apply(Instant.ofEpochSecond(1)).get();
+    ExpiredBackup expired = expiredBackups.apply(days(1)).get();
     assertThat(expired).matches(eb -> eb.expirationType() == expirationType);
 
     // expire but fail (don't call finishExpiration)
@@ -179,7 +184,7 @@ public class BackupsDbTest {
     final String expiredPrefix = expired.prefixToDelete();
 
     // We failed, so we should see the same prefix on the next expiration listing
-    expired = expiredBackups.apply(Instant.ofEpochSecond(1)).get();
+    expired = expiredBackups.apply(days(1)).get();
     assertThat(expired).matches(eb -> eb.expirationType() == ExpiredBackup.ExpirationType.GARBAGE_COLLECTION,
         "Expiration should be garbage collection ");
     assertThat(expired.prefixToDelete()).isEqualTo(expiredPrefix);
@@ -188,7 +193,7 @@ public class BackupsDbTest {
     // Successfully finish the expiration
     backupsDb.finishExpiration(expired).join();
 
-    Optional<ExpiredBackup> opt = expiredBackups.apply(Instant.ofEpochSecond(1));
+    Optional<ExpiredBackup> opt = expiredBackups.apply(days(1));
     if (expirationType == ExpiredBackup.ExpirationType.MEDIA) {
       // should be nothing to expire at t=1
       assertThat(opt).isEmpty();
@@ -212,19 +217,24 @@ public class BackupsDbTest {
 
   @Test
   public void list() {
-    final AuthenticatedBackupUser u1 = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.FREE);
-    final AuthenticatedBackupUser u2 = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
-    final AuthenticatedBackupUser u3 = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
+    final List<AuthenticatedBackupUser> users = List.of(
+        backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.FREE),
+        backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID),
+        backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID));
+
+    final List<Instant> lastRefreshTimes = List.of(
+        days(1).plus(Duration.ofSeconds(12)),
+        days(2).plus(Duration.ofSeconds(34)),
+        days(3).plus(Duration.ofSeconds(56)));
 
     // add at least one message backup, so we can describe it
-    testClock.pin(Instant.ofEpochSecond(10));
-    Stream.of(u1, u2, u3).forEach(u -> backupsDb.addMessageBackup(u).join());
+    for (int i = 0; i < users.size(); i++) {
+      testClock.pin(lastRefreshTimes.get(i));
+      backupsDb.addMessageBackup(users.get(i)).join();
+    }
 
-    testClock.pin(Instant.ofEpochSecond(20));
-    backupsDb.trackMedia(u2, 10, 100).join();
-
-    testClock.pin(Instant.ofEpochSecond(30));
-    backupsDb.trackMedia(u3, 1, 1000).join();
+    backupsDb.trackMedia(users.get(1), 10, 100).join();
+    backupsDb.trackMedia(users.get(2), 1, 1000).join();
 
     final List<StoredBackupAttributes> sbms = backupsDb.listBackupAttributes(1, Schedulers.immediate())
         .sort(Comparator.comparing(StoredBackupAttributes::lastRefresh))
@@ -234,22 +244,28 @@ public class BackupsDbTest {
     final StoredBackupAttributes sbm1 = sbms.get(0);
     assertThat(sbm1.bytesUsed()).isEqualTo(0);
     assertThat(sbm1.numObjects()).isEqualTo(0);
-    assertThat(sbm1.lastRefresh()).isEqualTo(Instant.ofEpochSecond(10));
+    assertThat(sbm1.lastRefresh()).isEqualTo(lastRefreshTimes.get(0).truncatedTo(ChronoUnit.DAYS));
     assertThat(sbm1.lastMediaRefresh()).isEqualTo(Instant.EPOCH);
 
 
     final StoredBackupAttributes sbm2 = sbms.get(1);
     assertThat(sbm2.bytesUsed()).isEqualTo(100);
     assertThat(sbm2.numObjects()).isEqualTo(10);
-    assertThat(sbm2.lastRefresh()).isEqualTo(sbm2.lastMediaRefresh()).isEqualTo(Instant.ofEpochSecond(20));
+    assertThat(sbm2.lastRefresh()).isEqualTo(lastRefreshTimes.get(1).truncatedTo(ChronoUnit.DAYS));
+    assertThat(sbm2.lastMediaRefresh()).isEqualTo(lastRefreshTimes.get(1).truncatedTo(ChronoUnit.DAYS));
 
     final StoredBackupAttributes sbm3 = sbms.get(2);
     assertThat(sbm3.bytesUsed()).isEqualTo(1000);
     assertThat(sbm3.numObjects()).isEqualTo(1);
-    assertThat(sbm3.lastRefresh()).isEqualTo(sbm3.lastMediaRefresh()).isEqualTo(Instant.ofEpochSecond(30));
+    assertThat(sbm3.lastRefresh()).isEqualTo(lastRefreshTimes.get(2).truncatedTo(ChronoUnit.DAYS));
+    assertThat(sbm3.lastMediaRefresh()).isEqualTo(lastRefreshTimes.get(2).truncatedTo(ChronoUnit.DAYS));
+  }
+
+  private static Instant days(int n) {
+    return Instant.EPOCH.plus(Duration.ofDays(n));
   }
 
   private AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupCredentialType credentialType, final BackupLevel backupLevel) {
-    return new AuthenticatedBackupUser(backupId, credentialType, backupLevel, "myBackupDir", "myMediaDir");
+    return new AuthenticatedBackupUser(backupId, credentialType, backupLevel, "myBackupDir", "myMediaDir", null);
   }
 }

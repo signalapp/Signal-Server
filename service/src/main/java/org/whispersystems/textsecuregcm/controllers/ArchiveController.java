@@ -5,8 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JsonParser;
@@ -17,9 +15,6 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -348,6 +343,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<ReadAuthResponse> readAuth(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -361,7 +357,7 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
+    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
         .thenApply(user -> backupManager.generateReadAuth(user, cdn))
         .thenApply(ReadAuthResponse::new);
   }
@@ -399,6 +395,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<BackupInfoResponse> backupInfo(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -411,7 +408,7 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
 
-    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
+    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
         .thenCompose(backupManager::backupInfo)
         .thenApply(backupInfo -> new BackupInfoResponse(
             backupInfo.cdn(),
@@ -454,6 +451,9 @@ public class ArchiveController {
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
 
       @Valid @NotNull SetPublicKeyRequest setPublicKeyRequest) {
+    if (account.isPresent()) {
+      throw new BadRequestException("must not use authenticated connection for anonymous operations");
+    }
     return backupManager
         .setPublicKey(presentation.presentation, signature.signature, setPublicKeyRequest.backupIdPublicKey)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
@@ -481,6 +481,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<UploadDescriptorResponse> backup(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -492,7 +493,7 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
+    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
         .thenCompose(backupManager::createMessageBackupUploadDescriptor)
         .thenApply(result -> new UploadDescriptorResponse(
             result.cdn(),
@@ -517,6 +518,8 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<UploadDescriptorResponse> uploadTemporaryAttachment(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
+
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -528,7 +531,7 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature)
+    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
         .thenCompose(backupManager::createTemporaryAttachmentUploadDescriptor)
         .thenApply(result -> new UploadDescriptorResponse(
             result.cdn(),
@@ -620,7 +623,7 @@ public class ArchiveController {
     }
 
     return Mono
-        .fromFuture(backupManager.authenticateBackupUser(presentation.presentation, signature.signature))
+        .fromFuture(backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent))
         .flatMap(backupUser -> backupManager.copyToBackup(backupUser, List.of(copyMediaRequest.toCopyParameters()))
             .next()
             .doOnNext(result -> backupMetrics.updateCopyCounter(result, UserAgentTagUtil.getPlatformTag(userAgent)))
@@ -719,7 +722,7 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
     final Stream<CopyParameters> copyParams = copyMediaRequest.items().stream().map(CopyMediaRequest::toCopyParameters);
-    return Mono.fromFuture(backupManager.authenticateBackupUser(presentation.presentation, signature.signature))
+    return Mono.fromFuture(backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent))
         .flatMapMany(backupUser -> backupManager.copyToBackup(backupUser, copyParams.toList()))
         .doOnNext(result -> backupMetrics.updateCopyCounter(result, UserAgentTagUtil.getPlatformTag(userAgent)))
         .map(CopyMediaBatchResponse.Entry::fromCopyResult)
@@ -741,6 +744,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<Response> refresh(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -753,7 +757,7 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
     return backupManager
-        .authenticateBackupUser(presentation.presentation, signature.signature)
+        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
         .thenCompose(backupManager::ttlRefresh)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
@@ -807,6 +811,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<ListResponse> listMedia(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -825,7 +830,7 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
     return backupManager
-        .authenticateBackupUser(presentation.presentation, signature.signature)
+        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
         .thenCompose(backupUser -> backupManager.list(backupUser, cursor, limit.orElse(1000))
             .thenApply(result -> new ListResponse(
                 result.media()
@@ -862,6 +867,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<Response> deleteMedia(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -881,7 +887,7 @@ public class ArchiveController {
         .toList();
 
     return backupManager
-        .authenticateBackupUser(presentation.presentation, signature.signature)
+        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
         .thenCompose(authenticatedBackupUser -> backupManager
             .deleteMedia(authenticatedBackupUser, toDelete)
             .then().toFuture())
@@ -898,6 +904,7 @@ public class ArchiveController {
   @ApiResponseZkAuth
   public CompletionStage<Response> deleteBackup(
       @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -910,7 +917,7 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
     return backupManager
-        .authenticateBackupUser(presentation.presentation, signature.signature)
+        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
         .thenCompose(backupManager::deleteEntireBackup)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }

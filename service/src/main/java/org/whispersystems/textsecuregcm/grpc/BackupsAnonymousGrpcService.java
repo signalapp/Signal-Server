@@ -206,7 +206,8 @@ public class BackupsAnonymousGrpcService extends ReactorBackupsAnonymousGrpc.Bac
     try {
       return backupManager.authenticateBackupUser(
           new BackupAuthCredentialPresentation(signedPresentation.getPresentation().toByteArray()),
-          signedPresentation.getPresentationSignature().toByteArray());
+          signedPresentation.getPresentationSignature().toByteArray(),
+          RequestAttributesUtil.getUserAgent().orElse(null));
     } catch (InvalidInputException e) {
       throw Status.UNAUTHENTICATED.withDescription("Could not deserialize presentation").asRuntimeException();
     }

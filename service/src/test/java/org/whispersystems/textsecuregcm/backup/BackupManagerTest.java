@@ -30,6 +30,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -261,7 +262,7 @@ public class BackupManagerTest {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MESSAGES, backupLevel);
 
     final Instant tstart = Instant.ofEpochSecond(1).plus(Duration.ofDays(1));
-    final Instant tnext = tstart.plus(Duration.ofSeconds(1));
+    final Instant tnext = tstart.plus(Duration.ofDays(1));
 
     // create backup at t=tstart
     testClock.pin(tstart);
@@ -272,8 +273,8 @@ public class BackupManagerTest {
     backupManager.ttlRefresh(backupUser).join();
 
     checkExpectedExpirations(
-        tnext,
-        backupLevel == BackupLevel.PAID ? tnext : null,
+        tnext.truncatedTo(ChronoUnit.DAYS),
+        backupLevel == BackupLevel.PAID ? tnext.truncatedTo(ChronoUnit.DAYS) : null,
         backupUser);
   }
 
@@ -281,7 +282,7 @@ public class BackupManagerTest {
   @EnumSource
   public void createBackupRefreshesTtl(final BackupLevel backupLevel) {
     final Instant tstart = Instant.ofEpochSecond(1).plus(Duration.ofDays(1));
-    final Instant tnext = tstart.plus(Duration.ofSeconds(1));
+    final Instant tnext = tstart.plus(Duration.ofDays(1));
 
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MESSAGES, backupLevel);
 
@@ -294,8 +295,8 @@ public class BackupManagerTest {
     backupManager.createMessageBackupUploadDescriptor(backupUser).join();
 
     checkExpectedExpirations(
-        tnext,
-        backupLevel == BackupLevel.PAID ? tnext : null,
+        tnext.truncatedTo(ChronoUnit.DAYS),
+        backupLevel == BackupLevel.PAID ? tnext.truncatedTo(ChronoUnit.DAYS) : null,
         backupUser);
   }
 
@@ -311,7 +312,8 @@ public class BackupManagerTest {
     assertThatExceptionOfType(StatusRuntimeException.class)
         .isThrownBy(() -> backupManager.authenticateBackupUser(
             invalidPresentation,
-            keyPair.getPrivateKey().calculateSignature(invalidPresentation.serialize())))
+            keyPair.getPrivateKey().calculateSignature(invalidPresentation.serialize()),
+            null))
         .extracting(StatusRuntimeException::getStatus)
         .extracting(Status::getCode)
         .isEqualTo(Status.UNAUTHENTICATED.getCode());
@@ -335,7 +337,8 @@ public class BackupManagerTest {
     assertThatExceptionOfType(StatusRuntimeException.class)
         .isThrownBy(() -> backupManager.authenticateBackupUser(
             invalidPresentation,
-            keyPair.getPrivateKey().calculateSignature(invalidPresentation.serialize())))
+            keyPair.getPrivateKey().calculateSignature(invalidPresentation.serialize()),
+            null))
         .extracting(StatusRuntimeException::getStatus)
         .extracting(Status::getCode)
         .isEqualTo(Status.UNAUTHENTICATED.getCode());
@@ -352,7 +355,7 @@ public class BackupManagerTest {
     // haven't set a public key yet
     assertThat(CompletableFutureTestUtil.assertFailsWithCause(
             StatusRuntimeException.class,
-            backupManager.authenticateBackupUser(presentation, signature))
+            backupManager.authenticateBackupUser(presentation, signature, null))
         .getStatus().getCode())
         .isEqualTo(Status.UNAUTHENTICATED.getCode());
   }
@@ -403,12 +406,12 @@ public class BackupManagerTest {
     // shouldn't be able to authenticate with an invalid signature
     assertThat(CompletableFutureTestUtil.assertFailsWithCause(
             StatusRuntimeException.class,
-            backupManager.authenticateBackupUser(presentation, wrongSignature))
+            backupManager.authenticateBackupUser(presentation, wrongSignature, null))
         .getStatus().getCode())
         .isEqualTo(Status.UNAUTHENTICATED.getCode());
 
     // correct signature
-    final AuthenticatedBackupUser user = backupManager.authenticateBackupUser(presentation, signature).join();
+    final AuthenticatedBackupUser user = backupManager.authenticateBackupUser(presentation, signature, null).join();
     assertThat(user.backupId()).isEqualTo(presentation.getBackupId());
     assertThat(user.backupLevel()).isEqualTo(BackupLevel.FREE);
   }
@@ -426,16 +429,16 @@ public class BackupManagerTest {
 
     // should be accepted the day before to forgive clock skew
     testClock.pin(Instant.ofEpochSecond(1));
-    assertThatNoException().isThrownBy(() -> backupManager.authenticateBackupUser(oldCredential, signature).join());
+    assertThatNoException().isThrownBy(() -> backupManager.authenticateBackupUser(oldCredential, signature, null).join());
 
     // should be accepted the day after to forgive clock skew
     testClock.pin(Instant.ofEpochSecond(1).plus(Duration.ofDays(2)));
-    assertThatNoException().isThrownBy(() -> backupManager.authenticateBackupUser(oldCredential, signature).join());
+    assertThatNoException().isThrownBy(() -> backupManager.authenticateBackupUser(oldCredential, signature, null).join());
 
     // should be rejected the day after that
     testClock.pin(Instant.ofEpochSecond(1).plus(Duration.ofDays(3)));
     assertThatExceptionOfType(StatusRuntimeException.class)
-        .isThrownBy(() -> backupManager.authenticateBackupUser(oldCredential, signature))
+        .isThrownBy(() -> backupManager.authenticateBackupUser(oldCredential, signature, null))
         .extracting(StatusRuntimeException::getStatus)
         .extracting(Status::getCode)
         .isEqualTo(Status.UNAUTHENTICATED.getCode());
@@ -856,7 +859,7 @@ public class BackupManagerTest {
         .mapToObj(i -> backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MESSAGES, BackupLevel.PAID))
         .toList();
     for (int i = 0; i < backupUsers.size(); i++) {
-      testClock.pin(Instant.ofEpochSecond(i));
+      testClock.pin(days(i));
       backupManager.createMessageBackupUploadDescriptor(backupUsers.get(i)).join();
     }
 
@@ -864,11 +867,12 @@ public class BackupManagerTest {
     final Set<ByteBuffer> expectedHashes = new HashSet<>();
 
     for (int i = 0; i < backupUsers.size(); i++) {
-      testClock.pin(Instant.ofEpochSecond(i));
+      final Instant day = days(i);
+      testClock.pin(day);
 
       // get backups expired at t=i
       final List<ExpiredBackup> expired = backupManager
-          .getExpiredBackups(1, Schedulers.immediate(), Instant.ofEpochSecond(i))
+          .getExpiredBackups(1, Schedulers.immediate(), day)
           .collectList()
           .block();
 
@@ -890,24 +894,24 @@ public class BackupManagerTest {
     final byte[] backupId = TestRandomUtil.nextBytes(16);
 
     // refreshed media timestamp at t=5
-    testClock.pin(Instant.ofEpochSecond(5));
+    testClock.pin(days(5));
     backupManager.createMessageBackupUploadDescriptor(backupUser(backupId, BackupCredentialType.MESSAGES, BackupLevel.PAID)).join();
 
     // refreshed messages timestamp at t=6
-    testClock.pin(Instant.ofEpochSecond(6));
+    testClock.pin(days(6));
     backupManager.createMessageBackupUploadDescriptor(backupUser(backupId, BackupCredentialType.MESSAGES, BackupLevel.FREE)).join();
 
     Function<Instant, List<ExpiredBackup>> getExpired = time -> backupManager
         .getExpiredBackups(1, Schedulers.immediate(), time)
         .collectList().block();
 
-    assertThat(getExpired.apply(Instant.ofEpochSecond(5))).isEmpty();
+    assertThat(getExpired.apply(days(5))).isEmpty();
 
-    assertThat(getExpired.apply(Instant.ofEpochSecond(6)))
+    assertThat(getExpired.apply(days(6)))
         .hasSize(1).first()
         .matches(eb -> eb.expirationType() == ExpiredBackup.ExpirationType.MEDIA, "is media tier");
 
-    assertThat(getExpired.apply(Instant.ofEpochSecond(7)))
+    assertThat(getExpired.apply(days(7)))
         .hasSize(1).first()
         .matches(eb -> eb.expirationType() == ExpiredBackup.ExpirationType.ALL, "is messages tier");
   }
@@ -1075,6 +1079,10 @@ public class BackupManagerTest {
    */
   private AuthenticatedBackupUser retrieveBackupUser(final byte[] backupId, final BackupCredentialType credentialType, final BackupLevel backupLevel) {
     final BackupsDb.AuthenticationData authData = backupsDb.retrieveAuthenticationData(backupId).join().get();
-    return new AuthenticatedBackupUser(backupId, credentialType, backupLevel, authData.backupDir(), authData.mediaDir());
+    return new AuthenticatedBackupUser(backupId, credentialType, backupLevel, authData.backupDir(), authData.mediaDir(), null);
+  }
+
+  private static Instant days(int n) {
+    return Instant.EPOCH.plus(Duration.ofDays(n));
   }
 }

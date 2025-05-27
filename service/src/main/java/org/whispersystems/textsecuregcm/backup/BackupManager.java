@@ -10,6 +10,8 @@ import io.dropwizard.util.DataSize;
 import io.grpc.Status;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -36,9 +38,13 @@ import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgent;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -316,7 +322,9 @@ public class BackupManager {
                   .thenApply(ignored -> usage))
               .whenComplete((newUsage, throwable) -> {
                 boolean usageChanged = throwable == null && !newUsage.equals(info.usageInfo());
-                Metrics.counter(USAGE_RECALCULATION_COUNTER_NAME, "usageChanged", String.valueOf(usageChanged))
+                Metrics.counter(USAGE_RECALCULATION_COUNTER_NAME, Tags.of(
+                    UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
+                    Tag.of("usageChanged", String.valueOf(usageChanged))))
                     .increment();
               })
               .thenApply(newUsage -> MAX_TOTAL_BACKUP_MEDIA_BYTES - newUsage.bytesUsed());
@@ -520,7 +528,8 @@ public class BackupManager {
    */
   public CompletableFuture<AuthenticatedBackupUser> authenticateBackupUser(
       final BackupAuthCredentialPresentation presentation,
-      final byte[] signature) {
+      final byte[] signature,
+      final String userAgentString) {
     final PresentationSignatureVerifier signatureVerifier = verifyPresentation(presentation);
     return backupsDb
         .retrieveAuthenticationData(presentation.getBackupId())
@@ -538,12 +547,20 @@ public class BackupManager {
           final Pair<BackupCredentialType, BackupLevel> credentialTypeAndBackupLevel =
               signatureVerifier.verifySignature(signature, authenticationData.publicKey());
 
+          UserAgent userAgent;
+          try {
+            userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
+          } catch (UnrecognizedUserAgentException e) {
+            userAgent = null;
+          }
+
           return new AuthenticatedBackupUser(
               presentation.getBackupId(),
               credentialTypeAndBackupLevel.first(),
               credentialTypeAndBackupLevel.second(),
               authenticationData.backupDir(),
-              authenticationData.mediaDir());
+              authenticationData.mediaDir(),
+              userAgent);
         })
         .thenApply(result -> {
           Metrics.counter(ZK_AUTHN_COUNTER_NAME, SUCCESS_TAG_NAME, String.valueOf(true)).increment();
@@ -673,8 +690,9 @@ public class BackupManager {
   @VisibleForTesting
   static void checkBackupLevel(final AuthenticatedBackupUser backupUser, final BackupLevel backupLevel) {
     if (backupUser.backupLevel().compareTo(backupLevel) < 0) {
-      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME,
-              FAILURE_REASON_TAG_NAME, "level")
+      Metrics.counter(ZK_AUTHZ_FAILURE_COUNTER_NAME, Tags.of(
+              UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
+              Tag.of(FAILURE_REASON_TAG_NAME, "level")))
           .increment();
 
       throw Status.PERMISSION_DENIED

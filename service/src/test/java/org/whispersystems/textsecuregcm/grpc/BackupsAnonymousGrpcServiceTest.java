@@ -80,7 +80,7 @@ class BackupsAnonymousGrpcServiceTest extends
 
   @BeforeEach
   void setup() {
-    when(backupManager.authenticateBackupUser(any(), any()))
+    when(backupManager.authenticateBackupUser(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(
             backupUser(presentation.getBackupId(), BackupCredentialType.MESSAGES, BackupLevel.PAID)));
   }
@@ -308,7 +308,7 @@ class BackupsAnonymousGrpcServiceTest extends
 
   private static AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupCredentialType credentialType,
       final BackupLevel backupLevel) {
-    return new AuthenticatedBackupUser(backupId, credentialType, backupLevel, "myBackupDir", "myMediaDir");
+    return new AuthenticatedBackupUser(backupId, credentialType, backupLevel, "myBackupDir", "myMediaDir", null);
   }
 
   private static BackupAuthCredentialPresentation presentation(BackupAuthTestUtil backupAuthTestUtil,

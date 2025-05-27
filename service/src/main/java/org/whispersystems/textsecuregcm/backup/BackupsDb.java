@@ -11,6 +11,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -21,12 +22,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -38,6 +43,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.Update;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
@@ -78,6 +84,10 @@ public class BackupsDb {
   private final Clock clock;
 
   private final SecureRandom secureRandom;
+
+  private static final String NUM_OBJECTS_SUMMARY_NAME = "numObjects";
+  private static final String BYTES_USED_SUMMARY_NAME = "bytesUsed";
+  private static final String BACKUPS_COUNTER_NAME = "backups";
 
   // The backups table
 
@@ -217,12 +227,10 @@ public class BackupsDb {
    */
   CompletableFuture<Void> trackMedia(final AuthenticatedBackupUser backupUser, final long mediaCountDelta,
       final long mediaBytesDelta) {
-    final Instant now = clock.instant();
     return dynamoClient
         .updateItem(
             // Update the media quota and TTL
             UpdateBuilder.forUser(backupTableName, backupUser)
-                .setRefreshTimes(now)
                 .incrementMediaBytes(mediaBytesDelta)
                 .incrementMediaCount(mediaCountDelta)
                 .updateItemBuilder()
@@ -237,12 +245,15 @@ public class BackupsDb {
    * @param backupUser an already authorized backup user
    */
   CompletableFuture<Void> ttlRefresh(final AuthenticatedBackupUser backupUser) {
+    final Instant today = clock.instant().truncatedTo(ChronoUnit.DAYS);
     // update message backup TTL
     return dynamoClient.updateItem(UpdateBuilder.forUser(backupTableName, backupUser)
-            .setRefreshTimes(clock)
+            .setRefreshTimes(today)
             .updateItemBuilder()
+            .returnValues(ReturnValue.ALL_OLD)
             .build())
-        .thenRun(Util.NOOP);
+        .thenAccept(updateItemResponse ->
+            updateMetricsAfterRefresh(backupUser, today, updateItemResponse.attributes()));
   }
 
   /**
@@ -251,14 +262,40 @@ public class BackupsDb {
    * @param backupUser an already authorized backup user
    */
   CompletableFuture<Void> addMessageBackup(final AuthenticatedBackupUser backupUser) {
+    final Instant today = clock.instant().truncatedTo(ChronoUnit.DAYS);
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
     return dynamoClient.updateItem(
             UpdateBuilder.forUser(backupTableName, backupUser)
-                .setRefreshTimes(clock)
+                .setRefreshTimes(today)
                 .setCdn(BACKUP_CDN)
                 .updateItemBuilder()
+                .returnValues(ReturnValue.ALL_OLD)
                 .build())
-        .thenRun(Util.NOOP);
+        .thenAccept(updateItemResponse ->
+            updateMetricsAfterRefresh(backupUser, today, updateItemResponse.attributes()));
+  }
+
+  private void updateMetricsAfterRefresh(final AuthenticatedBackupUser backupUser, final Instant today, final Map<String, AttributeValue> item) {
+    final Instant previousRefreshTime = Instant.ofEpochSecond(
+        AttributeValues.getLong(item, ATTR_LAST_REFRESH, 0L));
+    // Only publish a metric update once per day
+    if (previousRefreshTime.isBefore(today)) {
+      final long mediaCount = AttributeValues.getLong(item, ATTR_MEDIA_COUNT, 0L);
+      final long bytesUsed = AttributeValues.getLong(item, ATTR_MEDIA_BYTES_USED, 0L);
+      final Tags tags = Tags.of(
+          UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
+          Tag.of("tier", backupUser.backupLevel().name()));
+      Metrics.summary(NUM_OBJECTS_SUMMARY_NAME, tags).record(mediaCount);
+      Metrics.summary(BYTES_USED_SUMMARY_NAME, tags).record(bytesUsed);
+
+      // Report that the backup is out of quota if it cannot store a max size media object
+      final boolean quotaExhausted = bytesUsed >=
+          (BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - BackupManager.MAX_MEDIA_OBJECT_SIZE);
+
+      Metrics.counter(BACKUPS_COUNTER_NAME,
+              tags.and("quotaExhausted", String.valueOf(quotaExhausted)))
+          .increment();
+    }
   }
 
   /**
@@ -707,17 +744,20 @@ public class BackupsDb {
       };
     }
 
+    UpdateBuilder setRefreshTimes(final Clock clock) {
+      return setRefreshTimes(clock.instant().truncatedTo(ChronoUnit.DAYS));
+    }
+
     /**
      * Set the lastRefresh time as part of the update
      * <p>
      * This always updates lastRefreshTime, and updates lastMediaRefreshTime if the backup user has the appropriate
      * level.
      */
-    UpdateBuilder setRefreshTimes(final Clock clock) {
-      return this.setRefreshTimes(clock.instant());
-    }
-
     UpdateBuilder setRefreshTimes(final Instant refreshTime) {
+      if (!refreshTime.truncatedTo(ChronoUnit.DAYS).equals(refreshTime)) {
+        throw new IllegalArgumentException("Refresh time must be day aligned");
+      }
       addSetExpression("#lastRefreshTime = :lastRefreshTime",
           Map.entry("#lastRefreshTime", ATTR_LAST_REFRESH),
           Map.entry(":lastRefreshTime", AttributeValues.n(refreshTime.getEpochSecond())));
