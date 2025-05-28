@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
+import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -335,6 +336,19 @@ public class BackupManager {
               remainingQuota);
           return new QuotaResult(toCopy.subList(0, index), toCopy.subList(index, toCopy.size()));
         });
+  }
+
+  public record RecalculationResult(UsageInfo oldUsage, UsageInfo newUsage) {}
+  public CompletionStage<Optional<RecalculationResult>> recalculateQuota(final StoredBackupAttributes storedBackupAttributes) {
+    if (StringUtils.isBlank(storedBackupAttributes.backupDir()) || StringUtils.isBlank(storedBackupAttributes.mediaDir())) {
+      return CompletableFuture.completedFuture(Optional.empty());
+    }
+    final String cdnPath = cdnMediaDirectory(storedBackupAttributes.backupDir(), storedBackupAttributes.mediaDir());
+    return this.remoteStorageManager.calculateBytesUsed(cdnPath).thenCompose(usage ->
+      backupsDb.setMediaUsage(storedBackupAttributes, usage).thenApply(ignored ->
+          Optional.of(new RecalculationResult(
+              new UsageInfo(storedBackupAttributes.bytesUsed(), storedBackupAttributes.numObjects()),
+              usage))));
   }
 
   /**
@@ -735,8 +749,12 @@ public class BackupManager {
     return "%s/%s".formatted(backupUser.backupDir(), MESSAGE_BACKUP_NAME);
   }
 
+  private static String cdnMediaDirectory(final String backupDir, final String mediaDir) {
+    return "%s/%s/".formatted(backupDir, mediaDir);
+  }
+
   private static String cdnMediaDirectory(final AuthenticatedBackupUser backupUser) {
-    return "%s/%s/".formatted(backupUser.backupDir(), backupUser.mediaDir());
+    return cdnMediaDirectory(backupUser.backupDir(), backupUser.mediaDir());
   }
 
   private static String cdnMediaPath(final AuthenticatedBackupUser backupUser, final byte[] mediaId) {

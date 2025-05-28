@@ -642,6 +642,30 @@ public class BackupManagerTest {
     }
   }
 
+  @Test
+  public void requestRecalculation() {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
+    final String backupMediaPrefix = "%s/%s/".formatted(backupUser.backupDir(), backupUser.mediaDir());
+    final UsageInfo oldUsage = new UsageInfo(1000, 100);
+    final UsageInfo newUsage = new UsageInfo(2000, 200);
+
+    testClock.pin(Instant.ofEpochSecond(123));
+    backupsDb.setMediaUsage(backupUser, oldUsage).join();
+    when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
+        .thenReturn(CompletableFuture.completedFuture(newUsage));
+    final StoredBackupAttributes attrs = backupManager.listBackupAttributes(1, Schedulers.immediate()).single().block();
+
+    testClock.pin(Instant.ofEpochSecond(456));
+    assertThat(backupManager.recalculateQuota(attrs).toCompletableFuture().join())
+        .get()
+        .isEqualTo(new BackupManager.RecalculationResult(oldUsage, newUsage));
+
+    // backupsDb should have the new value
+    final BackupsDb.TimestampedUsageInfo info = backupsDb.getMediaUsage(backupUser).join();
+    assertThat(info.lastRecalculationTime()).isEqualTo(Instant.ofEpochSecond(456));
+    assertThat(info.usageInfo()).isEqualTo(newUsage);
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"", "cursor"})
   public void list(final String cursorVal) {

@@ -402,8 +402,16 @@ public class BackupsDb {
   }
 
   CompletableFuture<Void> setMediaUsage(final AuthenticatedBackupUser backupUser, UsageInfo usageInfo) {
+    return setMediaUsage(UpdateBuilder.forUser(backupTableName, backupUser), usageInfo);
+  }
+
+  CompletableFuture<Void> setMediaUsage(final StoredBackupAttributes backupAttributes, UsageInfo usageInfo) {
+    return setMediaUsage(new UpdateBuilder(backupTableName, BackupLevel.PAID, backupAttributes.hashedBackupId()), usageInfo);
+  }
+
+  private CompletableFuture<Void> setMediaUsage(final UpdateBuilder updateBuilder, UsageInfo usageInfo) {
     return dynamoClient.updateItem(
-            UpdateBuilder.forUser(backupTableName, backupUser)
+            updateBuilder
                 .addSetExpression("#mediaBytesUsed = :mediaBytesUsed",
                     Map.entry("#mediaBytesUsed", ATTR_MEDIA_BYTES_USED),
                     Map.entry(":mediaBytesUsed", AttributeValues.n(usageInfo.bytesUsed())))
@@ -496,13 +504,18 @@ public class BackupsDb {
                     "#refresh", ATTR_LAST_REFRESH,
                     "#mediaRefresh", ATTR_LAST_MEDIA_REFRESH,
                     "#bytesUsed", ATTR_MEDIA_BYTES_USED,
-                    "#numObjects", ATTR_MEDIA_COUNT))
-                .projectionExpression("#backupIdHash, #refresh, #mediaRefresh, #bytesUsed, #numObjects")
+                    "#numObjects", ATTR_MEDIA_COUNT,
+                    "#backupDir", ATTR_BACKUP_DIR,
+                    "#mediaDir", ATTR_MEDIA_DIR))
+                .projectionExpression("#backupIdHash, #refresh, #mediaRefresh, #bytesUsed, #numObjects, #backupDir, #mediaDir")
                 .build())
             .items())
         .sequential()
         .filter(item -> item.containsKey(KEY_BACKUP_ID_HASH))
         .map(item -> new StoredBackupAttributes(
+            AttributeValues.getByteArray(item, KEY_BACKUP_ID_HASH, null),
+            AttributeValues.getString(item, ATTR_BACKUP_DIR, null),
+            AttributeValues.getString(item, ATTR_MEDIA_DIR, null),
             Instant.ofEpochSecond(AttributeValues.getLong(item, ATTR_LAST_REFRESH, 0L)),
             Instant.ofEpochSecond(AttributeValues.getLong(item, ATTR_LAST_MEDIA_REFRESH, 0L)),
             AttributeValues.getLong(item, ATTR_MEDIA_BYTES_USED, 0L),
