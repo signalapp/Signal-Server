@@ -560,6 +560,10 @@ paths:
         upload of a message backup.
       operationId: backup
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
@@ -605,6 +609,10 @@ paths:
       description: Retrieve information about the currently stored backup
       operationId: backupInfo
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
@@ -653,6 +661,10 @@ paths:
         via a POST request. If a backup is not refreshed, after 30 days it may be deleted.
       operationId: refresh
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
@@ -695,6 +707,10 @@ paths:
         Delete all backup metadata, objects, and stored public key. To use backups again, a public key must be resupplied.
       operationId: deleteBackup
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
@@ -806,6 +822,10 @@ paths:
         objects, perform a list operation and remove any unreferenced media objects via DELETE /v1/backups/<mediaId>.
       operationId: listMedia
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
@@ -926,6 +946,10 @@ paths:
       description: Delete media objects stored with this backup-id
       operationId: deleteMedia
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
@@ -1024,6 +1048,10 @@ paths:
         cdn
       operationId: readAuth
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
@@ -1191,6 +1219,10 @@ paths:
         Like the account authenticated version at /attachments, the uploaded object is only temporary.
       operationId: uploadTemporaryAttachment
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-ZK-Auth
         in: header
         description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
