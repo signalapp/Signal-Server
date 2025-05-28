@@ -54,6 +54,8 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
   private static final String OPERATION_TAG_NAME = "op";
   private static final String STATUS_TAG_NAME = "status";
 
+  private static final String OBJECT_REMOVED_ON_DELETE_COUNTER_NAME = MetricsUtil.name(Cdn3RemoteStorageManager.class, "objectRemovedOnDelete");
+
   public Cdn3RemoteStorageManager(
       final ExecutorService httpExecutor,
       final ScheduledExecutorService retryExecutor,
@@ -111,6 +113,10 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
         .build();
     return this.storageManagerHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
         .thenAccept(response -> {
+          Metrics.counter(STORAGE_MANAGER_STATUS_COUNTER_NAME,
+                  OPERATION_TAG_NAME, "copy",
+                  STATUS_TAG_NAME, Integer.toString(response.statusCode()))
+              .increment();
           if (response.statusCode() == Response.Status.NOT_FOUND.getStatusCode()) {
             throw ExceptionUtils.wrap(new SourceObjectNotFoundException());
           } else if (response.statusCode() == Response.Status.CONFLICT.getStatusCode()) {
@@ -259,6 +265,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
   record DeleteResponse(@NotNull long bytesDeleted) {}
 
   public CompletionStage<Long> delete(final String key) {
+    final Timer.Sample sample = Timer.start();
     final HttpRequest request = HttpRequest.newBuilder().DELETE()
         .uri(URI.create(deleteUrl(key)))
         .header(CLIENT_ID_HEADER, clientId)
@@ -271,11 +278,17 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
                   STATUS_TAG_NAME, Integer.toString(response.statusCode()))
               .increment();
           try {
-            return parseDeleteResponse(response);
+            long bytesDeleted = parseDeleteResponse(response);
+            Metrics.counter(OBJECT_REMOVED_ON_DELETE_COUNTER_NAME,
+                    "removed", Boolean.toString(bytesDeleted > 0))
+                .increment();
+            return bytesDeleted;
           } catch (IOException e) {
             throw ExceptionUtils.wrap(e);
           }
-        });
+        })
+        .whenComplete((ignored, ignoredException) ->
+            sample.stop(Metrics.timer(STORAGE_MANAGER_TIMER_NAME, OPERATION_TAG_NAME, "delete")));
   }
 
   private long parseDeleteResponse(final HttpResponse<InputStream> httpDeleteResponse) throws IOException {

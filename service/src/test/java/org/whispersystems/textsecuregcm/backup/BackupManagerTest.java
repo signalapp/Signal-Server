@@ -40,10 +40,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,6 +79,7 @@ import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
@@ -452,6 +459,54 @@ public class BackupManagerTest {
   }
 
   @Test
+  public void copyUsageCheckpoints() throws InterruptedException {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(0, 0)).join();
+
+    final List<String> sourceKeys = IntStream.range(0, 50)
+        .mapToObj(ignore -> RandomStringUtils.insecure().nextAlphanumeric(10))
+        .toList();
+    final List<CopyParameters> toCopy = sourceKeys.stream()
+        .map(source -> new CopyParameters(3, source, 100, COPY_ENCRYPTION_PARAM, TestRandomUtil.nextBytes(15)))
+        .toList();
+
+    final int slowIndex = BackupManager.USAGE_CHECKPOINT_COUNT - 1;
+    final CompletableFuture<Void> slow = new CompletableFuture<>();
+    when(remoteStorageManager.copy(eq(3), anyString(), eq(100), any(), anyString()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+    when(remoteStorageManager.copy(eq(3), eq(sourceKeys.get(slowIndex)), eq(100), any(), anyString()))
+        .thenReturn(slow);
+    final ArrayBlockingQueue<CopyResult> copyResults = new ArrayBlockingQueue<>(100);
+    final CompletableFuture<Void> future = backupManager
+        .copyToBackup(backupUser, toCopy)
+        .doOnNext(copyResults::add).then().toFuture();
+
+    for (int i = 0; i < slowIndex; i++) {
+      assertThat(copyResults.poll(1, TimeUnit.SECONDS)).isNotNull();
+    }
+
+    // Copying can start on the next batch of USAGE_CHECKPOINT_COUNT before the current one is done, so we should see
+    // at least one usage update, and at most 2
+    final UsageInfo usage = backupsDb.getMediaUsage(backupUser).join().usageInfo();
+    final long bytesPerObject = COPY_ENCRYPTION_PARAM.outputSize(100);
+    assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo()).isIn(
+        new UsageInfo(
+            bytesPerObject * BackupManager.USAGE_CHECKPOINT_COUNT,
+            BackupManager.USAGE_CHECKPOINT_COUNT),
+        new UsageInfo(
+            2 * bytesPerObject * BackupManager.USAGE_CHECKPOINT_COUNT,
+            2 * BackupManager.USAGE_CHECKPOINT_COUNT));
+
+    // We should still be waiting since we have a slow delete
+    assertThat(future).isNotDone();
+
+    slow.complete(null);
+    future.join();
+    assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
+        .isEqualTo(new UsageInfo(bytesPerObject * 50, 50));
+  }
+
+  @Test
   public void copyFailure() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
     assertThat(copyError(backupUser, new SourceObjectNotFoundException()).outcome())
@@ -687,6 +742,55 @@ public class BackupManagerTest {
         backupManager.deleteMedia(backupUser, List.of(sd)).then().block())
         .isInstanceOf(StatusRuntimeException.class)
         .matches(e -> ((StatusRuntimeException) e).getStatus().getCode() == Status.INVALID_ARGUMENT.getCode());
+  }
+
+  @Test
+  public void deleteUsageCheckpoints() throws InterruptedException {
+    final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA,
+        BackupLevel.PAID);
+
+    // 100 objects, each 2 bytes large
+    final List<byte[]> mediaIds = IntStream.range(0, 100).mapToObj(ig -> TestRandomUtil.nextBytes(16)).toList();
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(200, 100)).join();
+
+    // One object is slow to delete
+    final CompletableFuture<Long> slowFuture = new CompletableFuture<>();
+    final String slowMediaKey = "%s/%s/%s".formatted(
+        backupUser.backupDir(),
+        backupUser.mediaDir(),
+        BackupManager.encodeMediaIdForCdn(mediaIds.get(BackupManager.USAGE_CHECKPOINT_COUNT + 3)));
+
+    when(remoteStorageManager.delete(anyString())).thenReturn(CompletableFuture.completedFuture(2L));
+    when(remoteStorageManager.delete(slowMediaKey)).thenReturn(slowFuture);
+    when(remoteStorageManager.cdnNumber()).thenReturn(5);
+
+
+    final Flux<BackupManager.StorageDescriptor> flux = backupManager.deleteMedia(backupUser,
+        mediaIds.stream()
+            .map(i -> new BackupManager.StorageDescriptor(5, i))
+            .toList());
+    final ArrayBlockingQueue<BackupManager.StorageDescriptor> sds = new ArrayBlockingQueue<>(100);
+    final CompletableFuture<Void> future = flux.doOnNext(sds::add).then().toFuture();
+    for (int i = 0; i < BackupManager.USAGE_CHECKPOINT_COUNT; i++) {
+      sds.poll(1, TimeUnit.SECONDS);
+    }
+
+    assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
+        .isEqualTo(new UsageInfo(
+            200 - (2 * BackupManager.USAGE_CHECKPOINT_COUNT),
+            100 - BackupManager.USAGE_CHECKPOINT_COUNT));
+    // We should still be waiting since we have a slow delete
+    assertThat(future).isNotDone();
+    // But we should checkpoint the usage periodically
+    assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
+        .isEqualTo(new UsageInfo(
+            200 - (2 * BackupManager.USAGE_CHECKPOINT_COUNT),
+            100 - BackupManager.USAGE_CHECKPOINT_COUNT));
+
+    slowFuture.complete(2L);
+    future.join();
+    assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
+        .isEqualTo(new UsageInfo(0L, 0L));
   }
 
   @Test
