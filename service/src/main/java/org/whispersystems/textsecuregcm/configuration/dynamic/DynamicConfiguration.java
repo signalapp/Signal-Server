@@ -64,7 +64,7 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  Map<ClientPlatform, Semver> minimumRestFreeVersion = Map.of();
+  DynamicRestDeprecationConfiguration restDeprecation = new DynamicRestDeprecationConfiguration(Map.of());
 
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
@@ -112,8 +112,8 @@ public class DynamicConfiguration {
     return svrStatusCodesToIgnoreForAccountDeletion;
   }
 
-  public Map<ClientPlatform, Semver> minimumRestFreeVersion() {
-    return minimumRestFreeVersion;
+  public DynamicRestDeprecationConfiguration restDeprecation() {
+    return restDeprecation;
   }
 
 }
