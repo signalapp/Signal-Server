@@ -5,16 +5,21 @@ import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
-import org.whispersystems.textsecuregcm.storage.Account;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.time.zone.ZoneRules;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.whispersystems.textsecuregcm.storage.Account;
 
 public class SchedulingUtil {
 
@@ -70,7 +75,10 @@ public class SchedulingUtil {
         return Optional.empty();
       }
 
-      final List<ZoneId> sortedZoneOffsets = timeZonesForNumber
+      final Instant now = clock.instant();
+
+      // Consider each unique ZoneRules and pick an arbitrary representative ZoneId for it
+      final Map<ZoneRules, ZoneId> byOffset = timeZonesForNumber
           .stream()
           .map(id -> {
             try {
@@ -80,10 +88,19 @@ public class SchedulingUtil {
             }
           })
           .filter(Objects::nonNull)
-          .sorted()
+          .collect(Collectors.toMap(
+              ZoneId::getRules,
+              Function.identity(),
+              (v1, v2) -> v2));
+
+      // Sort the ZoneRules by the offsets they produce
+      final List<ZoneRules> zoneRulesSortedByOffset = byOffset.keySet()
+          .stream()
+          .sorted(Comparator.comparing(z -> z.getOffset(now)))
           .toList();
 
-      return Optional.of(sortedZoneOffsets.get(sortedZoneOffsets.size() / 2));
+      // Select the "middle" ZoneRule and return one of the ZoneIds that have that ZoneRule
+      return Optional.of(byOffset.get(zoneRulesSortedByOffset.get(zoneRulesSortedByOffset.size() / 2)));
     } catch (final NumberParseException e) {
       return Optional.empty();
     }

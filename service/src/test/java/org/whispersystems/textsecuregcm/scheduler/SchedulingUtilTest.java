@@ -4,16 +4,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import com.google.i18n.phonenumbers.Phonenumber;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.TestClock;
 
 class SchedulingUtilTest {
 
@@ -88,5 +95,37 @@ class SchedulingUtilTest {
         afterNotificationTimeWithZoneId.with(LocalTime.of(14, 0)).plusDays(1).toInstant(),
         SchedulingUtil.getNextRecommendedNotificationTime(account, LocalTime.of(14, 0),
             Clock.fixed(afterNotificationTime.toInstant(berlineZoneOffset), berlinZoneId)));
+  }
+
+  @Test
+  void zoneIdSelectionSingleOffset() {
+    final Account account = mock(Account.class);
+    final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("DE");
+
+    when(account.getNumber())
+        .thenReturn(PhoneNumberUtil.getInstance().format(phoneNumber , PhoneNumberUtil.PhoneNumberFormat.E164));
+
+    final Instant now = Instant.now();
+
+    assertEquals(
+        ZoneId.of("Europe/Berlin").getRules().getOffset(now),
+        SchedulingUtil.getZoneId(account, TestClock.pinned(now)).orElseThrow().getRules().getOffset(now));
+  }
+
+  @Test
+  void zoneIdSelectionMultipleOffsets() {
+    final Account account = mock(Account.class);
+
+    // A US VOIP number spans multiple time zones, we should pick a 'middle' one
+    final Phonenumber.PhoneNumber phoneNumber =
+        PhoneNumberUtil.getInstance().getExampleNumberForType("US", PhoneNumberUtil.PhoneNumberType.VOIP);
+    when(account.getNumber())
+        .thenReturn(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164));
+
+    final Instant now = Instant.now();
+
+    assertEquals(
+        ZoneId.of("America/Chicago").getRules().getOffset(now),
+        SchedulingUtil.getZoneId(account, TestClock.pinned(now)).orElseThrow().getRules().getOffset(now));
   }
 }
