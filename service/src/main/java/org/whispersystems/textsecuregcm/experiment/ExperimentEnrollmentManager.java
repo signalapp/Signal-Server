@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
+
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicExperimentEnrollmentConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicE164ExperimentEnrollmentConfiguration;
@@ -19,18 +21,18 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class ExperimentEnrollmentManager {
 
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
-  private final Random random;
+  private final Supplier<Random> random;
 
 
   public ExperimentEnrollmentManager(
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
-    this(dynamicConfigurationManager, ThreadLocalRandom.current());
+    this(dynamicConfigurationManager, ThreadLocalRandom::current);
   }
 
   @VisibleForTesting
   ExperimentEnrollmentManager(
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final Random random) {
+      final Supplier<Random> random) {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.random = random;
   }
@@ -50,7 +52,7 @@ public class ExperimentEnrollmentManager {
       return Optional.of(false);
     }
     if (config.getUuidSelector().getUuids().contains(accountUuid)) {
-      final int r = random.nextInt(100);
+      final int r = random.get().nextInt(100);
       return Optional.of(r < config.getUuidSelector().getUuidEnrollmentPercentage());
     }
 

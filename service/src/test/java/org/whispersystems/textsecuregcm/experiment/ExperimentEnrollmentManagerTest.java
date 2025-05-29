@@ -56,10 +56,11 @@ class ExperimentEnrollmentManagerTest {
 
   @BeforeEach
   void setUp() {
-    final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
+    @SuppressWarnings("unchecked")
+    final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     random = spy(new Random());
-    experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager, random);
+    experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager, () -> random);
 
     uuidSelector = mock(DynamicExperimentEnrollmentConfiguration.UuidSelector.class);
     when(uuidSelector.getUuidEnrollmentPercentage()).thenReturn(100);
