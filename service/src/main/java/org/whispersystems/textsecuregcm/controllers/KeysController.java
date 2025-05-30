@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -88,6 +89,8 @@ public class KeysController {
 
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
   private static final String STORE_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "storeKeys");
+  private static final String STORE_KEY_BUNDLE_SIZE_DISTRIBUTION_NAME =
+      MetricsUtil.name(KeysController.class, "storeKeyBundleSize");
   private static final String PRIMARY_DEVICE_TAG_NAME = "isPrimary";
   private static final String IDENTITY_TYPE_TAG_NAME = "identityType";
   private static final String KEY_TYPE_TAG_NAME = "keyType";
@@ -153,9 +156,15 @@ public class KeysController {
     final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(4);
 
     if (!setKeysRequest.preKeys().isEmpty()) {
-      Metrics.counter(STORE_KEYS_COUNTER_NAME,
-          Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec")))
-          .increment();
+      final Tags tags = Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec"));
+
+      Metrics.counter(STORE_KEYS_COUNTER_NAME, tags).increment();
+
+      DistributionSummary.builder(STORE_KEY_BUNDLE_SIZE_DISTRIBUTION_NAME)
+          .tags(tags)
+          .publishPercentileHistogram()
+          .register(Metrics.globalRegistry)
+          .record(setKeysRequest.preKeys().size());
 
       storeFutures.add(keysManager.storeEcOneTimePreKeys(identifier, device.getId(), setKeysRequest.preKeys()));
     }
@@ -169,9 +178,14 @@ public class KeysController {
     }
 
     if (!setKeysRequest.pqPreKeys().isEmpty()) {
-      Metrics.counter(STORE_KEYS_COUNTER_NAME,
-              Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber")))
-          .increment();
+      final Tags tags = Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber"));
+      Metrics.counter(STORE_KEYS_COUNTER_NAME, tags).increment();
+
+      DistributionSummary.builder(STORE_KEY_BUNDLE_SIZE_DISTRIBUTION_NAME)
+          .tags(tags)
+          .publishPercentileHistogram()
+          .register(Metrics.globalRegistry)
+          .record(setKeysRequest.pqPreKeys().size());
 
       storeFutures.add(keysManager.storeKemOneTimePreKeys(identifier, device.getId(), setKeysRequest.pqPreKeys()));
     }
