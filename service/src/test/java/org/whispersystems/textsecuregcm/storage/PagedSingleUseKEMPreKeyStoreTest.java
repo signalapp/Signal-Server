@@ -9,37 +9,27 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import reactor.core.publisher.Flux;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 class PagedSingleUseKEMPreKeyStoreTest {
@@ -77,7 +67,7 @@ class PagedSingleUseKEMPreKeyStoreTest {
     assertDoesNotThrow(() -> keyStore.store(accountIdentifier, deviceId, preKeys).join());
 
     final List<KEMSignedPreKey> sortedPreKeys = preKeys.stream()
-        .sorted(Comparator.comparing(preKey -> preKey.keyId()))
+        .sorted(Comparator.comparing(KEMSignedPreKey::keyId))
         .toList();
 
     assertEquals(Optional.of(sortedPreKeys.get(0)), keyStore.take(accountIdentifier, deviceId).join());
@@ -91,18 +81,18 @@ class PagedSingleUseKEMPreKeyStoreTest {
 
     final List<KEMSignedPreKey> preKeys1 = generateRandomPreKeys();
     keyStore.store(accountIdentifier, deviceId, preKeys1).join();
-    List<String> oldPages = listPages(accountIdentifier).stream().map(S3Object::key).collect(Collectors.toList());
+    List<String> oldPages = listPages(accountIdentifier).stream().map(S3Object::key).toList();
     assertEquals(1, oldPages.size());
 
     final List<KEMSignedPreKey> preKeys2 = generateRandomPreKeys();
     keyStore.store(accountIdentifier, deviceId, preKeys2).join();
-    List<String> newPages = listPages(accountIdentifier).stream().map(S3Object::key).collect(Collectors.toList());
+    List<String> newPages = listPages(accountIdentifier).stream().map(S3Object::key).toList();
     assertEquals(1, newPages.size());
 
     assertNotEquals(oldPages.getFirst(), newPages.getFirst());
 
     assertEquals(
-        preKeys2.stream().sorted(Comparator.comparing(preKey -> preKey.keyId())).toList(),
+        preKeys2.stream().sorted(Comparator.comparing(KEMSignedPreKey::keyId)).toList(),
 
         IntStream.range(0, preKeys2.size())
             .mapToObj(i -> keyStore.take(accountIdentifier, deviceId).join())
@@ -122,7 +112,7 @@ class PagedSingleUseKEMPreKeyStoreTest {
     assertDoesNotThrow(() -> keyStore.store(accountIdentifier, deviceId, preKeys).join());
 
     final List<KEMSignedPreKey> sortedPreKeys = preKeys.stream()
-        .sorted(Comparator.comparing(preKey -> preKey.keyId()))
+        .sorted(Comparator.comparing(KEMSignedPreKey::keyId))
         .toList();
 
     for (int i = 0; i < KEY_COUNT; i++) {
@@ -171,7 +161,7 @@ class PagedSingleUseKEMPreKeyStoreTest {
 
     final List<S3Object> pages = listPages(accountIdentifier);
     assertEquals(1, pages.size());
-    assertTrue(pages.get(0).key().startsWith("%s/%s".formatted(accountIdentifier, deviceId + 1)));
+    assertTrue(pages.getFirst().key().startsWith("%s/%s".formatted(accountIdentifier, deviceId + 1)));
   }
 
   @Test
@@ -192,6 +182,66 @@ class PagedSingleUseKEMPreKeyStoreTest {
     assertEquals(0, keyStore.getCount(accountIdentifier, deviceId).join());
     assertEquals(0, keyStore.getCount(accountIdentifier, (byte) (deviceId + 1)).join());
     assertEquals(0, listPages(accountIdentifier).size());
+  }
+
+  @Test
+  void listPages() {
+    final UUID aci1 = UUID.randomUUID();
+    final UUID aci2 = new UUID(aci1.getMostSignificantBits(), aci1.getLeastSignificantBits() + 1);
+    final byte deviceId = 1;
+
+    keyStore.store(aci1, deviceId, generateRandomPreKeys()).join();
+    keyStore.store(aci1, (byte) (deviceId + 1), generateRandomPreKeys()).join();
+    keyStore.store(aci2, deviceId, generateRandomPreKeys()).join();
+
+    List<DeviceKEMPreKeyPages> stored = keyStore.listStoredPages(1).collectList().block();
+    assertEquals(3, stored.size());
+    for (DeviceKEMPreKeyPages pages : stored) {
+      assertEquals(1, pages.pageIdToLastModified().size());
+    }
+
+    assertEquals(List.of(aci1, aci1, aci2), stored.stream().map(DeviceKEMPreKeyPages::identifier).toList());
+    assertEquals(
+        List.of(deviceId, (byte) (deviceId + 1), deviceId),
+        stored.stream().map(DeviceKEMPreKeyPages::deviceId).toList());
+  }
+
+  @Test
+  void listPagesWithOrphans() {
+    final UUID aci1 = UUID.randomUUID();
+    final UUID aci2 = new UUID(aci1.getMostSignificantBits(), aci1.getLeastSignificantBits() + 1);
+    final byte deviceId = 1;
+
+    // Two orphans
+    keyStore.store(aci1, deviceId, generateRandomPreKeys()).join();
+    writeOrphanedS3Object(aci1, deviceId);
+    writeOrphanedS3Object(aci1, deviceId);
+
+    // No orphans
+    keyStore.store(aci1, (byte) (deviceId + 1), generateRandomPreKeys()).join();
+
+    // One orphan
+    keyStore.store(aci2, deviceId, generateRandomPreKeys()).join();
+    writeOrphanedS3Object(aci2, deviceId);
+
+    // Orphan with no database record
+    writeOrphanedS3Object(aci2, (byte) (deviceId + 2));
+
+    List<DeviceKEMPreKeyPages> stored = keyStore.listStoredPages(1).collectList().block();
+    assertEquals(4, stored.size());
+    
+    assertEquals(
+        List.of(3, 1, 2, 1),
+        stored.stream().map(s -> s.pageIdToLastModified().size()).toList());
+  }
+
+  private void writeOrphanedS3Object(final UUID identifier, final byte deviceId) {
+    S3_EXTENSION.getS3Client()
+        .putObject(PutObjectRequest.builder()
+                .bucket(BUCKET_NAME)
+                .key("%s/%s/%s".formatted(identifier, deviceId, UUID.randomUUID())).build(),
+            AsyncRequestBody.fromBytes(TestRandomUtil.nextBytes(10)))
+        .join();
   }
 
   private List<S3Object> listPages(final UUID identifier) {

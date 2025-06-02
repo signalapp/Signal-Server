@@ -12,6 +12,7 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,9 +44,7 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.*;
 
 /**
  * @implNote This version of a {@link SingleUsePreKeyStore} store bundles prekeys into "pages", which are stored in on
@@ -294,6 +296,40 @@ public class PagedSingleUseKEMPreKeyStore {
         .thenRun(() -> sample.stop(deleteForDeviceTimer));
   }
 
+
+  public Flux<DeviceKEMPreKeyPages> listStoredPages(int lookupConcurrency) {
+    return Flux
+        .from(s3AsyncClient.listObjectsV2Paginator(ListObjectsV2Request.builder()
+            .bucket(bucketName)
+            .build()))
+        .flatMapIterable(ListObjectsV2Response::contents)
+        .map(PagedSingleUseKEMPreKeyStore::parseS3Key)
+        .bufferUntilChanged(Function.identity(), S3PageKey::fromSameDevice)
+        .flatMapSequential(pages -> {
+          final UUID identifier = pages.getFirst().identifier();
+          final byte deviceId = pages.getFirst().deviceId();
+          return Mono.fromCompletionStage(() -> dynamoDbAsyncClient.getItem(GetItemRequest.builder()
+                  .tableName(tableName)
+                  .key(Map.of(
+                      KEY_ACCOUNT_UUID, AttributeValues.fromUUID(identifier),
+                      KEY_DEVICE_ID, AttributeValues.fromInt(deviceId)))
+                  // Make sure we get the most up to date pageId to minimize cases where we see a new page in S3 but
+                  // view a stale dynamodb record
+                  .consistentRead(true)
+                  .projectionExpression("#uuid,#deviceid,#pageid")
+                  .expressionAttributeNames(Map.of(
+                      "#uuid", KEY_ACCOUNT_UUID,
+                      "#deviceid", KEY_DEVICE_ID,
+                      "#pageid", ATTR_PAGE_ID))
+                  .build())
+              .thenApply(getItemResponse -> new DeviceKEMPreKeyPages(
+                  identifier,
+                  deviceId,
+                  Optional.ofNullable(AttributeValues.getUUID(getItemResponse.item(), ATTR_PAGE_ID, null)),
+                  pages.stream().collect(Collectors.toMap(S3PageKey::pageId, S3PageKey::lastModified)))));
+        }, lookupConcurrency);
+  }
+
   private CompletableFuture<Void> deleteItems(final UUID identifier,
       final Flux<Map<String, AttributeValue>> items) {
     return items
@@ -322,6 +358,29 @@ public class PagedSingleUseKEMPreKeyStore {
     return String.format("%s/%s/%s", identifier, deviceId, pageId);
   }
 
+  private record S3PageKey(UUID identifier, byte deviceId, UUID pageId, Instant lastModified) {
+
+    boolean fromSameDevice(final S3PageKey other) {
+      return deviceId == other.deviceId && identifier.equals(other.identifier);
+    }
+  }
+
+  private static S3PageKey parseS3Key(final S3Object page) {
+    try {
+      final String[] parts = page.key().split("/", 3);
+      if (parts.length != 3 || parts[2].contains("/")) {
+        throw new IllegalArgumentException("wrong number of path components");
+      }
+      return new S3PageKey(
+          UUID.fromString(parts[0]),
+          Byte.parseByte(parts[1]),
+          UUID.fromString(parts[2]), page.lastModified());
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException("invalid s3 page key: " + page.key(), e);
+    }
+  }
+
+
   private CompletableFuture<UUID> writeBundleToS3(final UUID identifier, final byte deviceId,
       final ByteBuffer bundle) {
     final UUID pageId = UUID.randomUUID();
@@ -332,7 +391,7 @@ public class PagedSingleUseKEMPreKeyStore {
         .thenApply(ignoredResponse -> pageId);
   }
 
-  private CompletableFuture<Void> deleteBundleFromS3(final UUID identifier, final byte deviceId, final UUID pageId) {
+  CompletableFuture<Void> deleteBundleFromS3(final UUID identifier, final byte deviceId, final UUID pageId) {
     return s3AsyncClient.deleteObject(DeleteObjectRequest.builder()
             .bucket(bucketName)
             .key(s3Key(identifier, deviceId, pageId))

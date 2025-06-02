@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,6 +13,7 @@ import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
+import reactor.core.publisher.Flux;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 
 public class KeysManager {
@@ -131,8 +133,32 @@ public class KeysManager {
 
   public CompletableFuture<Void> deleteSingleUsePreKeys(final UUID accountUuid, final byte deviceId) {
     return CompletableFuture.allOf(
-            ecPreKeys.delete(accountUuid, deviceId),
-            pqPreKeys.delete(accountUuid, deviceId)
+        ecPreKeys.delete(accountUuid, deviceId),
+        pqPreKeys.delete(accountUuid, deviceId)
     );
+  }
+
+  /**
+   * List all the current remotely stored prekey pages across all devices. Pages that are no longer in use can be
+   * removed with {@link #pruneDeadPage}
+   *
+   * @param lookupConcurrency the number of concurrent lookup operations to perform when populating list results
+   * @return All stored prekey pages
+   */
+  public Flux<DeviceKEMPreKeyPages> listStoredKEMPreKeyPages(int lookupConcurrency) {
+    return pagedPqPreKeys.listStoredPages(lookupConcurrency);
+  }
+
+  /**
+   * Remove a prekey page that is no longer in use. A page should only be removed if it is not the active page and
+   * it has no chance of being updated to be.
+   *
+   * @param identifier The owner of the dead page
+   * @param deviceId The device of the dead page
+   * @param pageId The dead page to remove from storage
+   * @return A future that completes when the page has been removed
+   */
+  public CompletableFuture<Void> pruneDeadPage(final UUID identifier, final byte deviceId, final UUID pageId) {
+    return pagedPqPreKeys.deleteBundleFromS3(identifier, deviceId, pageId);
   }
 }

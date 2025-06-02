@@ -213,12 +213,14 @@ record CommandDependencies(
         .credentialsProvider(awsCredentialsProvider)
         .region(Region.of(configuration.getPagedSingleUseKEMPreKeyStore().region()))
         .build();
+    PagedSingleUseKEMPreKeyStore pagedSingleUseKEMPreKeyStore = new PagedSingleUseKEMPreKeyStore(
+        dynamoDbAsyncClient, asyncKeysS3Client,
+        configuration.getDynamoDbTables().getPagedKemKeys().getTableName(),
+        configuration.getPagedSingleUseKEMPreKeyStore().bucket());
     KeysManager keys = new KeysManager(
         new SingleUseECPreKeyStore(dynamoDbAsyncClient, configuration.getDynamoDbTables().getEcKeys().getTableName()),
         new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, configuration.getDynamoDbTables().getKemKeys().getTableName()),
-        new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient, asyncKeysS3Client,
-            configuration.getDynamoDbTables().getPagedKemKeys().getTableName(),
-            configuration.getPagedSingleUseKEMPreKeyStore().bucket()),
+        pagedSingleUseKEMPreKeyStore,
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient,
             configuration.getDynamoDbTables().getEcSignedPreKeys().getTableName()),
         new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
