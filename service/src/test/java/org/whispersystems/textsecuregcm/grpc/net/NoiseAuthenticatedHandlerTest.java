@@ -47,7 +47,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
   @Override
   protected CipherStatePair doHandshake() throws Throwable {
     final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(1, Device.MAXIMUM_DEVICE_ID + 1);
+    final byte deviceId = randomDeviceId();
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(clientKeyPair.getPublicKey())));
     return doHandshake(identityPayload(accountIdentifier, deviceId));
@@ -60,7 +60,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    final byte deviceId = randomDeviceId();
 
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(clientKeyPair.getPublicKey())));
@@ -81,7 +81,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    final byte deviceId = randomDeviceId();
 
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(clientKeyPair.getPublicKey())));
@@ -149,7 +149,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    final byte deviceId = randomDeviceId();
 
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -174,7 +174,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    final byte deviceId = randomDeviceId();
 
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(Curve.generateKeyPair().getPublicKey())));
@@ -196,7 +196,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     assertNotNull(embeddedChannel.pipeline().get(NoiseHandshakeHandler.class));
 
     final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    final byte deviceId = randomDeviceId();
 
     final HandshakeState clientHandshakeState = clientHandshakeState();
 
@@ -228,9 +228,9 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
   }
 
   @Test
-  public void handleKeyLookupError() throws Throwable {
+  public void handleKeyLookupError() {
     final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = (byte) ThreadLocalRandom.current().nextInt(Device.MAXIMUM_DEVICE_ID);
+    final byte deviceId = randomDeviceId();
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
         .thenReturn(CompletableFuture.failedFuture(new IOException()));
     assertThrows(IOException.class, () -> doHandshake(identityPayload(accountIdentifier, deviceId)));
@@ -331,5 +331,9 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     return identifiedHandshakeInit(accountIdentifier, deviceId)
         .build()
         .toByteArray();
+  }
+
+  private static byte randomDeviceId() {
+    return (byte) ThreadLocalRandom.current().nextInt(1, Device.MAXIMUM_DEVICE_ID + 1);
   }
 }
