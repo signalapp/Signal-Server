@@ -435,7 +435,7 @@ public class DeviceController {
   @ApiResponse(responseCode = "200", description = "Public key stored successfully")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
-  public CompletableFuture<Void> setPublicKey(@Auth final AuthenticatedDevice auth,
+  public CompletableFuture<Void> setPublicKey(@Mutable @Auth final AuthenticatedDevice auth,
       final SetPublicKeyRequest setPublicKeyRequest) {
 
     return clientPublicKeysManager.setPublicKey(auth.getAccount(),
