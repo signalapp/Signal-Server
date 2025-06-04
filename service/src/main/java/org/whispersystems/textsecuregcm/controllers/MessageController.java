@@ -780,6 +780,7 @@ public class MessageController {
                 messageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(),
                     "rest",
                     auth.getAuthenticatedDevice().isPrimary(),
+                    outgoingMessageEntity.urgent(),
                     userAgent,
                     clientReleaseManager);
               })
