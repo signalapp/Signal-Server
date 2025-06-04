@@ -286,12 +286,10 @@ import org.whispersystems.websocket.setup.WebSocketEnvironment;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.http.crt.AwsCrtHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.S3Client;
 
 public class WhisperServerService extends Application<WhisperServerConfiguration> {
 
@@ -750,12 +748,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(clientReleaseManager);
     environment.lifecycle().manage(virtualThreadPinEventMonitor);
     environment.lifecycle().manage(accountsManager);
-
-    final S3Client cdnS3Client = S3Client.builder()
-        .credentialsProvider(cdnCredentialsProvider)
-        .region(Region.of(config.getCdnConfiguration().region()))
-        .httpClientBuilder(AwsCrtHttpClient.builder())
-        .build();
 
     final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator(
         config.getGcpAttachmentsConfiguration().domain(),
