@@ -19,8 +19,8 @@ import io.lettuce.core.protocol.RedisCommand;
 import io.lettuce.core.resource.NettyCustomizer;
 import io.micrometer.core.instrument.Tags;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
 import java.net.SocketAddress;
 import java.util.Collection;
@@ -120,7 +120,7 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
     channel.pipeline().addBefore(commandHandlerName, null, channelCircuitBreakerHandler);
   }
 
-  static final class ChannelCircuitBreakerHandler extends ChannelDuplexHandler {
+  static final class ChannelCircuitBreakerHandler extends ChannelOutboundHandlerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(ChannelCircuitBreakerHandler.class);
 
