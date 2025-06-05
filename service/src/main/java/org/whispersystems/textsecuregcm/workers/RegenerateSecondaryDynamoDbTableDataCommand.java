@@ -12,12 +12,12 @@ import java.time.Duration;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Accounts;
+import org.whispersystems.textsecuregcm.storage.DynamoDbRecoveryManager;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
-public class RegenerateAccountConstraintDataCommand extends AbstractSinglePassCrawlAccountsCommand {
+public class RegenerateSecondaryDynamoDbTableDataCommand extends AbstractSinglePassCrawlAccountsCommand {
 
   @VisibleForTesting
   static final String DRY_RUN_ARGUMENT = "dry-run";
@@ -29,10 +29,10 @@ public class RegenerateAccountConstraintDataCommand extends AbstractSinglePassCr
   static final String RETRIES_ARGUMENT = "retries";
 
   private static final String PROCESSED_ACCOUNTS_COUNTER_NAME =
-      MetricsUtil.name(RegenerateAccountConstraintDataCommand.class, "processedAccounts");
+      MetricsUtil.name(RegenerateSecondaryDynamoDbTableDataCommand.class, "processedAccounts");
 
-  public RegenerateAccountConstraintDataCommand() {
-    super("regenerate-account-constraint-data", "Regenerates account constraint data from a core account table");
+  public RegenerateSecondaryDynamoDbTableDataCommand() {
+    super("regenerate-secondary-dynamodb-table-data", "Regenerates secondary DynamoDB table data from core tables");
   }
 
   @Override
@@ -65,7 +65,7 @@ public class RegenerateAccountConstraintDataCommand extends AbstractSinglePassCr
     final int maxConcurrency = getNamespace().getInt(MAX_CONCURRENCY_ARGUMENT);
     final int maxRetries = getNamespace().getInt(RETRIES_ARGUMENT);
 
-    final Accounts accounts = getCommandDependencies().accounts();
+    final DynamoDbRecoveryManager dynamoDbRecoveryManager = getCommandDependencies().dynamoDbRecoveryManager();
 
     final Counter processedAccountsCounter = Metrics.counter(PROCESSED_ACCOUNTS_COUNTER_NAME,
         "dryRun", String.valueOf(dryRun));
@@ -74,7 +74,7 @@ public class RegenerateAccountConstraintDataCommand extends AbstractSinglePassCr
         .doOnNext(ignored -> processedAccountsCounter.increment())
         .flatMap(account -> dryRun
                 ? Mono.empty()
-                : Mono.fromFuture(() -> accounts.regenerateConstraints(account))
+                : Mono.fromFuture(() -> dynamoDbRecoveryManager.regenerateData(account))
                     .retryWhen(Retry.backoff(maxRetries, Duration.ofSeconds(1)).maxBackoff(Duration.ofSeconds(4))
                         .onRetryExhaustedThrow((spec, rs) -> rs.failure())),
             maxConcurrency)

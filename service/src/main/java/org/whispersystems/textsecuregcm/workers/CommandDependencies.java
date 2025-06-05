@@ -39,9 +39,9 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.FcmSender;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
+import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeys;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.DynamoDbRecoveryManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -77,7 +78,6 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
  * Construct utilities commonly used by worker commands
  */
 record CommandDependencies(
-    Accounts accounts,
     AccountsManager accountsManager,
     ProfilesManager profilesManager,
     ReportMessageManager reportMessageManager,
@@ -97,7 +97,8 @@ record CommandDependencies(
     IssuedReceiptsManager issuedReceiptsManager,
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
     DynamoDbAsyncClient dynamoDbAsyncClient,
-    PhoneNumberIdentifiers phoneNumberIdentifiers) {
+    PhoneNumberIdentifiers phoneNumberIdentifiers,
+    DynamoDbRecoveryManager dynamoDbRecoveryManager) {
 
   static CommandDependencies build(
       final String name,
@@ -294,13 +295,15 @@ record CommandDependencies(
     WebSocketConnectionEventManager webSocketConnectionEventManager =
         new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
 
+    final DynamoDbRecoveryManager dynamoDbRecoveryManager =
+        new DynamoDbRecoveryManager(accounts, phoneNumberIdentifiers);
+
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(disconnectionRequestManager);
     environment.lifecycle().manage(webSocketConnectionEventManager);
     environment.lifecycle().manage(new ManagedAwsCrt());
 
     return new CommandDependencies(
-        accounts,
         accountsManager,
         profilesManager,
         reportMessageManager,
@@ -320,7 +323,8 @@ record CommandDependencies(
         issuedReceiptsManager,
         dynamicConfigurationManager,
         dynamoDbAsyncClient,
-        phoneNumberIdentifiers
+        phoneNumberIdentifiers,
+        dynamoDbRecoveryManager
     );
   }
 

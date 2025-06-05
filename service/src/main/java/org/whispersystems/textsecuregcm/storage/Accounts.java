@@ -1472,7 +1472,7 @@ public class Accounts {
         .build();
   }
 
-  public CompletableFuture<Void> regenerateConstraints(final Account account) {
+  CompletableFuture<Void> regenerateConstraints(final Account account) {
     final List<CompletableFuture<?>> constraintFutures = new ArrayList<>();
 
     constraintFutures.add(writeConstraint(phoneNumberConstraintTableName,

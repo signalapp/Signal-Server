@@ -19,19 +19,20 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Accounts;
+import org.whispersystems.textsecuregcm.storage.DynamoDbRecoveryManager;
 import reactor.core.publisher.Flux;
 
-class RegenerateAccountConstraintDataCommandTest {
+class RegenerateSecondaryDynamoDbTableDataCommandTest {
 
-  private Accounts accounts;
+  private DynamoDbRecoveryManager dynamoDbRecoveryManager;
 
-  private static class TestRegenerateAccountConstraintDataCommand extends RegenerateAccountConstraintDataCommand {
+  private static class TestRegenerateSecondaryDynamoDbTableDataCommand extends RegenerateSecondaryDynamoDbTableDataCommand {
 
     private final CommandDependencies commandDependencies;
     private final Namespace namespace;
 
-    TestRegenerateAccountConstraintDataCommand(final Accounts accounts, final boolean dryRun) {
-      commandDependencies = new CommandDependencies(accounts,
+    TestRegenerateSecondaryDynamoDbTableDataCommand(final DynamoDbRecoveryManager dynamoDbRecoveryManager, final boolean dryRun) {
+      commandDependencies = new CommandDependencies(null,
           null,
           null,
           null,
@@ -51,12 +52,12 @@ class RegenerateAccountConstraintDataCommandTest {
           null,
           null,
           null,
-          null);
+          dynamoDbRecoveryManager);
 
       namespace = new Namespace(Map.of(
-          RegenerateAccountConstraintDataCommand.DRY_RUN_ARGUMENT, dryRun,
-          RegenerateAccountConstraintDataCommand.MAX_CONCURRENCY_ARGUMENT, 16,
-          RegenerateAccountConstraintDataCommand.RETRIES_ARGUMENT, 3));
+          RegenerateSecondaryDynamoDbTableDataCommand.DRY_RUN_ARGUMENT, dryRun,
+          RegenerateSecondaryDynamoDbTableDataCommand.MAX_CONCURRENCY_ARGUMENT, 16,
+          RegenerateSecondaryDynamoDbTableDataCommand.RETRIES_ARGUMENT, 3));
     }
 
     @Override
@@ -72,9 +73,9 @@ class RegenerateAccountConstraintDataCommandTest {
 
   @BeforeEach
   void setUp() {
-    accounts = mock(Accounts.class);
+    dynamoDbRecoveryManager = mock(DynamoDbRecoveryManager.class);
 
-    when(accounts.regenerateConstraints(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(dynamoDbRecoveryManager.regenerateData(any())).thenReturn(CompletableFuture.completedFuture(null));
   }
 
   @ParameterizedTest
@@ -82,15 +83,15 @@ class RegenerateAccountConstraintDataCommandTest {
   void crawlAccounts(final boolean dryRun) {
     final Account account = mock(Account.class);
 
-    final RegenerateAccountConstraintDataCommand regenerateAccountConstraintDataCommand =
-        new TestRegenerateAccountConstraintDataCommand(accounts, dryRun);
+    final RegenerateSecondaryDynamoDbTableDataCommand regenerateSecondaryDynamoDbTableDataCommand =
+        new TestRegenerateSecondaryDynamoDbTableDataCommand(dynamoDbRecoveryManager, dryRun);
 
-    regenerateAccountConstraintDataCommand.crawlAccounts(Flux.just(account));
+    regenerateSecondaryDynamoDbTableDataCommand.crawlAccounts(Flux.just(account));
 
     if (!dryRun) {
-      verify(accounts).regenerateConstraints(account);
+      verify(dynamoDbRecoveryManager).regenerateData(account);
     }
 
-    verifyNoMoreInteractions(accounts);
+    verifyNoMoreInteractions(dynamoDbRecoveryManager);
   }
 }

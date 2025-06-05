@@ -8,12 +8,16 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,6 +25,7 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
@@ -199,5 +204,26 @@ class PhoneNumberIdentifiersTest {
 
     final UUID pni = phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join();
     assertEquals(List.of(number), phoneNumberIdentifiers.getPhoneNumber(pni).join());
+  }
+
+  @Test
+  void regeneratePhoneNumberIdentifierMappings() {
+    // libphonenumber 8.13.50 and on generate new-format numbers for Benin
+    final String newFormatBeninE164 = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final String oldFormatBeninE164 = newFormatBeninE164.replaceFirst("01", "");
+
+    final UUID phoneNumberIdentifier = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(newFormatBeninE164);
+    when(account.getIdentifier(IdentityType.PNI)).thenReturn(phoneNumberIdentifier);
+
+    phoneNumberIdentifiers.regeneratePhoneNumberIdentifierMappings(account).join();
+
+    assertEquals(phoneNumberIdentifier, phoneNumberIdentifiers.getPhoneNumberIdentifier(newFormatBeninE164).join());
+    assertEquals(phoneNumberIdentifier, phoneNumberIdentifiers.getPhoneNumberIdentifier(oldFormatBeninE164).join());
+    assertEquals(Set.of(newFormatBeninE164, oldFormatBeninE164),
+        new HashSet<>(phoneNumberIdentifiers.getPhoneNumber(phoneNumberIdentifier).join()));
   }
 }

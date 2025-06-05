@@ -270,7 +270,7 @@ import org.whispersystems.textsecuregcm.workers.IdleDeviceNotificationSchedulerF
 import org.whispersystems.textsecuregcm.workers.MessagePersisterServiceCommand;
 import org.whispersystems.textsecuregcm.workers.NotifyIdleDevicesCommand;
 import org.whispersystems.textsecuregcm.workers.ProcessScheduledJobsServiceCommand;
-import org.whispersystems.textsecuregcm.workers.RegenerateAccountConstraintDataCommand;
+import org.whispersystems.textsecuregcm.workers.RegenerateSecondaryDynamoDbTableDataCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredBackupsCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredLinkedDevicesCommand;
@@ -337,7 +337,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         "Processes scheduled jobs to send notifications to idle devices",
         new IdleDeviceNotificationSchedulerFactory()));
 
-    bootstrap.addCommand(new RegenerateAccountConstraintDataCommand());
+    bootstrap.addCommand(new RegenerateSecondaryDynamoDbTableDataCommand());
   }
 
   @Override

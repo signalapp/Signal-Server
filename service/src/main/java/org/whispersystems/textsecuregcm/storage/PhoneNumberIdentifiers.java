@@ -10,33 +10,24 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
-import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Scheduler;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.CancellationReason;
-import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.KeysAndAttributes;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
-import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValuesOnConditionCheckFailure;
-import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledException;
@@ -93,7 +84,7 @@ public class PhoneNumberIdentifiers {
    * UUID was not previously assigned as a PNI by {@link #getPhoneNumberIdentifier(String)}, the
    * returned list will be empty.
    *
-   * @param UUID a phone number identifier
+   * @param phoneNumberIdentifier a phone number identifier
    * @return the list of all e164s associated with the given phone number identifier
    */
   public CompletableFuture<List<String>> getPhoneNumber(final UUID phoneNumberIdentifier) {
@@ -110,11 +101,8 @@ public class PhoneNumberIdentifiers {
                 ":pni", AttributeValues.fromUUID(phoneNumberIdentifier)
             ))
             .build())
-        .thenApply(response -> {
-              return response.items().stream().map(item -> item.get(KEY_E164).s()).toList();
-        });
+        .thenApply(response -> response.items().stream().map(item -> item.get(KEY_E164).s()).toList());
   }
-
 
   @VisibleForTesting
   static <T, E extends Exception> CompletableFuture<T> retry(
@@ -255,5 +243,10 @@ public class PhoneNumberIdentifiers {
             item -> AttributeValues.getString(item, KEY_E164, null),
             item -> AttributeValues.getUUID(item, ATTR_PHONE_NUMBER_IDENTIFIER, null))))
         .whenComplete((ignored, throwable) -> sample.stop(GET_PNI_TIMER));
+  }
+
+  CompletableFuture<Void> regeneratePhoneNumberIdentifierMappings(final Account account) {
+    return setPni(account.getNumber(), Util.getAlternateForms(account.getNumber()), account.getIdentifier(IdentityType.PNI))
+        .thenRun(Util.NOOP);
   }
 }
