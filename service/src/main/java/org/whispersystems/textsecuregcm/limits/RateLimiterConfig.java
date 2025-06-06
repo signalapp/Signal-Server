@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.limits;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import java.time.Duration;
 
@@ -15,6 +16,7 @@ public record RateLimiterConfig(int bucketSize, Duration permitRegenerationDurat
   }
 
   @AssertTrue
+  @Schema(hidden = true)
   public boolean hasPositiveRegenerationRate() {
     try {
       return permitRegenerationDuration.toNanos() > 0;

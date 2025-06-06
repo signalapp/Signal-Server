@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.ws.rs.ClientErrorException;
 import java.util.Base64;
@@ -25,6 +26,7 @@ public interface PhoneVerificationRequest {
 
   // for the @AssertTrue to work with bean validation, method name must follow 'isSmth()'/'getSmth()' naming convention
   @AssertTrue
+  @Schema(hidden = true)
   default boolean isValid() {
     // checking that exactly one of sessionId/recoveryPassword is non-empty
     return isNotBlank(sessionId()) ^ (recoveryPassword() != null && recoveryPassword().length > 0);

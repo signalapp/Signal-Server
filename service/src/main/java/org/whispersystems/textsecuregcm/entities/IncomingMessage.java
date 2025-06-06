@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.protobuf.ByteString;
 import com.webauthn4j.converter.jackson.deserializer.json.ByteArrayBase64Deserializer;
 import io.micrometer.core.instrument.Metrics;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import javax.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -69,6 +70,7 @@ public record IncomingMessage(int type,
   }
 
   @AssertTrue
+  @Schema(hidden = true)
   public boolean isValidEnvelopeType() {
     if (type() == MessageProtos.Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE ||
         MessageProtos.Envelope.Type.forNumber(type()) == null) {

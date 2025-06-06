@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Size;
 import java.util.Optional;
@@ -137,6 +138,7 @@ public class AccountAttributes {
   }
 
   @AssertTrue
+  @Schema(hidden = true)
   public boolean isEachRegistrationIdValid() {
     return validRegistrationId(registrationId) && validRegistrationId(phoneNumberIdentityRegistrationId);
   }

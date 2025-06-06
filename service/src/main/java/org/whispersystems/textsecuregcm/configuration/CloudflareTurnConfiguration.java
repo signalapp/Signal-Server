@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
@@ -57,6 +58,7 @@ public record CloudflareTurnConfiguration(@NotNull SecretString apiToken,
   }
 
   @AssertTrue
+  @Schema(hidden = true)
   public boolean isClientTtlShorterThanRequestedTtl() {
     return clientCredentialTtl.compareTo(requestedCredentialTtl) <= 0;
   }

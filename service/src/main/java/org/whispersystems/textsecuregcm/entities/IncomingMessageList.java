@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
@@ -46,6 +47,7 @@ public record IncomingMessageList(@NotNull
   }
 
   @AssertTrue
+  @Schema(hidden = true)
   public boolean hasNoDuplicateRecipients() {
     final boolean valid = messages.stream()
         .filter(Objects::nonNull)

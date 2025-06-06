@@ -42,6 +42,7 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
   }
 
   @AssertTrue
+  @Schema(hidden = true)
   public boolean hasExactlyOneMessageDeliveryChannel() {
     if (accountAttributes.getFetchesMessages()) {
       return deviceActivationRequest().apnToken().isEmpty() && deviceActivationRequest().gcmToken().isEmpty();

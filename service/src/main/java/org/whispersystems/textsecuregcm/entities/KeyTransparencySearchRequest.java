@@ -54,6 +54,7 @@ public record KeyTransparencySearchRequest(
     @Positive long distinguishedTreeHeadSize
 ) {
     @AssertTrue
+    @Schema(hidden = true)
     public boolean isUnidentifiedAccessKeyProvidedWithE164() {
       return unidentifiedAccessKey.isPresent() == e164.isPresent();
     }

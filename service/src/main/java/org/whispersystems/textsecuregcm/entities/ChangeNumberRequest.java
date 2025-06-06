@@ -76,6 +76,7 @@ public record ChangeNumberRequest(
   }
 
   @AssertTrue
+  @Schema(hidden = true)
   public boolean isEachPniRegistrationIdValid() {
     return pniRegistrationIds == null || pniRegistrationIds.values().stream().allMatch(RegistrationIdValidator::validRegistrationId);
   }

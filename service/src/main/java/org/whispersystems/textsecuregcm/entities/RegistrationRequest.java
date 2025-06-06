@@ -111,6 +111,7 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
 
   @VisibleForTesting
   @AssertTrue
+  @Schema(hidden = true)
   boolean hasExactlyOneMessageDeliveryChannel() {
     if (accountAttributes.getFetchesMessages()) {
       return deviceActivationRequest().apnToken().isEmpty() && deviceActivationRequest().gcmToken().isEmpty();
