@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -31,6 +32,7 @@ import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
@@ -85,9 +87,9 @@ public class BackupsDb {
 
   private final SecureRandom secureRandom;
 
-  private static final String NUM_OBJECTS_SUMMARY_NAME = "numObjects";
-  private static final String BYTES_USED_SUMMARY_NAME = "bytesUsed";
-  private static final String BACKUPS_COUNTER_NAME = "backups";
+  private static final String NUM_OBJECTS_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "numObjects");
+  private static final String BYTES_USED_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "bytesUsed");
+  private static final String BACKUPS_COUNTER_NAME = MetricsUtil.name(BackupsDb.class, "backups");
 
   // The backups table
 
@@ -285,8 +287,17 @@ public class BackupsDb {
       final Tags tags = Tags.of(
           UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
           Tag.of("tier", backupUser.backupLevel().name()));
-      Metrics.summary(NUM_OBJECTS_SUMMARY_NAME, tags).record(mediaCount);
-      Metrics.summary(BYTES_USED_SUMMARY_NAME, tags).record(bytesUsed);
+
+      DistributionSummary.builder(NUM_OBJECTS_SUMMARY_NAME)
+          .tags(tags)
+          .publishPercentileHistogram()
+          .register(Metrics.globalRegistry)
+          .record(mediaCount);
+      DistributionSummary.builder(BYTES_USED_SUMMARY_NAME)
+          .tags(tags)
+          .publishPercentileHistogram()
+          .register(Metrics.globalRegistry)
+          .record(mediaCount);
 
       // Report that the backup is out of quota if it cannot store a max size media object
       final boolean quotaExhausted = bytesUsed >=
