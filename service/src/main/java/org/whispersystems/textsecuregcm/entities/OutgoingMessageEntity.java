@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import java.util.Arrays;
 import java.util.Objects;
@@ -37,7 +38,8 @@ public record OutgoingMessageEntity(UUID guid,
                                     boolean story,
                                     @Nullable byte[] reportSpamToken) {
 
-  public MessageProtos.Envelope toEnvelope() {
+  @VisibleForTesting
+  MessageProtos.Envelope toEnvelope() {
     final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
         .setType(MessageProtos.Envelope.Type.forNumber(type()))
         .setClientTimestamp(timestamp())
