@@ -435,7 +435,8 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       @CartesianTest.Values(booleans = {true, false}) final boolean storage,
       @CartesianTest.Values(booleans = {true, false}) final boolean transfer,
       @CartesianTest.Values(booleans = {true, false}) final boolean deleteSync,
-      @CartesianTest.Values(booleans = {true, false}) final boolean attachmentBackfill) {
+      @CartesianTest.Values(booleans = {true, false}) final boolean attachmentBackfill,
+      @CartesianTest.Values(booleans = {true, false}) final boolean spqr) {
 
     mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
 
@@ -460,6 +461,10 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_ATTACHMENT_BACKFILL);
     }
 
+    if (spqr) {
+      requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_SPARSE_POST_QUANTUM_RATCHET);
+    }
+
     final SetCapabilitiesResponse ignored = authenticatedServiceStub().setCapabilities(requestBuilder.build());
 
     final Set<DeviceCapability> expectedCapabilities = new HashSet<>();
@@ -478,6 +483,10 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     if (attachmentBackfill) {
       expectedCapabilities.add(DeviceCapability.ATTACHMENT_BACKFILL);
+    }
+
+    if (spqr) {
+      expectedCapabilities.add(DeviceCapability.SPARSE_POST_QUANTUM_RATCHET);
     }
 
     verify(device).setCapabilities(expectedCapabilities);

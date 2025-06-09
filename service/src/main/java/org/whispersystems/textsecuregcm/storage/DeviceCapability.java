@@ -12,7 +12,8 @@ public enum DeviceCapability {
   TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false),
   DELETE_SYNC("deleteSync", AccountCapabilityMode.ALL_DEVICES, true, true),
   STORAGE_SERVICE_RECORD_KEY_ROTATION("ssre2", AccountCapabilityMode.ALL_DEVICES, true, true),
-  ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true);
+  ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true),
+  SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, true, true);
 
   public enum AccountCapabilityMode {
     /**
