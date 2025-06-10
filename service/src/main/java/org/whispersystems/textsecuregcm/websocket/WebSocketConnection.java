@@ -255,6 +255,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
                 "websocket",
                 auth.getAuthenticatedDevice().isPrimary(),
                 message.getUrgent(),
+                message.getEphemeral(),
                 client.getUserAgent(),
                 clientReleaseManager);
           }

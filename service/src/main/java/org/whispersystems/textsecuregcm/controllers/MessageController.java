@@ -781,6 +781,10 @@ public class MessageController {
                     "rest",
                     auth.getAuthenticatedDevice().isPrimary(),
                     outgoingMessageEntity.urgent(),
+                    // Messages fetched via this endpoint (as opposed to WebSocketConnection) are never ephemeral
+                    // because, by definition, the client doesn't have a "live" connection via which to receive
+                    // ephemeral messages.
+                    false,
                     userAgent,
                     clientReleaseManager);
               })

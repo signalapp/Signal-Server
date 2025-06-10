@@ -72,14 +72,16 @@ public final class MessageMetrics {
       final String channel,
       final boolean isPrimaryDevice,
       final boolean isUrgent,
+      final boolean isEphemeral,
       final String userAgent,
       final ClientReleaseManager clientReleaseManager) {
 
-    final List<Tag> tags = new ArrayList<>(4);
+    final List<Tag> tags = new ArrayList<>();
     tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
     tags.add(Tag.of("channel", channel));
     tags.add(Tag.of("isPrimary", String.valueOf(isPrimaryDevice)));
     tags.add(Tag.of("isUrgent", String.valueOf(isUrgent)));
+    tags.add(Tag.of("isEphemeral", String.valueOf(isEphemeral)));
 
     UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager).ifPresent(tags::add);
 
