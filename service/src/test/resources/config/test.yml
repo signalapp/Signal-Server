@@ -485,7 +485,8 @@ linkDevice:
   secret: secret://linkDevice.secret
 
 noiseTunnel:
-  port: 8443
+  webSocketPort: 8444
+  directPort: 8445
   noiseStaticPrivateKey: secret://noiseTunnel.noiseStaticPrivateKey
   recognizedProxySecret: secret://noiseTunnel.recognizedProxySecret
 

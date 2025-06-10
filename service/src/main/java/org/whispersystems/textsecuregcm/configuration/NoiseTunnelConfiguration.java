@@ -10,12 +10,13 @@ import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 
-public record NoiseWebSocketTunnelConfiguration(@Positive int port,
-                                                @Nullable String tlsKeyStoreFile,
-                                                @Nullable String tlsKeyStoreEntryAlias,
-                                                @Nullable SecretString tlsKeyStorePassword,
-                                                @NotNull SecretBytes noiseStaticPrivateKey,
-                                                @NotNull SecretString recognizedProxySecret) {
+public record NoiseTunnelConfiguration(@Positive int webSocketPort,
+                                       @Positive int directPort,
+                                       @Nullable String tlsKeyStoreFile,
+                                       @Nullable String tlsKeyStoreEntryAlias,
+                                       @Nullable SecretString tlsKeyStorePassword,
+                                       @NotNull SecretBytes noiseStaticPrivateKey,
+                                       @NotNull SecretString recognizedProxySecret) {
 
   public ECKeyPair noiseStaticKeyPair() throws InvalidKeyException {
     final ECPrivateKey privateKey = Curve.decodePrivatePoint(noiseStaticPrivateKey().value());

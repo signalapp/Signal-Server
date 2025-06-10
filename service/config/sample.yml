@@ -491,7 +491,8 @@ linkDevice:
   secret: secret://linkDevice.secret
 
 noiseTunnel:
-  port: 8443
+  webSocketPort: 8444
+  directPort: 8445
   tlsKeyStoreFile: /path/to/file.p12
   tlsKeyStoreEntryAlias: example.com
   tlsKeyStorePassword: secret://noiseTunnel.tlsKeyStorePassword

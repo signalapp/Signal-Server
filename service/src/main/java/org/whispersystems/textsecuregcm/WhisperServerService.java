@@ -154,6 +154,7 @@ import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedDefaultEventLoopGroup;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedLocalGrpcServer;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedNioEventLoopGroup;
+import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectTunnelServer;
 import org.whispersystems.textsecuregcm.grpc.net.websocket.NoiseWebSocketTunnelServer;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
@@ -873,16 +874,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     @Nullable final X509Certificate[] noiseWebSocketTlsCertificateChain;
     @Nullable final PrivateKey noiseWebSocketTlsPrivateKey;
 
-    if (config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreFile() != null &&
-        config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreEntryAlias() != null &&
-        config.getNoiseWebSocketTunnelConfiguration().tlsKeyStorePassword() != null) {
+    if (config.getNoiseTunnelConfiguration().tlsKeyStoreFile() != null &&
+        config.getNoiseTunnelConfiguration().tlsKeyStoreEntryAlias() != null &&
+        config.getNoiseTunnelConfiguration().tlsKeyStorePassword() != null) {
 
-      try (final FileInputStream websocketNoiseTunnelTlsKeyStoreInputStream = new FileInputStream(config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreFile())) {
+      try (final FileInputStream websocketNoiseTunnelTlsKeyStoreInputStream = new FileInputStream(config.getNoiseTunnelConfiguration().tlsKeyStoreFile())) {
         final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        keyStore.load(websocketNoiseTunnelTlsKeyStoreInputStream, config.getNoiseWebSocketTunnelConfiguration().tlsKeyStorePassword().value().toCharArray());
+        keyStore.load(websocketNoiseTunnelTlsKeyStoreInputStream, config.getNoiseTunnelConfiguration().tlsKeyStorePassword().value().toCharArray());
 
-        final KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(config.getNoiseWebSocketTunnelConfiguration().tlsKeyStoreEntryAlias(),
-            new KeyStore.PasswordProtection(config.getNoiseWebSocketTunnelConfiguration().tlsKeyStorePassword().value().toCharArray()));
+        final KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(
+            config.getNoiseTunnelConfiguration().tlsKeyStoreEntryAlias(),
+            new KeyStore.PasswordProtection(config.getNoiseTunnelConfiguration().tlsKeyStorePassword().value().toCharArray()));
 
         noiseWebSocketTlsCertificateChain =
             Arrays.copyOf(privateKeyEntry.getCertificateChain(), privateKeyEntry.getCertificateChain().length, X509Certificate[].class);
@@ -901,27 +903,37 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .allowCoreThreadTimeOut(false)
         .build();
 
-    final ManagedNioEventLoopGroup noiseWebSocketEventLoopGroup = new ManagedNioEventLoopGroup();
+    final ManagedNioEventLoopGroup noiseTunnelEventLoopGroup = new ManagedNioEventLoopGroup();
 
     final NoiseWebSocketTunnelServer noiseWebSocketTunnelServer = new NoiseWebSocketTunnelServer(
-        config.getNoiseWebSocketTunnelConfiguration().port(),
+        config.getNoiseTunnelConfiguration().webSocketPort(),
         noiseWebSocketTlsCertificateChain,
         noiseWebSocketTlsPrivateKey,
-        noiseWebSocketEventLoopGroup,
+        noiseTunnelEventLoopGroup,
         noiseWebSocketDelegatedTaskExecutor,
         grpcClientConnectionManager,
         clientPublicKeysManager,
-        config.getNoiseWebSocketTunnelConfiguration().noiseStaticKeyPair(),
+        config.getNoiseTunnelConfiguration().noiseStaticKeyPair(),
         authenticatedGrpcServerAddress,
         anonymousGrpcServerAddress,
-        config.getNoiseWebSocketTunnelConfiguration().recognizedProxySecret().value());
+        config.getNoiseTunnelConfiguration().recognizedProxySecret().value());
+
+    final NoiseDirectTunnelServer noiseDirectTunnelServer = new NoiseDirectTunnelServer(
+        config.getNoiseTunnelConfiguration().directPort(),
+        noiseTunnelEventLoopGroup,
+        grpcClientConnectionManager,
+        clientPublicKeysManager,
+        config.getNoiseTunnelConfiguration().noiseStaticKeyPair(),
+        authenticatedGrpcServerAddress,
+        anonymousGrpcServerAddress);
 
     environment.lifecycle().manage(localEventLoopGroup);
     environment.lifecycle().manage(dnsResolutionEventLoopGroup);
     environment.lifecycle().manage(anonymousGrpcServer);
     environment.lifecycle().manage(authenticatedGrpcServer);
-    environment.lifecycle().manage(noiseWebSocketEventLoopGroup);
+    environment.lifecycle().manage(noiseTunnelEventLoopGroup);
     environment.lifecycle().manage(noiseWebSocketTunnelServer);
+    environment.lifecycle().manage(noiseDirectTunnelServer);
 
     final List<Filter> filters = new ArrayList<>();
     filters.add(remoteDeprecationFilter);

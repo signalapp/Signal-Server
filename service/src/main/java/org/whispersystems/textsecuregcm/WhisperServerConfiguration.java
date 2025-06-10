@@ -43,7 +43,7 @@ import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfigurat
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
-import org.whispersystems.textsecuregcm.configuration.NoiseWebSocketTunnelConfiguration;
+import org.whispersystems.textsecuregcm.configuration.NoiseTunnelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RegistrationServiceClientFactory;
@@ -304,7 +304,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private NoiseWebSocketTunnelConfiguration noiseTunnel;
+  private NoiseTunnelConfiguration noiseTunnel;
 
   @Valid
   @NotNull
@@ -514,7 +514,7 @@ public class WhisperServerConfiguration extends Configuration {
     return virtualThread;
   }
 
-  public NoiseWebSocketTunnelConfiguration getNoiseWebSocketTunnelConfiguration() {
+  public NoiseTunnelConfiguration getNoiseTunnelConfiguration() {
     return noiseTunnel;
   }
 
