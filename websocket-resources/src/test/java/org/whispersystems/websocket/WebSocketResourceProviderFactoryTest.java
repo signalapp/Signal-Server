@@ -25,7 +25,7 @@ import org.eclipse.jetty.websocket.server.JettyWebSocketServletFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.websocket.auth.AuthenticationException;
+import org.whispersystems.websocket.auth.InvalidCredentialsException;
 import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.auth.AuthenticatedWebSocketUpgradeFilter;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
@@ -55,9 +55,9 @@ public class WebSocketResourceProviderFactoryTest {
   }
 
   @Test
-  void testUnauthorized() throws AuthenticationException, IOException {
+  void testUnauthorized() throws InvalidCredentialsException, IOException {
     when(environment.getAuthenticator()).thenReturn(authenticator);
-    when(authenticator.authenticate(eq(request))).thenReturn(ReusableAuth.invalid());
+    when(authenticator.authenticate(eq(request))).thenThrow(new InvalidCredentialsException());
     when(environment.jersey()).thenReturn(jerseyEnvironment);
 
     WebSocketResourceProviderFactory<?> factory = new WebSocketResourceProviderFactory<>(environment, Account.class,
@@ -70,7 +70,7 @@ public class WebSocketResourceProviderFactoryTest {
   }
 
   @Test
-  void testValidAuthorization() throws AuthenticationException {
+  void testValidAuthorization() throws InvalidCredentialsException {
     Account account = new Account();
 
     when(environment.getAuthenticator()).thenReturn(authenticator);
@@ -96,9 +96,9 @@ public class WebSocketResourceProviderFactoryTest {
   }
 
   @Test
-  void testErrorAuthorization() throws AuthenticationException, IOException {
+  void testErrorAuthorization() throws InvalidCredentialsException, IOException {
     when(environment.getAuthenticator()).thenReturn(authenticator);
-    when(authenticator.authenticate(eq(request))).thenThrow(new AuthenticationException("database failure"));
+    when(authenticator.authenticate(eq(request))).thenThrow(new RuntimeException("database failure"));
     when(environment.jersey()).thenReturn(jerseyEnvironment);
 
     WebSocketResourceProviderFactory<Account> factory = new WebSocketResourceProviderFactory<>(environment,
@@ -127,7 +127,7 @@ public class WebSocketResourceProviderFactoryTest {
   }
 
   @Test
-  void testAuthenticatedWebSocketUpgradeFilter() throws AuthenticationException {
+  void testAuthenticatedWebSocketUpgradeFilter() throws InvalidCredentialsException {
     final Account account = new Account();
     final ReusableAuth<Account> reusableAuth =
         ReusableAuth.authenticated(account, PrincipalSupplier.forImmutablePrincipal());

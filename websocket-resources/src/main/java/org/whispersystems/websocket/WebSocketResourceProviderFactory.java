@@ -22,7 +22,7 @@ import org.glassfish.jersey.CommonProperties;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.websocket.auth.AuthenticationException;
+import org.whispersystems.websocket.auth.InvalidCredentialsException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
@@ -45,7 +45,7 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
     this.environment = environment;
 
     environment.jersey().register(new WebSocketSessionContextValueFactoryProvider.Binder());
-    environment.jersey().register(new WebsocketAuthValueFactoryProvider.Binder<T>(principalClass));
+    environment.jersey().register(new WebsocketAuthValueFactoryProvider.Binder<>(principalClass));
     environment.jersey().register(new JacksonMessageBodyProvider(environment.getObjectMapper()));
 
     // Jersey buffers responses (by default up to 8192 bytes) just so it can add a content length to responses. We
@@ -64,17 +64,9 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
     try {
       Optional<WebSocketAuthenticator<T>> authenticator = Optional.ofNullable(environment.getAuthenticator());
 
-      final ReusableAuth<T> authenticated;
-      if (authenticator.isPresent()) {
-        authenticated = authenticator.get().authenticate(request);
-
-        if (authenticated.invalidCredentialsProvided()) {
-          response.sendForbidden("Unauthorized");
-          return null;
-        }
-      } else {
-        authenticated = ReusableAuth.anonymous();
-      }
+      final ReusableAuth<T> authenticated = authenticator.isPresent()
+          ? authenticator.get().authenticate(request)
+          : ReusableAuth.anonymous();
 
       Optional.ofNullable(environment.getAuthenticatedWebSocketUpgradeFilter())
           .ifPresent(filter -> filter.handleAuthentication(authenticated, request, response));
@@ -87,11 +79,19 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
           this.environment.getMessageFactory(),
           ofNullable(this.environment.getConnectListener()),
           this.environment.getIdleTimeout());
-    } catch (AuthenticationException | IOException e) {
+    } catch (final InvalidCredentialsException e) {
+      try {
+        response.sendForbidden("Unauthorized");
+      } catch (final IOException ignored) {
+      }
+      return null;
+    } catch (final Exception e) {
+      // Authentication may fail for non-incorrect-credential reasons (e.g. we couldn't read from the account database).
+      // If that happens, we don't want to incorrectly tell clients that they provided bad credentials.
       logger.warn("Authentication failure", e);
       try {
         response.sendError(500, "Failure");
-      } catch (IOException ignored) {
+      } catch (final IOException ignored) {
       }
       return null;
     }

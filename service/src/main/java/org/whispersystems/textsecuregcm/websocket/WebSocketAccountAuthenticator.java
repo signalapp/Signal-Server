@@ -13,7 +13,7 @@ import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.websocket.ReusableAuth;
-import org.whispersystems.websocket.auth.AuthenticationException;
+import org.whispersystems.websocket.auth.InvalidCredentialsException;
 import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 
@@ -22,7 +22,6 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
 
   private static final ReusableAuth<AuthenticatedDevice> CREDENTIALS_NOT_PRESENTED = ReusableAuth.anonymous();
 
-  private static final ReusableAuth<AuthenticatedDevice> INVALID_CREDENTIALS_PRESENTED = ReusableAuth.invalid();
   private final AccountAuthenticator accountAuthenticator;
   private final PrincipalSupplier<AuthenticatedDevice> principalSupplier;
 
@@ -34,23 +33,17 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
 
   @Override
   public ReusableAuth<AuthenticatedDevice> authenticate(final UpgradeRequest request)
-      throws AuthenticationException {
-    try {
-      return authenticatedAccountFromHeaderAuth(request.getHeader(HttpHeaders.AUTHORIZATION));
-    } catch (final Exception e) {
-      // this will be handled and logged upstream
-      // the most likely exception is a transient error connecting to account storage
-      throw new AuthenticationException(e);
-    }
-  }
+      throws InvalidCredentialsException {
 
-  private ReusableAuth<AuthenticatedDevice> authenticatedAccountFromHeaderAuth(@Nullable final String authHeader) {
+    @Nullable final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+
     if (authHeader == null) {
       return CREDENTIALS_NOT_PRESENTED;
     }
+
     return basicCredentialsFromAuthHeader(authHeader)
         .flatMap(accountAuthenticator::authenticate)
         .map(authenticatedAccount -> ReusableAuth.authenticated(authenticatedAccount, this.principalSupplier))
-        .orElse(INVALID_CREDENTIALS_PRESENTED);
+        .orElseThrow(InvalidCredentialsException::new);
   }
 }

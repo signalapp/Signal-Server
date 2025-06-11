@@ -59,28 +59,12 @@ public abstract sealed class ReusableAuth<T extends Principal> {
    */
   public abstract Optional<MutableRef<T>> mutableRef();
 
-  public boolean invalidCredentialsProvided() {
-    return switch (this) {
-      case Invalid<T> ignored -> true;
-      case ReusableAuth.Anonymous<T> ignored -> false;
-      case ReusableAuth.Authenticated<T> ignored-> false;
-    };
-  }
-
   /**
    * @return A {@link ReusableAuth} indicating no credential were provided
    */
   public static <T extends Principal> ReusableAuth<T> anonymous() {
     //noinspection unchecked
     return (ReusableAuth<T>) Anonymous.ANON_RESULT;
-  }
-
-  /**
-   * @return A {@link ReusableAuth} indicating that invalid credentials were provided
-   */
-  public static <T extends Principal> ReusableAuth<T> invalid() {
-    //noinspection unchecked
-    return (ReusableAuth<T>) Invalid.INVALID_RESULT;
   }
 
   /**
@@ -94,23 +78,6 @@ public abstract sealed class ReusableAuth<T extends Principal> {
   public static <T extends Principal> ReusableAuth<T> authenticated(T principal,
       PrincipalSupplier<T> principalSupplier) {
     return new Authenticated<>(principal, principalSupplier);
-  }
-
-
-  private static final class Invalid<T extends Principal> extends ReusableAuth<T> {
-
-    @SuppressWarnings({"rawtypes"})
-    private static final ReusableAuth INVALID_RESULT = new Invalid();
-
-    @Override
-    public Optional<T> ref() {
-      return Optional.empty();
-    }
-
-    @Override
-    public Optional<MutableRef<T>> mutableRef() {
-      return Optional.empty();
-    }
   }
 
   private static final class Anonymous<T extends Principal> extends ReusableAuth<T> {
