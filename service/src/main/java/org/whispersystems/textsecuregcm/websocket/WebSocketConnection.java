@@ -338,13 +338,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
               // Cleared the queue! Send a queue empty message if we need to
               consecutiveRetries.set(0);
               if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
-                final boolean inSkipExperiment = auth.getAuthenticatedDevice().getGcmId() != null && experimentEnrollmentManager.isEnrolled(
-                    auth.getAccount().getUuid(),
-                    PushNotificationManager.SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT);
 
-                final Tags tags = Tags
-                    .of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()))
-                    .and("lowUrgencySkip", Boolean.toString(inSkipExperiment));
+                final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
                 final long drainDuration = System.currentTimeMillis() - queueDrainStartTime.get();
 
                 Metrics.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, tags).record(sentMessageCounter.sum());

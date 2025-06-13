@@ -33,7 +33,6 @@ import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
@@ -118,9 +117,6 @@ record CommandDependencies(
         new DynamicConfigurationManager<>(
             configuration.getDynamicConfig().build(awsCredentialsProvider, dynamicConfigurationExecutor), DynamicConfiguration.class);
     dynamicConfigurationManager.start();
-    final ExperimentEnrollmentManager experimentEnrollmentManager =
-        new ExperimentEnrollmentManager(dynamicConfigurationManager);
-
     final ClientResources.Builder redisClientResourcesBuilder = ClientResources.builder();
 
     FaultTolerantRedisClusterClient cacheCluster = configuration.getCacheClusterConfiguration()
@@ -286,7 +282,7 @@ record CommandDependencies(
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
         apnSender, fcmSender, accountsManager, 0, 0);
     PushNotificationManager pushNotificationManager = new PushNotificationManager(accountsManager,
-        apnSender, fcmSender, pushNotificationScheduler, experimentEnrollmentManager);
+        apnSender, fcmSender, pushNotificationScheduler);
     PushNotificationExperimentSamples pushNotificationExperimentSamples =
         new PushNotificationExperimentSamples(dynamoDbAsyncClient,
             configuration.getDynamoDbTables().getPushNotificationExperimentSamples().getTableName(),

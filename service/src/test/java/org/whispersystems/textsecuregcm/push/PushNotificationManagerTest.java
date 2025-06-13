@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -36,7 +35,6 @@ class PushNotificationManagerTest {
   private APNSender apnSender;
   private FcmSender fcmSender;
   private PushNotificationScheduler pushNotificationScheduler;
-  private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private PushNotificationManager pushNotificationManager;
 
@@ -46,17 +44,15 @@ class PushNotificationManagerTest {
     apnSender = mock(APNSender.class);
     fcmSender = mock(FcmSender.class);
     pushNotificationScheduler = mock(PushNotificationScheduler.class);
-    experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
     pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender,
-        pushNotificationScheduler, experimentEnrollmentManager);
+        pushNotificationScheduler);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void sendNewMessageNotification(final boolean urgent) throws NotPushRegisteredException {
+  @Test
+  void sendNewUrgentMessageNotification() throws NotPushRegisteredException {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
 
@@ -66,12 +62,29 @@ class PushNotificationManagerTest {
     when(device.getGcmId()).thenReturn(deviceToken);
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
 
-    when(fcmSender.sendNotification(any()))
-        .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
-
-    pushNotificationManager.sendNewMessageNotification(account, Device.PRIMARY_ID, urgent);
-    verify(fcmSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, account, device, urgent));
+      when(fcmSender.sendNotification(any()))
+          .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
+    pushNotificationManager.sendNewMessageNotification(account, Device.PRIMARY_ID, true);
+    verify(fcmSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, account, device, true));
   }
+
+  @Test
+  void sendNewNonUrgentMessageNotification() throws NotPushRegisteredException {
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+
+    final String deviceToken = "token";
+
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
+    when(device.getGcmId()).thenReturn(deviceToken);
+    when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
+
+    when(pushNotificationScheduler.scheduleBackgroundNotification(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+    pushNotificationManager.sendNewMessageNotification(account, Device.PRIMARY_ID, false);
+    verify(pushNotificationScheduler).scheduleBackgroundNotification(PushNotification.TokenType.FCM, account, device);
+  }
+
 
   @Test
   void sendRegistrationChallengeNotification() {
@@ -135,9 +148,8 @@ class PushNotificationManagerTest {
     }
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testSendNotificationFcm(final boolean urgent) {
+  @Test
+  void testSendNotificationFcm() {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
 
@@ -145,7 +157,7 @@ class PushNotificationManagerTest {
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
 
     final PushNotification pushNotification = new PushNotification(
-        "token", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, account, device, urgent);
+        "token", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, account, device, true);
 
     when(fcmSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
@@ -162,10 +174,9 @@ class PushNotificationManagerTest {
   @CartesianTest
   void testSendOrScheduleNotification(
       @CartesianTest.Enum(PushNotification.TokenType.class) PushNotification.TokenType tokenType,
-      @CartesianTest.Values(booleans = {false, true}) final boolean urgent,
-      @CartesianTest.Values(booleans = {false, true}) final boolean inExperiment) {
+      @CartesianTest.Values(booleans = {false, true}) final boolean urgent) {
 
-    final boolean expectSchedule = !urgent && (tokenType == PushNotification.TokenType.APN || inExperiment);
+    final boolean expectSchedule = !urgent;
 
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
@@ -174,9 +185,6 @@ class PushNotificationManagerTest {
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
     when(account.getUuid()).thenReturn(aci);
-
-    when(experimentEnrollmentManager.isEnrolled(aci, PushNotificationManager.SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT))
-        .thenReturn(inExperiment);
 
     final PushNotification pushNotification = new PushNotification(
         "token", tokenType, PushNotification.NotificationType.NOTIFICATION, null, account, device, urgent);

@@ -244,11 +244,8 @@ public class MessagePersister implements Managed {
 
       } while (!messages.isEmpty());
 
-      final boolean inSkipExperiment = device.getGcmId() != null && experimentEnrollmentManager.isEnrolled(
-          accountUuid,
-          PushNotificationManager.SCHEDULE_LOW_URGENCY_FCM_PUSH_EXPERIMENT);
       DistributionSummary.builder(QUEUE_SIZE_DISTRIBUTION_SUMMARY_NAME)
-          .tags(Tags.of(platformTag).and("lowUrgencySkip", Boolean.toString(inSkipExperiment)))
+          .tags(Tags.of(platformTag))
           .publishPercentileHistogram(true)
           .register(Metrics.globalRegistry)
           .record(messageCount);

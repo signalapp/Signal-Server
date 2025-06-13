@@ -641,7 +641,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
         apnSender, fcmSender, accountsManager, 0, 0);
     PushNotificationManager pushNotificationManager =
-        new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler, experimentEnrollmentManager);
+        new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
     WebSocketConnectionEventManager webSocketConnectionEventManager =
         new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster);
