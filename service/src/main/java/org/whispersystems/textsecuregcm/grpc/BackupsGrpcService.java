@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import reactor.core.publisher.Mono;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
@@ -60,9 +61,15 @@ public class BackupsGrpcService extends ReactorBackupsGrpc.BackupsImplBase {
         BackupAuthCredentialRequest::new,
         request.getMediaBackupAuthCredentialRequest().toByteArray());
 
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
     return authenticatedAccount()
-        .flatMap(account -> Mono.fromFuture(
-            backupAuthManager.commitBackupId(account, messagesCredentialRequest, mediaCredentialRequest)))
+        .flatMap(account -> {
+          final Device device = account
+              .getDevice(authenticatedDevice.deviceId())
+              .orElseThrow(Status.UNAUTHENTICATED::asRuntimeException);
+          return Mono.fromFuture(
+              backupAuthManager.commitBackupId(account, device, messagesCredentialRequest, mediaCredentialRequest));
+        })
         .thenReturn(SetBackupIdResponse.getDefaultInstance());
   }
 

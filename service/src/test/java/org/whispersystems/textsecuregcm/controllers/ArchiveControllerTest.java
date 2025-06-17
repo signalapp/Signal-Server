@@ -157,7 +157,7 @@ public class ArchiveControllerTest {
 
   @Test
   public void setBackupId() {
-    when(backupAuthManager.commitBackupId(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(backupAuthManager.commitBackupId(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final Response response = resources.getJerseyTest()
         .target("v1/archives/backupid")
@@ -170,7 +170,7 @@ public class ArchiveControllerTest {
 
     assertThat(response.getStatus()).isEqualTo(204);
 
-    verify(backupAuthManager).commitBackupId(AuthHelper.VALID_ACCOUNT,
+    verify(backupAuthManager).commitBackupId(AuthHelper.VALID_ACCOUNT, AuthHelper.VALID_DEVICE,
         backupAuthTestUtil.getRequest(messagesBackupKey, aci),
         backupAuthTestUtil.getRequest(mediaBackupKey, aci));
   }
@@ -275,9 +275,9 @@ public class ArchiveControllerTest {
   @MethodSource
   public void setBackupIdException(final Exception ex, final boolean sync, final int expectedStatus) {
     if (sync) {
-      when(backupAuthManager.commitBackupId(any(), any(), any())).thenThrow(ex);
+      when(backupAuthManager.commitBackupId(any(), any(), any(), any())).thenThrow(ex);
     } else {
-      when(backupAuthManager.commitBackupId(any(), any(), any())).thenReturn(CompletableFuture.failedFuture(ex));
+      when(backupAuthManager.commitBackupId(any(), any(), any(), any())).thenReturn(CompletableFuture.failedFuture(ex));
     }
     final Response response = resources.getJerseyTest()
         .target("v1/archives/backupid")

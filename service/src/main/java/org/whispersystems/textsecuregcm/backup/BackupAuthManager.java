@@ -34,6 +34,7 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -85,6 +86,7 @@ public class BackupAuthManager {
    * Store credential requests containing blinded backup-ids for future use.
    *
    * @param account                         The account using the backup-id
+   * @param device                          The device setting the account backup-id
    * @param messagesBackupCredentialRequest A request containing the blinded backup-id the client will use to upload
    *                                        message backups
    * @param mediaBackupCredentialRequest    A request containing the blinded backup-id the client will use to upload
@@ -92,11 +94,16 @@ public class BackupAuthManager {
    * @return A future that completes when the credentialRequest has been stored
    * @throws RateLimitExceededException If too many backup-ids have been committed
    */
-  public CompletableFuture<Void> commitBackupId(final Account account,
+  public CompletableFuture<Void> commitBackupId(
+      final Account account,
+      final Device device,
       final BackupAuthCredentialRequest messagesBackupCredentialRequest,
       final BackupAuthCredentialRequest mediaBackupCredentialRequest) {
     if (configuredBackupLevel(account).isEmpty()) {
       throw Status.PERMISSION_DENIED.withDescription("Backups not allowed on account").asRuntimeException();
+    }
+    if (!device.isPrimary()) {
+      throw Status.PERMISSION_DENIED.withDescription("Only primary device can set backup-id").asRuntimeException();
     }
     final byte[] serializedMessageCredentialRequest = messagesBackupCredentialRequest.serialize();
     final byte[] serializedMediaCredentialRequest = mediaBackupCredentialRequest.serialize();

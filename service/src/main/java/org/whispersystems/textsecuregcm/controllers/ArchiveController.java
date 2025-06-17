@@ -135,13 +135,14 @@ public class ArchiveController {
           """)
   @ApiResponse(responseCode = "204", description = "The backup-id was set")
   @ApiResponse(responseCode = "400", description = "The provided backup auth credential request was invalid")
+  @ApiResponse(responseCode = "403", description = "The device did not have permission to set the backup-id. Only the primary device can set the backup-id for an account")
   @ApiResponse(responseCode = "429", description = "Rate limited. Too many attempts to change the backup-id have been made")
   public CompletionStage<Response> setBackupId(
       @Mutable @Auth final AuthenticatedDevice account,
       @Valid @NotNull final SetBackupIdRequest setBackupIdRequest) throws RateLimitExceededException {
-
     return this.backupAuthManager
-        .commitBackupId(account.getAccount(), setBackupIdRequest.messagesBackupAuthCredentialRequest,
+        .commitBackupId(account.getAccount(), account.getAuthenticatedDevice(),
+            setBackupIdRequest.messagesBackupAuthCredentialRequest,
             setBackupIdRequest.mediaBackupAuthCredentialRequest)
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }

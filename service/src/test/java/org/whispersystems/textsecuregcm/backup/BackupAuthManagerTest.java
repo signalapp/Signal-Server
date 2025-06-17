@@ -61,6 +61,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.tests.util.ExperimentHelper;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
@@ -119,7 +120,7 @@ public class BackupAuthManagerTest {
     final BackupAuthCredentialRequest messagesCredentialRequest = backupAuthTestUtil.getRequest(messagesBackupKey, aci);
     final BackupAuthCredentialRequest mediaCredentialRequest = backupAuthTestUtil.getRequest(mediaBackupKey, aci);
 
-    authManager.commitBackupId(account, messagesCredentialRequest, mediaCredentialRequest).join();
+    authManager.commitBackupId(account, primaryDevice(), messagesCredentialRequest, mediaCredentialRequest).join();
 
     verify(account).setBackupCredentialRequests(messagesCredentialRequest.serialize(), mediaCredentialRequest.serialize());
   }
@@ -135,6 +136,7 @@ public class BackupAuthManagerTest {
 
     final ThrowableAssert.ThrowingCallable commit = () ->
         authManager.commitBackupId(account,
+            primaryDevice(),
             backupAuthTestUtil.getRequest(messagesBackupKey, aci),
             backupAuthTestUtil.getRequest(mediaBackupKey, aci)).join();
     if (backupLevel == null) {
@@ -145,6 +147,24 @@ public class BackupAuthManagerTest {
     } else {
       Assertions.assertThatNoException().isThrownBy(commit);
     }
+  }
+
+  @Test
+  void commitRequiresPrimary() {
+    final BackupAuthManager authManager = create(BackupLevel.FREE);
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(aci);
+    when(accountsManager.updateAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(account));
+
+    final ThrowableAssert.ThrowingCallable commit = () ->
+        authManager.commitBackupId(account,
+            linkedDevice(),
+            backupAuthTestUtil.getRequest(messagesBackupKey, aci),
+            backupAuthTestUtil.getRequest(mediaBackupKey, aci)).join();
+    assertThatExceptionOfType(StatusRuntimeException.class)
+        .isThrownBy(commit)
+        .extracting(ex -> ex.getStatus().getCode())
+        .isEqualTo(Status.Code.PERMISSION_DENIED);
   }
 
   @CartesianTest
@@ -504,7 +524,7 @@ public class BackupAuthManagerTest {
         : storedMediaCredential;
 
     final boolean expectRateLimit = (changeMedia || changeMessage) && rateLimitBackupId;
-    final CompletableFuture<Void> future = authManager.commitBackupId(account, newMessagesCredential, newMediaCredential);
+    final CompletableFuture<Void> future = authManager.commitBackupId(account, primaryDevice(), newMessagesCredential, newMediaCredential);
     if (expectRateLimit) {
       CompletableFutureTestUtil.assertFailsWithCause(RateLimitExceededException.class, future);
     } else {
@@ -538,7 +558,7 @@ public class BackupAuthManagerTest {
 
     // We should get rate limited iff we are out of paid media changes and we changed the media backup-id
     final boolean expectRateLimit =  changeMedia && paid && rateLimitPaidMedia;
-    final CompletableFuture<Void> future = authManager.commitBackupId(account, newMessagesCredential, newMediaCredential);
+    final CompletableFuture<Void> future = authManager.commitBackupId(account, primaryDevice(), newMessagesCredential, newMediaCredential);
     if (expectRateLimit) {
       CompletableFutureTestUtil.assertFailsWithCause(RateLimitExceededException.class, future);
     } else {
@@ -562,6 +582,17 @@ public class BackupAuthManagerTest {
     return account;
   }
 
+  private Device primaryDevice() {
+    final Device device = mock(Device.class);
+    when(device.isPrimary()).thenReturn(true);
+    return device;
+  }
+
+  private Device linkedDevice() {
+    final Device device = mock(Device.class);
+    when(device.isPrimary()).thenReturn(false);
+    return device;
+  }
 
   private static String experimentName(@Nullable BackupLevel backupLevel) {
     return switch (backupLevel) {

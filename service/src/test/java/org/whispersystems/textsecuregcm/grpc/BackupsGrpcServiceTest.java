@@ -57,6 +57,7 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
@@ -69,7 +70,8 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
       backupAuthTestUtil.getRequest(mediaBackupKey, AUTHENTICATED_ACI);
   final BackupAuthCredentialRequest messagesAuthCredRequest =
       backupAuthTestUtil.getRequest(messagesBackupKey, AUTHENTICATED_ACI);
-  private final Account account = mock(Account.class);
+  private Account account;
+  private Device device;
 
   @Mock
   private BackupAuthManager backupAuthManager;
@@ -83,14 +85,19 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
 
   @BeforeEach
   void setup() {
+    account = mock(Account.class);
+    device = mock(Device.class);
+    when(device.isPrimary()).thenReturn(true);
     when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(account.getDevice(AUTHENTICATED_DEVICE_ID)).thenReturn(Optional.of(device));
   }
 
 
   @Test
   void setBackupId() {
-    when(backupAuthManager.commitBackupId(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(backupAuthManager.commitBackupId(any(), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     authenticatedServiceStub().setBackupId(
         SetBackupIdRequest.newBuilder()
@@ -98,7 +105,7 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
             .setMessagesBackupAuthCredentialRequest(ByteString.copyFrom(messagesAuthCredRequest.serialize()))
             .build());
 
-    verify(backupAuthManager).commitBackupId(account, messagesAuthCredRequest, mediaAuthCredRequest);
+    verify(backupAuthManager).commitBackupId(account, device, messagesAuthCredRequest, mediaAuthCredRequest);
   }
 
   @Test
@@ -147,9 +154,10 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
   @MethodSource
   void setBackupIdException(final Exception ex, final boolean sync, final Status expected) {
     if (sync) {
-      when(backupAuthManager.commitBackupId(any(), any(), any())).thenThrow(ex);
+      when(backupAuthManager.commitBackupId(any(), any(), any(), any())).thenThrow(ex);
     } else {
-      when(backupAuthManager.commitBackupId(any(), any(), any())).thenReturn(CompletableFuture.failedFuture(ex));
+      when(backupAuthManager.commitBackupId(any(), any(), any(), any()))
+          .thenReturn(CompletableFuture.failedFuture(ex));
     }
 
     GrpcTestUtils.assertStatusException(
