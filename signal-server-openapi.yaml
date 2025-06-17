@@ -2005,6 +2005,11 @@ paths:
     post:
       tags:
       - Donations
+      summary: Redeem receipt
+      description: |
+        Redeem a receipt acquired from /v1/subscription/{subscriberId}/receipt_credentials to add a badge to the
+        account. After successful redemption, profile responses will include the corresponding badge (if configured as
+        visible) until the expiration time on the receipt.
       operationId: redeemReceipt_1
       requestBody:
         content:
@@ -2013,11 +2018,14 @@ paths:
               $ref: '#/components/schemas/RedeemReceiptRequest'
         required: true
       responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
-            text/plain: {}
+        "200":
+          description: The receipt was redeemed
+        "400":
+          description: |
+            The provided presentation or receipt was invalid, or the receipt was already redeemed for a different account. A
+            specific error message suitable for logging will be included as text/plain body
+        "429":
+          description: Rate limited.
       security:
       - authenticatedAccount: []
   /v1/keepalive:
@@ -2344,15 +2352,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -2589,15 +2597,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2680,15 +2688,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2716,15 +2724,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3137,15 +3145,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3185,15 +3193,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3226,15 +3234,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3411,15 +3419,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3457,15 +3465,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3556,15 +3564,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -4973,11 +4981,15 @@ components:
       properties:
         receiptCredentialPresentation:
           type: string
-          format: byte
+          description: Presentation of a ZK receipt encoded in standard padded base64
         visible:
           type: boolean
+          description: "If true, the corresponding badge should be visible on the\
+            \ profile"
         primary:
           type: boolean
+          description: "if true, and the new badge is visible, it should be the primary\
+            \ badge on the profile"
     WebSocketClient:
       type: object
       properties:
