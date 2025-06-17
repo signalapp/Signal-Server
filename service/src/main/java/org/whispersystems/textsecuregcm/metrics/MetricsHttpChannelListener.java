@@ -59,6 +59,10 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   public static final String REQUEST_COUNTER_NAME = MetricsRequestEventListener.REQUEST_COUNTER_NAME;
   public static final String REQUESTS_BY_VERSION_COUNTER_NAME = MetricsRequestEventListener.REQUESTS_BY_VERSION_COUNTER_NAME;
   @VisibleForTesting
+  static final String RESPONSE_BYTES_COUNTER_NAME = MetricsRequestEventListener.RESPONSE_BYTES_COUNTER_NAME;
+  @VisibleForTesting
+  static final String REQUEST_BYTES_COUNTER_NAME = MetricsRequestEventListener.REQUEST_BYTES_COUNTER_NAME;
+  @VisibleForTesting
   static final String URI_INFO_PROPERTY_NAME = MetricsHttpChannelListener.class.getName() + ".uriInfo";
 
   @VisibleForTesting
@@ -140,6 +144,9 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
     tags.addAll(UserAgentTagUtil.getLibsignalAndPlatformTags(requestInfo.userAgent()));
 
     meterRegistry.counter(REQUEST_COUNTER_NAME, tags).increment();
+
+    meterRegistry.counter(RESPONSE_BYTES_COUNTER_NAME, tags).increment(request.getResponse().getContentCount());
+    meterRegistry.counter(REQUEST_BYTES_COUNTER_NAME, tags).increment(request.getContentRead());
 
     UserAgentTagUtil.getClientVersionTag(requestInfo.userAgent(), clientReleaseManager).ifPresent(
         clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,

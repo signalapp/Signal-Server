@@ -39,6 +39,8 @@ class MetricsHttpChannelListenerTest {
   private MeterRegistry meterRegistry;
   private Counter requestCounter;
   private Counter requestsByVersionCounter;
+  private Counter responseBytesCounter;
+  private Counter requestBytesCounter;
   private ClientReleaseManager clientReleaseManager;
   private MetricsHttpChannelListener listener;
 
@@ -47,12 +49,20 @@ class MetricsHttpChannelListenerTest {
     meterRegistry = mock(MeterRegistry.class);
     requestCounter = mock(Counter.class);
     requestsByVersionCounter = mock(Counter.class);
+    responseBytesCounter = mock(Counter.class);
+    requestBytesCounter = mock(Counter.class);
 
     when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(requestCounter);
 
     when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUESTS_BY_VERSION_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(requestsByVersionCounter);
+
+    when(meterRegistry.counter(eq(MetricsHttpChannelListener.RESPONSE_BYTES_COUNTER_NAME), any(Iterable.class)))
+        .thenReturn(responseBytesCounter);
+
+    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUEST_BYTES_COUNTER_NAME), any(Iterable.class)))
+        .thenReturn(requestBytesCounter);
 
     clientReleaseManager = mock(ClientReleaseManager.class);
 
@@ -76,7 +86,9 @@ class MetricsHttpChannelListenerTest {
 
     final Response response = mock(Response.class);
     when(response.getStatus()).thenReturn(statusCode);
+    when(response.getContentCount()).thenReturn(1024L);
     when(request.getResponse()).thenReturn(response);
+    when(request.getContentRead()).thenReturn(512L);
     final ExtendedUriInfo extendedUriInfo = mock(ExtendedUriInfo.class);
     when(request.getAttribute(MetricsHttpChannelListener.URI_INFO_PROPERTY_NAME)).thenReturn(extendedUriInfo);
     when(extendedUriInfo.getMatchedTemplates()).thenReturn(List.of(new UriTemplate(path)));
@@ -86,6 +98,9 @@ class MetricsHttpChannelListenerTest {
     listener.onComplete(request);
 
     verify(requestCounter).increment();
+
+    verify(responseBytesCounter).increment(1024L);
+    verify(requestBytesCounter).increment(512L);
 
     verify(meterRegistry).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
 
@@ -123,7 +138,9 @@ class MetricsHttpChannelListenerTest {
 
     final Response response = mock(Response.class);
     when(response.getStatus()).thenReturn(statusCode);
+    when(response.getContentCount()).thenReturn(1024L);
     when(request.getResponse()).thenReturn(response);
+    when(request.getContentRead()).thenReturn(512L);
     final ExtendedUriInfo extendedUriInfo = mock(ExtendedUriInfo.class);
     when(request.getAttribute(MetricsHttpChannelListener.URI_INFO_PROPERTY_NAME)).thenReturn(extendedUriInfo);
     when(extendedUriInfo.getMatchedTemplates()).thenReturn(List.of(new UriTemplate(path)));

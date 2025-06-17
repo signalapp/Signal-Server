@@ -15,8 +15,11 @@ import io.micrometer.core.instrument.Tags;
 import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
+import org.whispersystems.websocket.WebSocketResourceProvider;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -24,14 +27,19 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Gathers and reports request-level metrics.
+ * Gathers and reports request-level metrics for WebSocket traffic only.
+ * For HTTP traffic, use {@link MetricsHttpChannelListener}.
  */
 public class MetricsRequestEventListener implements RequestEventListener {
+
+  private static final Logger logger = LoggerFactory.getLogger(MetricsRequestEventListener.class);
 
   private final ClientReleaseManager clientReleaseManager;
 
   public static final String REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "request");
   public static final String REQUESTS_BY_VERSION_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "requestByVersion");
+  public static final String RESPONSE_BYTES_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "responseBytes");
+  public static final String REQUEST_BYTES_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "requestBytes");
 
   @VisibleForTesting
   static final String PATH_TAG = "path";
@@ -50,6 +58,10 @@ public class MetricsRequestEventListener implements RequestEventListener {
 
   public MetricsRequestEventListener(final TrafficSource trafficSource, final ClientReleaseManager clientReleaseManager) {
     this(trafficSource, Metrics.globalRegistry, clientReleaseManager);
+
+    if (trafficSource == TrafficSource.HTTP) {
+      logger.warn("Use {} for HTTP traffic", MetricsHttpChannelListener.class.getName());
+    }
   }
 
   @VisibleForTesting
@@ -84,6 +96,18 @@ public class MetricsRequestEventListener implements RequestEventListener {
         tags.addAll(UserAgentTagUtil.getLibsignalAndPlatformTags(userAgent));
 
         meterRegistry.counter(REQUEST_COUNTER_NAME, tags).increment();
+
+        Optional.ofNullable(event.getContainerRequest().getProperty(WebSocketResourceProvider.REQUEST_LENGTH_PROPERTY))
+            .filter(Integer.class::isInstance)
+            .map(Integer.class::cast)
+            .filter(bytes -> bytes >= 0)
+            .ifPresent(bytes -> meterRegistry.counter(REQUEST_BYTES_COUNTER_NAME, tags).increment(bytes));
+
+        Optional.ofNullable(event.getContainerRequest().getProperty(WebSocketResourceProvider.RESPONSE_LENGTH_PROPERTY))
+            .filter(Integer.class::isInstance)
+            .map(Integer.class::cast)
+            .filter(bytes -> bytes >= 0)
+            .ifPresent(bytes -> meterRegistry.counter(RESPONSE_BYTES_COUNTER_NAME, tags).increment(bytes));
 
         UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager)
             .ifPresent(clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,

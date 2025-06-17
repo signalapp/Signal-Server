@@ -62,6 +62,8 @@ class MetricsRequestEventListenerTest {
 
   private MeterRegistry meterRegistry;
   private Counter counter;
+  private Counter responseBytesCounter;
+  private Counter requestBytesCounter;
   private MetricsRequestEventListener listener;
 
   private static final TrafficSource TRAFFIC_SOURCE = TrafficSource.HTTP;
@@ -70,6 +72,8 @@ class MetricsRequestEventListenerTest {
   void setup() {
     meterRegistry = mock(MeterRegistry.class);
     counter = mock(Counter.class);
+    responseBytesCounter = mock(Counter.class);
+    requestBytesCounter = mock(Counter.class);
 
     final ClientReleaseManager clientReleaseManager = mock(ClientReleaseManager.class);
     when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(false);
@@ -91,6 +95,8 @@ class MetricsRequestEventListenerTest {
     when(request.getMethod()).thenReturn(method);
     when(request.getRequestHeader(HttpHeaders.USER_AGENT)).thenReturn(
         Collections.singletonList("Signal-Android/7.6.2 Android/34 libsignal/0.46.0"));
+    when(request.getProperty(WebSocketResourceProvider.REQUEST_LENGTH_PROPERTY)).thenReturn(512);
+    when(request.getProperty(WebSocketResourceProvider.RESPONSE_LENGTH_PROPERTY)).thenReturn(1024);
 
     final ContainerResponse response = mock(ContainerResponse.class);
     when(response.getStatus()).thenReturn(statusCode);
@@ -104,10 +110,17 @@ class MetricsRequestEventListenerTest {
     final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
     when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUEST_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(counter);
+    when(meterRegistry.counter(eq(MetricsRequestEventListener.RESPONSE_BYTES_COUNTER_NAME), any(Iterable.class)))
+        .thenReturn(responseBytesCounter);
+    when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUEST_BYTES_COUNTER_NAME), any(Iterable.class)))
+        .thenReturn(requestBytesCounter);
 
     listener.onEvent(event);
 
     verify(meterRegistry).counter(eq(MetricsRequestEventListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
+    verify(counter).increment();
+    verify(responseBytesCounter).increment(1024L);
+    verify(requestBytesCounter).increment(512L);
 
     final Iterable<Tag> tagIterable = tagCaptor.getValue();
     final Set<Tag> tags = new HashSet<>();
@@ -155,6 +168,10 @@ class MetricsRequestEventListenerTest {
     final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
     when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUEST_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(counter);
+    when(meterRegistry.counter(eq(MetricsRequestEventListener.RESPONSE_BYTES_COUNTER_NAME), any(Iterable.class)))
+        .thenReturn(responseBytesCounter);
+    when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUEST_BYTES_COUNTER_NAME), any(Iterable.class)))
+        .thenReturn(requestBytesCounter);
 
     provider.onWebSocketConnect(session);
 
@@ -216,6 +233,10 @@ class MetricsRequestEventListenerTest {
     final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
     when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUEST_COUNTER_NAME), any(Iterable.class))).thenReturn(
         counter);
+    when(meterRegistry.counter(eq(MetricsRequestEventListener.RESPONSE_BYTES_COUNTER_NAME), any(Iterable.class)))
+        .thenReturn(responseBytesCounter);
+    when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUEST_BYTES_COUNTER_NAME), any(Iterable.class)))
+        .thenReturn(requestBytesCounter);
 
     provider.onWebSocketConnect(session);
 

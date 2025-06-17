@@ -46,6 +46,7 @@ import java.security.Principal;
 import java.time.Duration;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -83,7 +84,9 @@ class MetricsHttpChannelListenerIntegrationTest {
 
   private static final TrafficSource TRAFFIC_SOURCE = TrafficSource.HTTP;
   private static final MeterRegistry METER_REGISTRY = mock(MeterRegistry.class);
-  private static final Counter COUNTER = mock(Counter.class);
+  private static final Counter REQUEST_COUNTER = mock(Counter.class);
+  private static final Counter RESPONSE_BYTES_COUNTER = mock(Counter.class);
+  private static final Counter REQUEST_BYTES_COUNTER = mock(Counter.class);
   private static final AtomicReference<CountDownLatch> COUNT_DOWN_LATCH_FUTURE_REFERENCE = new AtomicReference<>();
 
   private static final DropwizardAppExtension<Configuration> EXTENSION = new DropwizardAppExtension<>(
@@ -92,7 +95,9 @@ class MetricsHttpChannelListenerIntegrationTest {
   @AfterEach
   void teardown() {
     reset(METER_REGISTRY);
-    reset(COUNTER);
+    reset(REQUEST_COUNTER);
+    reset(RESPONSE_BYTES_COUNTER);
+    reset(REQUEST_BYTES_COUNTER);
   }
 
   @ParameterizedTest
@@ -105,11 +110,13 @@ class MetricsHttpChannelListenerIntegrationTest {
     COUNT_DOWN_LATCH_FUTURE_REFERENCE.set(countDownLatch);
 
     final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
+    final Map<String, Counter> counterMap = Map.of(
+        MetricsHttpChannelListener.REQUEST_COUNTER_NAME, REQUEST_COUNTER,
+        MetricsHttpChannelListener.RESPONSE_BYTES_COUNTER_NAME, RESPONSE_BYTES_COUNTER,
+        MetricsHttpChannelListener.REQUEST_BYTES_COUNTER_NAME, REQUEST_BYTES_COUNTER
+    );
     when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
-        .thenAnswer(a -> MetricsHttpChannelListener.REQUEST_COUNTER_NAME.equals(a.getArgument(0, String.class))
-            ? COUNTER
-            : mock(Counter.class))
-        .thenReturn(COUNTER);
+        .thenAnswer(a -> counterMap.getOrDefault(a.getArgument(0, String.class), mock(Counter.class)));
 
     Client client = EXTENSION.client();
 
@@ -141,7 +148,7 @@ class MetricsHttpChannelListenerIntegrationTest {
     assertTrue(countDownLatch.await(1000, TimeUnit.MILLISECONDS));
 
     verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
-    verify(COUNTER).increment();
+    verify(REQUEST_COUNTER).increment();
 
     final Iterable<Tag> tagIterable = tagCaptor.getValue();
     final Set<Tag> tags = new HashSet<>();
@@ -186,11 +193,13 @@ class MetricsHttpChannelListenerIntegrationTest {
       COUNT_DOWN_LATCH_FUTURE_REFERENCE.set(countDownLatch);
 
       final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
+      final Map<String, Counter> counterMap = Map.of(
+          MetricsHttpChannelListener.REQUEST_COUNTER_NAME, REQUEST_COUNTER,
+          MetricsHttpChannelListener.RESPONSE_BYTES_COUNTER_NAME, RESPONSE_BYTES_COUNTER,
+          MetricsHttpChannelListener.REQUEST_BYTES_COUNTER_NAME, REQUEST_BYTES_COUNTER
+      );
       when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
-          .thenAnswer(a -> MetricsHttpChannelListener.REQUEST_COUNTER_NAME.equals(a.getArgument(0, String.class))
-              ? COUNTER
-              : mock(Counter.class))
-          .thenReturn(COUNTER);
+          .thenAnswer(a -> counterMap.getOrDefault(a.getArgument(0, String.class), mock(Counter.class)));
 
       client.connect(new WebSocketListener() {
                        @Override
@@ -203,7 +212,7 @@ class MetricsHttpChannelListenerIntegrationTest {
       assertTrue(countDownLatch.await(1000, TimeUnit.MILLISECONDS));
 
       verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
-      verify(COUNTER).increment();
+      verify(REQUEST_COUNTER).increment();
 
       final Iterable<Tag> tagIterable = tagCaptor.getValue();
       final Set<Tag> tags = new HashSet<>();

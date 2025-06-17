@@ -173,11 +173,24 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
    * {@link org.whispersystems.websocket.ReusableAuth.MutableRef} for us to close when the request is finished
    */
   public static final String RESOLVED_PRINCIPAL_PROPERTY = WebSocketResourceProvider.class.getName() + ".resolvedPrincipal";
+
+  /**
+   * The property name where request byte count is stored for metrics collection
+   */
+  public static final String REQUEST_LENGTH_PROPERTY = WebSocketResourceProvider.class.getName() + ".requestBytes";
+
+  /**
+   * The property name where response byte count is stored for metrics collection
+   */
+  public static final String RESPONSE_LENGTH_PROPERTY = WebSocketResourceProvider.class.getName() + ".responseBytes";
+
   private void handleRequest(WebSocketRequestMessage requestMessage) {
     ContainerRequest containerRequest = new ContainerRequest(null, URI.create(requestMessage.getPath()),
         requestMessage.getVerb(), new WebSocketSecurityContext(new ContextPrincipal(context)),
         new MapPropertiesDelegate(new HashMap<>()), jerseyHandler.getConfiguration());
     containerRequest.headers(getCombinedHeaders(session.getUpgradeRequest().getHeaders(), requestMessage.getHeaders()));
+
+    final int requestBytes = requestMessage.getBody().map(body -> body.length).orElse(0);
 
     if (requestMessage.getBody().isPresent()) {
       containerRequest.setEntityStream(new ByteArrayInputStream(requestMessage.getBody().get()));
@@ -185,6 +198,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
     containerRequest.setProperty(remoteAddressPropertyName, remoteAddress);
     containerRequest.setProperty(REUSABLE_AUTH_PROPERTY, reusableAuth);
+    containerRequest.setProperty(REQUEST_LENGTH_PROPERTY, requestBytes);
 
     ByteArrayOutputStream responseBody = new ByteArrayOutputStream();
     CompletableFuture<ContainerResponse> responseFuture = (CompletableFuture<ContainerResponse>) jerseyHandler.apply(
@@ -203,6 +217,8 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
         })
         .thenAccept(response -> {
           try {
+            final int responseBytes = responseBody.size();
+            containerRequest.setProperty(RESPONSE_LENGTH_PROPERTY, responseBytes);
             sendResponse(requestMessage, response, responseBody);
           } catch (IOException e) {
             throw new RuntimeException(e);
@@ -213,6 +229,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
           logger.warn("Websocket Error: " + requestMessage.getVerb() + " " + requestMessage.getPath() + "\n"
               + requestMessage.getBody(), exception);
           try {
+            containerRequest.setProperty(RESPONSE_LENGTH_PROPERTY, 0);
             sendErrorResponse(requestMessage, Response.status(500).build());
           } catch (IOException e) {
             logger.warn("Failed to send error response", e);
