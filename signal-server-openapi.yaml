@@ -1151,6 +1151,9 @@ paths:
           description: The backup-id was set
         "400":
           description: The provided backup auth credential request was invalid
+        "403":
+          description: The device did not have permission to set the backup-id. Only
+            the primary device can set the backup-id for an account
         "429":
           description: Rate limited. Too many attempts to change the backup-id have
             been made
