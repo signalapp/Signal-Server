@@ -168,8 +168,12 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
                   .setDestinationServiceId(destinationServiceIdentifier.toServiceIdentifierString())
                   .setEphemeral(ephemeral)
                   .setUrgent(urgent)
-                  .setStory(story)
                   .setContent(entry.getValue().getPayload());
+
+              if (story) {
+                // Avoid sending this field if it's false.
+                envelopeBuilder.setStory(true);
+              }
 
               spamCheckResult.token().ifPresent(reportSpamToken ->
                   envelopeBuilder.setReportSpamToken(ByteString.copyFrom(reportSpamToken)));

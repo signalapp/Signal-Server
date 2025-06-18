@@ -199,7 +199,6 @@ class MessagesAnonymousGrpcServiceTest extends
           .setServerTimestamp(CLOCK.millis())
           .setEphemeral(ephemeral)
           .setUrgent(urgent)
-          .setStory(false)
           .setContent(ByteString.copyFrom(payload));
 
       if (includeReportSpamToken) {

@@ -51,9 +51,13 @@ public record IncomingMessage(int type,
         .setClientTimestamp(timestamp)
         .setServerTimestamp(clock.millis())
         .setDestinationServiceId(destinationIdentifier.toServiceIdentifierString())
-        .setStory(story)
         .setEphemeral(ephemeral)
         .setUrgent(urgent);
+
+    if (story) {
+      // Avoid sending this field if it's false.
+      envelopeBuilder.setStory(true);
+    }
 
     if (sourceServiceIdentifier != null && sourceDeviceId != null) {
       envelopeBuilder

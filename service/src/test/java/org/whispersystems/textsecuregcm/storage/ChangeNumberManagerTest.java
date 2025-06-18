@@ -181,7 +181,6 @@ public class ChangeNumberManagerTest {
         .setUpdatedPni(updatedPhoneNumberIdentifiersByAccount.get(account).toString())
         .setUrgent(true)
         .setEphemeral(false)
-        .setStory(false)
         .build();
 
     verify(messageSender).sendMessages(argThat(a -> a.getIdentifier(IdentityType.ACI).equals(aci)),

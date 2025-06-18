@@ -145,15 +145,20 @@ public class MessagesManager {
 
     return insertSharedMultiRecipientMessagePayload(multiRecipientMessage)
         .thenCompose(sharedMrmKey -> {
-          final Envelope prototypeMessage = Envelope.newBuilder()
+          final Envelope.Builder envelopeBuilder = Envelope.newBuilder()
               .setType(Envelope.Type.UNIDENTIFIED_SENDER)
               .setClientTimestamp(clientTimestamp == 0 ? serverTimestamp : clientTimestamp)
               .setServerTimestamp(serverTimestamp)
-              .setStory(isStory)
               .setEphemeral(isEphemeral)
               .setUrgent(isUrgent)
-              .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey))
-              .build();
+              .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey));
+
+          if (isStory) {
+            // Avoid sending this field if it's false.
+            envelopeBuilder.setStory(true);
+          }
+
+          final Envelope prototypeMessage = envelopeBuilder.build();
 
           final Map<Account, Map<Byte, Boolean>> clientPresenceByAccountAndDevice = new ConcurrentHashMap<>();
 

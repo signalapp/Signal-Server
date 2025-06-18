@@ -152,15 +152,17 @@ class MessagesManagerTest {
     final boolean isEphemeral = ThreadLocalRandom.current().nextBoolean();
     final boolean isUrgent = ThreadLocalRandom.current().nextBoolean();
 
-    final Envelope prototypeExpectedMessage = Envelope.newBuilder()
+    final Envelope.Builder expectedEnvelopeBuilder = Envelope.newBuilder()
         .setType(Envelope.Type.UNIDENTIFIED_SENDER)
         .setClientTimestamp(clientTimestamp)
         .setServerTimestamp(CLOCK.millis())
-        .setStory(isStory)
         .setEphemeral(isEphemeral)
         .setUrgent(isUrgent)
-        .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey))
-        .build();
+        .setSharedMrmKey(ByteString.copyFrom(sharedMrmKey));
+    if (isStory) {
+        expectedEnvelopeBuilder.setStory(true);
+    }
+    final Envelope prototypeExpectedMessage = expectedEnvelopeBuilder.build();
 
     assertEquals(expectedPresenceByAccountAndDeviceId,
         messagesManager.insertMultiRecipientMessage(multiRecipientMessage, resolvedRecipients, clientTimestamp, isStory, isEphemeral, isUrgent).join());

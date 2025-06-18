@@ -46,8 +46,12 @@ public record OutgoingMessageEntity(UUID guid,
         .setServerTimestamp(serverTimestamp())
         .setDestinationServiceId(destinationUuid().toServiceIdentifierString())
         .setServerGuid(guid().toString())
-        .setStory(story)
         .setUrgent(urgent);
+
+    if (story) {
+      // Avoid sending this field if it's false.
+      builder.setStory(true);
+    }
 
     if (sourceUuid() != null) {
       builder.setSourceServiceId(sourceUuid().toServiceIdentifierString());
