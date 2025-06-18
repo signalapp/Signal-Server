@@ -986,7 +986,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider("managed-async-websocket-virtual-thread-"));
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setAuthenticatedWebSocketUpgradeFilter(new IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter(
-        keysManager, config.idlePrimaryDeviceReminderConfiguration().minIdleDuration(), Clock.systemUTC()));
+        config.idlePrimaryDeviceReminderConfiguration().minIdleDuration(), Clock.systemUTC()));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(accountsManager, receiptSender, messagesManager, messageMetrics, pushNotificationManager,
             pushNotificationScheduler, webSocketConnectionEventManager, websocketScheduledExecutor,

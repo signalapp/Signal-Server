@@ -16,13 +16,10 @@ import org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest;
 import org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.websocket.auth.AuthenticatedWebSocketUpgradeFilter;
 
 public class IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter implements
     AuthenticatedWebSocketUpgradeFilter<AuthenticatedDevice> {
-
-  private final KeysManager keysManager;
 
   private final Duration minIdleDuration;
   private final Clock clock;
@@ -33,25 +30,11 @@ public class IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter implements
   @VisibleForTesting
   static final String IDLE_PRIMARY_DEVICE_ALERT = "idle-primary-device";
 
-  @VisibleForTesting
-  static final String CRITICAL_IDLE_PRIMARY_DEVICE_ALERT = "critical-idle-primary-device";
-
-  @VisibleForTesting
-  static final Duration PQ_KEY_CHECK_THRESHOLD = Duration.ofDays(120);
-
   private static final Counter IDLE_PRIMARY_WARNING_COUNTER = Metrics.counter(
       MetricsUtil.name(IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter.class, "idlePrimaryDeviceWarning"),
       "critical", "false");
 
-  private static final Counter CRITICAL_IDLE_PRIMARY_WARNING_COUNTER = Metrics.counter(
-      MetricsUtil.name(IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter.class, "idlePrimaryDeviceWarning"),
-      "critical", "true");
-
-  public IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter(final KeysManager keysManager,
-      final Duration minIdleDuration,
-      final Clock clock) {
-
-    this.keysManager = keysManager;
+  public IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter(final Duration minIdleDuration, final Clock clock) {
     this.minIdleDuration = minIdleDuration;
     this.clock = clock;
   }
@@ -68,12 +51,7 @@ public class IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter implements
         .ifPresent(authenticatedDevice -> {
           final Instant primaryDeviceLastSeen = authenticatedDevice.getPrimaryDeviceLastSeen();
 
-          if (primaryDeviceLastSeen.isBefore(clock.instant().minus(PQ_KEY_CHECK_THRESHOLD)) &&
-              keysManager.getLastResort(authenticatedDevice.getAccountIdentifier(), Device.PRIMARY_ID).join().isEmpty()) {
-
-            response.addHeader(ALERT_HEADER, CRITICAL_IDLE_PRIMARY_DEVICE_ALERT);
-            CRITICAL_IDLE_PRIMARY_WARNING_COUNTER.increment();
-          } else if (primaryDeviceLastSeen.isBefore(clock.instant().minus(minIdleDuration))) {
+          if (primaryDeviceLastSeen.isBefore(clock.instant().minus(minIdleDuration))) {
             response.addHeader(ALERT_HEADER, IDLE_PRIMARY_DEVICE_ALERT);
             IDLE_PRIMARY_WARNING_COUNTER.increment();
           }
