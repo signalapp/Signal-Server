@@ -69,7 +69,6 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 
 /**
@@ -163,7 +162,7 @@ public class OneTimeDonationController {
               @StringToClassMapItem(key = "error", value = String.class)
           })))
   public CompletableFuture<Response> createBoostPaymentIntent(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid CreateBoostRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
@@ -249,7 +248,7 @@ public class OneTimeDonationController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createPayPalBoost(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid CreatePayPalBoostRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @Context ContainerRequestContext containerRequestContext) {
@@ -296,7 +295,7 @@ public class OneTimeDonationController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> confirmPayPalBoost(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid ConfirmPayPalBoostRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
@@ -342,7 +341,7 @@ public class OneTimeDonationController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createBoostReceiptCredentials(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid final CreateBoostReceiptCredentialsRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 

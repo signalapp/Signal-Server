@@ -73,6 +73,7 @@ import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -82,6 +83,7 @@ import reactor.core.publisher.Flux;
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class ArchiveControllerTest {
 
+  private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private static final BackupAuthManager backupAuthManager = mock(BackupAuthManager.class);
   private static final BackupManager backupManager = mock(BackupManager.class);
   private final BackupAuthTestUtil backupAuthTestUtil = new BackupAuthTestUtil(Clock.systemUTC());
@@ -95,7 +97,7 @@ public class ArchiveControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new ArchiveController(backupAuthManager, backupManager, new BackupMetrics()))
+      .addResource(new ArchiveController(accountsManager, backupAuthManager, backupManager, new BackupMetrics()))
       .build();
 
   private final UUID aci = UUID.randomUUID();
@@ -106,6 +108,9 @@ public class ArchiveControllerTest {
   public void setUp() {
     reset(backupAuthManager);
     reset(backupManager);
+
+    when(accountsManager.getByAccountIdentifierAsync(AuthHelper.VALID_UUID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(AuthHelper.VALID_ACCOUNT)));
   }
 
   @ParameterizedTest

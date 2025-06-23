@@ -34,7 +34,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
-import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Duration;
@@ -51,11 +50,9 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.glassfish.jersey.server.ContainerRequest;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesLinkedDevices;
-import org.whispersystems.textsecuregcm.auth.LinkedDeviceRefreshRequirementProvider;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
@@ -87,11 +84,10 @@ import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.LinkDeviceToken;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
-import org.whispersystems.websocket.auth.Mutable;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/devices")
 @Tag(name = "Devices")
@@ -152,10 +148,10 @@ public class DeviceController {
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public DeviceInfoList getDevices(@ReadOnly @Auth AuthenticatedDevice auth) {
+  public DeviceInfoList getDevices(@Auth AuthenticatedDevice auth) {
     // Devices may change their own names (and primary devices may change the names of linked devices) and so the device
     // state associated with the authenticated account may be stale. Fetch a fresh copy to compensate.
-    return accounts.getByAccountIdentifier(auth.getAccount().getIdentifier(IdentityType.ACI))
+    return accounts.getByAccountIdentifier(auth.getAccountIdentifier())
         .map(account -> new DeviceInfoList(account.getDevices().stream()
             .map(DeviceInfo::forDevice)
             .toList()))
@@ -166,9 +162,8 @@ public class DeviceController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{device_id}")
   @ChangesLinkedDevices
-  public void removeDevice(@Mutable @Auth AuthenticatedDevice auth, @PathParam("device_id") byte deviceId) {
-    if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID &&
-        auth.getAuthenticatedDevice().getId() != deviceId) {
+  public void removeDevice(@Auth AuthenticatedDevice auth, @PathParam("device_id") byte deviceId) {
+    if (auth.getDeviceId() != Device.PRIMARY_ID && auth.getDeviceId() != deviceId) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -176,13 +171,16 @@ public class DeviceController {
       throw new ForbiddenException();
     }
 
-    accounts.removeDevice(auth.getAccount(), deviceId).join();
+    final Account account = accounts.getByAccountIdentifier(auth.getAccountIdentifier())
+            .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+    accounts.removeDevice(account, deviceId).join();
   }
 
   /**
    * Generates a signed device-linking token. Generally, primary devices will include the signed device-linking token in
    * a provisioning message to a new device, and then the new device will include the token in its request to
-   * {@link #linkDevice(BasicAuthorizationHeader, String, LinkDeviceRequest, ContainerRequest)}.
+   * {@link #linkDevice(BasicAuthorizationHeader, String, LinkDeviceRequest)}.
    *
    * @param auth the authenticated account/device
    *
@@ -207,10 +205,11 @@ public class DeviceController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public LinkDeviceToken createDeviceToken(@ReadOnly @Auth AuthenticatedDevice auth)
+  public LinkDeviceToken createDeviceToken(@Auth AuthenticatedDevice auth)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
-    final Account account = auth.getAccount();
+    final Account account = accounts.getByAccountIdentifier(auth.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     rateLimiters.getAllocateDeviceLimiter().validate(account.getUuid());
 
@@ -224,7 +223,7 @@ public class DeviceController {
       throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
     }
 
-    if (auth.getAuthenticatedDevice().getId() != Device.PRIMARY_ID) {
+    if (auth.getDeviceId() != Device.PRIMARY_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -252,8 +251,7 @@ public class DeviceController {
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public LinkDeviceResponse linkDevice(@HeaderParam(HttpHeaders.AUTHORIZATION) BasicAuthorizationHeader authorizationHeader,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable String userAgent,
-      @NotNull @Valid LinkDeviceRequest linkDeviceRequest,
-      @Context ContainerRequest containerRequest)
+      @NotNull @Valid LinkDeviceRequest linkDeviceRequest)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
     final Account account = accounts.checkDeviceLinkingToken(linkDeviceRequest.verificationCode())
@@ -278,11 +276,6 @@ public class DeviceController {
     if (!allKeysValid) {
       throw new WebApplicationException(Response.status(422).build());
     }
-
-    // Normally, the "do we need to refresh somebody's websockets" listener can do this on its own. In this case,
-    // we're not using the conventional authentication system, and so we need to give it a hint so it knows who the
-    // active user is and what their device states look like.
-    LinkedDeviceRefreshRequirementProvider.setAccount(containerRequest, account);
 
     final int maxDeviceLimit = maxDeviceConfiguration.getOrDefault(account.getNumber(), MAX_DEVICES);
 
@@ -351,7 +344,7 @@ public class DeviceController {
   @ApiResponse(responseCode = "400", description = "The given token identifier or timeout was invalid")
   @ApiResponse(responseCode = "429", description = "Rate-limited; try again after the prescribed delay")
   public CompletionStage<Response> waitForLinkedDevice(
-      @ReadOnly @Auth final AuthenticatedDevice authenticatedDevice,
+      @Auth final AuthenticatedDevice authenticatedDevice,
 
       @PathParam("tokenIdentifier")
       @Schema(description = "A 'link device' token identifier provided by the 'create link device token' endpoint")
@@ -374,12 +367,18 @@ public class DeviceController {
     final AtomicInteger linkedDeviceListenerCounter = getCounterForLinkedDeviceListeners(userAgent);
     linkedDeviceListenerCounter.incrementAndGet();
 
-    return rateLimiters.getWaitForLinkedDeviceLimiter()
-        .validateAsync(authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI))
-        .thenCompose(ignored -> persistentTimer.start(WAIT_FOR_LINKED_DEVICE_TIMER_NAMESPACE, tokenIdentifier))
-        .thenCompose(sample -> accounts.waitForNewLinkedDevice(
-                authenticatedDevice.getAccount().getUuid(),
-                authenticatedDevice.getAuthenticatedDevice(),
+    return rateLimiters.getWaitForLinkedDeviceLimiter().validateAsync(authenticatedDevice.getAccountIdentifier())
+        .thenCompose(ignored -> accounts.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier()))
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+          return persistentTimer.start(WAIT_FOR_LINKED_DEVICE_TIMER_NAMESPACE, tokenIdentifier)
+              .thenApply(sample -> new Pair<>(account, sample));
+        })
+        .thenCompose(accountAndSample -> accounts.waitForNewLinkedDevice(
+                authenticatedDevice.getAccountIdentifier(),
+                accountAndSample.first().getDevice(authenticatedDevice.getDeviceId())
+                    .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)),
                 tokenIdentifier,
                 Duration.ofSeconds(timeoutSeconds))
             .thenApply(maybeDeviceInfo -> maybeDeviceInfo
@@ -391,7 +390,7 @@ public class DeviceController {
               linkedDeviceListenerCounter.decrementAndGet();
 
               if (response != null && response.getStatus() == Response.Status.OK.getStatusCode()) {
-                sample.stop(Timer.builder(WAIT_FOR_LINKED_DEVICE_TIMER_NAME)
+                accountAndSample.second().stop(Timer.builder(WAIT_FOR_LINKED_DEVICE_TIMER_NAME)
                     .publishPercentileHistogram(true)
                     .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
                     .register(Metrics.globalRegistry));
@@ -410,14 +409,15 @@ public class DeviceController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/capabilities")
-  public void setCapabilities(@Mutable @Auth final AuthenticatedDevice auth,
+  public void setCapabilities(@Auth final AuthenticatedDevice auth,
 
       @NotNull
       final Map<String, Boolean> capabilities) {
 
-    assert (auth.getAuthenticatedDevice() != null);
-    final byte deviceId = auth.getAuthenticatedDevice().getId();
-    accounts.updateDevice(auth.getAccount(), deviceId,
+    final Account account = accounts.getByAccountIdentifier(auth.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+    accounts.updateDevice(account, auth.getDeviceId(),
         d -> d.setCapabilities(DeviceCapabilityAdapter.mapToSet(capabilities)));
   }
 
@@ -435,12 +435,13 @@ public class DeviceController {
   @ApiResponse(responseCode = "200", description = "Public key stored successfully")
   @ApiResponse(responseCode = "401", description = "Account authentication check failed")
   @ApiResponse(responseCode = "422", description = "Invalid request format")
-  public CompletableFuture<Void> setPublicKey(@Mutable @Auth final AuthenticatedDevice auth,
+  public CompletableFuture<Void> setPublicKey(@Auth final AuthenticatedDevice auth,
       final SetPublicKeyRequest setPublicKeyRequest) {
 
-    return clientPublicKeysManager.setPublicKey(auth.getAccount(),
-        auth.getAuthenticatedDevice().getId(),
-        setPublicKeyRequest.publicKey());
+    final Account account = accounts.getByAccountIdentifier(auth.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+    return clientPublicKeysManager.setPublicKey(account, auth.getDeviceId(), setPublicKeyRequest.publicKey());
   }
 
   private static boolean isCapabilityDowngrade(final Account account, final Set<DeviceCapability> capabilities) {
@@ -531,15 +532,21 @@ public class DeviceController {
   @ApiResponse(responseCode = "204", description = "Success")
   @ApiResponse(responseCode = "422", description = "The request object could not be parsed or was otherwise invalid")
   @ApiResponse(responseCode = "429", description = "Rate-limited; try again after the prescribed delay")
-  public CompletionStage<Void> recordTransferArchiveUploaded(@ReadOnly @Auth final AuthenticatedDevice authenticatedDevice,
+  public CompletionStage<Void> recordTransferArchiveUploaded(@Auth final AuthenticatedDevice authenticatedDevice,
       @NotNull @Valid final TransferArchiveUploadedRequest transferArchiveUploadedRequest) {
 
     return rateLimiters.getUploadTransferArchiveLimiter()
-        .validateAsync(authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI))
-        .thenCompose(ignored -> accounts.recordTransferArchiveUpload(authenticatedDevice.getAccount(),
-            transferArchiveUploadedRequest.destinationDeviceId(),
-            Instant.ofEpochMilli(transferArchiveUploadedRequest.destinationDeviceCreated()),
-            transferArchiveUploadedRequest.transferArchive()));
+        .validateAsync(authenticatedDevice.getAccountIdentifier())
+        .thenCompose(ignored -> accounts.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier()))
+        .thenCompose(maybeAccount -> {
+
+          final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+          return accounts.recordTransferArchiveUpload(account,
+              transferArchiveUploadedRequest.destinationDeviceId(),
+              Instant.ofEpochMilli(transferArchiveUploadedRequest.destinationDeviceCreated()),
+              transferArchiveUploadedRequest.transferArchive());
+        });
   }
 
   @GET
@@ -558,7 +565,7 @@ public class DeviceController {
   @ApiResponse(responseCode = "204", description = "No transfer archive was uploaded before the call completed; clients may repeat the call to continue waiting")
   @ApiResponse(responseCode = "400", description = "The given timeout was invalid")
   @ApiResponse(responseCode = "429", description = "Rate-limited; try again after the prescribed delay")
-  public CompletionStage<Response> waitForTransferArchive(@ReadOnly @Auth final AuthenticatedDevice authenticatedDevice,
+  public CompletionStage<Response> waitForTransferArchive(@Auth final AuthenticatedDevice authenticatedDevice,
 
       @QueryParam("timeout")
       @DefaultValue("30")
@@ -575,24 +582,30 @@ public class DeviceController {
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable String userAgent) {
 
 
-    final String rateLimiterKey = authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI) +
-        ":" + authenticatedDevice.getAuthenticatedDevice().getId();
+    final String rateLimiterKey = authenticatedDevice.getAccountIdentifier() + ":" + authenticatedDevice.getDeviceId();
 
     return rateLimiters.getWaitForTransferArchiveLimiter().validateAsync(rateLimiterKey)
-        .thenCompose(ignored -> persistentTimer.start(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAMESPACE, rateLimiterKey))
-        .thenCompose(sample -> accounts.waitForTransferArchive(authenticatedDevice.getAccount(),
-                authenticatedDevice.getAuthenticatedDevice(),
+        .thenCompose(ignored -> accounts.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier()))
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+          return persistentTimer.start(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAMESPACE, rateLimiterKey)
+              .thenApply(sample -> new Pair<>(account, sample));
+        })
+        .thenCompose(accountAndSample -> accounts.waitForTransferArchive(accountAndSample.first(),
+                accountAndSample.first().getDevice(authenticatedDevice.getDeviceId())
+                    .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)),
                 Duration.ofSeconds(timeoutSeconds))
             .thenApply(maybeTransferArchive -> maybeTransferArchive
                 .map(transferArchive -> Response.status(Response.Status.OK).entity(transferArchive).build())
                 .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
             .whenComplete((response, throwable) -> {
               if (response != null && response.getStatus() == Response.Status.OK.getStatusCode()) {
-                sample.stop(Timer.builder(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME)
+                accountAndSample.second().stop(Timer.builder(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME)
                     .publishPercentileHistogram(true)
                     .tags(Tags.of(
                         UserAgentTagUtil.getPlatformTag(userAgent),
-                        primaryPlatformTag(authenticatedDevice.getAccount())))
+                        primaryPlatformTag(accountAndSample.first())))
                     .register(Metrics.globalRegistry));
               }
             }));

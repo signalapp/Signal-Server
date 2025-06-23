@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -21,9 +23,11 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -44,6 +48,7 @@ import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -66,6 +71,8 @@ class CertificateControllerTest {
   private static final ServerZkAuthOperations serverZkAuthOperations;
   private static final Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
+  private static final AccountsManager accountsManager = mock(AccountsManager.class);
+
   static {
     try {
       certificateGenerator = new CertificateGenerator(Base64.getDecoder().decode(signingCertificate),
@@ -82,8 +89,13 @@ class CertificateControllerTest {
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new CertificateController(certificateGenerator, serverZkAuthOperations, genericServerSecretParams, clock))
+      .addResource(new CertificateController(accountsManager, certificateGenerator, serverZkAuthOperations, genericServerSecretParams, clock))
       .build();
+
+  @BeforeEach
+  void setUp() {
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+  }
 
   @Test
   void testValidCertificate() throws Exception {

@@ -88,7 +88,6 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/subscription")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Subscriptions")
@@ -220,7 +219,7 @@ public class SubscriptionController {
   @Path("/{subscriberId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> deleteSubscriber(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
@@ -232,7 +231,7 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> updateSubscriber(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
@@ -248,7 +247,7 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createPaymentMethod(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @QueryParam("type") @DefaultValue("CARD") PaymentMethod paymentMethodType,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) throws SubscriptionException {
@@ -284,7 +283,7 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createPayPalPaymentMethod(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @NotNull @Valid CreatePayPalBillingAgreementRequest request,
       @Context ContainerRequestContext containerRequestContext,
@@ -323,7 +322,7 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> setDefaultPaymentMethodWithProcessor(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("processor") PaymentProvider processor,
       @PathParam("paymentMethodToken") @NotEmpty String paymentMethodToken) throws SubscriptionException {
@@ -360,7 +359,7 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> setSubscriptionLevel(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("level") long level,
       @PathParam("currency") String currency,
@@ -432,7 +431,7 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "409", description = "subscriberId is already linked to a processor that does not support appstore payments. Delete this subscriberId and use a new one.")
   @ApiResponse(responseCode = "429", description = "Rate limit exceeded.")
   public CompletableFuture<SetSubscriptionLevelSuccessResponse> setAppStoreSubscription(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("originalTransactionId") String originalTransactionId) throws SubscriptionException {
     final SubscriberCredentials subscriberCredentials =
@@ -473,7 +472,7 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed or the purchaseToken does not exist")
   @ApiResponse(responseCode = "409", description = "subscriberId is already linked to a processor that does not support Play Billing. Delete this subscriberId and use a new one.")
   public CompletableFuture<SetSubscriptionLevelSuccessResponse> setPlayStoreSubscription(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("purchaseToken") String purchaseToken) throws SubscriptionException {
     final SubscriberCredentials subscriberCredentials =
@@ -627,7 +626,7 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed")
   public CompletableFuture<Response> getSubscriptionInformation(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
@@ -662,7 +661,7 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> createSubscriptionReceiptCredentials(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @PathParam("subscriberId") String subscriberId,
       @NotNull @Valid GetReceiptCredentialsRequest request) throws SubscriptionException {
@@ -691,7 +690,7 @@ public class SubscriptionController {
   @Path("/{subscriberId}/default_payment_method_for_ideal/{setupIntentId}")
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<Response> setDefaultPaymentMethodForIdeal(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("setupIntentId") @NotEmpty String setupIntentId) throws SubscriptionException {
     SubscriberCredentials subscriberCredentials =

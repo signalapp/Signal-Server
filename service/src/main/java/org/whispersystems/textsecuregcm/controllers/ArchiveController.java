@@ -37,6 +37,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.io.IOException;
@@ -71,14 +72,15 @@ import org.whispersystems.textsecuregcm.backup.MediaEncryptionParameters;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.BackupAuthCredentialAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.ECPublicKeyAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.websocket.auth.Mutable;
-import org.whispersystems.websocket.auth.ReadOnly;
 import reactor.core.publisher.Mono;
 
 @Path("/v1/archives")
@@ -88,14 +90,18 @@ public class ArchiveController {
   public final static String X_SIGNAL_ZK_AUTH = "X-Signal-ZK-Auth";
   public final static String X_SIGNAL_ZK_AUTH_SIGNATURE = "X-Signal-ZK-Auth-Signature";
 
+  private final AccountsManager accountsManager;
   private final BackupAuthManager backupAuthManager;
   private final BackupManager backupManager;
   private final BackupMetrics backupMetrics;
 
   public ArchiveController(
+      final AccountsManager accountsManager,
       final BackupAuthManager backupAuthManager,
       final BackupManager backupManager,
       final BackupMetrics backupMetrics) {
+
+    this.accountsManager = accountsManager;
     this.backupAuthManager = backupAuthManager;
     this.backupManager = backupManager;
     this.backupMetrics = backupMetrics;
@@ -138,13 +144,22 @@ public class ArchiveController {
   @ApiResponse(responseCode = "403", description = "The device did not have permission to set the backup-id. Only the primary device can set the backup-id for an account")
   @ApiResponse(responseCode = "429", description = "Rate limited. Too many attempts to change the backup-id have been made")
   public CompletionStage<Response> setBackupId(
-      @Mutable @Auth final AuthenticatedDevice account,
+      @Auth final AuthenticatedDevice authenticatedDevice,
       @Valid @NotNull final SetBackupIdRequest setBackupIdRequest) throws RateLimitExceededException {
-    return this.backupAuthManager
-        .commitBackupId(account.getAccount(), account.getAuthenticatedDevice(),
-            setBackupIdRequest.messagesBackupAuthCredentialRequest,
-            setBackupIdRequest.mediaBackupAuthCredentialRequest)
-        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+
+    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier())
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount
+              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+          final Device device = account.getDevice(authenticatedDevice.getDeviceId())
+              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+          return backupAuthManager
+              .commitBackupId(account, device, setBackupIdRequest.messagesBackupAuthCredentialRequest,
+                  setBackupIdRequest.mediaBackupAuthCredentialRequest)
+              .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+        });
   }
 
   public record RedeemBackupReceiptRequest(
@@ -188,12 +203,17 @@ public class ArchiveController {
   @ApiResponse(responseCode = "409", description = "The target account does not have a backup-id commitment")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public CompletionStage<Response> redeemReceipt(
-      @Mutable @Auth final AuthenticatedDevice account,
+      @Auth final AuthenticatedDevice authenticatedDevice,
       @Valid @NotNull final RedeemBackupReceiptRequest redeemBackupReceiptRequest) {
-    return this.backupAuthManager.redeemReceipt(
-            account.getAccount(),
-            redeemBackupReceiptRequest.receiptCredentialPresentation())
-        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+
+    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier())
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount
+              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+          return backupAuthManager.redeemReceipt(account, redeemBackupReceiptRequest.receiptCredentialPresentation())
+              .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+        });
   }
 
   public record BackupAuthCredentialsResponse(
@@ -252,7 +272,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "404", description = "Could not find an existing blinded backup id")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public CompletionStage<BackupAuthCredentialsResponse> getBackupZKCredentials(
-      @Mutable @Auth AuthenticatedDevice auth,
+      @Auth AuthenticatedDevice authenticatedDevice,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @QueryParam("redemptionStartSeconds") Long startSeconds,
       @NotNull @QueryParam("redemptionEndSeconds") Long endSeconds) {
@@ -260,27 +280,33 @@ public class ArchiveController {
     final Map<BackupCredentialType, List<BackupAuthCredentialsResponse.BackupAuthCredential>> credentialsByType =
         new ConcurrentHashMap<>();
 
-    return CompletableFuture.allOf(Arrays.stream(BackupCredentialType.values())
-            .map(credentialType -> this.backupAuthManager.getBackupAuthCredentials(
-                    auth.getAccount(),
-                    credentialType,
-                    Instant.ofEpochSecond(startSeconds), Instant.ofEpochSecond(endSeconds))
-                .thenAccept(credentials -> {
-                  backupMetrics.updateGetCredentialCounter(
-                      UserAgentTagUtil.getPlatformTag(userAgent),
-                      credentialType,
-                      credentials.size());
-                  credentialsByType.put(credentialType, credentials.stream()
-                      .map(credential -> new BackupAuthCredentialsResponse.BackupAuthCredential(
-                          credential.credential().serialize(),
-                          credential.redemptionTime().getEpochSecond()))
-                      .toList());
-                }))
-            .toArray(CompletableFuture[]::new))
-        .thenApply(ignored -> new BackupAuthCredentialsResponse(credentialsByType.entrySet().stream()
-            .collect(Collectors.toMap(
-                e -> BackupAuthCredentialsResponse.CredentialType.fromLibsignalType(e.getKey()),
-                Map.Entry::getValue))));
+    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier())
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount
+              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+          return CompletableFuture.allOf(Arrays.stream(BackupCredentialType.values())
+                  .map(credentialType -> this.backupAuthManager.getBackupAuthCredentials(
+                          account,
+                          credentialType,
+                          Instant.ofEpochSecond(startSeconds), Instant.ofEpochSecond(endSeconds))
+                      .thenAccept(credentials -> {
+                        backupMetrics.updateGetCredentialCounter(
+                            UserAgentTagUtil.getPlatformTag(userAgent),
+                            credentialType,
+                            credentials.size());
+                        credentialsByType.put(credentialType, credentials.stream()
+                            .map(credential -> new BackupAuthCredentialsResponse.BackupAuthCredential(
+                                credential.credential().serialize(),
+                                credential.redemptionTime().getEpochSecond()))
+                            .toList());
+                      }))
+                  .toArray(CompletableFuture[]::new))
+              .thenApply(ignored -> new BackupAuthCredentialsResponse(credentialsByType.entrySet().stream()
+                  .collect(Collectors.toMap(
+                      e -> BackupAuthCredentialsResponse.CredentialType.fromLibsignalType(e.getKey()),
+                      Map.Entry::getValue))));
+        });
   }
 
 
@@ -343,7 +369,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<ReadAuthResponse> readAuth(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -395,7 +421,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<BackupInfoResponse> backupInfo(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -441,7 +467,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "204", description = "The public key was set")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public CompletionStage<Response> setPublicKey(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -481,7 +507,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<UploadDescriptorResponse> backup(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -518,7 +544,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<UploadDescriptorResponse> uploadTemporaryAttachment(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
 
@@ -606,7 +632,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<CopyMediaResponse> copyMedia(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -705,7 +731,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<Response> copyMedia(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -744,7 +770,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<Response> refresh(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -811,7 +837,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<ListResponse> listMedia(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -867,7 +893,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<Response> deleteMedia(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -904,7 +930,7 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   public CompletionStage<Response> deleteBackup(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> account,
+      @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))

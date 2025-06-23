@@ -221,6 +221,8 @@ class ProfileControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(capabilitiesAccount));
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(capabilitiesAccount));
 
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_TWO));
+
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
@@ -1155,6 +1157,7 @@ class ProfileControllerTest {
     reset(accountsManager);
     final int accountsManagerUpdateRetryCount = 2;
     AccountsHelper.setupMockUpdateWithRetries(accountsManager, accountsManagerUpdateRetryCount);
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_TWO));
     // set up two invocations -- one for each AccountsManager#update try
     when(AuthHelper.VALID_ACCOUNT_TWO.getBadges())
         .thenReturn(List.of(

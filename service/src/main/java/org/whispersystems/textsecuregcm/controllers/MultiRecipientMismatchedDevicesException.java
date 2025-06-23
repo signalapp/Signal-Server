@@ -5,8 +5,8 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import java.util.Map;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 
 public class MultiRecipientMismatchedDevicesException extends Exception {
 

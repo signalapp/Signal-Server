@@ -21,6 +21,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.io.IOException;
 import java.net.URI;
 import java.util.EnumSet;
+import java.util.Optional;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
@@ -34,9 +35,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.tests.util.TestWebsocketListener;
-import org.whispersystems.websocket.ReusableAuth;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
-import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -78,8 +77,7 @@ public class WebsocketResourceProviderIntegrationTest {
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
       webSocketEnvironment.jersey().register(testController);
       webSocketEnvironment.jersey().register(new RemoteAddressFilter());
-      webSocketEnvironment.setAuthenticator(upgradeRequest ->
-          ReusableAuth.authenticated(mock(AuthenticatedDevice.class), PrincipalSupplier.forImmutablePrincipal()));
+      webSocketEnvironment.setAuthenticator(upgradeRequest -> Optional.of(mock(AuthenticatedDevice.class)));
 
       webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
       webSocketEnvironment.setConnectListener(webSocketSessionContext -> {

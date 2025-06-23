@@ -105,6 +105,7 @@ import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
@@ -112,7 +113,6 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 import org.whispersystems.websocket.WebsocketHeaders;
-import org.whispersystems.websocket.auth.ReadOnly;
 import reactor.core.scheduler.Scheduler;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -236,7 +236,7 @@ public class MessageController {
   @ApiResponse(
       responseCode="428",
       description="The sender should complete a challenge before proceeding")
-  public Response sendMessage(@ReadOnly @Auth final Optional<AuthenticatedDevice> source,
+  public Response sendMessage(@Auth final Optional<AuthenticatedDevice> source,
       @Parameter(description="The recipient's unidentified access key")
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) final Optional<Anonymous> accessKey,
 
@@ -274,12 +274,14 @@ public class MessageController {
         sendStoryMessage(destinationIdentifier, messages, context);
       } else if (source.isPresent()) {
         final AuthenticatedDevice authenticatedDevice = source.get();
+        final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+            .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
 
-        if (authenticatedDevice.getAccount().isIdentifiedBy(destinationIdentifier)) {
+        if (account.isIdentifiedBy(destinationIdentifier)) {
           needsSync = false;
-          sendSyncMessage(source.get(), destinationIdentifier, messages, context);
+          sendSyncMessage(source.get(), account, destinationIdentifier, messages, context);
         } else {
-          needsSync = authenticatedDevice.getAccount().getDevices().size() > 1;
+          needsSync = account.getDevices().size() > 1;
           sendIdentifiedSenderIndividualMessage(authenticatedDevice, destinationIdentifier, messages, context);
         }
       } else {
@@ -302,7 +304,7 @@ public class MessageController {
     final Account destination =
         accountsManager.getByServiceIdentifier(destinationIdentifier).orElseThrow(NotFoundException::new);
 
-    rateLimiters.getMessagesLimiter().validate(source.getAccount().getUuid(), destination.getUuid());
+    rateLimiters.getMessagesLimiter().validate(source.getAccountIdentifier(), destination.getUuid());
 
     sendIndividualMessage(destination,
         destinationIdentifier,
@@ -314,6 +316,7 @@ public class MessageController {
   }
 
   private void sendSyncMessage(final AuthenticatedDevice source,
+      final Account sourceAccount,
       final ServiceIdentifier destinationIdentifier,
       final IncomingMessageList messages,
       final ContainerRequestContext context)
@@ -323,7 +326,7 @@ public class MessageController {
       throw new WebApplicationException(Status.FORBIDDEN);
     }
 
-    sendIndividualMessage(source.getAccount(),
+    sendIndividualMessage(sourceAccount,
         destinationIdentifier,
         source,
         messages,
@@ -420,8 +423,8 @@ public class MessageController {
           try {
             return message.toEnvelope(
                 destinationIdentifier,
-                sender != null ? sender.getAccount() : null,
-                sender != null ? sender.getAuthenticatedDevice().getId() : null,
+                sender != null ? new AciServiceIdentifier(sender.getAccountIdentifier()) : null,
+                sender != null ? sender.getDeviceId() : null,
                 messages.timestamp() == 0 ? System.currentTimeMillis() : messages.timestamp(),
                 isStory,
                 messages.online(),
@@ -437,7 +440,7 @@ public class MessageController {
         .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, IncomingMessage::destinationRegistrationId));
 
     final Optional<Byte> syncMessageSenderDeviceId = messageType == MessageType.SYNC
-        ? Optional.ofNullable(sender).map(authenticatedDevice -> authenticatedDevice.getAuthenticatedDevice().getId())
+        ? Optional.ofNullable(sender).map(AuthenticatedDevice::getDeviceId)
         : Optional.empty();
 
     try {
@@ -755,31 +758,37 @@ public class MessageController {
   @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@ReadOnly @Auth AuthenticatedDevice auth,
+  public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@Auth AuthenticatedDevice auth,
       @HeaderParam(WebsocketHeaders.X_SIGNAL_RECEIVE_STORIES) String receiveStoriesHeader,
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
 
-    boolean shouldReceiveStories = WebsocketHeaders.parseReceiveStoriesHeader(receiveStoriesHeader);
+    return accountsManager.getByAccountIdentifierAsync(auth.getAccountIdentifier())
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
+          final Device device = account.getDevice(auth.getDeviceId())
+              .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
 
-    pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), auth.getAuthenticatedDevice(), userAgent);
+          final boolean shouldReceiveStories = WebsocketHeaders.parseReceiveStoriesHeader(receiveStoriesHeader);
 
-    return messagesManager.getMessagesForDevice(
-            auth.getAccount().getUuid(),
-            auth.getAuthenticatedDevice(),
-            false)
-        .map(messagesAndHasMore -> {
-          Stream<Envelope> envelopes = messagesAndHasMore.first().stream();
-          if (!shouldReceiveStories) {
-            envelopes = envelopes.filter(e -> !e.getStory());
-          }
+          pushNotificationManager.handleMessagesRetrieved(account, device, userAgent);
+
+          return messagesManager.getMessagesForDevice(
+                  auth.getAccountIdentifier(),
+                  device,
+                  false)
+              .map(messagesAndHasMore -> {
+                Stream<Envelope> envelopes = messagesAndHasMore.first().stream();
+                if (!shouldReceiveStories) {
+                  envelopes = envelopes.filter(e -> !e.getStory());
+                }
 
           final OutgoingMessageEntityList messages = new OutgoingMessageEntityList(envelopes
               .map(OutgoingMessageEntity::fromEnvelope)
               .peek(outgoingMessageEntity -> {
-                messageMetrics.measureAccountOutgoingMessageUuidMismatches(auth.getAccount(), outgoingMessageEntity);
+                messageMetrics.measureAccountOutgoingMessageUuidMismatches(account, outgoingMessageEntity);
                 messageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(),
                     "rest",
-                    auth.getAuthenticatedDevice().isPrimary(),
+                    auth.getDeviceId() == Device.PRIMARY_ID,
                     outgoingMessageEntity.urgent(),
                     // Messages fetched via this endpoint (as opposed to WebSocketConnection) are never ephemeral
                     // because, by definition, the client doesn't have a "live" connection via which to receive
@@ -791,26 +800,27 @@ public class MessageController {
               .collect(Collectors.toList()),
               messagesAndHasMore.second());
 
-          Metrics.summary(OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
-              .record(estimateMessageListSizeBytes(messages));
+                Metrics.summary(OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+                    .record(estimateMessageListSizeBytes(messages));
 
-          if (!messages.messages().isEmpty()) {
-            messageDeliveryLoopMonitor.recordDeliveryAttempt(auth.getAccount().getIdentifier(IdentityType.ACI),
-                auth.getAuthenticatedDevice().getId(),
-                messages.messages().getFirst().guid(),
-                userAgent,
-                "rest");
-          }
+                if (!messages.messages().isEmpty()) {
+                  messageDeliveryLoopMonitor.recordDeliveryAttempt(auth.getAccountIdentifier(),
+                      auth.getDeviceId(),
+                      messages.messages().getFirst().guid(),
+                      userAgent,
+                      "rest");
+                }
 
-          if (messagesAndHasMore.second()) {
-            pushNotificationScheduler.scheduleDelayedNotification(auth.getAccount(), auth.getAuthenticatedDevice(), NOTIFY_FOR_REMAINING_MESSAGES_DELAY);
-          }
+                if (messagesAndHasMore.second()) {
+                  pushNotificationScheduler.scheduleDelayedNotification(account, device, NOTIFY_FOR_REMAINING_MESSAGES_DELAY);
+                }
 
-          return messages;
-        })
-        .timeout(Duration.ofSeconds(5))
-        .subscribeOn(messageDeliveryScheduler)
-        .toFuture();
+                return messages;
+              })
+              .timeout(Duration.ofSeconds(5))
+              .subscribeOn(messageDeliveryScheduler)
+              .toFuture();
+        });
   }
 
   private static long estimateMessageListSizeBytes(final OutgoingMessageEntityList messageList) {
@@ -827,22 +837,27 @@ public class MessageController {
   @Timed
   @DELETE
   @Path("/uuid/{uuid}")
-  public CompletableFuture<Response> removePendingMessage(@ReadOnly @Auth AuthenticatedDevice auth, @PathParam("uuid") UUID uuid) {
+  public CompletableFuture<Response> removePendingMessage(@Auth AuthenticatedDevice auth, @PathParam("uuid") UUID uuid) {
+    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
+
+    final Device device = account.getDevice(auth.getDeviceId())
+        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
+
     return messagesManager.delete(
-            auth.getAccount().getUuid(),
-            auth.getAuthenticatedDevice(),
+            auth.getAccountIdentifier(),
+            device,
             uuid,
             null)
         .thenAccept(maybeRemovedMessage -> maybeRemovedMessage.ifPresent(removedMessage -> {
 
-          WebSocketConnection.recordMessageDeliveryDuration(removedMessage.serverTimestamp(),
-              auth.getAuthenticatedDevice());
+          WebSocketConnection.recordMessageDeliveryDuration(removedMessage.serverTimestamp(), device);
 
           if (removedMessage.sourceServiceId().isPresent()
               && removedMessage.envelopeType() != Type.SERVER_DELIVERY_RECEIPT) {
             if (removedMessage.sourceServiceId().get() instanceof AciServiceIdentifier aciServiceIdentifier) {
               try {
-                receiptSender.sendReceipt(removedMessage.destinationServiceId(), auth.getAuthenticatedDevice().getId(),
+                receiptSender.sendReceipt(removedMessage.destinationServiceId(), auth.getDeviceId(),
                     aciServiceIdentifier, removedMessage.clientTimestamp());
               } catch (Exception e) {
                 logger.warn("Failed to send delivery receipt", e);
@@ -863,7 +878,7 @@ public class MessageController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Path("/report/{source}/{messageGuid}")
   public Response reportSpamMessage(
-      @ReadOnly @Auth AuthenticatedDevice auth,
+      @Auth AuthenticatedDevice auth,
       @PathParam("source") String source,
       @PathParam("messageGuid") UUID messageGuid,
       @Nullable SpamReport spamReport,
@@ -899,7 +914,7 @@ public class MessageController {
       }
     }
 
-    UUID spamReporterUuid = auth.getAccount().getUuid();
+    UUID spamReporterUuid = auth.getAccountIdentifier();
 
     // spam report token is optional, but if provided ensure it is non-empty.
     final Optional<byte[]> maybeSpamReportToken =

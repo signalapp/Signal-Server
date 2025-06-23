@@ -19,6 +19,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2ClientConfiguration;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -35,7 +36,7 @@ class DirectoryControllerV2Test {
 
     final Account account = mock(Account.class);
     final UUID uuid = UUID.fromString("11111111-1111-1111-1111-111111111111");
-    when(account.getUuid()).thenReturn(uuid);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
 
     final ExternalServiceCredentials credentials = controller.getAuthToken(
         new AuthenticatedDevice(account, mock(Device.class)));

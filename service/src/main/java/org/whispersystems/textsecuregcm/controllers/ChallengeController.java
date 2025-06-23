@@ -25,6 +25,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -40,12 +41,14 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker.ChallengeConstraints;
-import org.whispersystems.websocket.auth.ReadOnly;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
 @Path("/v1/challenge")
 @Tag(name = "Challenge")
 public class ChallengeController {
 
+  private final AccountsManager accountsManager;
   private final RateLimitChallengeManager rateLimitChallengeManager;
   private final ChallengeConstraintChecker challengeConstraintChecker;
 
@@ -53,8 +56,10 @@ public class ChallengeController {
   private static final String CHALLENGE_TYPE_TAG = "type";
 
   public ChallengeController(
+      final AccountsManager accountsManager,
       final RateLimitChallengeManager rateLimitChallengeManager,
       final ChallengeConstraintChecker challengeConstraintChecker) {
+    this.accountsManager = accountsManager;
     this.rateLimitChallengeManager = rateLimitChallengeManager;
     this.challengeConstraintChecker = challengeConstraintChecker;
   }
@@ -77,15 +82,18 @@ public class ChallengeController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public Response handleChallengeResponse(@ReadOnly @Auth final AuthenticatedDevice auth,
+  public Response handleChallengeResponse(@Auth final AuthenticatedDevice auth,
       @Valid final AnswerChallengeRequest answerRequest,
       @Context ContainerRequestContext requestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws RateLimitExceededException, IOException {
 
+    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent));
 
     final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraints(
-        requestContext, auth.getAccount());
+        requestContext, account);
     try {
       if (answerRequest instanceof final AnswerPushChallengeRequest pushChallengeRequest) {
         tags = tags.and(CHALLENGE_TYPE_TAG, "push");
@@ -93,14 +101,14 @@ public class ChallengeController {
         if (!constraints.pushPermitted()) {
           return Response.status(429).build();
         }
-        rateLimitChallengeManager.answerPushChallenge(auth.getAccount(), pushChallengeRequest.getChallenge());
+        rateLimitChallengeManager.answerPushChallenge(account, pushChallengeRequest.getChallenge());
       } else if (answerRequest instanceof AnswerCaptchaChallengeRequest captchaChallengeRequest) {
         tags = tags.and(CHALLENGE_TYPE_TAG, "captcha");
 
         final String remoteAddress = (String) requestContext.getProperty(
             RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
         boolean success = rateLimitChallengeManager.answerCaptchaChallenge(
-            auth.getAccount(),
+            account,
             captchaChallengeRequest.getCaptcha(),
             remoteAddress,
             userAgent,
@@ -126,7 +134,7 @@ public class ChallengeController {
       summary = "Request a push challenge",
       description = """
           Clients may proactively request a push challenge by making an empty POST request. Push challenges will only be
-          sent to the requesting account’s main device. When the push is received it may be provided as proof of completed 
+          sent to the requesting account’s main device. When the push is received it may be provided as proof of completed
           challenge to /v1/challenge.
           APNs challenge payloads will be formatted as follows:
           ```
@@ -140,12 +148,12 @@ public class ChallengeController {
               "rateLimitChallenge": "{CHALLENGE_TOKEN}"
           }
           ```
-          FCM challenge payloads will be formatted as follows: 
+          FCM challenge payloads will be formatted as follows:
           ```
           {"rateLimitChallenge": "{CHALLENGE_TOKEN}"}
           ```
 
-          Clients may retry the PUT in the event of an HTTP/5xx response (except HTTP/508) from the server, but must 
+          Clients may retry the PUT in the event of an HTTP/5xx response (except HTTP/508) from the server, but must
           implement an exponential back-off system and limit the total number of retries.
           """
   )
@@ -163,15 +171,18 @@ public class ChallengeController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public Response requestPushChallenge(@ReadOnly @Auth final AuthenticatedDevice auth,
+  public Response requestPushChallenge(@Auth final AuthenticatedDevice auth,
       @Context ContainerRequestContext requestContext) {
-    final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraints(
-        requestContext, auth.getAccount());
+
+    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+    final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraints(requestContext, account);
     if (!constraints.pushPermitted()) {
       return Response.status(429).build();
     }
     try {
-      rateLimitChallengeManager.sendPushChallenge(auth.getAccount());
+      rateLimitChallengeManager.sendPushChallenge(account);
       return Response.status(200).build();
     } catch (final NotPushRegisteredException e) {
       return Response.status(404).build();

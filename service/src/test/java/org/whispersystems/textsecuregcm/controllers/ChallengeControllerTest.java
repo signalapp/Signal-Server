@@ -38,6 +38,7 @@ import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker.ChallengeConstraints;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
@@ -45,11 +46,12 @@ import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class ChallengeControllerTest {
 
+  private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private static final RateLimitChallengeManager rateLimitChallengeManager = mock(RateLimitChallengeManager.class);
   private static final ChallengeConstraintChecker challengeConstraintChecker = mock(ChallengeConstraintChecker.class);
 
   private static final ChallengeController challengeController =
-      new ChallengeController(rateLimitChallengeManager, challengeConstraintChecker);
+      new ChallengeController(accountsManager, rateLimitChallengeManager, challengeConstraintChecker);
 
   private static final ResourceExtension EXTENSION = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
@@ -63,6 +65,9 @@ class ChallengeControllerTest {
 
   @BeforeEach
   void setup() {
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_TWO));
+
     when(challengeConstraintChecker.challengeConstraints(any(), any()))
         .thenReturn(new ChallengeConstraints(true, Optional.empty()));
   }

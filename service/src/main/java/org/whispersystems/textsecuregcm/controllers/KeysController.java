@@ -74,7 +74,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v2/keys")
@@ -111,16 +110,21 @@ public class KeysController {
       description = "Gets the number of one-time prekeys uploaded for this device and still available")
   @ApiResponse(responseCode = "200", description = "Body contains the number of available one-time prekeys for the device.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public CompletableFuture<PreKeyCount> getStatus(@ReadOnly @Auth final AuthenticatedDevice auth,
+  public CompletableFuture<PreKeyCount> getStatus(@Auth final AuthenticatedDevice auth,
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
-    final CompletableFuture<Integer> ecCountFuture =
-        keysManager.getEcCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
+    return accounts.getByAccountIdentifierAsync(auth.getAccountIdentifier())
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    final CompletableFuture<Integer> pqCountFuture =
-        keysManager.getPqCount(auth.getAccount().getIdentifier(identityType), auth.getAuthenticatedDevice().getId());
+          final CompletableFuture<Integer> ecCountFuture =
+              keysManager.getEcCount(account.getIdentifier(identityType), auth.getDeviceId());
 
-    return ecCountFuture.thenCombine(pqCountFuture, PreKeyCount::new);
+          final CompletableFuture<Integer> pqCountFuture =
+              keysManager.getPqCount(account.getIdentifier(identityType), auth.getDeviceId());
+
+          return ecCountFuture.thenCombine(pqCountFuture, PreKeyCount::new);
+        });
   }
 
   @PUT
@@ -132,7 +136,7 @@ public class KeysController {
   @ApiResponse(responseCode = "403", description = "Attempt to change identity key from a non-primary device.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   public CompletableFuture<Response> setKeys(
-      @ReadOnly @Auth final AuthenticatedDevice auth,
+      @Auth final AuthenticatedDevice auth,
       @RequestBody @NotNull @Valid final SetKeysRequest setKeysRequest,
 
       @Parameter(allowEmptyValue=true)
@@ -143,63 +147,70 @@ public class KeysController {
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
-    final Account account = auth.getAccount();
-    final Device device = auth.getAuthenticatedDevice();
-    final UUID identifier = account.getIdentifier(identityType);
+    return accounts.getByAccountIdentifierAsync(auth.getAccountIdentifier())
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount
+              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType), userAgent);
+          final Device device = account.getDevice(auth.getDeviceId())
+              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
-    final Tag primaryDeviceTag = Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(auth.getAuthenticatedDevice().isPrimary()));
-    final Tag identityTypeTag = Tag.of(IDENTITY_TYPE_TAG_NAME, identityType.name());
+          final UUID identifier = account.getIdentifier(identityType);
 
-    final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(4);
+          checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType), userAgent);
 
-    if (!setKeysRequest.preKeys().isEmpty()) {
-      final Tags tags = Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec"));
+          final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+          final Tag primaryDeviceTag = Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(auth.getDeviceId() == Device.PRIMARY_ID));
+          final Tag identityTypeTag = Tag.of(IDENTITY_TYPE_TAG_NAME, identityType.name());
 
-      Metrics.counter(STORE_KEYS_COUNTER_NAME, tags).increment();
+          final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(4);
 
-      DistributionSummary.builder(STORE_KEY_BUNDLE_SIZE_DISTRIBUTION_NAME)
-          .tags(tags)
-          .publishPercentileHistogram()
-          .register(Metrics.globalRegistry)
-          .record(setKeysRequest.preKeys().size());
+          if (!setKeysRequest.preKeys().isEmpty()) {
+            final Tags tags = Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec"));
 
-      storeFutures.add(keysManager.storeEcOneTimePreKeys(identifier, device.getId(), setKeysRequest.preKeys()));
-    }
+            Metrics.counter(STORE_KEYS_COUNTER_NAME, tags).increment();
 
-    if (setKeysRequest.signedPreKey() != null) {
-      Metrics.counter(STORE_KEYS_COUNTER_NAME,
-              Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec-signed")))
-          .increment();
+            DistributionSummary.builder(STORE_KEY_BUNDLE_SIZE_DISTRIBUTION_NAME)
+                .tags(tags)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry)
+                .record(setKeysRequest.preKeys().size());
 
-      storeFutures.add(keysManager.storeEcSignedPreKeys(identifier, device.getId(), setKeysRequest.signedPreKey()));
-    }
+            storeFutures.add(keysManager.storeEcOneTimePreKeys(identifier, device.getId(), setKeysRequest.preKeys()));
+          }
 
-    if (!setKeysRequest.pqPreKeys().isEmpty()) {
-      final Tags tags = Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber"));
-      Metrics.counter(STORE_KEYS_COUNTER_NAME, tags).increment();
+          if (setKeysRequest.signedPreKey() != null) {
+            Metrics.counter(STORE_KEYS_COUNTER_NAME,
+                    Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "ec-signed")))
+                .increment();
 
-      DistributionSummary.builder(STORE_KEY_BUNDLE_SIZE_DISTRIBUTION_NAME)
-          .tags(tags)
-          .publishPercentileHistogram()
-          .register(Metrics.globalRegistry)
-          .record(setKeysRequest.pqPreKeys().size());
+            storeFutures.add(keysManager.storeEcSignedPreKeys(identifier, device.getId(), setKeysRequest.signedPreKey()));
+          }
 
-      storeFutures.add(keysManager.storeKemOneTimePreKeys(identifier, device.getId(), setKeysRequest.pqPreKeys()));
-    }
+          if (!setKeysRequest.pqPreKeys().isEmpty()) {
+            final Tags tags = Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber"));
+            Metrics.counter(STORE_KEYS_COUNTER_NAME, tags).increment();
 
-    if (setKeysRequest.pqLastResortPreKey() != null) {
-      Metrics.counter(STORE_KEYS_COUNTER_NAME,
-              Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber-last-resort")))
-          .increment();
+            DistributionSummary.builder(STORE_KEY_BUNDLE_SIZE_DISTRIBUTION_NAME)
+                .tags(tags)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry)
+                .record(setKeysRequest.pqPreKeys().size());
 
-      storeFutures.add(keysManager.storePqLastResort(identifier, device.getId(), setKeysRequest.pqLastResortPreKey()));
-    }
+            storeFutures.add(keysManager.storeKemOneTimePreKeys(identifier, device.getId(), setKeysRequest.pqPreKeys()));
+          }
 
-    return CompletableFuture.allOf(storeFutures.toArray(EMPTY_FUTURE_ARRAY))
-        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+          if (setKeysRequest.pqLastResortPreKey() != null) {
+            Metrics.counter(STORE_KEYS_COUNTER_NAME,
+                    Tags.of(platformTag, primaryDeviceTag, identityTypeTag, Tag.of(KEY_TYPE_TAG_NAME, "kyber-last-resort")))
+                .increment();
+
+            storeFutures.add(keysManager.storePqLastResort(identifier, device.getId(), setKeysRequest.pqLastResortPreKey()));
+          }
+
+          return CompletableFuture.allOf(storeFutures.toArray(EMPTY_FUTURE_ARRAY))
+              .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+        });
   }
 
   private void checkSignedPreKeySignatures(final SetKeysRequest setKeysRequest,
@@ -253,64 +264,69 @@ public class KeysController {
   """)
   @ApiResponse(responseCode = "422", description = "Invalid request format")
   public CompletableFuture<Response> checkKeys(
-      @ReadOnly @Auth final AuthenticatedDevice auth,
+      @Auth final AuthenticatedDevice auth,
       @RequestBody @NotNull @Valid final CheckKeysRequest checkKeysRequest) {
 
-    final UUID identifier = auth.getAccount().getIdentifier(checkKeysRequest.identityType());
-    final byte deviceId = auth.getAuthenticatedDevice().getId();
+    return accounts.getByAccountIdentifierAsync(auth.getAccountIdentifier())
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    final CompletableFuture<Optional<ECSignedPreKey>> ecSignedPreKeyFuture =
-        keysManager.getEcSignedPreKey(identifier, deviceId);
+          final UUID identifier = account.getIdentifier(checkKeysRequest.identityType());
+          final byte deviceId = auth.getDeviceId();
 
-    final CompletableFuture<Optional<KEMSignedPreKey>> lastResortKeyFuture =
-        keysManager.getLastResort(identifier, deviceId);
+          final CompletableFuture<Optional<ECSignedPreKey>> ecSignedPreKeyFuture =
+              keysManager.getEcSignedPreKey(identifier, deviceId);
 
-    return CompletableFuture.allOf(ecSignedPreKeyFuture, lastResortKeyFuture)
-        .thenApply(ignored -> {
-          final Optional<ECSignedPreKey> maybeSignedPreKey = ecSignedPreKeyFuture.join();
-          final Optional<KEMSignedPreKey> maybeLastResortKey = lastResortKeyFuture.join();
+          final CompletableFuture<Optional<KEMSignedPreKey>> lastResortKeyFuture =
+              keysManager.getLastResort(identifier, deviceId);
 
-          final boolean digestsMatch;
+          return CompletableFuture.allOf(ecSignedPreKeyFuture, lastResortKeyFuture)
+              .thenApply(ignored -> {
+                final Optional<ECSignedPreKey> maybeSignedPreKey = ecSignedPreKeyFuture.join();
+                final Optional<KEMSignedPreKey> maybeLastResortKey = lastResortKeyFuture.join();
 
-          if (maybeSignedPreKey.isPresent() && maybeLastResortKey.isPresent()) {
-            final IdentityKey identityKey = auth.getAccount().getIdentityKey(checkKeysRequest.identityType());
-            final ECSignedPreKey ecSignedPreKey = maybeSignedPreKey.get();
-            final KEMSignedPreKey lastResortKey = maybeLastResortKey.get();
+                final boolean digestsMatch;
 
-            final MessageDigest messageDigest;
+                if (maybeSignedPreKey.isPresent() && maybeLastResortKey.isPresent()) {
+                  final IdentityKey identityKey = account.getIdentityKey(checkKeysRequest.identityType());
+                  final ECSignedPreKey ecSignedPreKey = maybeSignedPreKey.get();
+                  final KEMSignedPreKey lastResortKey = maybeLastResortKey.get();
 
-            try {
-              messageDigest = MessageDigest.getInstance("SHA-256");
-            } catch (final NoSuchAlgorithmException e) {
-              throw new AssertionError("Every implementation of the Java platform is required to support SHA-256", e);
-            }
+                  final MessageDigest messageDigest;
 
-            messageDigest.update(identityKey.serialize());
+                  try {
+                    messageDigest = MessageDigest.getInstance("SHA-256");
+                  } catch (final NoSuchAlgorithmException e) {
+                    throw new AssertionError("Every implementation of the Java platform is required to support SHA-256", e);
+                  }
 
-            {
-              final ByteBuffer ecSignedPreKeyIdBuffer = ByteBuffer.allocate(Long.BYTES);
-              ecSignedPreKeyIdBuffer.putLong(ecSignedPreKey.keyId());
-              ecSignedPreKeyIdBuffer.flip();
+                  messageDigest.update(identityKey.serialize());
 
-              messageDigest.update(ecSignedPreKeyIdBuffer);
-              messageDigest.update(ecSignedPreKey.serializedPublicKey());
-            }
+                  {
+                    final ByteBuffer ecSignedPreKeyIdBuffer = ByteBuffer.allocate(Long.BYTES);
+                    ecSignedPreKeyIdBuffer.putLong(ecSignedPreKey.keyId());
+                    ecSignedPreKeyIdBuffer.flip();
 
-            {
-              final ByteBuffer lastResortKeyIdBuffer = ByteBuffer.allocate(Long.BYTES);
-              lastResortKeyIdBuffer.putLong(lastResortKey.keyId());
-              lastResortKeyIdBuffer.flip();
+                    messageDigest.update(ecSignedPreKeyIdBuffer);
+                    messageDigest.update(ecSignedPreKey.serializedPublicKey());
+                  }
 
-              messageDigest.update(lastResortKeyIdBuffer);
-              messageDigest.update(lastResortKey.serializedPublicKey());
-            }
+                  {
+                    final ByteBuffer lastResortKeyIdBuffer = ByteBuffer.allocate(Long.BYTES);
+                    lastResortKeyIdBuffer.putLong(lastResortKey.keyId());
+                    lastResortKeyIdBuffer.flip();
 
-            digestsMatch = MessageDigest.isEqual(messageDigest.digest(), checkKeysRequest.digest());
-          } else {
-            digestsMatch = false;
-          }
+                    messageDigest.update(lastResortKeyIdBuffer);
+                    messageDigest.update(lastResortKey.serializedPublicKey());
+                  }
 
-          return Response.status(digestsMatch ? Response.Status.OK : Response.Status.CONFLICT).build();
+                  digestsMatch = MessageDigest.isEqual(messageDigest.digest(), checkKeysRequest.digest());
+                } else {
+                  digestsMatch = false;
+                }
+
+                return Response.status(digestsMatch ? Response.Status.OK : Response.Status.CONFLICT).build();
+              });
         });
   }
 
@@ -327,7 +343,7 @@ public class KeysController {
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public PreKeyResponse getDeviceKeys(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> auth,
+      @Auth Optional<AuthenticatedDevice> maybeAuthenticatedDevice,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @HeaderParam(HeaderUtils.GROUP_SEND_TOKEN) Optional<GroupSendTokenHeader> groupSendToken,
 
@@ -340,15 +356,18 @@ public class KeysController {
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException {
 
-    if (auth.isEmpty() && accessKey.isEmpty() && groupSendToken.isEmpty()) {
+    if (maybeAuthenticatedDevice.isEmpty() && accessKey.isEmpty() && groupSendToken.isEmpty()) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    final Optional<Account> account = auth.map(AuthenticatedDevice::getAccount);
+    final Optional<Account> account = maybeAuthenticatedDevice
+        .map(authenticatedDevice -> accounts.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+            .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
+
     final Optional<Account> maybeTarget = accounts.getByServiceIdentifier(targetIdentifier);
 
     if (groupSendToken.isPresent()) {
-      if (auth.isPresent() || accessKey.isPresent()) {
+      if (maybeAuthenticatedDevice.isPresent() || accessKey.isPresent()) {
         throw new BadRequestException();
       }
       try {
@@ -364,7 +383,7 @@ public class KeysController {
 
     if (account.isPresent()) {
       rateLimiters.getPreKeysLimiter().validate(
-          account.get().getUuid() + "." + auth.get().getAuthenticatedDevice().getId() + "__" + targetIdentifier.uuid()
+          account.get().getUuid() + "." + maybeAuthenticatedDevice.get().getDeviceId() + "__" + targetIdentifier.uuid()
               + "." + deviceId);
     }
 

@@ -9,8 +9,6 @@ import java.util.Optional;
 import jakarta.ws.rs.core.Response;
 import org.signal.chat.messages.SendMessageResponse;
 import org.signal.chat.messages.SendMultiRecipientMessageResponse;
-import org.whispersystems.textsecuregcm.auth.AccountAndAuthenticatedDeviceHolder;
-import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 
@@ -31,7 +29,7 @@ public interface SpamChecker {
   SpamCheckResult<Response> checkForIndividualRecipientSpamHttp(
       final MessageType messageType,
       final ContainerRequestContext requestContext,
-      final Optional<? extends AccountAndAuthenticatedDeviceHolder> maybeSource,
+      final Optional<org.whispersystems.textsecuregcm.auth.AuthenticatedDevice> maybeSource,
       final Optional<Account> maybeDestination,
       final ServiceIdentifier destinationIdentifier);
 
@@ -79,7 +77,7 @@ public interface SpamChecker {
       @Override
       public SpamCheckResult<Response> checkForIndividualRecipientSpamHttp(final MessageType messageType,
           final ContainerRequestContext requestContext,
-          final Optional<? extends AccountAndAuthenticatedDeviceHolder> maybeSource,
+          final Optional<org.whispersystems.textsecuregcm.auth.AuthenticatedDevice> maybeSource,
           final Optional<Account> maybeDestination,
           final ServiceIdentifier destinationIdentifier) {
 
@@ -95,7 +93,7 @@ public interface SpamChecker {
 
       @Override
       public SpamCheckResult<GrpcResponse<SendMessageResponse>> checkForIndividualRecipientSpamGrpc(final MessageType messageType,
-          final Optional<AuthenticatedDevice> maybeSource,
+          final Optional<org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice> maybeSource,
           final Optional<Account> maybeDestination,
           final ServiceIdentifier destinationIdentifier) {
 

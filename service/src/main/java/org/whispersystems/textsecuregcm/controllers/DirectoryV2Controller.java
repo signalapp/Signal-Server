@@ -14,12 +14,10 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.time.Clock;
-import java.util.UUID;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2ClientConfiguration;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v2/directory")
 @Tag(name = "Directory")
@@ -57,8 +55,7 @@ public class DirectoryV2Controller {
           """
   )
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
-  public ExternalServiceCredentials getAuthToken(final @ReadOnly @Auth AuthenticatedDevice auth) {
-    final UUID uuid = auth.getAccount().getUuid();
-    return directoryServiceTokenGenerator.generateForUuid(uuid);
+  public ExternalServiceCredentials getAuthToken(final @Auth AuthenticatedDevice auth) {
+    return directoryServiceTokenGenerator.generateForUuid(auth.getAccountIdentifier());
   }
 }

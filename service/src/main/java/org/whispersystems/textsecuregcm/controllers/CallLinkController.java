@@ -20,7 +20,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.CreateCallLinkCredential;
 import org.whispersystems.textsecuregcm.entities.GetCreateCallLinkCredentialsRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/call-link")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "CallLink")
@@ -52,11 +51,11 @@ public class CallLinkController {
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   public CreateCallLinkCredential getCreateAuth(
-      final @ReadOnly @Auth AuthenticatedDevice auth,
+      final @Auth AuthenticatedDevice auth,
       final @NotNull @Valid GetCreateCallLinkCredentialsRequest request
   ) throws RateLimitExceededException {
 
-    rateLimiters.getCreateCallLinkLimiter().validate(auth.getAccount().getUuid());
+    rateLimiters.getCreateCallLinkLimiter().validate(auth.getAccountIdentifier());
 
     final Instant truncatedDayTimestamp = Instant.now().truncatedTo(ChronoUnit.DAYS);
 
@@ -68,7 +67,7 @@ public class CallLinkController {
     }
 
     return new CreateCallLinkCredential(
-        createCallLinkCredentialRequest.issueCredential(new ServiceId.Aci(auth.getAccount().getUuid()), truncatedDayTimestamp, genericServerSecretParams).serialize(),
+        createCallLinkCredentialRequest.issueCredential(new ServiceId.Aci(auth.getAccountIdentifier()), truncatedDayTimestamp, genericServerSecretParams).serialize(),
         truncatedDayTimestamp.getEpochSecond()
     );
   }

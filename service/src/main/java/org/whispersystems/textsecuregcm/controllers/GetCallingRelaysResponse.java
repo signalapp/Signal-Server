@@ -5,9 +5,8 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import org.whispersystems.textsecuregcm.auth.TurnToken;
-
 import java.util.List;
+import org.whispersystems.textsecuregcm.auth.TurnToken;
 
 public record GetCallingRelaysResponse(List<TurnToken> relays) {
 }

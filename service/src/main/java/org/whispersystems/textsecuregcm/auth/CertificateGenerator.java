@@ -31,9 +31,9 @@ public class CertificateGenerator {
     this.serverCertificate = ServerCertificate.parseFrom(serverCertificate);
   }
 
-  public byte[] createFor(Account account, Device device, boolean includeE164) throws InvalidKeyException {
+  public byte[] createFor(final Account account, final byte deviceId, boolean includeE164) throws InvalidKeyException {
     SenderCertificate.Certificate.Builder builder = SenderCertificate.Certificate.newBuilder()
-        .setSenderDevice(Math.toIntExact(device.getId()))
+        .setSenderDevice(Math.toIntExact(deviceId))
         .setExpires(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(expiresDays))
         .setIdentityKey(ByteString.copyFrom(account.getIdentityKey(IdentityType.ACI).serialize()))
         .setSigner(serverCertificate)

@@ -153,7 +153,7 @@ class MetricsRequestEventListenerTest {
     final ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, TestPrincipal.reusableAuth("foo"),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, TestPrincipal.authenticatedTestPrincipal("foo"),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
@@ -220,7 +220,7 @@ class MetricsRequestEventListenerTest {
     final ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, TestPrincipal.reusableAuth("foo"),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, TestPrincipal.authenticatedTestPrincipal("foo"),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);

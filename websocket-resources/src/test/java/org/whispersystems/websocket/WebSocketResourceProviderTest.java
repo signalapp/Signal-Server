@@ -59,7 +59,6 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
-import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
 import org.whispersystems.websocket.logging.WebsocketRequestLog;
 import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
@@ -81,7 +80,7 @@ class WebSocketResourceProviderTest {
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
         REMOTE_ADDRESS_PROPERTY_NAME,
         applicationHandler, requestLog,
-        immutableTestPrincipal("fooz"),
+        Optional.of(new TestPrincipal("fooz")),
         new ProtobufWebSocketMessageFactory(),
         Optional.of(connectListener),
         Duration.ofMillis(30000));
@@ -109,7 +108,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = mock(ApplicationHandler.class);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("foo"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("foo")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -186,7 +185,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = mock(ApplicationHandler.class);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("foo"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("foo")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -242,7 +241,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("foo"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("foo")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -282,7 +281,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("foo"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("foo")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -322,7 +321,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("authorizedUserName"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("authorizedUserName")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -362,7 +361,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, ReusableAuth.anonymous(),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.empty(),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -401,7 +400,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("something"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("something")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -441,7 +440,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, ReusableAuth.anonymous(),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.empty(),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -481,7 +480,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("gooduser"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("gooduser")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -522,7 +521,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("gooduser"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("gooduser")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -564,7 +563,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("gooduser"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("gooduser")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -604,7 +603,7 @@ class WebSocketResourceProviderTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, immutableTestPrincipal("gooduser"),
+        REMOTE_ADDRESS_PROPERTY_NAME, applicationHandler, requestLog, Optional.of(new TestPrincipal("gooduser")),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
@@ -727,10 +726,6 @@ class WebSocketResourceProviderTest {
     public String getName() {
       return name;
     }
-  }
-
-  public static ReusableAuth<TestPrincipal> immutableTestPrincipal(final String name) {
-    return ReusableAuth.authenticated(new TestPrincipal(name), PrincipalSupplier.forImmutablePrincipal());
   }
 
   public static class TestException extends Exception {

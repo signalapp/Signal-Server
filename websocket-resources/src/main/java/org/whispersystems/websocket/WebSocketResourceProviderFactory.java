@@ -64,9 +64,9 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
     try {
       Optional<WebSocketAuthenticator<T>> authenticator = Optional.ofNullable(environment.getAuthenticator());
 
-      final ReusableAuth<T> authenticated = authenticator.isPresent()
+      final Optional<T> authenticated = authenticator.isPresent()
           ? authenticator.get().authenticate(request)
-          : ReusableAuth.anonymous();
+          : Optional.empty();
 
       Optional.ofNullable(environment.getAuthenticatedWebSocketUpgradeFilter())
           .ifPresent(filter -> filter.handleAuthentication(authenticated, request, response));

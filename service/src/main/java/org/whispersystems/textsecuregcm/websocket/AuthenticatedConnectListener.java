@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.websocket;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Tags;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,10 @@ import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 import org.whispersystems.websocket.setup.WebSocketConnectListener;
@@ -36,6 +40,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
   private static final Logger log = LoggerFactory.getLogger(AuthenticatedConnectListener.class);
 
+  private final AccountsManager accountsManager;
   private final ReceiptSender receiptSender;
   private final MessagesManager messagesManager;
   private final MessageMetrics messageMetrics;
@@ -51,7 +56,9 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final OpenWebSocketCounter openAuthenticatedWebSocketCounter;
   private final OpenWebSocketCounter openUnauthenticatedWebSocketCounter;
 
-  public AuthenticatedConnectListener(ReceiptSender receiptSender,
+  public AuthenticatedConnectListener(
+      AccountsManager accountsManager,
+      ReceiptSender receiptSender,
       MessagesManager messagesManager,
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
@@ -62,6 +69,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       ClientReleaseManager clientReleaseManager,
       MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
       final ExperimentEnrollmentManager experimentEnrollmentManager) {
+
+    this.accountsManager = accountsManager;
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
     this.messageMetrics = messageMetrics;
@@ -82,7 +91,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   }
 
   @Override
-  public void onWebSocketConnect(WebSocketSessionContext context) {
+  public void onWebSocketConnect(final WebSocketSessionContext context) {
 
     final boolean authenticated = (context.getAuthenticated() != null);
     final OpenWebSocketCounter openWebSocketCounter =
@@ -92,12 +101,24 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
     if (authenticated) {
       final AuthenticatedDevice auth = context.getAuthenticated(AuthenticatedDevice.class);
+
+      final Optional<Account> maybeAuthenticatedAccount = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier());
+      final Optional<Device> maybeAuthenticatedDevice = maybeAuthenticatedAccount.flatMap(account -> account.getDevice(auth.getDeviceId()));;
+
+      if (maybeAuthenticatedAccount.isEmpty() || maybeAuthenticatedDevice.isEmpty()) {
+        log.warn("{}:{} not found when opening authenticated WebSocket", auth.getAccountIdentifier(), auth.getDeviceId());
+
+        context.getClient().close(1011, "Unexpected error initializing connection");
+        return;
+      }
+
       final WebSocketConnection connection = new WebSocketConnection(receiptSender,
           messagesManager,
           messageMetrics,
           pushNotificationManager,
           pushNotificationScheduler,
-          auth,
+          maybeAuthenticatedAccount.get(),
+          maybeAuthenticatedDevice.get(),
           context.getClient(),
           scheduledExecutorService,
           messageDeliveryScheduler,
@@ -110,8 +131,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         // receive push notifications for inbound messages. We should do this first because, at this point, the
         // connection has already closed and attempts to actually deliver a message via the connection will not succeed.
         // It's preferable to start sending push notifications as soon as possible.
-        webSocketConnectionEventManager.handleClientDisconnected(auth.getAccount().getUuid(),
-            auth.getAuthenticatedDevice().getId());
+        webSocketConnectionEventManager.handleClientDisconnected(auth.getAccountIdentifier(), auth.getDeviceId());
 
         // Finally, stop trying to deliver messages and send a push notification if the connection is aware of any
         // undelivered messages.
@@ -127,7 +147,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
         // Finally, we register this client's presence, which suppresses push notifications. We do this last because
         // receiving extra push notifications is generally preferable to missing out on a push notification.
-        webSocketConnectionEventManager.handleClientConnected(auth.getAccount().getUuid(), auth.getAuthenticatedDevice().getId(), connection);
+        webSocketConnectionEventManager.handleClientConnected(auth.getAccountIdentifier(), auth.getDeviceId(), connection);
       } catch (final Exception e) {
         log.warn("Failed to initialize websocket", e);
         context.getClient().close(1011, "Unexpected error initializing connection");

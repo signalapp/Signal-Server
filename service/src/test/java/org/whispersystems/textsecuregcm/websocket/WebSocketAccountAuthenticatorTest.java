@@ -28,7 +28,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.auth.InvalidCredentialsException;
-import org.whispersystems.websocket.auth.PrincipalSupplier;
 
 class WebSocketAccountAuthenticatorTest {
 
@@ -70,14 +69,12 @@ class WebSocketAccountAuthenticatorTest {
       when(upgradeRequest.getHeader(eq(HttpHeaders.AUTHORIZATION))).thenReturn(authorizationHeaderValue);
     }
 
-    final WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(
-        accountAuthenticator,
-        mock(PrincipalSupplier.class));
+    final WebSocketAccountAuthenticator webSocketAuthenticator = new WebSocketAccountAuthenticator(accountAuthenticator);
 
     if (expectInvalid) {
       assertThrows(InvalidCredentialsException.class, () -> webSocketAuthenticator.authenticate(upgradeRequest));
     } else {
-      assertEquals(expectAccount, webSocketAuthenticator.authenticate(upgradeRequest).ref().isPresent());
+      assertEquals(expectAccount, webSocketAuthenticator.authenticate(upgradeRequest).isPresent());
     }
   }
 

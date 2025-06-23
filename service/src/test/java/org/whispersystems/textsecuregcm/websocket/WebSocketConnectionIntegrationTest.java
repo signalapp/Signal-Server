@@ -43,11 +43,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -111,7 +111,7 @@ class WebSocketConnectionIntegrationTest {
     clientReleaseManager = mock(ClientReleaseManager.class);
 
     when(account.getNumber()).thenReturn("+18005551234");
-    when(account.getUuid()).thenReturn(UUID.randomUUID());
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
   }
 
@@ -137,7 +137,8 @@ class WebSocketConnectionIntegrationTest {
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
-        new AuthenticatedDevice(account, device),
+        account,
+        device,
         webSocketClient,
         scheduledExecutorService,
         messageDeliveryScheduler,
@@ -159,14 +160,14 @@ class WebSocketConnectionIntegrationTest {
           expectedMessages.add(envelope);
         }
 
-        messagesDynamoDb.store(persistedMessages, account.getUuid(), device);
+        messagesDynamoDb.store(persistedMessages, account.getIdentifier(IdentityType.ACI), device);
       }
 
       for (int i = 0; i < cachedMessageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
 
-        messagesCache.insert(messageGuid, account.getUuid(), device.getId(), envelope).join();
+        messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
         expectedMessages.add(envelope);
       }
 
@@ -226,7 +227,8 @@ class WebSocketConnectionIntegrationTest {
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
-        new AuthenticatedDevice(account, device),
+        account,
+        device,
         webSocketClient,
         scheduledExecutorService,
         messageDeliveryScheduler,
@@ -250,13 +252,13 @@ class WebSocketConnectionIntegrationTest {
           expectedMessages.add(envelope);
         }
 
-        messagesDynamoDb.store(persistedMessages, account.getUuid(), device);
+        messagesDynamoDb.store(persistedMessages, account.getIdentifier(IdentityType.ACI), device);
       }
 
       for (int i = 0; i < cachedMessageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
-        messagesCache.insert(messageGuid, account.getUuid(), device.getId(), envelope).join();
+        messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
 
         expectedMessages.add(envelope);
       }
@@ -296,7 +298,8 @@ class WebSocketConnectionIntegrationTest {
         new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
-        new AuthenticatedDevice(account, device),
+        account,
+        device,
         webSocketClient,
         100, // use a very short timeout, so that this test completes quickly
         scheduledExecutorService,
@@ -321,13 +324,13 @@ class WebSocketConnectionIntegrationTest {
           expectedMessages.add(envelope);
         }
 
-        messagesDynamoDb.store(persistedMessages, account.getUuid(), device);
+        messagesDynamoDb.store(persistedMessages, account.getIdentifier(IdentityType.ACI), device);
       }
 
       for (int i = 0; i < cachedMessageCount; i++) {
         final UUID messageGuid = UUID.randomUUID();
         final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
-        messagesCache.insert(messageGuid, account.getUuid(), device.getId(), envelope).join();
+        messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
 
         expectedMessages.add(envelope);
       }

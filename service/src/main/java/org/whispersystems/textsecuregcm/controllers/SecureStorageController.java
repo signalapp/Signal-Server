@@ -17,7 +17,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/storage")
 @Tag(name = "Secure Storage")
@@ -47,7 +46,7 @@ public class SecureStorageController {
           """
   )
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
-  public ExternalServiceCredentials getAuth(@ReadOnly @Auth AuthenticatedDevice auth) {
-    return storageServiceCredentialsGenerator.generateForUuid(auth.getAccount().getUuid());
+  public ExternalServiceCredentials getAuth(@Auth AuthenticatedDevice auth) {
+    return storageServiceCredentialsGenerator.generateForUuid(auth.getAccountIdentifier());
   }
 }

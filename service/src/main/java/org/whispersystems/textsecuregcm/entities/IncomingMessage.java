@@ -10,15 +10,14 @@ import com.webauthn4j.converter.jackson.deserializer.json.ByteArrayBase64Deseria
 import io.micrometer.core.instrument.Metrics;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
-import javax.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.Arrays;
+import java.util.Objects;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.storage.Account;
-import java.util.Arrays;
-import java.util.Objects;
 
 public record IncomingMessage(int type,
                               byte destinationDeviceId,
@@ -35,7 +34,7 @@ public record IncomingMessage(int type,
       MetricsUtil.name(IncomingMessage.class, "rejectInvalidEnvelopeType");
 
   public MessageProtos.Envelope toEnvelope(final ServiceIdentifier destinationIdentifier,
-      @Nullable Account sourceAccount,
+      @Nullable AciServiceIdentifier sourceServiceIdentifier,
       @Nullable Byte sourceDeviceId,
       final long timestamp,
       final boolean story,
@@ -54,9 +53,9 @@ public record IncomingMessage(int type,
         .setEphemeral(ephemeral)
         .setUrgent(urgent);
 
-    if (sourceAccount != null && sourceDeviceId != null) {
+    if (sourceServiceIdentifier != null && sourceDeviceId != null) {
       envelopeBuilder
-          .setSourceServiceId(new AciServiceIdentifier(sourceAccount.getUuid()).toServiceIdentifierString())
+          .setSourceServiceId(sourceServiceIdentifier.toServiceIdentifierString())
           .setSourceDevice(sourceDeviceId.intValue());
     }
 

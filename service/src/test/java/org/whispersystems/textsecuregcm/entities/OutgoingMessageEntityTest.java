@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.entities;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.Random;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
@@ -16,7 +15,6 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
@@ -65,15 +63,13 @@ class OutgoingMessageEntityTest {
   @Test
   void entityPreservesEnvelope() {
     final byte[] reportSpamToken = TestRandomUtil.nextBytes(8);
+    final AciServiceIdentifier sourceServiceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
 
-    final Account account = new Account();
-    account.setUuid(UUID.randomUUID());
-
-    IncomingMessage message = new IncomingMessage(1, (byte) 44, 55, TestRandomUtil.nextBytes(4));
+    final IncomingMessage message = new IncomingMessage(1, (byte) 44, 55, TestRandomUtil.nextBytes(4));
 
     MessageProtos.Envelope baseEnvelope = message.toEnvelope(
         new AciServiceIdentifier(UUID.randomUUID()),
-        account,
+        sourceServiceIdentifier,
         (byte) 123,
         System.currentTimeMillis(),
         false,

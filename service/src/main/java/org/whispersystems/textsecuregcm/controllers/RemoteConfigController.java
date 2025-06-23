@@ -30,7 +30,6 @@ import org.whispersystems.textsecuregcm.entities.UserRemoteConfigList;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/config")
 @Tag(name = "Remote Config")
@@ -64,7 +63,7 @@ public class RemoteConfigController {
           """
   )
   @ApiResponse(responseCode = "200", description = "Remote configuration values for the authenticated user", useReturnTypeSchema = true)
-  public UserRemoteConfigList getAll(@ReadOnly @Auth AuthenticatedDevice auth) {
+  public UserRemoteConfigList getAll(@Auth AuthenticatedDevice auth) {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA1");
 
@@ -73,7 +72,7 @@ public class RemoteConfigController {
       return new UserRemoteConfigList(Stream.concat(remoteConfigsManager.getAll().stream().map(config -> {
         final byte[] hashKey = config.getHashKey() != null ? config.getHashKey().getBytes(StandardCharsets.UTF_8)
             : config.getName().getBytes(StandardCharsets.UTF_8);
-        boolean inBucket = isInBucket(digest, auth.getAccount().getUuid(), hashKey, config.getPercentage(),
+        boolean inBucket = isInBucket(digest, auth.getAccountIdentifier(), hashKey, config.getPercentage(),
             config.getUuids());
         return new UserRemoteConfig(config.getName(), inBucket,
             inBucket ? config.getValue() : config.getDefaultValue());

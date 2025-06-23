@@ -18,7 +18,6 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Device;
 
 class CertificateGeneratorTest {
 
@@ -37,7 +36,7 @@ class CertificateGeneratorTest {
   @Test
   void testCreateFor() throws IOException, InvalidKeyException, org.signal.libsignal.protocol.InvalidKeyException {
     final Account account = mock(Account.class);
-    final Device device = mock(Device.class);
+    final byte deviceId = 4;
     final CertificateGenerator certificateGenerator = new CertificateGenerator(
         Base64.getDecoder().decode(SIGNING_CERTIFICATE),
         Curve.decodePrivatePoint(Base64.getDecoder().decode(SIGNING_KEY)), 1);
@@ -45,9 +44,8 @@ class CertificateGeneratorTest {
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
     when(account.getUuid()).thenReturn(UUID.randomUUID());
     when(account.getNumber()).thenReturn("+18005551234");
-    when(device.getId()).thenReturn((byte) 4);
 
-    assertTrue(certificateGenerator.createFor(account, device, true).length > 0);
-    assertTrue(certificateGenerator.createFor(account, device, false).length > 0);
+    assertTrue(certificateGenerator.createFor(account, deviceId, true).length > 0);
+    assertTrue(certificateGenerator.createFor(account, deviceId, false).length > 0);
   }
 }

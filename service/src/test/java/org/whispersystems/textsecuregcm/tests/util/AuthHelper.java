@@ -277,6 +277,7 @@ public class AuthHelper {
       when(account.getPrimaryDevice()).thenReturn(device);
       when(account.getNumber()).thenReturn(number);
       when(account.getUuid()).thenReturn(uuid);
+      when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
       when(accountsManager.getByE164(number)).thenReturn(Optional.of(account));
       when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     }

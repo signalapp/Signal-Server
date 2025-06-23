@@ -26,6 +26,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -94,8 +95,6 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.websocket.auth.Mutable;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/profile")
@@ -152,15 +151,18 @@ public class ProfileController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
-  public Response setProfile(@Mutable @Auth AuthenticatedDevice auth, @NotNull @Valid CreateProfileRequest request) {
+  public Response setProfile(@Auth AuthenticatedDevice auth, @NotNull @Valid CreateProfileRequest request) {
 
-    final Optional<VersionedProfile> currentProfile = profilesManager.get(auth.getAccount().getUuid(),
-        request.version());
+    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+    final Optional<VersionedProfile> currentProfile =
+        profilesManager.get(auth.getAccountIdentifier(), request.version());
 
     if (request.paymentAddress() != null && request.paymentAddress().length != 0) {
       final boolean hasDisallowedPrefix =
           dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedPrefixes().stream()
-              .anyMatch(prefix -> auth.getAccount().getNumber().startsWith(prefix));
+              .anyMatch(prefix -> account.getNumber().startsWith(prefix));
 
       if (hasDisallowedPrefix && currentProfile.map(VersionedProfile::paymentAddress).isEmpty()) {
         return Response.status(Response.Status.FORBIDDEN).build();
@@ -179,7 +181,7 @@ public class ProfileController {
       case UPDATE -> ProfileHelper.generateAvatarObjectName();
     };
 
-    profilesManager.set(auth.getAccount().getUuid(),
+    profilesManager.set(auth.getAccountIdentifier(),
         new VersionedProfile(
             request.version(),
             request.name(),
@@ -194,7 +196,7 @@ public class ProfileController {
       currentAvatar.ifPresent(s -> profilesManager.deleteAvatar(s).join());
     }
 
-    accountsManager.update(auth.getAccount(), a -> {
+    accountsManager.update(account, a -> {
 
       final List<AccountBadge> updatedBadges = request.badges()
           .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges, a.getBadges()))
@@ -216,7 +218,7 @@ public class ProfileController {
   @Path("/{identifier}/{version}")
   @ManagedAsync
   public VersionedProfileResponse getProfile(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> auth,
+      @Auth Optional<AuthenticatedDevice> maybeAuthenticatedDevice,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("identifier") AciServiceIdentifier accountIdentifier,
@@ -224,7 +226,11 @@ public class ProfileController {
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent)
       throws RateLimitExceededException {
 
-    final Optional<Account> maybeRequester = auth.map(AuthenticatedDevice::getAccount);
+    final Optional<Account> maybeRequester =
+        maybeAuthenticatedDevice.map(
+            authenticatedDevice -> accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+                .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
+
     final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, accountIdentifier, "getVersionedProfile", userAgent);
 
     return buildVersionedProfileResponse(targetAccount,
@@ -238,7 +244,7 @@ public class ProfileController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}/{version}/{credentialRequest}")
   public CredentialProfileResponse getProfile(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> auth,
+      @Auth Optional<AuthenticatedDevice> maybeAuthenticatedDevice,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
       @PathParam("identifier") AciServiceIdentifier accountIdentifier,
@@ -252,7 +258,11 @@ public class ProfileController {
       throw new BadRequestException();
     }
 
-    final Optional<Account> maybeRequester = auth.map(AuthenticatedDevice::getAccount);
+    final Optional<Account> maybeRequester =
+        maybeAuthenticatedDevice.map(
+            authenticatedDevice -> accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+                .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
+
     final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, accountIdentifier, "credentialRequest", userAgent);
     final boolean isSelf = maybeRequester.map(requester -> ProfileHelper.isSelfProfileRequest(requester.getUuid(), accountIdentifier)).orElse(false);
 
@@ -270,7 +280,7 @@ public class ProfileController {
   @Path("/{identifier}")
   @ManagedAsync
   public BaseProfileResponse getUnversionedProfile(
-      @ReadOnly @Auth Optional<AuthenticatedDevice> auth,
+      @Auth Optional<AuthenticatedDevice> maybeAuthenticatedDevice,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @HeaderParam(HeaderUtils.GROUP_SEND_TOKEN) Optional<GroupSendTokenHeader> groupSendToken,
       @Context ContainerRequestContext containerRequestContext,
@@ -278,7 +288,10 @@ public class ProfileController {
       @PathParam("identifier") ServiceIdentifier identifier)
       throws RateLimitExceededException {
 
-    final Optional<Account> maybeRequester = auth.map(AuthenticatedDevice::getAccount);
+    final Optional<Account> maybeRequester =
+        maybeAuthenticatedDevice.map(
+            authenticatedDevice -> accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+                .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
 
     final Account targetAccount;
     if (groupSendToken.isPresent()) {

@@ -5,8 +5,7 @@
 package org.whispersystems.textsecuregcm.tests.util;
 
 import java.security.Principal;
-import org.whispersystems.websocket.ReusableAuth;
-import org.whispersystems.websocket.auth.PrincipalSupplier;
+import java.util.Optional;
 
 public class TestPrincipal implements Principal {
 
@@ -21,7 +20,7 @@ public class TestPrincipal implements Principal {
     return name;
   }
 
-  public static ReusableAuth<TestPrincipal> reusableAuth(final String name) {
-    return ReusableAuth.authenticated(new TestPrincipal(name), PrincipalSupplier.forImmutablePrincipal());
+  public static Optional<TestPrincipal> authenticatedTestPrincipal(final String name) {
+    return Optional.of(new TestPrincipal(name));
   }
 }

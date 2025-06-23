@@ -17,6 +17,7 @@ import io.dropwizard.jersey.DropwizardResourceConfig;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.security.Principal;
+import java.util.Optional;
 import javax.security.auth.Subject;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest;
@@ -26,7 +27,6 @@ import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.websocket.auth.InvalidCredentialsException;
-import org.whispersystems.websocket.auth.PrincipalSupplier;
 import org.whispersystems.websocket.auth.AuthenticatedWebSocketUpgradeFilter;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
@@ -75,7 +75,7 @@ public class WebSocketResourceProviderFactoryTest {
 
     when(environment.getAuthenticator()).thenReturn(authenticator);
     when(authenticator.authenticate(eq(request)))
-        .thenReturn(ReusableAuth.authenticated(account, PrincipalSupplier.forImmutablePrincipal()));
+        .thenReturn(Optional.of(account));
     when(environment.jersey()).thenReturn(jerseyEnvironment);
     final HttpServletRequest httpServletRequest = mock(HttpServletRequest.class);
     when(httpServletRequest.getAttribute(REMOTE_ADDRESS_PROPERTY_NAME)).thenReturn("127.0.0.1");
@@ -129,8 +129,7 @@ public class WebSocketResourceProviderFactoryTest {
   @Test
   void testAuthenticatedWebSocketUpgradeFilter() throws InvalidCredentialsException {
     final Account account = new Account();
-    final ReusableAuth<Account> reusableAuth =
-        ReusableAuth.authenticated(account, PrincipalSupplier.forImmutablePrincipal());
+    final Optional<Account> reusableAuth = Optional.of(account);
 
     when(environment.getAuthenticator()).thenReturn(authenticator);
     when(authenticator.authenticate(eq(request))).thenReturn(reusableAuth);

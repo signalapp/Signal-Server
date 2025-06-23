@@ -236,6 +236,14 @@ class MessageControllerTest {
     when(accountsManager.getByServiceIdentifierAsync(MULTI_DEVICE_PNI_ID)).thenReturn(CompletableFuture.completedFuture(Optional.of(multiDeviceAccount)));
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(INTERNATIONAL_UUID))).thenReturn(CompletableFuture.completedFuture(Optional.of(internationalAccount)));
 
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(accountsManager.getByAccountIdentifierAsync(AuthHelper.VALID_UUID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(AuthHelper.VALID_ACCOUNT)));
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_3)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_3));
+    when(accountsManager.getByAccountIdentifierAsync(AuthHelper.VALID_UUID_3))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(AuthHelper.VALID_ACCOUNT_3)));
+
     when(rateLimiters.getMessagesLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getStoriesLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getInboundMessageBytes()).thenReturn(rateLimiter);

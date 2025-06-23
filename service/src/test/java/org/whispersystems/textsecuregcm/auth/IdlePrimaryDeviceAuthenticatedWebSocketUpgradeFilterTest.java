@@ -31,8 +31,6 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.util.TestClock;
-import org.whispersystems.websocket.ReusableAuth;
-import org.whispersystems.websocket.auth.PrincipalSupplier;
 
 class IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilterTest {
 
@@ -59,9 +57,9 @@ class IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilterTest {
       final boolean expectPqKeyCheck,
       @Nullable final String expectedAlertHeader) {
 
-    final ReusableAuth<AuthenticatedDevice> reusableAuth = authenticatedDevice != null
-        ? ReusableAuth.authenticated(authenticatedDevice, PrincipalSupplier.forImmutablePrincipal())
-        : ReusableAuth.anonymous();
+    final Optional<AuthenticatedDevice> reusableAuth = authenticatedDevice != null
+        ? Optional.of(authenticatedDevice)
+        : Optional.empty();
 
     final JettyServerUpgradeResponse response = mock(JettyServerUpgradeResponse.class);
 
@@ -88,20 +86,24 @@ class IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilterTest {
 
   private static List<Arguments> handleAuthentication() {
     final Device activePrimaryDevice = mock(Device.class);
+    when(activePrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(activePrimaryDevice.isPrimary()).thenReturn(true);
     when(activePrimaryDevice.getLastSeen()).thenReturn(CLOCK.millis());
 
     final Device minIdlePrimaryDevice = mock(Device.class);
+    when(minIdlePrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(minIdlePrimaryDevice.isPrimary()).thenReturn(true);
     when(minIdlePrimaryDevice.getLastSeen())
         .thenReturn(CLOCK.instant().minus(MIN_IDLE_DURATION).minusSeconds(1).toEpochMilli());
 
     final Device longIdlePrimaryDevice = mock(Device.class);
+    when(longIdlePrimaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(longIdlePrimaryDevice.isPrimary()).thenReturn(true);
     when(longIdlePrimaryDevice.getLastSeen())
         .thenReturn(CLOCK.instant().minus(IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter.PQ_KEY_CHECK_THRESHOLD).minusSeconds(1).toEpochMilli());
 
     final Device linkedDevice = mock(Device.class);
+    when(linkedDevice.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
     when(linkedDevice.isPrimary()).thenReturn(false);
 
     final Account accountWithActivePrimaryDevice = mock(Account.class);

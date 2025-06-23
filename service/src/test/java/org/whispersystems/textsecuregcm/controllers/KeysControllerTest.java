@@ -242,9 +242,20 @@ class KeysControllerTest {
     when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
 
     when(accounts.getByServiceIdentifier(any())).thenReturn(Optional.empty());
+    when(accounts.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     when(accounts.getByServiceIdentifier(new AciServiceIdentifier(EXISTS_UUID))).thenReturn(Optional.of(existsAccount));
     when(accounts.getByServiceIdentifier(new PniServiceIdentifier(EXISTS_PNI))).thenReturn(Optional.of(existsAccount));
+
+    when(accounts.getByServiceIdentifierAsync(new AciServiceIdentifier(EXISTS_UUID)))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(existsAccount)));
+
+    when(accounts.getByServiceIdentifierAsync(new PniServiceIdentifier(EXISTS_PNI)))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(existsAccount)));
+
+    when(accounts.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(accounts.getByAccountIdentifierAsync(AuthHelper.VALID_UUID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(AuthHelper.VALID_ACCOUNT)));
 
     when(rateLimiters.getPreKeysLimiter()).thenReturn(rateLimiter);
 

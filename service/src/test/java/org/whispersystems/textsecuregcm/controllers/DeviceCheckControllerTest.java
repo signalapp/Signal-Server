@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.glassfish.jersey.server.ServerProperties;
@@ -45,6 +46,7 @@ import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
 import org.whispersystems.textsecuregcm.storage.devicecheck.ChallengeNotFoundException;
 import org.whispersystems.textsecuregcm.storage.devicecheck.DeviceCheckKeyIdNotFoundException;
@@ -62,6 +64,7 @@ class DeviceCheckControllerTest {
 
   private final static Duration REDEMPTION_DURATION = Duration.ofDays(5);
   private final static long REDEMPTION_LEVEL = 201L;
+  private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private final static BackupAuthManager backupAuthManager = mock(BackupAuthManager.class);
   private final static AppleDeviceCheckManager appleDeviceCheckManager = mock(AppleDeviceCheckManager.class);
   private final static RateLimiters rateLimiters = mock(RateLimiters.class);
@@ -76,7 +79,7 @@ class DeviceCheckControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new DeviceCheckController(clock, backupAuthManager, appleDeviceCheckManager, rateLimiters,
+      .addResource(new DeviceCheckController(clock, accountsManager, backupAuthManager, appleDeviceCheckManager, rateLimiters,
           REDEMPTION_LEVEL, REDEMPTION_DURATION))
       .build();
 
@@ -86,6 +89,8 @@ class DeviceCheckControllerTest {
     reset(appleDeviceCheckManager);
     reset(rateLimiters);
     when(rateLimiters.forDescriptor(any())).thenReturn(mock(RateLimiter.class));
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
   }
 
   @ParameterizedTest

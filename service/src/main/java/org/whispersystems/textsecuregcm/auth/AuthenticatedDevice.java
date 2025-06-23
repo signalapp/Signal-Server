@@ -6,7 +6,10 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import java.security.Principal;
+import java.time.Instant;
+import java.util.UUID;
 import javax.security.auth.Subject;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -28,6 +31,21 @@ public class AuthenticatedDevice implements Principal, AccountAndAuthenticatedDe
   @Override
   public Device getAuthenticatedDevice() {
     return device;
+  }
+
+  @Override
+  public UUID getAccountIdentifier() {
+    return account.getIdentifier(IdentityType.ACI);
+  }
+
+  @Override
+  public byte getDeviceId() {
+    return device.getId();
+  }
+
+  @Override
+  public Instant getPrimaryDeviceLastSeen() {
+    return Instant.ofEpochMilli(account.getPrimaryDevice().getLastSeen());
   }
 
   // Principal implementation

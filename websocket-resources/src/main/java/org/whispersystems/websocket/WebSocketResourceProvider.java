@@ -58,7 +58,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
   private final Map<Long, CompletableFuture<WebSocketResponseMessage>> requestMap = new ConcurrentHashMap<>();
 
-  private final ReusableAuth<T> reusableAuth;
+  private final Optional<T> reusableAuth;
   private final WebSocketMessageFactory messageFactory;
   private final Optional<WebSocketConnectListener> connectListener;
   private final ApplicationHandler jerseyHandler;
@@ -77,7 +77,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       String remoteAddressPropertyName,
       ApplicationHandler jerseyHandler,
       WebsocketRequestLog requestLog,
-      ReusableAuth<T> authenticated,
+      Optional<T> authenticated,
       WebSocketMessageFactory messageFactory,
       Optional<WebSocketConnectListener> connectListener,
       Duration idleTimeout) {
@@ -97,7 +97,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     this.remoteEndpoint = session.getRemote();
     this.context = new WebSocketSessionContext(
         new WebSocketClient(session, remoteEndpoint, messageFactory, requestMap));
-    this.context.setAuthenticated(reusableAuth.ref().orElse(null));
+    this.context.setAuthenticated(reusableAuth.orElse(null));
     this.session.setIdleTimeout(idleTimeout);
 
     connectListener.ifPresent(listener -> listener.onWebSocketConnect(this.context));
@@ -164,15 +164,9 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
   /**
    * The property name where {@link org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider} can find an
-   * {@link ReusableAuth} object that lives for the lifetime of the websocket
+   * authenticated principal that lives for the lifetime of the websocket
    */
   public static final String REUSABLE_AUTH_PROPERTY = WebSocketResourceProvider.class.getName() + ".reusableAuth";
-
-  /**
-   * The property name where {@link org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider} can install a
-   * {@link org.whispersystems.websocket.ReusableAuth.MutableRef} for us to close when the request is finished
-   */
-  public static final String RESOLVED_PRINCIPAL_PROPERTY = WebSocketResourceProvider.class.getName() + ".resolvedPrincipal";
 
   /**
    * The property name where request byte count is stored for metrics collection
@@ -205,16 +199,6 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
         containerRequest, responseBody);
 
     responseFuture
-        .whenComplete((ignoredResponse, ignoredError) -> {
-          // If the request ended up being one that mutates our principal, we have to close it to indicate we're done
-          // with the mutation operation
-          final Object resolvedPrincipal = containerRequest.getProperty(RESOLVED_PRINCIPAL_PROPERTY);
-          if (resolvedPrincipal instanceof ReusableAuth.MutableRef<?> ref) {
-              ref.close();
-          } else if (resolvedPrincipal != null) {
-            logger.warn("unexpected resolved principal type {} : {}", resolvedPrincipal.getClass(), resolvedPrincipal);
-          }
-        })
         .thenAccept(response -> {
           try {
             final int responseBytes = responseBody.size();

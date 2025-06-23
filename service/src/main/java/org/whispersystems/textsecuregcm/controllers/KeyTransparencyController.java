@@ -49,7 +49,6 @@ import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceCl
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v1/key-transparency")
 @Tag(name = "KeyTransparency")
@@ -90,7 +89,7 @@ public class KeyTransparencyController {
   @RateLimitedByIp(RateLimiters.For.KEY_TRANSPARENCY_SEARCH_PER_IP)
   @Produces(MediaType.APPLICATION_JSON)
   public KeyTransparencySearchResponse search(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid final KeyTransparencySearchRequest request) {
 
     // Disallow clients from making authenticated requests to this endpoint
@@ -142,7 +141,7 @@ public class KeyTransparencyController {
   @RateLimitedByIp(RateLimiters.For.KEY_TRANSPARENCY_MONITOR_PER_IP)
   @Produces(MediaType.APPLICATION_JSON)
   public KeyTransparencyMonitorResponse monitor(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid final KeyTransparencyMonitorRequest request) {
 
     // Disallow clients from making authenticated requests to this endpoint
@@ -204,7 +203,7 @@ public class KeyTransparencyController {
   @RateLimitedByIp(RateLimiters.For.KEY_TRANSPARENCY_DISTINGUISHED_PER_IP)
   @Produces(MediaType.APPLICATION_JSON)
   public KeyTransparencyDistinguishedKeyResponse getDistinguishedKey(
-      @ReadOnly @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
+      @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
 
       @Parameter(description = "The distinguished tree head size returned by a previously verified call")
       @QueryParam("lastTreeHeadSize") @Valid final Optional<@Positive Long> lastTreeHeadSize) {

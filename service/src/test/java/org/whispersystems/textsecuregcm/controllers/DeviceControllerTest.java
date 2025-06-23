@@ -42,14 +42,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -62,8 +60,6 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
-import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
@@ -116,7 +112,6 @@ class DeviceControllerTest {
   private static final Account account = mock(Account.class);
   private static final Account maxedAccount = mock(Account.class);
   private static final Device primaryDevice = mock(Device.class);
-  private static final DisconnectionRequestManager disconnectionRequestManager = mock(DisconnectionRequestManager.class);
   private static final Map<String, Integer> deviceConfiguration = new HashMap<>();
   private static final TestClock testClock = TestClock.now();
 
@@ -129,16 +124,12 @@ class DeviceControllerTest {
       persistentTimer,
       deviceConfiguration);
 
-  @RegisterExtension
-  public static final AuthHelper.AuthFilterExtension AUTH_FILTER_EXTENSION = new AuthHelper.AuthFilterExtension();
-
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .addProvider(new RateLimitExceededExceptionMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addProvider(new WebsocketRefreshApplicationEventListener(accountsManager, disconnectionRequestManager))
       .addProvider(new DeviceLimitExceededExceptionMapper())
       .addResource(deviceController)
       .build();
@@ -157,8 +148,15 @@ class DeviceControllerTest {
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
+    when(account.getPrimaryDevice()).thenReturn(primaryDevice);
+    when(account.getDevice(anyByte())).thenReturn(Optional.empty());
+    when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(primaryDevice));
+    when(account.getDevices()).thenReturn(List.of(primaryDevice));
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifierAsync(AuthHelper.VALID_UUID))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
 
@@ -229,7 +227,7 @@ class DeviceControllerTest {
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
 
     final ECSignedPreKey aciSignedPreKey;
     final ECSignedPreKey pniSignedPreKey;
@@ -310,7 +308,7 @@ class DeviceControllerTest {
 
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(primaryDevice));
+    when(account.getDevices()).thenReturn(List.of(primaryDevice));
 
     final ECSignedPreKey aciSignedPreKey;
     final ECSignedPreKey pniSignedPreKey;
@@ -362,7 +360,7 @@ class DeviceControllerTest {
 
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(primaryDevice));
+    when(account.getDevices()).thenReturn(List.of(primaryDevice));
 
     final ECSignedPreKey aciSignedPreKey;
     final ECSignedPreKey pniSignedPreKey;
@@ -398,7 +396,7 @@ class DeviceControllerTest {
   void linkDeviceAtomicReusedToken() {
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
 
     final ECSignedPreKey aciSignedPreKey;
     final ECSignedPreKey pniSignedPreKey;
@@ -447,7 +445,7 @@ class DeviceControllerTest {
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
 
     final ECSignedPreKey aciSignedPreKey;
     final ECSignedPreKey pniSignedPreKey;
@@ -487,12 +485,12 @@ class DeviceControllerTest {
   void linkDeviceAtomicConflictingChannel(final boolean fetchesMessages,
                                           final Optional<ApnRegistrationId> apnRegistrationId,
                                           final Optional<GcmRegistrationId> gcmRegistrationId) {
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(accountsManager.generateLinkDeviceToken(any())).thenReturn("test");
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
 
     final LinkDeviceToken deviceCode = resources.getJerseyTest()
         .target("/v1/devices/provisioning/code")
@@ -548,12 +546,12 @@ class DeviceControllerTest {
                                        final KEMSignedPreKey aciPqLastResortPreKey,
                                        final KEMSignedPreKey pniPqLastResortPreKey) {
 
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(accountsManager.generateLinkDeviceToken(any())).thenReturn("test");
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
 
     final LinkDeviceToken deviceCode = resources.getJerseyTest()
         .target("/v1/devices/provisioning/code")
@@ -613,11 +611,11 @@ class DeviceControllerTest {
     aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
     pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
 
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
 
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
@@ -647,11 +645,11 @@ class DeviceControllerTest {
                                         final KEMSignedPreKey aciPqLastResortPreKey,
                                         final KEMSignedPreKey pniPqLastResortPreKey) {
 
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
     when(account.getIdentityKey(IdentityType.ACI)).thenReturn(aciIdentityKey);
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
 
@@ -698,7 +696,7 @@ class DeviceControllerTest {
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
 
     final ECSignedPreKey aciSignedPreKey;
     final ECSignedPreKey pniSignedPreKey;
@@ -735,7 +733,7 @@ class DeviceControllerTest {
   void linkDeviceRegistrationId(final int registrationId, final int pniRegistrationId, final int expectedStatusCode) {
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
-    when(AuthHelper.VALID_ACCOUNT.getDevices()).thenReturn(List.of(existingDevice));
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
 
     final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
@@ -800,17 +798,16 @@ class DeviceControllerTest {
 
   @Test
   void maxDevicesTest() {
-    final AuthHelper.TestAccount testAccount = AUTH_FILTER_EXTENSION.createTestAccount();
-
     final List<Device> devices = IntStream.range(0, DeviceController.MAX_DEVICES + 1)
         .mapToObj(i -> mock(Device.class))
         .toList();
-    when(testAccount.account.getDevices()).thenReturn(devices);
+
+    when(account.getDevices()).thenReturn(devices);
 
     Response response = resources.getJerseyTest()
         .target("/v1/devices/provisioning/code")
         .request()
-        .header("Authorization", testAccount.getAuthHeader())
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get();
 
     assertEquals(411, response.getStatus());
@@ -829,7 +826,7 @@ class DeviceControllerTest {
 
       assertThat(response.getStatus()).isEqualTo(204);
       assertThat(response.hasEntity()).isFalse();
-      verify(AuthHelper.VALID_DEVICE).setCapabilities(Set.of(DeviceCapability.DELETE_SYNC));
+      verify(primaryDevice).setCapabilities(Set.of(DeviceCapability.DELETE_SYNC));
     }
   }
 
@@ -851,12 +848,12 @@ class DeviceControllerTest {
   void removeDevice() {
 
     // this is a static mock, so it might have previous invocations
-    clearInvocations(AuthHelper.VALID_ACCOUNT);
+    clearInvocations(account);
 
     final byte deviceId = 2;
 
-    when(accountsManager.removeDevice(AuthHelper.VALID_ACCOUNT, deviceId))
-        .thenReturn(CompletableFuture.completedFuture(AuthHelper.VALID_ACCOUNT));
+    when(accountsManager.removeDevice(account, deviceId))
+        .thenReturn(CompletableFuture.completedFuture(account));
 
     try (final Response response = resources
         .getJerseyTest()
@@ -869,14 +866,14 @@ class DeviceControllerTest {
       assertThat(response.getStatus()).isEqualTo(204);
       assertThat(response.hasEntity()).isFalse();
 
-      verify(accountsManager).removeDevice(AuthHelper.VALID_ACCOUNT, deviceId);
+      verify(accountsManager).removeDevice(account, deviceId);
     }
   }
 
   @Test
   void unlinkPrimaryDevice() {
     // this is a static mock, so it might have previous invocations
-    clearInvocations(AuthHelper.VALID_ACCOUNT);
+    clearInvocations(account);
 
     try (final Response response = resources
         .getJerseyTest()
@@ -897,7 +894,10 @@ class DeviceControllerTest {
     final byte deviceId = 2;
 
     when(accountsManager.removeDevice(AuthHelper.VALID_ACCOUNT_3, deviceId))
-        .thenReturn(CompletableFuture.completedFuture(AuthHelper.VALID_ACCOUNT));
+        .thenReturn(CompletableFuture.completedFuture(account));
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_3))
+        .thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_3));
 
     try (final Response response = resources
         .getJerseyTest()
@@ -946,7 +946,7 @@ class DeviceControllerTest {
       assertEquals(204, response.getStatus());
     }
 
-    verify(clientPublicKeysManager).setPublicKey(AuthHelper.VALID_ACCOUNT, AuthHelper.VALID_DEVICE.getId(), request.publicKey());
+    verify(clientPublicKeysManager).setPublicKey(account, AuthHelper.VALID_DEVICE.getId(), request.publicKey());
   }
 
   @Test
@@ -959,7 +959,7 @@ class DeviceControllerTest {
     final String tokenIdentifier = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
 
     when(accountsManager
-        .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), eq(tokenIdentifier), any()))
+        .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(primaryDevice), eq(tokenIdentifier), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(deviceInfo)));
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
@@ -985,7 +985,7 @@ class DeviceControllerTest {
     final String tokenIdentifier = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
 
     when(accountsManager
-        .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), eq(tokenIdentifier), any()))
+        .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(primaryDevice), eq(tokenIdentifier), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
@@ -1005,7 +1005,7 @@ class DeviceControllerTest {
     final String tokenIdentifier = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
 
     when(accountsManager
-        .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), eq(tokenIdentifier), any()))
+        .waitForNewLinkedDevice(eq(AuthHelper.VALID_UUID), eq(primaryDevice), eq(tokenIdentifier), any()))
         .thenReturn(CompletableFuture.failedFuture(new IllegalArgumentException()));
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
@@ -1079,7 +1079,7 @@ class DeviceControllerTest {
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
-    when(accountsManager.recordTransferArchiveUpload(AuthHelper.VALID_ACCOUNT, deviceId, deviceCreated, transferArchive))
+    when(accountsManager.recordTransferArchiveUpload(account, deviceId, deviceCreated, transferArchive))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     try (final Response response = resources.getJerseyTest()
@@ -1092,7 +1092,7 @@ class DeviceControllerTest {
       assertEquals(204, response.getStatus());
 
       verify(accountsManager)
-          .recordTransferArchiveUpload(AuthHelper.VALID_ACCOUNT, deviceId, deviceCreated, transferArchive);
+          .recordTransferArchiveUpload(account, deviceId, deviceCreated, transferArchive);
     }
   }
 
@@ -1103,7 +1103,7 @@ class DeviceControllerTest {
     final RemoteAttachmentError transferFailure = new RemoteAttachmentError(RemoteAttachmentError.ErrorType.CONTINUE_WITHOUT_UPLOAD);
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
-    when(accountsManager.recordTransferArchiveUpload(AuthHelper.VALID_ACCOUNT, deviceId, deviceCreated, transferFailure))
+    when(accountsManager.recordTransferArchiveUpload(account, deviceId, deviceCreated, transferFailure))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     try (final Response response = resources.getJerseyTest()
@@ -1116,7 +1116,7 @@ class DeviceControllerTest {
       assertEquals(204, response.getStatus());
 
       verify(accountsManager)
-          .recordTransferArchiveUpload(AuthHelper.VALID_ACCOUNT, deviceId, deviceCreated, transferFailure);
+          .recordTransferArchiveUpload(account, deviceId, deviceCreated, transferFailure);
     }
   }
 
@@ -1186,7 +1186,7 @@ class DeviceControllerTest {
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
 
     when(rateLimiter.validateAsync(anyString())).thenReturn(CompletableFuture.completedFuture(null));
-    when(accountsManager.waitForTransferArchive(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_DEVICE), any()))
+    when(accountsManager.waitForTransferArchive(eq(account), eq(primaryDevice), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(transferArchive)));
 
     try (final Response response = resources.getJerseyTest()
@@ -1206,7 +1206,7 @@ class DeviceControllerTest {
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
 
     when(rateLimiter.validateAsync(anyString())).thenReturn(CompletableFuture.completedFuture(null));
-    when(accountsManager.waitForTransferArchive(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_DEVICE), any()))
+    when(accountsManager.waitForTransferArchive(eq(account), eq(primaryDevice), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(transferArchive)));
 
     try (final Response response = resources.getJerseyTest()
@@ -1223,7 +1223,7 @@ class DeviceControllerTest {
   @Test
   void waitForTransferArchiveNoArchiveUploaded() {
     when(rateLimiter.validateAsync(anyString())).thenReturn(CompletableFuture.completedFuture(null));
-    when(accountsManager.waitForTransferArchive(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_DEVICE), any()))
+    when(accountsManager.waitForTransferArchive(eq(account), eq(primaryDevice), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()

@@ -21,7 +21,6 @@ import org.glassfish.jersey.server.model.Parameter;
 import org.glassfish.jersey.server.spi.internal.ValueParamProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.websocket.ReusableAuth;
 import org.whispersystems.websocket.WebSocketResourceProvider;
 
 @Singleton
@@ -43,36 +42,30 @@ public class WebsocketAuthValueFactoryProvider<T extends Principal> extends Abst
       return null;
     }
 
-    final boolean readOnly = parameter.isAnnotationPresent(ReadOnly.class);
+    final boolean readOnly = true;
 
     if (parameter.getRawType() == Optional.class
         && ParameterizedType.class.isAssignableFrom(parameter.getType().getClass())
         && principalClass == ((ParameterizedType) parameter.getType()).getActualTypeArguments()[0]) {
-      return containerRequest -> createPrincipal(containerRequest, readOnly);
+      return this::createPrincipal;
     } else if (principalClass.equals(parameter.getRawType())) {
       return containerRequest ->
-          createPrincipal(containerRequest, readOnly)
+          createPrincipal(containerRequest)
               .orElseThrow(() -> new WebApplicationException("Authenticated resource", 401));
     } else {
       throw new IllegalStateException("Can't inject unassignable principal: " + principalClass + " for parameter: " + parameter);
     }
   }
 
-  private Optional<? extends Principal> createPrincipal(final ContainerRequest request, final boolean readOnly) {
+  private Optional<? extends Principal> createPrincipal(final ContainerRequest request) {
     final Object obj = request.getProperty(WebSocketResourceProvider.REUSABLE_AUTH_PROPERTY);
-    if (!(obj instanceof ReusableAuth<?>)) {
+    if (!(obj instanceof Optional<?>)) {
       logger.warn("Unexpected reusable auth property type {} : {}", obj.getClass(), obj);
       return Optional.empty();
     }
-    @SuppressWarnings("unchecked") final ReusableAuth<T> reusableAuth = (ReusableAuth<T>) obj;
-    if (readOnly) {
-      return reusableAuth.ref();
-    } else {
-      return reusableAuth.mutableRef().map(writeRef -> {
-        request.setProperty(WebSocketResourceProvider.RESOLVED_PRINCIPAL_PROPERTY, writeRef);
-        return writeRef.ref();
-      });
-    }
+
+    //noinspection unchecked
+    return (Optional<T>) obj;
   }
 
   @Singleton

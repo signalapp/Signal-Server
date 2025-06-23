@@ -145,6 +145,8 @@ class AccountControllerV2Test {
     void setUp() throws Exception {
       when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
 
+      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+
       when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(
           (Answer<Account>) invocation -> {
             final Account account = invocation.getArgument(0);
@@ -607,6 +609,8 @@ class AccountControllerV2Test {
 
     @BeforeEach
     void setUp() throws Exception {
+      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+
       when(changeNumberManager.updatePniKeys(any(), any(), any(), any(), any(), any(), any())).thenAnswer(
           (Answer<Account>) invocation -> {
             final Account account = invocation.getArgument(0);
@@ -768,7 +772,9 @@ class AccountControllerV2Test {
     @BeforeEach
     void setup() {
       AccountsHelper.setupMockUpdate(accountsManager);
+      when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
     }
+
     @Test
     void testSetPhoneNumberDiscoverability() {
       Response response = resources.getJerseyTest()
@@ -805,6 +811,7 @@ class AccountControllerV2Test {
     @MethodSource
     void testGetAccountDataReport(final Account account, final String expectedTextAfterHeader) throws Exception {
       when(AuthHelper.ACCOUNTS_MANAGER.getByAccountIdentifier(account.getUuid())).thenReturn(Optional.of(account));
+      when(accountsManager.getByAccountIdentifier(account.getUuid())).thenReturn(Optional.of(account));
 
       final Response response = resources.getJerseyTest()
           .target("/v2/accounts/data_report")

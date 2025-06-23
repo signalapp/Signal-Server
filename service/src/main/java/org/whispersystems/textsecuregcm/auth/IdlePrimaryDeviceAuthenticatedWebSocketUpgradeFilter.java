@@ -8,17 +8,16 @@ package org.whispersystems.textsecuregcm.auth;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
-import org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest;
-import org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.KeysManager;
-import org.whispersystems.websocket.ReusableAuth;
-import org.whispersystems.websocket.auth.AuthenticatedWebSocketUpgradeFilter;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
+import org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest;
+import org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.KeysManager;
+import org.whispersystems.websocket.auth.AuthenticatedWebSocketUpgradeFilter;
 
 public class IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter implements
     AuthenticatedWebSocketUpgradeFilter<AuthenticatedDevice> {
@@ -58,21 +57,19 @@ public class IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter implements
   }
 
   @Override
-  public void handleAuthentication(final ReusableAuth<AuthenticatedDevice> authenticated,
+  public void handleAuthentication(final Optional<AuthenticatedDevice> authenticated,
       final JettyServerUpgradeRequest request,
       final JettyServerUpgradeResponse response) {
 
     // No action needed if the connection is unauthenticated (in which case we don't know when we've last seen the
     // primary device) or if the authenticated device IS the primary device
-    authenticated.ref()
-        .filter(authenticatedDevice -> !authenticatedDevice.getAuthenticatedDevice().isPrimary())
+    authenticated
+        .filter(authenticatedDevice -> authenticatedDevice.getDeviceId() != Device.PRIMARY_ID)
         .ifPresent(authenticatedDevice -> {
-          final Instant primaryDeviceLastSeen =
-              Instant.ofEpochMilli(authenticatedDevice.getAccount().getPrimaryDevice().getLastSeen());
+          final Instant primaryDeviceLastSeen = authenticatedDevice.getPrimaryDeviceLastSeen();
 
           if (primaryDeviceLastSeen.isBefore(clock.instant().minus(PQ_KEY_CHECK_THRESHOLD)) &&
-              keysManager.getLastResort(authenticatedDevice.getAccount().getIdentifier(IdentityType.ACI), Device.PRIMARY_ID)
-                  .join().isEmpty()) {
+              keysManager.getLastResort(authenticatedDevice.getAccountIdentifier(), Device.PRIMARY_ID).join().isEmpty()) {
 
             response.addHeader(ALERT_HEADER, CRITICAL_IDLE_PRIMARY_DEVICE_ALERT);
             CRITICAL_IDLE_PRIMARY_WARNING_COUNTER.increment();

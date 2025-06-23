@@ -26,7 +26,6 @@ import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 
 /**
@@ -78,11 +77,11 @@ public class AttachmentControllerV4 {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public AttachmentDescriptorV3 getAttachmentUploadForm(@ReadOnly @Auth AuthenticatedDevice auth)
+  public AttachmentDescriptorV3 getAttachmentUploadForm(@Auth AuthenticatedDevice auth)
       throws RateLimitExceededException {
-    rateLimiter.validate(auth.getAccount().getUuid());
+    rateLimiter.validate(auth.getAccountIdentifier());
     final String key = generateAttachmentKey();
-    final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.getAccount().getUuid(), CDN3_EXPERIMENT_NAME);
+    final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.getAccountIdentifier(), CDN3_EXPERIMENT_NAME);
     int cdn = useCdn3 ? 3 : 2;
     final AttachmentGenerator.Descriptor descriptor = this.attachmentGenerators.get(cdn).generateAttachment(key);
     return new AttachmentDescriptorV3(cdn, key, descriptor.headers(), descriptor.signedUploadLocation());

@@ -55,8 +55,7 @@ import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
-import org.whispersystems.websocket.auth.Mutable;
-import org.whispersystems.websocket.auth.ReadOnly;
+import org.whispersystems.textsecuregcm.storage.Device;
 
 @Path("/v2/accounts")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Account")
@@ -101,12 +100,12 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public AccountIdentityResponse changeNumber(@Mutable @Auth final AuthenticatedDevice authenticatedDevice,
+  public AccountIdentityResponse changeNumber(@Auth final AuthenticatedDevice authenticatedDevice,
       @NotNull @Valid final ChangeNumberRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString,
       @Context final ContainerRequestContext requestContext) throws RateLimitExceededException, InterruptedException {
 
-    if (!authenticatedDevice.getAuthenticatedDevice().isPrimary()) {
+    if (authenticatedDevice.getDeviceId() != Device.PRIMARY_ID) {
       throw new ForbiddenException();
     }
 
@@ -116,8 +115,11 @@ public class AccountControllerV2 {
 
     final String number = request.number();
 
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
     // Only verify and check reglock if there's a data change to be made...
-    if (!authenticatedDevice.getAccount().getNumber().equals(number)) {
+    if (!account.getNumber().equals(number)) {
 
       rateLimiters.getRegistrationLimiter().validate(number);
 
@@ -139,7 +141,7 @@ public class AccountControllerV2 {
     // ...but always attempt to make the change in case a client retries and needs to re-send messages
     try {
       final Account updatedAccount = changeNumberManager.changeNumber(
-          authenticatedDevice.getAccount(),
+          account,
           request.number(),
           request.pniIdentityKey(),
           request.devicePniSignedPrekeys(),
@@ -185,11 +187,11 @@ public class AccountControllerV2 {
       content = @Content(schema = @Schema(implementation = StaleDevicesResponse.class)))
   @ApiResponse(responseCode = "413", description = "One or more device messages was too large")
   public AccountIdentityResponse distributePhoneNumberIdentityKeys(
-      @Mutable @Auth final AuthenticatedDevice authenticatedDevice,
+      @Auth final AuthenticatedDevice authenticatedDevice,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString,
       @NotNull @Valid final PhoneNumberIdentityKeyDistributionRequest request) {
 
-    if (!authenticatedDevice.getAuthenticatedDevice().isPrimary()) {
+    if (authenticatedDevice.getDeviceId() != Device.PRIMARY_ID) {
       throw new ForbiddenException();
     }
 
@@ -197,9 +199,12 @@ public class AccountControllerV2 {
       throw new WebApplicationException("Invalid signature", 422);
     }
 
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
     try {
       final Account updatedAccount = changeNumberManager.updatePniKeys(
-          authenticatedDevice.getAccount(),
+          account,
           request.pniIdentityKey(),
           request.devicePniSignedPrekeys(),
           request.devicePniPqLastResortPrekeys(),
@@ -235,10 +240,13 @@ public class AccountControllerV2 {
   @Operation(summary = "Sets whether the account should be discoverable by phone number in the directory.")
   @ApiResponse(responseCode = "204", description = "The setting was successfully updated.")
   public void setPhoneNumberDiscoverability(
-      @Mutable @Auth AuthenticatedDevice auth,
-      @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability
-  ) {
-    accountsManager.update(auth.getAccount(), a -> a.setDiscoverableByPhoneNumber(
+      @Auth AuthenticatedDevice auth,
+      @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability) {
+
+    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+    accountsManager.update(account, a -> a.setDiscoverableByPhoneNumber(
         phoneNumberDiscoverability.discoverableByPhoneNumber()));
   }
 
@@ -249,9 +257,10 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "200",
       description = "Response with data report. A plain text representation is a field in the response.",
       useReturnTypeSchema = true)
-  public AccountDataReportResponse getAccountDataReport(@ReadOnly @Auth final AuthenticatedDevice auth) {
+  public AccountDataReportResponse getAccountDataReport(@Auth final AuthenticatedDevice auth) {
 
-    final Account account = auth.getAccount();
+    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     return new AccountDataReportResponse(UUID.randomUUID(), Instant.now(),
         new AccountDataReportResponse.AccountAndDevicesDataReport(

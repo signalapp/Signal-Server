@@ -33,6 +33,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
 import org.whispersystems.textsecuregcm.storage.devicecheck.ChallengeNotFoundException;
 import org.whispersystems.textsecuregcm.storage.devicecheck.DeviceCheckKeyIdNotFoundException;
@@ -41,7 +42,6 @@ import org.whispersystems.textsecuregcm.storage.devicecheck.DuplicatePublicKeyEx
 import org.whispersystems.textsecuregcm.storage.devicecheck.RequestReuseException;
 import org.whispersystems.textsecuregcm.storage.devicecheck.TooManyKeysException;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 /**
  * Process platform device attestations.
@@ -55,6 +55,7 @@ import org.whispersystems.websocket.auth.ReadOnly;
 public class DeviceCheckController {
 
   private final Clock clock;
+  private final AccountsManager accountsManager;
   private final BackupAuthManager backupAuthManager;
   private final AppleDeviceCheckManager deviceCheckManager;
   private final RateLimiters rateLimiters;
@@ -63,12 +64,14 @@ public class DeviceCheckController {
 
   public DeviceCheckController(
       final Clock clock,
+      final AccountsManager accountsManager,
       final BackupAuthManager backupAuthManager,
       final AppleDeviceCheckManager deviceCheckManager,
       final RateLimiters rateLimiters,
       final long backupRedemptionLevel,
       final Duration backupRedemptionDuration) {
     this.clock = clock;
+    this.accountsManager = accountsManager;
     this.backupAuthManager = backupAuthManager;
     this.deviceCheckManager = deviceCheckManager;
     this.backupRedemptionLevel = backupRedemptionLevel;
@@ -94,14 +97,17 @@ public class DeviceCheckController {
   @ApiResponse(responseCode = "200", description = "The response body includes a challenge")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   @ManagedAsync
-  public ChallengeResponse attestChallenge(@ReadOnly @Auth AuthenticatedDevice authenticatedDevice)
+  public ChallengeResponse attestChallenge(@Auth AuthenticatedDevice authenticatedDevice)
       throws RateLimitExceededException {
     rateLimiters.forDescriptor(RateLimiters.For.DEVICE_CHECK_CHALLENGE)
-        .validate(authenticatedDevice.getAccount().getUuid());
+        .validate(authenticatedDevice.getAccountIdentifier());
+
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     return new ChallengeResponse(deviceCheckManager.createChallenge(
         AppleDeviceCheckManager.ChallengeType.ATTEST,
-        authenticatedDevice.getAccount()));
+        account));
   }
 
   @PUT
@@ -125,7 +131,7 @@ public class DeviceCheckController {
   @ApiResponse(responseCode = "409", description = "The provided keyId has already been registered to a different account")
   @ManagedAsync
   public void attest(
-      @ReadOnly @Auth final AuthenticatedDevice authenticatedDevice,
+      @Auth final AuthenticatedDevice authenticatedDevice,
 
       @Valid
       @NotNull
@@ -135,8 +141,11 @@ public class DeviceCheckController {
       @RequestBody(description = "The attestation data, created by [attestKey](https://developer.apple.com/documentation/devicecheck/dcappattestservice/attestkey(_:clientdatahash:completionhandler:))")
       @NotNull final byte[] attestation) {
 
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
     try {
-      deviceCheckManager.registerAttestation(authenticatedDevice.getAccount(), parseKeyId(keyId), attestation);
+      deviceCheckManager.registerAttestation(account, parseKeyId(keyId), attestation);
     } catch (TooManyKeysException e) {
       throw new WebApplicationException(Response.status(413).build());
     } catch (ChallengeNotFoundException e) {
@@ -166,17 +175,19 @@ public class DeviceCheckController {
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
   @ManagedAsync
   public ChallengeResponse assertChallenge(
-      @ReadOnly @Auth AuthenticatedDevice authenticatedDevice,
+      @Auth AuthenticatedDevice authenticatedDevice,
 
       @Parameter(schema = @Schema(description = "The type of action you will make an assertion for",
           allowableValues = {"backup"},
           implementation = String.class))
       @QueryParam("action") Action action) throws RateLimitExceededException {
     rateLimiters.forDescriptor(RateLimiters.For.DEVICE_CHECK_CHALLENGE)
-        .validate(authenticatedDevice.getAccount().getUuid());
-    return new ChallengeResponse(
-        deviceCheckManager.createChallenge(toChallengeType(action),
-            authenticatedDevice.getAccount()));
+        .validate(authenticatedDevice.getAccountIdentifier());
+
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+    return new ChallengeResponse(deviceCheckManager.createChallenge(toChallengeType(action), account));
   }
 
   @POST
@@ -199,7 +210,7 @@ public class DeviceCheckController {
   @ApiResponse(responseCode = "401", description = "The assertion could not be verified")
   @ManagedAsync
   public void assertion(
-      @ReadOnly @Auth final AuthenticatedDevice authenticatedDevice,
+      @Auth final AuthenticatedDevice authenticatedDevice,
 
       @Valid
       @NotNull
@@ -218,9 +229,12 @@ public class DeviceCheckController {
       @RequestBody(description = "The assertion created by [generateAssertion](https://developer.apple.com/documentation/devicecheck/dcappattestservice/generateassertion(_:clientdatahash:completionhandler:))")
       @NotNull final byte[] assertion) {
 
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
     try {
       deviceCheckManager.validateAssert(
-          authenticatedDevice.getAccount(),
+          account,
           parseKeyId(keyId),
           toChallengeType(request.assertionRequest().action()),
           request.assertionRequest().challenge(),
@@ -237,7 +251,7 @@ public class DeviceCheckController {
     // The request assertion was validated, execute it
     switch (request.assertionRequest().action()) {
       case BACKUP -> backupAuthManager.extendBackupVoucher(
-              authenticatedDevice.getAccount(),
+              account,
               new Account.BackupVoucher(backupRedemptionLevel, clock.instant().plus(backupRedemptionDuration)))
           .join();
     }

@@ -96,8 +96,8 @@ public class RestDeprecationFilter implements ContainerRequestFilter {
       return false;
     }
 
-    if (securityContext.getUserPrincipal() instanceof AuthenticatedDevice ad) {
-      return experimentEnrollmentManager.isEnrolled(ad.getAccount().getUuid(), AUTHENTICATED_EXPERIMENT_NAME);
+    if (securityContext.getUserPrincipal() instanceof AuthenticatedDevice authenticatedDevice) {
+      return experimentEnrollmentManager.isEnrolled(authenticatedDevice.getAccountIdentifier(), AUTHENTICATED_EXPERIMENT_NAME);
     } else {
       log.error("Security context was not null but user principal was of type {}", securityContext.getUserPrincipal().getClass().getName());
       return false;

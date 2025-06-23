@@ -37,7 +37,6 @@ import org.eclipse.jetty.util.StaticException;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
@@ -52,6 +51,7 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventListener;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -123,7 +123,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
   private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
-  private final AuthenticatedDevice auth;
+  private final Account authenticatedAccount;
+  private final Device authenticatedDevice;
   private final WebSocketClient client;
 
   private final int sendFuturesTimeoutMillis;
@@ -156,7 +157,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
       PushNotificationScheduler pushNotificationScheduler,
-      AuthenticatedDevice auth,
+      Account authenticatedAccount,
+      Device authenticatedDevice,
       WebSocketClient client,
       ScheduledExecutorService scheduledExecutorService,
       Scheduler messageDeliveryScheduler,
@@ -169,7 +171,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
         messageMetrics,
         pushNotificationManager,
         pushNotificationScheduler,
-        auth,
+        authenticatedAccount,
+        authenticatedDevice,
         client,
         DEFAULT_SEND_FUTURES_TIMEOUT_MILLIS,
         scheduledExecutorService,
@@ -184,7 +187,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
       MessageMetrics messageMetrics,
       PushNotificationManager pushNotificationManager,
       PushNotificationScheduler pushNotificationScheduler,
-      AuthenticatedDevice auth,
+      Account authenticatedAccount,
+      Device authenticatedDevice,
       WebSocketClient client,
       int sendFuturesTimeoutMillis,
       ScheduledExecutorService scheduledExecutorService,
@@ -198,7 +202,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
     this.messageMetrics = messageMetrics;
     this.pushNotificationManager = pushNotificationManager;
     this.pushNotificationScheduler = pushNotificationScheduler;
-    this.auth = auth;
+    this.authenticatedAccount = authenticatedAccount;
+    this.authenticatedDevice = authenticatedDevice;
     this.client = client;
     this.sendFuturesTimeoutMillis = sendFuturesTimeoutMillis;
     this.scheduledExecutorService = scheduledExecutorService;
@@ -209,7 +214,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
   }
 
   public void start() {
-    pushNotificationManager.handleMessagesRetrieved(auth.getAccount(), auth.getAuthenticatedDevice(), client.getUserAgent());
+    pushNotificationManager.handleMessagesRetrieved(authenticatedAccount, authenticatedDevice, client.getUserAgent());
     queueDrainStartTime.set(System.currentTimeMillis());
     processStoredMessages();
   }
@@ -229,8 +234,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
     client.close(1000, "OK");
 
     if (storedMessageState.get() != StoredMessageState.EMPTY) {
-      pushNotificationScheduler.scheduleDelayedNotification(auth.getAccount(),
-          auth.getAuthenticatedDevice(),
+      pushNotificationScheduler.scheduleDelayedNotification(authenticatedAccount,
+          authenticatedDevice,
           CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY);
     }
   }
@@ -242,7 +247,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
     sendMessageCounter.increment();
     sentMessageCounter.increment();
     bytesSentCounter.increment(body.map(bytes -> bytes.length).orElse(0));
-    messageMetrics.measureAccountEnvelopeUuidMismatches(auth.getAccount(), message);
+    messageMetrics.measureAccountEnvelopeUuidMismatches(authenticatedAccount, message);
 
     // X-Signal-Key: false must be sent until Android stops assuming it missing means true
     return client.sendRequest("PUT", "/api/v1/message",
@@ -253,7 +258,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
           } else {
             messageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(),
                 "websocket",
-                auth.getAuthenticatedDevice().isPrimary(),
+                authenticatedDevice.isPrimary(),
                 message.getUrgent(),
                 message.getEphemeral(),
                 client.getUserAgent(),
@@ -263,12 +268,12 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
           final CompletableFuture<Void> result;
           if (isSuccessResponse(response)) {
 
-            result = messagesManager.delete(auth.getAccount().getUuid(), auth.getAuthenticatedDevice(),
+            result = messagesManager.delete(authenticatedAccount.getIdentifier(IdentityType.ACI), authenticatedDevice,
                     storedMessageInfo.guid(), storedMessageInfo.serverTimestamp())
                 .thenApply(ignored -> null);
 
             if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
-              recordMessageDeliveryDuration(message.getServerTimestamp(), auth.getAuthenticatedDevice());
+              recordMessageDeliveryDuration(message.getServerTimestamp(), authenticatedDevice);
               sendDeliveryReceiptFor(message);
             }
           } else {
@@ -307,7 +312,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
 
     try {
       receiptSender.sendReceipt(ServiceIdentifier.valueOf(message.getDestinationServiceId()),
-          auth.getAuthenticatedDevice().getId(), AciServiceIdentifier.valueOf(message.getSourceServiceId()),
+          authenticatedDevice.getId(), AciServiceIdentifier.valueOf(message.getSourceServiceId()),
           message.getClientTimestamp());
     } catch (IllegalArgumentException e) {
       logger.error("Could not parse UUID: {}", message.getSourceServiceId());
@@ -338,7 +343,6 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
               // Cleared the queue! Send a queue empty message if we need to
               consecutiveRetries.set(0);
               if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
-
                 final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
                 final long drainDuration = System.currentTimeMillis() - queueDrainStartTime.get();
 
@@ -399,7 +403,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
     final CompletableFuture<Void> queueCleared = new CompletableFuture<>();
 
     final Publisher<Envelope> messages =
-        messagesManager.getMessagesForDeviceReactive(auth.getAccount().getUuid(), auth.getAuthenticatedDevice(), cachedMessagesOnly);
+        messagesManager.getMessagesForDeviceReactive(authenticatedAccount.getIdentifier(IdentityType.ACI), authenticatedDevice, cachedMessagesOnly);
 
     final AtomicBoolean hasSentFirstMessage = new AtomicBoolean();
     final AtomicBoolean hasErrored = new AtomicBoolean();
@@ -410,8 +414,8 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
         .limitRate(MESSAGE_PUBLISHER_LIMIT_RATE)
         .doOnNext(envelope -> {
           if (hasSentFirstMessage.compareAndSet(false, true)) {
-            messageDeliveryLoopMonitor.recordDeliveryAttempt(auth.getAccount().getIdentifier(IdentityType.ACI),
-                auth.getAuthenticatedDevice().getId(),
+            messageDeliveryLoopMonitor.recordDeliveryAttempt(authenticatedAccount.getIdentifier(IdentityType.ACI),
+                authenticatedDevice.getId(),
                 UUID.fromString(envelope.getServerGuid()),
                 client.getUserAgent(),
                 "websocket");
@@ -471,7 +475,7 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
     final UUID messageGuid = UUID.fromString(envelope.getServerGuid());
 
     if (envelope.getStory() && !client.shouldDeliverStories()) {
-      messagesManager.delete(auth.getAccount().getUuid(), auth.getAuthenticatedDevice(), messageGuid, envelope.getServerTimestamp());
+      messagesManager.delete(authenticatedAccount.getIdentifier(IdentityType.ACI), authenticatedDevice, messageGuid, envelope.getServerTimestamp());
 
       return CompletableFuture.completedFuture(null);
     } else {

@@ -34,7 +34,6 @@ import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 /**
  * The provisioning controller facilitates transmission of provisioning messages from the primary device associated with
@@ -77,7 +76,7 @@ public class ProvisioningController {
   @ApiResponse(responseCode="204", description="The provisioning message was delivered to the given provisioning address")
   @ApiResponse(responseCode="400", description="The provisioning message was too large")
   @ApiResponse(responseCode="404", description="No device with the given provisioning address was connected at the time of the request")
-  public void sendProvisioningMessage(@ReadOnly @Auth final AuthenticatedDevice auth,
+  public void sendProvisioningMessage(@Auth final AuthenticatedDevice auth,
 
       @Parameter(description = "The temporary provisioning address to which to send a provisioning message")
       @PathParam("destination") final String provisioningAddress,
@@ -93,7 +92,7 @@ public class ProvisioningController {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    rateLimiters.getMessagesLimiter().validate(auth.getAccount().getUuid());
+    rateLimiters.getMessagesLimiter().validate(auth.getAccountIdentifier());
 
     final boolean subscriberPresent =
         provisioningManager.sendProvisioningMessage(provisioningAddress, Base64.getMimeDecoder().decode(message.body()));

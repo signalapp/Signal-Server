@@ -34,7 +34,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.websocket.auth.ReadOnly;
 
 @Path("/v2/backup")
 @Tag(name = "Secure Value Recovery")
@@ -78,8 +77,8 @@ public class SecureValueRecovery2Controller {
   )
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public ExternalServiceCredentials getAuth(@ReadOnly @Auth final AuthenticatedDevice auth) {
-    return backupServiceCredentialGenerator.generateFor(auth.getAccount().getUuid().toString());
+  public ExternalServiceCredentials getAuth(@Auth final AuthenticatedDevice auth) {
+    return backupServiceCredentialGenerator.generateFor(auth.getAccountIdentifier().toString());
   }
 
 

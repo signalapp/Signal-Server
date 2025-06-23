@@ -170,7 +170,12 @@ class RemoteConfigControllerTest {
   void testHashKeyLinkedConfigs() {
     boolean allUnlinkedConfigsMatched = true;
     for (AuthHelper.TestAccount testAccount : AuthHelper.TEST_ACCOUNTS) {
-      UserRemoteConfigList configuration = resources.getJerseyTest().target("/v1/config/").request().header("Authorization", testAccount.getAuthHeader()).get(UserRemoteConfigList.class);
+      UserRemoteConfigList configuration = resources.getJerseyTest()
+          .target("/v1/config/")
+          .request()
+          .header("Authorization", testAccount.getAuthHeader())
+          .get(UserRemoteConfigList.class);
+
       assertThat(configuration.getConfig()).hasSize(11);
 
       final UserRemoteConfig linkedConfig0  = configuration.getConfig().get(7);

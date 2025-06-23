@@ -85,7 +85,6 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator
 import org.whispersystems.textsecuregcm.auth.IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
-import org.whispersystems.textsecuregcm.auth.WebsocketRefreshApplicationEventListener;
 import org.whispersystems.textsecuregcm.auth.grpc.ProhibitAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.auth.grpc.RequireAuthenticationInterceptor;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
@@ -212,7 +211,6 @@ import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.spam.SpamFilter;
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
-import org.whispersystems.textsecuregcm.storage.AccountPrincipalSupplier;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
@@ -980,23 +978,19 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(MultiRecipientMessageProvider.class);
     environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
     environment.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class));
-    environment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager,
-        disconnectionRequestManager));
     environment.jersey().register(new TimestampResponseFilter());
 
     ///
     WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment = new WebSocketEnvironment<>(environment,
         config.getWebSocketConfiguration(), Duration.ofMillis(90000));
     webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider("managed-async-websocket-virtual-thread-"));
-    webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator, new AccountPrincipalSupplier(accountsManager)));
+    webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setAuthenticatedWebSocketUpgradeFilter(new IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter(
         keysManager, config.idlePrimaryDeviceReminderConfiguration().minIdleDuration(), Clock.systemUTC()));
     webSocketEnvironment.setConnectListener(
-        new AuthenticatedConnectListener(receiptSender, messagesManager, messageMetrics, pushNotificationManager,
+        new AuthenticatedConnectListener(accountsManager, receiptSender, messagesManager, messageMetrics, pushNotificationManager,
             pushNotificationScheduler, webSocketConnectionEventManager, websocketScheduledExecutor,
             messageDeliveryScheduler, clientReleaseManager, messageDeliveryLoopMonitor, experimentEnrollmentManager));
-    webSocketEnvironment.jersey()
-        .register(new WebsocketRefreshApplicationEventListener(accountsManager, disconnectionRequestManager));
     webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
@@ -1083,15 +1077,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             registrationLockVerificationManager, rateLimiters),
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
             experimentEnrollmentManager),
-        new ArchiveController(backupAuthManager, backupManager, backupMetrics),
+        new ArchiveController(accountsManager, backupAuthManager, backupManager, backupMetrics),
         new CallRoutingControllerV2(rateLimiters, cloudflareTurnCredentialsManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
-        new CertificateController(new CertificateGenerator(config.getDeliveryCertificate().certificate(),
+        new CertificateController(accountsManager, new CertificateGenerator(config.getDeliveryCertificate().certificate(),
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),
             zkAuthOperations, callingGenericZkSecretParams, clock),
-        new ChallengeController(rateLimitChallengeManager, challengeConstraintChecker),
+        new ChallengeController(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
         new DeviceController(accountsManager, clientPublicKeysManager, rateLimiters, persistentTimer, config.getMaxDevices()),
-        new DeviceCheckController(clock, backupAuthManager, appleDeviceCheckManager, rateLimiters,
+        new DeviceCheckController(clock, accountsManager, backupAuthManager, appleDeviceCheckManager, rateLimiters,
             config.getDeviceCheck().backupRedemptionLevel(),
             config.getDeviceCheck().backupRedemptionDuration()),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
@@ -1140,8 +1134,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     WebSocketEnvironment<AuthenticatedDevice> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), Duration.ofMillis(60000));
-    provisioningEnvironment.jersey().register(new WebsocketRefreshApplicationEventListener(accountsManager,
-        disconnectionRequestManager));
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager, provisioningWebsocketTimeoutExecutor, Duration.ofSeconds(90)));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     provisioningEnvironment.jersey().register(new KeepAliveController(webSocketConnectionEventManager));

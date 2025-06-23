@@ -15,6 +15,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
@@ -33,10 +34,10 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
-import org.whispersystems.websocket.auth.Mutable;
 
 @Path("/v1/donation")
 @Tag(name = "Donations")
@@ -86,7 +87,7 @@ public class DonationController {
       """)
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   public CompletionStage<Response> redeemReceipt(
-      @Mutable @Auth final AuthenticatedDevice auth,
+      @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final RedeemReceiptRequest request) {
     return CompletableFuture.supplyAsync(() -> {
       ReceiptCredentialPresentation receiptCredentialPresentation;
@@ -118,23 +119,29 @@ public class DonationController {
             .type(MediaType.TEXT_PLAIN_TYPE)
             .build());
       }
-      return redeemedReceiptsManager.put(
-              receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.getAccount().getUuid())
-          .thenCompose(receiptMatched -> {
-            if (!receiptMatched) {
-              return CompletableFuture.completedFuture(Response.status(Status.BAD_REQUEST)
-                  .entity("receipt serial is already redeemed")
-                  .type(MediaType.TEXT_PLAIN_TYPE)
-                  .build());
-            }
 
-            return accountsManager.updateAsync(auth.getAccount(), a -> {
-                  a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
-                  if (request.isPrimary()) {
-                    a.makeBadgePrimaryIfExists(clock, badgeId);
+      return accountsManager.getByAccountIdentifierAsync(auth.getAccountIdentifier())
+          .thenCompose(maybeAccount -> {
+            final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
+
+            return redeemedReceiptsManager.put(
+                    receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.getAccountIdentifier())
+                .thenCompose(receiptMatched -> {
+                  if (!receiptMatched) {
+                    return CompletableFuture.completedFuture(Response.status(Status.BAD_REQUEST)
+                        .entity("receipt serial is already redeemed")
+                        .type(MediaType.TEXT_PLAIN_TYPE)
+                        .build());
                   }
-                })
-                .thenApply(ignored -> Response.ok().build());
+
+                  return accountsManager.updateAsync(account, a -> {
+                        a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
+                        if (request.isPrimary()) {
+                          a.makeBadgePrimaryIfExists(clock, badgeId);
+                        }
+                      })
+                      .thenApply(ignored -> Response.ok().build());
+                });
           });
     }).thenCompose(Function.identity());
   }
