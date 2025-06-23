@@ -47,11 +47,9 @@ public class IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter implements
     // No action needed if the connection is unauthenticated (in which case we don't know when we've last seen the
     // primary device) or if the authenticated device IS the primary device
     authenticated
-        .filter(authenticatedDevice -> authenticatedDevice.getDeviceId() != Device.PRIMARY_ID)
+        .filter(authenticatedDevice -> authenticatedDevice.deviceId() != Device.PRIMARY_ID)
         .ifPresent(authenticatedDevice -> {
-          final Instant primaryDeviceLastSeen = authenticatedDevice.getPrimaryDeviceLastSeen();
-
-          if (primaryDeviceLastSeen.isBefore(clock.instant().minus(minIdleDuration))) {
+          if (authenticatedDevice.primaryDeviceLastSeen().isBefore(clock.instant().minus(minIdleDuration))) {
             response.addHeader(ALERT_HEADER, IDLE_PRIMARY_DEVICE_ALERT);
             IDLE_PRIMARY_WARNING_COUNTER.increment();
           }

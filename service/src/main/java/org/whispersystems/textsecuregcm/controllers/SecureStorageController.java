@@ -47,6 +47,6 @@ public class SecureStorageController {
   )
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
   public ExternalServiceCredentials getAuth(@Auth AuthenticatedDevice auth) {
-    return storageServiceCredentialsGenerator.generateForUuid(auth.getAccountIdentifier());
+    return storageServiceCredentialsGenerator.generateForUuid(auth.accountIdentifier());
   }
 }

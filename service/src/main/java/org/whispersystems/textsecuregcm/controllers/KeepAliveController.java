@@ -48,12 +48,12 @@ public class KeepAliveController {
       @WebSocketSession WebSocketSessionContext context) {
 
     maybeAuth.ifPresent(auth -> {
-      if (!webSocketConnectionEventManager.isLocallyPresent(auth.getAccountIdentifier(), auth.getDeviceId())) {
+      if (!webSocketConnectionEventManager.isLocallyPresent(auth.accountIdentifier(), auth.deviceId())) {
 
         final Duration age = Duration.between(context.getClient().getCreated(), Instant.now());
 
         logger.debug("***** No local subscription found for {}::{}; age = {}ms, User-Agent = {}",
-            auth.getAccountIdentifier(), auth.getDeviceId(), age.toMillis(),
+            auth.accountIdentifier(), auth.deviceId(), age.toMillis(),
             context.getClient().getUserAgent());
 
         context.getClient().close(1000, "OK");

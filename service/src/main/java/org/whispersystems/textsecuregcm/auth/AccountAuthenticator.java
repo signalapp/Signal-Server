@@ -15,10 +15,12 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -112,7 +114,9 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
               device.get(),
               SaltedTokenHash.generateFor(basicCredentials.getPassword()));  // new credentials have current version
         }
-        return Optional.of(new AuthenticatedDevice(authenticatedAccount, device.get()));
+        return Optional.of(new AuthenticatedDevice(authenticatedAccount.getIdentifier(IdentityType.ACI),
+            device.get().getId(),
+            Instant.ofEpochMilli(authenticatedAccount.getPrimaryDevice().getLastSeen())));
       } else {
         failureReason = "incorrectPassword";
         return Optional.empty();

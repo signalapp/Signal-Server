@@ -120,12 +120,12 @@ public class DonationController {
             .build());
       }
 
-      return accountsManager.getByAccountIdentifierAsync(auth.getAccountIdentifier())
+      return accountsManager.getByAccountIdentifierAsync(auth.accountIdentifier())
           .thenCompose(maybeAccount -> {
             final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
 
             return redeemedReceiptsManager.put(
-                    receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.getAccountIdentifier())
+                    receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.accountIdentifier())
                 .thenCompose(receiptMatched -> {
                   if (!receiptMatched) {
                     return CompletableFuture.completedFuture(Response.status(Status.BAD_REQUEST)

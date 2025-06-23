@@ -147,12 +147,12 @@ public class ArchiveController {
       @Auth final AuthenticatedDevice authenticatedDevice,
       @Valid @NotNull final SetBackupIdRequest setBackupIdRequest) throws RateLimitExceededException {
 
-    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier())
+    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount
               .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-          final Device device = account.getDevice(authenticatedDevice.getDeviceId())
+          final Device device = account.getDevice(authenticatedDevice.deviceId())
               .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
           return backupAuthManager
@@ -206,7 +206,7 @@ public class ArchiveController {
       @Auth final AuthenticatedDevice authenticatedDevice,
       @Valid @NotNull final RedeemBackupReceiptRequest redeemBackupReceiptRequest) {
 
-    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier())
+    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount
               .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
@@ -280,7 +280,7 @@ public class ArchiveController {
     final Map<BackupCredentialType, List<BackupAuthCredentialsResponse.BackupAuthCredential>> credentialsByType =
         new ConcurrentHashMap<>();
 
-    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier())
+    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount
               .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));

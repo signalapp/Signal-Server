@@ -105,7 +105,7 @@ public class AccountControllerV2 {
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString,
       @Context final ContainerRequestContext requestContext) throws RateLimitExceededException, InterruptedException {
 
-    if (authenticatedDevice.getDeviceId() != Device.PRIMARY_ID) {
+    if (authenticatedDevice.deviceId() != Device.PRIMARY_ID) {
       throw new ForbiddenException();
     }
 
@@ -115,7 +115,7 @@ public class AccountControllerV2 {
 
     final String number = request.number();
 
-    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     // Only verify and check reglock if there's a data change to be made...
@@ -191,7 +191,7 @@ public class AccountControllerV2 {
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString,
       @NotNull @Valid final PhoneNumberIdentityKeyDistributionRequest request) {
 
-    if (authenticatedDevice.getDeviceId() != Device.PRIMARY_ID) {
+    if (authenticatedDevice.deviceId() != Device.PRIMARY_ID) {
       throw new ForbiddenException();
     }
 
@@ -199,7 +199,7 @@ public class AccountControllerV2 {
       throw new WebApplicationException("Invalid signature", 422);
     }
 
-    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     try {
@@ -243,7 +243,7 @@ public class AccountControllerV2 {
       @Auth AuthenticatedDevice auth,
       @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability) {
 
-    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     accountsManager.update(account, a -> a.setDiscoverableByPhoneNumber(
@@ -259,7 +259,7 @@ public class AccountControllerV2 {
       useReturnTypeSchema = true)
   public AccountDataReportResponse getAccountDataReport(@Auth final AuthenticatedDevice auth) {
 
-    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     return new AccountDataReportResponse(UUID.randomUUID(), Instant.now(),

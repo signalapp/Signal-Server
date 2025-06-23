@@ -79,9 +79,9 @@ public class AttachmentControllerV4 {
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public AttachmentDescriptorV3 getAttachmentUploadForm(@Auth AuthenticatedDevice auth)
       throws RateLimitExceededException {
-    rateLimiter.validate(auth.getAccountIdentifier());
+    rateLimiter.validate(auth.accountIdentifier());
     final String key = generateAttachmentKey();
-    final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.getAccountIdentifier(), CDN3_EXPERIMENT_NAME);
+    final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(), CDN3_EXPERIMENT_NAME);
     int cdn = useCdn3 ? 3 : 2;
     final AttachmentGenerator.Descriptor descriptor = this.attachmentGenerators.get(cdn).generateAttachment(key);
     return new AttachmentDescriptorV3(cdn, key, descriptor.headers(), descriptor.signedUploadLocation());

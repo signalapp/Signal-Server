@@ -57,7 +57,7 @@ public class CallRoutingControllerV2 {
   public GetCallingRelaysResponse getCallingRelays(final @Auth AuthenticatedDevice auth)
       throws RateLimitExceededException, IOException {
 
-    rateLimiters.getCallEndpointLimiter().validate(auth.getAccountIdentifier());
+    rateLimiters.getCallEndpointLimiter().validate(auth.accountIdentifier());
 
     try {
       return new GetCallingRelaysResponse(List.of(cloudflareTurnCredentialsManager.retrieveFromCloudflare()));

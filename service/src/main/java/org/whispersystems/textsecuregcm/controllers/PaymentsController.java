@@ -43,7 +43,7 @@ public class PaymentsController {
   @Path("/auth")
   @Produces(MediaType.APPLICATION_JSON)
   public ExternalServiceCredentials getAuth(final @Auth AuthenticatedDevice auth) {
-    return paymentsServiceCredentialsGenerator.generateForUuid(auth.getAccountIdentifier());
+    return paymentsServiceCredentialsGenerator.generateForUuid(auth.accountIdentifier());
   }
 
   @GET

@@ -55,7 +55,7 @@ public class CallLinkController {
       final @NotNull @Valid GetCreateCallLinkCredentialsRequest request
   ) throws RateLimitExceededException {
 
-    rateLimiters.getCreateCallLinkLimiter().validate(auth.getAccountIdentifier());
+    rateLimiters.getCreateCallLinkLimiter().validate(auth.accountIdentifier());
 
     final Instant truncatedDayTimestamp = Instant.now().truncatedTo(ChronoUnit.DAYS);
 
@@ -67,7 +67,7 @@ public class CallLinkController {
     }
 
     return new CreateCallLinkCredential(
-        createCallLinkCredentialRequest.issueCredential(new ServiceId.Aci(auth.getAccountIdentifier()), truncatedDayTimestamp, genericServerSecretParams).serialize(),
+        createCallLinkCredentialRequest.issueCredential(new ServiceId.Aci(auth.accountIdentifier()), truncatedDayTimestamp, genericServerSecretParams).serialize(),
         truncatedDayTimestamp.getEpochSecond()
     );
   }

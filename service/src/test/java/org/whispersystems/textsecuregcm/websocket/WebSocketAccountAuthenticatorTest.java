@@ -14,7 +14,9 @@ import static org.mockito.Mockito.when;
 import com.google.common.net.HttpHeaders;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.dropwizard.auth.basic.BasicCredentials;
+import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
@@ -24,7 +26,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.auth.InvalidCredentialsException;
@@ -50,7 +51,7 @@ class WebSocketAccountAuthenticatorTest {
     accountAuthenticator = mock(AccountAuthenticator.class);
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
-        .thenReturn(Optional.of(new AuthenticatedDevice(mock(Account.class), mock(Device.class))));
+        .thenReturn(Optional.of(new AuthenticatedDevice(UUID.randomUUID(), Device.PRIMARY_ID, Instant.now())));
 
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(INVALID_USER, INVALID_PASSWORD))))
         .thenReturn(Optional.empty());

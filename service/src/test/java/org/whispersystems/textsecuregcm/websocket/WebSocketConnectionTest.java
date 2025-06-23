@@ -33,6 +33,7 @@ import io.lettuce.core.RedisException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -79,7 +80,8 @@ import reactor.test.publisher.TestPublisher;
 
 class WebSocketConnectionTest {
 
-  private static final String VALID_USER = "+14152222222";
+  private static final String VALID_E164 = "+14152222222";
+  private static final UUID VALID_UUID = UUID.randomUUID();
 
   private static final int SOURCE_DEVICE_ID = 1;
 
@@ -127,8 +129,8 @@ class WebSocketConnectionTest {
         mock(ExperimentEnrollmentManager.class));
     WebSocketSessionContext sessionContext = mock(WebSocketSessionContext.class);
 
-    when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_USER, VALID_PASSWORD))))
-        .thenReturn(Optional.of(new AuthenticatedDevice(account, device)));
+    when(accountAuthenticator.authenticate(eq(new BasicCredentials(VALID_E164, VALID_PASSWORD))))
+        .thenReturn(Optional.of(new AuthenticatedDevice(VALID_UUID, Device.PRIMARY_ID, Instant.now())));
 
     Optional<AuthenticatedDevice> account = webSocketAuthenticator.authenticate(upgradeRequest);
     when(sessionContext.getAuthenticated()).thenReturn(account.orElse(null));

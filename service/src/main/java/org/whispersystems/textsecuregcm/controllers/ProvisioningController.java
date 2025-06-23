@@ -92,7 +92,7 @@ public class ProvisioningController {
       throw new WebApplicationException(Response.Status.BAD_REQUEST);
     }
 
-    rateLimiters.getMessagesLimiter().validate(auth.getAccountIdentifier());
+    rateLimiters.getMessagesLimiter().validate(auth.accountIdentifier());
 
     final boolean subscriberPresent =
         provisioningManager.sendProvisioningMessage(provisioningAddress, Base64.getMimeDecoder().decode(message.body()));

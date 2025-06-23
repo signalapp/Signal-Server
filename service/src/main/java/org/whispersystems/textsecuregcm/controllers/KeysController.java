@@ -113,15 +113,15 @@ public class KeysController {
   public CompletableFuture<PreKeyCount> getStatus(@Auth final AuthenticatedDevice auth,
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType) {
 
-    return accounts.getByAccountIdentifierAsync(auth.getAccountIdentifier())
+    return accounts.getByAccountIdentifierAsync(auth.accountIdentifier())
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
           final CompletableFuture<Integer> ecCountFuture =
-              keysManager.getEcCount(account.getIdentifier(identityType), auth.getDeviceId());
+              keysManager.getEcCount(account.getIdentifier(identityType), auth.deviceId());
 
           final CompletableFuture<Integer> pqCountFuture =
-              keysManager.getPqCount(account.getIdentifier(identityType), auth.getDeviceId());
+              keysManager.getPqCount(account.getIdentifier(identityType), auth.deviceId());
 
           return ecCountFuture.thenCombine(pqCountFuture, PreKeyCount::new);
         });
@@ -147,12 +147,12 @@ public class KeysController {
       @QueryParam("identity") @DefaultValue("aci") final IdentityType identityType,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
-    return accounts.getByAccountIdentifierAsync(auth.getAccountIdentifier())
+    return accounts.getByAccountIdentifierAsync(auth.accountIdentifier())
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount
               .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-          final Device device = account.getDevice(auth.getDeviceId())
+          final Device device = account.getDevice(auth.deviceId())
               .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
           final UUID identifier = account.getIdentifier(identityType);
@@ -160,7 +160,7 @@ public class KeysController {
           checkSignedPreKeySignatures(setKeysRequest, account.getIdentityKey(identityType), userAgent);
 
           final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
-          final Tag primaryDeviceTag = Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(auth.getDeviceId() == Device.PRIMARY_ID));
+          final Tag primaryDeviceTag = Tag.of(PRIMARY_DEVICE_TAG_NAME, String.valueOf(auth.deviceId() == Device.PRIMARY_ID));
           final Tag identityTypeTag = Tag.of(IDENTITY_TYPE_TAG_NAME, identityType.name());
 
           final List<CompletableFuture<Void>> storeFutures = new ArrayList<>(4);
@@ -267,12 +267,12 @@ public class KeysController {
       @Auth final AuthenticatedDevice auth,
       @RequestBody @NotNull @Valid final CheckKeysRequest checkKeysRequest) {
 
-    return accounts.getByAccountIdentifierAsync(auth.getAccountIdentifier())
+    return accounts.getByAccountIdentifierAsync(auth.accountIdentifier())
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
           final UUID identifier = account.getIdentifier(checkKeysRequest.identityType());
-          final byte deviceId = auth.getDeviceId();
+          final byte deviceId = auth.deviceId();
 
           final CompletableFuture<Optional<ECSignedPreKey>> ecSignedPreKeyFuture =
               keysManager.getEcSignedPreKey(identifier, deviceId);
@@ -361,7 +361,7 @@ public class KeysController {
     }
 
     final Optional<Account> account = maybeAuthenticatedDevice
-        .map(authenticatedDevice -> accounts.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+        .map(authenticatedDevice -> accounts.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
             .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
 
     final Optional<Account> maybeTarget = accounts.getByServiceIdentifier(targetIdentifier);
@@ -383,7 +383,7 @@ public class KeysController {
 
     if (account.isPresent()) {
       rateLimiters.getPreKeysLimiter().validate(
-          account.get().getUuid() + "." + maybeAuthenticatedDevice.get().getDeviceId() + "__" + targetIdentifier.uuid()
+          account.get().getUuid() + "." + maybeAuthenticatedDevice.get().deviceId() + "__" + targetIdentifier.uuid()
               + "." + deviceId);
     }
 

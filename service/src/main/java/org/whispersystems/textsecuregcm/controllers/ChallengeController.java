@@ -87,7 +87,7 @@ public class ChallengeController {
       @Context ContainerRequestContext requestContext,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws RateLimitExceededException, IOException {
 
-    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent));
@@ -174,7 +174,7 @@ public class ChallengeController {
   public Response requestPushChallenge(@Auth final AuthenticatedDevice auth,
       @Context ContainerRequestContext requestContext) {
 
-    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraints(requestContext, account);

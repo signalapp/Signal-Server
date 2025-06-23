@@ -100,9 +100,9 @@ public class DeviceCheckController {
   public ChallengeResponse attestChallenge(@Auth AuthenticatedDevice authenticatedDevice)
       throws RateLimitExceededException {
     rateLimiters.forDescriptor(RateLimiters.For.DEVICE_CHECK_CHALLENGE)
-        .validate(authenticatedDevice.getAccountIdentifier());
+        .validate(authenticatedDevice.accountIdentifier());
 
-    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     return new ChallengeResponse(deviceCheckManager.createChallenge(
@@ -141,7 +141,7 @@ public class DeviceCheckController {
       @RequestBody(description = "The attestation data, created by [attestKey](https://developer.apple.com/documentation/devicecheck/dcappattestservice/attestkey(_:clientdatahash:completionhandler:))")
       @NotNull final byte[] attestation) {
 
-    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     try {
@@ -182,9 +182,9 @@ public class DeviceCheckController {
           implementation = String.class))
       @QueryParam("action") Action action) throws RateLimitExceededException {
     rateLimiters.forDescriptor(RateLimiters.For.DEVICE_CHECK_CHALLENGE)
-        .validate(authenticatedDevice.getAccountIdentifier());
+        .validate(authenticatedDevice.accountIdentifier());
 
-    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     return new ChallengeResponse(deviceCheckManager.createChallenge(toChallengeType(action), account));
@@ -229,7 +229,7 @@ public class DeviceCheckController {
       @RequestBody(description = "The assertion created by [generateAssertion](https://developer.apple.com/documentation/devicecheck/dcappattestservice/generateassertion(_:clientdatahash:completionhandler:))")
       @NotNull final byte[] assertion) {
 
-    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     try {

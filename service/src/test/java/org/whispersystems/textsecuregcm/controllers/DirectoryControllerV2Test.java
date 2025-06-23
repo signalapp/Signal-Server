@@ -39,7 +39,7 @@ class DirectoryControllerV2Test {
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
 
     final ExternalServiceCredentials credentials = controller.getAuthToken(
-        new AuthenticatedDevice(account, mock(Device.class)));
+        new AuthenticatedDevice(uuid, Device.PRIMARY_ID, Instant.now()));
 
     assertEquals("d369bc712e2e0dd36258", credentials.username());
     assertEquals("1633738643:4433b0fab41f25f79dd4", credentials.password());

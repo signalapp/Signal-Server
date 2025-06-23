@@ -72,7 +72,7 @@ public class RemoteConfigController {
       return new UserRemoteConfigList(Stream.concat(remoteConfigsManager.getAll().stream().map(config -> {
         final byte[] hashKey = config.getHashKey() != null ? config.getHashKey().getBytes(StandardCharsets.UTF_8)
             : config.getName().getBytes(StandardCharsets.UTF_8);
-        boolean inBucket = isInBucket(digest, auth.getAccountIdentifier(), hashKey, config.getPercentage(),
+        boolean inBucket = isInBucket(digest, auth.accountIdentifier(), hashKey, config.getPercentage(),
             config.getUuids());
         return new UserRemoteConfig(config.getName(), inBucket,
             inBucket ? config.getValue() : config.getDefaultValue());

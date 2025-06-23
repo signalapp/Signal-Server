@@ -102,11 +102,11 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     if (authenticated) {
       final AuthenticatedDevice auth = context.getAuthenticated(AuthenticatedDevice.class);
 
-      final Optional<Account> maybeAuthenticatedAccount = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier());
-      final Optional<Device> maybeAuthenticatedDevice = maybeAuthenticatedAccount.flatMap(account -> account.getDevice(auth.getDeviceId()));;
+      final Optional<Account> maybeAuthenticatedAccount = accountsManager.getByAccountIdentifier(auth.accountIdentifier());
+      final Optional<Device> maybeAuthenticatedDevice = maybeAuthenticatedAccount.flatMap(account -> account.getDevice(auth.deviceId()));;
 
       if (maybeAuthenticatedAccount.isEmpty() || maybeAuthenticatedDevice.isEmpty()) {
-        log.warn("{}:{} not found when opening authenticated WebSocket", auth.getAccountIdentifier(), auth.getDeviceId());
+        log.warn("{}:{} not found when opening authenticated WebSocket", auth.accountIdentifier(), auth.deviceId());
 
         context.getClient().close(1011, "Unexpected error initializing connection");
         return;
@@ -131,7 +131,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         // receive push notifications for inbound messages. We should do this first because, at this point, the
         // connection has already closed and attempts to actually deliver a message via the connection will not succeed.
         // It's preferable to start sending push notifications as soon as possible.
-        webSocketConnectionEventManager.handleClientDisconnected(auth.getAccountIdentifier(), auth.getDeviceId());
+        webSocketConnectionEventManager.handleClientDisconnected(auth.accountIdentifier(), auth.deviceId());
 
         // Finally, stop trying to deliver messages and send a push notification if the connection is aware of any
         // undelivered messages.
@@ -147,7 +147,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
         // Finally, we register this client's presence, which suppresses push notifications. We do this last because
         // receiving extra push notifications is generally preferable to missing out on a push notification.
-        webSocketConnectionEventManager.handleClientConnected(auth.getAccountIdentifier(), auth.getDeviceId(), connection);
+        webSocketConnectionEventManager.handleClientConnected(auth.accountIdentifier(), auth.deviceId(), connection);
       } catch (final Exception e) {
         log.warn("Failed to initialize websocket", e);
         context.getClient().close(1011, "Unexpected error initializing connection");

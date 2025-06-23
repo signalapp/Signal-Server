@@ -151,7 +151,7 @@ public class DeviceController {
   public DeviceInfoList getDevices(@Auth AuthenticatedDevice auth) {
     // Devices may change their own names (and primary devices may change the names of linked devices) and so the device
     // state associated with the authenticated account may be stale. Fetch a fresh copy to compensate.
-    return accounts.getByAccountIdentifier(auth.getAccountIdentifier())
+    return accounts.getByAccountIdentifier(auth.accountIdentifier())
         .map(account -> new DeviceInfoList(account.getDevices().stream()
             .map(DeviceInfo::forDevice)
             .toList()))
@@ -163,7 +163,7 @@ public class DeviceController {
   @Path("/{device_id}")
   @ChangesLinkedDevices
   public void removeDevice(@Auth AuthenticatedDevice auth, @PathParam("device_id") byte deviceId) {
-    if (auth.getDeviceId() != Device.PRIMARY_ID && auth.getDeviceId() != deviceId) {
+    if (auth.deviceId() != Device.PRIMARY_ID && auth.deviceId() != deviceId) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -171,7 +171,7 @@ public class DeviceController {
       throw new ForbiddenException();
     }
 
-    final Account account = accounts.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
             .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     accounts.removeDevice(account, deviceId).join();
@@ -208,7 +208,7 @@ public class DeviceController {
   public LinkDeviceToken createDeviceToken(@Auth AuthenticatedDevice auth)
       throws RateLimitExceededException, DeviceLimitExceededException {
 
-    final Account account = accounts.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     rateLimiters.getAllocateDeviceLimiter().validate(account.getUuid());
@@ -223,7 +223,7 @@ public class DeviceController {
       throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
     }
 
-    if (auth.getDeviceId() != Device.PRIMARY_ID) {
+    if (auth.deviceId() != Device.PRIMARY_ID) {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
@@ -367,8 +367,8 @@ public class DeviceController {
     final AtomicInteger linkedDeviceListenerCounter = getCounterForLinkedDeviceListeners(userAgent);
     linkedDeviceListenerCounter.incrementAndGet();
 
-    return rateLimiters.getWaitForLinkedDeviceLimiter().validateAsync(authenticatedDevice.getAccountIdentifier())
-        .thenCompose(ignored -> accounts.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier()))
+    return rateLimiters.getWaitForLinkedDeviceLimiter().validateAsync(authenticatedDevice.accountIdentifier())
+        .thenCompose(ignored -> accounts.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
@@ -376,8 +376,8 @@ public class DeviceController {
               .thenApply(sample -> new Pair<>(account, sample));
         })
         .thenCompose(accountAndSample -> accounts.waitForNewLinkedDevice(
-                authenticatedDevice.getAccountIdentifier(),
-                accountAndSample.first().getDevice(authenticatedDevice.getDeviceId())
+                authenticatedDevice.accountIdentifier(),
+                accountAndSample.first().getDevice(authenticatedDevice.deviceId())
                     .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)),
                 tokenIdentifier,
                 Duration.ofSeconds(timeoutSeconds))
@@ -414,10 +414,10 @@ public class DeviceController {
       @NotNull
       final Map<String, Boolean> capabilities) {
 
-    final Account account = accounts.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    accounts.updateDevice(account, auth.getDeviceId(),
+    accounts.updateDevice(account, auth.deviceId(),
         d -> d.setCapabilities(DeviceCapabilityAdapter.mapToSet(capabilities)));
   }
 
@@ -438,10 +438,10 @@ public class DeviceController {
   public CompletableFuture<Void> setPublicKey(@Auth final AuthenticatedDevice auth,
       final SetPublicKeyRequest setPublicKeyRequest) {
 
-    final Account account = accounts.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    return clientPublicKeysManager.setPublicKey(account, auth.getDeviceId(), setPublicKeyRequest.publicKey());
+    return clientPublicKeysManager.setPublicKey(account, auth.deviceId(), setPublicKeyRequest.publicKey());
   }
 
   private static boolean isCapabilityDowngrade(final Account account, final Set<DeviceCapability> capabilities) {
@@ -536,8 +536,8 @@ public class DeviceController {
       @NotNull @Valid final TransferArchiveUploadedRequest transferArchiveUploadedRequest) {
 
     return rateLimiters.getUploadTransferArchiveLimiter()
-        .validateAsync(authenticatedDevice.getAccountIdentifier())
-        .thenCompose(ignored -> accounts.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier()))
+        .validateAsync(authenticatedDevice.accountIdentifier())
+        .thenCompose(ignored -> accounts.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
         .thenCompose(maybeAccount -> {
 
           final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
@@ -582,10 +582,10 @@ public class DeviceController {
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable String userAgent) {
 
 
-    final String rateLimiterKey = authenticatedDevice.getAccountIdentifier() + ":" + authenticatedDevice.getDeviceId();
+    final String rateLimiterKey = authenticatedDevice.accountIdentifier() + ":" + authenticatedDevice.deviceId();
 
     return rateLimiters.getWaitForTransferArchiveLimiter().validateAsync(rateLimiterKey)
-        .thenCompose(ignored -> accounts.getByAccountIdentifierAsync(authenticatedDevice.getAccountIdentifier()))
+        .thenCompose(ignored -> accounts.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
@@ -593,7 +593,7 @@ public class DeviceController {
               .thenApply(sample -> new Pair<>(account, sample));
         })
         .thenCompose(accountAndSample -> accounts.waitForTransferArchive(accountAndSample.first(),
-                accountAndSample.first().getDevice(authenticatedDevice.getDeviceId())
+                accountAndSample.first().getDevice(authenticatedDevice.deviceId())
                     .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)),
                 Duration.ofSeconds(timeoutSeconds))
             .thenApply(maybeTransferArchive -> maybeTransferArchive

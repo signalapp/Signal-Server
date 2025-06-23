@@ -56,6 +56,6 @@ public class DirectoryV2Controller {
   )
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
   public ExternalServiceCredentials getAuthToken(final @Auth AuthenticatedDevice auth) {
-    return directoryServiceTokenGenerator.generateForUuid(auth.getAccountIdentifier());
+    return directoryServiceTokenGenerator.generateForUuid(auth.accountIdentifier());
   }
 }

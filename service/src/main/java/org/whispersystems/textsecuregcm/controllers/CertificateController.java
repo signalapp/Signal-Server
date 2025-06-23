@@ -82,11 +82,11 @@ public class CertificateController {
     Metrics.counter(GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME, INCLUDE_E164_TAG_NAME, String.valueOf(includeE164))
         .increment();
 
-    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     return new DeliveryCertificate(
-        certificateGenerator.createFor(account, auth.getDeviceId(), includeE164));
+        certificateGenerator.createFor(account, auth.deviceId(), includeE164));
   }
 
   @GET
@@ -110,7 +110,7 @@ public class CertificateController {
       throw new BadRequestException();
     }
 
-    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     final List<GroupCredentials.GroupCredential> credentials = new ArrayList<>();

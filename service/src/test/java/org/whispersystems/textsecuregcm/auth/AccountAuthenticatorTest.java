@@ -31,6 +31,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -78,8 +79,8 @@ class AccountAuthenticatorTest {
   void testUpdateLastSeenMiddleOfDay() {
     clock.pin(Instant.ofEpochMilli(currentTime));
 
-    final Device device1 = acct1.getDevices().stream().findFirst().get();
-    final Device device2 = acct2.getDevices().stream().findFirst().get();
+    final Device device1 = acct1.getDevices().stream().findFirst().orElseThrow();
+    final Device device2 = acct2.getDevices().stream().findFirst().orElseThrow();
 
     final Account updatedAcct1 = accountAuthenticator.updateLastSeen(acct1, device1);
     final Account updatedAcct2 = accountAuthenticator.updateLastSeen(acct2, device2);
@@ -98,8 +99,8 @@ class AccountAuthenticatorTest {
   void testUpdateLastSeenStartOfDay() {
     clock.pin(Instant.ofEpochMilli(today));
 
-    final Device device1 = acct1.getDevices().stream().findFirst().get();
-    final Device device2 = acct2.getDevices().stream().findFirst().get();
+    final Device device1 = acct1.getDevices().stream().findFirst().orElseThrow();
+    final Device device2 = acct2.getDevices().stream().findFirst().orElseThrow();
 
     final Account updatedAcct1 = accountAuthenticator.updateLastSeen(acct1, device1);
     final Account updatedAcct2 = accountAuthenticator.updateLastSeen(acct2, device2);
@@ -118,8 +119,8 @@ class AccountAuthenticatorTest {
   void testUpdateLastSeenEndOfDay() {
     clock.pin(Instant.ofEpochMilli(today + 86_400_000L - 1));
 
-    final Device device1 = acct1.getDevices().stream().findFirst().get();
-    final Device device2 = acct2.getDevices().stream().findFirst().get();
+    final Device device1 = acct1.getDevices().stream().findFirst().orElseThrow();
+    final Device device2 = acct2.getDevices().stream().findFirst().orElseThrow();
 
     final Account updatedAcct1 = accountAuthenticator.updateLastSeen(acct1, device1);
     final Account updatedAcct2 = accountAuthenticator.updateLastSeen(acct2, device2);
@@ -138,7 +139,7 @@ class AccountAuthenticatorTest {
   void testNeverWriteYesterday() {
     clock.pin(Instant.ofEpochMilli(today));
 
-    final Device device = oldAccount.getDevices().stream().findFirst().get();
+    final Device device = oldAccount.getDevices().stream().findFirst().orElseThrow();
 
     accountAuthenticator.updateLastSeen(oldAccount, device);
 
@@ -160,7 +161,9 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
+    when(account.getPrimaryDevice()).thenReturn(device);
     when(device.getId()).thenReturn(deviceId);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
@@ -170,9 +173,9 @@ class AccountAuthenticatorTest {
         accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
-    assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
-    assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(device);
-    verify(accountsManager, never()).updateDeviceAuthentication(any(), any(), any());;
+    assertThat(maybeAuthenticatedAccount.orElseThrow().accountIdentifier()).isEqualTo(uuid);
+    assertThat(maybeAuthenticatedAccount.orElseThrow().deviceId()).isEqualTo(device.getId());
+    verify(accountsManager, never()).updateDeviceAuthentication(any(), any(), any());
   }
 
   @Test
@@ -188,7 +191,9 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
+    when(account.getPrimaryDevice()).thenReturn(device);
     when(device.getId()).thenReturn(deviceId);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
@@ -198,15 +203,13 @@ class AccountAuthenticatorTest {
         accountAuthenticator.authenticate(new BasicCredentials(uuid + "." + deviceId, password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
-    assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
-    assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(device);
+    assertThat(maybeAuthenticatedAccount.orElseThrow().accountIdentifier()).isEqualTo(uuid);
+    assertThat(maybeAuthenticatedAccount.orElseThrow().deviceId()).isEqualTo(device.getId());
     verify(accountsManager, never()).updateDeviceAuthentication(any(), any(), any());
   }
 
   @CartesianTest
   void testAuthenticateEnabled(
-      @CartesianTest.Values(booleans = {true, false}) final boolean accountEnabled,
-      @CartesianTest.Values(booleans = {true, false}) final boolean deviceEnabled,
       @CartesianTest.Values(booleans = {true, false}) final boolean authenticatedDeviceIsPrimary) {
     final UUID uuid = UUID.randomUUID();
     final byte deviceId = (byte) (authenticatedDeviceIsPrimary ? 1 : 2);
@@ -219,7 +222,9 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(authenticatedDevice));
+    when(account.getPrimaryDevice()).thenReturn(authenticatedDevice);
     when(authenticatedDevice.getId()).thenReturn(deviceId);
     when(authenticatedDevice.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
@@ -235,9 +240,8 @@ class AccountAuthenticatorTest {
         accountAuthenticator.authenticate(new BasicCredentials(identifier, password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
-    assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
-    assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(authenticatedDevice);
-
+    assertThat(maybeAuthenticatedAccount.orElseThrow().accountIdentifier()).isEqualTo(uuid);
+    assertThat(maybeAuthenticatedAccount.orElseThrow().deviceId()).isEqualTo(authenticatedDevice.getId());
   }
 
   @Test
@@ -253,7 +257,9 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
+    when(account.getPrimaryDevice()).thenReturn(device);
     when(device.getId()).thenReturn(deviceId);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
@@ -263,8 +269,8 @@ class AccountAuthenticatorTest {
         accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password));
 
     assertThat(maybeAuthenticatedAccount).isPresent();
-    assertThat(maybeAuthenticatedAccount.get().getAccount().getUuid()).isEqualTo(uuid);
-    assertThat(maybeAuthenticatedAccount.get().getAuthenticatedDevice()).isEqualTo(device);
+    assertThat(maybeAuthenticatedAccount.orElseThrow().accountIdentifier()).isEqualTo(uuid);
+    assertThat(maybeAuthenticatedAccount.orElseThrow().deviceId()).isEqualTo(device.getId());
     verify(accountsManager, times(1)).updateDeviceAuthentication(
         any(), // this won't be 'account', because it'll already be updated by updateDeviceLastSeen
         eq(device), any());
@@ -288,7 +294,9 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
+    when(account.getPrimaryDevice()).thenReturn(device);
     when(device.getId()).thenReturn(deviceId);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
@@ -314,7 +322,9 @@ class AccountAuthenticatorTest {
     clock.unpin();
     when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
     when(account.getUuid()).thenReturn(uuid);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
+    when(account.getPrimaryDevice()).thenReturn(device);
     when(device.getId()).thenReturn(deviceId);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);

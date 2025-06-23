@@ -153,11 +153,11 @@ public class ProfileController {
   @Consumes(MediaType.APPLICATION_JSON)
   public Response setProfile(@Auth AuthenticatedDevice auth, @NotNull @Valid CreateProfileRequest request) {
 
-    final Account account = accountsManager.getByAccountIdentifier(auth.getAccountIdentifier())
+    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     final Optional<VersionedProfile> currentProfile =
-        profilesManager.get(auth.getAccountIdentifier(), request.version());
+        profilesManager.get(auth.accountIdentifier(), request.version());
 
     if (request.paymentAddress() != null && request.paymentAddress().length != 0) {
       final boolean hasDisallowedPrefix =
@@ -181,7 +181,7 @@ public class ProfileController {
       case UPDATE -> ProfileHelper.generateAvatarObjectName();
     };
 
-    profilesManager.set(auth.getAccountIdentifier(),
+    profilesManager.set(auth.accountIdentifier(),
         new VersionedProfile(
             request.version(),
             request.name(),
@@ -228,7 +228,7 @@ public class ProfileController {
 
     final Optional<Account> maybeRequester =
         maybeAuthenticatedDevice.map(
-            authenticatedDevice -> accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+            authenticatedDevice -> accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
                 .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
 
     final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, accountIdentifier, "getVersionedProfile", userAgent);
@@ -260,7 +260,7 @@ public class ProfileController {
 
     final Optional<Account> maybeRequester =
         maybeAuthenticatedDevice.map(
-            authenticatedDevice -> accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+            authenticatedDevice -> accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
                 .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
 
     final Account targetAccount = verifyPermissionToReceiveProfile(maybeRequester, accessKey, accountIdentifier, "credentialRequest", userAgent);
@@ -290,7 +290,7 @@ public class ProfileController {
 
     final Optional<Account> maybeRequester =
         maybeAuthenticatedDevice.map(
-            authenticatedDevice -> accountsManager.getByAccountIdentifier(authenticatedDevice.getAccountIdentifier())
+            authenticatedDevice -> accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
                 .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
 
     final Account targetAccount;
