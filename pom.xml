@@ -45,6 +45,10 @@
     <dropwizard-metrics-datadog.version>1.1.14</dropwizard-metrics-datadog.version>
     <!-- can be updated to latest version with Dropwizard 5 (Jetty 12); will then need to disable telemetry -->
     <dynamodblocal.version>2.2.1</dynamodblocal.version>
+    <!-- Note: when updating FoundationDB, also include a copy of `libfdb_c.so` from the FoundationDB release at
+    src/main/jib/usr/lib/libfdb_c.so. We use x86_64 builds without AVX instructions enabled (i.e. FoundationDB versions
+    with even-numbered patch versions). -->
+    <foundationdb.version>7.3.62</foundationdb.version>
     <google-cloud-libraries.version>26.57.0</google-cloud-libraries.version>
     <grpc.version>1.70.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <gson.version>2.12.1</gson.version>
@@ -213,6 +217,11 @@
         <groupId>org.coursera</groupId>
         <artifactId>dropwizard-metrics-datadog</artifactId>
         <version>${dropwizard-metrics-datadog.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.foundationdb</groupId>
+        <artifactId>fdb-java</artifactId>
+        <version>${foundationdb.version}</version>
       </dependency>
       <dependency>
         <groupId>org.slf4j</groupId>

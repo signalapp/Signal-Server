@@ -352,6 +352,11 @@
     </dependency>
 
     <dependency>
+      <groupId>org.foundationdb</groupId>
+      <artifactId>fdb-java</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>apache-client</artifactId>
     </dependency>
@@ -648,6 +653,9 @@
               </container>
               <extraDirectories>
                 <paths>
+                  <path>
+                    <from>${project.basedir}/src/main/jib</from>
+                  </path>
                   <path>
                     <from>${project.basedir}/config</from>
                     <includes>*.yml</includes>
