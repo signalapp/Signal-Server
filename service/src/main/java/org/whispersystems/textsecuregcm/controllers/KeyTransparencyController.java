@@ -111,7 +111,6 @@ public class KeyTransparencyController {
               request.distinguishedTreeHeadSize())
           .toByteArray());
     } catch (final StatusRuntimeException exception) {
-      LOGGER.error("Unexpected error calling key transparency service", exception);
       handleKeyTransparencyServiceError(exception);
     }
     // This is unreachable
@@ -172,7 +171,6 @@ public class KeyTransparencyController {
           request.lastDistinguishedTreeHeadSize())
           .toByteArray());
     } catch (final StatusRuntimeException exception) {
-      LOGGER.error("Unexpected error calling key transparency service", exception);
       handleKeyTransparencyServiceError(exception);
     }
     // This is unreachable
@@ -210,7 +208,6 @@ public class KeyTransparencyController {
           keyTransparencyServiceClient.getDistinguishedKey(lastTreeHeadSize)
           .toByteArray());
     } catch (final StatusRuntimeException exception) {
-      LOGGER.error("Unexpected error calling key transparency service", exception);
       handleKeyTransparencyServiceError(exception);
     }
     // This is unreachable
@@ -224,7 +221,10 @@ public class KeyTransparencyController {
       case NOT_FOUND -> throw new NotFoundException(description);
       case PERMISSION_DENIED -> throw new ForbiddenException(description);
       case INVALID_ARGUMENT -> throw new WebApplicationException(description, 422);
-      default -> throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, exception);
+      default -> {
+        LOGGER.error("Unexpected error calling key transparency service", exception);
+        throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, exception);
+      }
     }
   }
 
