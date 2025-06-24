@@ -206,4 +206,16 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
   public RateLimiter getWaitForTransferArchiveLimiter() {
     return forDescriptor(For.WAIT_FOR_TRANSFER_ARCHIVE);
   }
+
+  public RateLimiter getKeyTransparencySearchLimiter() {
+    return forDescriptor(For.KEY_TRANSPARENCY_SEARCH_PER_IP);
+  }
+
+  public RateLimiter getKeyTransparencyDistinguishedLimiter() {
+    return forDescriptor(For.KEY_TRANSPARENCY_DISTINGUISHED_PER_IP);
+  }
+
+  public RateLimiter getKeyTransparencyMonitorLimiter() {
+    return forDescriptor(For.KEY_TRANSPARENCY_MONITOR_PER_IP);
+  }
 }

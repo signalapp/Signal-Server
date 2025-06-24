@@ -1,6 +1,5 @@
 package org.whispersystems.textsecuregcm.keytransparency;
 
-import com.google.protobuf.AbstractMessageLite;
 import com.google.protobuf.ByteString;
 import io.dropwizard.lifecycle.Managed;
 import io.grpc.ChannelCredentials;
@@ -20,44 +19,43 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.signal.keytransparency.client.AciMonitorRequest;
 import org.signal.keytransparency.client.ConsistencyParameters;
 import org.signal.keytransparency.client.DistinguishedRequest;
+import org.signal.keytransparency.client.DistinguishedResponse;
 import org.signal.keytransparency.client.E164MonitorRequest;
 import org.signal.keytransparency.client.E164SearchRequest;
 import org.signal.keytransparency.client.KeyTransparencyQueryServiceGrpc;
 import org.signal.keytransparency.client.MonitorRequest;
+import org.signal.keytransparency.client.MonitorResponse;
 import org.signal.keytransparency.client.SearchRequest;
+import org.signal.keytransparency.client.SearchResponse;
 import org.signal.keytransparency.client.UsernameHashMonitorRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.util.CompletableFutureUtil;
 
 public class KeyTransparencyServiceClient implements Managed {
 
   private static final String DAYS_UNTIL_CLIENT_CERTIFICATE_EXPIRATION_GAUGE_NAME =
       MetricsUtil.name(KeyTransparencyServiceClient.class, "daysUntilClientCertificateExpiration");
+  private static final Duration KEY_TRANSPARENCY_RPC_TIMEOUT = Duration.ofSeconds(15);
 
   private static final Logger logger = LoggerFactory.getLogger(KeyTransparencyServiceClient.class);
 
-  private final Executor callbackExecutor;
   private final String host;
   private final int port;
   private final ChannelCredentials tlsChannelCredentials;
   private ManagedChannel channel;
-  private KeyTransparencyQueryServiceGrpc.KeyTransparencyQueryServiceFutureStub stub;
+  private KeyTransparencyQueryServiceGrpc.KeyTransparencyQueryServiceBlockingStub stub;
 
   public KeyTransparencyServiceClient(
       final String host,
       final int port,
       final String tlsCertificate,
       final String clientCertificate,
-      final String clientPrivateKey,
-      final Executor callbackExecutor
+      final String clientPrivateKey
   ) throws IOException {
     this.host = host;
     this.port = port;
@@ -76,7 +74,6 @@ public class KeyTransparencyServiceClient implements Managed {
       configureClientCertificateMetrics(clientCertificate);
 
     }
-    this.callbackExecutor = callbackExecutor;
   }
 
   private void configureClientCertificateMetrics(String clientCertificate) {
@@ -113,14 +110,13 @@ public class KeyTransparencyServiceClient implements Managed {
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public CompletableFuture<byte[]> search(
+  public SearchResponse search(
       final ByteString aci,
       final ByteString aciIdentityKey,
       final Optional<ByteString> usernameHash,
       final Optional<E164SearchRequest> e164SearchRequest,
       final Optional<Long> lastTreeHeadSize,
-      final long distinguishedTreeHeadSize,
-      final Duration timeout) {
+      final long distinguishedTreeHeadSize) {
     final SearchRequest.Builder searchRequestBuilder = SearchRequest.newBuilder()
         .setAci(aci)
         .setAciIdentityKey(aciIdentityKey);
@@ -133,19 +129,20 @@ public class KeyTransparencyServiceClient implements Managed {
     lastTreeHeadSize.ifPresent(consistency::setLast);
 
     searchRequestBuilder.setConsistency(consistency.build());
+    return search(searchRequestBuilder.build());
+  }
 
-    return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .search(searchRequestBuilder.build()), callbackExecutor)
-        .thenApply(AbstractMessageLite::toByteArray);
+  public SearchResponse search(final SearchRequest request) {
+    return stub.withDeadline(toDeadline(KEY_TRANSPARENCY_RPC_TIMEOUT))
+        .search(request);
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public CompletableFuture<byte[]> monitor(final AciMonitorRequest aciMonitorRequest,
+  public MonitorResponse monitor(final AciMonitorRequest aciMonitorRequest,
       final Optional<UsernameHashMonitorRequest> usernameHashMonitorRequest,
       final Optional<E164MonitorRequest> e164MonitorRequest,
       final long lastTreeHeadSize,
-      final long distinguishedTreeHeadSize,
-      final Duration timeout) {
+      final long distinguishedTreeHeadSize) {
     final MonitorRequest.Builder monitorRequestBuilder = MonitorRequest.newBuilder()
         .setAci(aciMonitorRequest)
         .setConsistency(ConsistencyParameters.newBuilder()
@@ -155,20 +152,26 @@ public class KeyTransparencyServiceClient implements Managed {
 
     usernameHashMonitorRequest.ifPresent(monitorRequestBuilder::setUsernameHash);
     e164MonitorRequest.ifPresent(monitorRequestBuilder::setE164);
-
-    return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout))
-        .monitor(monitorRequestBuilder.build()), callbackExecutor)
-        .thenApply(AbstractMessageLite::toByteArray);
+    return monitor(monitorRequestBuilder.build());
   }
 
+  public MonitorResponse monitor(final MonitorRequest request) {
+    return stub.withDeadline(toDeadline(KEY_TRANSPARENCY_RPC_TIMEOUT))
+        .monitor(request);
+  }
+
+
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public CompletableFuture<byte[]> getDistinguishedKey(final Optional<Long> lastTreeHeadSize, final Duration timeout) {
+  public DistinguishedResponse getDistinguishedKey(final Optional<Long> lastTreeHeadSize) {
     final DistinguishedRequest request = lastTreeHeadSize.map(
             last -> DistinguishedRequest.newBuilder().setLast(last).build())
         .orElseGet(DistinguishedRequest::getDefaultInstance);
-    return CompletableFutureUtil.toCompletableFuture(stub.withDeadline(toDeadline(timeout)).distinguished(request),
-            callbackExecutor)
-        .thenApply(AbstractMessageLite::toByteArray);
+    return distinguished(request);
+  }
+
+  public DistinguishedResponse distinguished(final DistinguishedRequest request) {
+    return stub.withDeadline(toDeadline(KEY_TRANSPARENCY_RPC_TIMEOUT))
+        .distinguished(request);
   }
 
   private static Deadline toDeadline(final Duration timeout) {
@@ -180,7 +183,7 @@ public class KeyTransparencyServiceClient implements Managed {
     channel = Grpc.newChannelBuilderForAddress(host, port, tlsChannelCredentials)
         .idleTimeout(1, TimeUnit.MINUTES)
         .build();
-    stub = KeyTransparencyQueryServiceGrpc.newFutureStub(channel);
+    stub = KeyTransparencyQueryServiceGrpc.newBlockingStub(channel);
   }
 
   @Override

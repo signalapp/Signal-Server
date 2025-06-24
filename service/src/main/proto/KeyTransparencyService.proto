@@ -10,6 +10,8 @@ option java_package = "org.signal.keytransparency.client";
 
 package kt_query;
 
+import "org/signal/chat/require.proto";
+
 /**
  * An external-facing, read-only key transparency service used by Signal's chat server
  * to look up and monitor identifiers.
@@ -19,8 +21,13 @@ package kt_query;
  * - A username hash which also maps to an ACI
  * Separately, the log also stores and periodically updates a fixed value known as the `distinguished` key.
  * Clients use the verified tree head from looking up this key for future calls to the Search and Monitor endpoints.
+ *
+ * Note that this service definition is used in two different contexts:
+ *   1. Implementing the endpoints with rate-limiting and request validation
+ *   2. Using the generated client stub to forward requests to the remote key transparency service
  */
 service KeyTransparencyQueryService {
+  option (org.signal.chat.require.auth) = AUTH_ONLY_ANONYMOUS;
   /**
    * An endpoint used by clients to retrieve the most recent distinguished tree
    * head, which should be used to derive consistency parameters for
@@ -44,15 +51,15 @@ message SearchRequest {
   /**
    * The ACI to look up in the log.
    */
-  bytes aci = 1;
+  bytes aci = 1 [(org.signal.chat.require.exactlySize) = 16];
   /**
    * The ACI identity key that the client thinks the ACI maps to in the log.
    */
-  bytes aci_identity_key = 2;
+  bytes aci_identity_key = 2 [(org.signal.chat.require.nonEmpty) = true];
   /**
    * The username hash to look up in the log.
    */
-  optional bytes username_hash = 3;
+  optional bytes username_hash = 3 [(org.signal.chat.require.exactlySize) = 0, (org.signal.chat.require.exactlySize) = 32];
   /**
    * The E164 to look up in the log along with associated data.
    */
@@ -60,7 +67,7 @@ message SearchRequest {
   /**
    * The tree head size(s) to prove consistency against.
    */
-  ConsistencyParameters consistency = 5;
+  ConsistencyParameters consistency = 5 [(org.signal.chat.require.present) = true];
 }
 
 /**
@@ -70,7 +77,7 @@ message E164SearchRequest {
   /**
    * The E164 that the client wishes to look up in the transparency log.
    */
-  string e164 = 1;
+  optional string e164 = 1 [(org.signal.chat.require.e164) = true];
   /**
    * The unidentified access key of the account associated with the provided E164.
    */
@@ -328,28 +335,28 @@ message PrefixSearchResult {
 }
 
 message MonitorRequest {
-  AciMonitorRequest aci = 1;
+  AciMonitorRequest aci = 1 [(org.signal.chat.require.present) = true];
   optional UsernameHashMonitorRequest username_hash = 2;
   optional E164MonitorRequest e164 = 3;
-  ConsistencyParameters consistency = 4;
+  ConsistencyParameters consistency = 4 [(org.signal.chat.require.present) = true];
 }
 
 message AciMonitorRequest {
-  bytes aci = 1;
+  bytes aci = 1 [(org.signal.chat.require.exactlySize) = 16];
   uint64 entry_position = 2;
-  bytes commitment_index = 3;
+  bytes commitment_index = 3 [(org.signal.chat.require.exactlySize) = 32];
 }
 
 message UsernameHashMonitorRequest {
-  bytes username_hash = 1;
+  bytes username_hash = 1 [(org.signal.chat.require.exactlySize) = 0, (org.signal.chat.require.exactlySize) = 32];
   uint64 entry_position = 2;
-  bytes commitment_index = 3;
+  bytes commitment_index = 3 [(org.signal.chat.require.exactlySize) = 0, (org.signal.chat.require.exactlySize) = 32];
 }
 
 message E164MonitorRequest {
-  string e164 = 1;
+  optional string e164 = 1 [(org.signal.chat.require.e164) = true];
   uint64 entry_position = 2;
-  bytes commitment_index = 3;
+  bytes commitment_index = 3 [(org.signal.chat.require.exactlySize) = 0, (org.signal.chat.require.exactlySize) = 32];
 }
 
 message MonitorProof {

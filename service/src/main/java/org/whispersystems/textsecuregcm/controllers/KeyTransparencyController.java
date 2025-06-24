@@ -31,8 +31,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletionException;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.keytransparency.client.AciMonitorRequest;
 import org.signal.keytransparency.client.E164MonitorRequest;
 import org.signal.keytransparency.client.E164SearchRequest;
@@ -48,15 +47,12 @@ import org.whispersystems.textsecuregcm.entities.KeyTransparencySearchResponse;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 @Path("/v1/key-transparency")
 @Tag(name = "KeyTransparency")
 public class KeyTransparencyController {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(KeyTransparencyController.class);
-  @VisibleForTesting
-  static final Duration KEY_TRANSPARENCY_RPC_TIMEOUT = Duration.ofSeconds(15);
   private final KeyTransparencyServiceClient keyTransparencyServiceClient;
 
   public KeyTransparencyController(
@@ -88,6 +84,7 @@ public class KeyTransparencyController {
   @Path("/search")
   @RateLimitedByIp(RateLimiters.For.KEY_TRANSPARENCY_SEARCH_PER_IP)
   @Produces(MediaType.APPLICATION_JSON)
+  @ManagedAsync
   public KeyTransparencySearchResponse search(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid final KeyTransparencySearchRequest request) {
@@ -104,19 +101,17 @@ public class KeyTransparencyController {
                   .build()
           ));
 
-      return keyTransparencyServiceClient.search(
+      return new KeyTransparencySearchResponse(
+          keyTransparencyServiceClient.search(
               ByteString.copyFrom(request.aci().toCompactByteArray()),
               ByteString.copyFrom(request.aciIdentityKey().serialize()),
               request.usernameHash().map(ByteString::copyFrom),
               maybeE164SearchRequest,
               request.lastTreeHeadSize(),
-              request.distinguishedTreeHeadSize(),
-              KEY_TRANSPARENCY_RPC_TIMEOUT)
-          .thenApply(KeyTransparencySearchResponse::new).join();
-    } catch (final CancellationException exception) {
-      LOGGER.error("Unexpected cancellation from key transparency service", exception);
-      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, exception);
-    } catch (final CompletionException exception) {
+              request.distinguishedTreeHeadSize())
+          .toByteArray());
+    } catch (final StatusRuntimeException exception) {
+      LOGGER.error("Unexpected error calling key transparency service", exception);
       handleKeyTransparencyServiceError(exception);
     }
     // This is unreachable
@@ -140,6 +135,7 @@ public class KeyTransparencyController {
   @Path("/monitor")
   @RateLimitedByIp(RateLimiters.For.KEY_TRANSPARENCY_MONITOR_PER_IP)
   @Produces(MediaType.APPLICATION_JSON)
+  @ManagedAsync
   public KeyTransparencyMonitorResponse monitor(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid final KeyTransparencyMonitorRequest request) {
@@ -173,13 +169,10 @@ public class KeyTransparencyController {
           usernameHashMonitorRequest,
           e164MonitorRequest,
           request.lastNonDistinguishedTreeHeadSize(),
-          request.lastDistinguishedTreeHeadSize(),
-          KEY_TRANSPARENCY_RPC_TIMEOUT).join());
-
-    } catch (final CancellationException exception) {
-      LOGGER.error("Unexpected cancellation from key transparency service", exception);
-      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, exception);
-    } catch (final CompletionException exception) {
+          request.lastDistinguishedTreeHeadSize())
+          .toByteArray());
+    } catch (final StatusRuntimeException exception) {
+      LOGGER.error("Unexpected error calling key transparency service", exception);
       handleKeyTransparencyServiceError(exception);
     }
     // This is unreachable
@@ -202,6 +195,7 @@ public class KeyTransparencyController {
   @Path("/distinguished")
   @RateLimitedByIp(RateLimiters.For.KEY_TRANSPARENCY_DISTINGUISHED_PER_IP)
   @Produces(MediaType.APPLICATION_JSON)
+  @ManagedAsync
   public KeyTransparencyDistinguishedKeyResponse getDistinguishedKey(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
 
@@ -212,34 +206,26 @@ public class KeyTransparencyController {
     requireNotAuthenticated(authenticatedAccount);
 
     try {
-      return keyTransparencyServiceClient.getDistinguishedKey(lastTreeHeadSize, KEY_TRANSPARENCY_RPC_TIMEOUT)
-          .thenApply(KeyTransparencyDistinguishedKeyResponse::new)
-          .join();
-    } catch (final CancellationException exception) {
-      LOGGER.error("Unexpected cancellation from key transparency service", exception);
-      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, exception);
-    } catch (final CompletionException exception) {
+      return new KeyTransparencyDistinguishedKeyResponse(
+          keyTransparencyServiceClient.getDistinguishedKey(lastTreeHeadSize)
+          .toByteArray());
+    } catch (final StatusRuntimeException exception) {
+      LOGGER.error("Unexpected error calling key transparency service", exception);
       handleKeyTransparencyServiceError(exception);
     }
     // This is unreachable
     return null;
   }
 
-  private void handleKeyTransparencyServiceError(final CompletionException exception) {
-    final Throwable unwrapped = ExceptionUtils.unwrap(exception);
-
-    if (unwrapped instanceof StatusRuntimeException e) {
-      final Status.Code code = e.getStatus().getCode();
-      final String description = e.getStatus().getDescription();
-      switch (code) {
-        case NOT_FOUND -> throw new NotFoundException(description);
-        case PERMISSION_DENIED -> throw new ForbiddenException(description);
-        case INVALID_ARGUMENT -> throw new WebApplicationException(description, 422);
-        default -> throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, unwrapped);
-      }
+  private void handleKeyTransparencyServiceError(final StatusRuntimeException exception) {
+    final Status.Code code = exception.getStatus().getCode();
+    final String description = exception.getStatus().getDescription();
+    switch (code) {
+      case NOT_FOUND -> throw new NotFoundException(description);
+      case PERMISSION_DENIED -> throw new ForbiddenException(description);
+      case INVALID_ARGUMENT -> throw new WebApplicationException(description, 422);
+      default -> throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, exception);
     }
-    LOGGER.error("Unexpected key transparency service failure", unwrapped);
-    throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, unwrapped);
   }
 
   private void requireNotAuthenticated(final Optional<AuthenticatedDevice> authenticatedAccount) {
