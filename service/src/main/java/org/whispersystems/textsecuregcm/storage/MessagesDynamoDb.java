@@ -227,7 +227,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   static MessageProtos.Envelope convertItemToEnvelope(final Map<String, AttributeValue> item)
       throws InvalidProtocolBufferException {
 
-    return MessageProtos.Envelope.parseFrom(item.get(KEY_ENVELOPE_BYTES).b().asByteArray());
+    return EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(item.get(KEY_ENVELOPE_BYTES).b().asByteArray()));
   }
 
   private long getTtlForMessage(MessageProtos.Envelope message) {
