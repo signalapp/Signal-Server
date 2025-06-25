@@ -57,7 +57,7 @@ class MessagesCacheInsertScript {
     );
 
     final List<byte[]> args = new ArrayList<>(Arrays.asList(
-        envelope.toByteArray(), // message
+        EnvelopeUtil.compress(envelope).toByteArray(), // message
         String.valueOf(envelope.getServerTimestamp()).getBytes(StandardCharsets.UTF_8), // currentTime
         envelope.getServerGuid().getBytes(StandardCharsets.UTF_8), // guid
         NEW_MESSAGE_EVENT_BYTES // eventPayload

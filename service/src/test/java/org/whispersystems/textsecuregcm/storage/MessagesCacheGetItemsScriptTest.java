@@ -50,8 +50,8 @@ class MessagesCacheGetItemsScriptTest {
 
     assertNotNull(messageAndScores);
     assertEquals(2, messageAndScores.size());
-    final MessageProtos.Envelope resultEnvelope = MessageProtos.Envelope.parseFrom(
-        messageAndScores.getFirst());
+    final MessageProtos.Envelope resultEnvelope =
+        EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(messageAndScores.getFirst()));
 
     assertEquals(serverGuid, resultEnvelope.getServerGuid());
   }

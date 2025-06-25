@@ -43,7 +43,7 @@ class MessagesCacheInsertScriptTest {
 
     insertScript.executeAsync(destinationUuid, deviceId, envelope1);
 
-    assertEquals(List.of(envelope1), getStoredMessages(destinationUuid, deviceId));
+    assertEquals(List.of(EnvelopeUtil.compress(envelope1)), getStoredMessages(destinationUuid, deviceId));
 
     final MessageProtos.Envelope envelope2 = MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())
@@ -52,11 +52,13 @@ class MessagesCacheInsertScriptTest {
 
     insertScript.executeAsync(destinationUuid, deviceId, envelope2);
 
-    assertEquals(List.of(envelope1, envelope2), getStoredMessages(destinationUuid, deviceId));
+    assertEquals(List.of(EnvelopeUtil.compress(envelope1), EnvelopeUtil.compress(envelope2)),
+        getStoredMessages(destinationUuid, deviceId));
 
     insertScript.executeAsync(destinationUuid, deviceId, envelope1);
 
-    assertEquals(List.of(envelope1, envelope2), getStoredMessages(destinationUuid, deviceId),
+    assertEquals(List.of(EnvelopeUtil.compress(envelope1), EnvelopeUtil.compress(envelope2)),
+        getStoredMessages(destinationUuid, deviceId),
         "Messages with same GUID should be deduplicated");
   }
 

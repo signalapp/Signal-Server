@@ -105,7 +105,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
           .put(KEY_SORT, convertSortKey(message.getServerTimestamp(), messageUuid))
           .put(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT, convertLocalIndexMessageUuidSortKey(messageUuid))
           .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)))
-          .put(KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(message.toByteArray())).build());
+          .put(KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(EnvelopeUtil.compress(message).toByteArray())).build());
 
       writeItems.add(WriteRequest.builder().putRequest(PutRequest.builder()
           .item(item.build())

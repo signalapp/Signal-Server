@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 class MessagesCacheRemoveByGuidScriptTest {
 
@@ -44,9 +45,8 @@ class MessagesCacheRemoveByGuidScriptTest {
 
     assertEquals(1, removedMessages.size());
 
-    final MessageProtos.Envelope resultMessage = MessageProtos.Envelope.parseFrom(
-        removedMessages.getFirst());
+    final MessageProtos.Envelope resultMessage = MessageProtos.Envelope.parseFrom(removedMessages.getFirst());
 
-    assertEquals(serverGuid, UUID.fromString(resultMessage.getServerGuid()));
+    assertEquals(serverGuid, UUIDUtil.fromByteString(resultMessage.getServerGuidBinary()));
   }
 }
