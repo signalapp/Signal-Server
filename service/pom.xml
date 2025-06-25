@@ -503,6 +503,12 @@
     </dependency>
 
     <dependency>
+      <groupId>earth.adi</groupId>
+      <artifactId>testcontainers-foundationdb</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>com.google.auth</groupId>
       <artifactId>google-auth-library-oauth2-http</artifactId>
     </dependency>
@@ -733,6 +739,7 @@
           <!-- add-opens: work around PATCH not being a supported method on HttpUrlConnection -->
           <argLine>-javaagent:${org.mockito:mockito-core:jar} --add-opens=java.base/java.net=ALL-UNNAMED</argLine>
           <systemPropertyVariables>
+            <foundationdb.version>${foundationdb.version}</foundationdb.version>
             <localstackImage>${localstack.image}</localstackImage>
           </systemPropertyVariables>
         </configuration>
