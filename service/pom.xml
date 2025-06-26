@@ -544,6 +544,28 @@
       <build>
         <plugins>
           <plugin>
+            <groupId>io.github.download-maven-plugin</groupId>
+            <artifactId>download-maven-plugin</artifactId>
+            <version>2.0.0</version>
+
+            <executions>
+              <execution>
+                <id>install-foundationdb-client-library</id>
+                <phase>prepare-package</phase>
+                <goals>
+                  <goal>wget</goal>
+                </goals>
+              </execution>
+            </executions>
+
+            <configuration>
+              <url>https://github.com/apple/foundationdb/releases/download/${foundationdb.version}/libfdb_c.x86_64.so</url>
+              <outputDirectory>${project.build.directory}/jib-extra/usr/local</outputDirectory>
+              <sha256>${foundationdb.client-library-sha256}</sha256>
+            </configuration>
+          </plugin>
+
+          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-shade-plugin</artifactId>
             <configuration>
@@ -660,12 +682,12 @@
               <extraDirectories>
                 <paths>
                   <path>
-                    <from>${project.basedir}/src/main/jib</from>
-                  </path>
-                  <path>
                     <from>${project.basedir}/config</from>
                     <includes>*.yml</includes>
                     <into>/usr/share/signal/</into>
+                  </path>
+                  <path>
+                    <from>${project.build.directory}/jib-extra</from>
                   </path>
                 </paths>
               </extraDirectories>

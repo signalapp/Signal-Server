@@ -50,6 +50,7 @@
     with even-numbered patch versions). Also when updating FoundationDB, make sure to update the version of FoundationDB
     used by GitHub Actions. -->
     <foundationdb.version>7.3.62</foundationdb.version>
+    <foundationdb.client-library-sha256>bfed237b787fae3cde1222676e6bfbb0d218fc27bf9e903397a7a7aa96fb2d33</foundationdb.client-library-sha256>
     <google-cloud-libraries.version>26.57.0</google-cloud-libraries.version>
     <grpc.version>1.70.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <gson.version>2.12.1</gson.version>
