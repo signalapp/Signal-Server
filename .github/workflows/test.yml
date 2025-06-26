@@ -32,17 +32,11 @@ jobs:
           HOME: /root
       - name: Install APT packages
         # ca-certificates: required for AWS CRT client
-        run: apt update && apt install -y ca-certificates curl
-      - name: Download and install FoundationDB client
-        env:
-          # Note that even-numbered patch versions have AVX instructions disabled; not all GitHub Actions runners have
-          # AVX-capable processors, and we should take care to use non-AVX FoundationDB versions.
-          FOUNDATIONDB_VERSION: 7.3.62
-          FOUNDATIONDB_SHA256: 5cedd29f9dd31e6ad259bd2bd14b61293372bcb8c0c2d8dc4cf4689203790547
+        run: apt update && apt install -y ca-certificates
+      - name: Download and install FoundationDB client library
         run: |
-          curl -L https://github.com/apple/foundationdb/releases/download/${FOUNDATIONDB_VERSION}/foundationdb-clients_${FOUNDATIONDB_VERSION}-1_amd64.deb -O && \
-          echo "${FOUNDATIONDB_SHA256}  foundationdb-clients_${FOUNDATIONDB_VERSION}-1_amd64.deb" | sha256sum --check --status - && \
-          apt install -y ./foundationdb-clients_${FOUNDATIONDB_VERSION}-1_amd64.deb && \
-          rm foundationdb-clients_${FOUNDATIONDB_VERSION}-1_amd64.deb
+          ./mvnw -e -B -Pexclude-spam-filter clean prepare-package -DskipTests=true
+          cp service/target/jib-extra/usr/lib/libfdb_c.x86_64.so /usr/lib/libfdb_c.x86_64.so
+          ldconfig
       - name: Build with Maven
-        run: ./mvnw -e -B verify -DfoundationDb.serviceContainerName=foundationdb
+        run: ./mvnw -e -B clean verify -DfoundationDb.serviceContainerName=foundationdb

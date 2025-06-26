@@ -560,7 +560,7 @@
 
             <configuration>
               <url>https://github.com/apple/foundationdb/releases/download/${foundationdb.version}/libfdb_c.x86_64.so</url>
-              <outputDirectory>${project.build.directory}/jib-extra/usr/local</outputDirectory>
+              <outputDirectory>${project.build.directory}/jib-extra/usr/lib</outputDirectory>
               <sha256>${foundationdb.client-library-sha256}</sha256>
             </configuration>
           </plugin>
