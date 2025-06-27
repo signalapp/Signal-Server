@@ -17,8 +17,7 @@ class TestcontainersFoundationDbDatabaseLifecycleManager implements FoundationDb
   private FoundationDBContainer foundationDBContainer;
   private Database database;
 
-  private static final String FOUNDATIONDB_IMAGE_NAME = "foundationdb/foundationdb:" +
-      System.getProperty("foundationdb.version", "7.3.62");
+  private static final String FOUNDATIONDB_IMAGE_NAME = "foundationdb/foundationdb:" + FoundationDbVersion.getFoundationDbVersion();
 
   private static final Logger log = LoggerFactory.getLogger(TestcontainersFoundationDbDatabaseLifecycleManager.class);
 

@@ -24,7 +24,7 @@ class FoundationDbExtension implements BeforeAllCallback, ExtensionContext.Store
           ? new ServiceContainerFoundationDbDatabaseLifecycleManager(serviceContainerName)
           : new TestcontainersFoundationDbDatabaseLifecycleManager();
 
-      databaseLifecycleManager.initializeDatabase(FDB.selectAPIVersion(730));
+      databaseLifecycleManager.initializeDatabase(FDB.selectAPIVersion(FoundationDbVersion.getFoundationDbApiVersion()));
 
       context.getRoot().getStore(ExtensionContext.Namespace.GLOBAL).put(getClass().getName(), this);
     }

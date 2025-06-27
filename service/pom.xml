@@ -761,7 +761,6 @@
           <!-- add-opens: work around PATCH not being a supported method on HttpUrlConnection -->
           <argLine>-javaagent:${org.mockito:mockito-core:jar} --add-opens=java.base/java.net=ALL-UNNAMED</argLine>
           <systemPropertyVariables>
-            <foundationdb.version>${foundationdb.version}</foundationdb.version>
             <localstackImage>${localstack.image}</localstackImage>
           </systemPropertyVariables>
         </configuration>
