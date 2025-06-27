@@ -38,16 +38,6 @@ class ServiceContainerFoundationDbDatabaseLifecycleManager implements Foundation
       fileWriter.write(String.format("docker:docker@%s:4500", foundationDbServiceContainerName));
     }
 
-    // If we don't initialize the database before trying to use it, things will just hang in a mysterious, message-free
-    // way. Note that the `new` keyword in `configure new single memory` means that we can't accidentally clobber an
-    // existing database (though initialization may fail if there's already a database present).
-    new ProcessBuilder("/usr/bin/fdbcli",
-        "-C", clusterFile.getAbsolutePath(),
-        "--exec", "configure new single memory")
-        .start()
-        .onExit()
-        .join();
-
     database = fdb.open(clusterFile.getAbsolutePath());
   }
 
