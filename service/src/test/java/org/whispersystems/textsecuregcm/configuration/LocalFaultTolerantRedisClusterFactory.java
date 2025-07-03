@@ -34,8 +34,8 @@ public class LocalFaultTolerantRedisClusterFactory implements FaultTolerantRedis
       Runtime.getRuntime().addShutdownHook(new Thread(() -> {
         try {
           redisClusterExtension.afterEach(null);
-          redisClusterExtension.afterAll(null);
-        } catch (Exception e) {
+          redisClusterExtension.close();
+        } catch (Throwable e) {
           throw new RuntimeException(e);
         }
       }));

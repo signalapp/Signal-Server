@@ -21,7 +21,6 @@ import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -32,8 +31,8 @@ import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import redis.embedded.RedisServer;
 import redis.embedded.exceptions.EmbeddedRedisException;
 
-public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallback, AfterAllCallback,
-    AfterEachCallback {
+public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback,
+    ExtensionContext.Store.CloseableResource {
 
   private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(2);
   private static final int NODE_COUNT = 2;
@@ -56,12 +55,16 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   }
 
   @Override
-  public void afterAll(final ExtensionContext context) throws Exception {
-    redisClientResources.shutdown().get();
+  public void close() throws Throwable {
+    if (redisClientResources != null) {
+      redisClientResources.shutdown().get();
 
-    for (final RedisServer node : CLUSTER_NODES) {
-      node.stop();
+      for (final RedisServer node : CLUSTER_NODES) {
+        node.stop();
+      }
     }
+
+    redisClientResources = null;
   }
 
   @Override
@@ -73,15 +76,17 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   public void beforeAll(final ExtensionContext context) throws Exception {
     assumeFalse(System.getProperty("os.name").equalsIgnoreCase("windows"));
 
-    redisClientResources = ClientResources.builder().build();
+    if (redisClientResources == null) {
+      redisClientResources = ClientResources.builder().build();
 
-    for (int i = 0; i < NODE_COUNT; i++) {
-      // We're occasionally seeing redis server startup failing due to the bind address being already in use.
-      // To mitigate that, we're going to just retry a couple of times before failing the test.
-      CLUSTER_NODES[i] = startWithRetries(3);
+      for (int i = 0; i < NODE_COUNT; i++) {
+        // We're occasionally seeing redis server startup failing due to the bind address being already in use.
+        // To mitigate that, we're going to just retry a couple of times before failing the test.
+        CLUSTER_NODES[i] = startWithRetries(3);
+      }
+
+      assembleCluster(CLUSTER_NODES);
     }
-
-    assembleCluster(CLUSTER_NODES);
   }
 
   @Override
