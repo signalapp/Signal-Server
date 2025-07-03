@@ -91,7 +91,8 @@ class FaultTolerantRedisClusterClientTest {
       @Nullable final CircuitBreakerConfiguration circuitBreakerConfiguration,
       final ClientResources.Builder clientResourcesBuilder) {
 
-    return new FaultTolerantRedisClusterClient("test", clientResourcesBuilder,
+    return new FaultTolerantRedisClusterClient("test",
+        clientResourcesBuilder.socketAddressResolver(REDIS_CLUSTER_EXTENSION.getSocketAddressResolver()),
         RedisClusterExtension.getRedisURIs(), TIMEOUT,
         Optional.ofNullable(circuitBreakerConfiguration).orElseGet(CircuitBreakerConfiguration::new),
         RETRY_CONFIGURATION);
@@ -338,11 +339,13 @@ class FaultTolerantRedisClusterClientTest {
     }
 
     void openBreaker(final RedisURI redisURI) {
-      urisToChannelBreakers.get(redisURI).forEach(handler -> handler.breaker.transitionToOpenState());
+      urisToChannelBreakers.get(REDIS_CLUSTER_EXTENSION.getExposedRedisURI(redisURI))
+          .forEach(handler -> handler.breaker.transitionToOpenState());
     }
 
     void closeBreaker(final RedisURI redisURI) {
-      urisToChannelBreakers.get(redisURI).forEach(handler -> handler.breaker.transitionToClosedState());
+      urisToChannelBreakers.get(REDIS_CLUSTER_EXTENSION.getExposedRedisURI(redisURI))
+          .forEach(handler -> handler.breaker.transitionToClosedState());
     }
   }
 

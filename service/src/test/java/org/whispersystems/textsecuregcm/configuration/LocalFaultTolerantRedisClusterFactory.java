@@ -44,7 +44,7 @@ public class LocalFaultTolerantRedisClusterFactory implements FaultTolerantRedis
     final RedisClusterConfiguration config = new RedisClusterConfiguration();
     config.setConfigurationUri(RedisClusterExtension.getRedisURIs().getFirst().toString());
 
-    return new FaultTolerantRedisClusterClient(name, config, clientResourcesBuilder);
+    return new FaultTolerantRedisClusterClient(name, config, clientResourcesBuilder.socketAddressResolver(redisClusterExtension.getSocketAddressResolver()));
   }
 
 }
