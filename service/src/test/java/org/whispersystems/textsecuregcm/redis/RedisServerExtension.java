@@ -5,28 +5,27 @@
 
 package org.whispersystems.textsecuregcm.redis;
 
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
-
+import com.redis.testcontainers.RedisContainer;
 import io.lettuce.core.FlushMode;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.resource.ClientResources;
-import java.io.IOException;
-import java.net.ServerSocket;
 import java.time.Duration;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
+import org.testcontainers.utility.DockerImageName;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
-import redis.embedded.RedisServer;
-import redis.embedded.exceptions.EmbeddedRedisException;
 
 public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallback, ExtensionContext.Store.CloseableResource {
 
-  private static RedisServer redisServer;
+  private static RedisContainer redisContainer;
   private static ClientResources redisClientResources;
 
   private FaultTolerantRedisClient faultTolerantRedisClient;
+
+  // redis:7.4-apline; see https://hub.docker.com/layers/library/redis/7.4-alpine/images/sha256-e1b05db81cda983ede3bbb3e834e7ebec8faafa275f55f7f91f3ee84114f98a7
+  private static final DockerImageName REDIS_IMAGE = DockerImageName.parse("redis@sha256:af1d0fc3f63b02b13ff7906c9baf7c5b390b8881ca08119cd570677fe2f60b55");
 
   public static class RedisServerExtensionBuilder {
 
@@ -43,25 +42,17 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
   }
 
   @Override
-  public void beforeAll(final ExtensionContext context) throws Exception {
-    assumeFalse(System.getProperty("os.name").equalsIgnoreCase("windows"));
-
-    if (redisServer == null) {
-      redisServer = RedisServer.builder()
-          .setting("appendonly no")
-          .setting("save \"\"")
-          .setting("dir " + System.getProperty("java.io.tmpdir"))
-          .port(getAvailablePort())
-          .build();
+  public void beforeAll(final ExtensionContext context) {
+    if (redisContainer == null) {
+      redisContainer = new RedisContainer(REDIS_IMAGE);
+      redisContainer.start();
 
       redisClientResources = ClientResources.builder().build();
-
-      startWithRetries(3);
     }
   }
 
   public static RedisURI getRedisURI() {
-    return RedisURI.create("redis://127.0.0.1:%d".formatted(redisServer.ports().getFirst()));
+    return RedisURI.create(redisContainer.getRedisURI());
   }
 
   @Override
@@ -80,34 +71,16 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
 
   @Override
   public void close() throws Throwable {
-    if (redisServer != null) {
+    if (redisContainer != null) {
       redisClientResources.shutdown().await();
-      redisServer.stop();
+      redisContainer.stop();
     }
 
     redisClientResources = null;
-    redisServer = null;
+    redisContainer = null;
   }
 
   public FaultTolerantRedisClient getRedisClient() {
     return faultTolerantRedisClient;
-  }
-
-  private static int getAvailablePort() throws IOException {
-    try (ServerSocket socket = new ServerSocket(0)) {
-      return socket.getLocalPort();
-    }
-  }
-
-  private void startWithRetries(int attemptsLeft) throws Exception {
-    try {
-      redisServer.start();
-    } catch (final EmbeddedRedisException e) {
-      if (attemptsLeft == 0) {
-        throw e;
-      }
-      Thread.sleep(500);
-      startWithRetries(attemptsLeft - 1);
-    }
   }
 }
