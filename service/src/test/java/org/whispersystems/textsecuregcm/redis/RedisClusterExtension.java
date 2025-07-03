@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.redis;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.lettuce.core.FlushMode;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.RedisURI;
@@ -126,7 +127,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
       }
     });
 
-    redisCluster.useCluster(connection -> connection.sync().flushall());
+    redisCluster.useCluster(connection -> connection.sync().flushall(FlushMode.SYNC));
   }
 
   public static List<RedisURI> getRedisURIs() {

@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.redis;
 
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import io.lettuce.core.FlushMode;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.resource.ClientResources;
 import java.io.IOException;
@@ -74,7 +75,7 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
         circuitBreakerConfig,
         new RetryConfiguration());
 
-    faultTolerantRedisClient.useConnection(connection -> connection.sync().flushall());
+    faultTolerantRedisClient.useConnection(connection -> connection.sync().flushall(FlushMode.SYNC));
   }
 
   @Override
