@@ -33,9 +33,8 @@ public class LocalFaultTolerantRedisClientFactory implements FaultTolerantRedisC
     if (shutdownHookConfigured.compareAndSet(false, true)) {
       Runtime.getRuntime().addShutdownHook(new Thread(() -> {
         try {
-          REDIS_SERVER_EXTENSION.afterEach(null);
-          REDIS_SERVER_EXTENSION.afterAll(null);
-        } catch (Exception e) {
+          REDIS_SERVER_EXTENSION.close();
+        } catch (Throwable e) {
           throw new RuntimeException(e);
         }
       }));
