@@ -39,11 +39,11 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   private static final int NODE_COUNT = 2;
 
   private static final RedisServer[] CLUSTER_NODES = new RedisServer[NODE_COUNT];
+  private static ClientResources redisClientResources;
 
   private final Duration timeout;
   private final RetryConfiguration retryConfiguration;
   private FaultTolerantRedisClusterClient redisCluster;
-  private ClientResources redisClientResources;
 
   public RedisClusterExtension(final Duration timeout, final RetryConfiguration retryConfiguration) {
     this.timeout = timeout;
@@ -57,6 +57,8 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
   @Override
   public void afterAll(final ExtensionContext context) throws Exception {
+    redisClientResources.shutdown().get();
+
     for (final RedisServer node : CLUSTER_NODES) {
       node.stop();
     }
@@ -65,12 +67,13 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   @Override
   public void afterEach(final ExtensionContext context) throws Exception {
     redisCluster.shutdown();
-    redisClientResources.shutdown().get();
   }
 
   @Override
   public void beforeAll(final ExtensionContext context) throws Exception {
     assumeFalse(System.getProperty("os.name").equalsIgnoreCase("windows"));
+
+    redisClientResources = ClientResources.builder().build();
 
     for (int i = 0; i < NODE_COUNT; i++) {
       // We're occasionally seeing redis server startup failing due to the bind address being already in use.
@@ -83,8 +86,6 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
   @Override
   public void beforeEach(final ExtensionContext context) throws Exception {
-
-    redisClientResources = ClientResources.builder().build();
     final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
     circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
     redisCluster = new FaultTolerantRedisClusterClient("test-cluster",
