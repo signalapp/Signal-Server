@@ -13,10 +13,13 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
+import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 
 public class SubscriptionExceptionMapper implements ExceptionMapper<SubscriptionException> {
   @VisibleForTesting
   public static final int PROCESSOR_ERROR_STATUS_CODE = 440;
+
+  public record ChargeFailureResponse(String processor, ChargeFailure chargeFailure) {}
 
   @Override
   public Response toResponse(final SubscriptionException exception) {
@@ -31,17 +34,14 @@ public class SubscriptionExceptionMapper implements ExceptionMapper<Subscription
     }
     if (exception instanceof SubscriptionException.ProcessorException e) {
       return Response.status(PROCESSOR_ERROR_STATUS_CODE)
-          .entity(Map.of(
-              "processor", e.getProcessor().name(),
-              "chargeFailure", e.getChargeFailure()
-          ))
+          .entity(new ChargeFailureResponse(e.getProcessor().name(), e.getChargeFailure()))
           .type(MediaType.APPLICATION_JSON_TYPE)
           .build();
     }
     if (exception instanceof SubscriptionException.ChargeFailurePaymentRequired e) {
       return Response
           .status(Response.Status.PAYMENT_REQUIRED)
-          .entity(Map.of("chargeFailure", e.getChargeFailure()))
+          .entity(new ChargeFailureResponse(e.getProcessor().name(), e.getChargeFailure()))
           .type(MediaType.APPLICATION_JSON_TYPE)
           .build();
     }

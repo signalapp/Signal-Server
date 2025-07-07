@@ -43,6 +43,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
@@ -362,10 +363,14 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
               || e.getStatusCode() == Response.Status.GONE.getStatusCode()) {
             throw ExceptionUtils.wrap(new SubscriptionException.NotFound());
           }
+          if (e.getStatusCode() == Response.Status.TOO_MANY_REQUESTS.getStatusCode()) {
+            throw ExceptionUtils.wrap(new RateLimitExceededException(null));
+          }
           final String details = e instanceof GoogleJsonResponseException
               ? ((GoogleJsonResponseException) e).getDetails().toString()
               : "";
-          logger.warn("Unexpected HTTP status code {} from androidpublisher: {}", e.getStatusCode(), details, e);
+
+          logger.warn("Unexpected HTTP status code {} from androidpublisher: {}", e.getStatusCode(), details);
           throw ExceptionUtils.wrap(e);
         }));
   }

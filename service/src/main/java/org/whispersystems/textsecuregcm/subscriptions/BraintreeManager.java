@@ -633,7 +633,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
                 if (subscriptionStatus.equals(SubscriptionStatus.ACTIVE) || subscriptionStatus.equals(SubscriptionStatus.PAST_DUE)) {
                   throw ExceptionUtils.wrap(new SubscriptionException.ReceiptRequestedForOpenPayment());
                 }
-                throw ExceptionUtils.wrap(new SubscriptionException.ChargeFailurePaymentRequired(createChargeFailure(transaction)));
+                throw ExceptionUtils.wrap(new SubscriptionException.ChargeFailurePaymentRequired(getProvider(), createChargeFailure(transaction)));
               }
 
               final Instant paidAt = transaction.getSubscriptionDetails().getBillingPeriodStartDate().toInstant();

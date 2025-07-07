@@ -992,6 +992,44 @@ class SubscriptionControllerTest {
     verify(PLAY_MANAGER, times(1)).cancelAllActiveSubscriptions(oldPurchaseToken);
   }
 
+  @Test
+  void createReceiptChargeFailure() throws InvalidInputException, VerificationFailedException {
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    when(CLOCK.instant()).thenReturn(Instant.now());
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(Subscriptions.Record.from(
+            Arrays.copyOfRange(subscriberUserAndKey, 0, 16),
+            Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+                Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+                Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+                Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID,
+                b(new ProcessorCustomer("customer", PaymentProvider.STRIPE).toDynamoBytes()),
+                Subscriptions.KEY_SUBSCRIPTION_ID, s("subscriptionId"))))));
+    when(STRIPE_MANAGER.getReceiptItem(any()))
+        .thenReturn(CompletableFuture.failedFuture(new SubscriptionException.ChargeFailurePaymentRequired(
+            PaymentProvider.STRIPE,
+            new ChargeFailure("card_declined", "Insufficient funds", null, null, null))));
+
+    final ReceiptCredentialRequest receiptRequest = new ClientZkReceiptOperations(
+        ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
+        new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
+    final Response response = RESOURCE_EXTENSION
+        .target(String.format("/v1/subscription/%s/receipt_credentials", subscriberId))
+        .request()
+        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())));
+
+    assertThat(response.getStatus()).isEqualTo(402);
+    final Map responseMap = response.readEntity(Map.class);
+    assertThat(responseMap.get("processor")).isEqualTo("STRIPE");
+    assertThat(responseMap.get("chargeFailure")).asInstanceOf(
+            InstanceOfAssertFactories.map(String.class, Object.class))
+        .extracting("code")
+        .isEqualTo("card_declined");
+  }
+
   @ParameterizedTest
   @CsvSource({"5, P45D", "201, P13D"})
   public void createReceiptCredential(long level, Duration expectedExpirationWindow)

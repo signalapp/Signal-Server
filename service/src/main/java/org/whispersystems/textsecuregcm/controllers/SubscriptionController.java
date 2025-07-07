@@ -15,6 +15,7 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -66,6 +67,7 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
+import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
@@ -218,6 +220,19 @@ public class SubscriptionController {
   @DELETE
   @Path("/{subscriberId}")
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Cancel a subscription", description = """
+      Cancels any current subscription at the end of the current subscription period.
+
+      Note: Apple IAP subscriptions do not support server-side cancellation, so this method should only be called after
+      cancelling a subscription from storekit to keep server data up to date.
+      """)
+  @ApiResponse(responseCode = "200", description = "All subscriptions cancelled")
+  @ApiResponse(responseCode = "403", description = "Account authentication is present")
+  @ApiResponse(responseCode = "404", description = "subscriberId is not found or malformed")
+  @ApiResponse(responseCode = "400", description = "The associated subscription is not a type that can be cancelled")
+  @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public CompletableFuture<Response> deleteSubscriber(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
@@ -230,6 +245,16 @@ public class SubscriptionController {
   @Path("/{subscriberId}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Create/refresh a subscriber", description = """
+      Creates a subscriber record if it does not exist, otherwise refreshes its last access time.
+
+      Subscribers MUST periodically hit this endpoint to update the access time on the subscription record. Subscribers
+      SHOULD attempt to make an update call approximately every 3 days. Not accessing this endpoint for an extended
+      period of time will result in the subscription being canceled.
+      """)
+  @ApiResponse(responseCode = "200", description = "The subscriber was successfully created or refreshed")
+  @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
+  @ApiResponse(responseCode = "404", description = "subscriberId is malformed")
   public CompletableFuture<Response> updateSubscriber(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
@@ -429,7 +454,9 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed or the specified transaction does not exist")
   @ApiResponse(responseCode = "409", description = "subscriberId is already linked to a processor that does not support appstore payments. Delete this subscriberId and use a new one.")
-  @ApiResponse(responseCode = "429", description = "Rate limit exceeded.")
+  @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public CompletableFuture<SetSubscriptionLevelSuccessResponse> setAppStoreSubscription(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
@@ -471,6 +498,9 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed or the purchaseToken does not exist")
   @ApiResponse(responseCode = "409", description = "subscriberId is already linked to a processor that does not support Play Billing. Delete this subscriberId and use a new one.")
+  @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public CompletableFuture<SetSubscriptionLevelSuccessResponse> setPlayStoreSubscription(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
@@ -625,6 +655,9 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "200", description = "The subscriberId exists", content = @Content(schema = @Schema(implementation = GetSubscriptionInformationResponse.class)))
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed")
+  @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public CompletableFuture<Response> getSubscriptionInformation(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
@@ -650,16 +683,64 @@ public class SubscriptionController {
         .orElseGet(() -> Response.ok(new GetSubscriptionInformationResponse(null, null)).build()));
   }
 
-  public record GetReceiptCredentialsRequest(@NotEmpty byte[] receiptCredentialRequest) {
+  public record GetReceiptCredentialsRequest(
+      @Schema(description = "A ReceiptCredentialRequest encoded in standard base64 with padding")
+      @NotEmpty byte[] receiptCredentialRequest) {
   }
 
-  public record GetReceiptCredentialsResponse(@NotEmpty byte[] receiptCredentialResponse) {
+  public record GetReceiptCredentialsResponse(
+      @Schema(description = "A ReceiptCredentialResponse encoded in standard base64 with padding")
+      @NotEmpty byte[] receiptCredentialResponse) {
   }
 
   @POST
   @Path("/{subscriberId}/receipt_credentials")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Create receipt credentials", description = """
+      Create a receipt from a valid payment invoice that can be used to obtain an entitlement
+
+      This request is repeatable so long as the ReceiptCredentialRequest remains the same. Clients should use the same
+      ReceiptCredentialRequest value until they attempt to redeem the resulting ReceiptCredentialPresentation. After
+      this point, the ReceiptCredentialRequest MUST NOT be reused or you may not be able to redeem a valid payment
+      invoice. Clients SHOULD retry requests at this endpoint with the same ReceiptCredentialRequest value until
+      receiving a response. After receiving a response, clients should then compute the ReceiptCredentialPresentation
+      and redeem it at the receipt redemption endpoint. Once the first attempt is made there, the same
+      ReceiptCredentialRequest MUST NOT be used again to request receipt credentials.
+
+      Note that you may in fact redeem TWO or more invoices for the same ReceiptCredentialRequest while retrying this
+      operation if a later invoice gets paid while you are retrying. However, the returned receipt is always for the
+      latest invoice, so it will have the latest expiration possible and no entitlement time will be lost. The important
+      thing is not to reuse ReceiptCredentialRequest after you have started attempting to redeem the associated
+      ReceiptCredentialPresentation. Then you may produce a ReceiptCredentialPresentation for a later invoice that
+      cannot be redeemed.
+
+      Clients MUST validate that the generated receipt credential's level and expiration matches their expectations.
+      """)
+  @ApiResponse(responseCode = "200", description = "Successfully created receipt", content = @Content(schema = @Schema(implementation = GetReceiptCredentialsResponse.class)))
+  @ApiResponse(responseCode = "204", description = "No invoice has been issued for this subscription OR invoice is in 'open' state")
+  @ApiResponse(responseCode = "400", description = "Bad ReceiptCredentialRequest")
+  @ApiResponse(responseCode = "402", description = "Invoice is in any state other than 'open' or 'paid'. May include chargeFailure details in body.",
+      content = @Content(schema = @Schema(
+          nullable = true,
+          example = """
+              {
+                "chargeFailure": {
+                  "code": "incorrect_account_holder_name",
+                  "message": "The transaction can't be processed because your customer's account information is missing [...]",
+                  "outcomeNetworkStatus": "declined_by_network",
+                  "outcomeReason": "generic_decline",
+                  "outcomeType": "issuer_declined"
+                }
+              }
+              """,
+          implementation = SubscriptionExceptionMapper.ChargeFailureResponse.class)))
+  @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
+  @ApiResponse(responseCode = "404", description = "subscriberId is not found OR malformed OR no subscription setup on the subscriber id")
+  @ApiResponse(responseCode = "409", description = "latest paid receipt on subscription was already redeemed for a receipt credential but with a different receipt credential request")
+  @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
+      name = "Retry-After",
+      description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public CompletableFuture<Response> createSubscriptionReceiptCredentials(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,

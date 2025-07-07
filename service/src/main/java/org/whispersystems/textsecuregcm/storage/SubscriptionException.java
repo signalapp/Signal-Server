@@ -102,16 +102,23 @@ public class SubscriptionException extends Exception {
 
   public static class ChargeFailurePaymentRequired extends SubscriptionException {
 
+    private final PaymentProvider processor;
     private final ChargeFailure chargeFailure;
 
-    public ChargeFailurePaymentRequired(final ChargeFailure chargeFailure) {
+    public ChargeFailurePaymentRequired(final PaymentProvider processor, final ChargeFailure chargeFailure) {
       super(null, null);
+      this.processor = processor;
       this.chargeFailure = chargeFailure;
+    }
+
+    public PaymentProvider getProcessor() {
+      return processor;
     }
 
     public ChargeFailure getChargeFailure() {
       return chargeFailure;
     }
+
   }
 
   public static class ProcessorException extends SubscriptionException {

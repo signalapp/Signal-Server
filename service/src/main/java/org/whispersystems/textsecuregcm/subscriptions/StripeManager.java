@@ -645,7 +645,8 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
           // If the charge object has a failure reason we can present to the user, create a detailed exception
           .filter(charge -> charge.getFailureCode() != null || charge.getFailureMessage() != null)
-          .<SubscriptionException> map(charge -> new SubscriptionException.ChargeFailurePaymentRequired(createChargeFailure(charge)))
+          .<SubscriptionException> map(charge ->
+              new SubscriptionException.ChargeFailurePaymentRequired(getProvider(), createChargeFailure(charge)))
 
           // Otherwise, return a generic payment required error
           .orElseGet(() -> new SubscriptionException.PaymentRequired())));
