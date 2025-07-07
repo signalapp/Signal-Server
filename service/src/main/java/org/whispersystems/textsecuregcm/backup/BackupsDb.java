@@ -297,7 +297,7 @@ public class BackupsDb {
           .tags(tags)
           .publishPercentileHistogram()
           .register(Metrics.globalRegistry)
-          .record(mediaCount);
+          .record(bytesUsed);
 
       // Report that the backup is out of quota if it cannot store a max size media object
       final boolean quotaExhausted = bytesUsed >=
