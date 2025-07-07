@@ -248,7 +248,7 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
         // RedisNoScriptException doesn’t indicate a fault the breaker can protect
         if (throwable != null && !(throwable instanceof RedisNoScriptException)) {
           breaker.onError(durationNanos, TimeUnit.NANOSECONDS, throwable);
-          logger.warn("Command completed with error", throwable);
+          logger.warn("Command completed with error for: {}/{}", clusterName, shardAddress, throwable);
         } else {
           breaker.onSuccess(durationNanos, TimeUnit.NANOSECONDS);
         }
