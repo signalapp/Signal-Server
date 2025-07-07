@@ -24,7 +24,7 @@ paths:
         description: An ACI or PNI account identifier to check
         required: true
         schema:
-          $ref: '#/components/schemas/ServiceIdentifier'
+          $ref: "#/components/schemas/ServiceIdentifier"
       responses:
         "200":
           description: An account with the given identifier was found.
@@ -52,7 +52,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConfirmUsernameHashRequest'
+              $ref: "#/components/schemas/ConfirmUsernameHashRequest"
         required: true
       responses:
         "200":
@@ -60,7 +60,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsernameHashResponse'
+                $ref: "#/components/schemas/UsernameHashResponse"
         "401":
           description: Account authentication check failed.
         "409":
@@ -95,7 +95,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ApnRegistrationId'
+              $ref: "#/components/schemas/ApnRegistrationId"
         required: true
       responses:
         default:
@@ -124,7 +124,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GcmRegistrationId'
+              $ref: "#/components/schemas/GcmRegistrationId"
         required: true
       responses:
         default:
@@ -173,7 +173,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EncryptedUsername'
+              $ref: "#/components/schemas/EncryptedUsername"
         required: true
       responses:
         "200":
@@ -181,7 +181,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsernameLinkHandle'
+                $ref: "#/components/schemas/UsernameLinkHandle"
         "401":
           description: Account authentication check failed.
         "409":
@@ -229,7 +229,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountIdentifierResponse'
+                $ref: "#/components/schemas/AccountIdentifierResponse"
         "400":
           description: Request must not be authenticated.
         "404":
@@ -259,7 +259,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EncryptedUsername'
+                $ref: "#/components/schemas/EncryptedUsername"
         "400":
           description: Request must not be authenticated.
         "404":
@@ -280,7 +280,7 @@ paths:
         content:
           '*/*':
             schema:
-              $ref: '#/components/schemas/RegistrationLock'
+              $ref: "#/components/schemas/RegistrationLock"
         required: true
       responses:
         default:
@@ -313,7 +313,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReserveUsernameHashRequest'
+              $ref: "#/components/schemas/ReserveUsernameHashRequest"
         required: true
       responses:
         "200":
@@ -321,7 +321,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReserveUsernameHashResponse'
+                $ref: "#/components/schemas/ReserveUsernameHashResponse"
         "401":
           description: Account authentication check failed.
         "409":
@@ -346,7 +346,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AccountAttributes'
+              $ref: "#/components/schemas/AccountAttributes"
         required: true
       responses:
         default:
@@ -377,7 +377,7 @@ paths:
         content:
           '*/*':
             schema:
-              $ref: '#/components/schemas/DeviceName'
+              $ref: "#/components/schemas/DeviceName"
         required: true
       responses:
         "204":
@@ -400,7 +400,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountIdentityResponse'
+                $ref: "#/components/schemas/AccountIdentityResponse"
       security:
       - authenticatedAccount: []
   /v2/accounts/number:
@@ -419,7 +419,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ChangeNumberRequest'
+              $ref: "#/components/schemas/ChangeNumberRequest"
         required: true
       responses:
         "200":
@@ -428,7 +428,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountIdentityResponse'
+                $ref: "#/components/schemas/AccountIdentityResponse"
         "401":
           description: Account authentication check failed.
         "403":
@@ -440,13 +440,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MismatchedDevicesResponse'
+                $ref: "#/components/schemas/MismatchedDevicesResponse"
         "410":
           description: Mismatched registration ids in 'devices to notify' list
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StaleDevicesResponse'
+                $ref: "#/components/schemas/StaleDevicesResponse"
         "413":
           description: One or more device messages was too large
         "422":
@@ -455,7 +455,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegistrationLockFailure'
+                $ref: "#/components/schemas/RegistrationLockFailure"
         "429":
           description: Too many attempts
           headers:
@@ -482,7 +482,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PhoneNumberIdentityKeyDistributionRequest'
+              $ref: "#/components/schemas/PhoneNumberIdentityKeyDistributionRequest"
         required: true
       responses:
         "200":
@@ -491,7 +491,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountIdentityResponse'
+                $ref: "#/components/schemas/AccountIdentityResponse"
         "401":
           description: Account authentication check failed.
         "403":
@@ -505,14 +505,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MismatchedDevicesResponse'
+                $ref: "#/components/schemas/MismatchedDevicesResponse"
         "410":
           description: The registration IDs provided for some devices do not match
             those stored on the server.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StaleDevicesResponse'
+                $ref: "#/components/schemas/StaleDevicesResponse"
         "413":
           description: One or more device messages was too large
       security:
@@ -530,7 +530,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountDataReportResponse'
+                $ref: "#/components/schemas/AccountDataReportResponse"
       security:
       - authenticatedAccount: []
   /v2/accounts/phone_number_discoverability:
@@ -544,7 +544,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PhoneNumberDiscoverabilityRequest'
+              $ref: "#/components/schemas/PhoneNumberDiscoverabilityRequest"
         required: true
       responses:
         "204":
@@ -583,7 +583,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UploadDescriptorResponse'
+                $ref: "#/components/schemas/UploadDescriptorResponse"
         "429":
           description: Rate limited.
         "403":
@@ -632,7 +632,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BackupInfoResponse'
+                $ref: "#/components/schemas/BackupInfoResponse"
         "404":
           description: No existing backups found
         "429":
@@ -781,7 +781,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CopyMediaBatchRequest'
+              $ref: "#/components/schemas/CopyMediaBatchRequest"
         required: true
       responses:
         "207":
@@ -791,7 +791,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CopyMediaBatchResponse'
+                $ref: "#/components/schemas/CopyMediaBatchResponse"
         "413":
           description: All media capacity has been consumed. Free some space to continue.
         "429":
@@ -856,7 +856,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListResponse'
+                $ref: "#/components/schemas/ListResponse"
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -909,14 +909,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CopyMediaRequest'
+              $ref: "#/components/schemas/CopyMediaRequest"
         required: true
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CopyMediaResponse'
+                $ref: "#/components/schemas/CopyMediaResponse"
         "400":
           description: Bad arguments. The request may have been made on an authenticated
             channel
@@ -968,7 +968,7 @@ paths:
         content:
           '*/*':
             schema:
-              $ref: '#/components/schemas/DeleteMedia'
+              $ref: "#/components/schemas/DeleteMedia"
         required: true
       responses:
         "204":
@@ -1030,7 +1030,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BackupAuthCredentialsResponse'
+                $ref: "#/components/schemas/BackupAuthCredentialsResponse"
         "400":
           description: The start/end did not meet alignment/duration requirements
         "404":
@@ -1078,7 +1078,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReadAuthResponse'
+                $ref: "#/components/schemas/ReadAuthResponse"
         "429":
           description: Rate limited.
         "403":
@@ -1115,7 +1115,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RedeemBackupReceiptRequest'
+              $ref: "#/components/schemas/RedeemBackupReceiptRequest"
         required: true
       responses:
         "204":
@@ -1144,7 +1144,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetBackupIdRequest'
+              $ref: "#/components/schemas/SetBackupIdRequest"
         required: true
       responses:
         "204":
@@ -1188,7 +1188,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetPublicKeyRequest'
+              $ref: "#/components/schemas/SetPublicKeyRequest"
         required: true
       responses:
         "204":
@@ -1245,7 +1245,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UploadDescriptorResponse'
+                $ref: "#/components/schemas/UploadDescriptorResponse"
         "429":
           description: Rate limited.
         "403":
@@ -1278,7 +1278,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AttachmentDescriptorV3'
+                $ref: "#/components/schemas/AttachmentDescriptorV3"
         "413":
           description: Too many attempts
           headers:
@@ -1308,7 +1308,7 @@ paths:
         content:
           '*/*':
             schema:
-              $ref: '#/components/schemas/GetCreateCallLinkCredentialsRequest'
+              $ref: "#/components/schemas/GetCreateCallLinkCredentialsRequest"
         required: true
       responses:
         "200":
@@ -1316,7 +1316,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateCallLinkCredential'
+                $ref: "#/components/schemas/CreateCallLinkCredential"
         "400":
           description: Invalid create call link credential request.
         "401":
@@ -1341,7 +1341,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetCallingRelaysResponse'
+                $ref: "#/components/schemas/GetCallingRelaysResponse"
         "400":
           description: Invalid get call endpoint request.
         "401":
@@ -1369,7 +1369,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeliveryCertificate'
+                $ref: "#/components/schemas/DeliveryCertificate"
       security:
       - authenticatedAccount: []
   /v1/certificate/auth/group:
@@ -1394,7 +1394,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GroupCredentials'
+                $ref: "#/components/schemas/GroupCredentials"
       security:
       - authenticatedAccount: []
   /v1/challenge:
@@ -1417,8 +1417,8 @@ paths:
           application/json:
             schema:
               oneOf:
-              - $ref: '#/components/schemas/AnswerPushChallengeRequest'
-              - $ref: '#/components/schemas/AnswerCaptchaChallengeRequest'
+              - $ref: "#/components/schemas/AnswerPushChallengeRequest"
+              - $ref: "#/components/schemas/AnswerCaptchaChallengeRequest"
       responses:
         "200":
           description: Indicates the challenge proof was accepted
@@ -1547,7 +1547,7 @@ paths:
           request you use when generating the assertion (including field ordering, whitespace, etc).
         required: true
         schema:
-          $ref: '#/components/schemas/AssertionRequest'
+          $ref: "#/components/schemas/AssertionRequest"
       requestBody:
         description: "The assertion created by [generateAssertion](https://developer.apple.com/documentation/devicecheck/dcappattestservice/generateassertion(_:clientdatahash:completionhandler:))"
         content:
@@ -1646,7 +1646,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LinkDeviceToken'
+                $ref: "#/components/schemas/LinkDeviceToken"
         "411":
           description: The authenticated account already has the maximum allowed number
             of linked devices
@@ -1670,7 +1670,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeviceInfoList'
+                $ref: "#/components/schemas/DeviceInfoList"
       security:
       - authenticatedAccount: []
   /v1/devices/link:
@@ -1685,7 +1685,7 @@ paths:
       - name: Authorization
         in: header
         schema:
-          $ref: '#/components/schemas/BasicAuthorizationHeader'
+          $ref: "#/components/schemas/BasicAuthorizationHeader"
       - name: User-Agent
         in: header
         schema:
@@ -1694,7 +1694,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LinkDeviceRequest'
+              $ref: "#/components/schemas/LinkDeviceRequest"
         required: true
       responses:
         "200":
@@ -1702,7 +1702,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LinkDeviceResponse'
+                $ref: "#/components/schemas/LinkDeviceResponse"
         "403":
           description: The given account was not found or the given verification code
             was incorrect
@@ -1755,7 +1755,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RestoreAccountRequest'
+                $ref: "#/components/schemas/RestoreAccountRequest"
         "204":
           description: No 'restore account' request for the given token was received
             before the call completed; clients may repeat the call to continue waiting
@@ -1787,7 +1787,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RestoreAccountRequest'
+              $ref: "#/components/schemas/RestoreAccountRequest"
       responses:
         "204":
           description: Success
@@ -1831,8 +1831,8 @@ paths:
                   The location of the transfer archive if the archive was successfully uploaded, otherwise a error indicating that
                    the upload has failed and the destination device should stop waiting
                 oneOf:
-                - $ref: '#/components/schemas/RemoteAttachment'
-                - $ref: '#/components/schemas/RemoteAttachmentError'
+                - $ref: "#/components/schemas/RemoteAttachment"
+                - $ref: "#/components/schemas/RemoteAttachmentError"
         "204":
           description: No transfer archive was uploaded before the call completed;
             clients may repeat the call to continue waiting
@@ -1857,7 +1857,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TransferArchiveUploadedRequest'
+              $ref: "#/components/schemas/TransferArchiveUploadedRequest"
         required: true
       responses:
         "204":
@@ -1921,7 +1921,7 @@ paths:
         content:
           '*/*':
             schema:
-              $ref: '#/components/schemas/SetPublicKeyRequest'
+              $ref: "#/components/schemas/SetPublicKeyRequest"
       responses:
         "200":
           description: Public key stored successfully
@@ -1972,7 +1972,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeviceInfo'
+                $ref: "#/components/schemas/DeviceInfo"
         "204":
           description: No device was linked to the account before the call completed;
             clients may repeat the call to continue waiting
@@ -1997,7 +1997,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExternalServiceCredentials'
+                $ref: "#/components/schemas/ExternalServiceCredentials"
       security:
       - authenticatedAccount: []
   /v1/donation/redeem-receipt:
@@ -2014,7 +2014,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RedeemReceiptRequest'
+              $ref: "#/components/schemas/RedeemReceiptRequest"
         required: true
       responses:
         "200":
@@ -2036,7 +2036,7 @@ paths:
         content:
           '*/*':
             schema:
-              $ref: '#/components/schemas/WebSocketSessionContext'
+              $ref: "#/components/schemas/WebSocketSessionContext"
       responses:
         default:
           description: default response
@@ -2079,7 +2079,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/KeyTransparencyDistinguishedKeyResponse'
+                $ref: "#/components/schemas/KeyTransparencyDistinguishedKeyResponse"
         "400":
           description: Invalid request. See response for any available details.
         "422":
@@ -2102,7 +2102,7 @@ paths:
         content:
           '*/*':
             schema:
-              $ref: '#/components/schemas/KeyTransparencyMonitorRequest'
+              $ref: "#/components/schemas/KeyTransparencyMonitorRequest"
         required: true
       responses:
         "200":
@@ -2110,7 +2110,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/KeyTransparencyMonitorResponse'
+                $ref: "#/components/schemas/KeyTransparencyMonitorResponse"
         "400":
           description: Invalid request. See response for any available details.
         "403":
@@ -2144,7 +2144,7 @@ paths:
         content:
           '*/*':
             schema:
-              $ref: '#/components/schemas/KeyTransparencySearchRequest'
+              $ref: "#/components/schemas/KeyTransparencySearchRequest"
         required: true
       responses:
         "200":
@@ -2153,7 +2153,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/KeyTransparencySearchResponse'
+                $ref: "#/components/schemas/KeyTransparencySearchResponse"
         "400":
           description: Invalid request. See response for any available details.
         "403":
@@ -2216,17 +2216,17 @@ paths:
       - name: Unidentified-Access-Key
         in: header
         schema:
-          $ref: '#/components/schemas/Anonymous'
+          $ref: "#/components/schemas/Anonymous"
       - name: Group-Send-Token
         in: header
         schema:
-          $ref: '#/components/schemas/GroupSendTokenHeader'
+          $ref: "#/components/schemas/GroupSendTokenHeader"
       - name: identifier
         in: path
         description: the account or phone-number identifier to retrieve keys for
         required: true
         schema:
-          $ref: '#/components/schemas/ServiceIdentifier'
+          $ref: "#/components/schemas/ServiceIdentifier"
       - name: device_id
         in: path
         description: "the device id of a single device to retrieve prekeys for, or\
@@ -2245,7 +2245,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PreKeyResponse'
+                $ref: "#/components/schemas/PreKeyResponse"
         "400":
           description: A group send endorsement and other authorization (account authentication
             or unidentified-access key) were both provided.
@@ -2289,7 +2289,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PreKeyCount'
+                $ref: "#/components/schemas/PreKeyCount"
         "401":
           description: Account authentication check failed.
       security:
@@ -2406,7 +2406,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SpamReport'
+              $ref: "#/components/schemas/SpamReport"
       responses:
         default:
           description: default response
@@ -2428,13 +2428,13 @@ paths:
         in: header
         description: The recipient's unidentified access key
         schema:
-          $ref: '#/components/schemas/Anonymous'
+          $ref: "#/components/schemas/Anonymous"
       - name: Group-Send-Token
         in: header
         description: A group send endorsement token covering the recipient. Must not
           be combined with `Unidentified-Access-Key` or set on a story message.
         schema:
-          $ref: '#/components/schemas/GroupSendTokenHeader'
+          $ref: "#/components/schemas/GroupSendTokenHeader"
       - name: User-Agent
         in: header
         schema:
@@ -2445,7 +2445,7 @@ paths:
           \ when it is sent"
         required: true
         schema:
-          $ref: '#/components/schemas/ServiceIdentifier'
+          $ref: "#/components/schemas/ServiceIdentifier"
       - name: story
         in: query
         description: "If true, the message is a story; access tokens are not checked\
@@ -2457,7 +2457,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/IncomingMessageList'
+              $ref: "#/components/schemas/IncomingMessageList"
         required: true
       responses:
         "200":
@@ -2473,13 +2473,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MismatchedDevicesResponse'
+                $ref: "#/components/schemas/MismatchedDevicesResponse"
         "410":
           description: Mismatched registration ids supplied for some recipient devices
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StaleDevicesResponse'
+                $ref: "#/components/schemas/StaleDevicesResponse"
         "428":
           description: The sender should complete a challenge before proceeding
       security:
@@ -2500,13 +2500,13 @@ paths:
         description: The bitwise xor of the unidentified access keys for every recipient
           of the message. Will be replaced with group send endorsements
         schema:
-          $ref: '#/components/schemas/CombinedUnidentifiedSenderAccessKeys'
+          $ref: "#/components/schemas/CombinedUnidentifiedSenderAccessKeys"
       - name: Group-Send-Token
         in: header
         description: A group send endorsement token covering recipients of this message.
           Must not be combined with `Unidentified-Access-Key` or set on a story message.
         schema:
-          $ref: '#/components/schemas/GroupSendTokenHeader'
+          $ref: "#/components/schemas/GroupSendTokenHeader"
       - name: online
         in: query
         description: "If true, deliver the message only to recipients that are online\
@@ -2538,7 +2538,7 @@ paths:
         content:
           application/vnd.signal-messenger.mrm:
             schema:
-              $ref: '#/components/schemas/SealedSenderMultiRecipientMessage'
+              $ref: "#/components/schemas/SealedSenderMultiRecipientMessage"
         required: true
       responses:
         "200":
@@ -2546,7 +2546,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SendMultiRecipientMessageResponse'
+                $ref: "#/components/schemas/SendMultiRecipientMessageResponse"
         "400":
           description: The envelope specified delivery to the same recipient device
             multiple times
@@ -2563,7 +2563,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AccountMismatchedDevices'
+                  $ref: "#/components/schemas/AccountMismatchedDevices"
         "410":
           description: Mismatched registration ids supplied for some recipient devices
           content:
@@ -2571,7 +2571,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AccountStaleDevices'
+                  $ref: "#/components/schemas/AccountStaleDevices"
   /v1/subscription/boost/paypal/confirm:
     post:
       tags:
@@ -2586,7 +2586,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ConfirmPayPalBoostRequest'
+              $ref: "#/components/schemas/ConfirmPayPalBoostRequest"
         required: true
       responses:
         default:
@@ -2627,7 +2627,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateBoostRequest'
+              $ref: "#/components/schemas/CreateBoostRequest"
         required: true
       responses:
         "200":
@@ -2635,7 +2635,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateBoostResponse'
+                $ref: "#/components/schemas/CreateBoostResponse"
         "403":
           description: The request was made on an authenticated channel
         "400":
@@ -2677,7 +2677,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateBoostReceiptCredentialsRequest'
+              $ref: "#/components/schemas/CreateBoostReceiptCredentialsRequest"
         required: true
       responses:
         default:
@@ -2713,7 +2713,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreatePayPalBoostRequest'
+              $ref: "#/components/schemas/CreatePayPalBoostRequest"
         required: true
       responses:
         default:
@@ -2746,7 +2746,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExternalServiceCredentials'
+                $ref: "#/components/schemas/ExternalServiceCredentials"
       security:
       - authenticatedAccount: []
   /v1/payments/conversions:
@@ -2760,7 +2760,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CurrencyConversionEntityList'
+                $ref: "#/components/schemas/CurrencyConversionEntityList"
       security:
       - authenticatedAccount: []
   /v1/profile/{identifier}/{version}:
@@ -2772,12 +2772,12 @@ paths:
       - name: Unidentified-Access-Key
         in: header
         schema:
-          $ref: '#/components/schemas/Anonymous'
+          $ref: "#/components/schemas/Anonymous"
       - name: identifier
         in: path
         required: true
         schema:
-          $ref: '#/components/schemas/AciServiceIdentifier'
+          $ref: "#/components/schemas/AciServiceIdentifier"
       - name: version
         in: path
         required: true
@@ -2793,7 +2793,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VersionedProfileResponse'
+                $ref: "#/components/schemas/VersionedProfileResponse"
       security:
       - authenticatedAccount: []
       - {}
@@ -2806,12 +2806,12 @@ paths:
       - name: Unidentified-Access-Key
         in: header
         schema:
-          $ref: '#/components/schemas/Anonymous'
+          $ref: "#/components/schemas/Anonymous"
       - name: identifier
         in: path
         required: true
         schema:
-          $ref: '#/components/schemas/AciServiceIdentifier'
+          $ref: "#/components/schemas/AciServiceIdentifier"
       - name: version
         in: path
         required: true
@@ -2836,7 +2836,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CredentialProfileResponse'
+                $ref: "#/components/schemas/CredentialProfileResponse"
       security:
       - authenticatedAccount: []
       - {}
@@ -2849,11 +2849,11 @@ paths:
       - name: Unidentified-Access-Key
         in: header
         schema:
-          $ref: '#/components/schemas/Anonymous'
+          $ref: "#/components/schemas/Anonymous"
       - name: Group-Send-Token
         in: header
         schema:
-          $ref: '#/components/schemas/GroupSendTokenHeader'
+          $ref: "#/components/schemas/GroupSendTokenHeader"
       - name: User-Agent
         in: header
         schema:
@@ -2862,14 +2862,14 @@ paths:
         in: path
         required: true
         schema:
-          $ref: '#/components/schemas/ServiceIdentifier'
+          $ref: "#/components/schemas/ServiceIdentifier"
       responses:
         default:
           description: default response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BaseProfileResponse'
+                $ref: "#/components/schemas/BaseProfileResponse"
       security:
       - authenticatedAccount: []
       - {}
@@ -2882,7 +2882,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BatchIdentityCheckRequest'
+              $ref: "#/components/schemas/BatchIdentityCheckRequest"
         required: true
       responses:
         default:
@@ -2890,7 +2890,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BatchIdentityCheckResponse'
+                $ref: "#/components/schemas/BatchIdentityCheckResponse"
   /v1/profile:
     put:
       tags:
@@ -2900,7 +2900,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateProfileRequest'
+              $ref: "#/components/schemas/CreateProfileRequest"
         required: true
       responses:
         default:
@@ -2935,7 +2935,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProvisioningMessage'
+              $ref: "#/components/schemas/ProvisioningMessage"
         required: true
       responses:
         "204":
@@ -2963,7 +2963,7 @@ paths:
         in: header
         required: true
         schema:
-          $ref: '#/components/schemas/BasicAuthorizationHeader'
+          $ref: "#/components/schemas/BasicAuthorizationHeader"
       - name: X-Signal-Agent
         in: header
         schema:
@@ -2976,7 +2976,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegistrationRequest'
+              $ref: "#/components/schemas/RegistrationRequest"
         required: true
       responses:
         "200":
@@ -2985,7 +2985,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccountCreationResponse'
+                $ref: "#/components/schemas/AccountCreationResponse"
         "403":
           description: Verification failed for the provided Registration Recovery
             Password
@@ -2998,7 +2998,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegistrationLockFailure'
+                $ref: "#/components/schemas/RegistrationLockFailure"
         "429":
           description: Too many attempts
           headers:
@@ -3023,7 +3023,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserRemoteConfigList'
+                $ref: "#/components/schemas/UserRemoteConfigList"
       security:
       - authenticatedAccount: []
   /v1/storage/auth:
@@ -3041,7 +3041,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExternalServiceCredentials'
+                $ref: "#/components/schemas/ExternalServiceCredentials"
       security:
       - authenticatedAccount: []
   /v2/backup/auth/check:
@@ -3059,7 +3059,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AuthCheckRequest'
+              $ref: "#/components/schemas/AuthCheckRequest"
         required: true
       responses:
         "200":
@@ -3067,7 +3067,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthCheckResponseV2'
+                $ref: "#/components/schemas/AuthCheckResponseV2"
         "422":
           description: Provided list of SVR2 credentials could not be parsed
         "400":
@@ -3087,7 +3087,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExternalServiceCredentials'
+                $ref: "#/components/schemas/ExternalServiceCredentials"
         "401":
           description: Account authentication check failed.
       security:
@@ -3112,7 +3112,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StickerPackFormUploadAttributes'
+                $ref: "#/components/schemas/StickerPackFormUploadAttributes"
       security:
       - authenticatedAccount: []
   /v1/subscription/{subscriberId}/create_payment_method/paypal:
@@ -3134,7 +3134,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreatePayPalBillingAgreementRequest'
+              $ref: "#/components/schemas/CreatePayPalBillingAgreementRequest"
         required: true
       responses:
         default:
@@ -3223,7 +3223,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GetReceiptCredentialsRequest'
+              $ref: "#/components/schemas/GetReceiptCredentialsRequest"
         required: true
       responses:
         default:
@@ -3270,7 +3270,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetSubscriptionInformationResponse'
+                $ref: "#/components/schemas/GetSubscriptionInformationResponse"
         "403":
           description: subscriberId authentication failure OR account authentication
             is present
@@ -3347,7 +3347,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetSubscriptionConfigurationResponse'
+                $ref: "#/components/schemas/GetSubscriptionConfigurationResponse"
   /v1/subscription/{subscriberId}/appstore/{originalTransactionId}:
     post:
       tags:
@@ -3409,6 +3409,7 @@ paths:
         in: path
         required: true
         schema:
+          minLength: 1
           type: string
       responses:
         default:
@@ -3455,6 +3456,7 @@ paths:
         in: path
         required: true
         schema:
+          minLength: 1
           type: string
       responses:
         default:
@@ -3588,7 +3590,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateVerificationSessionRequest'
+              $ref: "#/components/schemas/CreateVerificationSessionRequest"
         required: true
       responses:
         "200":
@@ -3596,7 +3598,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
         "422":
           description: The request did not pass validation
         "429":
@@ -3629,7 +3631,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
         "400":
           description: Invalid session ID
         "404":
@@ -3660,7 +3662,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateVerificationSessionRequest'
+              $ref: "#/components/schemas/UpdateVerificationSessionRequest"
         required: true
       responses:
         "200":
@@ -3668,7 +3670,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
         "403":
           description: The information provided was not accepted (e.g push challenge
             or captcha verification failed)
@@ -3687,7 +3689,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
   /v1/verification/session/{sessionId}/code:
     put:
       tags:
@@ -3710,7 +3712,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SubmitVerificationCodeRequest'
+              $ref: "#/components/schemas/SubmitVerificationCodeRequest"
         required: true
       responses:
         "200":
@@ -3720,7 +3722,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
         "400":
           description: Invalid session ID or verification  code
         "404":
@@ -3731,7 +3733,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
         "429":
           description: |
             Too many attempts; the caller is not permitted to submit a verification code at this time and may need to wait
@@ -3748,7 +3750,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
     post:
       tags:
       - Verification
@@ -3777,7 +3779,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/VerificationCodeRequest'
+              $ref: "#/components/schemas/VerificationCodeRequest"
         required: true
       responses:
         "200":
@@ -3785,7 +3787,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
         "400":
           description: Invalid session ID
         "404":
@@ -3796,14 +3798,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
         "418":
           description: "The request to send a verification code with the given transport\
             \ could not be fulfilled, but may succeed with a different transport"
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
         "422":
           description: Request did not pass validation
         "429":
@@ -3823,7 +3825,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerificationSessionResponse'
+                $ref: "#/components/schemas/VerificationSessionResponse"
         "440":
           description: |
             The attempt to send a verification code failed because an external service (e.g. the SMS provider) refused to
@@ -3834,20 +3836,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SendVerificationCodeFailureResponse'
+                $ref: "#/components/schemas/SendVerificationCodeFailureResponse"
 components:
   schemas:
     AciServiceIdentifier:
       type: string
       description: An identifier for an account based on the account's ACI
       allOf:
-      - $ref: '#/components/schemas/ServiceIdentifier'
+      - $ref: "#/components/schemas/ServiceIdentifier"
     PniServiceIdentifier:
       type: string
       description: An identifier for an account based on the account's phone number
         identifier (PNI)
       allOf:
-      - $ref: '#/components/schemas/ServiceIdentifier'
+      - $ref: "#/components/schemas/ServiceIdentifier"
     ServiceIdentifier:
       type: object
       description: A service identifier is a tuple of a UUID and identity type that
@@ -3966,6 +3968,7 @@ components:
       type: object
       properties:
         apnRegistrationId:
+          minLength: 1
           type: string
       description: |
         An APNs token set for the account's primary device. If provided, the account's primary
@@ -3978,6 +3981,7 @@ components:
       type: object
       properties:
         gcmRegistrationId:
+          minLength: 1
           type: string
       description: |
         An FCM/GCM token for the account's primary device. If provided, the account's primary
@@ -4039,7 +4043,7 @@ components:
           type: boolean
           description: whether any of this account's devices support storage
         entitlements:
-          $ref: '#/components/schemas/Entitlements'
+          $ref: "#/components/schemas/Entitlements"
     BackupEntitlement:
       type: object
       properties:
@@ -4059,13 +4063,13 @@ components:
         id:
           type: string
           description: The badge id
-        visible:
-          type: boolean
-          description: Whether the badge is currently configured to be visible
         expirationSeconds:
           type: integer
           description: "When the badge expires, in number of seconds since epoch"
           format: int64
+        visible:
+          type: boolean
+          description: Whether the badge is currently configured to be visible
       description: Active badges added via /v1/donation/redeem-receipt
     Entitlements:
       type: object
@@ -4074,9 +4078,9 @@ components:
           type: array
           description: Active badges added via /v1/donation/redeem-receipt
           items:
-            $ref: '#/components/schemas/BadgeEntitlement'
+            $ref: "#/components/schemas/BadgeEntitlement"
         backup:
-          $ref: '#/components/schemas/BackupEntitlement'
+          $ref: "#/components/schemas/BackupEntitlement"
       description: entitlements for this account and their current expirations
     MismatchedDevicesResponse:
       type: object
@@ -4124,7 +4128,7 @@ components:
             lock expires
           format: int64
         svr2Credentials:
-          $ref: '#/components/schemas/ExternalServiceCredentials'
+          $ref: "#/components/schemas/ExternalServiceCredentials"
       description: |
         Information about the current Registration lock and SVR credentials. With a correct PIN, the credentials can
         be used to recover the secret used to derive the registration lock password.
@@ -4149,10 +4153,15 @@ components:
             The base64-encoded recovery password for the new phone number, if using a recovery password to authenticate this request.
             Must not be combined with `sessionId`.
         number:
+          minLength: 1
           type: string
           description: the new phone number for this account
+        reglock:
+          type: string
+          description: "the registration lock password for the new phone number, if\
+            \ necessary"
         pniIdentityKey:
-          $ref: '#/components/schemas/IdentityKey'
+          $ref: "#/components/schemas/IdentityKey"
         deviceMessages:
           type: array
           description: |-
@@ -4160,22 +4169,25 @@ components:
             associated with the new identity key and their new prekeys.
             Exactly one message must be supplied for each device other than the sending (primary) device.
           items:
-            $ref: '#/components/schemas/IncomingMessage'
+            $ref: "#/components/schemas/IncomingMessage"
         devicePniSignedPrekeys:
+          minProperties: 1
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/ECSignedPreKey'
+            $ref: "#/components/schemas/ECSignedPreKey"
           description: |-
             A new signed elliptic-curve prekey for each device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         devicePniPqLastResortPrekeys:
+          minProperties: 1
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/KEMSignedPreKey'
+            $ref: "#/components/schemas/KEMSignedPreKey"
           description: |-
             A new signed post-quantum last-resort prekey for each device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         pniRegistrationIds:
+          minProperties: 1
           type: object
           additionalProperties:
             type: integer
@@ -4184,10 +4196,6 @@ components:
             format: int32
           description: "the new phone-number-identity registration ID for each device\
             \ on the account, including this one"
-        reglock:
-          type: string
-          description: "the registration lock password for the new phone number, if\
-            \ necessary"
     ECPublicKey:
       type: object
       properties:
@@ -4220,7 +4228,7 @@ components:
       type: object
       properties:
         publicKey:
-          $ref: '#/components/schemas/ECPublicKey'
+          $ref: "#/components/schemas/ECPublicKey"
         fingerprint:
           type: string
       description: |
@@ -4274,7 +4282,7 @@ components:
       type: object
       properties:
         pniIdentityKey:
-          $ref: '#/components/schemas/IdentityKey'
+          $ref: "#/components/schemas/IdentityKey"
         deviceMessages:
           type: array
           description: |
@@ -4282,22 +4290,25 @@ components:
             associated with the new identity key and their new prekeys.
             Exactly one message must be supplied for each device other than the sending (primary) device.
           items:
-            $ref: '#/components/schemas/IncomingMessage'
+            $ref: "#/components/schemas/IncomingMessage"
         devicePniSignedPrekeys:
+          minProperties: 1
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/ECSignedPreKey'
+            $ref: "#/components/schemas/ECSignedPreKey"
           description: |-
             A new signed elliptic-curve prekey for each device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         devicePniPqLastResortPrekeys:
+          minProperties: 1
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/KEMSignedPreKey'
+            $ref: "#/components/schemas/KEMSignedPreKey"
           description: |-
             A new signed post-quantum last-resort prekey for each device on the account, including this one.
             Each must be accompanied by a valid signature from the new identity key in this request.
         pniRegistrationIds:
+          minProperties: 1
           type: object
           additionalProperties:
             type: integer
@@ -4310,11 +4321,11 @@ components:
       type: object
       properties:
         account:
-          $ref: '#/components/schemas/AccountDataReport'
+          $ref: "#/components/schemas/AccountDataReport"
         devices:
           type: array
           items:
-            $ref: '#/components/schemas/DeviceDataReport'
+            $ref: "#/components/schemas/DeviceDataReport"
     AccountDataReport:
       type: object
       properties:
@@ -4323,7 +4334,7 @@ components:
         badges:
           type: array
           items:
-            $ref: '#/components/schemas/BadgeDataReport'
+            $ref: "#/components/schemas/BadgeDataReport"
         allowSealedSenderFromAnyone:
           type: boolean
         findAccountByPhoneNumber:
@@ -4338,7 +4349,7 @@ components:
           type: string
           format: date-time
         data:
-          $ref: '#/components/schemas/AccountAndDevicesDataReport'
+          $ref: "#/components/schemas/AccountAndDevicesDataReport"
         text:
           type: string
           description: A plaintext representation of the data report
@@ -4429,7 +4440,7 @@ components:
           type: array
           description: Detailed outcome information for each copy request in the batch
           items:
-            $ref: '#/components/schemas/Entry'
+            $ref: "#/components/schemas/Entry"
     Entry:
       required:
       - mediaId
@@ -4467,7 +4478,7 @@ components:
           description: A list of media objects to copy from the attachments CDN to
             the backup CDN
           items:
-            $ref: '#/components/schemas/CopyMediaRequest'
+            $ref: "#/components/schemas/CopyMediaRequest"
     CopyMediaRequest:
       required:
       - encryptionKey
@@ -4478,7 +4489,7 @@ components:
       type: object
       properties:
         sourceAttachment:
-          $ref: '#/components/schemas/RemoteAttachment'
+          $ref: "#/components/schemas/RemoteAttachment"
         objectLength:
           type: integer
           description: The length of the source attachment before the encryption applied
@@ -4527,7 +4538,7 @@ components:
           minItems: 1
           type: array
           items:
-            $ref: '#/components/schemas/MediaToDelete'
+            $ref: "#/components/schemas/MediaToDelete"
     MediaToDelete:
       required:
       - cdn
@@ -4565,7 +4576,7 @@ components:
             description: A map of credential types to lists of BackupAuthCredentials
               and their validity periods
             items:
-              $ref: '#/components/schemas/BackupAuthCredential'
+              $ref: "#/components/schemas/BackupAuthCredential"
           description: A map of credential types to lists of BackupAuthCredentials
             and their validity periods
     ListResponse:
@@ -4575,7 +4586,7 @@ components:
           type: array
           description: A page of media objects stored for this backup ID
           items:
-            $ref: '#/components/schemas/StoredMediaObject'
+            $ref: "#/components/schemas/StoredMediaObject"
         backupDir:
           type: string
           description: |
@@ -4689,6 +4700,7 @@ components:
       type: object
       properties:
         createCallLinkCredentialRequest:
+          minLength: 1
           type: string
           format: byte
     GetCallingRelaysResponse:
@@ -4697,14 +4709,20 @@ components:
         relays:
           type: array
           items:
-            $ref: '#/components/schemas/TurnToken'
+            $ref: "#/components/schemas/TurnToken"
     TurnToken:
+      required:
+      - urls
+      - urlsWithIps
       type: object
       properties:
         username:
           type: string
         password:
           type: string
+        ttl:
+          type: integer
+          format: int64
         urls:
           type: array
           items:
@@ -4715,9 +4733,6 @@ components:
             type: string
         hostname:
           type: string
-        ttl:
-          type: integer
-          format: int64
     DeliveryCertificate:
       type: object
       properties:
@@ -4748,11 +4763,11 @@ components:
         credentials:
           type: array
           items:
-            $ref: '#/components/schemas/GroupCredential'
+            $ref: "#/components/schemas/GroupCredential"
         callLinkAuthCredentials:
           type: array
           items:
-            $ref: '#/components/schemas/CallLinkAuthCredential'
+            $ref: "#/components/schemas/CallLinkAuthCredential"
         pni:
           type: string
           format: uuid
@@ -4761,10 +4776,11 @@ components:
       - challenge
       type: object
       allOf:
-      - $ref: '#/components/schemas/AnswerChallengeRequest'
+      - $ref: "#/components/schemas/AnswerChallengeRequest"
       - type: object
         properties:
           challenge:
+            minLength: 1
             type: string
             description: A token provided to the client via a push payload
     AnswerCaptchaChallengeRequest:
@@ -4773,13 +4789,15 @@ components:
       - token
       type: object
       allOf:
-      - $ref: '#/components/schemas/AnswerChallengeRequest'
+      - $ref: "#/components/schemas/AnswerChallengeRequest"
       - type: object
         properties:
           token:
+            minLength: 1
             type: string
             description: The value of the token field from the server's 428 response
           captcha:
+            minLength: 1
             type: string
             description: A string representing a solved captcha
             example: signal-hcaptcha.30b01b46-d8c9-4c30-bbd7-9719acfe0c10.challenge.abcdefg1345
@@ -4812,16 +4830,16 @@ components:
     LinkDeviceToken:
       type: object
       properties:
-        tokenIdentifier:
-          type: string
-          description: |
-            An opaque identifier for the generated token that the caller may use to watch for a new device to complete the
-            linking process.
         verificationCode:
           type: string
           description: |
             An opaque token to send to a new linked device that authorizes the new device to link itself to the account that
             requested this token.
+        tokenIdentifier:
+          type: string
+          description: |
+            An opaque identifier for the generated token that the caller may use to watch for a new device to complete the
+            linking process.
     DeviceInfo:
       type: object
       properties:
@@ -4843,7 +4861,7 @@ components:
         devices:
           type: array
           items:
-            $ref: '#/components/schemas/DeviceInfo'
+            $ref: "#/components/schemas/DeviceInfo"
     LinkDeviceResponse:
       type: object
       properties:
@@ -4875,17 +4893,17 @@ components:
       type: object
       properties:
         aciSignedPreKey:
-          $ref: '#/components/schemas/ECSignedPreKey'
+          $ref: "#/components/schemas/ECSignedPreKey"
         pniSignedPreKey:
-          $ref: '#/components/schemas/ECSignedPreKey'
+          $ref: "#/components/schemas/ECSignedPreKey"
         aciPqLastResortPreKey:
-          $ref: '#/components/schemas/KEMSignedPreKey'
+          $ref: "#/components/schemas/KEMSignedPreKey"
         pniPqLastResortPreKey:
-          $ref: '#/components/schemas/KEMSignedPreKey'
+          $ref: "#/components/schemas/KEMSignedPreKey"
         apnToken:
-          $ref: '#/components/schemas/ApnRegistrationId'
+          $ref: "#/components/schemas/ApnRegistrationId"
         gcmToken:
-          $ref: '#/components/schemas/GcmRegistrationId'
+          $ref: "#/components/schemas/GcmRegistrationId"
     LinkDeviceRequest:
       required:
       - aciPqLastResortPreKey
@@ -4896,24 +4914,25 @@ components:
       type: object
       properties:
         verificationCode:
+          minLength: 1
           type: string
           description: |
             The verification code associated with this device. Must match the verification code
             provided by the server when provisioning this device.
         accountAttributes:
-          $ref: '#/components/schemas/AccountAttributes'
+          $ref: "#/components/schemas/AccountAttributes"
         aciSignedPreKey:
-          $ref: '#/components/schemas/ECSignedPreKey'
+          $ref: "#/components/schemas/ECSignedPreKey"
         pniSignedPreKey:
-          $ref: '#/components/schemas/ECSignedPreKey'
+          $ref: "#/components/schemas/ECSignedPreKey"
         aciPqLastResortPreKey:
-          $ref: '#/components/schemas/KEMSignedPreKey'
+          $ref: "#/components/schemas/KEMSignedPreKey"
         pniPqLastResortPreKey:
-          $ref: '#/components/schemas/KEMSignedPreKey'
+          $ref: "#/components/schemas/KEMSignedPreKey"
         apnToken:
-          $ref: '#/components/schemas/ApnRegistrationId'
+          $ref: "#/components/schemas/ApnRegistrationId"
         gcmToken:
-          $ref: '#/components/schemas/GcmRegistrationId'
+          $ref: "#/components/schemas/GcmRegistrationId"
     RestoreAccountRequest:
       required:
       - method
@@ -4954,8 +4973,8 @@ components:
         The location of the transfer archive if the archive was successfully uploaded, otherwise a error indicating that
          the upload has failed and the destination device should stop waiting
       oneOf:
-      - $ref: '#/components/schemas/RemoteAttachment'
-      - $ref: '#/components/schemas/RemoteAttachmentError'
+      - $ref: "#/components/schemas/RemoteAttachment"
+      - $ref: "#/components/schemas/RemoteAttachmentError"
     TransferArchiveUploadedRequest:
       required:
       - transferArchive
@@ -4972,13 +4991,14 @@ components:
             \ destination device was created"
           format: int64
         transferArchive:
-          $ref: '#/components/schemas/TransferArchiveResult'
+          $ref: "#/components/schemas/TransferArchiveResult"
     RedeemReceiptRequest:
       required:
       - receiptCredentialPresentation
       type: object
       properties:
         receiptCredentialPresentation:
+          minLength: 1
           type: string
           description: Presentation of a ZK receipt encoded in standard padded base64
         visible:
@@ -5005,7 +5025,7 @@ components:
         authenticated:
           type: object
         client:
-          $ref: '#/components/schemas/WebSocketClient'
+          $ref: "#/components/schemas/WebSocketClient"
     KeyTransparencyDistinguishedKeyResponse:
       required:
       - serializedResponse
@@ -5051,6 +5071,7 @@ components:
       type: object
       properties:
         value:
+          minLength: 1
           type: string
           description: The e164-formatted phone number to monitor
         entryPosition:
@@ -5070,11 +5091,11 @@ components:
       type: object
       properties:
         aci:
-          $ref: '#/components/schemas/AciMonitor'
+          $ref: "#/components/schemas/AciMonitor"
         e164:
-          $ref: '#/components/schemas/E164Monitor'
+          $ref: "#/components/schemas/E164Monitor"
         usernameHash:
-          $ref: '#/components/schemas/UsernameHashMonitor'
+          $ref: "#/components/schemas/UsernameHashMonitor"
         lastNonDistinguishedTreeHeadSize:
           type: integer
           description: The tree head size to prove consistency against.
@@ -5090,6 +5111,7 @@ components:
       type: object
       properties:
         value:
+          minLength: 1
           type: string
           description: "The username hash to monitor, encoded in url-safe unpadded\
             \ base64."
@@ -5132,7 +5154,7 @@ components:
             \ base64."
           format: byte
         aciIdentityKey:
-          $ref: '#/components/schemas/IdentityKey'
+          $ref: "#/components/schemas/IdentityKey"
         unidentifiedAccessKey:
           type: string
           description: The unidentified access key associated with the account
@@ -5197,12 +5219,12 @@ components:
       type: object
       properties:
         identityKey:
-          $ref: '#/components/schemas/IdentityKey'
+          $ref: "#/components/schemas/IdentityKey"
         devices:
           type: array
           description: information about each requested device
           items:
-            $ref: '#/components/schemas/PreKeyResponseItem'
+            $ref: "#/components/schemas/PreKeyResponseItem"
     PreKeyResponseItem:
       type: object
       properties:
@@ -5215,11 +5237,11 @@ components:
           description: the registration ID for the device
           format: int32
         signedPreKey:
-          $ref: '#/components/schemas/ECSignedPreKey'
+          $ref: "#/components/schemas/ECSignedPreKey"
         preKey:
-          $ref: '#/components/schemas/ECPreKey'
+          $ref: "#/components/schemas/ECPreKey"
         pqPreKey:
-          $ref: '#/components/schemas/KEMSignedPreKey'
+          $ref: "#/components/schemas/KEMSignedPreKey"
       description: information about each requested device
     Anonymous:
       type: object
@@ -5240,7 +5262,7 @@ components:
       type: object
       properties:
         token:
-          $ref: '#/components/schemas/GroupSendFullToken'
+          $ref: "#/components/schemas/GroupSendFullToken"
     PreKeyCount:
       type: object
       properties:
@@ -5269,9 +5291,9 @@ components:
             unsigned EC prekeys for the device; if absent or empty, any stored unsigned EC prekeys for the device are not
             deleted.
           items:
-            $ref: '#/components/schemas/ECPreKey'
+            $ref: "#/components/schemas/ECPreKey"
         signedPreKey:
-          $ref: '#/components/schemas/ECSignedPreKey'
+          $ref: "#/components/schemas/ECSignedPreKey"
         pqPreKeys:
           maxItems: 100
           minItems: 0
@@ -5281,9 +5303,9 @@ components:
             the identity key in this request. If present and not empty, replaces all stored unsigned PQ prekeys for the
             device; if absent or empty, any stored unsigned PQ prekeys for the device are not deleted.
           items:
-            $ref: '#/components/schemas/KEMSignedPreKey'
+            $ref: "#/components/schemas/KEMSignedPreKey"
         pqLastResortPreKey:
-          $ref: '#/components/schemas/KEMSignedPreKey'
+          $ref: "#/components/schemas/KEMSignedPreKey"
     SpamReport:
       type: object
       properties:
@@ -5298,7 +5320,7 @@ components:
         messages:
           type: array
           items:
-            $ref: '#/components/schemas/IncomingMessage'
+            $ref: "#/components/schemas/IncomingMessage"
         online:
           type: boolean
         urgent:
@@ -5327,7 +5349,7 @@ components:
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
         devices:
-          $ref: '#/components/schemas/MismatchedDevicesResponse'
+          $ref: "#/components/schemas/MismatchedDevicesResponse"
     AccountStaleDevices:
       type: object
       properties:
@@ -5336,7 +5358,7 @@ components:
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
         devices:
-          $ref: '#/components/schemas/StaleDevicesResponse'
+          $ref: "#/components/schemas/StaleDevicesResponse"
     CombinedUnidentifiedSenderAccessKeys:
       type: object
       properties:
@@ -5360,11 +5382,11 @@ components:
         recipients:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/Recipient'
+            $ref: "#/components/schemas/Recipient"
         excludedRecipients:
           type: array
           items:
-            $ref: '#/components/schemas/ServiceId'
+            $ref: "#/components/schemas/ServiceId"
     ServiceId:
       type: object
       properties:
@@ -5407,10 +5429,13 @@ components:
           - GOOGLE_PLAY_BILLING
           - APPLE_APP_STORE
         payerId:
+          minLength: 1
           type: string
         paymentId:
+          minLength: 1
           type: string
         paymentToken:
+          minLength: 1
           type: string
     CreateBoostResponse:
       type: object
@@ -5504,8 +5529,10 @@ components:
           - GOOGLE_PLAY_BILLING
           - APPLE_APP_STORE
         returnUrl:
+          minLength: 1
           type: string
         cancelUrl:
+          minLength: 1
           type: string
     CurrencyConversionEntity:
       type: object
@@ -5522,7 +5549,7 @@ components:
         currencies:
           type: array
           items:
-            $ref: '#/components/schemas/CurrencyConversionEntity'
+            $ref: "#/components/schemas/CurrencyConversionEntity"
         timestamp:
           type: integer
           format: int64
@@ -5546,7 +5573,7 @@ components:
         svgs:
           type: array
           items:
-            $ref: '#/components/schemas/BadgeSvg'
+            $ref: "#/components/schemas/BadgeSvg"
         imageUrl:
           type: string
       description: The displayable badge associated with the level
@@ -5557,14 +5584,16 @@ components:
       type: object
       properties:
         light:
+          minLength: 1
           type: string
         dark:
+          minLength: 1
           type: string
     BaseProfileResponse:
       type: object
       properties:
         identityKey:
-          $ref: '#/components/schemas/IdentityKey'
+          $ref: "#/components/schemas/IdentityKey"
         unidentifiedAccess:
           type: string
           format: byte
@@ -5577,7 +5606,7 @@ components:
         badges:
           type: array
           items:
-            $ref: '#/components/schemas/Badge'
+            $ref: "#/components/schemas/Badge"
         uuid:
           type: string
           description: A service identifier is a tuple of a UUID and identity type
@@ -5586,7 +5615,7 @@ components:
       type: object
       properties:
         identityKey:
-          $ref: '#/components/schemas/IdentityKey'
+          $ref: "#/components/schemas/IdentityKey"
         unidentifiedAccess:
           type: string
           format: byte
@@ -5599,7 +5628,7 @@ components:
         badges:
           type: array
           items:
-            $ref: '#/components/schemas/Badge'
+            $ref: "#/components/schemas/Badge"
         uuid:
           type: string
           description: A service identifier is a tuple of a UUID and identity type
@@ -5625,7 +5654,7 @@ components:
       type: object
       properties:
         identityKey:
-          $ref: '#/components/schemas/IdentityKey'
+          $ref: "#/components/schemas/IdentityKey"
         unidentifiedAccess:
           type: string
           format: byte
@@ -5638,7 +5667,7 @@ components:
         badges:
           type: array
           items:
-            $ref: '#/components/schemas/Badge'
+            $ref: "#/components/schemas/Badge"
         uuid:
           type: string
           description: A service identifier is a tuple of a UUID and identity type
@@ -5666,7 +5695,7 @@ components:
         elements:
           type: array
           items:
-            $ref: '#/components/schemas/Element'
+            $ref: "#/components/schemas/Element"
     Element:
       required:
       - fingerprint
@@ -5690,7 +5719,7 @@ components:
           minItems: 0
           type: array
           items:
-            $ref: '#/components/schemas/Element'
+            $ref: "#/components/schemas/Element"
     CreateProfileRequest:
       required:
       - commitment
@@ -5698,8 +5727,9 @@ components:
       type: object
       properties:
         commitment:
-          $ref: '#/components/schemas/ProfileKeyCommitment'
+          $ref: "#/components/schemas/ProfileKeyCommitment"
         version:
+          minLength: 1
           type: string
         name:
           type: string
@@ -5713,8 +5743,14 @@ components:
         paymentAddress:
           type: string
           format: byte
+        avatar:
+          type: boolean
         sameAvatar:
           type: boolean
+        badgeIds:
+          type: array
+          items:
+            type: string
         phoneNumberSharing:
           type: string
           format: byte
@@ -5724,12 +5760,6 @@ components:
           - UNCHANGED
           - CLEAR
           - UPDATE
-        avatar:
-          type: boolean
-        badgeIds:
-          type: array
-          items:
-            type: string
     ProfileKeyCommitment:
       type: object
       properties:
@@ -5742,6 +5772,7 @@ components:
       type: object
       properties:
         body:
+          minLength: 1
           type: string
           description: The MIME base64-encoded body of the provisioning message to
             send to the destination device
@@ -5771,7 +5802,7 @@ components:
           type: boolean
           description: whether any of this account's devices support storage
         entitlements:
-          $ref: '#/components/schemas/Entitlements'
+          $ref: "#/components/schemas/Entitlements"
         reregistration:
           type: boolean
           description: "If true, there was an existing account registered for this\
@@ -5801,7 +5832,7 @@ components:
             not provided; must not be provided if `sessionId` is provided
           format: byte
         accountAttributes:
-          $ref: '#/components/schemas/AccountAttributes'
+          $ref: "#/components/schemas/AccountAttributes"
         skipDeviceTransfer:
           type: boolean
           description: |
@@ -5812,21 +5843,21 @@ components:
             fail with an HTTP/409 response indicating that the client should prompt the user to
             transfer data from an existing device.
         aciIdentityKey:
-          $ref: '#/components/schemas/IdentityKey'
+          $ref: "#/components/schemas/IdentityKey"
         pniIdentityKey:
-          $ref: '#/components/schemas/IdentityKey'
+          $ref: "#/components/schemas/IdentityKey"
         aciSignedPreKey:
-          $ref: '#/components/schemas/ECSignedPreKey'
+          $ref: "#/components/schemas/ECSignedPreKey"
         pniSignedPreKey:
-          $ref: '#/components/schemas/ECSignedPreKey'
+          $ref: "#/components/schemas/ECSignedPreKey"
         aciPqLastResortPreKey:
-          $ref: '#/components/schemas/KEMSignedPreKey'
+          $ref: "#/components/schemas/KEMSignedPreKey"
         pniPqLastResortPreKey:
-          $ref: '#/components/schemas/KEMSignedPreKey'
+          $ref: "#/components/schemas/KEMSignedPreKey"
         apnToken:
-          $ref: '#/components/schemas/ApnRegistrationId'
+          $ref: "#/components/schemas/ApnRegistrationId"
         gcmToken:
-          $ref: '#/components/schemas/GcmRegistrationId'
+          $ref: "#/components/schemas/GcmRegistrationId"
     UserRemoteConfig:
       type: object
       properties:
@@ -5849,7 +5880,7 @@ components:
           type: array
           description: List of remote configurations applicable to the user
           items:
-            $ref: '#/components/schemas/UserRemoteConfig'
+            $ref: "#/components/schemas/UserRemoteConfig"
         serverEpochTime:
           type: string
           description: |
@@ -5898,11 +5929,11 @@ components:
       type: object
       properties:
         manifest:
-          $ref: '#/components/schemas/StickerPackFormUploadItem'
+          $ref: "#/components/schemas/StickerPackFormUploadItem"
         stickers:
           type: array
           items:
-            $ref: '#/components/schemas/StickerPackFormUploadItem'
+            $ref: "#/components/schemas/StickerPackFormUploadItem"
         packId:
           type: string
     StickerPackFormUploadItem:
@@ -5932,8 +5963,10 @@ components:
       type: object
       properties:
         returnUrl:
+          minLength: 1
           type: string
         cancelUrl:
+          minLength: 1
           type: string
     GetReceiptCredentialsRequest:
       required:
@@ -5941,6 +5974,7 @@ components:
       type: object
       properties:
         receiptCredentialRequest:
+          minLength: 1
           type: string
           format: byte
     BackupConfiguration:
@@ -5949,7 +5983,7 @@ components:
         levels:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/BackupLevelConfiguration'
+            $ref: "#/components/schemas/BackupLevelConfiguration"
           description: A map of numeric backup level IDs to level-specific backup
             configuration
         freeTierMediaDays:
@@ -6024,17 +6058,17 @@ components:
         currencies:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/CurrencyConfiguration'
+            $ref: "#/components/schemas/CurrencyConfiguration"
           description: A map of lower-cased ISO 3 currency codes to minimums and level-specific
             scalar amounts
         levels:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/LevelConfiguration'
+            $ref: "#/components/schemas/LevelConfiguration"
           description: A map of numeric donation level IDs to level-specific badge
             configuration
         backup:
-          $ref: '#/components/schemas/BackupConfiguration'
+          $ref: "#/components/schemas/BackupConfiguration"
         sepaMaximumEuros:
           type: number
           description: The maximum value of a one-time donation SEPA transaction
@@ -6050,7 +6084,7 @@ components:
           type: string
           description: The localized name for the level
         badge:
-          $ref: '#/components/schemas/Badge'
+          $ref: "#/components/schemas/Badge"
       description: Configuration for a donation level - use to present appropriate
         client interfaces
     ChargeFailure:
@@ -6101,9 +6135,9 @@ components:
       type: object
       properties:
         subscription:
-          $ref: '#/components/schemas/Subscription'
+          $ref: "#/components/schemas/Subscription"
         chargeFailure:
-          $ref: '#/components/schemas/ChargeFailure'
+          $ref: "#/components/schemas/ChargeFailure"
     Subscription:
       type: object
       properties:
@@ -6223,6 +6257,7 @@ components:
       type: object
       properties:
         number:
+          minLength: 1
           type: string
           description: The e164-formatted phone number to be verified
         pushToken:
@@ -6304,6 +6339,7 @@ components:
       type: object
       properties:
         code:
+          minLength: 1
           type: string
   securitySchemes:
     authenticatedAccount:
