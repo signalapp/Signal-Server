@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -35,8 +36,9 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
-@Path("/v2/backup")
+@Path("/v2/{name: backup|svr}")
 @Tag(name = "Secure Value Recovery")
+@Schema(description = "Note: /v2/backup is deprecated. Use /v2/svr instead.")
 public class SecureValueRecovery2Controller {
 
   private static final long MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(30);
