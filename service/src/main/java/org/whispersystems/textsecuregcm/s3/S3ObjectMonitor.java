@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.s3;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.time.Duration;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -18,9 +19,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
@@ -54,15 +58,34 @@ public class S3ObjectMonitor {
       final ScheduledExecutorService refreshExecutorService,
       final Duration refreshInterval) {
 
-    this(S3Client.builder()
-            .region(Region.of(s3Region))
-            .credentialsProvider(awsCredentialsProvider)
-            .build(),
+    this(createS3Client(awsCredentialsProvider, s3Region),
         s3Bucket,
         objectKey,
         maxObjectSize,
         refreshExecutorService,
         refreshInterval);
+  }
+
+  // FLT(uoemai): Allow overriding the AWS endpoint for self-hosting.
+  private static S3Client createS3Client(
+      final AwsCredentialsProvider awsCredentialsProvider,
+      final String s3Region) {
+
+    S3ClientBuilder builder = S3Client.builder()
+        .region(Region.of(s3Region))
+        .credentialsProvider(awsCredentialsProvider);
+
+    final String endpoint = System.getenv("AWS_ENDPOINT_OVERRIDE");
+    if (endpoint != null && !endpoint.isEmpty()) {
+      builder.endpointOverride(URI.create(endpoint));
+      // FLT(uoemai): Do not use bucket name as subdomain.
+      builder.serviceConfiguration(
+          S3Configuration.builder()
+              .pathStyleAccessEnabled(true)
+              .build());
+    }
+
+    return builder.build();
   }
 
   @VisibleForTesting

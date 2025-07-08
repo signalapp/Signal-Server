@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import java.net.URI;
 import java.time.Duration;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
@@ -17,7 +18,9 @@ import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClientBuilder;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
 
 @JsonTypeName("default")
 public record DynamoDbClientConfiguration(@NotBlank String region,
@@ -41,7 +44,7 @@ public record DynamoDbClientConfiguration(@NotBlank String region,
 
   @Override
   public DynamoDbClient buildSyncClient(final AwsCredentialsProvider credentialsProvider, final MetricPublisher metricPublisher) {
-    return DynamoDbClient.builder()
+    DynamoDbClientBuilder builder = DynamoDbClient.builder()
         .region(Region.of(region()))
         .credentialsProvider(credentialsProvider)
         .overrideConfiguration(ClientOverrideConfiguration.builder()
@@ -50,13 +53,20 @@ public record DynamoDbClientConfiguration(@NotBlank String region,
             .addMetricPublisher(metricPublisher)
             .build())
         .httpClientBuilder(AwsCrtHttpClient.builder()
-            .maxConcurrency(maxConnections()))
-        .build();
+            .maxConcurrency(maxConnections()));
+
+    // FLT(uoemai): Allow overriding the AWS endpoint for self-hosting.
+    final String endpoint = System.getenv("AWS_ENDPOINT_OVERRIDE");
+    if (endpoint != null && !endpoint.isEmpty()) {
+      builder.endpointOverride(URI.create(endpoint));
+    }
+
+    return builder.build();
   }
 
   @Override
   public DynamoDbAsyncClient buildAsyncClient(final AwsCredentialsProvider credentialsProvider, final MetricPublisher metricPublisher) {
-    return DynamoDbAsyncClient.builder()
+    DynamoDbAsyncClientBuilder builder = DynamoDbAsyncClient.builder()
         .region(Region.of(region()))
         .credentialsProvider(credentialsProvider)
         .overrideConfiguration(ClientOverrideConfiguration.builder()
@@ -65,7 +75,14 @@ public record DynamoDbClientConfiguration(@NotBlank String region,
             .addMetricPublisher(metricPublisher)
             .build())
         .httpClientBuilder(NettyNioAsyncHttpClient.builder()
-            .maxConcurrency(maxConnections()))
-        .build();
+            .maxConcurrency(maxConnections()));
+
+    // FLT(uoemai): Allow overriding the AWS endpoint for self-hosting.
+    final String endpoint = System.getenv("AWS_ENDPOINT_OVERRIDE");
+    if (endpoint != null && !endpoint.isEmpty()) {
+      builder.endpointOverride(URI.create(endpoint));
+    }
+
+    return builder.build();
   }
 }
