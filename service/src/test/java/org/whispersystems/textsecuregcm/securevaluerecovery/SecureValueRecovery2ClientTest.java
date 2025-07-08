@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
-import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
+import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
 
 class SecureValueRecovery2ClientTest {
 
@@ -55,7 +55,7 @@ class SecureValueRecovery2ClientTest {
     httpExecutor = Executors.newSingleThreadExecutor();
     retryExecutor = Executors.newSingleThreadScheduledExecutor();
 
-    final SecureValueRecovery2Configuration config = new SecureValueRecovery2Configuration(
+    final SecureValueRecoveryConfiguration config = new SecureValueRecoveryConfiguration(
         "http://localhost:" + wireMock.getPort(),
         randomSecretBytes(32),
         randomSecretBytes(32),

@@ -28,7 +28,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsSelector;
-import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
+import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
 import org.whispersystems.textsecuregcm.entities.AuthCheckRequest;
 import org.whispersystems.textsecuregcm.entities.AuthCheckResponseV2;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
@@ -43,12 +43,12 @@ public class SecureValueRecovery2Controller {
 
   private static final long MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(30);
 
-  public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureValueRecovery2Configuration cfg) {
+  public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureValueRecoveryConfiguration cfg) {
     return credentialsGenerator(cfg, Clock.systemUTC());
   }
 
   @VisibleForTesting
-  public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureValueRecovery2Configuration cfg, final Clock clock) {
+  public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureValueRecoveryConfiguration cfg, final Clock clock) {
     return ExternalServiceCredentialsGenerator
         .builder(cfg.userAuthenticationTokenSharedSecret())
         .withUserDerivationKey(cfg.userIdTokenSharedSecret().value())

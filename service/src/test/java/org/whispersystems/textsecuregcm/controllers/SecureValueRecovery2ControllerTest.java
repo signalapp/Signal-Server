@@ -23,7 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
-import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
+import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
 import org.whispersystems.textsecuregcm.entities.AuthCheckRequest;
 import org.whispersystems.textsecuregcm.entities.AuthCheckResponseV2;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class SecureValueRecovery2ControllerTest {
 
-  private static final SecureValueRecovery2Configuration CFG = new SecureValueRecovery2Configuration(
+  private static final SecureValueRecoveryConfiguration CFG = new SecureValueRecoveryConfiguration(
       "",
       randomSecretBytes(32),
       randomSecretBytes(32),

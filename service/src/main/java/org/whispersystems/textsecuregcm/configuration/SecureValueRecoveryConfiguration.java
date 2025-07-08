@@ -12,7 +12,7 @@ import java.util.List;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
-public record SecureValueRecovery2Configuration(
+public record SecureValueRecoveryConfiguration(
     @NotBlank String uri,
     @ExactlySize(32) SecretBytes userAuthenticationTokenSharedSecret,
     @ExactlySize(32) SecretBytes userIdTokenSharedSecret,
@@ -20,7 +20,7 @@ public record SecureValueRecovery2Configuration(
     @NotNull @Valid CircuitBreakerConfiguration circuitBreaker,
     @NotNull @Valid RetryConfiguration retry) {
 
-  public SecureValueRecovery2Configuration {
+  public SecureValueRecoveryConfiguration {
     if (circuitBreaker == null) {
       circuitBreaker = new CircuitBreakerConfiguration();
     }

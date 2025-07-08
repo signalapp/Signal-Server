@@ -52,7 +52,7 @@ import org.whispersystems.textsecuregcm.configuration.RemoteConfigConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ReportMessageConfiguration;
 import org.whispersystems.textsecuregcm.configuration.S3ObjectMonitorFactory;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
-import org.whispersystems.textsecuregcm.configuration.SecureValueRecovery2Configuration;
+import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ShortCodeExpanderConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SpamFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.StripeConfiguration;
@@ -156,7 +156,12 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private SecureValueRecovery2Configuration svr2;
+  private SecureValueRecoveryConfiguration svr2;
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private SecureValueRecoveryConfiguration svrb;
 
   @NotNull
   @Valid
@@ -389,8 +394,12 @@ public class WhisperServerConfiguration extends Configuration {
     return pubsub;
   }
 
-  public SecureValueRecovery2Configuration getSvr2Configuration() {
+  public SecureValueRecoveryConfiguration getSvr2Configuration() {
     return svr2;
+  }
+
+  public SecureValueRecoveryConfiguration getSvrbConfiguration() {
+    return svrb;
   }
 
   public DirectoryV2Configuration getDirectoryV2Configuration() {
