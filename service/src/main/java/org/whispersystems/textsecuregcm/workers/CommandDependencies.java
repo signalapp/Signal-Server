@@ -33,6 +33,7 @@ import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
@@ -122,6 +123,9 @@ record CommandDependencies(
         new DynamicConfigurationManager<>(
             configuration.getDynamicConfig().build(awsCredentialsProvider, dynamicConfigurationExecutor), DynamicConfiguration.class);
     dynamicConfigurationManager.start();
+    ExperimentEnrollmentManager experimentEnrollmentManager =
+        new ExperimentEnrollmentManager(dynamicConfigurationManager);
+
     final ClientResources.Builder redisClientResourcesBuilder = ClientResources.builder();
 
     FaultTolerantRedisClusterClient cacheCluster = configuration.getCacheClusterConfiguration()
@@ -224,7 +228,8 @@ record CommandDependencies(
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient,
             configuration.getDynamoDbTables().getEcSignedPreKeys().getTableName()),
         new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
-            configuration.getDynamoDbTables().getKemLastResortKeys().getTableName()));
+            configuration.getDynamoDbTables().getKemLastResortKeys().getTableName()),
+        experimentEnrollmentManager);
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),

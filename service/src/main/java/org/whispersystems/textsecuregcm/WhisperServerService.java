@@ -368,6 +368,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     MetricsUtil.configureRegistries(config, environment, dynamicConfigurationManager);
 
+    ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
+
     if (config.getServerFactory() instanceof DefaultServerFactory defaultServerFactory) {
       defaultServerFactory.getApplicationConnectors()
           .forEach(connectorFactory -> {
@@ -444,7 +446,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getDynamoDbTables().getPagedKemKeys().getTableName(),
             config.getPagedSingleUseKEMPreKeyStore().bucket()),
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, config.getDynamoDbTables().getEcSignedPreKeys().getTableName()),
-        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, config.getDynamoDbTables().getKemLastResortKeys().getTableName()));
+        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, config.getDynamoDbTables().getKemLastResortKeys().getTableName()),
+        experimentEnrollmentManager);
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getMessages().getTableName(),
         config.getDynamoDbTables().getMessages().getExpiration(),
@@ -604,8 +607,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExternalServiceCredentialsGenerator svr2CredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
             config.getSvr2Configuration());
 
-    ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(
-        dynamicConfigurationManager);
     RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
     UsernameHashZkProofVerifier usernameHashZkProofVerifier = new UsernameHashZkProofVerifier();
