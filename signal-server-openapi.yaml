@@ -3208,6 +3208,26 @@ paths:
     post:
       tags:
       - Subscriptions
+      summary: Create receipt credentials
+      description: |
+        Create a receipt from a valid payment invoice that can be used to obtain an entitlement
+
+        This request is repeatable so long as the ReceiptCredentialRequest remains the same. Clients should use the same
+        ReceiptCredentialRequest value until they attempt to redeem the resulting ReceiptCredentialPresentation. After
+        this point, the ReceiptCredentialRequest MUST NOT be reused or you may not be able to redeem a valid payment
+        invoice. Clients SHOULD retry requests at this endpoint with the same ReceiptCredentialRequest value until
+        receiving a response. After receiving a response, clients should then compute the ReceiptCredentialPresentation
+        and redeem it at the receipt redemption endpoint. Once the first attempt is made there, the same
+        ReceiptCredentialRequest MUST NOT be used again to request receipt credentials.
+
+        Note that you may in fact redeem TWO or more invoices for the same ReceiptCredentialRequest while retrying this
+        operation if a later invoice gets paid while you are retrying. However, the returned receipt is always for the
+        latest invoice, so it will have the latest expiration possible and no entitlement time will be lost. The important
+        thing is not to reuse ReceiptCredentialRequest after you have started attempting to redeem the associated
+        ReceiptCredentialPresentation. Then you may produce a ReceiptCredentialPresentation for a later invoice that
+        cannot be redeemed.
+
+        Clients MUST validate that the generated receipt credential's level and expiration matches their expectations.
       operationId: createSubscriptionReceiptCredentials
       parameters:
       - name: User-Agent
@@ -3226,22 +3246,40 @@ paths:
               $ref: "#/components/schemas/GetReceiptCredentialsRequest"
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: Successfully created receipt
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
+                $ref: "#/components/schemas/GetReceiptCredentialsResponse"
+        "204":
+          description: No invoice has been issued for this subscription OR invoice
+            is in 'open' state
+        "400":
+          description: Bad ReceiptCredentialRequest
+        "402":
+          description: Invoice is in any state other than 'open' or 'paid'. May include
+            chargeFailure details in body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChargeFailureResponse"
+        "403":
+          description: subscriberId authentication failure OR account authentication
+            is present
+        "404":
+          description: subscriberId is not found OR malformed OR no subscription setup
+            on the subscriber id
+        "409":
+          description: latest paid receipt on subscription was already redeemed for
+            a receipt credential but with a different receipt credential request
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, a positive integer indicating the number of\
+                \ seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
       - {}
@@ -3276,12 +3314,26 @@ paths:
             is present
         "404":
           description: No such subscriberId exists or subscriberId is malformed
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, a positive integer indicating the number of\
+                \ seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
       - {}
     put:
       tags:
       - Subscriptions
+      summary: Create/refresh a subscriber
+      description: |
+        Creates a subscriber record if it does not exist, otherwise refreshes its last access time.
+
+        Subscribers MUST periodically hit this endpoint to update the access time on the subscription record. Subscribers
+        SHOULD attempt to make an update call approximately every 3 days. Not accessing this endpoint for an extended
+        period of time will result in the subscription being canceled.
       operationId: updateSubscriber
       parameters:
       - name: subscriberId
@@ -3290,16 +3342,25 @@ paths:
         schema:
           type: string
       responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
+        "200":
+          description: The subscriber was successfully created or refreshed
+        "403":
+          description: subscriberId authentication failure OR account authentication
+            is present
+        "404":
+          description: subscriberId is malformed
       security:
       - authenticatedAccount: []
       - {}
     delete:
       tags:
       - Subscriptions
+      summary: Cancel a subscription
+      description: |
+        Cancels any current subscription at the end of the current subscription period.
+
+        Note: Apple IAP subscriptions do not support server-side cancellation, so this method should only be called after
+        cancelling a subscription from storekit to keep server data up to date.
       operationId: deleteSubscriber
       parameters:
       - name: subscriberId
@@ -3308,10 +3369,21 @@ paths:
         schema:
           type: string
       responses:
-        default:
-          description: default response
-          content:
-            application/json: {}
+        "200":
+          description: All subscriptions cancelled
+        "403":
+          description: Account authentication is present
+        "404":
+          description: subscriberId is not found or malformed
+        "400":
+          description: The associated subscription is not a type that can be cancelled
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, a positive integer indicating the number of\
+                \ seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
       - {}
@@ -3390,7 +3462,12 @@ paths:
           description: subscriberId is already linked to a processor that does not
             support appstore payments. Delete this subscriberId and use a new one.
         "429":
-          description: Rate limit exceeded.
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, a positive integer indicating the number of\
+                \ seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
       - {}
@@ -3527,6 +3604,13 @@ paths:
         "409":
           description: subscriberId is already linked to a processor that does not
             support Play Billing. Delete this subscriberId and use a new one.
+        "429":
+          description: Too many attempts
+          headers:
+            Retry-After:
+              description: "If present, a positive integer indicating the number of\
+                \ seconds before a subsequent attempt could succeed"
+              style: simple
       security:
       - authenticatedAccount: []
       - {}
@@ -5968,6 +6052,68 @@ components:
         cancelUrl:
           minLength: 1
           type: string
+    GetReceiptCredentialsResponse:
+      required:
+      - receiptCredentialResponse
+      type: object
+      properties:
+        receiptCredentialResponse:
+          minLength: 1
+          type: string
+          description: A ReceiptCredentialResponse encoded in standard base64 with
+            padding
+          format: byte
+    ChargeFailure:
+      type: object
+      properties:
+        code:
+          type: string
+          description: |
+            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
+            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
+            depending on which processor was used
+        message:
+          type: string
+          description: |
+            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
+            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
+            depending on which processor was used
+        outcomeNetworkStatus:
+          type: string
+          externalDocs:
+            description: Outcome Network Status
+            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status
+        outcomeReason:
+          type: string
+          externalDocs:
+            description: Outcome Reason
+            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-reason
+        outcomeType:
+          type: string
+          externalDocs:
+            description: Outcome Type
+            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-type
+      description: |2
+          Meaningfully interpreting chargeFailure response fields requires inspecting the processor field first.
+
+          For Stripe, code will be one of the [codes defined here](https://stripe.com/docs/api/charges/object#charge_object-failure_code),
+          while message [may contain a further textual description](https://stripe.com/docs/api/charges/object#charge_object-failure_message).
+          The outcome fields are nullable, but present values will directly map to Stripe [response properties](https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status)
+
+          For Braintree, the outcome fields will be null. The code and message will contain one of
+            - a processor decline code (as a string) in code, and associated text in message, as defined this [table](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses)
+            - `gateway` in code, with a [reason](https://developer.paypal.com/braintree/articles/control-panel/transactions/gateway-rejections) in message
+            - `code` = "unknown", message = "unknown"
+
+          IAP payment processors will never include charge failure information, and detailed order information should be
+          retrieved from the payment processor directly
+    ChargeFailureResponse:
+      type: object
+      properties:
+        processor:
+          type: string
+        chargeFailure:
+          $ref: "#/components/schemas/ChargeFailure"
     GetReceiptCredentialsRequest:
       required:
       - receiptCredentialRequest
@@ -5976,6 +6122,8 @@ components:
         receiptCredentialRequest:
           minLength: 1
           type: string
+          description: A ReceiptCredentialRequest encoded in standard base64 with
+            padding
           format: byte
     BackupConfiguration:
       type: object
@@ -6087,50 +6235,6 @@ components:
           $ref: "#/components/schemas/Badge"
       description: Configuration for a donation level - use to present appropriate
         client interfaces
-    ChargeFailure:
-      type: object
-      properties:
-        code:
-          type: string
-          description: |
-            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
-            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
-            depending on which processor was used
-        message:
-          type: string
-          description: |
-            See [Stripe failure codes](https://stripe.com/docs/api/charges/object#charge_object-failure_code) or
-            [Braintree decline codes](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes)
-            depending on which processor was used
-        outcomeNetworkStatus:
-          type: string
-          externalDocs:
-            description: Outcome Network Status
-            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status
-        outcomeReason:
-          type: string
-          externalDocs:
-            description: Outcome Reason
-            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-reason
-        outcomeType:
-          type: string
-          externalDocs:
-            description: Outcome Type
-            url: https://stripe.com/docs/api/charges/object#charge_object-outcome-type
-      description: |2
-          Meaningfully interpreting chargeFailure response fields requires inspecting the processor field first.
-
-          For Stripe, code will be one of the [codes defined here](https://stripe.com/docs/api/charges/object#charge_object-failure_code),
-          while message [may contain a further textual description](https://stripe.com/docs/api/charges/object#charge_object-failure_message).
-          The outcome fields are nullable, but present values will directly map to Stripe [response properties](https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status)
-
-          For Braintree, the outcome fields will be null. The code and message will contain one of
-            - a processor decline code (as a string) in code, and associated text in message, as defined this [table](https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses)
-            - `gateway` in code, with a [reason](https://developer.paypal.com/braintree/articles/control-panel/transactions/gateway-rejections) in message
-            - `code` = "unknown", message = "unknown"
-
-          IAP payment processors will never include charge failure information, and detailed order information should be
-          retrieved from the payment processor directly
     GetSubscriptionInformationResponse:
       type: object
       properties:
