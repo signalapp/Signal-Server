@@ -15,10 +15,14 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.cert.CertificateException;
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
@@ -28,21 +32,26 @@ import org.whispersystems.textsecuregcm.util.HttpUtils;
 /**
  * A client for sending requests to Signal's secure value recovery v2 service on behalf of authenticated users.
  */
-public class SecureValueRecovery2Client {
+public class SecureValueRecoveryClient {
+  private static final Logger logger = LoggerFactory.getLogger(SecureValueRecoveryClient.class);
 
   private final ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator;
   private final URI deleteUri;
+  private final Supplier<List<Integer>> allowedDeletionErrorStatusCodes;
   private final FaultTolerantHttpClient httpClient;
 
   @VisibleForTesting
   static final String DELETE_PATH = "/v1/delete";
 
-  public SecureValueRecovery2Client(final ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator,
+  public SecureValueRecoveryClient(
+      final ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator,
       final Executor executor, final ScheduledExecutorService retryExecutor,
-      final SecureValueRecoveryConfiguration configuration)
+      final SecureValueRecoveryConfiguration configuration,
+      Supplier<List<Integer>> allowedDeletionErrorStatusCodes)
       throws CertificateException {
     this.secureValueRecoveryCredentialsGenerator = secureValueRecoveryCredentialsGenerator;
     this.deleteUri = URI.create(configuration.uri()).resolve(DELETE_PATH);
+    this.allowedDeletionErrorStatusCodes = allowedDeletionErrorStatusCodes;
     this.httpClient = FaultTolerantHttpClient.newBuilder()
         .withCircuitBreaker(configuration.circuitBreaker())
         .withRetry(configuration.retry())
@@ -57,7 +66,7 @@ public class SecureValueRecovery2Client {
         .build();
   }
 
-  public CompletableFuture<Void> deleteBackups(final UUID accountUuid) {
+  public CompletableFuture<Void> removeData(final UUID accountUuid) {
 
     final ExternalServiceCredentials credentials = secureValueRecoveryCredentialsGenerator.generateForUuid(accountUuid);
 
@@ -72,6 +81,13 @@ public class SecureValueRecovery2Client {
         return null;
       }
 
+      final List<Integer> allowedErrors = allowedDeletionErrorStatusCodes.get();
+      if (allowedErrors.contains(response.statusCode())) {
+        logger.warn("Ignoring failure to delete svr entry for account {} with status {}",
+            accountUuid, response.statusCode());
+        return null;
+      }
+      logger.warn("Failed to delete svr entry for account {} with status {}", accountUuid, response.statusCode());
       throw new SecureValueRecoveryException("Failed to delete backup", String.valueOf(response.statusCode()));
     });
   }

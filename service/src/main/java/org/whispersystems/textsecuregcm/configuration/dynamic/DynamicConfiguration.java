@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.vdurmont.semver4j.Semver;
 import jakarta.validation.Valid;
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 public class DynamicConfiguration {
 
@@ -60,7 +58,11 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  List<String> svrStatusCodesToIgnoreForAccountDeletion = Collections.emptyList();
+  List<Integer> svr2StatusCodesToIgnoreForAccountDeletion = Collections.emptyList();
+
+  @JsonProperty
+  @Valid
+  List<Integer> svrbStatusCodesToIgnoreForAccountDeletion = Collections.emptyList();
 
   @JsonProperty
   @Valid
@@ -108,8 +110,12 @@ public class DynamicConfiguration {
     return metricsConfiguration;
   }
 
-  public List<String> getSvrStatusCodesToIgnoreForAccountDeletion() {
-    return svrStatusCodesToIgnoreForAccountDeletion;
+  public List<Integer> getSvr2StatusCodesToIgnoreForAccountDeletion() {
+    return svr2StatusCodesToIgnoreForAccountDeletion;
+  }
+
+  public List<Integer> getSvrbStatusCodesToIgnoreForAccountDeletion() {
+    return svrbStatusCodesToIgnoreForAccountDeletion;
   }
 
   public DynamicRestDeprecationConfiguration restDeprecation() {

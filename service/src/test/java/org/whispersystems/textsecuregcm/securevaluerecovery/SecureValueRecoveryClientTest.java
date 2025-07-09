@@ -18,9 +18,10 @@ import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import java.security.cert.CertificateException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -28,23 +29,26 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
+import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 
-class SecureValueRecovery2ClientTest {
+class SecureValueRecoveryClientTest {
+  private static final List<Integer> ALLOWED_ERRORS = Arrays.asList(567, 568);
 
   private UUID accountUuid;
   private ExternalServiceCredentialsGenerator credentialsGenerator;
   private ExecutorService httpExecutor;
   private ScheduledExecutorService retryExecutor;
 
-  private SecureValueRecovery2Client secureValueRecovery2Client;
+  private SecureValueRecoveryClient secureValueRecoveryClient;
 
   @RegisterExtension
-  private final WireMockExtension wireMock = WireMockExtension.newInstance()
+  private static final WireMockExtension wireMock = WireMockExtension.newInstance()
       .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
       .build();
 
@@ -107,8 +111,7 @@ class SecureValueRecovery2ClientTest {
             """),
         null, null);
 
-    secureValueRecovery2Client = new SecureValueRecovery2Client(credentialsGenerator, httpExecutor, retryExecutor,
-        config);
+    secureValueRecoveryClient = new SecureValueRecoveryClient(credentialsGenerator, httpExecutor, retryExecutor, config, () -> ALLOWED_ERRORS);
   }
 
   @AfterEach
@@ -119,35 +122,31 @@ class SecureValueRecovery2ClientTest {
     retryExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
-  @Test
-  void deleteStoredData() {
+  @ParameterizedTest
+  @CsvSource({
+      "400, false",
+      "429, false",
+      "200, true",
+      "201, true",
+      "567, true",
+      "568, true",
+  })
+  void deleteStatus(int status, boolean shouldSucceed) {
     final String username = RandomStringUtils.secure().nextAlphabetic(16);
     final String password = RandomStringUtils.secure().nextAlphanumeric(32);
 
     when(credentialsGenerator.generateForUuid(accountUuid)).thenReturn(
         new ExternalServiceCredentials(username, password));
 
-    wireMock.stubFor(delete(urlEqualTo(SecureValueRecovery2Client.DELETE_PATH))
+    wireMock.stubFor(delete(urlEqualTo(SecureValueRecoveryClient.DELETE_PATH))
         .withBasicAuth(username, password)
-        .willReturn(aResponse().withStatus(202)));
+        .willReturn(aResponse().withStatus(status)));
 
-    assertDoesNotThrow(() -> secureValueRecovery2Client.deleteBackups(accountUuid).join());
-  }
-
-  @Test
-  void deleteStoredDataFailure() {
-    final String username = RandomStringUtils.secure().nextAlphabetic(16);
-    final String password = RandomStringUtils.secure().nextAlphanumeric(32);
-
-    when(credentialsGenerator.generateForUuid(accountUuid)).thenReturn(
-        new ExternalServiceCredentials(username, password));
-
-    wireMock.stubFor(delete(urlEqualTo(SecureValueRecovery2Client.DELETE_PATH))
-        .withBasicAuth(username, password)
-        .willReturn(aResponse().withStatus(400)));
-
-    final CompletionException completionException = assertThrows(CompletionException.class,
-        () -> secureValueRecovery2Client.deleteBackups(accountUuid).join());
-    assertTrue(completionException.getCause() instanceof SecureValueRecoveryException);
+    final CompletableFuture<Void> deleteFuture = secureValueRecoveryClient.removeData(accountUuid);
+    if (shouldSucceed) {
+      assertDoesNotThrow(() -> deleteFuture.join());
+    } else {
+      CompletableFutureTestUtil.assertFailsWithCause(SecureValueRecoveryException.class, deleteFuture);
+    }
   }
 }
