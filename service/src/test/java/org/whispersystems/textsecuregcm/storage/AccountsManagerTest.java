@@ -1019,10 +1019,15 @@ class AccountsManagerTest {
     );
   }
 
-  @Test
-  void testChangePhoneNumber() throws InterruptedException, MismatchedDevicesException {
-    final String originalNumber = "+14152222222";
-    final String targetNumber = "+14153333333";
+  @ParameterizedTest
+  @CsvSource({
+      "+14152222222,+14153333333",
+
+      // Historically, "change number" behavior was different for "change to existing number," though that's no longer
+      // the case
+      "+14152222222,+14152222222"
+  })
+  void testChangePhoneNumber(final String originalNumber, final String targetNumber) throws InterruptedException, MismatchedDevicesException {
     final UUID uuid = UUID.randomUUID();
     final UUID originalPni = UUID.randomUUID();
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
@@ -1049,32 +1054,16 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testChangePhoneNumberSameNumber() throws InterruptedException, MismatchedDevicesException {
-    final String number = "+14152222222";
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-
-    Account account = AccountsHelper.generateTestAccount(number, UUID.randomUUID(), UUID.randomUUID(), List.of(DevicesHelper.createDevice(Device.PRIMARY_ID)), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-    phoneNumberIdentifiersByE164.put(number, account.getPhoneNumberIdentifier());
-    account = accountsManager.changeNumber(account,
-        number,
-        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
-        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)),
-        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair)),
-        Map.of(Device.PRIMARY_ID, 1));
-
-    assertEquals(number, account.getNumber());
-    verifyNoInteractions(keysManager);
-  }
-
-  @Test
   void testChangePhoneNumberDifferentNumberSamePni() throws InterruptedException, MismatchedDevicesException {
     final String originalNumber = "+22923456789";
     // the canonical form of numbers may change over time, so we use PNIs as stable identifiers
     final String newNumber = "+2290123456789";
     final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final UUID phoneNumberIdentifier = UUID.randomUUID();
 
-    Account account = AccountsHelper.generateTestAccount(originalNumber, UUID.randomUUID(), UUID.randomUUID(),
-        new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    Account account = AccountsHelper.generateTestAccount(originalNumber, UUID.randomUUID(), phoneNumberIdentifier,
+        List.of(DevicesHelper.createDevice(Device.PRIMARY_ID)), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+
     phoneNumberIdentifiersByE164.put(originalNumber, account.getPhoneNumberIdentifier());
     phoneNumberIdentifiersByE164.put(newNumber, account.getPhoneNumberIdentifier());
     account = accountsManager.changeNumber(account,
@@ -1084,8 +1073,9 @@ class AccountsManagerTest {
         Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair)),
         Map.of(Device.PRIMARY_ID, 1));
 
-    assertEquals(originalNumber, account.getNumber());
-    verifyNoInteractions(keysManager);
+    assertEquals(newNumber, account.getNumber());
+    assertEquals(phoneNumberIdentifier, account.getIdentifier(IdentityType.PNI));
+    verify(accounts, never()).delete(any(), any());
   }
 
   @Test

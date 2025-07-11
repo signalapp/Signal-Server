@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import org.apache.commons.lang3.ObjectUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
@@ -57,20 +56,6 @@ public class ChangeNumberManager {
       throw new IllegalArgumentException("PNI identity key, signed pre-keys, device messages, and registration IDs must be all null or all non-null");
     }
 
-    if (number.equals(account.getNumber())) {
-      // The client has gotten confused/desynchronized with us about their own phone number, most likely due to losing
-      // our OK response to an immediately preceding change-number request, and are sending a change they don't realize
-      // is a no-op change.
-      //
-      // We don't need to actually do a number-change operation in our DB, but we *do* need to accept their new key
-      // material and distribute the sync messages, to be sure all clients agree with us and each other about what their
-      // keys are. Pretend this change-number request was actually a PNI key distribution request.
-      if (pniIdentityKey == null) {
-        return account;
-      }
-      return updatePniKeys(account, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, deviceMessages, pniRegistrationIds, senderUserAgent);
-    }
-
     final Account updatedAccount = accountsManager.changeNumber(
         account, number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
@@ -78,23 +63,6 @@ public class ChangeNumberManager {
       sendDeviceMessages(updatedAccount, deviceMessages, senderUserAgent);
     }
 
-    return updatedAccount;
-  }
-
-  public Account updatePniKeys(final Account account,
-      final IdentityKey pniIdentityKey,
-      final Map<Byte, ECSignedPreKey> deviceSignedPreKeys,
-      @Nullable final Map<Byte, KEMSignedPreKey> devicePqLastResortPreKeys,
-      final List<IncomingMessage> deviceMessages,
-      final Map<Byte, Integer> pniRegistrationIds,
-      final String senderUserAgent) throws MismatchedDevicesException, MessageTooLargeException {
-
-    // Don't try to be smart about ignoring unnecessary retries. If we make literally no change we will skip the ddb
-    // write anyway. Linked devices can handle some wasted extra key rotations.
-    final Account updatedAccount = accountsManager.updatePniKeys(
-        account, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
-
-    sendDeviceMessages(updatedAccount, deviceMessages, senderUserAgent);
     return updatedAccount;
   }
 

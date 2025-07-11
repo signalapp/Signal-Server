@@ -663,15 +663,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
       final Map<Byte, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
 
-    final UUID originalPhoneNumberIdentifier = account.getPhoneNumberIdentifier();
     final UUID targetPhoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber).join();
 
-    if (originalPhoneNumberIdentifier.equals(targetPhoneNumberIdentifier)) {
-      return account;
-    }
-
     try {
-      return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier),
+      return accountLockManager.withLock(new HashSet<>(List.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier)),
           () -> changeNumber(account, targetNumber, targetPhoneNumberIdentifier, pniIdentityKey, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds), accountLockExecutor);
     } catch (final Exception e) {
       if (e instanceof MismatchedDevicesException mismatchedDevicesException) {
@@ -699,24 +694,30 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     redisDelete(account);
 
-    // There are three possible states for accounts associated with the target phone number:
+    // There are four possible states for accounts associated with the target phone number:
     //
-    // 1. An account exists with the target PNI; the caller has proved ownership of the number, so delete the
+    // 1. The authenticated account already has the given phone number. We don't want to delete the account, but do want
+    //    to update keys.
+    // 2. An account exists with the target PNI; the caller has proved ownership of the number, so delete the
     //    account with the target PNI. This will leave a "deleted account" record for the deleted account mapping
     //    the UUID of the deleted account to the target PNI. We'll then overwrite that so it points to the
     //    original PNI to facilitate switching back and forth between numbers.
-    // 2. No account with the target PNI exists, but one has recently been deleted. In that case, add a "deleted
+    // 3. No account with the target PNI exists, but one has recently been deleted. In that case, add a "deleted
     //    account" record that maps the ACI of the recently-deleted account to the now-abandoned original PNI
     //    of the account changing its number (which facilitates ACI consistency in cases that a party is switching
     //    back and forth between numbers).
-    // 3. No account with the target PNI exists at all, in which case no additional action is needed.
+    // 4. No account with the target PNI exists at all, in which case no additional action is needed.
     final Optional<UUID> recentlyDeletedAci = accounts.findRecentlyDeletedAccountIdentifier(targetPhoneNumberIdentifier);
     final Optional<Account> maybeExistingAccount = getByE164(targetNumber);
     final Optional<UUID> maybeDisplacedUuid;
 
     if (maybeExistingAccount.isPresent()) {
-      delete(maybeExistingAccount.get()).join();
-      maybeDisplacedUuid = maybeExistingAccount.map(Account::getUuid);
+      if (maybeExistingAccount.get().getIdentifier(IdentityType.ACI).equals(account.getIdentifier(IdentityType.ACI))) {
+        maybeDisplacedUuid = Optional.empty();
+      } else {
+        delete(maybeExistingAccount.get()).join();
+        maybeDisplacedUuid = maybeExistingAccount.map(Account::getUuid);
+      }
     } else {
       maybeDisplacedUuid = recentlyDeletedAci;
     }

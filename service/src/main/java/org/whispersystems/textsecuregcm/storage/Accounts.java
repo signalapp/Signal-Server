@@ -11,7 +11,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
@@ -424,11 +423,14 @@ public class Accounts {
         final AttributeValue numberAttr = AttributeValues.fromString(number);
         final AttributeValue pniAttr = AttributeValues.fromUUID(phoneNumberIdentifier);
 
-        writeItems.add(buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, originalNumber));
-        writeItems.add(buildConstraintTablePut(phoneNumberConstraintTableName, uuidAttr, ATTR_ACCOUNT_E164, numberAttr));
-        writeItems.add(buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, originalPni));
-        writeItems.add(buildConstraintTablePut(phoneNumberIdentifierConstraintTableName, uuidAttr, ATTR_PNI_UUID, pniAttr));
-        writeItems.add(buildRemoveDeletedAccount(phoneNumberIdentifier));
+        if (!originalNumber.equals(number)) {
+          writeItems.add(buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, originalNumber));
+          writeItems.add(buildConstraintTablePut(phoneNumberConstraintTableName, uuidAttr, ATTR_ACCOUNT_E164, numberAttr));
+          writeItems.add(buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, originalPni));
+          writeItems.add(buildConstraintTablePut(phoneNumberIdentifierConstraintTableName, uuidAttr, ATTR_PNI_UUID, pniAttr));
+          writeItems.add(buildRemoveDeletedAccount(phoneNumberIdentifier));
+        }
+
         maybeDisplacedAccountIdentifier.ifPresent(displacedAccountIdentifier ->
             writeItems.add(buildPutDeletedAccount(displacedAccountIdentifier, originalPni)));
 
