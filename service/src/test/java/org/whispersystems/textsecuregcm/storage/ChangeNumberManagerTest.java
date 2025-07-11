@@ -5,7 +5,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -16,9 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -82,16 +79,6 @@ public class ChangeNumberManagerTest {
 
       return updatedAccount;
     });
-  }
-
-  @Test
-  void changeNumberNoMessages() throws Exception {
-    Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn("+18005551234");
-    changeNumberManager.changeNumber(account, "+18025551234", null, null, null, null, null, null);
-    verify(accountsManager).changeNumber(account, "+18025551234", null, null, null, null);
-    verify(accountsManager, never()).updateDevice(any(), anyByte(), any());
-    verify(messageSender, never()).sendMessages(eq(account), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -223,35 +210,5 @@ public class ChangeNumberManagerTest {
     assertEquals(aci, UUID.fromString(envelope.getSourceServiceId()));
     assertEquals(Device.PRIMARY_ID, envelope.getSourceDevice());
     assertEquals(updatedPhoneNumberIdentifiersByAccount.get(account), UUID.fromString(envelope.getUpdatedPni()));
-  }
-
-  @Test
-  void changeNumberMissingData() {
-    final Account account = mock(Account.class);
-    when(account.getNumber()).thenReturn("+18005551234");
-
-    final List<Device> devices = new ArrayList<>();
-
-    for (byte i = 1; i <= 3; i++) {
-      final Device device = mock(Device.class);
-      when(device.getId()).thenReturn(i);
-      when(device.getRegistrationId(IdentityType.ACI)).thenReturn((int) i);
-
-      devices.add(device);
-      when(account.getDevice(i)).thenReturn(Optional.of(device));
-    }
-
-    when(account.getDevices()).thenReturn(devices);
-
-    final byte destinationDeviceId2 = 2;
-    final byte destinationDeviceId3 = 3;
-    final List<IncomingMessage> messages = List.of(
-        new IncomingMessage(1, destinationDeviceId2, 2, "foo".getBytes(StandardCharsets.UTF_8)),
-        new IncomingMessage(1, destinationDeviceId3, 3, "foo".getBytes(StandardCharsets.UTF_8)));
-
-    final Map<Byte, Integer> registrationIds = Map.of((byte) 1, 17, destinationDeviceId2, 47, destinationDeviceId3, 89);
-
-    assertThrows(IllegalArgumentException.class,
-        () -> changeNumberManager.changeNumber(account, "+18005559876", new IdentityKey(Curve.generateKeyPair().getPublicKey()), null, null, messages, registrationIds, null));
   }
 }

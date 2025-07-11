@@ -51,17 +51,10 @@ public class ChangeNumberManager {
       final String senderUserAgent)
       throws InterruptedException, MismatchedDevicesException, MessageTooLargeException {
 
-    if (!(ObjectUtils.allNotNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds) ||
-        ObjectUtils.allNull(pniIdentityKey, deviceSignedPreKeys, deviceMessages, pniRegistrationIds))) {
-      throw new IllegalArgumentException("PNI identity key, signed pre-keys, device messages, and registration IDs must be all null or all non-null");
-    }
-
     final Account updatedAccount = accountsManager.changeNumber(
         account, number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
-    if (deviceMessages != null) {
-      sendDeviceMessages(updatedAccount, deviceMessages, senderUserAgent);
-    }
+    sendDeviceMessages(updatedAccount, deviceMessages, senderUserAgent);
 
     return updatedAccount;
   }
