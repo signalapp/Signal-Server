@@ -171,6 +171,8 @@ public class AccountControllerV2 {
     }
   }
 
+  // TODO Remove entirely on or after 2025-10-08
+  @Deprecated(forRemoval = true)
   @PUT
   @Path("/phone_number_identity_key_distribution")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -181,11 +183,6 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   @ApiResponse(responseCode = "403", description = "This endpoint can only be invoked from the account's primary device.")
   @ApiResponse(responseCode = "422", description = "The request body failed validation.")
-  @ApiResponse(responseCode = "409", description = "The set of devices specified in the request does not match the set of devices active on the account.",
-      content = @Content(schema = @Schema(implementation = MismatchedDevicesResponse.class)))
-  @ApiResponse(responseCode = "410", description = "The registration IDs provided for some devices do not match those stored on the server.",
-      content = @Content(schema = @Schema(implementation = StaleDevicesResponse.class)))
-  @ApiResponse(responseCode = "413", description = "One or more device messages was too large")
   public AccountIdentityResponse distributePhoneNumberIdentityKeys(
       @Auth final AuthenticatedDevice authenticatedDevice,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString,
@@ -199,38 +196,8 @@ public class AccountControllerV2 {
       throw new WebApplicationException("Invalid signature", 422);
     }
 
-    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
-
-    try {
-      final Account updatedAccount = changeNumberManager.updatePniKeys(
-          account,
-          request.pniIdentityKey(),
-          request.devicePniSignedPrekeys(),
-          request.devicePniPqLastResortPrekeys(),
-          request.deviceMessages(),
-          request.pniRegistrationIds(),
-          userAgentString);
-
-      return AccountIdentityResponseBuilder.fromAccount(updatedAccount);
-    } catch (MismatchedDevicesException e) {
-      if (!e.getMismatchedDevices().staleDeviceIds().isEmpty()) {
-        throw new WebApplicationException(Response.status(410)
-            .type(MediaType.APPLICATION_JSON)
-            .entity(new StaleDevicesResponse(e.getMismatchedDevices().staleDeviceIds()))
-            .build());
-      } else {
-        throw new WebApplicationException(Response.status(409)
-            .type(MediaType.APPLICATION_JSON_TYPE)
-            .entity(new MismatchedDevicesResponse(e.getMismatchedDevices().missingDeviceIds(),
-                e.getMismatchedDevices().extraDeviceIds()))
-            .build());
-      }
-    } catch (IllegalArgumentException e) {
-      throw new BadRequestException(e);
-    } catch (MessageTooLargeException e) {
-      throw new WebApplicationException(Response.Status.REQUEST_ENTITY_TOO_LARGE);
-    }
+    return AccountIdentityResponseBuilder.fromAccount(accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
   }
 
   @PUT
