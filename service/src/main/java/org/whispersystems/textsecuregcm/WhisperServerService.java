@@ -190,6 +190,7 @@ import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.providers.RedisClusterHealthCheck;
 import org.whispersystems.textsecuregcm.push.APNSender;
+import org.whispersystems.textsecuregcm.push.DummySender;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
@@ -203,8 +204,12 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
+import org.whispersystems.textsecuregcm.securestorage.InsecureStorageClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.securestorage.StorageClient;
+import org.whispersystems.textsecuregcm.securevaluerecovery.InsecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
+import org.whispersystems.textsecuregcm.securevaluerecovery.ValueRecovery2Client;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
@@ -612,16 +617,21 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     RegistrationServiceClient registrationServiceClient = config.getRegistrationServiceConfiguration()
         .build(environment, registrationCallbackExecutor, registrationIdentityTokenRefreshExecutor);
-    KeyTransparencyServiceClient keyTransparencyServiceClient = new KeyTransparencyServiceClient(
-        config.getKeyTransparencyServiceConfiguration().host(),
-        config.getKeyTransparencyServiceConfiguration().port(),
-        config.getKeyTransparencyServiceConfiguration().tlsCertificate(),
-        config.getKeyTransparencyServiceConfiguration().clientCertificate(),
-        config.getKeyTransparencyServiceConfiguration().clientPrivateKey().value());
-    SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
-        secureValueRecovery2ServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
-    SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
-        storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
+    // FLT(uoemai): Key transparency is disabled in the prototype.
+    // KeyTransparencyServiceClient keyTransparencyServiceClient = new KeyTransparencyServiceClient(
+    //     config.getKeyTransparencyServiceConfiguration().host(),
+    //     config.getKeyTransparencyServiceConfiguration().port(),
+    //     config.getKeyTransparencyServiceConfiguration().tlsCertificate(),
+    //     config.getKeyTransparencyServiceConfiguration().clientCertificate(),
+    //     config.getKeyTransparencyServiceConfiguration().clientPrivateKey().value());
+    // FLT(uoemai): Secure value recovery is disabled in the prototype.
+    // SecureValueRecovery2Client secureValueRecovery2Client = new SecureValueRecovery2Client(svr2CredentialsGenerator,
+    //     secureValueRecovery2ServiceExecutor, secureValueRecoveryServiceRetryExecutor, config.getSvr2Configuration());
+    ValueRecovery2Client insecureValueRecovery2Client = new InsecureValueRecovery2Client();
+    // FLT(uoemai): Secure storage is disabled in the prototype.
+    // SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
+    //     storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
+    StorageClient insecureStorageClient = new InsecureStorageClient();
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, disconnectionRequestListenerExecutor);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster, asyncCdnS3Client, config.getCdnConfiguration().bucket());
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
@@ -640,12 +650,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keysManager, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
+        insecureStorageClient, insecureValueRecovery2Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, messagePollExecutor,
         clock, config.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
-    APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());
-    FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
+    // FLT(uoemai): Notification providers replaced by dummy logger during development.
+    // APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());
+    // FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
+    DummySender apnSender = new DummySender("APN");
+    DummySender fcmSender = new DummySender("FCM");
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
         apnSender, fcmSender, accountsManager, 0, 0);
     PushNotificationManager pushNotificationManager =
@@ -653,7 +666,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     WebSocketConnectionEventManager webSocketConnectionEventManager =
         new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster);
-    ProvisioningManager provisioningManager = new ProvisioningManager(pubsubClient);
+    // FLT(uoemai): Device provisioning is disabled in the prototype.
+    // ProvisioningManager provisioningManager = new ProvisioningManager(pubsubClient);
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
         config.getDynamoDbTables().getIssuedReceipts().getExpiration(),
@@ -723,37 +737,40 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         () -> dynamicConfigurationManager.getConfiguration().getVirtualThreads().allowedPinEvents(),
         config.getVirtualThreadConfiguration().pinEventThreshold());
 
-    StripeManager stripeManager = new StripeManager(config.getStripe().apiKey().value(), subscriptionProcessorExecutor,
-        config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe().supportedCurrenciesByPaymentMethod());
-    BraintreeManager braintreeManager = new BraintreeManager(config.getBraintree().merchantId(),
-        config.getBraintree().publicKey(), config.getBraintree().privateKey().value(),
-        config.getBraintree().environment(),
-        config.getBraintree().supportedCurrenciesByPaymentMethod(), config.getBraintree().merchantAccounts(),
-        config.getBraintree().graphqlUrl(), currencyManager, config.getBraintree().pubSubPublisher().build(),
-        config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
-        subscriptionProcessorRetryExecutor);
-    GooglePlayBillingManager googlePlayBillingManager = new GooglePlayBillingManager(
-        new ByteArrayInputStream(config.getGooglePlayBilling().credentialsJson().value().getBytes(StandardCharsets.UTF_8)),
-        config.getGooglePlayBilling().packageName(),
-        config.getGooglePlayBilling().applicationName(),
-        config.getGooglePlayBilling().productIdToLevel(),
-        googlePlayBillingExecutor);
-    AppleAppStoreManager appleAppStoreManager = new AppleAppStoreManager(
-        config.getAppleAppStore().env(), config.getAppleAppStore().bundleId(), config.getAppleAppStore().appAppleId(),
-        config.getAppleAppStore().issuerId(), config.getAppleAppStore().keyId(),
-        config.getAppleAppStore().encodedKey().value(), config.getAppleAppStore().subscriptionGroupId(),
-        config.getAppleAppStore().productIdToLevel(),
-        config.getAppleAppStore().appleRootCerts(),
-        config.getAppleAppStore().retry(), appleAppStoreExecutor, appleAppStoreRetryExecutor);
+    // FLT(uoemai): All forms of payment are disabled in the prototype.
+    //  StripeManager stripeManager = new StripeManager(config.getStripe().apiKey().value(), subscriptionProcessorExecutor,
+    //      config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe().supportedCurrenciesByPaymentMethod());
+    //  BraintreeManager braintreeManager = new BraintreeManager(config.getBraintree().merchantId(),
+    //      config.getBraintree().publicKey(), config.getBraintree().privateKey().value(),
+    //      config.getBraintree().environment(),
+    //      config.getBraintree().supportedCurrenciesByPaymentMethod(), config.getBraintree().merchantAccounts(),
+    //      config.getBraintree().graphqlUrl(), currencyManager, config.getBraintree().pubSubPublisher().build(),
+    //      config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
+    //      subscriptionProcessorRetryExecutor);
+    //  GooglePlayBillingManager googlePlayBillingManager = new GooglePlayBillingManager(
+    //      new ByteArrayInputStream(config.getGooglePlayBilling().credentialsJson().value().getBytes(StandardCharsets.UTF_8)),
+    //      config.getGooglePlayBilling().packageName(),
+    //      config.getGooglePlayBilling().applicationName(),
+    //      config.getGooglePlayBilling().productIdToLevel(),
+    //      googlePlayBillingExecutor);
+    //  AppleAppStoreManager appleAppStoreManager = new AppleAppStoreManager(
+    //      config.getAppleAppStore().env(), config.getAppleAppStore().bundleId(), config.getAppleAppStore().appAppleId(),
+    //      config.getAppleAppStore().issuerId(), config.getAppleAppStore().keyId(),
+    //      config.getAppleAppStore().encodedKey().value(), config.getAppleAppStore().subscriptionGroupId(),
+    //      config.getAppleAppStore().productIdToLevel(),
+    //      config.getAppleAppStore().appleRootCerts(),
+    //      config.getAppleAppStore().retry(), appleAppStoreExecutor, appleAppStoreRetryExecutor);
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(pushNotificationScheduler);
-    environment.lifecycle().manage(provisioningManager);
+    // FLT(uoemai): Device provisioning is disabled in the prototype.
+    // environment.lifecycle().manage(provisioningManager);
     environment.lifecycle().manage(disconnectionRequestManager);
     environment.lifecycle().manage(webSocketConnectionEventManager);
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(registrationServiceClient);
-    environment.lifecycle().manage(keyTransparencyServiceClient);
+    // FLT(uoemai): Key transparency is disabled in the prototype.
+    // environment.lifecycle().manage(keyTransparencyServiceClient);
     environment.lifecycle().manage(clientReleaseManager);
     environment.lifecycle().manage(virtualThreadPinEventMonitor);
     environment.lifecycle().manage(accountsManager);
@@ -1102,7 +1119,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new),
         new KeysController(rateLimiters, keysManager, accountsManager, zkSecretParams, Clock.systemUTC()),
-        new KeyTransparencyController(keyTransparencyServiceClient),
+        // FLT(uoemai): Disable key transparency for the prototype.
+        // new KeyTransparencyController(keyTransparencyServiceClient),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
             accountsManager, messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
             reportMessageManager, messageDeliveryScheduler, clientReleaseManager,
@@ -1112,7 +1130,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner,
             zkSecretParams, zkProfileOperations, batchIdentityCheckExecutor),
-        new ProvisioningController(rateLimiters, provisioningManager),
+        // FLT(uoemai): Device provisioning is disabled in the prototype.
+        // new ProvisioningController(rateLimiters, provisioningManager),
         new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
             rateLimiters),
         new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().globalConfig(), clock),
@@ -1126,16 +1145,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             phoneNumberIdentifiers, rateLimiters, accountsManager, registrationFraudChecker,
             dynamicConfigurationManager, clock)
     );
-    if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
-      SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,
-          List.of(stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager),
-          zkReceiptOperations, issuedReceiptsManager);
-      commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
-          subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
-          profileBadgeConverter, bankMandateTranslator));
-      commonControllers.add(new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
-          zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager));
-    }
+    // FLT(uoemai): All forms of payment are disabled in the prototype.
+    // if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
+    //   SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,
+    //       List.of(stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager),
+    //       zkReceiptOperations, issuedReceiptsManager);
+    //   commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
+    //       subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
+    //       profileBadgeConverter, bankMandateTranslator));
+    //   commonControllers.add(new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
+    //       zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager));
+    // }
 
     for (Object controller : commonControllers) {
       environment.jersey().register(controller);
@@ -1144,7 +1164,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     WebSocketEnvironment<AuthenticatedDevice> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), Duration.ofMillis(60000));
-    provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager, provisioningWebsocketTimeoutExecutor, Duration.ofSeconds(90)));
+    // FLT(uoemai): Device provisioning is disabled in the prototype.
+    // provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager, provisioningWebsocketTimeoutExecutor, Duration.ofSeconds(90)));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     provisioningEnvironment.jersey().register(new KeepAliveController(webSocketConnectionEventManager));
     provisioningEnvironment.jersey().register(new TimestampResponseFilter());

@@ -84,8 +84,10 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
+import org.whispersystems.textsecuregcm.securestorage.StorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecovery2Client;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryException;
+import org.whispersystems.textsecuregcm.securevaluerecovery.ValueRecovery2Client;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -125,8 +127,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final KeysManager keysManager;
   private final MessagesManager messagesManager;
   private final ProfilesManager profilesManager;
-  private final SecureStorageClient secureStorageClient;
-  private final SecureValueRecovery2Client secureValueRecovery2Client;
+  private final StorageClient storageClient;
+  private final ValueRecovery2Client valueRecovery2Client;
 
   private final DisconnectionRequestManager disconnectionRequestManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
@@ -208,8 +210,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final KeysManager keysManager,
       final MessagesManager messagesManager,
       final ProfilesManager profilesManager,
-      final SecureStorageClient secureStorageClient,
-      final SecureValueRecovery2Client secureValueRecovery2Client,
+      final StorageClient storageClient,
+      final ValueRecovery2Client valueRecovery2Client,
       final DisconnectionRequestManager disconnectionRequestManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final ClientPublicKeysManager clientPublicKeysManager,
@@ -226,8 +228,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.keysManager = keysManager;
     this.messagesManager = messagesManager;
     this.profilesManager = profilesManager;
-    this.secureStorageClient = secureStorageClient;
-    this.secureValueRecovery2Client = secureValueRecovery2Client;
+    this.storageClient = storageClient;
+    this.valueRecovery2Client = valueRecovery2Client;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.clientPublicKeysManager = clientPublicKeysManager;
@@ -1292,7 +1294,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                     account.getIdentifier(IdentityType.ACI),
                     device.getId())))
         .toList();
-    final CompletableFuture<Void> svr2DeleteBackupFuture = secureValueRecovery2Client.deleteBackups(account.getUuid())
+    final CompletableFuture<Void> svr2DeleteBackupFuture = valueRecovery2Client.deleteBackups(account.getUuid())
         .exceptionally(ExceptionUtils.exceptionallyHandler(SecureValueRecoveryException.class, exception -> {
           final List<String> svrStatusCodesToIgnore = dynamicConfigurationManager.getConfiguration().getSvrStatusCodesToIgnoreForAccountDeletion();
           if (svrStatusCodesToIgnore.contains(exception.getStatusCode())) {
@@ -1304,7 +1306,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         }));
 
     return CompletableFuture.allOf(
-            secureStorageClient.deleteStoredData(account.getUuid()),
+            storageClient.deleteStoredData(account.getUuid()),
             svr2DeleteBackupFuture,
             keysManager.deleteSingleUsePreKeys(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),

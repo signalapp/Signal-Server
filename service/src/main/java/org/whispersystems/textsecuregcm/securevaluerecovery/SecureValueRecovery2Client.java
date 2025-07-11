@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.securevaluerecovery;
 
 import static org.whispersystems.textsecuregcm.util.HeaderUtils.basicAuthHeader;
 
+import com.google.api.client.util.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import java.net.URI;
@@ -28,7 +29,7 @@ import org.whispersystems.textsecuregcm.util.HttpUtils;
 /**
  * A client for sending requests to Signal's secure value recovery v2 service on behalf of authenticated users.
  */
-public class SecureValueRecovery2Client {
+public class SecureValueRecovery2Client implements ValueRecovery2Client {
 
   private final ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator;
   private final URI deleteUri;

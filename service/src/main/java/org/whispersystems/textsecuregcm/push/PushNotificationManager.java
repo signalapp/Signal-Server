@@ -25,8 +25,8 @@ import org.whispersystems.textsecuregcm.util.Pair;
 public class PushNotificationManager {
 
   private final AccountsManager accountsManager;
-  private final APNSender apnSender;
-  private final FcmSender fcmSender;
+  private final PushNotificationSender apnSender;
+  private final PushNotificationSender fcmSender;
   private final PushNotificationScheduler pushNotificationScheduler;
 
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
@@ -36,8 +36,8 @@ public class PushNotificationManager {
   private static final Logger logger = LoggerFactory.getLogger(PushNotificationManager.class);
 
   public PushNotificationManager(final AccountsManager accountsManager,
-      final APNSender apnSender,
-      final FcmSender fcmSender,
+      final PushNotificationSender apnSender,
+      final PushNotificationSender fcmSender,
       final PushNotificationScheduler pushNotificationScheduler) {
 
     this.accountsManager = accountsManager;

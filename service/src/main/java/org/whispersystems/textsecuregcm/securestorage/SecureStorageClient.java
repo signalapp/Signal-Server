@@ -28,7 +28,7 @@ import org.whispersystems.textsecuregcm.util.HttpUtils;
 /**
  * A client for sending requests to Signal's secure storage service on behalf of authenticated users.
  */
-public class SecureStorageClient {
+public class SecureStorageClient implements StorageClient {
 
   private final ExternalServiceCredentialsGenerator storageServiceCredentialsGenerator;
   private final URI deleteUri;

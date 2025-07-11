@@ -59,8 +59,8 @@ public class PushNotificationScheduler implements Managed {
   private static final String TOKEN_TYPE_TAG = "tokenType";
   private static final String ACCEPTED_TAG = "accepted";
 
-  private final APNSender apnSender;
-  private final FcmSender fcmSender;
+  private final PushNotificationSender apnSender;
+  private final PushNotificationSender fcmSender;
   private final AccountsManager accountsManager;
   private final FaultTolerantRedisClusterClient pushSchedulingCluster;
   private final Clock clock;
@@ -145,8 +145,8 @@ public class PushNotificationScheduler implements Managed {
   }
 
   public PushNotificationScheduler(final FaultTolerantRedisClusterClient pushSchedulingCluster,
-      final APNSender apnSender,
-      final FcmSender fcmSender,
+      final PushNotificationSender apnSender,
+      final PushNotificationSender fcmSender,
       final AccountsManager accountsManager,
       final int dedicatedProcessWorkerThreadCount,
       final int workerMaxConcurrency) throws IOException {
@@ -162,8 +162,8 @@ public class PushNotificationScheduler implements Managed {
 
   @VisibleForTesting
   PushNotificationScheduler(final FaultTolerantRedisClusterClient pushSchedulingCluster,
-                            final APNSender apnSender,
-                            final FcmSender fcmSender,
+                            final PushNotificationSender apnSender,
+                            final PushNotificationSender fcmSender,
                             final AccountsManager accountsManager,
                             final Clock clock,
                             final int dedicatedProcessThreadCount,
