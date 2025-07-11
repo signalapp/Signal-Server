@@ -208,6 +208,32 @@ class AccountsManagerChangeNumberIntegrationTest {
   }
 
   @Test
+  void testChangeNumberSameNumber() throws InterruptedException, MismatchedDevicesException {
+    final String originalNumber = "+18005551111";
+    final Account account = AccountsHelper.createAccount(accountsManager, originalNumber);
+
+    final UUID originalUuid = account.getUuid();
+    final UUID originalPni = account.getPhoneNumberIdentifier();
+
+    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+
+    accountsManager.changeNumber(account,
+        originalNumber,
+        new IdentityKey(pniIdentityKeyPair.getPublicKey()),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair)),
+        Map.of(Device.PRIMARY_ID, 1));
+
+    final Account updatedAccount = accountsManager.getByE164(originalNumber).orElseThrow();
+    assertEquals(originalUuid, updatedAccount.getUuid());
+    assertEquals(originalNumber, updatedAccount.getNumber());
+    assertEquals(originalPni, updatedAccount.getPhoneNumberIdentifier());
+
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(originalPni));
+    assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(updatedAccount.getPhoneNumberIdentifier()));
+  }
+
+  @Test
   void testChangeNumberWithPniExtensions() throws InterruptedException, MismatchedDevicesException {
     final String originalNumber = "+18005551111";
     final String secondNumber = "+18005552222";
