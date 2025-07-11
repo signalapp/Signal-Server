@@ -3044,7 +3044,7 @@ paths:
                 $ref: "#/components/schemas/ExternalServiceCredentials"
       security:
       - authenticatedAccount: []
-  /v2/backup/auth/check:
+  /v2/{name}/auth/check:
     post:
       tags:
       - Secure Value Recovery
@@ -3072,7 +3072,7 @@ paths:
           description: Provided list of SVR2 credentials could not be parsed
         "400":
           description: '`POST` request body is not a valid `JSON`'
-  /v2/backup/auth:
+  /v2/{name}/auth:
     get:
       tags:
       - Secure Value Recovery
@@ -3081,6 +3081,25 @@ paths:
         Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
       operationId: getAuth_2
+      responses:
+        "200":
+          description: '`JSON` with generated credentials.'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExternalServiceCredentials"
+        "401":
+          description: Account authentication check failed.
+      security:
+      - authenticatedAccount: []
+  /v1/svrb/auth:
+    get:
+      tags:
+      - Secure Value Recovery B
+      summary: Generate credentials for SVRB
+      description: |
+        Generate SVRB service credentials. Generated credentials have an expiration time of 1 day (subject to change)
+      operationId: getAuth_3
       responses:
         "200":
           description: '`JSON` with generated credentials.'
