@@ -82,25 +82,6 @@ public class ChangeNumberManagerTest {
 
       return updatedAccount;
     });
-
-    when(accountsManager.updatePniKeys(any(), any(), any(), any(), any())).thenAnswer((Answer<Account>)invocation -> {
-      final Account account = invocation.getArgument(0, Account.class);
-
-      final UUID uuid = account.getUuid();
-      final UUID pni = account.getPhoneNumberIdentifier();
-      final List<Device> devices = account.getDevices();
-
-      final Account updatedAccount = mock(Account.class);
-      when(updatedAccount.getUuid()).thenReturn(uuid);
-      when(updatedAccount.getPhoneNumberIdentifier()).thenReturn(pni);
-      when(updatedAccount.getDevices()).thenReturn(devices);
-      for (byte i = 1; i <= 3; i++) {
-        final Optional<Device> d = account.getDevice(i);
-        when(updatedAccount.getDevice(i)).thenReturn(d);
-      }
-
-      return updatedAccount;
-    });
   }
 
   @Test

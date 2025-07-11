@@ -52,7 +52,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -743,45 +742,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         AccountChangeValidator.NUMBER_CHANGE_VALIDATOR);
   }
 
-  public Account updatePniKeys(final Account account,
-      final IdentityKey pniIdentityKey,
-      final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
-      final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
-      final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
-
-    try {
-      return accountLockManager.withLock(Set.of(account.getIdentifier(IdentityType.PNI)), () -> {
-        validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
-
-        final UUID aci = account.getIdentifier(IdentityType.ACI);
-        final UUID pni = account.getIdentifier(IdentityType.PNI);
-
-        final Collection<TransactWriteItem> keyWriteItems =
-            buildPniKeyWriteItems(pni, pniSignedPreKeys, pniPqLastResortPreKeys);
-
-        return redisDeleteAsync(account)
-            .thenCompose(ignored -> keysManager.deleteSingleUsePreKeys(pni))
-            .thenCompose(ignored -> updateTransactionallyWithRetriesAsync(account,
-                a -> setPniKeys(a, pniIdentityKey, pniRegistrationIds),
-                accounts::updateTransactionallyAsync,
-                () -> accounts.getByAccountIdentifierAsync(aci).thenApply(Optional::orElseThrow),
-                a -> keyWriteItems,
-                AccountChangeValidator.GENERAL_CHANGE_VALIDATOR,
-                MAX_UPDATE_ATTEMPTS))
-            .join();
-      }, accountLockExecutor);
-    } catch (final Exception e) {
-      if (e instanceof MismatchedDevicesException mismatchedDevicesException) {
-        throw mismatchedDevicesException;
-      } else if (e instanceof RuntimeException runtimeException) {
-        throw runtimeException;
-      }
-
-      logger.error("Unexpected exception when updating PNI key material", e);
-      throw new RuntimeException(e);
-    }
-  }
-
   private Collection<TransactWriteItem> buildPniKeyWriteItems(
       final UUID phoneNumberIdentifier,
       final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
@@ -1111,42 +1071,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException) {
               return retriever.get().thenCompose(refreshedAccount ->
                   updateWithRetriesAsync(refreshedAccount, updater, persister, retriever, changeValidator, remainingTries - 1));
-            } else {
-              throw ExceptionUtils.wrap(throwable);
-            }
-          });
-    }
-
-    return CompletableFuture.failedFuture(new OptimisticLockRetryLimitExceededException());
-  }
-
-  private CompletionStage<Account> updateTransactionallyWithRetriesAsync(final Account account,
-      final Consumer<Account> updater,
-      final BiFunction<Account, Collection<TransactWriteItem>, CompletionStage<Void>> persister,
-      final Supplier<CompletionStage<Account>> retriever,
-      final Function<Account, Collection<TransactWriteItem>> additionalWriteItemProvider,
-      final AccountChangeValidator changeValidator,
-      final int remainingTries) {
-
-    final Account originalAccount = AccountUtil.cloneAccountAsNotStale(account);
-
-    final Collection<TransactWriteItem> additionalWriteItems = additionalWriteItemProvider.apply(account);
-    updater.accept(account);
-
-    if (remainingTries > 0) {
-      return persister.apply(account, additionalWriteItems)
-          .thenApply(ignored -> {
-            final Account updatedAccount = AccountUtil.cloneAccountAsNotStale(account);
-            account.markStale();
-
-            changeValidator.validateChange(originalAccount, updatedAccount);
-
-            return updatedAccount;
-          })
-          .exceptionallyCompose(throwable -> {
-            if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException) {
-              return retriever.get().thenCompose(refreshedAccount ->
-                  updateTransactionallyWithRetriesAsync(refreshedAccount, updater, persister, retriever, additionalWriteItemProvider, changeValidator, remainingTries - 1));
             } else {
               throw ExceptionUtils.wrap(throwable);
             }
