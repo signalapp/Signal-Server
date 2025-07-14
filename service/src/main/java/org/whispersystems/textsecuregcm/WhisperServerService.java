@@ -48,6 +48,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -74,6 +75,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.attachments.DummyAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
@@ -775,12 +777,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(virtualThreadPinEventMonitor);
     environment.lifecycle().manage(accountsManager);
 
-    final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator(
-        config.getGcpAttachmentsConfiguration().domain(),
-        config.getGcpAttachmentsConfiguration().email(),
-        config.getGcpAttachmentsConfiguration().maxSizeInBytes(),
-        config.getGcpAttachmentsConfiguration().pathPrefix(),
-        config.getGcpAttachmentsConfiguration().rsaSigningKey().value());
+    // FLT(uoemai): Cloud uploads are disabled in the prototype.
+    // final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator(
+    //     config.getGcpAttachmentsConfiguration().domain(),
+    //     config.getGcpAttachmentsConfiguration().email(),
+    //     config.getGcpAttachmentsConfiguration().maxSizeInBytes(),
+    //     config.getGcpAttachmentsConfiguration().pathPrefix(),
+    //     config.getGcpAttachmentsConfiguration().rsaSigningKey().value());
+    final DummyAttachmentGenerator gcsAttachmentGenerator = new DummyAttachmentGenerator();
 
     PostPolicyGenerator profileCdnPolicyGenerator = new PostPolicyGenerator(config.getCdnConfiguration().region(),
         config.getCdnConfiguration().bucket(), config.getCdnConfiguration().credentials().accessKeyId().value());
