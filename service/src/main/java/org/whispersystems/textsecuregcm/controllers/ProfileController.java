@@ -193,7 +193,7 @@ public class ProfileController {
             request.commitment().serialize()));
 
     if (request.getAvatarChange() != CreateProfileRequest.AvatarChange.UNCHANGED) {
-      currentAvatar.ifPresent(s -> profilesManager.deleteAvatar(s).join());
+      currentAvatar.ifPresent(profilesManager::deleteAvatar);
     }
 
     accountsManager.update(account, a -> {

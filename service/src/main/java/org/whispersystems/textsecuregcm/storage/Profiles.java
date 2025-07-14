@@ -264,7 +264,7 @@ public class Profiles {
   /**
    * Deletes all profile versions for the given UUID
    *
-   * @return a list of avatar URLs to be deleted
+   * @return a list of avatar URLs that may be deleted
    */
   public CompletableFuture<List<String>> deleteAll(final UUID uuid) {
     final Timer.Sample sample = Timer.start();

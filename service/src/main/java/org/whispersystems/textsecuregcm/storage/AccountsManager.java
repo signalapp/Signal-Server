@@ -374,7 +374,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
               keysManager.deleteSingleUsePreKeys(aci),
               keysManager.deleteSingleUsePreKeys(pni),
               messagesManager.clear(aci),
-              profilesManager.deleteAll(aci))
+              profilesManager.deleteAll(aci, false))
           .thenCompose(ignored -> disconnectionRequestManager.requestDisconnection(aci))
           .thenCompose(ignored -> accounts.reclaimAccount(e.getExistingAccount(), account, additionalWriteItems))
           .thenCompose(ignored -> {
@@ -388,7 +388,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             return CompletableFuture.allOf(keysManager.deleteSingleUsePreKeys(aci),
                 keysManager.deleteSingleUsePreKeys(pni),
                 messagesManager.clear(aci),
-                profilesManager.deleteAll(aci));
+                profilesManager.deleteAll(aci, false));
           })
           .join();
     }
@@ -1299,7 +1299,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             keysManager.deleteSingleUsePreKeys(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
             messagesManager.clear(account.getUuid()),
-            profilesManager.deleteAll(account.getUuid()),
+            profilesManager.deleteAll(account.getUuid(), true),
             registrationRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI)))
         .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
         .thenCompose(ignored -> redisDeleteAsync(account))

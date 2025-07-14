@@ -60,12 +60,18 @@ public class ProfilesManager {
         .thenCompose(ignored -> redisSetAsync(uuid, versionedProfile));
   }
 
-  public CompletableFuture<Void> deleteAll(UUID uuid) {
+  /**
+   * Delete all profiles for the given uuid.
+   * <p>
+   * Avatars should be included for explicit delete actions, such as API calls and expired accounts. Implicit
+   * deletions, such as registration, should preserve them, so that PIN recovery includes the avatar.
+   */
+  public CompletableFuture<Void> deleteAll(UUID uuid, final boolean includeAvatar) {
 
     final CompletableFuture<Void> profilesAndAvatars = Mono.fromFuture(profiles.deleteAll(uuid))
         .flatMapIterable(Function.identity())
         .flatMap(avatar ->
-          Mono.fromFuture(deleteAvatar(avatar))
+          Mono.fromFuture(includeAvatar ? deleteAvatar(avatar) : CompletableFuture.completedFuture(null))
               // this is best-effort
               .retry(3)
               .onErrorComplete())
