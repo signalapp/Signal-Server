@@ -574,6 +574,46 @@ public class ArchiveControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
   }
 
+
+  static Stream<Arguments> messagesUploadForm() {
+    return Stream.of(
+        Arguments.of(Optional.empty(), true),
+        Arguments.of(Optional.of(BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE), true),
+        Arguments.of(Optional.of(BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE + 1), false)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  public void messagesUploadForm(Optional<Long> uploadLength, boolean expectSuccess) throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation =
+        backupAuthTestUtil.getPresentation(BackupLevel.PAID, messagesBackupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupCredentialType.MESSAGES, BackupLevel.PAID)));
+    when(backupManager.createMessageBackupUploadDescriptor(any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org")));
+
+    final WebTarget builder = resources.getJerseyTest().target("v1/archives/upload/form");
+    final Response response = uploadLength
+        .map(length -> builder.queryParam("uploadLength", length))
+        .orElse(builder)
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .get();
+    if (expectSuccess) {
+      assertThat(response.getStatus()).isEqualTo(200);
+      ArchiveController.UploadDescriptorResponse desc = response.readEntity(ArchiveController.UploadDescriptorResponse.class);
+      assertThat(desc.cdn()).isEqualTo(3);
+      assertThat(desc.key()).isEqualTo("abc");
+      assertThat(desc.headers()).containsExactlyEntriesOf(Map.of("k", "v"));
+      assertThat(desc.signedUploadLocation()).isEqualTo("example.org");
+    } else {
+      assertThat(response.getStatus()).isEqualTo(413);
+    }
+  }
+
   @Test
   public void mediaUploadForm() throws VerificationFailedException {
     final BackupAuthCredentialPresentation presentation =

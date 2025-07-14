@@ -101,7 +101,18 @@ public class BackupsAnonymousGrpcService extends ReactorBackupsAnonymousGrpc.Bac
   public Mono<GetUploadFormResponse> getUploadForm(final GetUploadFormRequest request) {
     return authenticateBackupUserMono(request.getSignedPresentation())
         .flatMap(backupUser -> switch (request.getUploadTypeCase()) {
-          case MESSAGES -> Mono.fromFuture(backupManager.createMessageBackupUploadDescriptor(backupUser));
+          case MESSAGES -> {
+            final long uploadLength = request.getMessages().getUploadLength();
+            final boolean oversize = uploadLength > BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE;
+            backupMetrics.updateMessageBackupSizeDistribution(backupUser, oversize, Optional.of(uploadLength));
+            if (oversize) {
+              yield Mono.error(Status.FAILED_PRECONDITION
+                  .withDescription("Exceeds max upload length")
+                  .asRuntimeException());
+            }
+
+            yield Mono.fromFuture(backupManager.createMessageBackupUploadDescriptor(backupUser));
+          }
           case MEDIA -> Mono.fromCompletionStage(backupManager.createTemporaryAttachmentUploadDescriptor(backupUser));
           case UPLOADTYPE_NOT_SET -> Mono.error(Status.INVALID_ARGUMENT
               .withDescription("Must set upload_type")

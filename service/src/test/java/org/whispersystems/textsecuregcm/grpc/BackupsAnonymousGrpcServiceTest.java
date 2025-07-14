@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +28,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
 import org.signal.chat.backup.BackupsAnonymousGrpc;
@@ -56,6 +64,7 @@ import org.whispersystems.textsecuregcm.backup.BackupAuthTestUtil;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupUploadDescriptor;
 import org.whispersystems.textsecuregcm.backup.CopyResult;
+import org.whispersystems.textsecuregcm.controllers.ArchiveController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -293,6 +302,42 @@ class BackupsAnonymousGrpcServiceTest extends
         .extracting(StatusRuntimeException::getStatus)
         .isEqualTo(Status.RESOURCE_EXHAUSTED);
   }
+
+  static Stream<Arguments> messagesUploadForm() {
+    return Stream.of(
+        Arguments.of(Optional.empty(), true),
+        Arguments.of(Optional.of(BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE), true),
+        Arguments.of(Optional.of(BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE + 1), false)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  public void messagesUploadForm(Optional<Long> uploadLength, boolean expectSuccess) {
+    when(backupManager.createMessageBackupUploadDescriptor(any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org")));
+    final GetUploadFormRequest.MessagesUploadType.Builder builder = GetUploadFormRequest.MessagesUploadType.newBuilder();
+    uploadLength.ifPresent(builder::setUploadLength);
+    final GetUploadFormRequest request = GetUploadFormRequest.newBuilder()
+        .setMessages(builder.build())
+        .setSignedPresentation(signedPresentation(presentation))
+        .build();
+    if (expectSuccess) {
+      final GetUploadFormResponse uploadForm = unauthenticatedServiceStub().getUploadForm(request);
+      assertThat(uploadForm.getCdn()).isEqualTo(3);
+      assertThat(uploadForm.getKey()).isEqualTo("abc");
+      assertThat(uploadForm.getHeadersMap()).containsExactlyEntriesOf(Map.of("k", "v"));
+      assertThat(uploadForm.getSignedUploadLocation()).isEqualTo("example.org");
+    } else {
+      assertThatExceptionOfType(StatusRuntimeException.class)
+          .isThrownBy(() -> unauthenticatedServiceStub().getUploadForm(request))
+          .extracting(StatusRuntimeException::getStatus)
+          .extracting(Status::getCode)
+          .isEqualTo(Status.FAILED_PRECONDITION.getCode());
+    }
+  }
+
 
   @Test
   void readAuth() {

@@ -212,6 +212,10 @@ service BackupsAnonymous {
 
   /**
    * Retrieve an upload form that can be used to perform a resumable upload
+   *
+   * Trying to request an upload form larger than the maximum supported upload
+   * size will return a PRECONDITION_FAILED error. The maximum upload size is
+   * subject to change.
    */
   rpc GetUploadForm(GetUploadFormRequest) returns (GetUploadFormResponse) {}
 
@@ -333,7 +337,9 @@ message RefreshResponse {
 message GetUploadFormRequest {
   SignedPresentation signed_presentation = 1;
 
-  message MessagesUploadType {}
+  message MessagesUploadType {
+    uint64 uploadLength = 1;
+  }
   message MediaUploadType {}
   oneof upload_type {
     /**
