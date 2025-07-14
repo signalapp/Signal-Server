@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -131,9 +131,9 @@ class AccountsManagerUsernameIntegrationTest {
     doAnswer(invocation -> {
       final Callable<?> task = invocation.getArgument(1);
       return task.call();
-    }).when(accountLockManager).withLock(anyList(), any(), any());
+    }).when(accountLockManager).withLock(anySet(), any(), any());
 
-    when(accountLockManager.withLockAsync(anyList(), any(), any())).thenAnswer(invocation -> {
+    when(accountLockManager.withLockAsync(anySet(), any(), any())).thenAnswer(invocation -> {
       final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
       taskSupplier.get().join();
 

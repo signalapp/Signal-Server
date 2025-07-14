@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -41,7 +42,7 @@ public class ClientPublicKeysManager {
    * @return a future that completes when the given key has been stored
    */
   public CompletableFuture<Void> setPublicKey(final Account account, final byte deviceId, final ECPublicKey publicKey) {
-    return accountLockManager.withLockAsync(List.of(account.getPhoneNumberIdentifier()),
+    return accountLockManager.withLockAsync(Set.of(account.getPhoneNumberIdentifier()),
         () -> clientPublicKeys.setPublicKey(account.getIdentifier(IdentityType.ACI), deviceId, publicKey),
         accountLockExecutor);
   }

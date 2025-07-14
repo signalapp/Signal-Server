@@ -10,7 +10,7 @@ import static org.mockito.Mockito.verify;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBLockClient;
 import com.amazonaws.services.dynamodbv2.ReleaseLockOptions;
 import java.util.Collections;
-import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -48,7 +48,7 @@ class AccountLockManagerTest {
 
   @Test
   void withLock() throws Exception {
-    accountLockManager.withLock(List.of(FIRST_PNI, SECOND_PNI), () -> null, executor);
+    accountLockManager.withLock(Set.of(FIRST_PNI, SECOND_PNI), () -> null, executor);
 
     verify(lockClient, times(2)).acquireLock(any());
     verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
@@ -56,7 +56,7 @@ class AccountLockManagerTest {
 
   @Test
   void withLockTaskThrowsException() throws InterruptedException {
-    assertThrows(RuntimeException.class, () -> accountLockManager.withLock(List.of(FIRST_PNI, SECOND_PNI), () -> {
+    assertThrows(RuntimeException.class, () -> accountLockManager.withLock(Set.of(FIRST_PNI, SECOND_PNI), () -> {
           throw new RuntimeException();
     }, executor));
 
@@ -68,7 +68,7 @@ class AccountLockManagerTest {
   void withLockEmptyList() {
     final Runnable task = mock(Runnable.class);
 
-    assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptyList(), () -> null,
+    assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptySet(), () -> null,
         executor));
     verify(task, never()).run();
   }
@@ -76,7 +76,7 @@ class AccountLockManagerTest {
   @Test
   void withLockAsync() throws InterruptedException {
     accountLockManager.withLockAsync(
-        List.of(FIRST_PNI, SECOND_PNI), () -> CompletableFuture.completedFuture(null), executor).join();
+        Set.of(FIRST_PNI, SECOND_PNI), () -> CompletableFuture.completedFuture(null), executor).join();
 
     verify(lockClient, times(2)).acquireLock(any());
     verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
@@ -86,7 +86,7 @@ class AccountLockManagerTest {
   void withLockAsyncTaskThrowsException() throws InterruptedException {
     assertThrows(RuntimeException.class,
         () -> accountLockManager.withLockAsync(
-                List.of(FIRST_PNI, SECOND_PNI), () -> CompletableFuture.failedFuture(new RuntimeException()), executor)
+                Set.of(FIRST_PNI, SECOND_PNI), () -> CompletableFuture.failedFuture(new RuntimeException()), executor)
             .join());
 
     verify(lockClient, times(2)).acquireLock(any());
@@ -98,7 +98,7 @@ class AccountLockManagerTest {
     final Runnable task = mock(Runnable.class);
 
     assertThrows(IllegalArgumentException.class,
-        () -> accountLockManager.withLockAsync(Collections.emptyList(), () -> CompletableFuture.completedFuture(null),
+        () -> accountLockManager.withLockAsync(Collections.emptySet(), () -> CompletableFuture.completedFuture(null),
             executor));
 
     verify(task, never()).run();

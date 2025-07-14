@@ -8,6 +8,7 @@ import com.amazonaws.services.dynamodbv2.ReleaseLockOptions;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -55,7 +56,7 @@ public class AccountLockManager {
    *
    * @throws Exception if an exception is thrown by the given {@code task}
    */
-  public <V> V withLock(final List<UUID> phoneNumberIdentifiers,
+  public <V> V withLock(final Set<UUID> phoneNumberIdentifiers,
       final Callable<V> task,
       final Executor lockAcquisitionExecutor) throws Exception {
 
@@ -106,7 +107,7 @@ public class AccountLockManager {
    * @return a future that completes normally when the given task has executed successfully and all locks have been
    * released; the returned future may fail with an {@link InterruptedException} if interrupted while acquiring a lock
    */
-  public <T> CompletableFuture<T> withLockAsync(final List<UUID> phoneNumberIdentifiers,
+  public <T> CompletableFuture<T> withLockAsync(final Set<UUID> phoneNumberIdentifiers,
       final Supplier<CompletableFuture<T>> taskSupplier, final Executor executor) {
 
     if (phoneNumberIdentifiers.isEmpty()) {

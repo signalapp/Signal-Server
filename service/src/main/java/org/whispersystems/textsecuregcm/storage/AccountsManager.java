@@ -277,7 +277,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     return createTimer.record(() -> {
       try {
-        return accountLockManager.withLock(List.of(pni),
+        return accountLockManager.withLock(Set.of(pni),
             () -> create(number, pni, accountAttributes, accountBadges, aciIdentityKey, pniIdentityKey, primaryDeviceSpec, userAgent), accountLockExecutor);
       } catch (final Exception e) {
         if (e instanceof RuntimeException runtimeException) {
@@ -416,7 +416,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   public CompletableFuture<Pair<Account, Device>> addDevice(final Account account, final DeviceSpec deviceSpec, final String linkDeviceToken) {
-    return accountLockManager.withLockAsync(List.of(account.getPhoneNumberIdentifier()),
+    return accountLockManager.withLockAsync(Set.of(account.getPhoneNumberIdentifier()),
         () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
         accountLockExecutor);
   }
@@ -610,7 +610,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       throw new IllegalArgumentException("Cannot remove primary device");
     }
 
-    return accountLockManager.withLockAsync(List.of(account.getPhoneNumberIdentifier()),
+    return accountLockManager.withLockAsync(Set.of(account.getPhoneNumberIdentifier()),
         () -> removeDevice(account.getIdentifier(IdentityType.ACI), deviceId, MAX_UPDATE_ATTEMPTS),
         accountLockExecutor);
   }
@@ -671,7 +671,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     }
 
     try {
-      return accountLockManager.withLock(List.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier),
+      return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier),
           () -> changeNumber(account, targetNumber, targetPhoneNumberIdentifier, pniIdentityKey, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds), accountLockExecutor);
     } catch (final Exception e) {
       if (e instanceof MismatchedDevicesException mismatchedDevicesException) {
@@ -749,7 +749,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final Map<Byte, Integer> pniRegistrationIds) throws MismatchedDevicesException {
 
     try {
-      return accountLockManager.withLock(List.of(account.getIdentifier(IdentityType.PNI)), () -> {
+      return accountLockManager.withLock(Set.of(account.getIdentifier(IdentityType.PNI)), () -> {
         validateDevices(account, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds);
 
         final UUID aci = account.getIdentifier(IdentityType.ACI);
@@ -1263,7 +1263,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   public CompletableFuture<Void> delete(final Account account, final DeletionReason deletionReason) {
     final Timer.Sample sample = Timer.start();
 
-    return accountLockManager.withLockAsync(List.of(account.getPhoneNumberIdentifier()), () -> delete(account),
+    return accountLockManager.withLockAsync(Set.of(account.getPhoneNumberIdentifier()), () -> delete(account),
             accountLockExecutor)
         .whenComplete((ignored, throwable) -> {
           sample.stop(deleteTimer);
