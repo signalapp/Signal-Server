@@ -34,6 +34,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -49,6 +50,8 @@ import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
@@ -82,6 +85,7 @@ import reactor.core.publisher.Mono;
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Keys")
 public class KeysController {
 
+  private static final Logger log = LoggerFactory.getLogger(KeysController.class);
   private final RateLimiters rateLimiters;
   private final KeysManager keysManager;
   private final AccountsManager accounts;
@@ -402,21 +406,39 @@ public class KeysController {
           final KEMSignedPreKey pqPreKey = deviceAndPreKeys.getT4().orElse(null);
           final ECPreKey unsignedEcPreKey = deviceAndPreKeys.getT2().orElse(null);
           final ECSignedPreKey signedEcPreKey = deviceAndPreKeys.getT3().orElse(null);
+          final int registrationId = device.getRegistrationId(targetIdentifier.identityType());
 
           Metrics.counter(GET_KEYS_COUNTER_NAME, Tags.of(
                   UserAgentTagUtil.getPlatformTag(userAgent),
                   Tag.of(IDENTITY_TYPE_TAG_NAME, targetIdentifier.identityType().name()),
                   Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey != null)),
+                  Tag.of("signedEcKeyAvailable", String.valueOf(signedEcPreKey != null)),
                   Tag.of("pqKeyAvailable", String.valueOf(pqPreKey != null))))
               .increment();
 
-          if (signedEcPreKey != null || unsignedEcPreKey != null || pqPreKey != null) {
-            final int registrationId = device.getRegistrationId(targetIdentifier.identityType());
-            return Mono.just(new PreKeyResponseItem(
-                device.getId(), registrationId, signedEcPreKey, unsignedEcPreKey, pqPreKey));
-          } else {
-            return Mono.empty();
+          if (pqPreKey == null) {
+            // The PQ prekey should never be null. This should only happen if the account or device has been
+            // removed.
+            return Mono.fromCompletionStage(() -> accounts.getByServiceIdentifierAsync(targetIdentifier))
+                .flatMap(maybeAccount -> maybeAccount
+                    .flatMap(rereadAccount -> rereadAccount.getDevice(device.getId()))
+                    .filter(rereadDevice ->
+                        registrationId == rereadDevice.getRegistrationId(targetIdentifier.identityType()))
+                    .map(rereadDevice -> {
+                      // The account and device still exist, and the device we originally read matches the current
+                      // registrationId, so the lastResort key should have existed
+                      log.error(
+                          "Target {}, Account {}, DeviceId {}, RegistrationId {} was missing a last resort prekey",
+                          targetIdentifier,
+                          target.getIdentifier(IdentityType.ACI),
+                          rereadDevice.getId(),
+                          rereadDevice.getRegistrationId(targetIdentifier.identityType()));
+                      return Mono.<PreKeyResponseItem>error(new IOException("Device missing last resort prekey"));
+                    })
+                    .orElse(Mono.empty()));
           }
+          return Mono.just(new PreKeyResponseItem(
+              device.getId(), registrationId, signedEcPreKey, unsignedEcPreKey, pqPreKey));
         })
         .collectList()
         .block();
