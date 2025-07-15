@@ -578,6 +578,12 @@ paths:
         required: true
         schema:
           type: string
+      - name: uploadLength
+        in: query
+        description: The size of the message backup to upload in bytes
+        schema:
+          type: integer
+          format: int64
       responses:
         "200":
           content:
@@ -5118,10 +5124,10 @@ components:
         created:
           type: string
           format: date-time
-        userAgent:
-          type: string
         open:
           type: boolean
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
