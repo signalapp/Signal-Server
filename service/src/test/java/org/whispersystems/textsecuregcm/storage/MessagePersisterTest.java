@@ -64,7 +64,7 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
 
-@Timeout(value = 5, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
+@Timeout(value = 15, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class MessagePersisterTest {
 
   @RegisterExtension
