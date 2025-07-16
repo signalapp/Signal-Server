@@ -2997,17 +2997,54 @@ paths:
               description: "If present, an positive integer indicating the number\
                 \ of seconds before a subsequent attempt could succeed"
               style: simple
-  /v1/config:
+  /v2/config:
     get:
       tags:
       - Remote Config
       summary: Fetch remote configuration
+      description: "Remote configuration is a list of namespaced keys that clients\
+        \ may use for consistent configuration or behavior. Configuration values change\
+        \ over time, and the list should be refreshed periodically, typically at client\
+        \ launch and every few hours thereafter. Some values depend on the authenticated\
+        \ user, so the list should be refreshed immediately if the user changes."
+      operationId: getAll
+      parameters:
+      - name: User-Agent
+        in: header
+        description: The user agent in standard form.
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Remote configuration values for the authenticated user
+          headers:
+            ETag:
+              description: A hash of the configuration content which can be supplied
+                in an If-None-Match header on future requests
+              style: simple
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RemoteConfigurationResponse"
+        "304":
+          description: There is no change since the last fetch
+        "401":
+          description: This request requires authentication
+      security:
+      - authenticatedAccount: []
+  /v1/config:
+    get:
+      tags:
+      - Remote Config
+      summary: Fetch remote configuration (deprecated)
       description: |
         Remote configuration is a list of namespaced keys that clients may use for consistent configuration or behavior.
 
         Configuration values change over time, and the list should be refreshed periodically, typically at client
         launch and every few hours thereafter.
-      operationId: getAll
+
+        This endpoint is deprecated; use GET /v2/config instead
+      operationId: getAll_1
       responses:
         "200":
           description: Remote configuration values for the authenticated user
@@ -3015,6 +3052,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserRemoteConfigList"
+      deprecated: true
       security:
       - authenticatedAccount: []
   /v1/storage/auth:
@@ -5952,6 +5990,15 @@ components:
           $ref: "#/components/schemas/ApnRegistrationId"
         gcmToken:
           $ref: "#/components/schemas/GcmRegistrationId"
+    RemoteConfigurationResponse:
+      type: object
+      properties:
+        config:
+          type: object
+          additionalProperties:
+            type: string
+            description: Remote configurations applicable to the user and client
+          description: Remote configurations applicable to the user and client
     UserRemoteConfig:
       type: object
       properties:
