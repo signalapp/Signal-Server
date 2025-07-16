@@ -499,22 +499,7 @@ paths:
             device.
         "422":
           description: The request body failed validation.
-        "409":
-          description: The set of devices specified in the request does not match
-            the set of devices active on the account.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MismatchedDevicesResponse"
-        "410":
-          description: The registration IDs provided for some devices do not match
-            those stored on the server.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/StaleDevicesResponse"
-        "413":
-          description: One or more device messages was too large
+      deprecated: true
       security:
       - authenticatedAccount: []
   /v2/accounts/data_report:
@@ -5124,10 +5109,10 @@ components:
         created:
           type: string
           format: date-time
-        open:
-          type: boolean
         userAgent:
           type: string
+        open:
+          type: boolean
     WebSocketSessionContext:
       type: object
       properties:
