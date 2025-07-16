@@ -31,6 +31,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -133,7 +134,7 @@ class GooglePlayBillingManagerTest {
   }
 
   @ParameterizedTest
-  @EnumSource(mode = EnumSource.Mode.EXCLUDE, names = {"ACTIVE"})
+  @EnumSource
   public void rejectInactivePurchase(GooglePlayBillingManager.SubscriptionState subscriptionState) throws IOException {
     when(subscriptionsv2Get.execute()).thenReturn(new SubscriptionPurchaseV2()
         .setAcknowledgementState(GooglePlayBillingManager.AcknowledgementState.PENDING.apiString())
@@ -142,9 +143,12 @@ class GooglePlayBillingManagerTest {
             .setExpiryTime(Instant.now().plus(Duration.ofDays(1)).toString())
             .setProductId(PRODUCT_ID))));
 
-    CompletableFutureTestUtil.assertFailsWithCause(
-        SubscriptionException.PaymentRequired.class,
-        googlePlayBillingManager.validateToken(PURCHASE_TOKEN));
+    final CompletableFuture<GooglePlayBillingManager.ValidatedToken> future = googlePlayBillingManager
+        .validateToken(PURCHASE_TOKEN);
+    switch (subscriptionState) {
+      case ACTIVE, IN_GRACE_PERIOD, CANCELED -> assertThatNoException().isThrownBy(() -> future.join());
+      default -> CompletableFutureTestUtil.assertFailsWithCause(SubscriptionException.PaymentRequired.class, future);
+    }
   }
 
   @Test

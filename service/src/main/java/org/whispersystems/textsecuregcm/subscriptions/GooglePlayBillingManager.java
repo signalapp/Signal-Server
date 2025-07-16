@@ -169,11 +169,13 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
 
       Metrics.counter(VALIDATE_COUNTER_NAME, subscriptionTags(subscription)).increment();
 
-      // We only ever acknowledge valid tokens. There are cases where a subscription was once valid and then was
-      // cancelled, so the user could still be entitled to their purchase. However, if we never acknowledge it, the
-      // user's charge will eventually be refunded anyway. See
-      // https://developer.android.com/google/play/billing/integrate#pending
-      if (state != SubscriptionState.ACTIVE) {
+      // We only accept tokens in a state where the user may be entitled to their purchase. This is true even in the
+      // CANCELLED state. For example, a user may subscribe for 1 month, then immediately cancel (disabling auto-renew)
+      // and then submit their token. In this case they should still be able to retrieve their entitlement.
+      // See https://developer.android.com/google/play/billing/integrate#life
+      if (state != SubscriptionState.ACTIVE
+          && state != SubscriptionState.IN_GRACE_PERIOD
+          && state != SubscriptionState.CANCELED) {
         throw ExceptionUtils.wrap(new SubscriptionException.PaymentRequired(
             "Cannot acknowledge purchase for subscription in state " + subscription.getSubscriptionState()));
       }
