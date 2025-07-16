@@ -242,11 +242,14 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
       final SubscriptionStatus status = switch (SubscriptionState
           .fromString(subscription.getSubscriptionState())
           .orElse(SubscriptionState.UNSPECIFIED)) {
-        case ACTIVE -> SubscriptionStatus.ACTIVE;
+        // In play terminology CANCELLED is the same as an active subscription with cancelAtPeriodEnd set in Stripe. So
+        // it should map to the ACTIVE stripe status.
+        case ACTIVE, CANCELED -> SubscriptionStatus.ACTIVE;
         case PENDING -> SubscriptionStatus.INCOMPLETE;
-        case EXPIRED, ON_HOLD, PAUSED -> SubscriptionStatus.PAST_DUE;
+        case ON_HOLD, PAUSED -> SubscriptionStatus.PAST_DUE;
         case IN_GRACE_PERIOD -> SubscriptionStatus.UNPAID;
-        case CANCELED, PENDING_PURCHASE_CANCELED -> SubscriptionStatus.CANCELED;
+        // EXPIRED is the equivalent of a Stripe CANCELLED subscription
+        case EXPIRED, PENDING_PURCHASE_CANCELED -> SubscriptionStatus.CANCELED;
         case UNSPECIFIED -> SubscriptionStatus.UNKNOWN;
       };
 
