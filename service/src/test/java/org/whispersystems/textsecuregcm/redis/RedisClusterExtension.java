@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -32,8 +31,7 @@ import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 
-public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback,
-    ExtensionContext.Store.CloseableResource {
+public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallback, ExtensionContext.Store.CloseableResource {
 
   private static ComposeContainer composeContainer;
   private static ClientResources redisClientResources;
@@ -68,14 +66,10 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
     if (redisClientResources != null) {
       redisClientResources.shutdown().get();
       composeContainer.stop();
+      redisClusterClient.shutdown();
     }
 
     redisClientResources = null;
-  }
-
-  @Override
-  public void afterEach(final ExtensionContext context) {
-    redisClusterClient.shutdown();
   }
 
   @Override
@@ -149,20 +143,21 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
           Thread.sleep(100);
         }
       } while (!allNodesUp);
+
+      final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
+      circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
+
+      redisClusterClient = new FaultTolerantRedisClusterClient("test-cluster",
+          redisClientResources.mutate(),
+          getRedisURIs(),
+          timeout,
+          circuitBreakerConfig,
+          retryConfiguration);
     }
   }
 
   @Override
   public void beforeEach(final ExtensionContext context) throws Exception {
-    final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
-    circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
-    redisClusterClient = new FaultTolerantRedisClusterClient("test-cluster",
-        redisClientResources.mutate(),
-        getRedisURIs(),
-        timeout,
-        circuitBreakerConfig,
-        retryConfiguration);
-
     redisClusterClient.useCluster(connection -> connection.sync().flushall(FlushMode.SYNC));
   }
 

@@ -33,7 +33,6 @@ public class LocalFaultTolerantRedisClusterFactory implements FaultTolerantRedis
     if (shutdownHookConfigured.compareAndSet(false, true)) {
       Runtime.getRuntime().addShutdownHook(new Thread(() -> {
         try {
-          redisClusterExtension.afterEach(null);
           redisClusterExtension.close();
         } catch (Throwable e) {
           throw new RuntimeException(e);
