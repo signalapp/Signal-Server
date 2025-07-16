@@ -10,6 +10,7 @@ import io.lettuce.core.FlushMode;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.resource.ClientResources;
 import java.time.Duration;
+import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -17,11 +18,11 @@ import org.testcontainers.utility.DockerImageName;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 
-public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallback, ExtensionContext.Store.CloseableResource {
+public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, ExtensionContext.Store.CloseableResource {
 
   private static RedisContainer redisContainer;
-  private static ClientResources redisClientResources;
 
+  private ClientResources redisClientResources;
   private FaultTolerantRedisClient faultTolerantRedisClient;
 
   // redis:7.4-apline; see https://hub.docker.com/layers/library/redis/7.4-alpine/images/sha256-e1b05db81cda983ede3bbb3e834e7ebec8faafa275f55f7f91f3ee84114f98a7
@@ -46,8 +47,6 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
     if (redisContainer == null) {
       redisContainer = new RedisContainer(REDIS_IMAGE);
       redisContainer.start();
-
-      redisClientResources = ClientResources.builder().build();
     }
   }
 
@@ -59,6 +58,9 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
   public void beforeEach(final ExtensionContext context) {
     final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
     circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
+
+    redisClientResources = ClientResources.builder().build();
+
     faultTolerantRedisClient = new FaultTolerantRedisClient("test-redis-client",
         redisClientResources.mutate(),
         getRedisURI(),
@@ -70,14 +72,17 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
   }
 
   @Override
+  public void afterEach(final ExtensionContext context) throws InterruptedException {
+    faultTolerantRedisClient.shutdown();
+    redisClientResources.shutdown().await();
+  }
+
+  @Override
   public void close() throws Throwable {
     if (redisContainer != null) {
-      redisClientResources.shutdown().await();
       redisContainer.stop();
+      redisContainer = null;
     }
-
-    redisClientResources = null;
-    redisContainer = null;
   }
 
   public FaultTolerantRedisClient getRedisClient() {
