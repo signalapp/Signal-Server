@@ -140,8 +140,8 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
       redisUris = Arrays.stream(REDIS_SERVICE_NAMES)
           .map(serviceName -> RedisURI.create(
-              composeContainer.getServiceHost("redis-0-1", REDIS_PORT),
-              composeContainer.getServicePort("redis-0-1", REDIS_PORT)))
+              composeContainer.getServiceHost(serviceName, REDIS_PORT),
+              composeContainer.getServicePort(serviceName, REDIS_PORT)))
           .toList();
 
       // Wait for the cluster to be fully up; just having the containers running isn't enough since they still need to do
