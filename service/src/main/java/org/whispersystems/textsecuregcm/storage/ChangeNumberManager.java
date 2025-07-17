@@ -4,13 +4,11 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import com.google.protobuf.ByteString;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.apache.commons.lang3.ObjectUtils;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +18,7 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 
@@ -51,48 +49,57 @@ public class ChangeNumberManager {
       final String senderUserAgent)
       throws InterruptedException, MismatchedDevicesException, MessageTooLargeException {
 
+    final long serverTimestamp = clock.millis();
+    final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(account.getIdentifier(IdentityType.ACI));
+
+    // Note that these for-validation envelopes do NOT have the "updated PNI" field set, and we'll need to populate that
+    // after actually changing the account's number.
+    final Map<Byte, Envelope> messagesByDeviceId = deviceMessages.stream()
+        .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, message -> message.toEnvelope(serviceIdentifier,
+            serviceIdentifier,
+            Device.PRIMARY_ID,
+            serverTimestamp,
+            false,
+            false,
+            true,
+            null,
+            clock)));
+
+    final Map<Byte, Integer> registrationIdsByDeviceId = deviceMessages.stream()
+        .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, IncomingMessage::destinationRegistrationId));
+
+    // Make sure we can plausibly deliver the messages to other devices on the account before making any changes to the
+    // account itself
+    if (!messagesByDeviceId.isEmpty()) {
+      MessageSender.validateIndividualMessageBundle(account,
+          serviceIdentifier,
+          messagesByDeviceId,
+          registrationIdsByDeviceId,
+          Optional.of(Device.PRIMARY_ID),
+          senderUserAgent);
+    }
+
     final Account updatedAccount = accountsManager.changeNumber(
         account, number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
-    sendDeviceMessages(updatedAccount, deviceMessages, senderUserAgent);
-
-    return updatedAccount;
-  }
-
-  private void sendDeviceMessages(final Account account,
-      final List<IncomingMessage> deviceMessages,
-      final String senderUserAgent) throws MessageTooLargeException, MismatchedDevicesException {
-
     try {
-      final long serverTimestamp = clock.millis();
-      final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(account.getUuid());
+      // Now that we've actually updated the account, populate the "updated PNI" field on all envelopes
+      final String updatedPniString = updatedAccount.getIdentifier(IdentityType.PNI).toString();
 
-      final Map<Byte, Envelope> messagesByDeviceId = deviceMessages.stream()
-          .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, message -> Envelope.newBuilder()
-              .setType(Envelope.Type.forNumber(message.type()))
-              .setClientTimestamp(serverTimestamp)
-              .setServerTimestamp(serverTimestamp)
-              .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
-              .setContent(ByteString.copyFrom(message.content()))
-              .setSourceServiceId(serviceIdentifier.toServiceIdentifierString())
-              .setSourceDevice(Device.PRIMARY_ID)
-              .setUpdatedPni(account.getPhoneNumberIdentifier().toString())
-              .setUrgent(true)
-              .setEphemeral(false)
-              .build()));
+      messagesByDeviceId.replaceAll((deviceId, envelope) ->
+          envelope.toBuilder().setUpdatedPni(updatedPniString).build());
 
-      final Map<Byte, Integer> registrationIdsByDeviceId = deviceMessages.stream()
-          .collect(Collectors.toMap(IncomingMessage::destinationDeviceId, IncomingMessage::destinationRegistrationId));
-
-      messageSender.sendMessages(account,
+      messageSender.sendMessages(updatedAccount,
           serviceIdentifier,
           messagesByDeviceId,
           registrationIdsByDeviceId,
           Optional.of(Device.PRIMARY_ID),
           senderUserAgent);
     } catch (final RuntimeException e) {
-      logger.warn("Changed number but could not send all device messages on {}", account.getUuid(), e);
+      logger.warn("Changed number but could not send all device messages for {}", account.getIdentifier(IdentityType.ACI), e);
       throw e;
     }
+
+    return updatedAccount;
   }
 }

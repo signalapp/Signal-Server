@@ -429,7 +429,8 @@ public class MessageController {
                 isStory,
                 messages.online(),
                 messages.urgent(),
-                spamCheckResult.token().orElse(null));
+                spamCheckResult.token().orElse(null),
+                clock);
           } catch (final IllegalArgumentException e) {
             logger.warn("Received bad envelope type {} from {}", message.type(), userAgent);
             throw new BadRequestException(e);

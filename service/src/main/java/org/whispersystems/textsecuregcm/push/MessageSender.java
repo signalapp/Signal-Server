@@ -28,7 +28,6 @@ import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -53,7 +52,6 @@ public class MessageSender {
 
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   // Note that these names deliberately reference `MessageController` for metric continuity
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageController.class, "rejectOversizeMessage");
@@ -75,13 +73,9 @@ public class MessageSender {
   @VisibleForTesting
   static final byte NO_EXCLUDED_DEVICE_ID = -1;
 
-  public MessageSender(
-      final MessagesManager messagesManager,
-      final PushNotificationManager pushNotificationManager,
-      final ExperimentEnrollmentManager experimentEnrollmentManager) {
+  public MessageSender(final MessagesManager messagesManager, final PushNotificationManager pushNotificationManager) {
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   /**
@@ -109,44 +103,14 @@ public class MessageSender {
       @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId,
       @Nullable final String userAgent) throws MismatchedDevicesException, MessageTooLargeException {
 
-    if (!destination.isIdentifiedBy(destinationIdentifier)) {
-      throw new IllegalArgumentException("Destination account not identified by destination service identifier");
-    }
-
     final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
 
-    if (messagesByDeviceId.isEmpty()) {
-      Metrics.counter(EMPTY_MESSAGE_LIST_COUNTER_NAME,
-          Tags.of(SYNC_MESSAGE_TAG_NAME, String.valueOf(syncMessageSenderDeviceId.isPresent())).and(platformTag)).increment();
-    }
-
-    final byte excludedDeviceId;
-    if (syncMessageSenderDeviceId.isPresent()) {
-      if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isBlank(message.getSourceServiceId()) ||
-          !destination.isIdentifiedBy(ServiceIdentifier.valueOf(message.getSourceServiceId())))) {
-
-        throw new IllegalArgumentException("Sync message sender device ID specified, but one or more messages are not addressed to sender");
-      }
-      excludedDeviceId = syncMessageSenderDeviceId.get();
-    } else {
-      if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isNotBlank(message.getSourceServiceId()) &&
-          destination.isIdentifiedBy(ServiceIdentifier.valueOf(message.getSourceServiceId())))) {
-
-        throw new IllegalArgumentException("Sync message sender device ID not specified, but one or more messages are addressed to sender");
-      }
-      excludedDeviceId = NO_EXCLUDED_DEVICE_ID;
-    }
-
-    final Optional<MismatchedDevices> maybeMismatchedDevices = getMismatchedDevices(destination,
+    validateIndividualMessageBundle(destination,
         destinationIdentifier,
+        messagesByDeviceId,
         registrationIdsByDeviceId,
-        excludedDeviceId);
-
-    if (maybeMismatchedDevices.isPresent()) {
-      throw new MismatchedDevicesException(maybeMismatchedDevices.get());
-    }
-
-    validateIndividualMessageContentLength(messagesByDeviceId.values(), syncMessageSenderDeviceId.isPresent(), userAgent);
+        syncMessageSenderDeviceId,
+        platformTag);
 
     messagesManager.insert(destination.getIdentifier(IdentityType.ACI), messagesByDeviceId)
         .forEach((deviceId, destinationPresent) -> {
@@ -206,7 +170,9 @@ public class MessageSender {
       final boolean isUrgent,
       @Nullable final String userAgent) throws MultiRecipientMismatchedDevicesException, MessageTooLargeException {
 
-    validateMultiRecipientMessageContentLength(multiRecipientMessage, isStory, userAgent);
+    final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+
+    validateMultiRecipientMessageContentLength(multiRecipientMessage, isStory, platformTag);
 
     final Map<ServiceIdentifier, MismatchedDevices> mismatchedDevicesByServiceIdentifier = new HashMap<>();
 
@@ -252,11 +218,92 @@ public class MessageSender {
                           SEALED_SENDER_TAG_NAME, "true",
                           SYNC_MESSAGE_TAG_NAME, "false",
                           MULTI_RECIPIENT_TAG_NAME, "true")
-                      .and(UserAgentTagUtil.getPlatformTag(userAgent));
+                      .and(platformTag);
 
                   Metrics.counter(SEND_COUNTER_NAME, tags).increment();
                 })))
         .thenRun(Util.NOOP);
+  }
+
+  /**
+   * Validates that a bundle of messages destined for an individual account is well-formed and may be delivered. Note
+   * that all checks performed by this method are also performed by
+   * {@link #sendMessages(Account, ServiceIdentifier, Map, Map, Optional, String)}; callers should only invoke this
+   * method if they need to verify that a bundle of individual messages is valid <em>before</em> trying to send the
+   * messages (i.e. if the caller must take some other action in conjunction with sending the messages and cannot
+   * reverse that action if message sending fails).
+   *
+   * @param destination the account to which to send messages
+   * @param destinationIdentifier the service identifier to which the messages are addressed
+   * @param messagesByDeviceId a map of device IDs to message payloads
+   * @param registrationIdsByDeviceId a map of device IDs to device registration IDs
+   * @param syncMessageSenderDeviceId if the message is a sync message (i.e. a message to other devices linked to the
+   *                                  caller's own account), contains the ID of the device that sent the message
+   * @param userAgent the User-Agent string for the sender; may be {@code null} if not known
+   *
+   * @throws MismatchedDevicesException if the given bundle of messages did not include a message for all required
+   * devices, contained messages for devices not linked to the destination account, or devices with outdated
+   * registration IDs
+   * @throws MessageTooLargeException if the given message payload is too large
+   */
+  public static void validateIndividualMessageBundle(final Account destination,
+      final ServiceIdentifier destinationIdentifier,
+      final Map<Byte, Envelope> messagesByDeviceId,
+      final Map<Byte, Integer> registrationIdsByDeviceId,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId,
+      @Nullable final String userAgent) throws MessageTooLargeException, MismatchedDevicesException {
+
+    validateIndividualMessageBundle(destination,
+        destinationIdentifier,
+        messagesByDeviceId,
+        registrationIdsByDeviceId,
+        syncMessageSenderDeviceId,
+        UserAgentTagUtil.getPlatformTag(userAgent));
+  }
+
+  private static void validateIndividualMessageBundle(final Account destination,
+      final ServiceIdentifier destinationIdentifier,
+      final Map<Byte, Envelope> messagesByDeviceId,
+      final Map<Byte, Integer> registrationIdsByDeviceId,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId,
+      final Tag platformTag) throws MismatchedDevicesException, MessageTooLargeException {
+
+    if (!destination.isIdentifiedBy(destinationIdentifier)) {
+      throw new IllegalArgumentException("Destination account not identified by destination service identifier");
+    }
+
+    if (messagesByDeviceId.isEmpty()) {
+      Metrics.counter(EMPTY_MESSAGE_LIST_COUNTER_NAME,
+          Tags.of(SYNC_MESSAGE_TAG_NAME, String.valueOf(syncMessageSenderDeviceId.isPresent())).and(platformTag)).increment();
+    }
+
+    final byte excludedDeviceId;
+    if (syncMessageSenderDeviceId.isPresent()) {
+      if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isBlank(message.getSourceServiceId()) ||
+          !destination.isIdentifiedBy(ServiceIdentifier.valueOf(message.getSourceServiceId())))) {
+
+        throw new IllegalArgumentException("Sync message sender device ID specified, but one or more messages are not addressed to sender");
+      }
+      excludedDeviceId = syncMessageSenderDeviceId.get();
+    } else {
+      if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isNotBlank(message.getSourceServiceId()) &&
+          destination.isIdentifiedBy(ServiceIdentifier.valueOf(message.getSourceServiceId())))) {
+
+        throw new IllegalArgumentException("Sync message sender device ID not specified, but one or more messages are addressed to sender");
+      }
+      excludedDeviceId = NO_EXCLUDED_DEVICE_ID;
+    }
+
+    final Optional<MismatchedDevices> maybeMismatchedDevices = getMismatchedDevices(destination,
+        destinationIdentifier,
+        registrationIdsByDeviceId,
+        excludedDeviceId);
+
+    if (maybeMismatchedDevices.isPresent()) {
+      throw new MismatchedDevicesException(maybeMismatchedDevices.get());
+    }
+
+    validateIndividualMessageContentLength(messagesByDeviceId.values(), syncMessageSenderDeviceId.isPresent(), platformTag);
   }
 
   @VisibleForTesting
@@ -264,12 +311,12 @@ public class MessageSender {
       final boolean isMultiRecipientMessage,
       final boolean isSyncMessage,
       final boolean isStory,
-      final String userAgent) throws MessageTooLargeException {
+      final Tag platformTag) throws MessageTooLargeException {
 
     final boolean oversize = contentLength > MAX_MESSAGE_SIZE;
 
     DistributionSummary.builder(CONTENT_SIZE_DISTRIBUTION_NAME)
-        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+        .tags(Tags.of(platformTag,
             Tag.of("oversize", String.valueOf(oversize)),
             Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
             Tag.of("syncMessage", String.valueOf(isSyncMessage)),
@@ -279,7 +326,7 @@ public class MessageSender {
         .record(contentLength);
 
     if (oversize) {
-      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER_NAME, Tags.of(platformTag,
               Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
               Tag.of("syncMessage", String.valueOf(isSyncMessage)),
               Tag.of("story", String.valueOf(isStory))))
@@ -330,27 +377,27 @@ public class MessageSender {
 
   private static void validateIndividualMessageContentLength(final Iterable<Envelope> messages,
       final boolean isSyncMessage,
-      @Nullable final String userAgent) throws MessageTooLargeException {
+      final Tag platformTag) throws MessageTooLargeException {
 
     for (final Envelope message : messages) {
       MessageSender.validateContentLength(message.getContent().size(),
           false,
           isSyncMessage,
           message.getStory(),
-          userAgent);
+          platformTag);
     }
   }
 
   private static void validateMultiRecipientMessageContentLength(final SealedSenderMultiRecipientMessage multiRecipientMessage,
       final boolean isStory,
-      @Nullable final String userAgent) throws MessageTooLargeException {
+      final Tag platformTag) throws MessageTooLargeException {
 
     for (final SealedSenderMultiRecipientMessage.Recipient recipient : multiRecipientMessage.getRecipients().values()) {
       MessageSender.validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipient),
           true,
           false,
           isStory,
-          userAgent);
+          platformTag);
     }
   }
 }

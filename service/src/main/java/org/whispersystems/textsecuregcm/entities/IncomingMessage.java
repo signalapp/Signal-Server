@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -40,14 +41,15 @@ public record IncomingMessage(int type,
       final boolean story,
       final boolean ephemeral,
       final boolean urgent,
-      @Nullable byte[] reportSpamToken) {
+      @Nullable byte[] reportSpamToken,
+      final Clock clock) {
 
     final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder();
 
     envelopeBuilder
         .setType(MessageProtos.Envelope.Type.forNumber(type))
         .setClientTimestamp(timestamp)
-        .setServerTimestamp(System.currentTimeMillis())
+        .setServerTimestamp(clock.millis())
         .setDestinationServiceId(destinationIdentifier.toServiceIdentifierString())
         .setStory(story)
         .setEphemeral(ephemeral)

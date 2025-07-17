@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.entities;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Clock;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
@@ -75,7 +76,8 @@ class OutgoingMessageEntityTest {
         false,
         false,
         true,
-        reportSpamToken);
+        reportSpamToken,
+        Clock.systemUTC());
 
     MessageProtos.Envelope envelope = baseEnvelope.toBuilder().setServerGuid(UUID.randomUUID().toString()).build();
 
