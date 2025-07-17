@@ -14,8 +14,8 @@ import io.lettuce.core.resource.DnsResolvers;
 import io.lettuce.core.resource.MappingSocketAddressResolver;
 import io.lettuce.core.resource.SocketAddressResolver;
 import java.io.File;
-import java.net.URL;
-import java.nio.file.Paths;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -73,15 +73,24 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   @Override
   public void beforeAll(final ExtensionContext context) throws Exception {
     if (composeContainer == null) {
-      final URL clusterComposeFileUrl = getClass().getResource("redis-cluster.yml");
+      final File clusterComposeFile = File.createTempFile("redis-cluster", ".yml");
+      clusterComposeFile.deleteOnExit();
 
-      if (clusterComposeFileUrl == null) {
-        throw new IllegalStateException("Cluster compose file not found");
+      try (final InputStream clusterComposeInputStream = getClass().getResourceAsStream("redis-cluster.yml");
+          final FileOutputStream fileOutputStream = new FileOutputStream(clusterComposeFile)) {
+
+        if (clusterComposeInputStream == null) {
+          throw new IllegalStateException("Cluster compose file not found");
+        }
+
+        fileOutputStream.write(clusterComposeInputStream.readAllBytes());
       }
 
-      final File clusterComposeFile = Paths.get(clusterComposeFileUrl.toURI()).toFile();
-
-      composeContainer = new ComposeContainer(clusterComposeFile);
+      // Unless we specify an explicit list of files to copy to the container, `ComposeContainer` will copy ALL files in
+      // the compose file's directory. Please see
+      // https://github.com/testcontainers/testcontainers-java/blob/main/docs/modules/docker_compose.md#build-working-directory.
+      composeContainer = new ComposeContainer(clusterComposeFile)
+          .withCopyFilesInContainer(clusterComposeFile.getName());
 
       for (final String serviceName : REDIS_SERVICE_NAMES) {
         composeContainer = composeContainer.withExposedService(serviceName, REDIS_PORT, WAIT_STRATEGY);
