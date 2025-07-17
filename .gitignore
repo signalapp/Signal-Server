@@ -16,7 +16,6 @@ config/deploy.properties
 /service/config/testing.yml
 /service/config/deploy.properties
 /service/dependency-reduced-pom.xml
-.java-version
 .opsmanage
 put.sh
 deployer-staging.properties

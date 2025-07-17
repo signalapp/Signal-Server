@@ -89,8 +89,8 @@
     <!-- image to use in tests that run localstack via docker. -->
     <localstack.image>localstack/localstack:3.5.0</localstack.image>
 
-    <!-- eclipse-temurin:21.0.6_7-jre-jammy (note: always use the multi-arch manifest *LIST* here) -->
-    <docker.image.sha256>02fc89fa8766a9ba221e69225f8d1c10bb91885ddbd3c112448e23488ba40ab6</docker.image.sha256>
+    <!-- eclipse-temurin:24.0.1_9-jre-noble (note: always use the multi-arch manifest *LIST* here) -->
+    <docker.image.sha256>a42f2330212db8bc1459a2550def18f6ec04a8c31494ffc20dea13dfa82a211e</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -506,7 +506,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.13.0</version>
         <configuration>
-          <release>21</release>
+          <release>24</release>
         </configuration>
       </plugin>
 

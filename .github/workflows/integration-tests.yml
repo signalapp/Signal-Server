@@ -22,7 +22,7 @@ jobs:
       - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version-file: .java-version
           cache: 'maven'
       - uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
         name: Configure AWS credentials from Test account
