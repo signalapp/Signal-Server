@@ -15,7 +15,7 @@ import io.lettuce.core.resource.MappingSocketAddressResolver;
 import io.lettuce.core.resource.SocketAddressResolver;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -52,6 +52,34 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
   private static final String[] REDIS_SERVICE_NAMES = new String[] { "redis-0-1", "redis-1-1", "redis-2-1" };
 
+  // The image we're using is bitnami/redis-cluster:7.4; please see
+  // https://hub.docker.com/layers/bitnami/redis-cluster/7.4/images/sha256-c11efe6a53692829b6e031ea8b5b4caa380df3c84ad4242549851d345592708d
+  private static final String CLUSTER_COMPOSE_FILE_CONTENTS = """
+      services:
+        redis-0:
+          image: docker.io/bitnami/redis-cluster@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af
+          environment:
+            - 'ALLOW_EMPTY_PASSWORD=yes'
+            - 'REDIS_NODES=redis-0 redis-1 redis-2'
+
+        redis-1:
+          image: docker.io/bitnami/redis-cluster@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af
+          environment:
+            - 'ALLOW_EMPTY_PASSWORD=yes'
+            - 'REDIS_NODES=redis-0 redis-1 redis-2'
+
+        redis-2:
+          image: docker.io/bitnami/redis-cluster@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af
+          depends_on:
+            - redis-0
+            - redis-1
+          environment:
+            - 'ALLOW_EMPTY_PASSWORD=yes'
+            - 'REDIS_CLUSTER_REPLICAS=0'
+            - 'REDIS_NODES=redis-0 redis-1 redis-2'
+            - 'REDIS_CLUSTER_CREATOR=yes'
+      """;
+
   public RedisClusterExtension(final Duration timeout, final RetryConfiguration retryConfiguration) {
     this.timeout = timeout;
     this.retryConfiguration = retryConfiguration;
@@ -76,14 +104,8 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
       final File clusterComposeFile = File.createTempFile("redis-cluster", ".yml");
       clusterComposeFile.deleteOnExit();
 
-      try (final InputStream clusterComposeInputStream = getClass().getResourceAsStream("redis-cluster.yml");
-          final FileOutputStream fileOutputStream = new FileOutputStream(clusterComposeFile)) {
-
-        if (clusterComposeInputStream == null) {
-          throw new IllegalStateException("Cluster compose file not found");
-        }
-
-        fileOutputStream.write(clusterComposeInputStream.readAllBytes());
+      try (final FileOutputStream fileOutputStream = new FileOutputStream(clusterComposeFile)) {
+        fileOutputStream.write(CLUSTER_COMPOSE_FILE_CONTENTS.getBytes(StandardCharsets.UTF_8));
       }
 
       // Unless we specify an explicit list of files to copy to the container, `ComposeContainer` will copy ALL files in
