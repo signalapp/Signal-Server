@@ -54,6 +54,7 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
     this.timeoutExecutor = timeoutExecutor;
     this.timeout = timeout;
     this.openWebSocketCounter = new OpenWebSocketCounter(MetricsUtil.name(getClass(), "openWebsockets"),
+        MetricsUtil.name(getClass(), "newConnections"),
         MetricsUtil.name(getClass(), "sessionDuration"));
   }
 
