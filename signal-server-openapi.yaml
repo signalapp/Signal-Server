@@ -577,6 +577,9 @@ paths:
                 $ref: "#/components/schemas/UploadDescriptorResponse"
         "429":
           description: Rate limited.
+        "413":
+          description: The provided uploadLength is larger than the maximum supported
+            upload size. The maximum upload size is subject to change.
         "403":
           description: Forbidden. The request had insufficient permissions to perform
             the requested action
