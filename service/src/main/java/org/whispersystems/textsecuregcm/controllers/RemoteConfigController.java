@@ -27,9 +27,12 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -42,6 +45,9 @@ import org.whispersystems.textsecuregcm.storage.RemoteConfig;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 @Path("/v2/config")
 @Tag(name = "Remote Config")
@@ -51,6 +57,9 @@ public class RemoteConfigController {
   private final Map<String, String> globalConfig;
 
   private static final String GLOBAL_CONFIG_PREFIX = "global.";
+  private static final Set<String> PLATFORM_PREFIXES = Arrays.stream(ClientPlatform.values())
+    .map(p -> p.name().toLowerCase())
+    .collect(Collectors.toSet());
 
   public RemoteConfigController(RemoteConfigsManager remoteConfigsManager,
       Map<String, String> globalConfig,
@@ -84,14 +93,20 @@ public class RemoteConfigController {
       @HeaderParam(HttpHeaders.USER_AGENT)
       String userAgent
   ) {
+    final String platformPrefix = platformPrefix(userAgent);
+    final List<RemoteConfig> remoteConfigs = remoteConfigsManager.getAll();
+
     try {
-      final List<RemoteConfig> remoteConfigs = remoteConfigsManager.getAll();
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
 
       final Map<String, String> configs = Stream.concat(
-                  remoteConfigs.stream()
-                      .map(
-                        config -> {
+          remoteConfigs.stream()
+              .filter(config -> {
+                  final String firstNameComponent = config.getName().split("\\.", 2)[0];
+                  return firstNameComponent.equals(platformPrefix) || !PLATFORM_PREFIXES.contains(firstNameComponent);
+              })
+              .map(
+                  config -> {
                           final byte[] hashKey = config.getHashKey() != null
                               ? config.getHashKey().getBytes(StandardCharsets.UTF_8)
                               : config.getName().getBytes(StandardCharsets.UTF_8);
@@ -113,6 +128,14 @@ public class RemoteConfigController {
           .build();
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
+    }
+  }
+
+  private static String platformPrefix(final String userAgent) {
+    try {
+      return UserAgentUtil.parseUserAgentString(userAgent).platform().name().toLowerCase();
+    } catch (UnrecognizedUserAgentException e) {
+      return null;
     }
   }
 

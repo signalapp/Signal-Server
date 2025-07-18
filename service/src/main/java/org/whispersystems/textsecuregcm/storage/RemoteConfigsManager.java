@@ -12,13 +12,9 @@ import java.util.function.Supplier;
 
 public class RemoteConfigsManager {
 
-  private final RemoteConfigs remoteConfigs;
-
   private final Supplier<List<RemoteConfig>> remoteConfigSupplier;
 
   public RemoteConfigsManager(RemoteConfigs remoteConfigs) {
-    this.remoteConfigs = remoteConfigs;
-
     remoteConfigSupplier =
         Suppliers.memoizeWithExpiration(remoteConfigs::getAll, 10, TimeUnit.SECONDS);
   }
@@ -27,11 +23,4 @@ public class RemoteConfigsManager {
     return remoteConfigSupplier.get();
   }
 
-  public void set(RemoteConfig config) {
-    remoteConfigs.set(config);
-  }
-
-  public void delete(String name) {
-    remoteConfigs.delete(name);
-  }
 }

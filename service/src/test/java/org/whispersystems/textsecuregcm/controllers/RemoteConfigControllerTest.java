@@ -34,6 +34,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.params.IntRangeSource;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -43,6 +46,7 @@ import org.whispersystems.textsecuregcm.storage.RemoteConfig;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class RemoteConfigControllerTest {
@@ -66,8 +70,9 @@ class RemoteConfigControllerTest {
   void setup() throws Exception {
     when(remoteConfigsManager.getAll()).thenReturn(
       List.of(
-          new RemoteConfig("android.stickers", 25, Set.of(AuthHelper.VALID_UUID_3, AuthHelper.INVALID_UUID), null, null, null),
-          new RemoteConfig("ios.stickers", 50, Set.of(), null, null, null),
+          new RemoteConfig("android.stickers", 100, Set.of(), null, null, null),
+          new RemoteConfig("ios.stickers", 100, Set.of(), null, null, null),
+          new RemoteConfig("desktop.stickers", 100, Set.of(), null, null, null),
           new RemoteConfig("always.true", 100, Set.of(), null, null, null),
           new RemoteConfig("only.special", 0, Set.of(AuthHelper.VALID_UUID), null, null, null),
           new RemoteConfig("value.always.true", 100, Set.of(), "foo", "bar", null),
@@ -83,46 +88,72 @@ class RemoteConfigControllerTest {
     reset(remoteConfigsManager);
   }
 
-  @Test
-  void testRetrieveConfig() {
+  @ParameterizedTest
+  @EnumSource
+  void testRetrieveConfig(ClientPlatform platform) {
     RemoteConfigurationResponse configuration = resources.getJerseyTest()
-                                                  .target("/v2/config/")
-                                                  .request()
-                                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-                                                  .get(RemoteConfigurationResponse.class);
+        .target("/v2/config/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .header("User-Agent", String.format("Signal-%s/7.6.2", platform.name()))
+        .get(RemoteConfigurationResponse.class);
 
     verify(remoteConfigsManager, times(1)).getAll();
 
-    assertThat(configuration.config()).hasSize(11);
-    assertThat(configuration.config()).containsKeys("android.stickers", "ios.stickers", "linked.config.0", "linked.config.1", "unlinked.config");
+    assertThat(configuration.config()).hasSize(10);
+    assertThat(configuration.config()).containsKeys(platform.name().toLowerCase() + ".stickers", "linked.config.0", "linked.config.1", "unlinked.config");
     assertThat(configuration.config()).contains(
-      entry("always.true", "true"),
-      entry("only.special", "true"),
-      entry("value.always.true", "bar"),
-      entry("value.only.special", "xyz"),
-      entry("value.always.false", "red"),
-      entry("global.maxGroupSize", "42"));
+        entry("always.true", "true"),
+        entry("only.special", "true"),
+        entry("value.always.true", "bar"),
+        entry("value.only.special", "xyz"),
+        entry("value.always.false", "red"),
+        entry("global.maxGroupSize", "42"));
+  }
+
+  @ParameterizedTest
+  @EnumSource
+  void testRetrieveConfigNotSpecial(ClientPlatform platform) {
+    RemoteConfigurationResponse configuration = resources.getJerseyTest()
+        .target("/v2/config/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .header("User-Agent", String.format("Signal-%s/7.6.2", platform.name()))
+        .get(RemoteConfigurationResponse.class);
+
+    verify(remoteConfigsManager, times(1)).getAll();
+
+    assertThat(configuration.config()).hasSize(10);
+    assertThat(configuration.config()).containsKeys(platform.name().toLowerCase() + ".stickers", "linked.config.0", "linked.config.1", "unlinked.config");
+    assertThat(configuration.config()).contains(
+        entry("always.true", "true"),
+        entry("only.special", "false"),
+        entry("value.always.true", "bar"),
+        entry("value.only.special", "abc"),
+        entry("value.always.false", "red"),
+        entry("global.maxGroupSize", "42"));
   }
 
   @Test
-  void testRetrieveConfigNotSpecial() {
+  void testRetrieveConfigUnrecognizedPlatform() {
     RemoteConfigurationResponse configuration = resources.getJerseyTest()
-                                                  .target("/v2/config/")
-                                                  .request()
-                                                  .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-                                                  .get(RemoteConfigurationResponse.class);
+        .target("/v2/config/")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
+        .header("User-Agent", "Third-Party-Signal-Client/1.0.0")
+        .get(RemoteConfigurationResponse.class);
 
     verify(remoteConfigsManager, times(1)).getAll();
 
-    assertThat(configuration.config()).hasSize(11);
-    assertThat(configuration.config()).containsKeys("android.stickers", "ios.stickers", "linked.config.0", "linked.config.1", "unlinked.config");
+    assertThat(configuration.config()).hasSize(9);
+    assertThat(configuration.config()).containsKeys("linked.config.0", "linked.config.1", "unlinked.config");
     assertThat(configuration.config()).contains(
-      entry("always.true", "true"),
-      entry("only.special", "false"),
-      entry("value.always.true", "bar"),
-      entry("value.only.special", "abc"),
-      entry("value.always.false", "red"),
-      entry("global.maxGroupSize", "42"));
+        entry("always.true", "true"),
+        entry("only.special", "false"),
+        entry("value.always.true", "bar"),
+        entry("value.only.special", "abc"),
+        entry("value.always.false", "red"),
+        entry("global.maxGroupSize", "42"));
   }
 
   @Test
@@ -170,7 +201,7 @@ class RemoteConfigControllerTest {
         .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.getLength()).isNotEqualTo(0);
+    assertThat(response.getLength()).isPositive();
     final EntityTag etag = response.getEntityTag();
     assertThat(etag).isNotNull();
 
@@ -183,7 +214,7 @@ class RemoteConfigControllerTest {
         .get();
 
     assertThat(response.getStatus()).isEqualTo(304);
-    assertThat(response.getLength()).isLessThanOrEqualTo(0); // could be -1 for absent or explicit 0
+    assertThat(response.getLength()).isNotPositive();
   }
 
   @Test
@@ -191,12 +222,12 @@ class RemoteConfigControllerTest {
     Response response = resources.getJerseyTest()
         .target("/v2/config/")
         .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .header("User-Agent", "Signal-Android/7.6.2 Android/34 libsignal/0.46.0")
         .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.getLength()).isNotEqualTo(0);
+    assertThat(response.getLength()).isPositive();
     final EntityTag etag = response.getEntityTag();
     assertThat(etag).isNotNull();
 
@@ -213,7 +244,61 @@ class RemoteConfigControllerTest {
         .get();
 
     assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.getLength()).isNotEqualTo(0);
+    assertThat(response.getLength()).isPositive();
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testEtag(boolean expect304, String userAgent1, String authHeader1, String userAgent2, String authHeader2) {
+    // Use a deterministic config; account 1 is special, 2 and 3 are identical
+    List<RemoteConfig> configs = remoteConfigsManager.getAll().stream().filter(config -> config.getPercentage() == 0 || config.getPercentage() == 100).toList();
+    when(remoteConfigsManager.getAll()).thenReturn(configs);
+
+    Response response = resources.getJerseyTest()
+        .target("/v2/config/")
+        .request()
+        .header("Authorization", authHeader1)
+        .header("User-Agent", userAgent1)
+        .get();
+
+    assertThat(response.getStatus()).isEqualTo(200);
+    assertThat(response.getLength()).isPositive();
+    final EntityTag etag = response.getEntityTag();
+    assertThat(etag).isNotNull();
+
+    response = resources.getJerseyTest()
+        .target("/v2/config/")
+        .request()
+        .header("Authorization", authHeader2)
+        .header("User-Agent", userAgent2)
+        .header("If-None-Match", etag)
+        .get();
+
+    if (expect304) {
+      assertThat(response.getStatus()).isEqualTo(304);
+      assertThat(response.getLength()).isNotPositive();
+    } else {
+      assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.getLength()).isPositive();
+    }
+  }
+
+  static List<Arguments> testEtag() {
+    final String uuid1AuthHeader = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD);
+    final String uuid2AuthHeader = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO);
+    final String uuid3AuthHeader = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY);
+
+    final String ios762 = "Signal-iOS/7.6.2 iOS/18.5 libsignal/0.46.0";
+    final String android762 = "Signal-Android/7.6.2 Android/34 libsignal/0.46.0";
+    final String android763 = "Signal-Android/7.6.3 Android/34 libsignal/0.46.0";
+
+    // boolean is expect304
+    return List.of(
+        Arguments.argumentSet("User change", false, android762, uuid1AuthHeader, android762, uuid2AuthHeader),
+        Arguments.argumentSet("Irrelevant user change", true, android762, uuid2AuthHeader, android762, uuid3AuthHeader),
+        Arguments.argumentSet("User agent change", false, android762, uuid1AuthHeader, ios762, uuid1AuthHeader),
+        Arguments.argumentSet("Irrelevant user agent change", true, android762, uuid1AuthHeader, android763, uuid1AuthHeader)
+    );
   }
 
   @ParameterizedTest
