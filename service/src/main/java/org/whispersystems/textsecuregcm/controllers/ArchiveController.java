@@ -505,6 +505,7 @@ public class ArchiveController {
       description = "Retrieve an upload form that can be used to perform a resumable upload of a message backup.")
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = UploadDescriptorResponse.class)))
   @ApiResponse(responseCode = "429", description = "Rate limited.")
+  @ApiResponse(responseCode = "413", description = "The provided uploadLength is larger than the maximum supported upload size. The maximum upload size is subject to change.")
   @ApiResponseZkAuth
   public CompletionStage<UploadDescriptorResponse> backup(
       @Auth final Optional<AuthenticatedDevice> account,
