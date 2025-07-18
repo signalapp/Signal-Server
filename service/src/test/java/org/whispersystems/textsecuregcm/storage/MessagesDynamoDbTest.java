@@ -177,7 +177,7 @@ class MessagesDynamoDbTest {
         .thenRequest(halfOfMessageLoadLimit)
         .expectNextCount(halfOfMessageLoadLimit)
         // the first 100 should be fetched and buffered, but further requests should fail
-        .then(DYNAMO_DB_EXTENSION::stopServer)
+        .then(DYNAMO_DB_EXTENSION::resetServer)
         .thenRequest(halfOfMessageLoadLimit)
         .expectNextCount(halfOfMessageLoadLimit)
         // we’ve consumed all the buffered messages, so a single request will fail

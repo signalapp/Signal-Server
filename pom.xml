@@ -43,8 +43,6 @@
     <commons-io.version>2.19.0</commons-io.version>
     <dropwizard.version>4.0.12</dropwizard.version>
     <dropwizard-metrics-datadog.version>1.1.14</dropwizard-metrics-datadog.version>
-    <!-- can be updated to latest version with Dropwizard 5 (Jetty 12); will then need to disable telemetry -->
-    <dynamodblocal.version>2.2.1</dynamodblocal.version>
     <!-- Note: when updating FoundationDB, also include a copy of `libfdb_c.so` from the FoundationDB release at
     src/main/jib/usr/lib/libfdb_c.so. We use x86_64 builds without AVX instructions enabled (i.e. FoundationDB versions
     with even-numbered patch versions). Also when updating FoundationDB, make sure to update the version of FoundationDB
@@ -86,8 +84,11 @@
     <swagger.version>2.2.31</swagger.version>
     <testcontainers.version>1.21.2</testcontainers.version>
 
-    <!-- image to use in tests that run localstack via docker. -->
+    <!-- images to use in tests via testcontainers  -->
+    <dynamodb.image>amazon/dynamodb-local:3.0.0@sha256:2fed5e3a965a4ba5aa6ac82baec57058b5a3848e959d705518f3fd579a77e76b</dynamodb.image>
     <localstack.image>localstack/localstack:3.5.0</localstack.image>
+    <redis.image>redis:7.4-alpine@sha256:af1d0fc3f63b02b13ff7906c9baf7c5b390b8881ca08119cd570677fe2f60b55</redis.image>
+    <redis-cluster.image>docker.io/bitnami/redis-cluster:7.4@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af</redis-cluster.image>
 
     <!-- eclipse-temurin:24.0.1_9-jre-noble (note: always use the multi-arch manifest *LIST* here) -->
     <docker.image.sha256>a42f2330212db8bc1459a2550def18f6ec04a8c31494ffc20dea13dfa82a211e</docker.image.sha256>
@@ -305,12 +306,6 @@
         <groupId>org.apache.httpcomponents</groupId>
         <artifactId>httpclient</artifactId>
         <version>${httpclient.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.amazonaws</groupId>
-        <artifactId>DynamoDBLocal</artifactId>
-        <version>${dynamodblocal.version}</version>
-        <scope>test</scope>
       </dependency>
       <dependency>
         <groupId>ch.qos.logback</groupId>

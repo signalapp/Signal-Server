@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.utility.DockerImageName;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import org.whispersystems.textsecuregcm.util.TestcontainersImages;
 
 public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, ExtensionContext.Store.CloseableResource {
 
@@ -25,8 +26,7 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
   private ClientResources redisClientResources;
   private FaultTolerantRedisClient faultTolerantRedisClient;
 
-  // redis:7.4-apline; see https://hub.docker.com/layers/library/redis/7.4-alpine/images/sha256-e1b05db81cda983ede3bbb3e834e7ebec8faafa275f55f7f91f3ee84114f98a7
-  private static final DockerImageName REDIS_IMAGE = DockerImageName.parse("redis@sha256:af1d0fc3f63b02b13ff7906c9baf7c5b390b8881ca08119cd570677fe2f60b55");
+  private static final DockerImageName REDIS_IMAGE = DockerImageName.parse(TestcontainersImages.getRedis());
 
   public static class RedisServerExtensionBuilder {
 

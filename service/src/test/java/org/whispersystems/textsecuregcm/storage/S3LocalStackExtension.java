@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
-import java.util.Objects;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -16,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import org.whispersystems.textsecuregcm.util.TestcontainersImages;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -31,10 +31,7 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 public class S3LocalStackExtension implements BeforeEachCallback, AfterEachCallback, BeforeAllCallback,
     AfterAllCallback {
 
-  private final static DockerImageName LOCAL_STACK_IMAGE =
-      DockerImageName.parse(Objects.requireNonNull(
-          System.getProperty("localstackImage"),
-          "Local stack image not found; must provide localstackImage system property"));
+  private final static DockerImageName LOCAL_STACK_IMAGE = DockerImageName.parse(TestcontainersImages.getLocalStack());
 
   private static LocalStackContainer LOCAL_STACK = new LocalStackContainer(LOCAL_STACK_IMAGE).withServices(S3);
 

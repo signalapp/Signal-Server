@@ -31,6 +31,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import org.whispersystems.textsecuregcm.util.TestcontainersImages;
 
 public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, ExtensionContext.Store.CloseableResource {
 
@@ -52,24 +53,22 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
   private static final String[] REDIS_SERVICE_NAMES = new String[] { "redis-0-1", "redis-1-1", "redis-2-1" };
 
-  // The image we're using is bitnami/redis-cluster:7.4; please see
-  // https://hub.docker.com/layers/bitnami/redis-cluster/7.4/images/sha256-c11efe6a53692829b6e031ea8b5b4caa380df3c84ad4242549851d345592708d
-  private static final String CLUSTER_COMPOSE_FILE_CONTENTS = """
+  private static final String CLUSTER_COMPOSE_FILE_CONTENTS = String.format("""
       services:
         redis-0:
-          image: docker.io/bitnami/redis-cluster@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af
+          image: %1$s
           environment:
             - 'ALLOW_EMPTY_PASSWORD=yes'
             - 'REDIS_NODES=redis-0 redis-1 redis-2'
 
         redis-1:
-          image: docker.io/bitnami/redis-cluster@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af
+          image: %1$s
           environment:
             - 'ALLOW_EMPTY_PASSWORD=yes'
             - 'REDIS_NODES=redis-0 redis-1 redis-2'
 
         redis-2:
-          image: docker.io/bitnami/redis-cluster@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af
+          image: %1$s
           depends_on:
             - redis-0
             - redis-1
@@ -78,7 +77,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
             - 'REDIS_CLUSTER_REPLICAS=0'
             - 'REDIS_NODES=redis-0 redis-1 redis-2'
             - 'REDIS_CLUSTER_CREATOR=yes'
-      """;
+      """, TestcontainersImages.getRedisCluster());
 
   public RedisClusterExtension(final Duration timeout, final RetryConfiguration retryConfiguration) {
     this.timeout = timeout;

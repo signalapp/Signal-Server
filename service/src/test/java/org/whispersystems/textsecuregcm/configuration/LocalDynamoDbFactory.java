@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.configuration;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
@@ -18,23 +19,50 @@ public class LocalDynamoDbFactory implements DynamoDbClientFactory {
 
   private static final DynamoDbExtension EXTENSION = new DynamoDbExtension(DynamoDbExtensionSchema.Tables.values());
 
-  static {
+  /**
+   * If true, tables will be created the first time a DynamoDB client is built.
+   * <p>
+   * Defaults to {@code true}.
+   */
+  @JsonProperty
+  boolean initTables = true;
+
+  public LocalDynamoDbFactory() {
     try {
-      EXTENSION.beforeEach(null);
+      EXTENSION.beforeAll(null);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
 
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> EXTENSION.afterEach(null)));
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      try {
+        EXTENSION.close();
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
+    }));
   }
 
   @Override
   public DynamoDbClient buildSyncClient(final AwsCredentialsProvider awsCredentialsProvider, final MetricPublisher metricPublisher) {
+    initTablesIfNecessary();
     return EXTENSION.getDynamoDbClient();
   }
 
   @Override
   public DynamoDbAsyncClient buildAsyncClient(final AwsCredentialsProvider awsCredentialsProvider, final MetricPublisher metricPublisher) {
+    initTablesIfNecessary();
     return EXTENSION.getDynamoDbAsyncClient();
+  }
+
+  private void initTablesIfNecessary() {
+    try {
+      if (initTables) {
+        EXTENSION.beforeEach(null);
+        initTables = false;
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 }

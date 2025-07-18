@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.dropwizard.testing.ConfigOverride;
 import io.dropwizard.testing.junit5.DropwizardAppExtension;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.util.Resources;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
@@ -51,8 +53,12 @@ class WhisperServerServiceTest {
   private static final WebSocketClient webSocketClient = new WebSocketClient();
 
   private static final DropwizardAppExtension<WhisperServerConfiguration> EXTENSION = new DropwizardAppExtension<>(
-      WhisperServerService.class, Resources.getResource("config/test.yml").getPath());
+      WhisperServerService.class, Resources.getResource("config/test.yml").getPath(),
+      // Tables will be created by the local DynamoDbExtension
+      ConfigOverride.config("dynamoDbClient.initTables", "false"));
 
+  @RegisterExtension
+  public static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(DynamoDbExtensionSchema.Tables.values());
 
   @AfterAll
   static void teardown() {
@@ -118,8 +124,6 @@ class WhisperServerServiceTest {
     assertEquals(401, whoami.getStatus());
     final long whoamiTimestamp = Long.parseLong(whoami.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase()));
     assertTrue(whoamiTimestamp >= start);
-
-
   }
 
   @Test
@@ -142,11 +146,7 @@ class WhisperServerServiceTest {
   void dynamoDb() {
     // confirm that local dynamodb nominally works
 
-    final AwsCredentialsProvider awsCredentialsProvider = EXTENSION.getConfiguration().getAwsCredentialsConfiguration()
-        .build();
-
-    final DynamoDbClient dynamoDbClient = EXTENSION.getConfiguration().getDynamoDbClientConfiguration()
-        .buildSyncClient(awsCredentialsProvider, new NoopAwsSdkMetricPublisher());
+    final DynamoDbClient dynamoDbClient = getDynamoDbClient();
 
     final DynamoDbExtension.TableSchema numbers = DynamoDbExtensionSchema.Tables.NUMBERS;
     final AttributeValue numberAV = AttributeValues.s("+12125550001");
@@ -174,6 +174,14 @@ class WhisperServerServiceTest {
         .tableName(numbers.tableName())
         .key(Map.of(numbers.hashKeyName(), numberAV))
         .build());
+  }
+
+  private static DynamoDbClient getDynamoDbClient() {
+    final AwsCredentialsProvider awsCredentialsProvider = EXTENSION.getConfiguration().getAwsCredentialsConfiguration()
+        .build();
+
+    return EXTENSION.getConfiguration().getDynamoDbClientConfiguration()
+        .buildSyncClient(awsCredentialsProvider, new NoopAwsSdkMetricPublisher());
   }
 
 }

@@ -492,12 +492,6 @@
     </dependency>
 
     <dependency>
-      <groupId>com.amazonaws</groupId>
-      <artifactId>DynamoDBLocal</artifactId>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>localstack</artifactId>
       <scope>test</scope>
@@ -758,6 +752,12 @@
               <goal>filter-sources</goal>
             </goals>
           </execution>
+          <execution>
+            <id>filter-test-src</id>
+            <goals>
+              <goal>filter-test-sources</goal>
+            </goals>
+          </execution>
         </executions>
       </plugin>
 
@@ -767,9 +767,6 @@
         <configuration>
           <!-- add-opens: work around PATCH not being a supported method on HttpUrlConnection -->
           <argLine>-javaagent:${org.mockito:mockito-core:jar} --add-opens=java.base/java.net=ALL-UNNAMED</argLine>
-          <systemPropertyVariables>
-            <localstackImage>${localstack.image}</localstackImage>
-          </systemPropertyVariables>
         </configuration>
       </plugin>
 
