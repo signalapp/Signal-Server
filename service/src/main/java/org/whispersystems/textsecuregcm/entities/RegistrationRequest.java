@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.entities;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -16,7 +15,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import java.util.List;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
@@ -72,30 +70,8 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
                                   @NotNull
                                   @Valid
                                   @JsonUnwrapped
-                                  @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+                                  @JsonProperty
                                   DeviceActivationRequest deviceActivationRequest) implements PhoneVerificationRequest {
-
-  @JsonCreator
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public RegistrationRequest(@JsonProperty("sessionId") String sessionId,
-      @JsonProperty("recoveryPassword") byte[] recoveryPassword,
-      @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
-      @JsonProperty("skipDeviceTransfer") boolean skipDeviceTransfer,
-      @JsonProperty("aciIdentityKey") @NotNull @Valid IdentityKey aciIdentityKey,
-      @JsonProperty("pniIdentityKey") @NotNull @Valid IdentityKey pniIdentityKey,
-      @JsonProperty("aciSignedPreKey") @NotNull @Valid ECSignedPreKey aciSignedPreKey,
-      @JsonProperty("pniSignedPreKey") @NotNull @Valid ECSignedPreKey pniSignedPreKey,
-      @JsonProperty("aciPqLastResortPreKey") @NotNull @Valid KEMSignedPreKey aciPqLastResortPreKey,
-      @JsonProperty("pniPqLastResortPreKey") @NotNull @Valid KEMSignedPreKey pniPqLastResortPreKey,
-      @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
-      @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
-
-    // This may seem a little verbose, but at the time of writing, Jackson struggles with `@JsonUnwrapped` members in
-    // records, and this is a workaround. Please see
-    // https://github.com/FasterXML/jackson-databind/issues/3726#issuecomment-1525396869 for additional context.
-    this(sessionId, recoveryPassword, accountAttributes, skipDeviceTransfer, aciIdentityKey, pniIdentityKey,
-        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnToken, gcmToken));
-  }
 
   public boolean isEverySignedKeyValid(@Nullable final String userAgent) {
     if (deviceActivationRequest().aciSignedPreKey() == null ||

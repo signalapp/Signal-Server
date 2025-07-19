@@ -930,14 +930,14 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(VersionedProfileResponse.class);
 
-    assertThat(profile.getBaseProfileResponse().getIdentityKey()).isEqualTo(ACCOUNT_TWO_IDENTITY_KEY);
-    assertThat(profile.getName()).containsExactly(name);
-    assertThat(profile.getAbout()).containsExactly(about);
-    assertThat(profile.getAboutEmoji()).containsExactly(emoji);
-    assertThat(profile.getAvatar()).isEqualTo("profiles/validavatar");
-    assertThat(profile.getPhoneNumberSharing()).containsExactly(phoneNumberSharing);
-    assertThat(profile.getBaseProfileResponse().getUuid()).isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO));
-    assertThat(profile.getBaseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
+    assertThat(profile.baseProfileResponse().getIdentityKey()).isEqualTo(ACCOUNT_TWO_IDENTITY_KEY);
+    assertThat(profile.name()).containsExactly(name);
+    assertThat(profile.about()).containsExactly(about);
+    assertThat(profile.aboutEmoji()).containsExactly(emoji);
+    assertThat(profile.avatar()).isEqualTo("profiles/validavatar");
+    assertThat(profile.phoneNumberSharing()).containsExactly(phoneNumberSharing);
+    assertThat(profile.baseProfileResponse().getUuid()).isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID_TWO));
+    assertThat(profile.baseProfileResponse().getBadges()).hasSize(1).element(0).has(new Condition<>(
         badge -> "Test Badge".equals(badge.getName()), "has badge with expected name"));
 
     verify(rateLimiter, times(1)).validate(AuthHelper.VALID_UUID);
@@ -982,7 +982,7 @@ class ProfileControllerTest {
           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
           .get(VersionedProfileResponse.class);
 
-      assertThat(profile.getPaymentAddress()).containsExactly(paymentAddress);
+      assertThat(profile.paymentAddress()).containsExactly(paymentAddress);
     }
 
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.of(version));
@@ -994,7 +994,7 @@ class ProfileControllerTest {
           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
           .get(VersionedProfileResponse.class);
 
-      assertThat(profile.getPaymentAddress()).containsExactly(paymentAddress);
+      assertThat(profile.paymentAddress()).containsExactly(paymentAddress);
     }
 
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex("someotherversion")));
@@ -1006,7 +1006,7 @@ class ProfileControllerTest {
           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
           .get(VersionedProfileResponse.class);
 
-      assertThat(profile.getPaymentAddress()).isNull();
+      assertThat(profile.paymentAddress()).isNull();
     }
   }
 
@@ -1026,7 +1026,7 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(ExpiringProfileKeyCredentialProfileResponse.class);
 
-    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid())
+    assertThat(profile.getVersionedProfileResponse().baseProfileResponse().getUuid())
         .isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID));
 
     assertThat(profile.getCredential()).isNull();
@@ -1245,7 +1245,7 @@ class ProfileControllerTest {
         .headers(authHeaders)
         .get(ExpiringProfileKeyCredentialProfileResponse.class);
 
-    assertThat(profile.getVersionedProfileResponse().getBaseProfileResponse().getUuid())
+    assertThat(profile.getVersionedProfileResponse().baseProfileResponse().getUuid())
         .isEqualTo(new AciServiceIdentifier(AuthHelper.VALID_UUID));
     assertThat(profile.getCredential()).isEqualTo(credentialResponse);
 

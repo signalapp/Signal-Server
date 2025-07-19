@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
+import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
@@ -88,12 +89,12 @@ public final class Operations {
         true,
         new IdentityKey(aciIdentityKeyPair.getPublicKey()),
         new IdentityKey(pniIdentityKeyPair.getPublicKey()),
-        generateSignedECPreKey(1, aciIdentityKeyPair),
-        generateSignedECPreKey(2, pniIdentityKeyPair),
-        generateSignedKEMPreKey(3, aciIdentityKeyPair),
-        generateSignedKEMPreKey(4, pniIdentityKeyPair),
-        Optional.empty(),
-        Optional.empty());
+        new DeviceActivationRequest(generateSignedECPreKey(1, aciIdentityKeyPair),
+            generateSignedECPreKey(2, pniIdentityKeyPair),
+            generateSignedKEMPreKey(3, aciIdentityKeyPair),
+            generateSignedKEMPreKey(4, pniIdentityKeyPair),
+            Optional.empty(),
+            Optional.empty()));
 
     final AccountIdentityResponse registrationResponse = apiPost("/v1/registration", registrationRequest)
         .authorized(number, accountPassword)

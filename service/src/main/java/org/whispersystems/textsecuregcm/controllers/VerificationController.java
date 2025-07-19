@@ -178,11 +178,11 @@ public class VerificationController {
       throws RateLimitExceededException, ObsoletePhoneNumberFormatException {
 
     final Pair<String, PushNotification.TokenType> pushTokenAndType = validateAndExtractPushToken(
-        request.getUpdateVerificationSessionRequest());
+        request.updateVerificationSessionRequest());
 
     final Phonenumber.PhoneNumber phoneNumber;
     try {
-      phoneNumber = Util.canonicalizePhoneNumber(PhoneNumberUtil.getInstance().parse(request.getNumber(), null));
+      phoneNumber = Util.canonicalizePhoneNumber(PhoneNumberUtil.getInstance().parse(request.number(), null));
     } catch (final NumberParseException e) {
       throw new ServerErrorException("could not parse already validated number", Response.Status.INTERNAL_SERVER_ERROR);
     }
@@ -192,7 +192,7 @@ public class VerificationController {
       final String sourceHost = (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
       registrationServiceSession = registrationServiceClient.createRegistrationSession(phoneNumber, sourceHost,
-          accountsManager.getByE164(request.getNumber()).isPresent(),
+          accountsManager.getByE164(request.number()).isPresent(),
           REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CancellationException e) {
 
