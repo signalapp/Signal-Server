@@ -737,7 +737,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         cacheCluster, config.getPaymentsServiceConfiguration().paymentCurrencies(), recurringJobExecutor, Clock.systemUTC());
     VirtualThreadPinEventMonitor virtualThreadPinEventMonitor = new VirtualThreadPinEventMonitor(
         virtualThreadEventLoggerExecutor,
-        () -> dynamicConfigurationManager.getConfiguration().getVirtualThreads().allowedPinEvents(),
         config.getVirtualThreadConfiguration().pinEventThreshold());
 
     StripeManager stripeManager = new StripeManager(config.getStripe().apiKey().value(), subscriptionProcessorExecutor,

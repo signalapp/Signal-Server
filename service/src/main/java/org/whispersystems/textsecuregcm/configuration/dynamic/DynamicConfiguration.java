@@ -50,10 +50,6 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  DynamicVirtualThreadConfiguration virtualThreads = new DynamicVirtualThreadConfiguration(Collections.emptySet());
-
-  @JsonProperty
-  @Valid
   DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false, false);
 
   @JsonProperty
@@ -100,10 +96,6 @@ public class DynamicConfiguration {
 
   public DynamicRegistrationConfiguration getRegistrationConfiguration() {
     return registrationConfiguration;
-  }
-
-  public DynamicVirtualThreadConfiguration getVirtualThreads() {
-    return virtualThreads;
   }
 
   public DynamicMetricsConfiguration getMetricsConfiguration() {

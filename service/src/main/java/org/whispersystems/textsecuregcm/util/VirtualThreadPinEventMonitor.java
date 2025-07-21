@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import jdk.jfr.consumer.RecordedEvent;
@@ -35,36 +36,32 @@ public class VirtualThreadPinEventMonitor implements Managed {
   private static final long MAX_JFR_REPOSITORY_SIZE = 1024 * 1024 * 4L; // 4MiB
 
   private final ExecutorService executorService;
-  private final Supplier<Set<String>> allowList;
   private final Duration pinEventThreshold;
   private final RecordingStream recordingStream;
 
-  private final BiConsumer<RecordedEvent, Boolean> pinEventConsumer;
+  private final Consumer<RecordedEvent> pinEventConsumer;
 
   @VisibleForTesting
   VirtualThreadPinEventMonitor(
       final ExecutorService executorService,
-      final Supplier<Set<String>> allowList,
       final Duration pinEventThreshold,
-      final BiConsumer<RecordedEvent, Boolean> pinEventConsumer) {
+      final Consumer<RecordedEvent> pinEventConsumer) {
     this.executorService = executorService;
-    this.allowList = allowList;
     this.pinEventThreshold = pinEventThreshold;
     this.pinEventConsumer = pinEventConsumer;
     this.recordingStream = new RecordingStream();
   }
   public VirtualThreadPinEventMonitor(
       final ExecutorService executorService,
-      final Supplier<Set<String>> allowList,
       final Duration pinEventThreshold) {
-    this(executorService, allowList, pinEventThreshold, VirtualThreadPinEventMonitor::processPinEvent);
+    this(executorService, pinEventThreshold, VirtualThreadPinEventMonitor::processPinEvent);
   }
 
   @Override
   public void start() {
     recordingStream.setMaxSize(MAX_JFR_REPOSITORY_SIZE);
     recordingStream.enable(JFR_THREAD_PINNED_EVENT_NAME).withThreshold(pinEventThreshold).withStackTrace();
-    recordingStream.onEvent(JFR_THREAD_PINNED_EVENT_NAME, event -> pinEventConsumer.accept(event, allowed(event)));
+    recordingStream.onEvent(JFR_THREAD_PINNED_EVENT_NAME, pinEventConsumer);
     executorService.submit(recordingStream::start);
   }
 
@@ -76,30 +73,9 @@ public class VirtualThreadPinEventMonitor implements Managed {
     recordingStream.close();
   }
 
-  private static void processPinEvent(final RecordedEvent event, final boolean allowedPinEvent) {
-    if (allowedPinEvent) {
-      logger.info("Long allowed virtual thread pin event detected {}", prettyEventString(event));
-    } else {
-      logger.error("Long forbidden virtual thread pin event detected {}", prettyEventString(event));
-    }
-    Metrics.counter(PIN_COUNTER_NAME, "allowed", String.valueOf(allowedPinEvent)).increment();
-  }
-
-  private boolean allowed(final RecordedEvent event) {
-    final Set<String> allowedMethodFrames = allowList.get();
-    if (event.getStackTrace() == null) {
-      return false;
-    }
-    for (RecordedFrame st : event.getStackTrace().getFrames()) {
-      if (!st.isJavaFrame()) {
-        continue;
-      }
-      final String qualifiedName = "%s.%s".formatted(st.getMethod().getType().getName(), st.getMethod().getName());
-      if (allowedMethodFrames.stream().anyMatch(qualifiedName::contains)) {
-        return true;
-      }
-    }
-    return false;
+  private static void processPinEvent(final RecordedEvent event) {
+    logger.info("Long virtual thread pin event detected {}", prettyEventString(event));
+    Metrics.counter(PIN_COUNTER_NAME).increment();
   }
 
   private static String prettyEventString(final RecordedEvent event) {
