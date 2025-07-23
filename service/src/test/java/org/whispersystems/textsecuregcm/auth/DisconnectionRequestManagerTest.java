@@ -6,9 +6,13 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.AfterEach;
@@ -16,7 +20,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
 @Timeout(value = 5, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
@@ -84,16 +90,26 @@ class DisconnectionRequestManagerTest {
 
   @Test
   void requestDisconnectionAllDevices() throws InterruptedException {
+    final Device primaryDevice = mock(Device.class);
+    when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
+
+    final Device linkedDevice = mock(Device.class);
+    when(linkedDevice.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
+
     final UUID accountIdentifier = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
 
     final DisconnectionRequestTestListener listener = new DisconnectionRequestTestListener();
 
     disconnectionRequestManager.addListener(listener);
-    disconnectionRequestManager.requestDisconnection(accountIdentifier).toCompletableFuture().join();
+    disconnectionRequestManager.requestDisconnection(account).toCompletableFuture().join();
 
     listener.waitForRequest();
 
     assertEquals(accountIdentifier, listener.getAccountIdentifier());
-    assertEquals(Device.ALL_POSSIBLE_DEVICE_IDS, listener.getDeviceIds());
+    assertEquals(List.of(Device.PRIMARY_ID, (byte) (Device.PRIMARY_ID + 1)), listener.getDeviceIds());
   }
 }

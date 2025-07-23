@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -350,7 +351,8 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     assertEquals(secondNumber, accountsManager.getByAccountIdentifier(originalUuid).map(Account::getNumber).orElseThrow());
 
-    verify(disconnectionRequestManager).requestDisconnection(existingAccountUuid);
+    verify(disconnectionRequestManager).requestDisconnection(argThat(disconnectedAccount ->
+        disconnectedAccount.getIdentifier(IdentityType.ACI).equals(existingAccountUuid) && disconnectedAccount != account));
 
     assertEquals(Optional.of(existingAccountUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalPni));
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondPni));

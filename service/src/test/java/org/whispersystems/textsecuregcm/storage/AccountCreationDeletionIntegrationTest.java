@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -314,7 +315,7 @@ public class AccountCreationDeletionIntegrationTest {
       final KEMSignedPreKey aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciKeyPair);
       final KEMSignedPreKey pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniKeyPair);
 
-      final Account originalAccount = accountsManager.create(number,
+      final Account existingAccount = accountsManager.create(number,
           new AccountAttributes(true, 1, 1, "name".getBytes(StandardCharsets.UTF_8), "registration-lock", false, Set.of()),
           Collections.emptyList(),
           new IdentityKey(aciKeyPair.getPublicKey()),
@@ -334,7 +335,7 @@ public class AccountCreationDeletionIntegrationTest {
               pniPqLastResortPreKey),
           null);
 
-      existingAccountUuid = originalAccount.getUuid();
+      existingAccountUuid = existingAccount.getUuid();
     }
 
     final String password = RandomStringUtils.secure().nextAlphanumeric(16);
@@ -417,7 +418,8 @@ public class AccountCreationDeletionIntegrationTest {
 
     assertEquals(existingAccountUuid, reregisteredAccount.getUuid());
 
-    verify(disconnectionRequestManager).requestDisconnection(existingAccountUuid);
+    verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
+        account.getIdentifier(IdentityType.ACI).equals(existingAccountUuid) && account != reregisteredAccount));
   }
 
   @Test
@@ -492,7 +494,7 @@ public class AccountCreationDeletionIntegrationTest {
     assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(clientPublicKeysManager.findPublicKey(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
 
-    verify(disconnectionRequestManager).requestDisconnection(aci);
+    verify(disconnectionRequestManager).requestDisconnection(account);
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

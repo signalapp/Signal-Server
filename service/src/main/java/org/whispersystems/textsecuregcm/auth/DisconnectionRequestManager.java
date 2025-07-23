@@ -8,22 +8,23 @@ package org.whispersystems.textsecuregcm.auth;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
@@ -96,12 +97,13 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
   /**
    * Broadcasts a request to close all connections associated with the given account identifier to all servers.
    *
-   * @param accountIdentifier the account for which to close connections
+   * @param account the account for which to close connections
    *
    * @return a future that completes when the request has been broadcast
    */
-  public CompletionStage<Void> requestDisconnection(final UUID accountIdentifier) {
-    return requestDisconnection(accountIdentifier, Collections.emptyList());
+  public CompletionStage<Void> requestDisconnection(final Account account) {
+    return requestDisconnection(account.getIdentifier(IdentityType.ACI),
+        account.getDevices().stream().map(Device::getId).toList());
   }
 
   /**
@@ -135,8 +137,7 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
       DISCONNECTION_REQUESTS_RECEIVED_COUNTER.increment();
 
       accountIdentifier = UUIDUtil.fromByteString(disconnectionRequest.getAccountIdentifier());
-      deviceIds = disconnectionRequest.getDeviceIdsCount() > 0
-          ? disconnectionRequest.getDeviceIdsList().stream()
+      deviceIds = disconnectionRequest.getDeviceIdsList().stream()
           .map(deviceIdInt -> {
             if (deviceIdInt == null || deviceIdInt < Device.PRIMARY_ID || deviceIdInt > Byte.MAX_VALUE) {
               throw new IllegalArgumentException("Invalid device ID: " + deviceIdInt);
@@ -144,8 +145,7 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
 
             return deviceIdInt.byteValue();
           })
-          .toList()
-          : Device.ALL_POSSIBLE_DEVICE_IDS;
+          .toList();
     } catch (final InvalidProtocolBufferException e) {
       logger.error("Could not parse disconnection request protobuf", e);
       return;

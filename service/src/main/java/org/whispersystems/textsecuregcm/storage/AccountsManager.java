@@ -374,7 +374,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
               keysManager.deleteSingleUsePreKeys(pni),
               messagesManager.clear(aci),
               profilesManager.deleteAll(aci, false))
-          .thenCompose(ignored -> disconnectionRequestManager.requestDisconnection(aci))
+          .thenCompose(ignored -> disconnectionRequestManager.requestDisconnection(e.getExistingAccount()))
           .thenCompose(ignored -> accounts.reclaimAccount(e.getExistingAccount(), account, additionalWriteItems))
           .thenCompose(ignored -> {
             // We should have cleared all messages before overwriting the old account, but more may have arrived
@@ -1228,7 +1228,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             registrationRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI)))
         .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
         .thenCompose(ignored -> redisDeleteAsync(account))
-        .thenRun(() -> disconnectionRequestManager.requestDisconnection(account.getUuid()));
+        .thenRun(() -> disconnectionRequestManager.requestDisconnection(account));
   }
 
   private String getAccountMapKey(String key) {

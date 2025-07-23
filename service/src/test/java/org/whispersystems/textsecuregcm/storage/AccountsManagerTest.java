@@ -867,7 +867,8 @@ class AccountsManagerTest {
     verify(keysManager, times(2)).deleteSingleUsePreKeys(phoneNumberIdentifiersByE164.get(e164));
     verify(messagesManager, times(2)).clear(existingUuid);
     verify(profilesManager, times(2)).deleteAll(existingUuid, false);
-    verify(disconnectionRequestManager).requestDisconnection(existingUuid);
+    verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
+        account.getIdentifier(IdentityType.ACI).equals(existingUuid) && account != reregisteredAccount));
   }
 
   @Test
