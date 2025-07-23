@@ -20,7 +20,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
+import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubClusterConnection;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
@@ -100,7 +100,7 @@ class MessagesCacheInsertScriptTest {
         REDIS_CLUSTER_EXTENSION.getRedisCluster().createBinaryPubSubConnection();
 
     pubSubClusterConnection.usePubSubConnection(connection ->
-        connection.sync().ssubscribe(WebSocketConnectionEventManager.getClientEventChannel(destinationUuid, deviceId)));
+        connection.sync().ssubscribe(RedisMessageAvailabilityManager.getClientEventChannel(destinationUuid, deviceId)));
 
     assertTrue(insertScript.executeAsync(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())

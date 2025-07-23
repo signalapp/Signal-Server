@@ -19,7 +19,7 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.OpenWebSocketCounter;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
+import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
@@ -49,7 +49,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final MessageMetrics messageMetrics;
   private final PushNotificationManager pushNotificationManager;
   private final PushNotificationScheduler pushNotificationScheduler;
-  private final WebSocketConnectionEventManager webSocketConnectionEventManager;
+  private final RedisMessageAvailabilityManager redisMessageAvailabilityManager;
   private final DisconnectionRequestManager disconnectionRequestManager;
   private final ScheduledExecutorService scheduledExecutorService;
   private final Scheduler messageDeliveryScheduler;
@@ -67,7 +67,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final MessageMetrics messageMetrics,
       final PushNotificationManager pushNotificationManager,
       final PushNotificationScheduler pushNotificationScheduler,
-      final WebSocketConnectionEventManager webSocketConnectionEventManager,
+      final RedisMessageAvailabilityManager redisMessageAvailabilityManager,
       final DisconnectionRequestManager disconnectionRequestManager,
       final ScheduledExecutorService scheduledExecutorService,
       final Scheduler messageDeliveryScheduler,
@@ -81,7 +81,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.messageMetrics = messageMetrics;
     this.pushNotificationManager = pushNotificationManager;
     this.pushNotificationScheduler = pushNotificationScheduler;
-    this.webSocketConnectionEventManager = webSocketConnectionEventManager;
+    this.redisMessageAvailabilityManager = redisMessageAvailabilityManager;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
@@ -145,7 +145,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         // receive push notifications for inbound messages. We should do this first because, at this point, the
         // connection has already closed and attempts to actually deliver a message via the connection will not succeed.
         // It's preferable to start sending push notifications as soon as possible.
-        webSocketConnectionEventManager.handleClientDisconnected(auth.accountIdentifier(), auth.deviceId());
+        redisMessageAvailabilityManager.handleClientDisconnected(auth.accountIdentifier(), auth.deviceId());
 
         // Finally, stop trying to deliver messages and send a push notification if the connection is aware of any
         // undelivered messages.
@@ -161,7 +161,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
         // Finally, we register this client's presence, which suppresses push notifications. We do this last because
         // receiving extra push notifications is generally preferable to missing out on a push notification.
-        webSocketConnectionEventManager.handleClientConnected(auth.accountIdentifier(), auth.deviceId(), connection);
+        redisMessageAvailabilityManager.handleClientConnected(auth.accountIdentifier(), auth.deviceId(), connection);
       } catch (final Exception e) {
         log.warn("Failed to initialize websocket", e);
         context.getClient().close(1011, "Unexpected error initializing connection");

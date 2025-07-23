@@ -33,6 +33,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
@@ -82,7 +83,7 @@ public class MessagesManager {
    *
    * @return a map of device IDs to a device's presence state (i.e. if the device has an active event listener)
    *
-   * @see org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager
+   * @see RedisMessageAvailabilityManager
    */
   public Map<Byte, Boolean> insert(final UUID accountIdentifier, final Map<Byte, Envelope> messagesByDeviceId) {
     return insertAsync(accountIdentifier, messagesByDeviceId).join();
@@ -127,7 +128,7 @@ public class MessagesManager {
    * @return a map of accounts to maps of device IDs to a device's presence state (i.e. if the device has an active
    * event listener)
    *
-   * @see org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager
+   * @see RedisMessageAvailabilityManager
    */
   public CompletableFuture<Map<Account, Map<Byte, Boolean>>> insertMultiRecipientMessage(
       final SealedSenderMultiRecipientMessage multiRecipientMessage,

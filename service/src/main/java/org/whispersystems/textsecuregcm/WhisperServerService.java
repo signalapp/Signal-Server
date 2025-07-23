@@ -199,7 +199,7 @@ import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
+import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -655,8 +655,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         apnSender, fcmSender, accountsManager, 0, 0);
     PushNotificationManager pushNotificationManager =
         new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
-    WebSocketConnectionEventManager webSocketConnectionEventManager =
-        new WebSocketConnectionEventManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
+    RedisMessageAvailabilityManager redisMessageAvailabilityManager =
+        new RedisMessageAvailabilityManager(accountsManager, pushNotificationManager, messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster);
     ProvisioningManager provisioningManager = new ProvisioningManager(pubsubClient);
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
@@ -752,7 +752,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(pushNotificationScheduler);
     environment.lifecycle().manage(provisioningManager);
     environment.lifecycle().manage(disconnectionRequestManager);
-    environment.lifecycle().manage(webSocketConnectionEventManager);
+    environment.lifecycle().manage(redisMessageAvailabilityManager);
     environment.lifecycle().manage(currencyManager);
     environment.lifecycle().manage(registrationServiceClient);
     environment.lifecycle().manage(keyTransparencyServiceClient);
@@ -996,13 +996,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.idlePrimaryDeviceReminderConfiguration().minIdleDuration(), Clock.systemUTC()));
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(accountsManager, receiptSender, messagesManager, messageMetrics, pushNotificationManager,
-            pushNotificationScheduler, webSocketConnectionEventManager, disconnectionRequestManager, websocketScheduledExecutor,
+            pushNotificationScheduler, redisMessageAvailabilityManager, disconnectionRequestManager, websocketScheduledExecutor,
             messageDeliveryScheduler, clientReleaseManager, messageDeliveryLoopMonitor, experimentEnrollmentManager));
     webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
     webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
     webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
-    webSocketEnvironment.jersey().register(new KeepAliveController(webSocketConnectionEventManager));
+    webSocketEnvironment.jersey().register(new KeepAliveController(redisMessageAvailabilityManager));
     webSocketEnvironment.jersey().register(new TimestampResponseFilter());
 
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
@@ -1145,7 +1145,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         webSocketEnvironment.getRequestLog(), Duration.ofMillis(60000));
     provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager, provisioningWebsocketTimeoutExecutor, Duration.ofSeconds(90)));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
-    provisioningEnvironment.jersey().register(new KeepAliveController(webSocketConnectionEventManager));
+    provisioningEnvironment.jersey().register(new KeepAliveController(redisMessageAvailabilityManager));
     provisioningEnvironment.jersey().register(new TimestampResponseFilter());
 
     registerExceptionMappers(environment, webSocketEnvironment, provisioningEnvironment);

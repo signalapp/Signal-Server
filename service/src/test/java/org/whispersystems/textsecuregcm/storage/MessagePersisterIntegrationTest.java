@@ -30,13 +30,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventListener;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
+import org.whispersystems.textsecuregcm.push.MessageAvailabilityListener;
+import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -59,7 +57,7 @@ class MessagePersisterIntegrationTest {
   private ExecutorService asyncOperationQueueingExecutor;
   private MessagesCache messagesCache;
   private MessagesManager messagesManager;
-  private WebSocketConnectionEventManager webSocketConnectionEventManager;
+  private RedisMessageAvailabilityManager redisMessageAvailabilityManager;
   private MessagePersister messagePersister;
   private Account account;
 
@@ -90,13 +88,13 @@ class MessagePersisterIntegrationTest {
 
     websocketConnectionEventExecutor = Executors.newVirtualThreadPerTaskExecutor();
     asyncOperationQueueingExecutor = Executors.newSingleThreadExecutor();
-    webSocketConnectionEventManager = new WebSocketConnectionEventManager(mock(AccountsManager.class),
+    redisMessageAvailabilityManager = new RedisMessageAvailabilityManager(mock(AccountsManager.class),
         mock(PushNotificationManager.class),
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         websocketConnectionEventExecutor,
         asyncOperationQueueingExecutor);
 
-    webSocketConnectionEventManager.start();
+    redisMessageAvailabilityManager.start();
 
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY, 1);
@@ -127,7 +125,7 @@ class MessagePersisterIntegrationTest {
 
     messageDeliveryScheduler.dispose();
 
-    webSocketConnectionEventManager.stop();
+    redisMessageAvailabilityManager.stop();
   }
 
   @Test
@@ -156,7 +154,7 @@ class MessagePersisterIntegrationTest {
 
       final AtomicBoolean messagesPersisted = new AtomicBoolean(false);
 
-      webSocketConnectionEventManager.handleClientConnected(account.getUuid(), Device.PRIMARY_ID, new WebSocketConnectionEventListener() {
+      redisMessageAvailabilityManager.handleClientConnected(account.getUuid(), Device.PRIMARY_ID, new MessageAvailabilityListener() {
         @Override
         public void handleNewMessageAvailable() {
         }

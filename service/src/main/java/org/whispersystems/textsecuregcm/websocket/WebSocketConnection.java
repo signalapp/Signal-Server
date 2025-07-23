@@ -51,7 +51,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventListener;
+import org.whispersystems.textsecuregcm.push.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -66,7 +66,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
-public class WebSocketConnection implements WebSocketConnectionEventListener, DisconnectionRequestListener {
+public class WebSocketConnection implements MessageAvailabilityListener, DisconnectionRequestListener {
 
   private static final DistributionSummary messageTime = Metrics.summary(
       name(MessageController.class, "messageDeliveryDuration"));

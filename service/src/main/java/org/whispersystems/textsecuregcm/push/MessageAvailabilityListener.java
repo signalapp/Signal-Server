@@ -5,11 +5,15 @@
 
 package org.whispersystems.textsecuregcm.push;
 
+import java.util.UUID;
+
 /**
- * A WebSocket connection event listener handles message availability and presence events related to a client's open
- * WebSocket connection. Handler methods are run on dedicated threads and may safely perform blocking operations.
+ * A message availability listener handles message availability and presence events related to a client's open message
+ * stream. Handler methods are run on dedicated threads and may safely perform blocking operations.
+ * 
+ * @see RedisMessageAvailabilityManager#handleClientConnected(UUID, byte, MessageAvailabilityListener)
  */
-public interface WebSocketConnectionEventListener {
+public interface MessageAvailabilityListener {
 
   /**
    * Indicates that a new message is available in the connected client's message queue.

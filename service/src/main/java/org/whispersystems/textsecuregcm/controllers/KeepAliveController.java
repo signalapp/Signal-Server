@@ -22,7 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.push.WebSocketConnectionEventManager;
+import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.websocket.session.WebSocketSession;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
 
@@ -33,14 +33,14 @@ public class KeepAliveController {
 
   private final Logger logger = LoggerFactory.getLogger(KeepAliveController.class);
 
-  private final WebSocketConnectionEventManager webSocketConnectionEventManager;
+  private final RedisMessageAvailabilityManager redisMessageAvailabilityManager;
 
   private static final String CLOSED_CONNECTION_AGE_DISTRIBUTION_NAME = name(KeepAliveController.class,
       "closedConnectionAge");
 
 
-  public KeepAliveController(final WebSocketConnectionEventManager webSocketConnectionEventManager) {
-    this.webSocketConnectionEventManager = webSocketConnectionEventManager;
+  public KeepAliveController(final RedisMessageAvailabilityManager redisMessageAvailabilityManager) {
+    this.redisMessageAvailabilityManager = redisMessageAvailabilityManager;
   }
 
   @GET
@@ -48,7 +48,7 @@ public class KeepAliveController {
       @WebSocketSession WebSocketSessionContext context) {
 
     maybeAuth.ifPresent(auth -> {
-      if (!webSocketConnectionEventManager.isLocallyPresent(auth.accountIdentifier(), auth.deviceId())) {
+      if (!redisMessageAvailabilityManager.isLocallyPresent(auth.accountIdentifier(), auth.deviceId())) {
 
         final Duration age = Duration.between(context.getClient().getCreated(), Instant.now());
 
