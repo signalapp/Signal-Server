@@ -141,7 +141,9 @@ public class DynamoDbExtension implements BeforeAllCallback, BeforeEachCallback,
     if (endpointOverride == null) {
       dynamoDbContainer.start();
     }
-    initializeClient();
+    if (dynamoDbAsync == null || dynamoDb == null) {
+      initializeClient();
+    }
   }
 
   private void stopServer() {
