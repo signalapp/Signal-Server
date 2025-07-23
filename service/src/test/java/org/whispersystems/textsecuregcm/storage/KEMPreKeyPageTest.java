@@ -13,14 +13,13 @@ import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.signal.libsignal.protocol.InvalidKeyException;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 
 class KEMPreKeyPageTest {
 
-  private static final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private static final ECKeyPair IDENTITY_KEY_PAIR = ECKeyPair.generate();
 
   @Test
   void serializeSinglePreKey() {

@@ -50,7 +50,6 @@ import org.signal.chat.profile.GetVersionedProfileResponse;
 import org.signal.chat.profile.ProfileAnonymousGrpc;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
@@ -113,7 +112,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final org.whispersystems.textsecuregcm.identity.ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(targetUuid);
 
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
     final List<Badge> badges = List.of(new Badge(
@@ -172,7 +171,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final Instant expiration = Instant.now().plus(Duration.ofDays(1)).truncatedTo(ChronoUnit.DAYS);
     final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(serviceIdentifier), expiration);
 
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
 
     final List<Badge> badges = List.of(new Badge(

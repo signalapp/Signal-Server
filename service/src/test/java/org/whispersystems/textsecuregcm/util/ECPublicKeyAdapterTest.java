@@ -18,7 +18,7 @@ import javax.annotation.Nullable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 
 class ECPublicKeyAdapterTest {
@@ -29,7 +29,7 @@ class ECPublicKeyAdapterTest {
       }
       """;
 
-  private static final ECPublicKey EC_PUBLIC_KEY = Curve.generateKeyPair().getPublicKey();
+  private static final ECPublicKey EC_PUBLIC_KEY = ECKeyPair.generate().getPublicKey();
 
   private record ECPublicKeyCarrier(@JsonSerialize(using = ECPublicKeyAdapter.Serializer.class)
                                     @JsonDeserialize(using = ECPublicKeyAdapter.Deserializer.class)

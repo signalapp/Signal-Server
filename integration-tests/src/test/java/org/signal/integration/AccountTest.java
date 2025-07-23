@@ -17,7 +17,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.signal.libsignal.usernames.Username;
@@ -64,7 +63,7 @@ public class AccountTest {
     final TestUser user = Operations.newRegisteredUser("+19995550301");
     final String targetNumber = "+19995550302";
 
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final ChangeNumberRequest changeNumberRequest = new ChangeNumberRequest(null,
         Operations.populateRandomRecoveryPassword(targetNumber),

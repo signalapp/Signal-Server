@@ -63,7 +63,7 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ServerPublicParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
@@ -131,10 +131,10 @@ class ProfileControllerTest {
   private static final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
 
   private static final byte[] UNIDENTIFIED_ACCESS_KEY = "sixteenbytes1234".getBytes(StandardCharsets.UTF_8);
-  private static final IdentityKey ACCOUNT_IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-  private static final IdentityKey ACCOUNT_PHONE_NUMBER_IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-  private static final IdentityKey ACCOUNT_TWO_IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-  private static final IdentityKey ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+  private static final IdentityKey ACCOUNT_IDENTITY_KEY = new IdentityKey(ECKeyPair.generate().getPublicKey());
+  private static final IdentityKey ACCOUNT_PHONE_NUMBER_IDENTITY_KEY = new IdentityKey(ECKeyPair.generate().getPublicKey());
+  private static final IdentityKey ACCOUNT_TWO_IDENTITY_KEY = new IdentityKey(ECKeyPair.generate().getPublicKey());
+  private static final IdentityKey ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY = new IdentityKey(ECKeyPair.generate().getPublicKey());
   private static final String BASE_64_URL_USERNAME_HASH = "9p6Tip7BFefFOJzv4kv4GyXEYsBVfk_WbjNejdlOvQE";
   private static final byte[] USERNAME_HASH = Base64.getUrlDecoder().decode(BASE_64_URL_USERNAME_HASH);
   @SuppressWarnings("unchecked")
@@ -1376,9 +1376,9 @@ class ProfileControllerTest {
             .equals(expectedIdentityKeys.get(element.uuid())),
             "is an expected UUID with the correct identity key");
 
-    final IdentityKey validAciIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-    final IdentityKey secondValidPniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
-    final IdentityKey invalidAciIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+    final IdentityKey validAciIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
+    final IdentityKey secondValidPniIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
+    final IdentityKey invalidAciIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.json(new BatchIdentityCheckRequest(List.of(
@@ -1409,7 +1409,7 @@ class ProfileControllerTest {
     for (int i = 0; i < 900; i++) {
       largeElementList.add(
           new BatchIdentityCheckRequest.Element(new AciServiceIdentifier(UUID.randomUUID()),
-              convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))));
+              convertKeyToFingerprint(new IdentityKey(ECKeyPair.generate().getPublicKey()))));
     }
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
@@ -1444,9 +1444,9 @@ class ProfileControllerTest {
                 { "uuid": "%s", "fingerprint": "%s" }
               ]
             }
-            """, AuthHelper.VALID_UUID, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))),
-        "PNI:" + AuthHelper.VALID_PNI_TWO, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))),
-        AuthHelper.INVALID_UUID, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey()))));
+            """, AuthHelper.VALID_UUID, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(ECKeyPair.generate().getPublicKey()))),
+        "PNI:" + AuthHelper.VALID_PNI_TWO, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(ECKeyPair.generate().getPublicKey()))),
+        AuthHelper.INVALID_UUID, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(ECKeyPair.generate().getPublicKey()))));
 
     try (final Response response = resources.getJerseyTest().target("/v1/profile/identity_check/batch").request()
         .post(Entity.entity(json, "application/json"))) {
@@ -1505,7 +1505,7 @@ class ProfileControllerTest {
                     { "uuid": null, "fingerprint": "%s" }
                   ]
                 }
-                """, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey())))),
+                """, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(ECKeyPair.generate().getPublicKey())))),
             422),
         Arguments.of( // a blank string is invalid
             String.format("""
@@ -1514,7 +1514,7 @@ class ProfileControllerTest {
                     { "uuid": " ", "fingerprint": "%s" }
                   ]
                 }
-                """, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(Curve.generateKeyPair().getPublicKey())))),
+                """, Base64.getEncoder().encodeToString(convertKeyToFingerprint(new IdentityKey(ECKeyPair.generate().getPublicKey())))),
             400)
     );
   }

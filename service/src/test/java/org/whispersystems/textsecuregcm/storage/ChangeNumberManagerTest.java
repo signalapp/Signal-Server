@@ -26,7 +26,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
@@ -88,8 +87,8 @@ public class ChangeNumberManagerTest {
     final String targetNumber = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
 
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
-    final IdentityKey pniIdentityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final IdentityKey pniIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
 
     final Map<Byte, ECSignedPreKey> ecSignedPreKeys =
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
@@ -138,7 +137,7 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(linkedDeviceId)).thenReturn(Optional.of(linkedDevice));
     when(account.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
 
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
     final Map<Byte, ECSignedPreKey> ecSignedPreKeys = Map.of(
         primaryDeviceId, KeysHelper.signedECPreKey(1, pniIdentityKeyPair),

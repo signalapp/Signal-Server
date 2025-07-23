@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.tests.util;
 
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.protocol.kem.KEMKeyPair;
@@ -18,11 +17,11 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 public final class KeysHelper {
 
   public static ECPreKey ecPreKey(final long id) {
-    return new ECPreKey(id, Curve.generateKeyPair().getPublicKey());
+    return new ECPreKey(id, ECKeyPair.generate().getPublicKey());
   }
 
   public static ECSignedPreKey signedECPreKey(long id, final ECKeyPair identityKeyPair) {
-    final ECPublicKey pubKey = Curve.generateKeyPair().getPublicKey();
+    final ECPublicKey pubKey = ECKeyPair.generate().getPublicKey();
     final byte[] sig = identityKeyPair.getPrivateKey().calculateSignature(pubKey.serialize());
     return new ECSignedPreKey(id, pubKey, sig);
   }

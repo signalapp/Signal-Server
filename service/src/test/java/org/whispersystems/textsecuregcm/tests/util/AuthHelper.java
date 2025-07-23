@@ -34,7 +34,6 @@ import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.ServerPublicParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
@@ -88,10 +87,10 @@ public class AuthHelper {
   public static final UUID   UNDISCOVERABLE_PNI      = UUID.randomUUID();
   public static final String UNDISCOVERABLE_PASSWORD = "IT'S A SECRET TO EVERYBODY.";
 
-  public static final ECKeyPair VALID_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  public static final ECKeyPair VALID_IDENTITY_KEY_PAIR = ECKeyPair.generate();
   public static final IdentityKey VALID_IDENTITY = new IdentityKey(VALID_IDENTITY_KEY_PAIR.getPublicKey());
 
-  public static final ECKeyPair VALID_PNI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  public static final ECKeyPair VALID_PNI_IDENTITY_KEY_PAIR = ECKeyPair.generate();
   public static final IdentityKey VALID_PNI_IDENTITY = new IdentityKey(VALID_PNI_IDENTITY_KEY_PAIR.getPublicKey());
 
   public static AccountsManager ACCOUNTS_MANAGER       = mock(AccountsManager.class);

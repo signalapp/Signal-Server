@@ -17,11 +17,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 
 class IdentityKeyAdapterTest {
 
-  private static final IdentityKey IDENTITY_KEY = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+  private static final IdentityKey IDENTITY_KEY = new IdentityKey(ECKeyPair.generate().getPublicKey());
 
   private record IdentityKeyCarrier(@JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
                                     @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)

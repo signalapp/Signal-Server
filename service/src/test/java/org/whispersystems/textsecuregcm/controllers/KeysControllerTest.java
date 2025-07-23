@@ -53,7 +53,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -111,10 +110,10 @@ class KeysControllerTest {
 
   private static final int SAMPLE_PNI_REGISTRATION_ID = 1717;
 
-  private final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private final ECKeyPair IDENTITY_KEY_PAIR = ECKeyPair.generate();
   private final IdentityKey IDENTITY_KEY = new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey());
 
-  private final ECKeyPair PNI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private final ECKeyPair PNI_IDENTITY_KEY_PAIR = ECKeyPair.generate();
   private final IdentityKey PNI_IDENTITY_KEY = new IdentityKey(PNI_IDENTITY_KEY_PAIR.getPublicKey());
 
   private final ECPreKey SAMPLE_KEY = KeysHelper.ecPreKey(1234);
@@ -124,12 +123,12 @@ class KeysControllerTest {
 
   private final ECPreKey SAMPLE_KEY_PNI = KeysHelper.ecPreKey(7777);
 
-  private final KEMSignedPreKey SAMPLE_PQ_KEY = KeysHelper.signedKEMPreKey(2424, Curve.generateKeyPair());
-  private final KEMSignedPreKey SAMPLE_PQ_KEY2 = KeysHelper.signedKEMPreKey(6868, Curve.generateKeyPair());
-  private final KEMSignedPreKey SAMPLE_PQ_KEY3 = KeysHelper.signedKEMPreKey(1313, Curve.generateKeyPair());
-  private final KEMSignedPreKey SAMPLE_PQ_KEY4 = KeysHelper.signedKEMPreKey(7676, Curve.generateKeyPair());
+  private final KEMSignedPreKey SAMPLE_PQ_KEY = KeysHelper.signedKEMPreKey(2424, ECKeyPair.generate());
+  private final KEMSignedPreKey SAMPLE_PQ_KEY2 = KeysHelper.signedKEMPreKey(6868, ECKeyPair.generate());
+  private final KEMSignedPreKey SAMPLE_PQ_KEY3 = KeysHelper.signedKEMPreKey(1313, ECKeyPair.generate());
+  private final KEMSignedPreKey SAMPLE_PQ_KEY4 = KeysHelper.signedKEMPreKey(7676, ECKeyPair.generate());
 
-  private final KEMSignedPreKey SAMPLE_PQ_KEY_PNI = KeysHelper.signedKEMPreKey(8888, Curve.generateKeyPair());
+  private final KEMSignedPreKey SAMPLE_PQ_KEY_PNI = KeysHelper.signedKEMPreKey(8888, ECKeyPair.generate());
 
   private final ECSignedPreKey SAMPLE_SIGNED_KEY = KeysHelper.signedECPreKey(1111, IDENTITY_KEY_PAIR);
   private final ECSignedPreKey SAMPLE_SIGNED_KEY2 = KeysHelper.signedECPreKey(2222, IDENTITY_KEY_PAIR);
@@ -860,7 +859,7 @@ class KeysControllerTest {
 
   @Test
   void putKeysStructurallyInvalidSignedECKey() {
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
     final KEMSignedPreKey wrongPreKey = KeysHelper.signedKEMPreKey(1, identityKeyPair);
     final WeaklyTypedPreKeyState preKeyState =
@@ -878,7 +877,7 @@ class KeysControllerTest {
 
   @Test
   void putKeysStructurallyInvalidUnsignedECKey() {
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
     final WeaklyTypedPreKey wrongPreKey = new WeaklyTypedPreKey(1, "cluck cluck i'm a parrot".getBytes());
     final WeaklyTypedPreKeyState preKeyState =
@@ -896,7 +895,7 @@ class KeysControllerTest {
 
   @Test
   void putKeysStructurallyInvalidPQOneTimeKey() {
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
     final WeaklyTypedSignedPreKey wrongPreKey = WeaklyTypedSignedPreKey.fromSignedPreKey(KeysHelper.signedECPreKey(1, identityKeyPair));
     final WeaklyTypedPreKeyState preKeyState =
@@ -914,7 +913,7 @@ class KeysControllerTest {
 
   @Test
   void putKeysStructurallyInvalidPQLastResortKey() {
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
     final WeaklyTypedSignedPreKey wrongPreKey = WeaklyTypedSignedPreKey.fromSignedPreKey(KeysHelper.signedECPreKey(1, identityKeyPair));
     final WeaklyTypedPreKeyState preKeyState =
@@ -1028,7 +1027,7 @@ class KeysControllerTest {
 
   @Test
   void putPrekeyWithInvalidSignature() {
-    final ECSignedPreKey badSignedPreKey = KeysHelper.signedECPreKey(1, Curve.generateKeyPair());
+    final ECSignedPreKey badSignedPreKey = KeysHelper.signedECPreKey(1, ECKeyPair.generate());
     final SetKeysRequest setKeysRequest = new SetKeysRequest(List.of(), badSignedPreKey, null, null);
     Response response =
         resources.getJerseyTest()
@@ -1106,7 +1105,7 @@ class KeysControllerTest {
 
         // Mismatched identity key
         Arguments.of(
-            new IdentityKey(Curve.generateKeyPair().getPublicKey()),
+            new IdentityKey(ECKeyPair.generate().getPublicKey()),
             ecSignedPreKey,
             Optional.of(ecSignedPreKey),
             lastResortKey,

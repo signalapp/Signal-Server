@@ -62,8 +62,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.InvalidKeyException;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
@@ -306,7 +306,7 @@ public class BackupManagerTest {
         GenericServerSecretParams.generate(),
         BackupLevel.FREE, backupKey, aci);
 
-    final ECKeyPair keyPair = Curve.generateKeyPair();
+    final ECKeyPair keyPair = ECKeyPair.generate();
 
     // haven't set a public key yet, but should fail before hitting the database anyway
     assertThatExceptionOfType(StatusRuntimeException.class)
@@ -328,7 +328,7 @@ public class BackupManagerTest {
         GenericServerSecretParams.generate(),
         BackupLevel.FREE, backupKey, aci);
 
-    final ECKeyPair keyPair = Curve.generateKeyPair();
+    final ECKeyPair keyPair = ECKeyPair.generate();
     backupManager.setPublicKey(
         presentation,
         keyPair.getPrivateKey().calculateSignature(presentation.serialize()),
@@ -349,7 +349,7 @@ public class BackupManagerTest {
     final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
         BackupLevel.FREE, backupKey, aci);
 
-    final ECKeyPair keyPair = Curve.generateKeyPair();
+    final ECKeyPair keyPair = ECKeyPair.generate();
     final byte[] signature = keyPair.getPrivateKey().calculateSignature(presentation.serialize());
 
     // haven't set a public key yet
@@ -365,8 +365,8 @@ public class BackupManagerTest {
     final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
         BackupLevel.FREE, backupKey, aci);
 
-    final ECKeyPair keyPair1 = Curve.generateKeyPair();
-    final ECKeyPair keyPair2 = Curve.generateKeyPair();
+    final ECKeyPair keyPair1 = ECKeyPair.generate();
+    final ECKeyPair keyPair2 = ECKeyPair.generate();
     final byte[] signature1 = keyPair1.getPrivateKey().calculateSignature(presentation.serialize());
     final byte[] signature2 = keyPair2.getPrivateKey().calculateSignature(presentation.serialize());
 
@@ -388,7 +388,7 @@ public class BackupManagerTest {
     final BackupAuthCredentialPresentation presentation = backupAuthTestUtil.getPresentation(
         BackupLevel.FREE, backupKey, aci);
 
-    final ECKeyPair keyPair = Curve.generateKeyPair();
+    final ECKeyPair keyPair = ECKeyPair.generate();
     final byte[] signature = keyPair.getPrivateKey().calculateSignature(presentation.serialize());
 
     // an invalid signature
@@ -423,7 +423,7 @@ public class BackupManagerTest {
     testClock.pin(Instant.ofEpochSecond(1).plus(Duration.ofDays(1)));
     final BackupAuthCredentialPresentation oldCredential = backupAuthTestUtil.getPresentation(BackupLevel.FREE,
         backupKey, aci);
-    final ECKeyPair keyPair = Curve.generateKeyPair();
+    final ECKeyPair keyPair = ECKeyPair.generate();
     final byte[] signature = keyPair.getPrivateKey().calculateSignature(oldCredential.serialize());
     backupManager.setPublicKey(oldCredential, signature, keyPair.getPublicKey()).join();
 
@@ -1091,7 +1091,7 @@ public class BackupManagerTest {
     byte[] privateKey = new byte[32];
     ByteBuffer.wrap(privateKey).put(backupId);
     try {
-      backupsDb.setPublicKey(backupId, backupLevel, Curve.decodePrivatePoint(privateKey).publicKey()).join();
+      backupsDb.setPublicKey(backupId, backupLevel, new ECPrivateKey(privateKey).publicKey()).join();
     } catch (InvalidKeyException e) {
       throw new RuntimeException(e);
     }

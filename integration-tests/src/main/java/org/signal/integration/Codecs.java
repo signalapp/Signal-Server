@@ -14,7 +14,6 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import java.io.IOException;
 import java.util.Base64;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 
 public final class Codecs {
@@ -84,7 +83,7 @@ public final class Codecs {
 
   public static class ECPublicKeyDeserializer extends Base64BasedDeserializer<ECPublicKey> {
     public ECPublicKeyDeserializer() {
-      super(bytes -> Curve.decodePoint(bytes, 0));
+      super(ECPublicKey::new);
     }
   }
 

@@ -54,7 +54,7 @@ import org.signal.chat.backup.ListMediaRequest;
 import org.signal.chat.backup.ListMediaResponse;
 import org.signal.chat.backup.SetPublicKeyRequest;
 import org.signal.chat.backup.SignedPresentation;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
@@ -98,7 +98,7 @@ class BackupsAnonymousGrpcServiceTest extends
   void setPublicKey() {
     when(backupManager.setPublicKey(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     assertThatNoException().isThrownBy(() -> unauthenticatedServiceStub().setPublicKey(SetPublicKeyRequest.newBuilder()
-        .setPublicKey(ByteString.copyFrom(Curve.generateKeyPair().getPublicKey().serialize()))
+        .setPublicKey(ByteString.copyFrom(ECKeyPair.generate().getPublicKey().serialize()))
         .setSignedPresentation(signedPresentation(presentation))
         .build()));
   }

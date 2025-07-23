@@ -58,7 +58,7 @@ import org.signal.keytransparency.client.SearchProof;
 import org.signal.keytransparency.client.SearchResponse;
 import org.signal.keytransparency.client.UpdateValue;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.KeyTransparencyDistinguishedKeyResponse;
 import org.whispersystems.textsecuregcm.entities.KeyTransparencyMonitorRequest;
@@ -86,7 +86,7 @@ public class KeyTransparencyControllerTest {
   public static final byte[] USERNAME_HASH = TestRandomUtil.nextBytes(20);
   private static final TestRemoteAddressFilterProvider TEST_REMOTE_ADDRESS_FILTER_PROVIDER
       = new TestRemoteAddressFilterProvider("127.0.0.1");
-  public static final IdentityKey ACI_IDENTITY_KEY =  new IdentityKey(Curve.generateKeyPair().getPublicKey());
+  public static final IdentityKey ACI_IDENTITY_KEY =  new IdentityKey(ECKeyPair.generate().getPublicKey());
   private static final byte[] COMMITMENT_INDEX = new byte[32];
   public static final byte[] UNIDENTIFIED_ACCESS_KEY = new byte[16];
   private final KeyTransparencyServiceClient keyTransparencyServiceClient = mock(KeyTransparencyServiceClient.class);

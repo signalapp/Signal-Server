@@ -25,15 +25,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.InvalidKeyException;
-import org.signal.libsignal.protocol.ecc.Curve;
-import org.testcontainers.shaded.org.bouncycastle.jce.interfaces.ECPublicKey;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
 
 
 public class VirtualThreadPinEventMonitorTest {
 
   private static void nativeMethodCall() {
     try {
-      Curve.decodePoint(Curve.generateKeyPair().getPublicKey().serialize(), 0);
+      new ECPublicKey(ECKeyPair.generate().getPublicKey().serialize());
     } catch (InvalidKeyException e) {
       throw new RuntimeException(e);
     }

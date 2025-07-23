@@ -26,7 +26,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
@@ -95,7 +95,7 @@ public class BackupsDbTest {
     final byte[] backupId = TestRandomUtil.nextBytes(16);
     // Refresh media/messages at t=0D
     testClock.pin(days(0));
-    backupsDb.setPublicKey(backupId, BackupLevel.PAID, Curve.generateKeyPair().getPublicKey()).join();
+    backupsDb.setPublicKey(backupId, BackupLevel.PAID, ECKeyPair.generate().getPublicKey()).join();
     this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)).join();
 
     // refresh only messages on t=2D
@@ -138,7 +138,7 @@ public class BackupsDbTest {
     final byte[] backupId = TestRandomUtil.nextBytes(16);
     // Refresh media/messages at t=0D
     testClock.pin(days(0));
-    backupsDb.setPublicKey(backupId, BackupLevel.PAID, Curve.generateKeyPair().getPublicKey()).join();
+    backupsDb.setPublicKey(backupId, BackupLevel.PAID, ECKeyPair.generate().getPublicKey()).join();
     this.backupsDb.ttlRefresh(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)).join();
 
     if (expirationType == ExpiredBackup.ExpirationType.MEDIA) {

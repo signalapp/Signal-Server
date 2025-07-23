@@ -9,7 +9,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.security.InvalidKeyException;
 import java.util.concurrent.TimeUnit;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.ServerCertificate;
@@ -45,11 +44,7 @@ public class CertificateGenerator {
 
     byte[] certificate = builder.build().toByteArray();
     byte[] signature;
-    try {
-      signature = Curve.calculateSignature(privateKey, certificate);
-    } catch (org.signal.libsignal.protocol.InvalidKeyException e) {
-      throw new InvalidKeyException(e);
-    }
+    signature = privateKey.calculateSignature(certificate);
 
     return SenderCertificate.newBuilder()
                             .setCertificate(ByteString.copyFrom(certificate))

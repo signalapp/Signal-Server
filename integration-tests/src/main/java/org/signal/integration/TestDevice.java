@@ -9,8 +9,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.tuple.Pair;
 import org.signal.libsignal.protocol.IdentityKeyPair;
-import org.signal.libsignal.protocol.InvalidKeyException;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.state.SignedPreKeyRecord;
 
@@ -50,15 +48,11 @@ public class TestDevice {
   }
 
   public SignedPreKeyRecord addSignedPreKey(final IdentityKeyPair identity) {
-    try {
-      final int nextId = signedPreKeys.keySet().stream().mapToInt(k -> k + 1).max().orElse(0);
-      final ECKeyPair keyPair = Curve.generateKeyPair();
-      final byte[] signature = Curve.calculateSignature(identity.getPrivateKey(), keyPair.getPublicKey().serialize());
-      final SignedPreKeyRecord signedPreKeyRecord = new SignedPreKeyRecord(nextId, System.currentTimeMillis(), keyPair, signature);
-      signedPreKeys.put(nextId, Pair.of(identity, signedPreKeyRecord));
-      return signedPreKeyRecord;
-    } catch (InvalidKeyException e) {
-      throw new RuntimeException(e);
-    }
+    final int nextId = signedPreKeys.keySet().stream().mapToInt(k -> k + 1).max().orElse(0);
+    final ECKeyPair keyPair = ECKeyPair.generate();
+    final byte[] signature = keyPair.getPrivateKey().calculateSignature(keyPair.getPublicKey().serialize());
+    final SignedPreKeyRecord signedPreKeyRecord = new SignedPreKeyRecord(nextId, System.currentTimeMillis(), keyPair, signature);
+    signedPreKeys.put(nextId, Pair.of(identity, signedPreKeyRecord));
+    return signedPreKeyRecord;
   }
 }

@@ -48,7 +48,6 @@ import org.signal.chat.rpc.GetAuthenticatedDeviceRequest;
 import org.signal.chat.rpc.GetAuthenticatedDeviceResponse;
 import org.signal.chat.rpc.GetRequestAttributesRequest;
 import org.signal.chat.rpc.RequestAttributesGrpc;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
@@ -97,8 +96,8 @@ public abstract class AbstractNoiseTunnelServerIntegrationTest extends AbstractL
   @BeforeEach
   void setUp() throws Exception {
 
-    clientKeyPair = Curve.generateKeyPair();
-    serverKeyPair = Curve.generateKeyPair();
+    clientKeyPair = ECKeyPair.generate();
+    serverKeyPair = ECKeyPair.generate();
 
     grpcClientConnectionManager = new GrpcClientConnectionManager();
 
@@ -214,7 +213,7 @@ public abstract class AbstractNoiseTunnelServerIntegrationTest extends AbstractL
 
     // Try to verify the server's public key with something other than the key with which it was signed
     try (final NoiseTunnelClient client = authenticated()
-        .setServerPublicKey(Curve.generateKeyPair().getPublicKey())
+        .setServerPublicKey(ECKeyPair.generate().getPublicKey())
         .build()) {
 
       final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
@@ -235,7 +234,7 @@ public abstract class AbstractNoiseTunnelServerIntegrationTest extends AbstractL
   void connectAuthenticatedMismatchedClientPublicKey() throws InterruptedException, ExecutionException, TimeoutException {
 
     when(clientPublicKeysManager.findPublicKey(ACCOUNT_IDENTIFIER, DEVICE_ID))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(Curve.generateKeyPair().getPublicKey())));
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(ECKeyPair.generate().getPublicKey())));
 
     try (final NoiseTunnelClient client = authenticated().build()) {
       final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
@@ -323,7 +322,7 @@ public abstract class AbstractNoiseTunnelServerIntegrationTest extends AbstractL
 
     // Try to verify the server's public key with something other than the key with which it was signed
     try (final NoiseTunnelClient client = anonymous()
-        .setServerPublicKey(Curve.generateKeyPair().getPublicKey())
+        .setServerPublicKey(ECKeyPair.generate().getPublicKey())
         .build()) {
       final ManagedChannel channel = buildManagedChannel(client.getLocalAddress());
 

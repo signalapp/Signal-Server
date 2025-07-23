@@ -14,7 +14,6 @@ import javax.crypto.ShortBufferException;
 import io.netty.buffer.ByteBufUtil;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.grpc.net.client.NoiseClientHandshakeHelper;
 
@@ -40,8 +39,8 @@ public class NoiseHandshakeHelperTest {
   }
 
   void doHandshake(final HandshakePattern pattern, final byte[] requestPayload, final byte[] responsePayload) throws ShortBufferException, NoiseHandshakeException {
-    final ECKeyPair serverKeyPair = Curve.generateKeyPair();
-    final ECKeyPair clientKeyPair = Curve.generateKeyPair();
+    final ECKeyPair serverKeyPair = ECKeyPair.generate();
+    final ECKeyPair clientKeyPair = ECKeyPair.generate();
 
     NoiseHandshakeHelper serverHelper = new NoiseHandshakeHelper(pattern, serverKeyPair);
     NoiseClientHandshakeHelper clientHelper = switch (pattern) {

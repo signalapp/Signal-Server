@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
@@ -36,7 +36,7 @@ class SingleUseECPreKeyStoreTest extends SingleUsePreKeyStoreTest<ECPreKey> {
 
   @Override
   protected ECPreKey generatePreKey(final long keyId) {
-    return new ECPreKey(keyId, Curve.generateKeyPair().getPublicKey());
+    return new ECPreKey(keyId, ECKeyPair.generate().getPublicKey());
   }
 
   @Override

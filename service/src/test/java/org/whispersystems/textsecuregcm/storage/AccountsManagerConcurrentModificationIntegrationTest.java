@@ -44,7 +44,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
@@ -153,8 +152,8 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   void testConcurrentUpdate() throws IOException, InterruptedException {
     final UUID uuid;
     {
-      final ECKeyPair aciKeyPair = Curve.generateKeyPair();
-      final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+      final ECKeyPair aciKeyPair = ECKeyPair.generate();
+      final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
       final Account account = accountsManager.update(
           accountsManager.create("+14155551212",
@@ -188,7 +187,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
 
     final boolean discoverableByPhoneNumber = false;
     final String currentProfileVersion = "cpv";
-    final IdentityKey identityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+    final IdentityKey identityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
     final byte[] unidentifiedAccessKey = new byte[]{1};
     final String pin = "1234";
     final String registrationLock = "reglock";

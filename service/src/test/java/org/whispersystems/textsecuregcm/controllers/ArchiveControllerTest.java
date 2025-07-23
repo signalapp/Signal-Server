@@ -47,7 +47,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -247,7 +247,7 @@ public class ArchiveControllerTest {
         .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
         .header("X-Signal-ZK-Auth-Signature", "aaa")
         .put(Entity.entity(
-            new ArchiveController.SetPublicKeyRequest(Curve.generateKeyPair().getPublicKey()),
+            new ArchiveController.SetPublicKeyRequest(ECKeyPair.generate().getPublicKey()),
             MediaType.APPLICATION_JSON_TYPE));
     assertThat(response.getStatus()).isEqualTo(204);
   }

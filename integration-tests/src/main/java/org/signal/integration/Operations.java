@@ -34,7 +34,6 @@ import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
 import org.signal.integration.config.Config;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.protocol.kem.KEMKeyPair;
@@ -79,8 +78,8 @@ public final class Operations {
     final TestUser user = TestUser.create(number, accountPassword, registrationPassword);
     final AccountAttributes accountAttributes = user.accountAttributes();
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     // register account
     final RegistrationRequest registrationRequest = new RegistrationRequest(null,
@@ -337,7 +336,7 @@ public final class Operations {
   }
 
   public static ECSignedPreKey generateSignedECPreKey(final long id, final ECKeyPair identityKeyPair) {
-    final ECPublicKey pubKey = Curve.generateKeyPair().getPublicKey();
+    final ECPublicKey pubKey = ECKeyPair.generate().getPublicKey();
     final byte[] signature = identityKeyPair.getPrivateKey().calculateSignature(pubKey.serialize());
     return new ECSignedPreKey(id, pubKey, signature);
   }

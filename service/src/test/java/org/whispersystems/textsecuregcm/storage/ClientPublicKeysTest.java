@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 
@@ -29,7 +29,7 @@ class ClientPublicKeysTest {
   void buildTransactWriteItemForInsertionAndDeletion() {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
-    final ECPublicKey publicKey = Curve.generateKeyPair().getPublicKey();
+    final ECPublicKey publicKey = ECKeyPair.generate().getPublicKey();
 
     assertEquals(Optional.empty(), clientPublicKeys.findPublicKey(accountIdentifier, deviceId).join());
 
@@ -50,7 +50,7 @@ class ClientPublicKeysTest {
   void setPublicKey() {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
-    final ECPublicKey publicKey = Curve.generateKeyPair().getPublicKey();
+    final ECPublicKey publicKey = ECKeyPair.generate().getPublicKey();
 
     assertEquals(Optional.empty(), clientPublicKeys.findPublicKey(accountIdentifier, deviceId).join());
 

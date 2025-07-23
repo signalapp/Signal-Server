@@ -15,7 +15,6 @@ import java.util.Set;
 import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -56,7 +55,7 @@ public class CertificateCommand extends Command {
   }
 
   private void runCaCommand() {
-    ECKeyPair keyPair = Curve.generateKeyPair();
+    ECKeyPair keyPair = ECKeyPair.generate();
     System.out.println("Public key : " + Base64.getEncoder().encodeToString(keyPair.getPublicKey().serialize()));
     System.out.println("Private key: " + Base64.getEncoder().encodeToString(keyPair.getPrivateKey().serialize()));
   }
@@ -72,7 +71,7 @@ public class CertificateCommand extends Command {
       return;
     }
 
-    ECPrivateKey key   = Curve.decodePrivatePoint(Base64.getDecoder().decode(namespace.getString("key")));
+    ECPrivateKey key   = new ECPrivateKey(Base64.getDecoder().decode(namespace.getString("key")));
     int          keyId = namespace.getInt("keyId");
 
     if (RESERVED_CERTIFICATE_IDS.contains(keyId)) {
@@ -80,7 +79,7 @@ public class CertificateCommand extends Command {
           String.format("Key ID %08x has been reserved or revoked and may not be used in new certificates.", keyId));
     }
 
-    ECKeyPair keyPair = Curve.generateKeyPair();
+    ECKeyPair keyPair = ECKeyPair.generate();
 
     byte[] certificate = MessageProtos.ServerCertificate.Certificate.newBuilder()
                                                                     .setId(keyId)
@@ -89,11 +88,7 @@ public class CertificateCommand extends Command {
                                                                     .toByteArray();
 
     byte[] signature;
-    try {
-      signature = Curve.calculateSignature(key, certificate);
-    } catch (org.signal.libsignal.protocol.InvalidKeyException e) {
-      throw new InvalidKeyException(e);
-    }
+    signature = key.calculateSignature(certificate);
 
     byte[] signedCertificate = MessageProtos.ServerCertificate.newBuilder()
                                                               .setCertificate(ByteString.copyFrom(certificate))

@@ -57,7 +57,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -234,8 +233,8 @@ class DeviceControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -315,8 +314,8 @@ class DeviceControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -367,8 +366,8 @@ class DeviceControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -403,8 +402,8 @@ class DeviceControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -452,8 +451,8 @@ class DeviceControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -503,8 +502,8 @@ class DeviceControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -577,8 +576,8 @@ class DeviceControllerTest {
   }
 
   private static Stream<Arguments> linkDeviceAtomicMissingProperty() {
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -603,8 +602,8 @@ class DeviceControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -670,8 +669,8 @@ class DeviceControllerTest {
   }
 
   private static Stream<Arguments> linkDeviceAtomicInvalidSignature() {
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -703,8 +702,8 @@ class DeviceControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -735,8 +734,8 @@ class DeviceControllerTest {
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(account.getDevices()).thenReturn(List.of(existingDevice));
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final ECSignedPreKey aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
     final ECSignedPreKey pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
@@ -935,7 +934,7 @@ class DeviceControllerTest {
 
   @Test
   void setPublicKey() {
-    final SetPublicKeyRequest request = new SetPublicKeyRequest(Curve.generateKeyPair().getPublicKey());
+    final SetPublicKeyRequest request = new SetPublicKeyRequest(ECKeyPair.generate().getPublicKey());
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/public_key")
@@ -1392,8 +1391,8 @@ class DeviceControllerTest {
     final AccountAttributes accountAttributes = new AccountAttributes(true, 1234, 5678, null,
         null, true, Set.of());
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final LinkDeviceRequest request = new LinkDeviceRequest(verificationCode,
         accountAttributes,

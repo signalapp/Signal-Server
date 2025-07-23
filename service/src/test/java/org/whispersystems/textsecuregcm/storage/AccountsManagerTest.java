@@ -73,7 +73,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
@@ -628,7 +627,7 @@ class AccountsManagerTest {
         .doAnswer(ACCOUNT_UPDATE_ANSWER)
         .when(accounts).update(any());
 
-    final IdentityKey identityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+    final IdentityKey identityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
 
     account = accountsManager.update(account, a -> a.setIdentityKey(identityKey));
 
@@ -655,7 +654,7 @@ class AccountsManagerTest {
         .thenReturn(CompletableFuture.failedFuture(new ContestedOptimisticLockException()))
         .thenAnswer(ACCOUNT_UPDATE_ASYNC_ANSWER);
 
-    final IdentityKey identityKey = new IdentityKey(Curve.generateKeyPair().getPublicKey());
+    final IdentityKey identityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
 
     account = accountsManager.updateAsync(account, a -> a.setIdentityKey(identityKey)).join();
 
@@ -932,8 +931,8 @@ class AccountsManagerTest {
 
     final byte nextDeviceId = account.getNextDeviceId();
 
-    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
     final byte[] deviceNameCiphertext = "device-name".getBytes(StandardCharsets.UTF_8);
     final String password = "password";
@@ -1029,7 +1028,7 @@ class AccountsManagerTest {
   void testChangePhoneNumber(final String originalNumber, final String targetNumber) throws InterruptedException, MismatchedDevicesException {
     final UUID uuid = UUID.randomUUID();
     final UUID originalPni = UUID.randomUUID();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(1, pniIdentityKeyPair);
     final KEMSignedPreKey kemLastResortPreKey = KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair);
@@ -1057,7 +1056,7 @@ class AccountsManagerTest {
     final String originalNumber = "+22923456789";
     // the canonical form of numbers may change over time, so we use PNIs as stable identifiers
     final String newNumber = "+2290123456789";
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
     final UUID phoneNumberIdentifier = UUID.randomUUID();
 
     Account account = AccountsHelper.generateTestAccount(originalNumber, UUID.randomUUID(), phoneNumberIdentifier,
@@ -1085,7 +1084,7 @@ class AccountsManagerTest {
     final UUID uuid = UUID.randomUUID();
     final UUID originalPni = UUID.randomUUID();
     final UUID targetPni = UUID.randomUUID();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final Account existingAccount = AccountsHelper.generateTestAccount(targetNumber, existingAccountUuid, targetPni, List.of(DevicesHelper.createDevice(Device.PRIMARY_ID)), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     when(accounts.getByE164(targetNumber)).thenReturn(Optional.of(existingAccount));
@@ -1125,7 +1124,7 @@ class AccountsManagerTest {
     final UUID originalPni = UUID.randomUUID();
     final UUID targetPni = UUID.randomUUID();
     final byte deviceId2 = 2;
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final Map<Byte, ECSignedPreKey> newSignedKeys = Map.of(
         Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, identityKeyPair),
         deviceId2, KeysHelper.signedECPreKey(2, identityKeyPair));
@@ -1143,7 +1142,7 @@ class AccountsManagerTest {
         DevicesHelper.createDevice(deviceId2, 0L, 102));
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     final Account updatedAccount = accountsManager.changeNumber(
-        account, targetNumber, new IdentityKey(Curve.generateKeyPair().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds);
+        account, targetNumber, new IdentityKey(ECKeyPair.generate().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds);
 
     assertEquals(targetNumber, updatedAccount.getNumber());
 
@@ -1169,7 +1168,7 @@ class AccountsManagerTest {
     final UUID uuid = UUID.randomUUID();
     final UUID originalPni = UUID.randomUUID();
     final byte deviceId2 = 2;
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final Map<Byte, ECSignedPreKey> newSignedKeys = Map.of(
         Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, identityKeyPair),
         deviceId2, KeysHelper.signedECPreKey(2, identityKeyPair));
@@ -1182,7 +1181,7 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
     assertThrows(MismatchedDevicesException.class,
         () -> accountsManager.changeNumber(
-            account, targetNumber, new IdentityKey(Curve.generateKeyPair().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds));
+            account, targetNumber, new IdentityKey(ECKeyPair.generate().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds));
 
     verifyNoInteractions(accounts);
     verifyNoInteractions(keysManager);
@@ -1401,8 +1400,8 @@ class AccountsManagerTest {
   }
 
   private Account createAccount(final String e164, final AccountAttributes accountAttributes) throws InterruptedException {
-    final ECKeyPair aciKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniKeyPair = ECKeyPair.generate();
 
     return accountsManager.create(e164,
         accountAttributes,

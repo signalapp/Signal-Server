@@ -4,7 +4,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import javax.annotation.Nullable;
 import org.signal.libsignal.protocol.InvalidKeyException;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPrivateKey;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
@@ -19,7 +18,7 @@ public record NoiseTunnelConfiguration(@Positive int webSocketPort,
                                        @NotNull SecretString recognizedProxySecret) {
 
   public ECKeyPair noiseStaticKeyPair() throws InvalidKeyException {
-    final ECPrivateKey privateKey = Curve.decodePrivatePoint(noiseStaticPrivateKey().value());
+    final ECPrivateKey privateKey = new ECPrivateKey(noiseStaticPrivateKey().value());
 
     return new ECKeyPair(privateKey.publicKey(), privateKey);
   }

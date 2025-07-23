@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import org.apache.commons.lang3.StringUtils;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -527,7 +527,7 @@ public class BackupManager {
     }
   }
 
-  private static final ECPublicKey INVALID_PUBLIC_KEY = Curve.generateKeyPair().getPublicKey();
+  private static final ECPublicKey INVALID_PUBLIC_KEY = ECKeyPair.generate().getPublicKey();
 
   /**
    * Authenticate the ZK anonymous backup credential's presentation

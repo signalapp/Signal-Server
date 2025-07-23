@@ -35,7 +35,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ServiceId;
-import org.signal.libsignal.protocol.ecc.Curve;
+import org.signal.libsignal.protocol.ecc.ECPrivateKey;
+import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
@@ -56,7 +57,15 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class CertificateControllerTest {
 
-  private static final String caPublicKey = "BWh+UOhT1hD8bkb+MFRvb6tVqhoG8YYGCzOd7mgjo8cV";
+  private static final ECPublicKey caPublicKey;
+
+  static {
+    try {
+      caPublicKey = new ECPublicKey(Base64.getDecoder().decode("BWh+UOhT1hD8bkb+MFRvb6tVqhoG8YYGCzOd7mgjo8cV"));
+    } catch (InvalidKeyException e) {
+      throw new AssertionError("Statically-defined key was invalid", e);
+    }
+  }
 
   @SuppressWarnings("unused")
   private static final String caPrivateKey = "EO3Mnf0kfVlVnwSaqPoQnAxhnnGL1JTdXqktCKEe9Eo=";
@@ -76,7 +85,7 @@ class CertificateControllerTest {
   static {
     try {
       certificateGenerator = new CertificateGenerator(Base64.getDecoder().decode(signingCertificate),
-          Curve.decodePrivatePoint(Base64.getDecoder().decode(signingKey)), 1);
+          new ECPrivateKey(Base64.getDecoder().decode(signingKey)), 1);
       serverZkAuthOperations = new ServerZkAuthOperations(serverSecretParams);
     } catch (IOException | InvalidKeyException e) {
       throw new AssertionError(e);
@@ -112,11 +121,12 @@ class CertificateControllerTest {
     ServerCertificate serverCertificateHolder = certificate.getSigner();
     ServerCertificate.Certificate serverCertificate = ServerCertificate.Certificate.parseFrom(
         serverCertificateHolder.getCertificate());
+    ECPublicKey serverPublicKey = new ECPublicKey(serverCertificate.getKey().toByteArray());
 
-    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0),
+    assertTrue(serverPublicKey.verifySignature(
         certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
-    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.getDecoder().decode(caPublicKey), 0),
-        serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
+    assertTrue(caPublicKey.verifySignature(serverCertificateHolder.getCertificate().toByteArray(),
+        serverCertificateHolder.getSignature().toByteArray()));
 
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
     assertEquals(certificate.getSenderDevice(), 1L);
@@ -141,11 +151,12 @@ class CertificateControllerTest {
     ServerCertificate serverCertificateHolder = certificate.getSigner();
     ServerCertificate.Certificate serverCertificate = ServerCertificate.Certificate.parseFrom(
         serverCertificateHolder.getCertificate());
+    ECPublicKey serverPublicKey = new ECPublicKey(serverCertificate.getKey().toByteArray());
 
-    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0),
-        certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
-    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.getDecoder().decode(caPublicKey), 0),
-        serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
+    assertTrue(serverPublicKey.verifySignature(certificateHolder.getCertificate().toByteArray(),
+        certificateHolder.getSignature().toByteArray()));
+    assertTrue(caPublicKey.verifySignature(serverCertificateHolder.getCertificate().toByteArray(),
+        serverCertificateHolder.getSignature().toByteArray()));
 
     assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
     assertEquals(certificate.getSenderDevice(), 1L);
@@ -170,11 +181,12 @@ class CertificateControllerTest {
     ServerCertificate serverCertificateHolder = certificate.getSigner();
     ServerCertificate.Certificate serverCertificate = ServerCertificate.Certificate.parseFrom(
         serverCertificateHolder.getCertificate());
+    ECPublicKey serverPublicKey = new ECPublicKey(serverCertificate.getKey().toByteArray());
 
-    assertTrue(Curve.verifySignature(Curve.decodePoint(serverCertificate.getKey().toByteArray(), 0),
-        certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
-    assertTrue(Curve.verifySignature(Curve.decodePoint(Base64.getDecoder().decode(caPublicKey), 0),
-        serverCertificateHolder.getCertificate().toByteArray(), serverCertificateHolder.getSignature().toByteArray()));
+    assertTrue(serverPublicKey.verifySignature(certificateHolder.getCertificate().toByteArray(),
+        certificateHolder.getSignature().toByteArray()));
+    assertTrue(caPublicKey.verifySignature(serverCertificateHolder.getCertificate().toByteArray(),
+        serverCertificateHolder.getSignature().toByteArray()));
 
     assertTrue(StringUtils.isBlank(certificate.getSender()));
     assertEquals(certificate.getSenderDevice(), 1L);

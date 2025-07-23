@@ -31,7 +31,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import javax.crypto.BadPaddingException;
 import javax.crypto.ShortBufferException;
 import org.junit.jupiter.api.Test;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
@@ -42,7 +41,7 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
 
-  private final ECKeyPair clientKeyPair = Curve.generateKeyPair();
+  private final ECKeyPair clientKeyPair = ECKeyPair.generate();
 
   @Override
   protected CipherStatePair doHandshake() throws Throwable {
@@ -177,7 +176,7 @@ class NoiseAuthenticatedHandlerTest extends AbstractNoiseHandlerTest {
     final byte deviceId = randomDeviceId();
 
     when(clientPublicKeysManager.findPublicKey(accountIdentifier, deviceId))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(Curve.generateKeyPair().getPublicKey())));
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(ECKeyPair.generate().getPublicKey())));
 
     doHandshake(
         identityPayload(accountIdentifier, deviceId),

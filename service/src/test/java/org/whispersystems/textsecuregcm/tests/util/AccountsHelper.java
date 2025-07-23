@@ -25,7 +25,6 @@ import java.util.function.Consumer;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -249,7 +248,7 @@ public class AccountsHelper {
   public static Account createAccount(final AccountsManager accountsManager, final String e164, final AccountAttributes accountAttributes)
       throws InterruptedException {
 
-    return createAccount(accountsManager, e164, accountAttributes, Curve.generateKeyPair(), Curve.generateKeyPair());
+    return createAccount(accountsManager, e164, accountAttributes, ECKeyPair.generate(), ECKeyPair.generate());
   }
 
   public static Account createAccount(final AccountsManager accountsManager,

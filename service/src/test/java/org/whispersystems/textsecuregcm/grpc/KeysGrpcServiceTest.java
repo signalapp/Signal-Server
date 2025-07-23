@@ -52,7 +52,6 @@ import org.signal.chat.keys.SetKemLastResortPreKeyRequest;
 import org.signal.chat.keys.SetOneTimeEcPreKeysRequest;
 import org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
@@ -72,9 +71,9 @@ import reactor.core.publisher.Mono;
 
 class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.KeysBlockingStub> {
 
-  private static final ECKeyPair ACI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private static final ECKeyPair ACI_IDENTITY_KEY_PAIR = ECKeyPair.generate();
 
-  private static final ECKeyPair PNI_IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private static final ECKeyPair PNI_IDENTITY_KEY_PAIR = ECKeyPair.generate();
 
   protected static final UUID AUTHENTICATED_PNI = UUID.randomUUID();
 
@@ -147,7 +146,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     final List<ECPreKey> preKeys = new ArrayList<>();
 
     for (int keyId = 0; keyId < 100; keyId++) {
-      preKeys.add(new ECPreKey(keyId, Curve.generateKeyPair().getPublicKey()));
+      preKeys.add(new ECPreKey(keyId, ECKeyPair.generate().getPublicKey()));
     }
 
     when(keysManager.storeEcOneTimePreKeys(any(), anyByte(), any()))
@@ -183,7 +182,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
         .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
         .addPreKeys(EcPreKey.newBuilder()
             .setKeyId(1)
-            .setPublicKey(ByteString.copyFrom(Curve.generateKeyPair().getPublicKey().serialize()))
+            .setPublicKey(ByteString.copyFrom(ECKeyPair.generate().getPublicKey().serialize()))
             .build())
         .build();
 
@@ -460,7 +459,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
   void getPreKeys(final org.signal.chat.common.IdentityType grpcIdentityType) {
     final Account targetAccount = mock(Account.class);
 
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
     final IdentityKey identityKey = new IdentityKey(identityKeyPair.getPublicKey());
     final UUID identifier = UUID.randomUUID();
 
@@ -482,7 +481,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     final byte deviceId2 = 2;
 
     for (final byte deviceId : List.of(deviceId1, deviceId2)) {
-      ecOneTimePreKeys.put(deviceId, new ECPreKey(1, Curve.generateKeyPair().getPublicKey()));
+      ecOneTimePreKeys.put(deviceId, new ECPreKey(1, ECKeyPair.generate().getPublicKey()));
       kemPreKeys.put(deviceId, KeysHelper.signedKEMPreKey(2, identityKeyPair));
       ecSignedPreKeys.put(deviceId, KeysHelper.signedECPreKey(3, identityKeyPair));
 
@@ -597,7 +596,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
     final Account targetAccount = mock(Account.class);
     when(targetAccount.getUuid()).thenReturn(accountIdentifier);
-    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(Curve.generateKeyPair().getPublicKey()));
+    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
     when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
 
@@ -617,7 +616,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
   void getPreKeysRateLimited() {
     final Account targetAccount = mock(Account.class);
     when(targetAccount.getUuid()).thenReturn(UUID.randomUUID());
-    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(Curve.generateKeyPair().getPublicKey()));
+    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
     when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
 

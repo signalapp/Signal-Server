@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -51,7 +50,7 @@ class KeysManagerTest {
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
   private static final byte DEVICE_ID = 1;
 
-  private static final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private static final ECKeyPair IDENTITY_KEY_PAIR = ECKeyPair.generate();
 
   @BeforeEach
   void setup() {
@@ -265,7 +264,7 @@ class KeysManagerTest {
 
   @Test
   void testStorePqLastResort() {
-    final ECKeyPair identityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair identityKeyPair = ECKeyPair.generate();
 
     final byte deviceId2 = 2;
     final byte deviceId3 = 3;
@@ -289,7 +288,7 @@ class KeysManagerTest {
   }
 
   private static ECPreKey generateTestPreKey(final long keyId) {
-    return new ECPreKey(keyId, Curve.generateKeyPair().getPublicKey());
+    return new ECPreKey(keyId, ECKeyPair.generate().getPublicKey());
   }
 
   private static ECSignedPreKey generateTestECSignedPreKey(final long keyId) {

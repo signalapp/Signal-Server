@@ -54,7 +54,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
@@ -527,8 +526,8 @@ class RegistrationControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
     {
-      final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-      final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+      final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+      final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
       aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
       pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
@@ -616,8 +615,8 @@ class RegistrationControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
     {
-      final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-      final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+      final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+      final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
       aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
       pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
@@ -814,8 +813,8 @@ class RegistrationControllerTest {
     final KEMSignedPreKey aciPqLastResortPreKey;
     final KEMSignedPreKey pniPqLastResortPreKey;
     {
-      final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-      final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+      final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+      final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
       aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
       pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
@@ -942,8 +941,8 @@ class RegistrationControllerTest {
       final int registrationId,
       int pniRegistrationId) {
 
-    final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-    final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());

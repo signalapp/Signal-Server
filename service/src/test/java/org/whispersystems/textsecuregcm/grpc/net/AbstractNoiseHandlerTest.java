@@ -36,7 +36,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -106,7 +105,7 @@ abstract class AbstractNoiseHandlerTest extends AbstractLeakDetectionTest {
 
   @BeforeEach
   void setUp() {
-    serverKeyPair = Curve.generateKeyPair();
+    serverKeyPair = ECKeyPair.generate();
     noiseHandshakeCompleteHandler = new NoiseHandshakeCompleteHandler();
     clientPublicKeysManager = mock(ClientPublicKeysManager.class);
     embeddedChannel = new EmbeddedChannel(

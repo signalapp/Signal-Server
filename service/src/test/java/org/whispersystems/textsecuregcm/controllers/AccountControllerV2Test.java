@@ -62,7 +62,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.protocol.ecc.Curve;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
@@ -103,7 +102,7 @@ class AccountControllerV2Test {
 
   private static final long SESSION_EXPIRATION_SECONDS = Duration.ofMinutes(10).toSeconds();
 
-  private static final ECKeyPair IDENTITY_KEY_PAIR = Curve.generateKeyPair();
+  private static final ECKeyPair IDENTITY_KEY_PAIR = ECKeyPair.generate();
   private static final IdentityKey IDENTITY_KEY = new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey());
 
   private static final String NEW_NUMBER = PhoneNumberUtil.getInstance().format(
@@ -240,7 +239,7 @@ class AccountControllerV2Test {
           .put(Entity.entity(
               // +4407700900111 is a valid number but not normalized - it has an optional '0' after the country code
               new ChangeNumberRequest(encodeSessionId("session"), null, "+4407700900111", null,
-                  new IdentityKey(Curve.generateKeyPair().getPublicKey()),
+                  new IdentityKey(ECKeyPair.generate().getPublicKey()),
                   Collections.emptyList(),
                   Collections.emptyMap(), null, Collections.emptyMap()),
               MediaType.APPLICATION_JSON_TYPE))) {
@@ -802,8 +801,8 @@ class AccountControllerV2Test {
         final boolean unrestrictedUnidentifiedAccess, final boolean discoverableByPhoneNumber,
         List<AccountBadge> badges, List<DeviceData> devices) {
 
-      final ECKeyPair aciIdentityKeyPair = Curve.generateKeyPair();
-      final ECKeyPair pniIdentityKeyPair = Curve.generateKeyPair();
+      final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+      final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
       final Account account = new Account();
       account.setUuid(aci);
