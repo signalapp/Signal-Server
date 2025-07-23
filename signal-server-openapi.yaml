@@ -4989,7 +4989,21 @@ components:
           format: int64
         created:
           type: integer
+          description: |2
+                The time in milliseconds since epoch when the device was linked.
+                Deprecated in favor of `createdAtCiphertext`.
           format: int64
+          deprecated: true
+        registrationId:
+          type: integer
+          description: The registration ID of the given device.
+          format: int32
+        createdAtCiphertext:
+          type: string
+          description: |
+            The ciphertext of the time in milliseconds since epoch when the device was attached
+            to the parent account, encoded in standard base64 without padding.
+          format: byte
     DeviceInfoList:
       type: object
       properties:
@@ -5525,6 +5539,11 @@ components:
     ServiceId:
       type: object
       properties:
+        kind:
+          type: string
+          enum:
+          - ACI
+          - PNI
         rawUUID:
           type: string
           format: uuid
