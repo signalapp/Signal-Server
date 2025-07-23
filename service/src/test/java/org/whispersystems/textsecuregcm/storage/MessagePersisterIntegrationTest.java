@@ -170,7 +170,7 @@ class MessagePersisterIntegrationTest {
         }
 
         @Override
-        public void handleConnectionDisplaced(final boolean connectedElsewhere) {
+        public void handleConflictingMessageReader() {
         }
       });
 

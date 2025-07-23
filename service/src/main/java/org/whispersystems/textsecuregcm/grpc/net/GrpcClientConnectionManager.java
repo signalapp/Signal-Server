@@ -10,19 +10,16 @@ import io.netty.channel.local.LocalChannel;
 import io.netty.util.AttributeKey;
 import java.net.InetAddress;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.grpc.ChannelNotFoundException;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
@@ -45,7 +42,7 @@ import org.whispersystems.textsecuregcm.util.ClosableEpoch;
  * Methods for requesting connection closure accept an {@link AuthenticatedDevice} to identify the connection and may
  * be called from any application code.
  */
-public class GrpcClientConnectionManager implements DisconnectionRequestListener {
+public class GrpcClientConnectionManager {
 
   private final Map<LocalAddress, Channel> remoteChannelsByLocalAddress = new ConcurrentHashMap<>();
   private final Map<AuthenticatedDevice, List<Channel>> remoteChannelsByAuthenticatedDevice = new ConcurrentHashMap<>();
@@ -62,7 +59,7 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
   static final AttributeKey<ClosableEpoch> EPOCH_ATTRIBUTE_KEY =
       AttributeKey.valueOf(GrpcClientConnectionManager.class, "epoch");
 
-  private static OutboundCloseErrorMessage SERVER_CLOSED =
+  private static final OutboundCloseErrorMessage SERVER_CLOSED =
       new OutboundCloseErrorMessage(OutboundCloseErrorMessage.Code.SERVER_CLOSED, "server closed");
 
   private static final Logger log = LoggerFactory.getLogger(GrpcClientConnectionManager.class);
@@ -267,12 +264,5 @@ public class GrpcClientConnectionManager implements DisconnectionRequestListener
             return existingChannelList.isEmpty() ? null : existingChannelList;
           }));
     });
-  }
-
-  @Override
-  public void handleDisconnectionRequest(final UUID accountIdentifier, final Collection<Byte> deviceIds) {
-    deviceIds.stream()
-        .map(deviceId -> new AuthenticatedDevice(accountIdentifier, deviceId))
-        .forEach(this::closeConnection);
   }
 }

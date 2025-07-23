@@ -22,11 +22,8 @@ public interface WebSocketConnectionEventListener {
   void handleMessagesPersisted();
 
   /**
-   * Indicates that the client's presence has been displaced and the listener should close the client's underlying
-   * network connection.
-   *
-   * @param connectedElsewhere if {@code true}, indicates that the client's presence has been displaced by another
-   *                           connection from the same client
+   * Indicates a newer instance of this client has started reading messages and the listener should close this client's
+   * underlying network connection.
    */
-  void handleConnectionDisplaced(boolean connectedElsewhere);
+  void handleConflictingMessageReader();
 }

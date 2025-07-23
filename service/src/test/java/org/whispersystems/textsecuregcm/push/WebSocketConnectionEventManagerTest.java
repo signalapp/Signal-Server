@@ -67,7 +67,7 @@ class WebSocketConnectionEventManagerTest {
     }
 
     @Override
-    public void handleConnectionDisplaced(final boolean connectedElsewhere) {
+    public void handleConflictingMessageReader() {
     }
   }
 
@@ -116,15 +116,12 @@ class WebSocketConnectionEventManagerTest {
     final AtomicBoolean firstListenerDisplaced = new AtomicBoolean(false);
 
     final AtomicBoolean secondListenerDisplaced = new AtomicBoolean(false);
-    final AtomicBoolean firstListenerConnectedElsewhere = new AtomicBoolean(false);
 
     localEventManager.handleClientConnected(accountIdentifier, deviceId, new WebSocketConnectionEventAdapter() {
       @Override
-      public void handleConnectionDisplaced(final boolean connectedElsewhere) {
+      public void handleConflictingMessageReader() {
         synchronized (firstListenerDisplaced) {
           firstListenerDisplaced.set(true);
-          firstListenerConnectedElsewhere.set(connectedElsewhere);
-
           firstListenerDisplaced.notifyAll();
         }
       }
@@ -138,7 +135,7 @@ class WebSocketConnectionEventManagerTest {
 
     displacingManager.handleClientConnected(accountIdentifier, deviceId, new WebSocketConnectionEventAdapter() {
       @Override
-      public void handleConnectionDisplaced(final boolean connectedElsewhere) {
+      public void handleConflictingMessageReader() {
         secondListenerDisplaced.set(true);
       }
     }).toCompletableFuture().join();
@@ -151,8 +148,6 @@ class WebSocketConnectionEventManagerTest {
 
     assertTrue(firstListenerDisplaced.get());
     assertFalse(secondListenerDisplaced.get());
-
-    assertTrue(firstListenerConnectedElsewhere.get());
   }
 
   @Test
@@ -176,56 +171,6 @@ class WebSocketConnectionEventManagerTest {
 
     assertFalse(localEventManager.isLocallyPresent(accountIdentifier, deviceId));
     assertFalse(remoteEventManager.isLocallyPresent(accountIdentifier, deviceId));
-  }
-
-  @Test
-  void handleDisconnectionRequest() throws InterruptedException {
-    final UUID accountIdentifier = UUID.randomUUID();
-    final byte firstDeviceId = Device.PRIMARY_ID;
-    final byte secondDeviceId = firstDeviceId + 1;
-
-    final AtomicBoolean firstListenerDisplaced = new AtomicBoolean(false);
-    final AtomicBoolean secondListenerDisplaced = new AtomicBoolean(false);
-
-    final AtomicBoolean firstListenerConnectedElsewhere = new AtomicBoolean(false);
-
-    localEventManager.handleClientConnected(accountIdentifier, firstDeviceId, new WebSocketConnectionEventAdapter() {
-      @Override
-      public void handleConnectionDisplaced(final boolean connectedElsewhere) {
-        synchronized (firstListenerDisplaced) {
-          firstListenerDisplaced.set(true);
-          firstListenerConnectedElsewhere.set(connectedElsewhere);
-
-          firstListenerDisplaced.notifyAll();
-        }
-      }
-    }).toCompletableFuture().join();
-
-    localEventManager.handleClientConnected(accountIdentifier, secondDeviceId, new WebSocketConnectionEventAdapter() {
-      @Override
-      public void handleConnectionDisplaced(final boolean connectedElsewhere) {
-        synchronized (secondListenerDisplaced) {
-          secondListenerDisplaced.set(true);
-          secondListenerDisplaced.notifyAll();
-        }
-      }
-    }).toCompletableFuture().join();
-
-    assertFalse(firstListenerDisplaced.get());
-    assertFalse(secondListenerDisplaced.get());
-
-    localEventManager.handleDisconnectionRequest(accountIdentifier, List.of(firstDeviceId));
-
-    synchronized (firstListenerDisplaced) {
-      while (!firstListenerDisplaced.get()) {
-        firstListenerDisplaced.wait();
-      }
-    }
-
-    assertTrue(firstListenerDisplaced.get());
-    assertFalse(secondListenerDisplaced.get());
-
-    assertFalse(firstListenerConnectedElsewhere.get());
   }
 
   @Test

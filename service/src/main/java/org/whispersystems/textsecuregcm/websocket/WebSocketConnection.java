@@ -37,6 +37,7 @@ import org.eclipse.jetty.util.StaticException;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
@@ -65,7 +66,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
-public class WebSocketConnection implements WebSocketConnectionEventListener {
+public class WebSocketConnection implements WebSocketConnectionEventListener, DisconnectionRequestListener {
 
   private static final DistributionSummary messageTime = Metrics.summary(
       name(MessageController.class, "messageDeliveryDuration"));
@@ -506,23 +507,22 @@ public class WebSocketConnection implements WebSocketConnectionEventListener {
   }
 
   @Override
-  public void handleConnectionDisplaced(final boolean connectedElsewhere) {
+  public void handleConflictingMessageReader() {
+    closeConnection(4409, "Connected elsewhere");
+  }
+
+  @Override
+  public void handleDisconnectionRequest() {
+    closeConnection(4401, "Reauthentication required");
+  }
+
+  private void closeConnection(final int code, final String message) {
     final Tags tags = Tags.of(
         UserAgentTagUtil.getPlatformTag(client.getUserAgent()),
-        Tag.of("connectedElsewhere", String.valueOf(connectedElsewhere)));
+        // TODO We should probably just use the status code directly
+        Tag.of("connectedElsewhere", String.valueOf(code == 4409)));
 
     Metrics.counter(DISPLACEMENT_COUNTER_NAME, tags).increment();
-
-    final int code;
-    final String message;
-
-    if (connectedElsewhere) {
-      code = 4409;
-      message = "Connected elsewhere";
-    } else {
-      code = 4401;
-      message = "Reauthentication required";
-    }
 
     client.close(code, message);
   }

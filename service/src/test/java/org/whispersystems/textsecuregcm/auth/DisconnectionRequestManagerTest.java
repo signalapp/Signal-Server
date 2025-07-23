@@ -6,20 +6,21 @@
 package org.whispersystems.textsecuregcm.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.RedisServerExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -28,42 +29,19 @@ import org.whispersystems.textsecuregcm.storage.Device;
 @Timeout(value = 5, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class DisconnectionRequestManagerTest {
 
+  private GrpcClientConnectionManager grpcClientConnectionManager;
   private DisconnectionRequestManager disconnectionRequestManager;
 
   @RegisterExtension
   static final RedisServerExtension REDIS_EXTENSION = RedisServerExtension.builder().build();
 
-  private static class DisconnectionRequestTestListener implements DisconnectionRequestListener {
-
-    private final CountDownLatch requestLatch = new CountDownLatch(1);
-
-    private UUID accountIdentifier;
-    private Collection<Byte> deviceIds;
-
-    @Override
-    public void handleDisconnectionRequest(final UUID accountIdentifier, final Collection<Byte> deviceIds) {
-      this.accountIdentifier = accountIdentifier;
-      this.deviceIds = deviceIds;
-
-      requestLatch.countDown();
-    }
-
-    public UUID getAccountIdentifier() {
-      return accountIdentifier;
-    }
-
-    public Collection<Byte> getDeviceIds() {
-      return deviceIds;
-    }
-
-    public void waitForRequest() throws InterruptedException {
-      requestLatch.await();
-    }
-  }
-
   @BeforeEach
   void setUp() {
-    disconnectionRequestManager = new DisconnectionRequestManager(REDIS_EXTENSION.getRedisClient(), Runnable::run);
+    grpcClientConnectionManager = mock(GrpcClientConnectionManager.class);
+
+    disconnectionRequestManager =
+        new DisconnectionRequestManager(REDIS_EXTENSION.getRedisClient(), grpcClientConnectionManager, Runnable::run);
+
     disconnectionRequestManager.start();
   }
 
@@ -73,43 +51,98 @@ class DisconnectionRequestManagerTest {
   }
 
   @Test
-  void requestDisconnection() throws InterruptedException {
+  void addRemoveListener() {
     final UUID accountIdentifier = UUID.randomUUID();
-    final List<Byte> deviceIds = List.of(Device.PRIMARY_ID, (byte) (Device.PRIMARY_ID + 1));
+    final byte deviceId = Device.PRIMARY_ID;
 
-    final DisconnectionRequestTestListener listener = new DisconnectionRequestTestListener();
+    final DisconnectionRequestListener firstListener = mock(DisconnectionRequestListener.class);
+    final DisconnectionRequestListener secondListener = mock(DisconnectionRequestListener.class);
 
-    disconnectionRequestManager.addListener(listener);
-    disconnectionRequestManager.requestDisconnection(accountIdentifier, deviceIds).toCompletableFuture().join();
+    assertTrue(disconnectionRequestManager.getListeners(accountIdentifier, deviceId).isEmpty());
 
-    listener.waitForRequest();
+    disconnectionRequestManager.addListener(accountIdentifier, deviceId, firstListener);
 
-    assertEquals(accountIdentifier, listener.getAccountIdentifier());
-    assertEquals(deviceIds, listener.getDeviceIds());
+    assertEquals(List.of(firstListener), disconnectionRequestManager.getListeners(accountIdentifier, deviceId));
+
+    disconnectionRequestManager.addListener(accountIdentifier, deviceId, secondListener);
+
+    assertEquals(List.of(firstListener, secondListener),
+        disconnectionRequestManager.getListeners(accountIdentifier, deviceId));
+
+    disconnectionRequestManager.removeListener(accountIdentifier, deviceId, mock(DisconnectionRequestListener.class));
+
+    assertEquals(List.of(firstListener, secondListener),
+        disconnectionRequestManager.getListeners(accountIdentifier, deviceId));
+
+    disconnectionRequestManager.removeListener(accountIdentifier, deviceId, firstListener);
+
+    assertEquals(List.of(secondListener), disconnectionRequestManager.getListeners(accountIdentifier, deviceId));
   }
 
   @Test
-  void requestDisconnectionAllDevices() throws InterruptedException {
+  void requestDisconnection() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final byte primaryDeviceId = Device.PRIMARY_ID;
+    final byte linkedDeviceId = primaryDeviceId + 1;
+
+    final UUID otherAccountIdentifier = UUID.randomUUID();
+    final byte otherDeviceId = linkedDeviceId + 1;
+
+    final List<Byte> deviceIds = List.of(primaryDeviceId, linkedDeviceId);
+
+    final DisconnectionRequestListener primaryDeviceListener = mock(DisconnectionRequestListener.class);
+    final DisconnectionRequestListener linkedDeviceListener = mock(DisconnectionRequestListener.class);
+
+    disconnectionRequestManager.addListener(accountIdentifier, primaryDeviceId, primaryDeviceListener);
+    disconnectionRequestManager.addListener(accountIdentifier, linkedDeviceId, linkedDeviceListener);
+
+    disconnectionRequestManager.requestDisconnection(accountIdentifier, deviceIds).toCompletableFuture().join();
+
+    verify(primaryDeviceListener, timeout(1_000)).handleDisconnectionRequest();
+    verify(linkedDeviceListener, timeout(1_000)).handleDisconnectionRequest();
+    verify(grpcClientConnectionManager, timeout(1_000))
+        .closeConnection(new AuthenticatedDevice(accountIdentifier, primaryDeviceId));
+
+    verify(grpcClientConnectionManager, timeout(1_000))
+        .closeConnection(new AuthenticatedDevice(accountIdentifier, linkedDeviceId));
+
+    disconnectionRequestManager.requestDisconnection(otherAccountIdentifier, List.of(otherDeviceId));
+
+    verify(grpcClientConnectionManager, timeout(1_000))
+        .closeConnection(new AuthenticatedDevice(otherAccountIdentifier, otherDeviceId));
+  }
+
+  @Test
+  void requestDisconnectionAllDevices() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final byte primaryDeviceId = Device.PRIMARY_ID;
+    final byte linkedDeviceId = primaryDeviceId + 1;
+
     final Device primaryDevice = mock(Device.class);
-    when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    when(primaryDevice.getId()).thenReturn(primaryDeviceId);
 
     final Device linkedDevice = mock(Device.class);
-    when(linkedDevice.getId()).thenReturn((byte) (Device.PRIMARY_ID + 1));
-
-    final UUID accountIdentifier = UUID.randomUUID();
+    when(linkedDevice.getId()).thenReturn(linkedDeviceId);
 
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
 
-    final DisconnectionRequestTestListener listener = new DisconnectionRequestTestListener();
+    final DisconnectionRequestListener primaryDeviceListener = mock(DisconnectionRequestListener.class);
+    final DisconnectionRequestListener linkedDeviceListener = mock(DisconnectionRequestListener.class);
 
-    disconnectionRequestManager.addListener(listener);
+    disconnectionRequestManager.addListener(accountIdentifier, primaryDeviceId, primaryDeviceListener);
+    disconnectionRequestManager.addListener(accountIdentifier, linkedDeviceId, linkedDeviceListener);
+
     disconnectionRequestManager.requestDisconnection(account).toCompletableFuture().join();
 
-    listener.waitForRequest();
+    verify(primaryDeviceListener, timeout(1_000)).handleDisconnectionRequest();
+    verify(linkedDeviceListener, timeout(1_000)).handleDisconnectionRequest();
 
-    assertEquals(accountIdentifier, listener.getAccountIdentifier());
-    assertEquals(List.of(Device.PRIMARY_ID, (byte) (Device.PRIMARY_ID + 1)), listener.getDeviceIds());
+    verify(grpcClientConnectionManager, timeout(1_000))
+        .closeConnection(new AuthenticatedDevice(accountIdentifier, primaryDeviceId));
+
+    verify(grpcClientConnectionManager, timeout(1_000))
+        .closeConnection(new AuthenticatedDevice(accountIdentifier, linkedDeviceId));
   }
 }
