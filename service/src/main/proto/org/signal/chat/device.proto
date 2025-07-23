@@ -10,6 +10,7 @@ option java_multiple_files = true;
 package org.signal.chat.device;
 
 import "org/signal/chat/common.proto";
+import "org/signal/chat/require.proto";
 
 /**
  * Provides methods for working with devices attached to a Signal account.
@@ -84,6 +85,18 @@ message GetDevicesResponse {
      * device last connected to the server.
      */
     uint64 last_seen = 4;
+
+    /**
+     * The registration ID of the given device.
+     */
+    uint32 registration_id = 5 [(require.range).max = 0x3fff];
+
+    /**
+     * A sequence of bytes that encodes the time,
+     * in milliseconds since the epoch, at which this device was
+     * attached to its parent account.
+     */
+    bytes created_at_ciphertext = 6;
   }
 
   /**

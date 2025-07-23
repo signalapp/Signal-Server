@@ -13,7 +13,6 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -21,6 +20,7 @@ import javax.annotation.Nullable;
 import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
 import org.whispersystems.textsecuregcm.util.DeviceNameByteArrayAdapter;
 
@@ -43,6 +43,11 @@ public class Device {
   @JsonSerialize(using = DeviceNameByteArrayAdapter.Serializer.class)
   @JsonDeserialize(using = DeviceNameByteArrayAdapter.Deserializer.class)
   private byte[] name;
+
+  @JsonProperty("createdAt")
+  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
+  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+  private byte[] createdAtCiphertext;
 
   @JsonProperty
   private String  authToken;
@@ -108,6 +113,14 @@ public class Device {
 
   public long getCreated() {
     return this.created;
+  }
+
+  public void setCreatedAtCiphertext(byte[] createdAtCiphertext) {
+    this.createdAtCiphertext = createdAtCiphertext;
+  }
+
+  public byte[] getCreatedAtCiphertext() {
+    return this.createdAtCiphertext;
   }
 
   public String getGcmId() {

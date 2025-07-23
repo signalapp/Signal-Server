@@ -308,7 +308,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     account.setNumber(number, pni);
     account.setIdentityKey(aciIdentityKey);
     account.setPhoneNumberIdentityKey(pniIdentityKey);
-    account.addDevice(primaryDeviceSpec.toDevice(Device.PRIMARY_ID, clock));
+    account.addDevice(primaryDeviceSpec.toDevice(Device.PRIMARY_ID, clock, aciIdentityKey));
     account.setRegistrationLockFromAttributes(accountAttributes);
     account.setUnidentifiedAccessKey(accountAttributes.getUnidentifiedAccessKey());
     account.setUnrestrictedUnidentifiedAccess(accountAttributes.isUnrestrictedUnidentifiedAccess());
@@ -436,7 +436,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           final Account account = accountAndNextDeviceId.first();
           final byte nextDeviceId = accountAndNextDeviceId.second();
 
-          account.addDevice(deviceSpec.toDevice(nextDeviceId, clock));
+          account.addDevice(deviceSpec.toDevice(nextDeviceId, clock, account.getIdentityKey(IdentityType.ACI)));
 
           final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(
               account.getIdentifier(IdentityType.ACI),

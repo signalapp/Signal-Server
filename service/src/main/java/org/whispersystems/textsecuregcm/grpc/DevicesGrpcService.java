@@ -27,6 +27,7 @@ import org.signal.chat.device.SetPushTokenRequest;
 import org.signal.chat.device.SetPushTokenResponse;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
@@ -61,6 +62,8 @@ public class DevicesGrpcService extends ReactorDevicesGrpc.DevicesImplBase {
               .setId(device.getId())
               .setCreated(device.getCreated())
               .setLastSeen(device.getLastSeen())
+              .setRegistrationId(device.getRegistrationId(IdentityType.ACI))
+              .setCreatedAtCiphertext(ByteString.copyFrom(device.getCreatedAtCiphertext()))
               .build());
         })
         .map(GetDevicesResponse.Builder::build);

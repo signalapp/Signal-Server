@@ -3,6 +3,7 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -474,6 +475,8 @@ public class AddRemoveDeviceIntegrationTest {
 
     assertEquals(updatedAccountAndDevice.second().getId(), deviceInfo.id());
     assertEquals(updatedAccountAndDevice.second().getCreated(), deviceInfo.created());
+    assertEquals(updatedAccountAndDevice.second().getRegistrationId(IdentityType.ACI), deviceInfo.registrationId());
+    assertNotNull(deviceInfo.createdAtCiphertext());
   }
 
   @Test
@@ -521,6 +524,8 @@ public class AddRemoveDeviceIntegrationTest {
 
     assertEquals(updatedAccountAndDevice.second().getId(), deviceInfo.id());
     assertEquals(updatedAccountAndDevice.second().getCreated(), deviceInfo.created());
+    assertEquals(updatedAccountAndDevice.second().getRegistrationId(IdentityType.ACI), deviceInfo.registrationId());
+    assertNotNull(deviceInfo.createdAtCiphertext());
   }
 
   @Test

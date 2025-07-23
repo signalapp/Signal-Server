@@ -928,6 +928,7 @@ class AccountsManagerTest {
     final Account account = AccountsHelper.generateTestAccount(phoneNumber, List.of(generateTestDevice(CLOCK.millis())));
     final UUID aci = account.getIdentifier(IdentityType.ACI);
     final UUID pni = account.getIdentifier(IdentityType.PNI);
+    account.setIdentityKey(new IdentityKey(ECKeyPair.generate().getPublicKey()));
 
     final byte nextDeviceId = account.getNextDeviceId();
 

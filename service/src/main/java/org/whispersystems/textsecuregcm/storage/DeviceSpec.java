@@ -5,11 +5,13 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
+import org.whispersystems.textsecuregcm.util.EncryptDeviceCreationTimestampUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 
 public record DeviceSpec(
@@ -27,7 +29,9 @@ public record DeviceSpec(
     KEMSignedPreKey aciPqLastResortPreKey,
     KEMSignedPreKey pniPqLastResortPreKey) {
   
-  public Device toDevice(final byte deviceId, final Clock clock) {
+  public Device toDevice(final byte deviceId, final Clock clock, final IdentityKey aciIdentityKey) {
+    final long created = clock.millis();
+
     final Device device = new Device();
     device.setId(deviceId);
     device.setAuthTokenHash(SaltedTokenHash.generateFor(password()));
@@ -36,7 +40,9 @@ public record DeviceSpec(
     device.setPhoneNumberIdentityRegistrationId(pniRegistrationId());
     device.setName(deviceNameCiphertext());
     device.setCapabilities(capabilities());
-    device.setCreated(clock.millis());
+    device.setCreated(created);
+    device.setCreatedAtCiphertext(
+        EncryptDeviceCreationTimestampUtil.encrypt(created, aciIdentityKey, deviceId, aciRegistrationId()));
     device.setLastSeen(Util.todayInMillis());
     device.setUserAgent(signalAgent());
 

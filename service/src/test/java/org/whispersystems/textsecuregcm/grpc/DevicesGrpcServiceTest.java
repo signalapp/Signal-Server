@@ -48,6 +48,7 @@ import org.signal.chat.device.SetDeviceNameRequest;
 import org.signal.chat.device.SetDeviceNameResponse;
 import org.signal.chat.device.SetPushTokenRequest;
 import org.signal.chat.device.SetPushTokenResponse;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -102,11 +103,17 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final Instant primaryDeviceLastSeen = primaryDeviceCreated.plus(Duration.ofHours(6));
     final Instant linkedDeviceCreated = Instant.now().minus(Duration.ofDays(1)).truncatedTo(ChronoUnit.MILLIS);
     final Instant linkedDeviceLastSeen = linkedDeviceCreated.plus(Duration.ofHours(7));
+    final int primaryRegistrationId = 1234;
+    final int linkedRegistrationId = 1235;
+    final byte[] primaryCreatedAtCiphertext = "primary_timestamp_ciphertext".getBytes(StandardCharsets.UTF_8);
+    final byte[] linkedCreatedAtCiphertext = "linked_timestamp_ciphertext".getBytes(StandardCharsets.UTF_8);
 
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(primaryDevice.getCreated()).thenReturn(primaryDeviceCreated.toEpochMilli());
     when(primaryDevice.getLastSeen()).thenReturn(primaryDeviceLastSeen.toEpochMilli());
+    when(primaryDevice.getRegistrationId(IdentityType.ACI)).thenReturn(primaryRegistrationId);
+    when(primaryDevice.getCreatedAtCiphertext()).thenReturn(primaryCreatedAtCiphertext);
 
     final String linkedDeviceName = "A linked device";
 
@@ -115,6 +122,8 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     when(linkedDevice.getCreated()).thenReturn(linkedDeviceCreated.toEpochMilli());
     when(linkedDevice.getLastSeen()).thenReturn(linkedDeviceLastSeen.toEpochMilli());
     when(linkedDevice.getName()).thenReturn(linkedDeviceName.getBytes(StandardCharsets.UTF_8));
+    when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(linkedRegistrationId);
+    when(linkedDevice.getCreatedAtCiphertext()).thenReturn(linkedCreatedAtCiphertext);
 
     when(authenticatedAccount.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
 
@@ -123,12 +132,16 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
             .setId(Device.PRIMARY_ID)
             .setCreated(primaryDeviceCreated.toEpochMilli())
             .setLastSeen(primaryDeviceLastSeen.toEpochMilli())
+            .setRegistrationId(primaryRegistrationId)
+            .setCreatedAtCiphertext(ByteString.copyFrom(primaryCreatedAtCiphertext))
             .build())
         .addDevices(GetDevicesResponse.LinkedDevice.newBuilder()
             .setId(Device.PRIMARY_ID + 1)
             .setCreated(linkedDeviceCreated.toEpochMilli())
             .setLastSeen(linkedDeviceLastSeen.toEpochMilli())
             .setName(ByteString.copyFrom(linkedDeviceName.getBytes(StandardCharsets.UTF_8)))
+            .setRegistrationId(linkedRegistrationId)
+            .setCreatedAtCiphertext(ByteString.copyFrom(linkedCreatedAtCiphertext))
             .build())
         .build();
 
