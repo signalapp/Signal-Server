@@ -15,7 +15,7 @@ import org.signal.chat.profile.GetUnversionedProfileAnonymousRequest;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileAnonymousRequest;
 import org.signal.chat.profile.GetVersionedProfileResponse;
-import org.signal.chat.profile.ReactorProfileAnonymousGrpc;
+import org.signal.chat.profile.SimpleProfileAnonymousGrpc;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
@@ -25,9 +25,8 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
-import reactor.core.publisher.Mono;
 
-public class ProfileAnonymousGrpcService extends ReactorProfileAnonymousGrpc.ProfileAnonymousImplBase {
+public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.ProfileAnonymousImplBase {
   private final AccountsManager accountsManager;
   private final ProfilesManager profilesManager;
   private final ProfileBadgeConverter profileBadgeConverter;
@@ -47,72 +46,68 @@ public class ProfileAnonymousGrpcService extends ReactorProfileAnonymousGrpc.Pro
   }
 
   @Override
-  public Mono<GetUnversionedProfileResponse> getUnversionedProfile(final GetUnversionedProfileAnonymousRequest request) {
+  public GetUnversionedProfileResponse getUnversionedProfile(final GetUnversionedProfileAnonymousRequest request) throws StatusException {
     final ServiceIdentifier targetIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getServiceIdentifier());
 
     // Callers must be authenticated to request unversioned profiles by PNI
     if (targetIdentifier.identityType() == IdentityType.PNI) {
-      throw Status.UNAUTHENTICATED.asRuntimeException();
+      throw Status.UNAUTHENTICATED.asException();
     }
 
-    final Mono<Account> account = switch (request.getAuthenticationCase()) {
+    final Account account = switch (request.getAuthenticationCase()) {
       case GROUP_SEND_TOKEN -> {
-        try {
-          groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), targetIdentifier);
+        groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), targetIdentifier);
 
-          yield Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier))
-              .flatMap(Mono::justOrEmpty)
-              .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()));
-        } catch (final StatusException e) {
-          yield Mono.error(e);
-        }
+        yield accountsManager.getByServiceIdentifier(targetIdentifier)
+            .orElseThrow(Status.NOT_FOUND::asException);
       }
       case UNIDENTIFIED_ACCESS_KEY ->
           getTargetAccountAndValidateUnidentifiedAccess(targetIdentifier, request.getUnidentifiedAccessKey().toByteArray());
-      default -> Mono.error(Status.INVALID_ARGUMENT.asException());
+      default -> throw Status.INVALID_ARGUMENT.asException();
     };
 
-    return account.map(targetAccount -> ProfileGrpcHelper.buildUnversionedProfileResponse(targetIdentifier,
+    return ProfileGrpcHelper.buildUnversionedProfileResponse(targetIdentifier,
             null,
-            targetAccount,
-            profileBadgeConverter));
+            account,
+            profileBadgeConverter);
   }
 
   @Override
-  public Mono<GetVersionedProfileResponse> getVersionedProfile(final GetVersionedProfileAnonymousRequest request) {
+  public GetVersionedProfileResponse getVersionedProfile(final GetVersionedProfileAnonymousRequest request) throws StatusException {
     final ServiceIdentifier targetIdentifier = ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
 
     if (targetIdentifier.identityType() != IdentityType.ACI) {
-      throw Status.INVALID_ARGUMENT.withDescription("Expected ACI service identifier").asRuntimeException();
+      throw Status.INVALID_ARGUMENT.withDescription("Expected ACI service identifier").asException();
     }
 
-    return getTargetAccountAndValidateUnidentifiedAccess(targetIdentifier, request.getUnidentifiedAccessKey().toByteArray())
-        .flatMap(targetAccount -> ProfileGrpcHelper.getVersionedProfile(targetAccount, profilesManager, request.getRequest().getVersion()));
+    final Account targetAccount = getTargetAccountAndValidateUnidentifiedAccess(targetIdentifier, request.getUnidentifiedAccessKey().toByteArray());
+    return ProfileGrpcHelper.getVersionedProfile(targetAccount, profilesManager, request.getRequest().getVersion());
   }
 
   @Override
-  public Mono<GetExpiringProfileKeyCredentialResponse> getExpiringProfileKeyCredential(
-      final GetExpiringProfileKeyCredentialAnonymousRequest request) {
+  public GetExpiringProfileKeyCredentialResponse getExpiringProfileKeyCredential(
+      final GetExpiringProfileKeyCredentialAnonymousRequest request) throws StatusException {
     final ServiceIdentifier targetIdentifier = ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
 
     if (targetIdentifier.identityType() != IdentityType.ACI) {
-      throw Status.INVALID_ARGUMENT.withDescription("Expected ACI service identifier").asRuntimeException();
+      throw Status.INVALID_ARGUMENT.withDescription("Expected ACI service identifier").asException();
     }
 
     if (request.getRequest().getCredentialType() != CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY) {
-      throw Status.INVALID_ARGUMENT.withDescription("Expected expiring profile key credential type").asRuntimeException();
+      throw Status.INVALID_ARGUMENT.withDescription("Expected expiring profile key credential type").asException();
     }
 
-    return getTargetAccountAndValidateUnidentifiedAccess(targetIdentifier, request.getUnidentifiedAccessKey().toByteArray())
-        .flatMap(account -> ProfileGrpcHelper.getExpiringProfileKeyCredentialResponse(account.getUuid(),
-            request.getRequest().getVersion(), request.getRequest().getCredentialRequest().toByteArray(), profilesManager, zkProfileOperations));
+    final Account account = getTargetAccountAndValidateUnidentifiedAccess(
+        targetIdentifier, request.getUnidentifiedAccessKey().toByteArray());
+    return ProfileGrpcHelper.getExpiringProfileKeyCredentialResponse(account.getUuid(),
+            request.getRequest().getVersion(), request.getRequest().getCredentialRequest().toByteArray(), profilesManager, zkProfileOperations);
   }
 
-  private Mono<Account> getTargetAccountAndValidateUnidentifiedAccess(final ServiceIdentifier targetIdentifier, final byte[] unidentifiedAccessKey) {
-    return Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier))
-      .flatMap(Mono::justOrEmpty)
-      .filter(targetAccount -> UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, unidentifiedAccessKey))
-      .switchIfEmpty(Mono.error(Status.UNAUTHENTICATED.asException()));
+  private Account getTargetAccountAndValidateUnidentifiedAccess(final ServiceIdentifier targetIdentifier, final byte[] unidentifiedAccessKey) throws StatusException {
+
+    return accountsManager.getByServiceIdentifier(targetIdentifier)
+        .filter(targetAccount -> UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, unidentifiedAccessKey))
+        .orElseThrow(Status.UNAUTHENTICATED::asException);
   }
 }

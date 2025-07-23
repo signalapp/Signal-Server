@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import io.grpc.StatusException;
 import org.signal.chat.profile.Badge;
 import org.signal.chat.profile.BadgeSvg;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResponse;
@@ -30,36 +31,31 @@ import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
-import reactor.core.publisher.Mono;
 
 public class ProfileGrpcHelper {
-  static Mono<GetVersionedProfileResponse> getVersionedProfile(final Account account,
+  static GetVersionedProfileResponse getVersionedProfile(final Account account,
       final ProfilesManager profilesManager,
-      final String requestVersion) {
-    return Mono.fromFuture(() -> profilesManager.getAsync(account.getUuid(), requestVersion))
-        .map(maybeProfile -> {
-          if (maybeProfile.isEmpty()) {
-            throw Status.NOT_FOUND.withDescription("Profile version not found").asRuntimeException();
-          }
+      final String requestVersion) throws StatusException {
 
-          final GetVersionedProfileResponse.Builder responseBuilder = GetVersionedProfileResponse.newBuilder();
+    final VersionedProfile profile = profilesManager.get(account.getUuid(), requestVersion)
+        .orElseThrow(Status.NOT_FOUND.withDescription("Profile version not found")::asException);
 
-          maybeProfile.map(VersionedProfile::name).map(ByteString::copyFrom).ifPresent(responseBuilder::setName);
-          maybeProfile.map(VersionedProfile::about).map(ByteString::copyFrom).ifPresent(responseBuilder::setAbout);
-          maybeProfile.map(VersionedProfile::aboutEmoji).map(ByteString::copyFrom).ifPresent(responseBuilder::setAboutEmoji);
-          maybeProfile.map(VersionedProfile::avatar).ifPresent(responseBuilder::setAvatar);
-          maybeProfile.map(VersionedProfile::phoneNumberSharing).map(ByteString::copyFrom).ifPresent(responseBuilder::setPhoneNumberSharing);
+    final GetVersionedProfileResponse.Builder responseBuilder = GetVersionedProfileResponse.newBuilder();
 
-          // Allow requests where either the version matches the latest version on Account or the latest version on Account
-          // is empty to read the payment address.
-          maybeProfile
-              .filter(p -> account.getCurrentProfileVersion().map(v -> v.equals(requestVersion)).orElse(true))
-              .map(VersionedProfile::paymentAddress)
-              .map(ByteString::copyFrom)
-              .ifPresent(responseBuilder::setPaymentAddress);
+    responseBuilder
+        .setName(ByteString.copyFrom(profile.name()))
+        .setAbout(ByteString.copyFrom(profile.about()))
+        .setAboutEmoji(ByteString.copyFrom(profile.aboutEmoji()))
+        .setAvatar(profile.avatar())
+        .setPhoneNumberSharing(ByteString.copyFrom(profile.phoneNumberSharing()));
 
-          return responseBuilder.build();
-        });
+    // Allow requests where either the version matches the latest version on Account or the latest version on Account
+    // is empty to read the payment address.
+    if (account.getCurrentProfileVersion().map(v -> v.equals(requestVersion)).orElse(true)) {
+      responseBuilder.setPaymentAddress(ByteString.copyFrom(profile.paymentAddress()));
+    }
+
+    return responseBuilder.build();
   }
 
   @VisibleForTesting
@@ -127,27 +123,26 @@ public class ProfileGrpcHelper {
     return responseBuilder.build();
   }
 
-  static Mono<GetExpiringProfileKeyCredentialResponse> getExpiringProfileKeyCredentialResponse(
+  static GetExpiringProfileKeyCredentialResponse getExpiringProfileKeyCredentialResponse(
       final UUID targetUuid,
       final String version,
       final byte[] encodedCredentialRequest,
       final ProfilesManager profilesManager,
-      final ServerZkProfileOperations zkProfileOperations) {
-    return Mono.fromFuture(profilesManager.getAsync(targetUuid, version))
-        .flatMap(Mono::justOrEmpty)
-        .map(profile -> {
-          final ExpiringProfileKeyCredentialResponse profileKeyCredentialResponse;
-          try {
-            profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(encodedCredentialRequest,
-                profile, new ServiceId.Aci(targetUuid), zkProfileOperations);
-          } catch (VerificationFailedException | InvalidInputException e) {
-            throw Status.INVALID_ARGUMENT.withCause(e).asRuntimeException();
-          }
+      final ServerZkProfileOperations zkProfileOperations) throws StatusException {
 
-          return GetExpiringProfileKeyCredentialResponse.newBuilder()
-              .setProfileKeyCredential(ByteString.copyFrom(profileKeyCredentialResponse.serialize()))
-              .build();
-        })
-        .switchIfEmpty(Mono.error(Status.NOT_FOUND.withDescription("Profile version not found").asException()));
+    final VersionedProfile profile = profilesManager.get(targetUuid, version)
+        .orElseThrow(Status.NOT_FOUND.withDescription("Profile version not found")::asException);
+
+    final ExpiringProfileKeyCredentialResponse profileKeyCredentialResponse;
+    try {
+      profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(encodedCredentialRequest,
+          profile, new ServiceId.Aci(targetUuid), zkProfileOperations);
+    } catch (VerificationFailedException | InvalidInputException e) {
+      throw Status.INVALID_ARGUMENT.withCause(e).asException();
+    }
+
+    return GetExpiringProfileKeyCredentialResponse.newBuilder()
+        .setProfileKeyCredential(ByteString.copyFrom(profileKeyCredentialResponse.serialize()))
+        .build();
   }
 }

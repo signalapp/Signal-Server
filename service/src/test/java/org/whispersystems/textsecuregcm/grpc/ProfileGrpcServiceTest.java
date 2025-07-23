@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.refEq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -109,7 +110,6 @@ import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import reactor.core.publisher.Mono;
 
 public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcService, ProfileGrpc.ProfileBlockingStub> {
 
@@ -174,7 +174,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         Locale.LanguageRange.parse("en-us")));
 
     when(rateLimiters.getProfileLimiter()).thenReturn(rateLimiter);
-    when(rateLimiter.validateReactive(any(UUID.class))).thenReturn(Mono.empty());
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
@@ -186,11 +185,10 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(profile.paymentAddress()).thenReturn(null);
     when(profile.avatar()).thenReturn("");
 
-    when(accountsManager.getByAccountIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
-    when(accountsManager.updateAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(accountsManager.getByAccountIdentifier(any())).thenReturn(Optional.of(account));
+    when(accountsManager.update(any(), any())).thenReturn(null);
 
-    when(profilesManager.getAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
-    when(profilesManager.setAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(profilesManager.get(any(), any())).thenReturn(Optional.of(profile));
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
@@ -237,7 +235,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     final ArgumentCaptor<VersionedProfile> profileArgumentCaptor = ArgumentCaptor.forClass(VersionedProfile.class);
 
-    verify(profilesManager).setAsync(eq(account.getUuid()), profileArgumentCaptor.capture());
+    verify(profilesManager).set(eq(account.getUuid()), profileArgumentCaptor.capture());
 
     final VersionedProfile profile = profileArgumentCaptor.getValue();
 
@@ -267,9 +265,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     when(profile.avatar()).thenReturn(currentAvatar);
 
-    when(profilesManager.getAsync(any(), anyString())).thenReturn(CompletableFuture.completedFuture(
-        hasPreviousProfile ? Optional.of(profile) : Optional.empty()));
-    when(profilesManager.setAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(profilesManager.get(any(), anyString())).thenReturn(hasPreviousProfile ? Optional.of(profile) : Optional.empty());
 
     final SetProfileResponse response = authenticatedServiceStub().setProfile(request);
 
@@ -374,7 +370,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(account.getNumber()).thenReturn(PhoneNumberUtil.getInstance().format(
         disallowedPhoneNumber,
         PhoneNumberUtil.PhoneNumberFormat.E164));
-    when(profilesManager.getAsync(any(), anyString())).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
+    when(profilesManager.get(any(), anyString())).thenReturn(Optional.of(profile));
 
     if (hasExistingPaymentAddress) {
       assertDoesNotThrow(() -> authenticatedServiceStub().setProfile(request),
@@ -422,7 +418,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
   @ParameterizedTest
   @EnumSource(value = org.signal.chat.common.IdentityType.class, names = {"IDENTITY_TYPE_ACI", "IDENTITY_TYPE_PNI"})
-  void getUnversionedProfile(final IdentityType identityType) {
+  void getUnversionedProfile(final IdentityType identityType) throws Exception {
     final UUID targetUuid = UUID.randomUUID();
     final org.whispersystems.textsecuregcm.identity.ServiceIdentifier targetIdentifier =
         identityType == IdentityType.IDENTITY_TYPE_ACI ? new AciServiceIdentifier(targetUuid) : new PniServiceIdentifier(targetUuid);
@@ -457,7 +453,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(account.hasCapability(any())).thenReturn(false);
     when(account.hasCapability(DeviceCapability.DELETE_SYNC)).thenReturn(true);
     when(profileBadgeConverter.convert(any(), any(), anyBoolean())).thenReturn(badges);
-    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
 
     final GetUnversionedProfileResponse response = authenticatedServiceStub().getUnversionedProfile(request);
 
@@ -481,15 +477,15 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
       expectedResponse = prototypeExpectedResponse;
     }
 
-    verify(rateLimiter).validateReactive(AUTHENTICATED_ACI);
-    verify(accountsManager).getByServiceIdentifierAsync(targetIdentifier);
+    verify(rateLimiter).validate(AUTHENTICATED_ACI);
+    verify(accountsManager).getByServiceIdentifier(targetIdentifier);
 
     assertEquals(expectedResponse, response);
   }
 
   @Test
   void getUnversionedProfileTargetAccountNotFound() {
-    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
 
     final GetUnversionedProfileRequest request = GetUnversionedProfileRequest.newBuilder()
         .setServiceIdentifier(ServiceIdentifier.newBuilder()
@@ -503,11 +499,11 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
   @ParameterizedTest
   @EnumSource(value = org.signal.chat.common.IdentityType.class, names = {"IDENTITY_TYPE_ACI", "IDENTITY_TYPE_PNI"})
-  void getUnversionedProfileRatelimited(final IdentityType identityType) {
+  void getUnversionedProfileRatelimited(final IdentityType identityType) throws Exception {
     final Duration retryAfterDuration = Duration.ofMinutes(7);
-    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
-    when(rateLimiter.validateReactive(any(UUID.class)))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration)));
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
+    doThrow(new RateLimitExceededException(retryAfterDuration))
+        .when(rateLimiter).validate(any(UUID.class));
 
     final GetUnversionedProfileRequest request = GetUnversionedProfileRequest.newBuilder()
         .setServiceIdentifier(ServiceIdentifier.newBuilder()
@@ -522,12 +518,15 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   @ParameterizedTest
   @MethodSource
   void getVersionedProfile(final String requestVersion, @Nullable final String accountVersion, final boolean expectResponseHasPaymentAddress) {
-    final VersionedProfile profile = mock(VersionedProfile.class);
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
+    final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
     final String avatar = "profiles/" + ProfileTestHelper.generateRandomBase64FromByteArray(16);
+
+    final VersionedProfile profile = new VersionedProfile(accountVersion, name, avatar, emoji, about, paymentAddress,
+        phoneNumberSharing, new byte[0]);
 
     final GetVersionedProfileRequest request = GetVersionedProfileRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
@@ -537,15 +536,9 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setVersion(requestVersion)
         .build();
 
-    when(profile.name()).thenReturn(name);
-    when(profile.about()).thenReturn(about);
-    when(profile.aboutEmoji()).thenReturn(emoji);
-    when(profile.avatar()).thenReturn(avatar);
-    when(profile.paymentAddress()).thenReturn(paymentAddress);
-
     when(account.getCurrentProfileVersion()).thenReturn(Optional.ofNullable(accountVersion));
-    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
-    when(profilesManager.getAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
+    when(profilesManager.get(any(), any())).thenReturn(Optional.of(profile));
 
     final GetVersionedProfileResponse response = authenticatedServiceStub().getVersionedProfile(request);
 
@@ -553,7 +546,8 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setName(ByteString.copyFrom(name))
         .setAbout(ByteString.copyFrom(about))
         .setAboutEmoji(ByteString.copyFrom(emoji))
-        .setAvatar(avatar);
+        .setAvatar(avatar)
+        .setPhoneNumberSharing(ByteString.copyFrom(phoneNumberSharing));
 
     if (expectResponseHasPaymentAddress) {
       expectedResponseBuilder.setPaymentAddress(ByteString.copyFrom(paymentAddress));
@@ -579,8 +573,8 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
             .build())
         .setVersion("versionWithNoProfile")
         .build();
-    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(missingAccount ? Optional.empty() : Optional.of(account)));
-    when(profilesManager.getAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(missingProfile ? Optional.empty() : Optional.of(profile)));
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(missingAccount ? Optional.empty() : Optional.of(account));
+    when(profilesManager.get(any(), any())).thenReturn(missingProfile ? Optional.empty() : Optional.of(profile));
 
     assertStatusException(Status.NOT_FOUND, () -> authenticatedServiceStub().getVersionedProfile(request));
   }
@@ -638,8 +632,8 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     when(account.getUuid()).thenReturn(targetUuid);
     when(profile.commitment()).thenReturn(profileKeyCommitment.serialize());
-    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(targetUuid))).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
-    when(profilesManager.getAsync(targetUuid, "someVersion")).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(Optional.of(account));
+    when(profilesManager.get(targetUuid, "someVersion")).thenReturn(Optional.of(profile));
 
     final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();
 
@@ -677,7 +671,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   void getExpiringProfileKeyCredentialRateLimited() {
     final Duration retryAfterDuration = MockUtils.updateRateLimiterResponseToFail(
         rateLimiter, AUTHENTICATED_ACI, Duration.ofMinutes(5));
-    when(accountsManager.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
 
     final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
@@ -699,9 +693,10 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final UUID targetUuid = UUID.randomUUID();
 
     when(account.getUuid()).thenReturn(targetUuid);
-    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(targetUuid))).thenReturn(CompletableFuture.completedFuture(
-        missingAccount ? Optional.empty() : Optional.of(account)));
-    when(profilesManager.getAsync(targetUuid, "someVersion")).thenReturn(CompletableFuture.completedFuture(missingProfile ? Optional.empty() : Optional.of(profile)));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid)))
+        .thenReturn(missingAccount ? Optional.empty() : Optional.of(account));
+    when(profilesManager.get(targetUuid, "someVersion"))
+        .thenReturn(missingProfile ? Optional.empty() : Optional.of(profile));
 
     final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
@@ -735,8 +730,8 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     when(account.getUuid()).thenReturn(targetUuid);
     when(profile.commitment()).thenReturn("commitment".getBytes(StandardCharsets.UTF_8));
-    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(targetUuid))).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
-    when(profilesManager.getAsync(targetUuid, "someVersion")).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetUuid))).thenReturn(Optional.of(account));
+    when(profilesManager.get(targetUuid, "someVersion")).thenReturn(Optional.of(profile));
 
     final GetExpiringProfileKeyCredentialRequest request = GetExpiringProfileKeyCredentialRequest.newBuilder()
         .setAccountIdentifier(ServiceIdentifier.newBuilder()
