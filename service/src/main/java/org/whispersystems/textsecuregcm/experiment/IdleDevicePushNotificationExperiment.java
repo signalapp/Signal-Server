@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.workers.IdleWakeupEligibilityChecker;
@@ -64,7 +65,7 @@ abstract class IdleDevicePushNotificationExperiment implements PushNotificationE
       } else {
         pushTokenType = null;
       }
-      return new DeviceLastSeenState(true, device.getCreated(), hasPushToken(device), device.getLastSeen(), pushTokenType);
+      return new DeviceLastSeenState(true, device.getRegistrationId(IdentityType.ACI), hasPushToken(device), device.getLastSeen(), pushTokenType);
     } else {
       return DeviceLastSeenState.MISSING_DEVICE_STATE;
     }
@@ -116,7 +117,7 @@ abstract class IdleDevicePushNotificationExperiment implements PushNotificationE
 
     assert sample.finalState() != null;
 
-    if (!sample.finalState().deviceExists() || sample.initialState().createdAtMillis() != sample.finalState().createdAtMillis()) {
+    if (!sample.finalState().deviceExists() || sample.initialState().registrationId() != sample.finalState().registrationId()) {
       outcome = Outcome.DELETED;
     } else if (!sample.finalState().hasPushToken()) {
       outcome = Outcome.UNINSTALLED;

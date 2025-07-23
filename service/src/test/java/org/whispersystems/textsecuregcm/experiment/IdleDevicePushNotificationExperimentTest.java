@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import reactor.core.publisher.Flux;
@@ -66,37 +67,37 @@ abstract class IdleDevicePushNotificationExperimentTest {
     assertEquals(DeviceLastSeenState.MISSING_DEVICE_STATE, experiment.getState(null, null));
     assertEquals(DeviceLastSeenState.MISSING_DEVICE_STATE, experiment.getState(mock(Account.class), null));
 
-    final long createdAtMillis = CURRENT_TIME.minus(Duration.ofDays(14)).toEpochMilli();
+    final int registrationId = 123;
 
     {
       final Device apnsDevice = mock(Device.class);
       when(apnsDevice.getApnId()).thenReturn("apns-token");
-      when(apnsDevice.getCreated()).thenReturn(createdAtMillis);
+      when(apnsDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
       when(apnsDevice.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
       assertEquals(
-          new DeviceLastSeenState(true, createdAtMillis, true, CURRENT_TIME.toEpochMilli(), DeviceLastSeenState.PushTokenType.APNS),
+          new DeviceLastSeenState(true, registrationId, true, CURRENT_TIME.toEpochMilli(), DeviceLastSeenState.PushTokenType.APNS),
           experiment.getState(mock(Account.class), apnsDevice));
     }
 
     {
       final Device fcmDevice = mock(Device.class);
       when(fcmDevice.getGcmId()).thenReturn("fcm-token");
-      when(fcmDevice.getCreated()).thenReturn(createdAtMillis);
+      when(fcmDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
       when(fcmDevice.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
       assertEquals(
-          new DeviceLastSeenState(true, createdAtMillis, true, CURRENT_TIME.toEpochMilli(), DeviceLastSeenState.PushTokenType.FCM),
+          new DeviceLastSeenState(true, registrationId, true, CURRENT_TIME.toEpochMilli(), DeviceLastSeenState.PushTokenType.FCM),
           experiment.getState(mock(Account.class), fcmDevice));
     }
 
     {
       final Device noTokenDevice = mock(Device.class);
-      when(noTokenDevice.getCreated()).thenReturn(createdAtMillis);
+      when(noTokenDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
       when(noTokenDevice.getLastSeen()).thenReturn(CURRENT_TIME.toEpochMilli());
 
       assertEquals(
-          new DeviceLastSeenState(true, createdAtMillis, false, CURRENT_TIME.toEpochMilli(), null),
+          new DeviceLastSeenState(true, registrationId, false, CURRENT_TIME.toEpochMilli(), null),
           experiment.getState(mock(Account.class), noTokenDevice));
     }
   }
@@ -150,10 +151,10 @@ abstract class IdleDevicePushNotificationExperimentTest {
             IdleDevicePushNotificationExperiment.Outcome.DELETED
         ),
 
-        // Device re-registered (i.e. "created" timestamp changed)
+        // Device re-registered (i.e. registration ID changed)
         Arguments.of(
-            new DeviceLastSeenState(true, 0, true, 0, DeviceLastSeenState.PushTokenType.APNS),
-            new DeviceLastSeenState(true, 1, true, 1, DeviceLastSeenState.PushTokenType.APNS),
+            new DeviceLastSeenState(true, 123, true, 0, DeviceLastSeenState.PushTokenType.APNS),
+            new DeviceLastSeenState(true, 1234, true, 1, DeviceLastSeenState.PushTokenType.APNS),
             IdleDevicePushNotificationExperiment.Outcome.DELETED
         ),
 
