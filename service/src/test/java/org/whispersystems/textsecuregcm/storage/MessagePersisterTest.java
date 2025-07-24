@@ -20,7 +20,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.MockUtils.exactly;
 
@@ -51,11 +50,9 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
-import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagePersisterConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -78,7 +75,6 @@ class MessagePersisterTest {
   private MessagePersister messagePersister;
   private AccountsManager accountsManager;
   private MessagesManager messagesManager;
-  private DisconnectionRequestManager disconnectionRequestManager;
   private Account destinationAccount;
 
   private static final UUID DESTINATION_ACCOUNT_UUID = UUID.randomUUID();
@@ -99,7 +95,6 @@ class MessagePersisterTest {
 
     messagesDynamoDb = mock(MessagesDynamoDb.class);
     accountsManager = mock(AccountsManager.class);
-    disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     destinationAccount = mock(Account.class);
 
     when(accountsManager.getByAccountIdentifier(DESTINATION_ACCOUNT_UUID)).thenReturn(Optional.of(destinationAccount));
@@ -122,8 +117,7 @@ class MessagePersisterTest {
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        dynamicConfigurationManager, mock(ExperimentEnrollmentManager.class), disconnectionRequestManager,
-        PERSIST_DELAY, 1);
+        dynamicConfigurationManager, PERSIST_DELAY, 1);
 
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -305,7 +299,6 @@ class MessagePersisterTest {
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE, "test"));
     verify(accountsManager, exactly()).removeDevice(destinationAccount, DESTINATION_DEVICE_ID);
-    verify(disconnectionRequestManager, exactly()).requestDisconnection(DESTINATION_ACCOUNT_UUID);
   }
 
   @Test
@@ -407,7 +400,6 @@ class MessagePersisterTest {
     when(accountsManager.removeDevice(destinationAccount, DESTINATION_DEVICE_ID)).thenReturn(CompletableFuture.failedFuture(new TimeoutException()));
 
     assertThrows(CompletionException.class, () -> messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE, "test"));
-    verifyNoMoreInteractions(disconnectionRequestManager);
   }
 
   @SuppressWarnings("SameParameterValue")

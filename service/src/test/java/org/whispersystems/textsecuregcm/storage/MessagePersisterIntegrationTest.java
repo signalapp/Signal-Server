@@ -99,8 +99,7 @@ class MessagePersisterIntegrationTest {
     webSocketConnectionEventManager.start();
 
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        dynamicConfigurationManager, mock(ExperimentEnrollmentManager.class), mock(DisconnectionRequestManager.class),
-        PERSIST_DELAY, 1);
+        dynamicConfigurationManager, PERSIST_DELAY, 1);
 
     account = mock(Account.class);
 

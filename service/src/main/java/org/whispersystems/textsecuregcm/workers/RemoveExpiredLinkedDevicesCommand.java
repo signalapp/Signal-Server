@@ -110,10 +110,7 @@ public class RemoveExpiredLinkedDevicesCommand extends AbstractSinglePassCrawlAc
 
           final Mono<Long> accountUpdate = dryRun
               ? Mono.just((long) expiredDevices.size())
-              : deleteDevices(account, expiredDevices, maxRetries)
-              .flatMap(count ->
-                  Mono.fromCompletionStage(getCommandDependencies().disconnectionRequestManager().requestDisconnection(account.getUuid()))
-                  .then(Mono.just(count)));
+              : deleteDevices(account, expiredDevices, maxRetries);
 
           return accountUpdate
               .doOnNext(successCounter::increment)

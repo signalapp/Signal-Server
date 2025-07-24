@@ -63,7 +63,6 @@ class StartPushNotificationExperimentCommandTest {
           null,
           null,
           null,
-          null,
           pushNotificationExperimentSamples,
           null,
           null,

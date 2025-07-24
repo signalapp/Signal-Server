@@ -18,7 +18,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.DynamoDbRecoveryManager;
 import reactor.core.publisher.Flux;
 
@@ -33,7 +32,6 @@ class RegenerateSecondaryDynamoDbTableDataCommandTest {
 
     TestRegenerateSecondaryDynamoDbTableDataCommand(final DynamoDbRecoveryManager dynamoDbRecoveryManager, final boolean dryRun) {
       commandDependencies = new CommandDependencies(null,
-          null,
           null,
           null,
           null,

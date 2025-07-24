@@ -65,8 +65,6 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
         deps.messagesManager(),
         deps.accountsManager(),
         deps.dynamicConfigurationManager(),
-        new ExperimentEnrollmentManager(deps.dynamicConfigurationManager()),
-        deps.disconnectionRequestManager(),
         Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
         namespace.getInt(WORKER_COUNT));
 

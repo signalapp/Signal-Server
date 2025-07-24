@@ -74,7 +74,6 @@ class FinishPushNotificationExperimentCommandTest {
         null,
         null,
         null,
-        null,
         pushNotificationExperimentSamples,
         null,
         null,
