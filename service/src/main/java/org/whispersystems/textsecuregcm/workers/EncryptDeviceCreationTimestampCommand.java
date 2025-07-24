@@ -78,9 +78,10 @@ public class EncryptDeviceCreationTimestampCommand extends AbstractSinglePassCra
                         log.warn("Failed to encrypt creation timestamp on device {}, account {}", device.getId(), account.getUuid(), throwable);
                         return Mono.empty();
                       });
-                }, MAX_CONCURRENCY),
+                }, MAX_CONCURRENCY)
+                .then()
+                .doOnSuccess(_ -> processedAccountCounter.increment()),
             MAX_CONCURRENCY)
-        .doOnComplete(processedAccountCounter::increment)
         .then()
         .block();
   }
