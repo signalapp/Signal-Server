@@ -30,7 +30,7 @@ public class OpenWebSocketCounter {
       final String newConnectionCounterName,
       final String durationTimerName) {
 
-    this(openWebSocketGaugeName, durationTimerName, newConnectionCounterName, Tags.empty());
+    this(openWebSocketGaugeName, newConnectionCounterName, durationTimerName, Tags.empty());
   }
 
   public OpenWebSocketCounter(final String openWebSocketGaugeName,
