@@ -11,7 +11,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import io.lettuce.core.cluster.SlotHash;
@@ -20,9 +19,7 @@ import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.api.async.RedisClusterPubSubAsyncCommands;
 import io.lettuce.core.cluster.pubsub.api.sync.RedisClusterPubSubCommands;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,8 +35,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
-import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.MockRedisFuture;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
@@ -79,15 +74,11 @@ class RedisMessageAvailabilityManagerTest {
 
   @BeforeEach
   void setUp() {
-    localEventManager = new RedisMessageAvailabilityManager(mock(AccountsManager.class),
-        mock(PushNotificationManager.class),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+    localEventManager = new RedisMessageAvailabilityManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         webSocketConnectionEventExecutor,
         asyncOperationQueueingExecutor);
 
-    remoteEventManager = new RedisMessageAvailabilityManager(mock(AccountsManager.class),
-        mock(PushNotificationManager.class),
-        REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+    remoteEventManager = new RedisMessageAvailabilityManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         webSocketConnectionEventExecutor,
         asyncOperationQueueingExecutor);
 
@@ -189,8 +180,6 @@ class RedisMessageAvailabilityManagerTest {
         .build();
 
     final RedisMessageAvailabilityManager eventManager = new RedisMessageAvailabilityManager(
-        mock(AccountsManager.class),
-        mock(PushNotificationManager.class),
         clusterClient,
         Runnable::run,
         Runnable::run);
@@ -257,8 +246,6 @@ class RedisMessageAvailabilityManagerTest {
         .build();
 
     final RedisMessageAvailabilityManager eventManager = new RedisMessageAvailabilityManager(
-        mock(AccountsManager.class),
-        mock(PushNotificationManager.class),
         clusterClient,
         Runnable::run,
         Runnable::run);
@@ -286,61 +273,5 @@ class RedisMessageAvailabilityManagerTest {
 
     verify(pubSubAsyncCommands)
         .sunsubscribe(RedisMessageAvailabilityManager.getClientEventChannel(noListenerAccountIdentifier, noListenerDeviceId));
-  }
-
-  @Test
-  void newMessageNotificationWithoutListener() throws NotPushRegisteredException {
-    final UUID listenerAccountIdentifier = UUID.randomUUID();
-    final byte listenerDeviceId = Device.PRIMARY_ID;
-
-    final UUID noListenerAccountIdentifier = UUID.randomUUID();
-    final byte noListenerDeviceId = listenerDeviceId + 1;
-
-    final Account noListenerAccount = mock(Account.class);
-
-    final AccountsManager accountsManager = mock(AccountsManager.class);
-
-    when(accountsManager.getByAccountIdentifierAsync(noListenerAccountIdentifier))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(noListenerAccount)));
-
-    final PushNotificationManager pushNotificationManager = mock(PushNotificationManager.class);
-
-    @SuppressWarnings("unchecked") final RedisClusterPubSubAsyncCommands<byte[], byte[]> pubSubAsyncCommands =
-        mock(RedisClusterPubSubAsyncCommands.class);
-
-    when(pubSubAsyncCommands.ssubscribe(any())).thenReturn(MockRedisFuture.completedFuture(null));
-
-    final FaultTolerantRedisClusterClient clusterClient = RedisClusterHelper.builder()
-        .binaryPubSubAsyncCommands(pubSubAsyncCommands)
-        .build();
-
-    final RedisMessageAvailabilityManager eventManager = new RedisMessageAvailabilityManager(
-        accountsManager,
-        pushNotificationManager,
-        clusterClient,
-        Runnable::run,
-        Runnable::run);
-
-    eventManager.start();
-
-    eventManager.handleClientConnected(listenerAccountIdentifier, listenerDeviceId, new MessageAvailabilityAdapter())
-        .toCompletableFuture()
-        .join();
-
-    final byte[] newMessagePayload = ClientEvent.newBuilder()
-        .setNewMessageAvailable(NewMessageAvailableEvent.getDefaultInstance())
-        .build()
-        .toByteArray();
-
-    eventManager.smessage(mock(RedisClusterNode.class),
-        RedisMessageAvailabilityManager.getClientEventChannel(listenerAccountIdentifier, listenerDeviceId),
-        newMessagePayload);
-
-    eventManager.smessage(mock(RedisClusterNode.class),
-        RedisMessageAvailabilityManager.getClientEventChannel(noListenerAccountIdentifier, noListenerDeviceId),
-        newMessagePayload);
-
-    verify(pushNotificationManager).sendNewMessageNotification(noListenerAccount, noListenerDeviceId, true);
-    verifyNoMoreInteractions(pushNotificationManager);
   }
 }
