@@ -21,7 +21,6 @@ import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
 import io.dropwizard.jetty.HttpsConnectorFactory;
-import io.dropwizard.lifecycle.setup.LifecycleEnvironment;
 import io.grpc.ServerBuilder;
 import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
 import io.lettuce.core.metrics.MicrometerOptions;
@@ -365,8 +364,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     UncaughtExceptionHandler.register();
 
-    ScheduledExecutorService dynamicConfigurationExecutor = ScheduledExecutorServiceBuilder.of(environment, "dynamicConfiguration")
-        .threads(1).build();
+    ScheduledExecutorService dynamicConfigurationExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "dynamicConfiguration-%d")).threads(1).build();
 
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         new DynamicConfigurationManager<>(
@@ -398,7 +397,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.lifecycle().manage(new ManagedAwsCrt());
 
-    final ExecutorService awsSdkMetricsExecutor = virtualExecutorService(environment, "awsSdkMetrics");
+    final ExecutorService awsSdkMetricsExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "awsSdkMetrics-%d"));
 
     final DynamoDbAsyncClient dynamoDbAsyncClient = config.getDynamoDbClientConfiguration()
         .buildAsyncClient(awsCredentialsProvider, new MicrometerAwsSdkMetricPublisher(awsSdkMetricsExecutor, "dynamoDbAsync"));
@@ -415,7 +415,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     BlockingQueue<Runnable> messageDeletionQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "messageDeletionQueueSize"), Collections.emptyList(),
         messageDeletionQueue);
-    ExecutorService messageDeletionAsyncExecutor = ExecutorServiceBuilder.of(environment, "messageDeletionAsyncExecutor")
+    ExecutorService messageDeletionAsyncExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "messageDeletionAsyncExecutor-%d"))
         .minThreads(2)
         .maxThreads(2)
         .allowCoreThreadTimeOut(true)
@@ -502,79 +503,98 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Metrics.gaugeCollectionSize(MetricsUtil.name(getClass(), "messageDeliveryQueue"), Collections.emptyList(),
         messageDeliveryQueue);
 
-    ScheduledExecutorService recurringJobExecutor = ScheduledExecutorServiceBuilder.of(environment, "recurringJob").threads(6).build();
-    ScheduledExecutorService websocketScheduledExecutor = ScheduledExecutorServiceBuilder.of(environment, "websocket").threads(8).build();
-    ExecutorService apnSenderExecutor = ExecutorServiceBuilder.of(environment, "apnSender")
+    ScheduledExecutorService recurringJobExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "recurringJob-%d")).threads(6).build();
+    ScheduledExecutorService websocketScheduledExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "websocket-%d")).threads(8).build();
+    ExecutorService apnSenderExecutor = environment.lifecycle().executorService(name(getClass(), "apnSender-%d"))
         .maxThreads(1).minThreads(1).build();
-    ExecutorService fcmSenderExecutor = ExecutorServiceBuilder.of(environment, "fcmSender")
+    ExecutorService fcmSenderExecutor = environment.lifecycle().executorService(name(getClass(), "fcmSender-%d"))
         .maxThreads(32).minThreads(32).workQueue(fcmSenderQueue).build();
-    ExecutorService secureValueRecoveryServiceExecutor = ExecutorServiceBuilder.of(environment, "secureValueRecoveryService")
-        .maxThreads(1).minThreads(1).build();
-    ExecutorService storageServiceExecutor = ExecutorServiceBuilder.of(environment, "storageService")
-        .maxThreads(1).minThreads(1).build();
-    ExecutorService virtualThreadEventLoggerExecutor = ExecutorServiceBuilder.of(environment, "virtualThreadEventLogger")
-        .minThreads(1).maxThreads(1).build();
-    ExecutorService asyncOperationQueueingExecutor = ExecutorServiceBuilder.of(environment, "asyncOperationQueueing")
-        .minThreads(1).maxThreads(1).build();
-    ScheduledExecutorService secureValueRecoveryServiceRetryExecutor =
-      ScheduledExecutorServiceBuilder.of(environment, "secureValueRecoveryServiceRetry").threads(1).build();
-    ScheduledExecutorService storageServiceRetryExecutor =
-      ScheduledExecutorServiceBuilder.of(environment, "storageServiceRetry").threads(1).build();
-    ScheduledExecutorService remoteStorageRetryExecutor =
-      ScheduledExecutorServiceBuilder.of(environment, "remoteStorageRetry").threads(1).build();
-    ScheduledExecutorService registrationIdentityTokenRefreshExecutor =
-      ScheduledExecutorServiceBuilder.of(environment, "registrationIdentityTokenRefresh").threads(1).build();
+    ExecutorService secureValueRecoveryServiceExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "secureValueRecoveryService-%d")).maxThreads(1).minThreads(1).build();
+    ExecutorService storageServiceExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "storageService-%d")).maxThreads(1).minThreads(1).build();
+    ExecutorService virtualThreadEventLoggerExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "virtualThreadEventLogger-%d")).minThreads(1).maxThreads(1).build();
+    ExecutorService asyncOperationQueueingExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "asyncOperationQueueing-%d")).minThreads(1).maxThreads(1).build();
+    ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "secureValueRecoveryServiceRetry-%d")).threads(1).build();
+    ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "storageServiceRetry-%d")).threads(1).build();
+    ScheduledExecutorService remoteStorageRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "remoteStorageRetry-%d")).threads(1).build();
+    ScheduledExecutorService registrationIdentityTokenRefreshExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "registrationIdentityTokenRefresh-%d")).threads(1).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
-        ExecutorServiceBuilder.of(environment, "messageDelivery")
-            .minThreads(20)
-            .maxThreads(20)
-            .workQueue(messageDeliveryQueue)
-            .build(),
+        ExecutorServiceMetrics.monitor(Metrics.globalRegistry,
+            environment.lifecycle().executorService(name(getClass(), "messageDelivery-%d"))
+                .minThreads(20)
+                .maxThreads(20)
+                .workQueue(messageDeliveryQueue)
+                .build(),
+            MetricsUtil.name(getClass(), "messageDeliveryExecutor"), MetricsUtil.PREFIX),
         "messageDelivery");
 
     // TODO: generally speaking this is a DynamoDB I/O executor for the accounts table; we should eventually have a general executor for speaking to the accounts table, but most of the server is still synchronous so this isn't widely useful yet
-    ExecutorService batchIdentityCheckExecutor = ExecutorServiceBuilder.of(environment, "batchIdentityCheck").minThreads(32).maxThreads(32).build();
-    ExecutorService subscriptionProcessorExecutor = ExecutorServiceBuilder.of(environment, "subscriptionProcessor")
+    ExecutorService batchIdentityCheckExecutor = environment.lifecycle().executorService(name(getClass(), "batchIdentityCheck-%d")).minThreads(32).maxThreads(32).build();
+    ExecutorService subscriptionProcessorExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "subscriptionProcessor-%d"))
         .maxThreads(availableProcessors)  // mostly this is IO bound so tying to number of processors is tenuous at best
         .minThreads(availableProcessors)  // mostly this is IO bound so tying to number of processors is tenuous at best
         .allowCoreThreadTimeOut(true).
         build();
-    ExecutorService receiptSenderExecutor = ExecutorServiceBuilder.of(environment, "receiptSender")
+    ExecutorService receiptSenderExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "receiptSender-%d"))
         .maxThreads(2)
         .minThreads(2)
         .workQueue(receiptSenderQueue)
         .rejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy())
         .build();
-    ExecutorService registrationCallbackExecutor = ExecutorServiceBuilder.of(environment, "registration")
+    ExecutorService registrationCallbackExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "registration-%d"))
         .maxThreads(2)
         .minThreads(2)
         .build();
-    ExecutorService accountLockExecutor = ExecutorServiceBuilder.of(environment, "accountLock")
+    ExecutorService accountLockExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "accountLock-%d"))
         .minThreads(8)
         .maxThreads(8)
         .build();
     // unbounded executor (same as cachedThreadPool)
-    ExecutorService remoteStorageHttpExecutor = ExecutorServiceBuilder.of(environment, "remoteStorage")
+    ExecutorService remoteStorageHttpExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "remoteStorage-%d"))
         .minThreads(0)
         .maxThreads(Integer.MAX_VALUE)
         .workQueue(new SynchronousQueue<>())
         .keepAliveTime(io.dropwizard.util.Duration.seconds(60L))
         .build();
-    ExecutorService cloudflareTurnHttpExecutor = ExecutorServiceBuilder.of(environment, "cloudflareTurn")
+    ExecutorService cloudflareTurnHttpExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "cloudflareTurn-%d"))
         .maxThreads(2)
         .minThreads(2)
         .build();
-    ExecutorService googlePlayBillingExecutor = virtualExecutorService(environment, "googlePlayBilling");
-    ExecutorService appleAppStoreExecutor = virtualExecutorService(environment, "appleAppStore");
-    ExecutorService clientEventExecutor = virtualExecutorService(environment, "clientEvent");
-    ExecutorService disconnectionRequestListenerExecutor = virtualExecutorService(environment, "disconnectionRequest");
+    ExecutorService googlePlayBillingExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "googlePlayBilling-%d"));
+    ExecutorService appleAppStoreExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "appleAppStore-%d"));
+    ExecutorService clientEventExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "clientEvent-%d"));
+    ExecutorService disconnectionRequestListenerExecutor = environment.lifecycle()
+        .virtualExecutorService(name(getClass(), "disconnectionRequest-%d"));
 
-    ScheduledExecutorService appleAppStoreRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "appleAppStoreRetry").threads(1).build();
-    ScheduledExecutorService subscriptionProcessorRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "subscriptionProcessorRetry").threads(1).build();
-    ScheduledExecutorService cloudflareTurnRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "cloudflareTurnRetry").threads(1).build();
-    ScheduledExecutorService messagePollExecutor = ScheduledExecutorServiceBuilder.of(environment, "messagePollExecutor").threads(1).build();
-    ScheduledExecutorService provisioningWebsocketTimeoutExecutor = ScheduledExecutorServiceBuilder.of(environment, "provisioningWebsocketTimeout").threads(1).build();
+    ScheduledExecutorService appleAppStoreRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "appleAppStoreRetry-%d")).threads(1).build();
+    ScheduledExecutorService subscriptionProcessorRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "subscriptionProcessorRetry-%d")).threads(1).build();
+    ScheduledExecutorService cloudflareTurnRetryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "cloudflareTurnRetry-%d")).threads(1).build();
+    ScheduledExecutorService messagePollExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "messagePollExecutor-%d")).threads(1).build();
+    ScheduledExecutorService provisioningWebsocketTimeoutExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(getClass(), "provisioningWebsocketTimeout-%d")).threads(1).build();
 
     final ManagedNioEventLoopGroup dnsResolutionEventLoopGroup = new ManagedNioEventLoopGroup();
     final DnsNameResolver cloudflareDnsResolver = new DnsNameResolverBuilder(dnsResolutionEventLoopGroup.next())
@@ -902,7 +922,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       noiseWebSocketTlsPrivateKey = null;
     }
 
-    final ExecutorService noiseWebSocketDelegatedTaskExecutor = ExecutorServiceBuilder.of(environment, "noiseWebsocketDelegatedTask")
+    final ExecutorService noiseWebSocketDelegatedTaskExecutor = environment.lifecycle()
+        .executorService(name(getClass(), "noiseWebsocketDelegatedTask-%d"))
         .minThreads(8)
         .maxThreads(8)
         .allowCoreThreadTimeOut(false)
@@ -1204,47 +1225,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       webSocketEnvironment.jersey().register(exceptionMapper);
       provisioningEnvironment.jersey().register(exceptionMapper);
     });
-  }
-
-  private static class ExecutorServiceBuilder extends io.dropwizard.lifecycle.setup.ExecutorServiceBuilder {
-    private final String baseName;
-
-    public ExecutorServiceBuilder(final LifecycleEnvironment environment, final String baseName) {
-      super(environment, name(WhisperServerService.class, baseName) + "-%d");
-      this.baseName = baseName;
-    }
-
-    @Override
-    public ExecutorService build() {
-      return ExecutorServiceMetrics.monitor(Metrics.globalRegistry, super.build(), baseName, MetricsUtil.PREFIX);
-    }
-
-    public static ExecutorServiceBuilder of(final Environment environment, final String name) {
-      return new ExecutorServiceBuilder(environment.lifecycle(), name);
-    }
-  }
-
-  private static class ScheduledExecutorServiceBuilder extends io.dropwizard.lifecycle.setup.ScheduledExecutorServiceBuilder {
-    private final String baseName;
-
-    public ScheduledExecutorServiceBuilder(final LifecycleEnvironment environment, final String baseName) {
-      super(environment, name(WhisperServerService.class, baseName) + "-%d", false);
-      this.baseName = baseName;
-    }
-
-    @Override
-    public ScheduledExecutorService build() {
-      return ExecutorServiceMetrics.monitor(Metrics.globalRegistry, super.build(), baseName, MetricsUtil.PREFIX);
-    }
-
-    public static ScheduledExecutorServiceBuilder of(final Environment environment, final String name) {
-      return new ScheduledExecutorServiceBuilder(environment.lifecycle(), name);
-    }
-  }
-
-  private ExecutorService virtualExecutorService(final Environment environment, final String name) {
-    return ExecutorServiceMetrics.monitor(
-      Metrics.globalRegistry, environment.lifecycle().virtualExecutorService(name(getClass(), name) + "-%d"), name, MetricsUtil.PREFIX);
   }
 
   public static void main(String[] args) throws Exception {
