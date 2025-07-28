@@ -14,6 +14,8 @@ import org.eclipse.jetty.util.component.Container;
 import org.eclipse.jetty.util.component.LifeCycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.binder.jetty.JettyConnectionMetrics;
 
 /**
  * Uses {@link Container.Listener} to update {@link org.eclipse.jetty.server.HttpConfiguration}
@@ -25,7 +27,6 @@ public class JettyHttpConfigurationCustomizer implements Container.Listener, Lif
   @Override
   public void beanAdded(final Container parent, final Object child) {
     if (child instanceof Connector c) {
-
       for (ConnectionFactory cf : c.getConnectionFactories()) {
         final HttpConfiguration httpConfiguration = switch (cf) {
           case HTTP2ServerConnectionFactory h2cf -> h2cf.getHttpConfiguration();
@@ -39,6 +40,8 @@ public class JettyHttpConfigurationCustomizer implements Container.Listener, Lif
           httpConfiguration.setNotifyRemoteAsyncErrors(false);
         }
       }
+
+      c.addBean(new JettyConnectionMetrics(Metrics.globalRegistry));
     }
   }
 

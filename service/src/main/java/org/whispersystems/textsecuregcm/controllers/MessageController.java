@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static com.codahale.metrics.MetricRegistry.name;
 
-import com.codahale.metrics.annotation.Timed;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
@@ -469,7 +468,6 @@ public class MessageController {
     }
   }
 
-  @Timed
   @Path("/multi_recipient")
   @PUT
   @Consumes(MultiRecipientMessageProvider.MEDIA_TYPE)
@@ -756,7 +754,6 @@ public class MessageController {
     }
   }
 
-  @Timed
   @GET
   @Produces(MediaType.APPLICATION_JSON)
   public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@Auth AuthenticatedDevice auth,
@@ -835,7 +832,6 @@ public class MessageController {
     return size;
   }
 
-  @Timed
   @DELETE
   @Path("/uuid/{uuid}")
   public CompletableFuture<Response> removePendingMessage(@Auth AuthenticatedDevice auth, @PathParam("uuid") UUID uuid) {
@@ -874,7 +870,6 @@ public class MessageController {
         .thenApply(Util.ASYNC_EMPTY_RESPONSE);
   }
 
-  @Timed
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Path("/report/{source}/{messageGuid}")
