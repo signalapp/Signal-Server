@@ -13,6 +13,8 @@ import java.time.Duration;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", defaultImpl = DogstatsdConfiguration.class)
 public interface DatadogConfiguration extends StatsdConfig, Discoverable {
 
+  boolean enabled();
+
   String getEnvironment();
 
   Duration getShutdownWaitDuration();

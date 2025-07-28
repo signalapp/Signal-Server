@@ -325,6 +325,10 @@
       <artifactId>micrometer-registry-statsd</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-otlp</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.coursera</groupId>
       <artifactId>dropwizard-metrics-datadog</artifactId>
     </dependency>

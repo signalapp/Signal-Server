@@ -298,6 +298,12 @@ dogstatsd:
   environment: dev
   host: 127.0.0.1
 
+openTelemetry:
+  enabled: true
+  environment: dev
+  shutdownWaitDuration: PT0S
+  url: http://127.0.0.1:4318/
+
 unidentifiedDelivery:
   certificate: CgIIAQ==
   privateKey: secret://unidentifiedDelivery.privateKey

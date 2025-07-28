@@ -45,6 +45,7 @@ import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalit
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.NoiseTunnelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
+import org.whispersystems.textsecuregcm.configuration.OpenTelemetryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PagedSingleUseKEMPreKeyStoreConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RegistrationServiceClientFactory;
@@ -137,6 +138,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private DatadogConfiguration dogstatsd = new DogstatsdConfiguration();
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private OpenTelemetryConfiguration openTelemetry;
 
   @NotNull
   @Valid
@@ -440,6 +446,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public DatadogConfiguration getDatadogConfiguration() {
     return dogstatsd;
+  }
+
+  public OpenTelemetryConfiguration getOpenTelemetryConfiguration() {
+    return openTelemetry;
   }
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {

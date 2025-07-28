@@ -27,6 +27,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.whispersystems.textsecuregcm.configuration.OpenTelemetryConfiguration;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
@@ -174,6 +175,13 @@ class WhisperServerServiceTest {
         .tableName(numbers.tableName())
         .key(Map.of(numbers.hashKeyName(), numberAV))
         .build());
+  }
+
+  @Test
+  void testOtlpConfig() {
+    final OpenTelemetryConfiguration otelConfig =EXTENSION.getConfiguration().getOpenTelemetryConfiguration();
+    assertTrue(otelConfig.enabled());
+    assertEquals("http://127.0.0.1:4318/", otelConfig.url());
   }
 
   private static DynamoDbClient getDynamoDbClient() {

@@ -16,6 +16,9 @@ import java.time.Duration;
 public class DogstatsdConfiguration implements DatadogConfiguration {
 
   @JsonProperty
+  private boolean enabled = true;
+
+  @JsonProperty
   @NotNull
   private Duration step = Duration.ofSeconds(10);
 
@@ -26,6 +29,11 @@ public class DogstatsdConfiguration implements DatadogConfiguration {
   @JsonProperty
   @NotBlank
   private String host;
+
+  @Override
+  public boolean enabled() {
+    return enabled;
+  }
 
   @Override
   public Duration step() {
