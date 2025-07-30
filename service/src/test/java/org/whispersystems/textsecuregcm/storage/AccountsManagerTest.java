@@ -57,6 +57,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -82,6 +83,8 @@ import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
+import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
+import org.whispersystems.textsecuregcm.entities.TransferArchiveResult;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
@@ -1496,6 +1499,61 @@ class AccountsManagerTest {
     } else {
       assertDoesNotThrow(validateCompleteDeviceListExecutable);
     }
+  }
+
+  @Test
+  void testFirstSuccessfulTransferArchiveCompletableFutureOneTimeout() {
+    // First future times out, second one completes successfully
+    final RemoteAttachment transferArchive = new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
+
+    final CompletableFuture<Optional<TransferArchiveResult>> timeoutFuture = new CompletableFuture<>();
+    timeoutFuture.completeOnTimeout(Optional.empty(), 50, TimeUnit.MILLISECONDS);
+
+    final CompletableFuture<Optional<TransferArchiveResult>> successfulFuture = new CompletableFuture<>();
+
+    final CompletableFuture<Optional<TransferArchiveResult>> result =
+        AccountsManager.firstSuccessfulTransferArchiveFuture(List.of(timeoutFuture, successfulFuture));
+
+    CompletableFuture.delayedExecutor(100, TimeUnit.MILLISECONDS)
+        .execute(() -> successfulFuture.complete(Optional.of(transferArchive)));
+
+    final Optional<TransferArchiveResult> maybeTransferArchive = result.join();
+    assertTrue(maybeTransferArchive.isPresent());
+    assertEquals(transferArchive, maybeTransferArchive.get());
+  }
+
+  @Test
+  void testFirstSuccessfulTransferArchiveCompletableFutureBothTimeout() {
+    // Both futures time out
+    final CompletableFuture<Optional<TransferArchiveResult>> firstTimeoutFuture = new CompletableFuture<>();
+    firstTimeoutFuture.completeOnTimeout(Optional.empty(), 10, TimeUnit.MILLISECONDS);
+
+    final CompletableFuture<Optional<TransferArchiveResult>> secondTimeoutFuture = new CompletableFuture<>();
+    secondTimeoutFuture.completeOnTimeout(Optional.empty(), 10, TimeUnit.MILLISECONDS);
+
+    final CompletableFuture<Optional<TransferArchiveResult>> result =
+        AccountsManager.firstSuccessfulTransferArchiveFuture(List.of(firstTimeoutFuture, secondTimeoutFuture));
+
+    assertTrue(result.join().isEmpty());
+  }
+
+  @Test
+  void testFirstSuccessfulTransferArchiveCompletableFuture() {
+    // First future completes successfully, second one times out
+    final RemoteAttachment transferArchive = new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
+
+    final CompletableFuture<Optional<TransferArchiveResult>> successfulFuture = new CompletableFuture<>();
+
+    final CompletableFuture<Optional<TransferArchiveResult>> timeoutFuture = new CompletableFuture<>();
+    timeoutFuture.completeOnTimeout(Optional.empty(), 50, TimeUnit.MILLISECONDS);
+
+    final CompletableFuture<Optional<TransferArchiveResult>> result =
+        AccountsManager.firstSuccessfulTransferArchiveFuture(List.of(successfulFuture, timeoutFuture));
+    successfulFuture.complete(Optional.of(transferArchive));
+
+    final Optional<TransferArchiveResult> maybeTransferArchive = result.join();
+    assertTrue(maybeTransferArchive.isPresent());
+    assertEquals(transferArchive, maybeTransferArchive.get());
   }
 
   private static List<Arguments> validateCompleteDeviceList() {

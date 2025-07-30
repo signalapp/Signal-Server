@@ -1082,29 +1082,37 @@ class DeviceControllerTest {
     }
   }
 
-  @Test
-  void recordTransferArchiveUploaded() {
+  @ParameterizedTest
+  @MethodSource
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  void recordTransferArchiveUploaded(final Optional<Instant> deviceCreated, final Optional<Integer> registrationId) {
     final byte deviceId = Device.PRIMARY_ID + 1;
-    final Instant deviceCreated = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     final RemoteAttachment transferArchive =
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
-    when(accountsManager.recordTransferArchiveUpload(account, deviceId, deviceCreated, transferArchive))
+    when(accountsManager.recordTransferArchiveUpload(account, deviceId, deviceCreated, registrationId, transferArchive))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/transfer_archive")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(new TransferArchiveUploadedRequest(deviceId, deviceCreated.toEpochMilli(), transferArchive),
+        .put(Entity.entity(new TransferArchiveUploadedRequest(deviceId, deviceCreated.map(Instant::toEpochMilli), registrationId, transferArchive),
             MediaType.APPLICATION_JSON_TYPE))) {
 
       assertEquals(204, response.getStatus());
 
       verify(accountsManager)
-          .recordTransferArchiveUpload(account, deviceId, deviceCreated, transferArchive);
+          .recordTransferArchiveUpload(account, deviceId, deviceCreated, registrationId, transferArchive);
     }
+  }
+
+  private static List<Arguments> recordTransferArchiveUploaded() {
+    return List.of(
+        Arguments.of(Optional.empty(), Optional.of(123)),
+        Arguments.of(Optional.of(Instant.now().truncatedTo(ChronoUnit.MILLIS)), Optional.empty())
+    );
   }
 
   @Test
@@ -1114,20 +1122,20 @@ class DeviceControllerTest {
     final RemoteAttachmentError transferFailure = new RemoteAttachmentError(RemoteAttachmentError.ErrorType.CONTINUE_WITHOUT_UPLOAD);
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
-    when(accountsManager.recordTransferArchiveUpload(account, deviceId, deviceCreated, transferFailure))
+    when(accountsManager.recordTransferArchiveUpload(account, deviceId, Optional.of(deviceCreated), Optional.empty(), transferFailure))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/transfer_archive")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(new TransferArchiveUploadedRequest(deviceId, deviceCreated.toEpochMilli(), transferFailure),
+        .put(Entity.entity(new TransferArchiveUploadedRequest(deviceId, Optional.of(deviceCreated.toEpochMilli()), Optional.empty(), transferFailure),
             MediaType.APPLICATION_JSON_TYPE))) {
 
       assertEquals(204, response.getStatus());
 
       verify(accountsManager)
-          .recordTransferArchiveUpload(account, deviceId, deviceCreated, transferFailure);
+          .recordTransferArchiveUpload(account, deviceId, Optional.of(deviceCreated), Optional.empty(), transferFailure);
     }
   }
 
@@ -1145,29 +1153,33 @@ class DeviceControllerTest {
       assertEquals(422, response.getStatus());
 
       verify(accountsManager, never())
-          .recordTransferArchiveUpload(any(), anyByte(), any(), any());
+          .recordTransferArchiveUpload(any(), anyByte(), any(), any(), any());
     }
   }
 
   @SuppressWarnings("DataFlowIssue")
-  private static List<TransferArchiveUploadedRequest> recordTransferArchiveUploadedBadRequest() {
+  private static List<Arguments> recordTransferArchiveUploadedBadRequest() {
     final RemoteAttachment validTransferArchive =
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("archive".getBytes(StandardCharsets.UTF_8)));
 
     return List.of(
-        // Invalid device ID
-        new TransferArchiveUploadedRequest((byte) -1, System.currentTimeMillis(), validTransferArchive),
-
-        // Invalid "created at" timestamp
-        new TransferArchiveUploadedRequest(Device.PRIMARY_ID, -1, validTransferArchive),
-
-        // Missing CDN number
-        new TransferArchiveUploadedRequest(Device.PRIMARY_ID, System.currentTimeMillis(),
-            new RemoteAttachment(null, Base64.getUrlEncoder().encodeToString("archive".getBytes(StandardCharsets.UTF_8)))),
-
-        // Bad attachment key
-        new TransferArchiveUploadedRequest(Device.PRIMARY_ID, System.currentTimeMillis(),
-            new RemoteAttachment(3, "This is not a valid base64 string"))
+        Arguments.argumentSet("Invalid device ID", new TransferArchiveUploadedRequest((byte) -1, Optional.of(System.currentTimeMillis()), Optional.empty(), validTransferArchive)),
+        Arguments.argumentSet("Invalid \"created at\" timestamp",
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of((long) -1), Optional.empty(), validTransferArchive)),
+        Arguments.argumentSet("Invalid registration ID - negative",
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.empty(), Optional.of(-1), validTransferArchive)),
+        Arguments.argumentSet("Invalid registration ID - too large",
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.empty(), Optional.of(0x4000), validTransferArchive)),
+        Arguments.argumentSet("Exactly one of \"created at\" timestamp and registration ID must be present - neither provided",
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.empty(), Optional.empty(), validTransferArchive)),
+        Arguments.argumentSet("Exactly one of \"created at\" timestamp and registration ID must be present - both provided",
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of(System.currentTimeMillis()), Optional.of(123), validTransferArchive)),
+        Arguments.argumentSet("Missing CDN number",
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of(System.currentTimeMillis()), Optional.empty(),
+                new RemoteAttachment(null, Base64.getUrlEncoder().encodeToString("archive".getBytes(StandardCharsets.UTF_8))))),
+        Arguments.argumentSet("Bad attachment key",
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of(System.currentTimeMillis()), Optional.empty(),
+                new RemoteAttachment(3, "This is not a valid base64 string")))
     );
   }
 
@@ -1180,14 +1192,14 @@ class DeviceControllerTest {
         .target("/v1/devices/transfer_archive")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(new TransferArchiveUploadedRequest(Device.PRIMARY_ID, System.currentTimeMillis(),
+        .put(Entity.entity(new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of(System.currentTimeMillis()), Optional.empty(),
             new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)))),
             MediaType.APPLICATION_JSON_TYPE))) {
 
       assertEquals(429, response.getStatus());
 
       verify(accountsManager, never())
-          .recordTransferArchiveUpload(any(), anyByte(), any(), any());
+          .recordTransferArchiveUpload(any(), anyByte(), any(), any(), any());
     }
   }
 

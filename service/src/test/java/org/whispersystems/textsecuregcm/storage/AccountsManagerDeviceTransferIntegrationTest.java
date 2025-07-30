@@ -11,6 +11,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachmentError;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
@@ -28,6 +31,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -87,18 +91,22 @@ public class AccountsManagerDeviceTransferIntegrationTest {
     accountsManager.stop();
   }
 
-  @Test
-  void waitForTransferArchive() {
+  @ParameterizedTest
+  @MethodSource
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  void waitForTransferArchive(
+      final Optional<Long> recordUploadDeviceCreated,
+      final Optional<Integer> recordUploadRegistrationId) {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
-    final long deviceCreated = System.currentTimeMillis();
 
     final RemoteAttachment transferArchive =
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("transfer-archive".getBytes(StandardCharsets.UTF_8)));
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
-    when(device.getCreated()).thenReturn(deviceCreated);
+    when(device.getCreated()).thenReturn(recordUploadDeviceCreated.orElse(System.currentTimeMillis()));
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(recordUploadRegistrationId.orElse(1));
 
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
@@ -111,72 +119,122 @@ public class AccountsManagerDeviceTransferIntegrationTest {
 
     assertEquals(Optional.empty(), displacedFuture.join());
 
-    accountsManager.recordTransferArchiveUpload(account, deviceId, Instant.ofEpochMilli(deviceCreated), transferArchive).join();
+    accountsManager.recordTransferArchiveUpload(account, deviceId, recordUploadDeviceCreated.map(Instant::ofEpochMilli), recordUploadRegistrationId, transferArchive).join();
 
     assertEquals(Optional.of(transferArchive), activeFuture.join());
   }
 
-  @Test
-  void waitForTransferArchiveAlreadyAdded() {
+  private static List<Arguments> waitForTransferArchive() {
+    final long deviceCreated = System.currentTimeMillis();
+    final int registrationId = 123;
+
+    return List.of(
+        Arguments.of(Optional.empty(), Optional.of(registrationId)),
+        Arguments.of(Optional.of(deviceCreated), Optional.empty())
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  void waitForTransferArchiveAlreadyAdded(
+      final Optional<Long> recordUploadDeviceCreated,
+      final Optional<Integer> recordUploadRegistrationId) {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
-    final long deviceCreated = System.currentTimeMillis();
+
 
     final RemoteAttachment transferArchive =
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("transfer-archive".getBytes(StandardCharsets.UTF_8)));
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
-    when(device.getCreated()).thenReturn(deviceCreated);
+    when(device.getCreated()).thenReturn(recordUploadDeviceCreated.orElse(System.currentTimeMillis()));
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(recordUploadRegistrationId.orElse(1));
 
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
 
-    accountsManager.recordTransferArchiveUpload(account, deviceId, Instant.ofEpochMilli(deviceCreated), transferArchive).join();
+    accountsManager.recordTransferArchiveUpload(account, deviceId, recordUploadDeviceCreated.map(Instant::ofEpochMilli), recordUploadRegistrationId, transferArchive).join();
 
     assertEquals(Optional.of(transferArchive),
         accountsManager.waitForTransferArchive(account, device, Duration.ofSeconds(5)).join());
   }
 
-  @Test
-  void waitForErrorTransferArchive() {
+  private static List<Arguments> waitForTransferArchiveAlreadyAdded() {
+    final long deviceCreated = System.currentTimeMillis();
+    final int registrationId = 123;
+
+    return List.of(
+        Arguments.of(Optional.empty(), Optional.of(registrationId)),
+        Arguments.of(Optional.of(deviceCreated), Optional.empty())
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  void waitForErrorTransferArchive(
+      final Optional<Long> recordUploadDeviceCreated,
+      final Optional<Integer> recordUploadRegistrationId) {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
-    final long deviceCreated = System.currentTimeMillis();
 
     final RemoteAttachmentError transferArchiveError =
         new RemoteAttachmentError(RemoteAttachmentError.ErrorType.CONTINUE_WITHOUT_UPLOAD);
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
-    when(device.getCreated()).thenReturn(deviceCreated);
+    when(device.getCreated()).thenReturn(recordUploadDeviceCreated.orElse(System.currentTimeMillis()));
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(recordUploadRegistrationId.orElse(1));
 
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
 
-    accountsManager
-        .recordTransferArchiveUpload(account, deviceId, Instant.ofEpochMilli(deviceCreated), transferArchiveError)
-        .join();
+    accountsManager.recordTransferArchiveUpload(account, deviceId, recordUploadDeviceCreated.map(Instant::ofEpochMilli),
+        recordUploadRegistrationId, transferArchiveError).join();
 
     assertEquals(Optional.of(transferArchiveError),
         accountsManager.waitForTransferArchive(account, device, Duration.ofSeconds(5)).join());
   }
 
-  @Test
-  void waitForTransferArchiveTimeout() {
-    final UUID accountIdentifier = UUID.randomUUID();
-    final byte deviceId = Device.PRIMARY_ID;
+  private static List<Arguments> waitForErrorTransferArchive() {
     final long deviceCreated = System.currentTimeMillis();
+    final int registrationId = 123;
+
+    return List.of(
+        Arguments.of(Optional.empty(), Optional.of(registrationId)),
+        Arguments.of(Optional.of(deviceCreated), Optional.empty())
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  void waitForTransferArchiveTimeout(
+      final Optional<Long> recordUploadDeviceCreated,
+      final Optional<Integer> recordUploadRegistrationId) {
+    final UUID accountIdentifier = UUID.randomUUID();
 
     final Device device = mock(Device.class);
-    when(device.getId()).thenReturn(deviceId);
-    when(device.getCreated()).thenReturn(deviceCreated);
+    when(device.getCreated()).thenReturn(recordUploadDeviceCreated.orElse(System.currentTimeMillis()));
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(recordUploadRegistrationId.orElse(1));
 
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
 
     assertEquals(Optional.empty(),
         accountsManager.waitForTransferArchive(account, device, Duration.ofMillis(1)).join());
+  }
+
+  private static List<Arguments> waitForTransferArchiveTimeout() {
+    final long deviceCreated = System.currentTimeMillis();
+    final int registrationId = 123;
+
+    return List.of(
+        Arguments.of(Optional.empty(), Optional.of(registrationId)),
+        Arguments.of(Optional.of(deviceCreated), Optional.empty())
+    );
   }
 
   @Test
