@@ -65,7 +65,7 @@ public class MetricsUtil {
 
     Duration shutdownWaitDuration = Duration.ZERO;
 
-    if (config.getDatadogConfiguration() != null && config.getDatadogConfiguration().enabled()) {
+    if (config.getDatadogConfiguration().enabled()) {
       final StatsdMeterRegistry dogstatsdMeterRegistry = new StatsdMeterRegistry(
           config.getDatadogConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
 
@@ -81,7 +81,7 @@ public class MetricsUtil {
       shutdownWaitDuration = config.getDatadogConfiguration().getShutdownWaitDuration();
     }
 
-    if (config.getOpenTelemetryConfiguration() != null && config.getOpenTelemetryConfiguration().enabled()) {
+    if (config.getOpenTelemetryConfiguration().enabled()) {
       final OtlpMeterRegistry otlpMeterRegistry = new OtlpMeterRegistry(
         config.getOpenTelemetryConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
 
