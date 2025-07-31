@@ -299,7 +299,7 @@ dogstatsd:
   host: 127.0.0.1
 
 openTelemetry:
-  enabled: true
+  enabled: false
   environment: dev
   shutdownWaitDuration: PT0S
   url: http://127.0.0.1:4318/
