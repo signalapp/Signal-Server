@@ -388,7 +388,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
             Mono.fromFuture(() -> sendMessage(envelope)).timeout(sendFuturesTimeout)
                 // Note that this will retry both for "send to client" timeouts and failures to delete messages on
                 // acknowledgement
-                .retryWhen(Retry.backoff(4, Duration.ofSeconds(1))),
+                .retryWhen(Retry.backoff(4, Duration.ofSeconds(1)).filter(throwable -> !isConnectionClosedException(throwable))),
             MESSAGE_SENDER_MAX_CONCURRENCY)
         .doOnError(this::measureSendMessageErrors)
         .subscribeOn(messageDeliveryScheduler)
@@ -410,10 +410,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
 
     if (e instanceof TimeoutException) {
       errorType = "timeout";
-    } else if (e instanceof java.nio.channels.ClosedChannelException ||
-        e == WebSocketResourceProvider.CONNECTION_CLOSED_EXCEPTION ||
-        e instanceof org.eclipse.jetty.io.EofException ||
-        (e instanceof StaticException staticException && "Closed".equals(staticException.getMessage()))) {
+    } else if (isConnectionClosedException(e)) {
       errorType = "connectionClosed";
     } else {
       logger.warn("Send message failed", e);
@@ -425,6 +422,13 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
             Tag.of(ERROR_TYPE_TAG, errorType),
             Tag.of(EXCEPTION_TYPE_TAG, e.getClass().getSimpleName())))
         .increment();
+  }
+
+  private static boolean isConnectionClosedException(final Throwable throwable) {
+    return throwable instanceof java.nio.channels.ClosedChannelException ||
+        throwable == WebSocketResourceProvider.CONNECTION_CLOSED_EXCEPTION ||
+        throwable instanceof org.eclipse.jetty.io.EofException ||
+        (throwable instanceof StaticException staticException && "Closed".equals(staticException.getMessage()));
   }
 
   private CompletableFuture<Void> sendMessage(Envelope envelope) {
