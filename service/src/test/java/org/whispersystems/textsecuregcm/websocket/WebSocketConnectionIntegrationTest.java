@@ -294,7 +294,7 @@ class WebSocketConnectionIntegrationTest {
         account,
         device,
         webSocketClient,
-        1000, // use a short timeout, so that this test completes quickly
+        Duration.ofSeconds(1), // use a short timeout, so that this test completes quickly
         messageDeliveryScheduler,
         clientReleaseManager,
         mock(MessageDeliveryLoopMonitor.class),
