@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import io.micrometer.core.instrument.Timer;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.util.StaticException;
 import org.reactivestreams.Publisher;
@@ -85,6 +86,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
       "sendMessageError");
   private static final String MESSAGE_AVAILABLE_COUNTER_NAME = name(WebSocketConnection.class, "messagesAvailable");
   private static final String MESSAGES_PERSISTED_COUNTER_NAME = name(WebSocketConnection.class, "messagesPersisted");
+  private static final String SEND_MESSAGE_DURATION_TIMER_NAME = name(WebSocketConnection.class, "sendMessageDuration");
 
   private static final String PRESENCE_MANAGER_TAG = "presenceManager";
   private static final String STATUS_CODE_TAG = "status";
@@ -225,6 +227,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
     bytesSentCounter.increment(body.map(bytes -> bytes.length).orElse(0));
     messageMetrics.measureAccountEnvelopeUuidMismatches(authenticatedAccount, message);
 
+    final Timer.Sample sample = Timer.start();
+
     // X-Signal-Key: false must be sent until Android stops assuming it missing means true
     return client.sendRequest("PUT", "/api/v1/message",
             List.of(HeaderUtils.X_SIGNAL_KEY + ": false", HeaderUtils.getTimestampHeader()), body)
@@ -270,7 +274,11 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
             }
 
           return result;
-        });
+        })
+        .thenRun(() -> sample.stop(Timer.builder(SEND_MESSAGE_DURATION_TIMER_NAME)
+            .publishPercentileHistogram(true)
+            .tags(Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent())))
+            .register(Metrics.globalRegistry)));
   }
 
   public static void recordMessageDeliveryDuration(long timestamp, Device messageDestinationDevice) {
