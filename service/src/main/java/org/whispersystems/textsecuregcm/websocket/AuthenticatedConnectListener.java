@@ -9,7 +9,6 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Tags;
 import java.util.Optional;
-import java.util.concurrent.ScheduledExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -19,10 +18,10 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.OpenWebSocketCounter;
-import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
+import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -51,7 +50,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final PushNotificationScheduler pushNotificationScheduler;
   private final RedisMessageAvailabilityManager redisMessageAvailabilityManager;
   private final DisconnectionRequestManager disconnectionRequestManager;
-  private final ScheduledExecutorService scheduledExecutorService;
   private final Scheduler messageDeliveryScheduler;
   private final ClientReleaseManager clientReleaseManager;
   private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
@@ -69,7 +67,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final PushNotificationScheduler pushNotificationScheduler,
       final RedisMessageAvailabilityManager redisMessageAvailabilityManager,
       final DisconnectionRequestManager disconnectionRequestManager,
-      final ScheduledExecutorService scheduledExecutorService,
       final Scheduler messageDeliveryScheduler,
       final ClientReleaseManager clientReleaseManager,
       final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
@@ -83,7 +80,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.pushNotificationScheduler = pushNotificationScheduler;
     this.redisMessageAvailabilityManager = redisMessageAvailabilityManager;
     this.disconnectionRequestManager = disconnectionRequestManager;
-    this.scheduledExecutorService = scheduledExecutorService;
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.clientReleaseManager = clientReleaseManager;
     this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
@@ -126,7 +122,6 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
           maybeAuthenticatedAccount.get(),
           maybeAuthenticatedDevice.get(),
           context.getClient(),
-          scheduledExecutorService,
           messageDeliveryScheduler,
           clientReleaseManager,
           messageDeliveryLoopMonitor,

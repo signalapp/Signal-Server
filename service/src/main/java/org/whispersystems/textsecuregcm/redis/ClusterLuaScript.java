@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 public class ClusterLuaScript {
 
@@ -133,13 +132,7 @@ public class ClusterLuaScript {
       final T[] keys, final T[] args) {
 
     return connection.reactive().evalsha(sha, scriptOutputType, keys, args)
-        .onErrorResume(e -> {
-          if (e instanceof RedisNoScriptException) {
-            return connection.reactive().eval(script, scriptOutputType, keys, args);
-          }
-
-          log.warn("Failed to execute script", e);
-          return Mono.error(e);
-        });
+        .onErrorResume(RedisNoScriptException.class, _ -> connection.reactive().eval(script, scriptOutputType, keys, args))
+        .doOnError(throwable -> log.warn("Failed to execute script", throwable));
   }
 }

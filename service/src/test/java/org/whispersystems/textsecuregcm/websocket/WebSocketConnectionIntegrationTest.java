@@ -31,7 +31,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -78,7 +77,6 @@ class WebSocketConnectionIntegrationTest {
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private ExecutorService sharedExecutorService;
-  private ScheduledExecutorService scheduledExecutorService;
   private MessagesDynamoDb messagesDynamoDb;
   private MessagesCache messagesCache;
   private ReportMessageManager reportMessageManager;
@@ -95,7 +93,6 @@ class WebSocketConnectionIntegrationTest {
   @BeforeEach
   void setUp() throws Exception {
     sharedExecutorService = Executors.newSingleThreadExecutor();
-    scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
@@ -118,10 +115,8 @@ class WebSocketConnectionIntegrationTest {
   @AfterEach
   void tearDown() throws Exception {
     sharedExecutorService.shutdown();
+    //noinspection ResultOfMethodCallIgnored
     sharedExecutorService.awaitTermination(2, TimeUnit.SECONDS);
-
-    scheduledExecutorService.shutdown();
-    scheduledExecutorService.awaitTermination(2, TimeUnit.SECONDS);
   }
 
   @ParameterizedTest
@@ -140,7 +135,6 @@ class WebSocketConnectionIntegrationTest {
         account,
         device,
         webSocketClient,
-        scheduledExecutorService,
         messageDeliveryScheduler,
         clientReleaseManager,
         mock(MessageDeliveryLoopMonitor.class),
@@ -230,7 +224,6 @@ class WebSocketConnectionIntegrationTest {
         account,
         device,
         webSocketClient,
-        scheduledExecutorService,
         messageDeliveryScheduler,
         clientReleaseManager,
         mock(MessageDeliveryLoopMonitor.class),
@@ -301,8 +294,7 @@ class WebSocketConnectionIntegrationTest {
         account,
         device,
         webSocketClient,
-        100, // use a very short timeout, so that this test completes quickly
-        scheduledExecutorService,
+        1000, // use a short timeout, so that this test completes quickly
         messageDeliveryScheduler,
         clientReleaseManager,
         mock(MessageDeliveryLoopMonitor.class),
@@ -371,8 +363,8 @@ class WebSocketConnectionIntegrationTest {
       ArgumentCaptor<Optional<byte[]>> messageBodyCaptor = ArgumentCaptor.forClass(Optional.class);
 
       // We expect all of the messages from both pools to be sent, plus one for the future that times out
-      verify(webSocketClient, atMost(persistedMessageCount + cachedMessageCount + 1)).sendRequest(eq("PUT"),
-          eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
+      verify(webSocketClient, atMost(persistedMessageCount + cachedMessageCount + 1))
+          .sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
 
       verify(webSocketClient).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(), eq(Optional.empty()));
 

@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
+import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
@@ -52,6 +53,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.ArrayUtils;
@@ -779,6 +781,47 @@ class MessagesCacheTest {
 
       assertTrue(pages.isEmpty());
       verify(asyncCommands, atLeast(1)).evalsha(any(), any(), any(byte[][].class), any(byte[][].class));
+    }
+
+    @Test
+    void testGetRetries() {
+      final List<byte[]> page = generatePage();
+
+      final AtomicBoolean emittedError = new AtomicBoolean(false);
+      final AtomicBoolean emittedPage = new AtomicBoolean(false);
+
+      when(reactiveCommands.evalsha(any(), any(), any(byte[][].class), any(byte[][].class)))
+          .thenReturn(Flux.defer(() -> {
+            if (emittedError.compareAndSet(false, true)) {
+              return Flux.error(new RedisCommandTimeoutException("Timeout"));
+            } else if (emittedPage.compareAndSet(false, true)) {
+              return Flux.just(page);
+            }
+
+            return Flux.empty();
+          }));
+
+      final AsyncCommand<?, ?, ?> removeSuccess = new AsyncCommand<>(mock(RedisCommand.class));
+      removeSuccess.complete();
+
+      when(asyncCommands.evalsha(any(), any(), any(byte[][].class), any(byte[][].class)))
+          .thenReturn((RedisFuture) removeSuccess);
+
+      final Publisher<?> allMessages = messagesCache.get(UUID.randomUUID(), Device.PRIMARY_ID);
+
+      StepVerifier.setDefaultTimeout(Duration.ofSeconds(5));
+
+      // async commands are used for remove(), and nothing should happen until we are subscribed
+      verify(asyncCommands, never()).evalsha(any(), any(), any(byte[][].class), any(byte[][].class));
+      // the reactive commands will be called once, to prep the first page fetch (but no remote request would actually be sent)
+      verify(reactiveCommands, times(1)).evalsha(any(), any(), any(byte[][].class), any(byte[][].class));
+
+      StepVerifier.create(allMessages)
+          .expectSubscription()
+          .expectNextCount(page.size() / 2)
+          .expectComplete()
+          .log()
+          .verify();
     }
 
     private List<byte[]> generatePage() {
