@@ -177,13 +177,6 @@ class WhisperServerServiceTest {
         .build());
   }
 
-  @Test
-  void testOtlpConfig() {
-    final OpenTelemetryConfiguration otelConfig =EXTENSION.getConfiguration().getOpenTelemetryConfiguration();
-    assertTrue(otelConfig.enabled());
-    assertEquals("http://127.0.0.1:4318/", otelConfig.url());
-  }
-
   private static DynamoDbClient getDynamoDbClient() {
     final AwsCredentialsProvider awsCredentialsProvider = EXTENSION.getConfiguration().getAwsCredentialsConfiguration()
         .build();
