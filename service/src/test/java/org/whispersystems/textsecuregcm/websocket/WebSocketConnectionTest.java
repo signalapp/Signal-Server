@@ -633,7 +633,7 @@ class WebSocketConnectionTest {
         account,
         device,
         client,
-        Duration.ofMillis(100),
+        Duration.ofSeconds(1),
         Schedulers.immediate(),
         clientReleaseManager,
         mock(MessageDeliveryLoopMonitor.class),
