@@ -191,7 +191,6 @@ import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
 import org.whispersystems.textsecuregcm.metrics.TlsCertificateExpirationUtil;
 import org.whispersystems.textsecuregcm.metrics.TrafficSource;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
-import org.whispersystems.textsecuregcm.providers.RedisClusterHealthCheck;
 import org.whispersystems.textsecuregcm.push.APNSender;
 import org.whispersystems.textsecuregcm.push.FcmSender;
 import org.whispersystems.textsecuregcm.push.MessageSender;
@@ -1173,9 +1172,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     provisioning.setAsyncSupported(true);
 
     environment.admin().addTask(new SetRequestLoggingEnabledTask());
-
-    // healthcheck, admin port
-    environment.healthChecks().register("cacheCluster", new RedisClusterHealthCheck(cacheCluster));
 
     MetricsUtil.registerSystemResourceMetrics(environment);
   }
