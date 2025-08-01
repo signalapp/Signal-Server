@@ -34,7 +34,6 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -57,7 +56,6 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
 import org.whispersystems.textsecuregcm.auth.OptionalAccess;
 import org.whispersystems.textsecuregcm.entities.CheckKeysRequest;
-import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
@@ -92,7 +90,6 @@ public class KeysController {
   private final ServerSecretParams serverSecretParams;
   private final Clock clock;
 
-  private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "getKeys");
   private static final String STORE_KEYS_COUNTER_NAME = MetricsUtil.name(KeysController.class, "storeKeys");
   private static final String STORE_KEY_BUNDLE_SIZE_DISTRIBUTION_NAME =
       MetricsUtil.name(KeysController.class, "storeKeyBundleSize");
@@ -395,51 +392,14 @@ public class KeysController {
 
     final List<Device> devices = parseDeviceId(deviceId, target);
 
-    final List<PreKeyResponseItem> responseItems = Flux.fromIterable(devices)
-        .flatMap(device -> Mono.zip(
-            Mono.just(device),
-            Mono.fromFuture(keysManager.takeEC(targetIdentifier.uuid(), device.getId())),
-            Mono.fromFuture(keysManager.getEcSignedPreKey(targetIdentifier.uuid(), device.getId())),
-            Mono.fromFuture(keysManager.takePQ(targetIdentifier.uuid(), device.getId()))))
-        .flatMap(deviceAndPreKeys -> {
-          final Device device = deviceAndPreKeys.getT1();
-          final KEMSignedPreKey pqPreKey = deviceAndPreKeys.getT4().orElse(null);
-          final ECPreKey unsignedEcPreKey = deviceAndPreKeys.getT2().orElse(null);
-          final ECSignedPreKey signedEcPreKey = deviceAndPreKeys.getT3().orElse(null);
-          final int registrationId = device.getRegistrationId(targetIdentifier.identityType());
-
-          Metrics.counter(GET_KEYS_COUNTER_NAME, Tags.of(
-                  UserAgentTagUtil.getPlatformTag(userAgent),
-                  Tag.of(IDENTITY_TYPE_TAG_NAME, targetIdentifier.identityType().name()),
-                  Tag.of("oneTimeEcKeyAvailable", String.valueOf(unsignedEcPreKey != null)),
-                  Tag.of("signedEcKeyAvailable", String.valueOf(signedEcPreKey != null)),
-                  Tag.of("pqKeyAvailable", String.valueOf(pqPreKey != null))))
-              .increment();
-
-          if (pqPreKey == null) {
-            // The PQ prekey should never be null. This should only happen if the account or device has been
-            // removed.
-            return Mono.fromCompletionStage(() -> accounts.getByServiceIdentifierAsync(targetIdentifier))
-                .flatMap(maybeAccount -> maybeAccount
-                    .flatMap(rereadAccount -> rereadAccount.getDevice(device.getId()))
-                    .filter(rereadDevice ->
-                        registrationId == rereadDevice.getRegistrationId(targetIdentifier.identityType()))
-                    .map(rereadDevice -> {
-                      // The account and device still exist, and the device we originally read matches the current
-                      // registrationId, so the lastResort key should have existed
-                      log.error(
-                          "Target {}, Account {}, DeviceId {}, RegistrationId {} was missing a last resort prekey",
-                          targetIdentifier,
-                          target.getIdentifier(IdentityType.ACI),
-                          rereadDevice.getId(),
-                          rereadDevice.getRegistrationId(targetIdentifier.identityType()));
-                      return Mono.<PreKeyResponseItem>error(new IOException("Device missing last resort prekey"));
-                    })
-                    .orElse(Mono.empty()));
-          }
-          return Mono.just(new PreKeyResponseItem(
-              device.getId(), registrationId, signedEcPreKey, unsignedEcPreKey, pqPreKey));
-        })
+    final List<PreKeyResponseItem> responseItems = Flux.fromIterable(devices).flatMap(device -> Mono
+            .fromCompletionStage(keysManager.takeDevicePreKeys(device.getId(), targetIdentifier, userAgent))
+            .flatMap(Mono::justOrEmpty)
+            .map(devicePreKeys -> new PreKeyResponseItem(
+                device.getId(), device.getRegistrationId(targetIdentifier.identityType()),
+                devicePreKeys.ecSignedPreKey(),
+                devicePreKeys.ecPreKey().orElse(null),
+                devicePreKeys.kemSignedPreKey())))
         .collectList()
         .block();
 

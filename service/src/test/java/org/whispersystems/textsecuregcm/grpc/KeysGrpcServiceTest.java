@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -59,6 +59,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -464,26 +465,52 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     final UUID identifier = UUID.randomUUID();
 
     final IdentityType identityType = IdentityTypeUtil.fromGrpcIdentityType(grpcIdentityType);
+    final org.whispersystems.textsecuregcm.identity.ServiceIdentifier serviceIdentifier = switch (identityType) {
+      case PNI -> new PniServiceIdentifier(identifier);
+      case ACI -> new AciServiceIdentifier(identifier);
+    };
 
     when(targetAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(targetAccount.getIdentifier(identityType)).thenReturn(identifier);
     when(targetAccount.getIdentityKey(identityType)).thenReturn(identityKey);
-    when(accountsManager.getByServiceIdentifierAsync(argThat(serviceIdentifier -> serviceIdentifier.uuid().equals(identifier))))
+    when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    final Map<Byte, ECPreKey> ecOneTimePreKeys = new HashMap<>();
-    final Map<Byte, KEMSignedPreKey> kemPreKeys = new HashMap<>();
-    final Map<Byte, ECSignedPreKey> ecSignedPreKeys = new HashMap<>();
+    final Map<Byte, KeysManager.DevicePreKeys> devicePreKeysMap = new HashMap<>();
 
     final Map<Byte, Device> devices = new HashMap<>();
+    final Map<Byte, GetPreKeysResponse.PreKeyBundle> expectedPreKeyBundles = new HashMap<>();
 
     final byte deviceId1 = 1;
     final byte deviceId2 = 2;
 
     for (final byte deviceId : List.of(deviceId1, deviceId2)) {
-      ecOneTimePreKeys.put(deviceId, new ECPreKey(1, ECKeyPair.generate().getPublicKey()));
-      kemPreKeys.put(deviceId, KeysHelper.signedKEMPreKey(2, identityKeyPair));
-      ecSignedPreKeys.put(deviceId, KeysHelper.signedECPreKey(3, identityKeyPair));
+
+      final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(3, identityKeyPair);
+      final Optional<ECPreKey> maybeEcPreKey = Optional
+          .of(new ECPreKey(1, ECKeyPair.generate().getPublicKey()))
+          .filter(_ -> deviceId == deviceId1);
+      final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(2, identityKeyPair);
+
+      devicePreKeysMap.put(deviceId, new KeysManager.DevicePreKeys(ecSignedPreKey, maybeEcPreKey, kemSignedPreKey));
+
+      final GetPreKeysResponse.PreKeyBundle.Builder builder = GetPreKeysResponse.PreKeyBundle.newBuilder()
+          .setEcSignedPreKey(EcSignedPreKey.newBuilder()
+              .setKeyId(ecSignedPreKey.keyId())
+              .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
+              .setSignature(ByteString.copyFrom(ecSignedPreKey.signature()))
+              .build())
+          .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
+              .setKeyId(kemSignedPreKey.keyId())
+              .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
+              .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))
+              .build());
+      maybeEcPreKey.ifPresent(ecPreKey -> builder
+            .setEcOneTimePreKey(EcPreKey.newBuilder()
+                .setKeyId(ecPreKey.keyId())
+                .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))
+                .build()));
+      expectedPreKeyBundles.put(deviceId, builder.build());
 
       final Device device = mock(Device.class);
       when(device.getId()).thenReturn(deviceId);
@@ -494,14 +521,9 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
     when(targetAccount.getDevices()).thenReturn(new ArrayList<>(devices.values()));
 
-    ecOneTimePreKeys.forEach((deviceId, preKey) -> when(keysManager.takeEC(identifier, deviceId))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(preKey))));
-
-    ecSignedPreKeys.forEach((deviceId, preKey) -> when(keysManager.getEcSignedPreKey(identifier, deviceId))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(preKey))));
-
-    kemPreKeys.forEach((deviceId, preKey) -> when(keysManager.takePQ(identifier, deviceId))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(preKey))));
+    devicePreKeysMap.forEach((deviceId, preKeys) -> when(keysManager.takeDevicePreKeys(eq(deviceId),
+        eq(serviceIdentifier), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(preKeys))));
 
     {
       final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
@@ -514,29 +536,11 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
       final GetPreKeysResponse expectedResponse = GetPreKeysResponse.newBuilder()
           .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
-          .putPreKeys(1, GetPreKeysResponse.PreKeyBundle.newBuilder()
-              .setEcSignedPreKey(EcSignedPreKey.newBuilder()
-                  .setKeyId(ecSignedPreKeys.get(deviceId1).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecSignedPreKeys.get(deviceId1).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(ecSignedPreKeys.get(deviceId1).signature()))
-                  .build())
-              .setEcOneTimePreKey(EcPreKey.newBuilder()
-                  .setKeyId(ecOneTimePreKeys.get(deviceId1).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecOneTimePreKeys.get(deviceId1).serializedPublicKey()))
-                  .build())
-              .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
-                  .setKeyId(kemPreKeys.get(deviceId1).keyId())
-                  .setPublicKey(ByteString.copyFrom(kemPreKeys.get(deviceId1).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(kemPreKeys.get(deviceId1).signature()))
-                  .build())
-              .build())
+          .putPreKeys(1, expectedPreKeyBundles.get(deviceId1))
           .build();
 
       assertEquals(expectedResponse, response);
     }
-
-    when(keysManager.takeEC(identifier, deviceId2)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-    when(keysManager.takePQ(identifier, deviceId2)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     {
       final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
@@ -548,29 +552,8 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
       final GetPreKeysResponse expectedResponse = GetPreKeysResponse.newBuilder()
           .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
-          .putPreKeys(1, GetPreKeysResponse.PreKeyBundle.newBuilder()
-              .setEcSignedPreKey(EcSignedPreKey.newBuilder()
-                  .setKeyId(ecSignedPreKeys.get(deviceId1).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecSignedPreKeys.get(deviceId1).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(ecSignedPreKeys.get(deviceId1).signature()))
-                  .build())
-              .setEcOneTimePreKey(EcPreKey.newBuilder()
-                  .setKeyId(ecOneTimePreKeys.get(deviceId1).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecOneTimePreKeys.get(deviceId1).serializedPublicKey()))
-                  .build())
-              .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
-                  .setKeyId(kemPreKeys.get(deviceId1).keyId())
-                  .setPublicKey(ByteString.copyFrom(kemPreKeys.get(deviceId1).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(kemPreKeys.get(deviceId1).signature()))
-                  .build())
-              .build())
-          .putPreKeys(2, GetPreKeysResponse.PreKeyBundle.newBuilder()
-              .setEcSignedPreKey(EcSignedPreKey.newBuilder()
-                  .setKeyId(ecSignedPreKeys.get(deviceId2).keyId())
-                  .setPublicKey(ByteString.copyFrom(ecSignedPreKeys.get(deviceId2).serializedPublicKey()))
-                  .setSignature(ByteString.copyFrom(ecSignedPreKeys.get(deviceId2).signature()))
-                  .build())
-              .build())
+          .putPreKeys(1, expectedPreKeyBundles.get(deviceId1))
+          .putPreKeys(2, expectedPreKeyBundles.get(deviceId2))
           .build();
 
       assertEquals(expectedResponse, response);

@@ -136,7 +136,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
             .flatMap(Mono::justOrEmpty))
         .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()))
         .flatMap(targetAccount ->
-            KeysGrpcHelper.getPreKeys(targetAccount, targetIdentifier.identityType(), deviceId, keysManager));
+            KeysGrpcHelper.getPreKeys(targetAccount, targetIdentifier, deviceId, keysManager));
   }
 
   @Override

@@ -19,7 +19,7 @@ public class PreKeyResponseItem {
   private int registrationId;
 
   @JsonProperty
-  @Schema(description="the signed elliptic-curve prekey for the device, if one has been set")
+  @Schema(description="the signed elliptic-curve prekey for the device")
   private ECSignedPreKey signedPreKey;
 
   @JsonProperty
@@ -28,7 +28,7 @@ public class PreKeyResponseItem {
 
   @JsonProperty
   @Schema(description="a signed post-quantum prekey for the device " +
-      "(a one-time prekey if any remain, otherwise the last-resort prekey if one has been set)")
+      "(a one-time prekey if any remain, otherwise the last-resort prekey)")
   private KEMSignedPreKey pqPreKey;
 
   public PreKeyResponseItem() {}

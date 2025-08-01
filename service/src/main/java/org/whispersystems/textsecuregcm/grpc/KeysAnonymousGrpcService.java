@@ -56,7 +56,7 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
           groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), serviceIdentifier);
 
           yield lookUpAccount(serviceIdentifier, Status.NOT_FOUND)
-              .flatMap(targetAccount -> KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier.identityType(), deviceId, keysManager));
+              .flatMap(targetAccount -> KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier, deviceId, keysManager));
         } catch (final StatusException e) {
           yield Mono.error(e);
         }
@@ -66,7 +66,7 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
           lookUpAccount(serviceIdentifier, Status.UNAUTHENTICATED)
               .flatMap(targetAccount ->
                   UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, request.getUnidentifiedAccessKey().toByteArray())
-                  ? KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier.identityType(), deviceId, keysManager)
+                  ? KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier, deviceId, keysManager)
                   : Mono.error(Status.UNAUTHENTICATED.asException()));
 
       default -> Mono.error(Status.INVALID_ARGUMENT.asException());

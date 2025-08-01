@@ -195,8 +195,7 @@ message GetPreKeysResponse {
 
     /**
      * A one-time KEM pre-key (or a last-resort KEM pre-key) for the targeted
-     * account/device/identity. May not be set if the targeted device has not
-     * yet uploaded any KEM pre-keys.
+     * account/device/identity.
      */
     common.KemSignedPreKey kem_one_time_pre_key = 3;
   }

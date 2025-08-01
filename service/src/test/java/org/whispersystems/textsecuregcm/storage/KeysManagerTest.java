@@ -8,25 +8,25 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -48,6 +48,7 @@ class KeysManagerTest {
   static final S3LocalStackExtension S3_EXTENSION = new S3LocalStackExtension("testbucket");
 
   private static final UUID ACCOUNT_UUID = UUID.randomUUID();
+  private static final AciServiceIdentifier ACI_SERVICE_IDENTIFIER = new AciServiceIdentifier(ACCOUNT_UUID);
   private static final byte DEVICE_ID = 1;
 
   private static final ECKeyPair IDENTITY_KEY_PAIR = ECKeyPair.generate();
@@ -285,6 +286,40 @@ class KeysManagerTest {
         "storing new last-resort keys should leave untouched ones alone");
     assertEquals(4L, keysManager.getLastResort(ACCOUNT_UUID, deviceId3).join().orElseThrow().keyId(),
         "storing new last-resort keys should overwrite old ones");
+  }
+
+  private enum MissingKeyType {
+    EC,
+    SIGNED_EC,
+    PQ,
+    NONE
+  }
+
+  @ParameterizedTest
+  @EnumSource(MissingKeyType.class)
+  void testTakeWithMissingKeys(final MissingKeyType missingKeyType) {
+    if (missingKeyType != MissingKeyType.PQ) {
+      keysManager.storePqLastResort(ACCOUNT_UUID, DEVICE_ID, generateTestKEMSignedPreKey(1)).join();
+    }
+    if (missingKeyType != MissingKeyType.SIGNED_EC) {
+      keysManager.storeEcSignedPreKeys(ACCOUNT_UUID, DEVICE_ID, generateTestECSignedPreKey(2)).join();
+    }
+    if (missingKeyType != MissingKeyType.EC) {
+      keysManager.storeEcOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestPreKey(3))).join();
+    }
+
+    final Optional<KeysManager.DevicePreKeys> keys =
+        keysManager.takeDevicePreKeys(DEVICE_ID, ACI_SERVICE_IDENTIFIER, null).join();
+
+    assertEquals(keys.isPresent(), switch (missingKeyType) {
+      // We should successfully get keys if every key is present, or if only EC one-time keys are missing
+      case EC, NONE -> true;
+      // If the signed EC key or the last-resort PQ key is missing, we shouldn't get keys back
+      case SIGNED_EC, PQ -> false;
+    });
+
+    final boolean hasEcPreKey = keys.flatMap(KeysManager.DevicePreKeys::ecPreKey).isPresent();
+    assertEquals(hasEcPreKey, missingKeyType == MissingKeyType.NONE);
   }
 
   private static ECPreKey generateTestPreKey(final long keyId) {

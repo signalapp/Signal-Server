@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -35,6 +36,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -63,6 +65,7 @@ import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PreKeyCount;
 import org.whispersystems.textsecuregcm.entities.PreKeyResponse;
+import org.whispersystems.textsecuregcm.entities.PreKeyResponseItem;
 import org.whispersystems.textsecuregcm.entities.SetKeysRequest;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -93,6 +96,7 @@ class KeysControllerTest {
   private static final UUID   EXISTS_UUID   = UUID.randomUUID();
   private static final UUID   EXISTS_PNI    = UUID.randomUUID();
   private static final AciServiceIdentifier EXISTS_ACI = new AciServiceIdentifier(EXISTS_UUID);
+  private static final PniServiceIdentifier EXISTS_PNI_SERVICE_ID = new PniServiceIdentifier(EXISTS_PNI);
 
   private static final UUID   OTHER_UUID   = UUID.randomUUID();
   private static final AciServiceIdentifier OTHER_ACI = new AciServiceIdentifier(OTHER_UUID);
@@ -101,16 +105,9 @@ class KeysControllerTest {
   private static final AciServiceIdentifier NOT_EXISTS_ACI = new AciServiceIdentifier(NOT_EXISTS_UUID);
 
   private static final byte SAMPLE_DEVICE_ID = 1;
-  private static final byte SAMPLE_DEVICE_ID2 = 2;
-  private static final byte SAMPLE_DEVICE_ID3 = 3;
-  private static final byte SAMPLE_DEVICE_ID4 = 4;
 
   private static final int SAMPLE_REGISTRATION_ID  =  999;
-  private static final int SAMPLE_REGISTRATION_ID2 = 1002;
-  private static final int SAMPLE_REGISTRATION_ID4 = 1555;
-
   private static final int SAMPLE_PNI_REGISTRATION_ID = 1717;
-  private static final int SAMPLE_PNI_REGISTRATION_ID2 = 1718;
 
   private final ECKeyPair IDENTITY_KEY_PAIR = ECKeyPair.generate();
   private final IdentityKey IDENTITY_KEY = new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey());
@@ -119,34 +116,21 @@ class KeysControllerTest {
   private final IdentityKey PNI_IDENTITY_KEY = new IdentityKey(PNI_IDENTITY_KEY_PAIR.getPublicKey());
 
   private final ECPreKey SAMPLE_KEY = KeysHelper.ecPreKey(1234);
-  private final ECPreKey SAMPLE_KEY2 = KeysHelper.ecPreKey(5667);
-  private final ECPreKey SAMPLE_KEY3 = KeysHelper.ecPreKey(334);
-  private final ECPreKey SAMPLE_KEY4 = KeysHelper.ecPreKey(336);
-
   private final ECPreKey SAMPLE_KEY_PNI = KeysHelper.ecPreKey(7777);
 
   private final KEMSignedPreKey SAMPLE_PQ_KEY = KeysHelper.signedKEMPreKey(2424, ECKeyPair.generate());
-  private final KEMSignedPreKey SAMPLE_PQ_KEY2 = KeysHelper.signedKEMPreKey(6868, ECKeyPair.generate());
-  private final KEMSignedPreKey SAMPLE_PQ_KEY3 = KeysHelper.signedKEMPreKey(1313, ECKeyPair.generate());
-  private final KEMSignedPreKey SAMPLE_PQ_KEY4 = KeysHelper.signedKEMPreKey(7676, ECKeyPair.generate());
-
   private final KEMSignedPreKey SAMPLE_PQ_KEY_PNI = KeysHelper.signedKEMPreKey(8888, ECKeyPair.generate());
 
   private final ECSignedPreKey SAMPLE_SIGNED_KEY = KeysHelper.signedECPreKey(1111, IDENTITY_KEY_PAIR);
-  private final ECSignedPreKey SAMPLE_SIGNED_KEY2 = KeysHelper.signedECPreKey(2222, IDENTITY_KEY_PAIR);
-  private final ECSignedPreKey SAMPLE_SIGNED_KEY3 = KeysHelper.signedECPreKey(3333, IDENTITY_KEY_PAIR);
-  private final ECSignedPreKey SAMPLE_SIGNED_PNI_KEY = KeysHelper.signedECPreKey(4444, PNI_IDENTITY_KEY_PAIR);
-  private final ECSignedPreKey SAMPLE_SIGNED_PNI_KEY2 = KeysHelper.signedECPreKey(5555, PNI_IDENTITY_KEY_PAIR);
-  private final ECSignedPreKey SAMPLE_SIGNED_PNI_KEY3 = KeysHelper.signedECPreKey(6666, PNI_IDENTITY_KEY_PAIR);
-  private final ECSignedPreKey VALID_DEVICE_SIGNED_KEY = KeysHelper.signedECPreKey(89898, IDENTITY_KEY_PAIR);
-  private final ECSignedPreKey VALID_DEVICE_PNI_SIGNED_KEY = KeysHelper.signedECPreKey(7777, PNI_IDENTITY_KEY_PAIR);
+  private final ECSignedPreKey SAMPLE_SIGNED_PNI_KEY = KeysHelper.signedECPreKey(5555, PNI_IDENTITY_KEY_PAIR);
 
-  private final static KeysManager KEYS = mock(KeysManager.class               );
-  private final static AccountsManager             accounts                    = mock(AccountsManager.class            );
-  private final static Account                     existsAccount               = mock(Account.class                    );
 
-  private static final RateLimiters          rateLimiters  = mock(RateLimiters.class);
-  private static final RateLimiter           rateLimiter   = mock(RateLimiter.class );
+  private final static KeysManager KEYS = mock(KeysManager.class);
+  private final static AccountsManager accounts = mock(AccountsManager.class);
+  private final static Account existsAccount = mock(Account.class);
+
+  private static final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private static final RateLimiter rateLimiter = mock(RateLimiter.class);
 
   private static final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
 
@@ -162,9 +146,6 @@ class KeysControllerTest {
       .addResource(new KeysController(rateLimiters, KEYS, accounts, serverSecretParams, clock))
       .addResource(new RateLimitExceededExceptionMapper())
       .build();
-
-  private Device sampleDevice;
-  private Device sampleDevice2;
 
   private record WeaklyTypedPreKey(long keyId,
 
@@ -198,34 +179,33 @@ class KeysControllerTest {
                                         byte[] identityKey) {
   }
 
+  private Device createSampleDevice(byte deviceId, int registrationId, int pniRegistrationId) {
+    final Device sampleDevice = mock(Device.class);
+    when(sampleDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(sampleDevice.getRegistrationId(IdentityType.PNI)).thenReturn(pniRegistrationId);
+    when(sampleDevice.getId()).thenReturn(deviceId);
+
+    return sampleDevice;
+  }
+
   @BeforeEach
   void setup() {
     clock.unpin();
 
-    sampleDevice = mock(Device.class);
-    sampleDevice2 = mock(Device.class);
-    final Device sampleDevice3 = mock(Device.class);
-    final Device sampleDevice4 = mock(Device.class);
-
-    final List<Device> allDevices = List.of(sampleDevice, sampleDevice2, sampleDevice3, sampleDevice4);
-
-    final byte sampleDeviceId = 1;
-    final byte sampleDevice2Id = 2;
-    final byte sampleDevice3Id = 3;
-    final byte sampleDevice4Id = 4;
-
     AccountsHelper.setupMockUpdate(accounts);
 
-    when(sampleDevice.getRegistrationId(IdentityType.ACI)).thenReturn(SAMPLE_REGISTRATION_ID);
-    when(sampleDevice2.getRegistrationId(IdentityType.ACI)).thenReturn(SAMPLE_REGISTRATION_ID2);
-    when(sampleDevice3.getRegistrationId(IdentityType.ACI)).thenReturn(SAMPLE_REGISTRATION_ID2);
-    when(sampleDevice4.getRegistrationId(IdentityType.ACI)).thenReturn(SAMPLE_REGISTRATION_ID4);
-    when(sampleDevice.getRegistrationId(IdentityType.PNI)).thenReturn(SAMPLE_PNI_REGISTRATION_ID);
-    when(sampleDevice2.getRegistrationId(IdentityType.PNI)).thenReturn(SAMPLE_PNI_REGISTRATION_ID2);
-    when(sampleDevice.getId()).thenReturn(sampleDeviceId);
-    when(sampleDevice2.getId()).thenReturn(sampleDevice2Id);
-    when(sampleDevice3.getId()).thenReturn(sampleDevice3Id);
-    when(sampleDevice4.getId()).thenReturn(sampleDevice4Id);
+    final Device sampleDevice =
+        createSampleDevice(SAMPLE_DEVICE_ID, SAMPLE_REGISTRATION_ID, SAMPLE_PNI_REGISTRATION_ID);
+
+    final KeysManager.DevicePreKeys aciKeys =
+        new KeysManager.DevicePreKeys(SAMPLE_SIGNED_KEY, Optional.of(SAMPLE_KEY), SAMPLE_PQ_KEY);
+    final KeysManager.DevicePreKeys pniKeys =
+        new KeysManager.DevicePreKeys(SAMPLE_SIGNED_PNI_KEY, Optional.of(SAMPLE_KEY_PNI), SAMPLE_PQ_KEY_PNI);
+
+    when(KEYS.takeDevicePreKeys(eq(SAMPLE_DEVICE_ID), eq(EXISTS_ACI), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(aciKeys)));
+    when(KEYS.takeDevicePreKeys(eq(SAMPLE_DEVICE_ID), eq(EXISTS_PNI_SERVICE_ID), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(pniKeys)));
 
     when(existsAccount.getUuid()).thenReturn(EXISTS_UUID);
     when(existsAccount.isIdentifiedBy(new AciServiceIdentifier(EXISTS_UUID))).thenReturn(true);
@@ -233,12 +213,8 @@ class KeysControllerTest {
     when(existsAccount.isIdentifiedBy(new PniServiceIdentifier(EXISTS_PNI))).thenReturn(true);
     when(existsAccount.getIdentifier(IdentityType.ACI)).thenReturn(EXISTS_UUID);
     when(existsAccount.getIdentifier(IdentityType.PNI)).thenReturn(EXISTS_PNI);
-    when(existsAccount.getDevice(sampleDeviceId)).thenReturn(Optional.of(sampleDevice));
-    when(existsAccount.getDevice(sampleDevice2Id)).thenReturn(Optional.of(sampleDevice2));
-    when(existsAccount.getDevice(sampleDevice3Id)).thenReturn(Optional.of(sampleDevice3));
-    when(existsAccount.getDevice(sampleDevice4Id)).thenReturn(Optional.of(sampleDevice4));
-    when(existsAccount.getDevice((byte) 22)).thenReturn(Optional.empty());
-    when(existsAccount.getDevices()).thenReturn(allDevices);
+    when(existsAccount.getDevice(SAMPLE_DEVICE_ID)).thenReturn(Optional.of(sampleDevice));
+    when(existsAccount.getDevices()).thenReturn(List.of(sampleDevice));
     when(existsAccount.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
     when(existsAccount.getIdentityKey(IdentityType.PNI)).thenReturn(PNI_IDENTITY_KEY);
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
@@ -264,51 +240,12 @@ class KeysControllerTest {
 
     when(KEYS.storeEcOneTimePreKeys(any(), anyByte(), any()))
         .thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
-
     when(KEYS.storeKemOneTimePreKeys(any(), anyByte(), any()))
         .thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
-
     when(KEYS.storePqLastResort(any(), anyByte(), any()))
         .thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
-
-    when(KEYS.getEcSignedPreKey(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-    when(KEYS.storeEcSignedPreKeys(any(), anyByte(), any())).thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
-
-    when(KEYS.getEcSignedPreKey(EXISTS_UUID, sampleDeviceId))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_KEY)));
-
-    when(KEYS.getEcSignedPreKey(EXISTS_UUID, sampleDevice2Id))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_KEY2)));
-
-    when(KEYS.getEcSignedPreKey(EXISTS_UUID, sampleDevice3Id))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_KEY3)));
-
-    when(KEYS.getEcSignedPreKey(EXISTS_PNI, sampleDeviceId))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_PNI_KEY)));
-
-    when(KEYS.getEcSignedPreKey(EXISTS_PNI, sampleDevice2Id))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_PNI_KEY2)));
-
-    when(KEYS.getEcSignedPreKey(EXISTS_PNI, sampleDevice3Id))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_SIGNED_PNI_KEY3)));
-
-    when(KEYS.takeEC(EXISTS_UUID, sampleDeviceId)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY)));
-    when(KEYS.takePQ(EXISTS_UUID, sampleDeviceId)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY)));
-    when(KEYS.takeEC(EXISTS_PNI, sampleDeviceId)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY_PNI)));
-    when(KEYS.takePQ(EXISTS_PNI, sampleDeviceId)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY_PNI)));
-
-    when(KEYS.getEcCount(AuthHelper.VALID_UUID, sampleDeviceId)).thenReturn(CompletableFuture.completedFuture(5));
-    when(KEYS.getPqCount(AuthHelper.VALID_UUID, sampleDeviceId)).thenReturn(CompletableFuture.completedFuture(5));
-
-    when(KEYS.getEcSignedPreKey(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(VALID_DEVICE_SIGNED_KEY)));
-
-    when(KEYS.getEcSignedPreKey(AuthHelper.VALID_PNI, AuthHelper.VALID_DEVICE.getId()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(VALID_DEVICE_PNI_SIGNED_KEY)));
+    when(KEYS.storeEcSignedPreKeys(any(), anyByte(), any()))
+        .thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
   }
 
   @AfterEach
@@ -326,6 +263,11 @@ class KeysControllerTest {
 
   @Test
   void validKeyStatusTest() {
+    when(KEYS.getEcCount(AuthHelper.VALID_UUID, SAMPLE_DEVICE_ID)).thenReturn(CompletableFuture.completedFuture(5));
+    when(KEYS.getPqCount(AuthHelper.VALID_UUID, SAMPLE_DEVICE_ID)).thenReturn(CompletableFuture.completedFuture(5));
+    when(KEYS.getEcSignedPreKey(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE.getId()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(KeysHelper.signedECPreKey(123, IDENTITY_KEY_PAIR))));
+
     PreKeyCount result = resources.getJerseyTest()
                                   .target("/v2/keys")
                                   .request()
@@ -355,9 +297,7 @@ class KeysControllerTest {
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
     assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
+    verify(KEYS).takeDevicePreKeys(eq(SAMPLE_DEVICE_ID), eq(EXISTS_ACI), any());
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -377,9 +317,7 @@ class KeysControllerTest {
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_REGISTRATION_ID);
     assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
+    verify(KEYS).takeDevicePreKeys(eq(SAMPLE_DEVICE_ID), eq(EXISTS_ACI), any());
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -398,9 +336,7 @@ class KeysControllerTest {
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_PNI_REGISTRATION_ID);
     assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
-    verify(KEYS).takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID);
-    verify(KEYS).takePQ(EXISTS_PNI, SAMPLE_DEVICE_ID);
-    verify(KEYS).getEcSignedPreKey(EXISTS_PNI, SAMPLE_DEVICE_ID);
+    verify(KEYS).takeDevicePreKeys(eq(SAMPLE_DEVICE_ID), eq(EXISTS_PNI_SERVICE_ID), any());
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -420,9 +356,7 @@ class KeysControllerTest {
     assertThat(result.getDevice(SAMPLE_DEVICE_ID).getRegistrationId()).isEqualTo(SAMPLE_PNI_REGISTRATION_ID);
     assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
-    verify(KEYS).takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID);
-    verify(KEYS).takePQ(EXISTS_PNI, SAMPLE_DEVICE_ID);
-    verify(KEYS).getEcSignedPreKey(EXISTS_PNI, SAMPLE_DEVICE_ID);
+    verify(KEYS).takeDevicePreKeys(eq(SAMPLE_DEVICE_ID), eq(EXISTS_PNI_SERVICE_ID), any());
     verifyNoMoreInteractions(KEYS);
   }
 
@@ -456,64 +390,40 @@ class KeysControllerTest {
     assertEquals(SAMPLE_PQ_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey());
     assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
+    verify(KEYS).takeDevicePreKeys(eq(SAMPLE_DEVICE_ID), eq(EXISTS_ACI), any());
     verifyNoMoreInteractions(KEYS);
   }
 
-  private enum RereadBehavior {
-    ACCOUNT_MISSING,
-    DEVICE_MISSING,
-    REG_ID_CHANGED,
-    PRESENT
-  }
-
-  @ParameterizedTest
-  @EnumSource(RereadBehavior.class)
-  void testGetKeysMissingLastResort(RereadBehavior rereadBehavior) {
-    when(KEYS.takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY)));
-    when(KEYS.takeEC(EXISTS_PNI, SAMPLE_DEVICE_ID2))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY2)));
-
-    when(KEYS.takePQ(EXISTS_PNI, SAMPLE_DEVICE_ID))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY)));
-    when(KEYS.takePQ(EXISTS_PNI, SAMPLE_DEVICE_ID2))
-        // Missing PQ key
+  @Test
+  void testNoKeysForDevice() {
+    final List<Device> devices = List.of(
+        createSampleDevice((byte) 1, 2, 3),
+        createSampleDevice((byte) 4, 5, 6));
+    // device 1 is missing required prekeys, device 4 is missing an optional EC prekey
+    when(KEYS.takeDevicePreKeys(eq((byte) 4), eq(EXISTS_PNI_SERVICE_ID), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(
+            new KeysManager.DevicePreKeys(SAMPLE_SIGNED_PNI_KEY, Optional.empty(), SAMPLE_PQ_KEY_PNI))));
+    when(KEYS.takeDevicePreKeys(eq((byte) 1), eq(EXISTS_PNI_SERVICE_ID), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    switch (rereadBehavior) {
-      case ACCOUNT_MISSING -> when(accounts.getByServiceIdentifierAsync(new PniServiceIdentifier(EXISTS_PNI)))
-          .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-      case DEVICE_MISSING -> when(existsAccount.getDevice(SAMPLE_DEVICE_ID2))
-          .thenReturn(Optional.empty());
-      case REG_ID_CHANGED -> when(sampleDevice2.getRegistrationId(IdentityType.PNI))
-          .thenReturn(SAMPLE_PNI_REGISTRATION_ID2)
-          .thenReturn(SAMPLE_PNI_REGISTRATION_ID2 + 1);
-      case PRESENT -> {
-      }
-    }
+    when(existsAccount.getDevice((byte) 1)).thenReturn(Optional.of(devices.get(0)));
+    when(existsAccount.getDevice((byte) 4)).thenReturn(Optional.of(devices.get(1)));
+    when(existsAccount.getDevices()).thenReturn(devices);
 
-    when(existsAccount.getDevices()).thenReturn(List.of(sampleDevice, sampleDevice2));
-
-    Response response = resources.getJerseyTest()
+    PreKeyResponse results = resources.getJerseyTest()
         .target(String.format("/v2/keys/PNI:%s/*", EXISTS_PNI))
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get();
-    if (rereadBehavior == RereadBehavior.PRESENT) {
-      // The device was missing a last resort prekey which should be impossible
-      assertThat(response.getStatus()).isEqualTo(500);
-    } else {
-      // In the other cases, the device plausibly disappeared so we can just leave that device out
-      final PreKeyResponse result = response.readEntity(PreKeyResponse.class);
-      assertThat(result.getDevicesCount()).isEqualTo(1);
-      assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.PNI));
-      assertThat(result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey()).isEqualTo(SAMPLE_PQ_KEY);
-    }
-  }
+        .get(PreKeyResponse.class);
 
+    // Should drop device 1 and keep device 4
+    assertThat(results.getDevicesCount()).isEqualTo(1);
+    final PreKeyResponseItem result = results.getDevice((byte) 4);
+    assertEquals(6, result.getRegistrationId());
+    assertNull(result.getPreKey());
+    assertEquals(SAMPLE_SIGNED_PNI_KEY, result.getSignedPreKey());
+    assertEquals(SAMPLE_PQ_KEY_PNI, result.getPqPreKey());
+  }
 
   @ParameterizedTest
   @MethodSource
@@ -545,9 +455,7 @@ class KeysControllerTest {
       assertEquals(SAMPLE_PQ_KEY, result.getDevice(SAMPLE_DEVICE_ID).getPqPreKey());
       assertEquals(SAMPLE_SIGNED_KEY, result.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey());
 
-      verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
-      verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
-      verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
+      verify(KEYS).takeDevicePreKeys(eq(SAMPLE_DEVICE_ID), eq(EXISTS_ACI), any());
     }
 
     verifyNoMoreInteractions(KEYS);
@@ -617,161 +525,53 @@ class KeysControllerTest {
   }
 
 
-  @Test
-  void validMultiRequestTestV2() {
-    when(KEYS.takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY)));
-    when(KEYS.takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID2)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY2)));
-    when(KEYS.takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID3)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY3)));
-    when(KEYS.takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID4)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY4)));
+  @ParameterizedTest
+  @EnumSource
+  void validMultiRequestTestV2(IdentityType identityType) {
+    final ServiceIdentifier serviceIdentifier = switch (identityType) {
+      case ACI -> new AciServiceIdentifier(EXISTS_UUID);
+      case PNI -> new PniServiceIdentifier(EXISTS_PNI);
+    };
 
-    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY)));
-    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID2)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY2)));
-    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID3)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY3)));
-    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID4)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY4)));
+    final List<Device> devices = new ArrayList<>();
+    final List<KeysManager.DevicePreKeys> devicePreKeys = new ArrayList<>();
+    for (int i = 0; i < 4; i++) {
+      devices.add(createSampleDevice((byte) i, i + 100, i + 200));
+
+      final ECSignedPreKey signedEcPreKey = KeysHelper.signedECPreKey(i + 300, IDENTITY_KEY_PAIR);
+      final ECPreKey ecPreKey = KeysHelper.ecPreKey(i + 400);
+      final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(i + 500, ECKeyPair.generate());
+      devicePreKeys.add(new KeysManager.DevicePreKeys(signedEcPreKey, Optional.of(ecPreKey), kemSignedPreKey));
+
+      when(existsAccount.getDevice((byte) i)).thenReturn(Optional.of(devices.getLast()));
+      when(KEYS.takeDevicePreKeys(eq((byte) i), eq(serviceIdentifier), any()))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(devicePreKeys.getLast())));
+    }
+    when(existsAccount.getDevices()).thenReturn(devices);
 
     PreKeyResponse results = resources.getJerseyTest()
-        .target(String.format("/v2/keys/%s/*", EXISTS_UUID))
+        .target(String.format("/v2/keys/%s/*", serviceIdentifier.toServiceIdentifierString()))
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(PreKeyResponse.class);
 
     assertThat(results.getDevicesCount()).isEqualTo(4);
-    assertThat(results.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.ACI));
+    assertThat(results.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(identityType));
 
-    ECSignedPreKey signedPreKey = results.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey();
-    ECPreKey preKey = results.getDevice(SAMPLE_DEVICE_ID).getPreKey();
-    long registrationId = results.getDevice(SAMPLE_DEVICE_ID).getRegistrationId();
-    byte deviceId = results.getDevice(SAMPLE_DEVICE_ID).getDeviceId();
+    for (int i = 0; i < 4; i++) {
+      final PreKeyResponseItem result = results.getDevice((byte) i);
+      final KeysManager.DevicePreKeys expectedPreKeys = devicePreKeys.get(i);
+      final Device expectedDevice = devices.get(i);
 
-    assertEquals(SAMPLE_KEY, preKey);
-    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID);
-    assertEquals(SAMPLE_SIGNED_KEY, signedPreKey);
-    assertThat(deviceId).isEqualTo(SAMPLE_DEVICE_ID);
+      assertEquals(expectedDevice.getRegistrationId(identityType), result.getRegistrationId());
+      assertEquals(expectedPreKeys.ecPreKey().orElseThrow(), result.getPreKey());
+      assertEquals(expectedPreKeys.ecSignedPreKey(), result.getSignedPreKey());
+      assertEquals(expectedPreKeys.kemSignedPreKey(), result.getPqPreKey());
 
-    signedPreKey = results.getDevice(SAMPLE_DEVICE_ID2).getSignedPreKey();
-    preKey = results.getDevice(SAMPLE_DEVICE_ID2).getPreKey();
-    registrationId = results.getDevice(SAMPLE_DEVICE_ID2).getRegistrationId();
-    deviceId = results.getDevice(SAMPLE_DEVICE_ID2).getDeviceId();
-
-    assertEquals(SAMPLE_KEY2, preKey);
-    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID2);
-    assertEquals(SAMPLE_SIGNED_KEY2, signedPreKey);
-    assertThat(deviceId).isEqualTo(SAMPLE_DEVICE_ID2);
-
-    signedPreKey = results.getDevice(SAMPLE_DEVICE_ID4).getSignedPreKey();
-    preKey = results.getDevice(SAMPLE_DEVICE_ID4).getPreKey();
-    registrationId = results.getDevice(SAMPLE_DEVICE_ID4).getRegistrationId();
-    deviceId = results.getDevice(SAMPLE_DEVICE_ID4).getDeviceId();
-
-    assertEquals(SAMPLE_KEY4, preKey);
-    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID4);
-    assertThat(signedPreKey).isNull();
-    assertThat(deviceId).isEqualTo(SAMPLE_DEVICE_ID4);
-
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID2);
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID3);
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID4);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID2);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID3);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID4);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID2);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID3);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID4);
+      verify(KEYS).takeDevicePreKeys(eq((byte) i), eq(serviceIdentifier), any());
+    }
     verifyNoMoreInteractions(KEYS);
   }
-
-  @Test
-  void validMultiRequestPqTestV2() {
-    when(KEYS.takeEC(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-    when(KEYS.takePQ(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
-
-    when(KEYS.takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY)));
-    when(KEYS.takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID3)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY3)));
-    when(KEYS.takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID4)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_KEY4)));
-    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY)));
-    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID2)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY2)));
-    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID3)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY3)));
-    when(KEYS.takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID4)).thenReturn(
-        CompletableFuture.completedFuture(Optional.of(SAMPLE_PQ_KEY4)));
-
-    PreKeyResponse results = resources.getJerseyTest()
-        .target(String.format("/v2/keys/%s/*", EXISTS_UUID))
-        .queryParam("pq", "true")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .get(PreKeyResponse.class);
-
-    assertThat(results.getDevicesCount()).isEqualTo(4);
-    assertThat(results.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.ACI));
-
-    ECSignedPreKey signedPreKey = results.getDevice(SAMPLE_DEVICE_ID).getSignedPreKey();
-    ECPreKey preKey = results.getDevice(SAMPLE_DEVICE_ID).getPreKey();
-    KEMSignedPreKey pqPreKey = results.getDevice(SAMPLE_DEVICE_ID).getPqPreKey();
-    int registrationId = results.getDevice(SAMPLE_DEVICE_ID).getRegistrationId();
-    byte deviceId = results.getDevice(SAMPLE_DEVICE_ID).getDeviceId();
-
-    assertEquals(SAMPLE_KEY, preKey);
-    assertEquals(SAMPLE_PQ_KEY, pqPreKey);
-    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID);
-    assertEquals(SAMPLE_SIGNED_KEY, signedPreKey);
-    assertThat(deviceId).isEqualTo(SAMPLE_DEVICE_ID);
-
-    signedPreKey = results.getDevice(SAMPLE_DEVICE_ID2).getSignedPreKey();
-    preKey = results.getDevice(SAMPLE_DEVICE_ID2).getPreKey();
-    pqPreKey = results.getDevice(SAMPLE_DEVICE_ID2).getPqPreKey();
-    registrationId = results.getDevice(SAMPLE_DEVICE_ID2).getRegistrationId();
-    deviceId = results.getDevice(SAMPLE_DEVICE_ID2).getDeviceId();
-
-    assertThat(preKey).isNull();
-    assertEquals(SAMPLE_PQ_KEY2, pqPreKey);
-    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID2);
-    assertEquals(SAMPLE_SIGNED_KEY2, signedPreKey);
-    assertThat(deviceId).isEqualTo(SAMPLE_DEVICE_ID2);
-
-    signedPreKey = results.getDevice(SAMPLE_DEVICE_ID4).getSignedPreKey();
-    preKey = results.getDevice(SAMPLE_DEVICE_ID4).getPreKey();
-    pqPreKey = results.getDevice(SAMPLE_DEVICE_ID4).getPqPreKey();
-    registrationId = results.getDevice(SAMPLE_DEVICE_ID4).getRegistrationId();
-    deviceId = results.getDevice(SAMPLE_DEVICE_ID4).getDeviceId();
-
-    assertEquals(SAMPLE_KEY4, preKey);
-    assertThat(pqPreKey).isEqualTo(SAMPLE_PQ_KEY4);
-    assertThat(registrationId).isEqualTo(SAMPLE_REGISTRATION_ID4);
-    assertThat(signedPreKey).isNull();
-    assertThat(deviceId).isEqualTo(SAMPLE_DEVICE_ID4);
-
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID2);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID2);
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID3);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID3);
-    verify(KEYS).takeEC(EXISTS_UUID, SAMPLE_DEVICE_ID4);
-    verify(KEYS).takePQ(EXISTS_UUID, SAMPLE_DEVICE_ID4);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID2);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID3);
-    verify(KEYS).getEcSignedPreKey(EXISTS_UUID, SAMPLE_DEVICE_ID4);
-    verifyNoMoreInteractions(KEYS);
-  }
-
 
   @Test
   void invalidRequestTestV2() {
@@ -786,6 +586,7 @@ class KeysControllerTest {
 
   @Test
   void anotherInvalidRequestTestV2() {
+    when(existsAccount.getDevice((byte) 22)).thenReturn(Optional.empty());
     Response response = resources.getJerseyTest()
                                  .target(String.format("/v2/keys/%s/22", EXISTS_UUID))
                                  .request()

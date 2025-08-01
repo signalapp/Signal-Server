@@ -11,10 +11,7 @@ import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.keys.GetPreKeysResponse;
-import org.whispersystems.textsecuregcm.entities.ECPreKey;
-import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
-import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
@@ -28,7 +25,7 @@ class KeysGrpcHelper {
   static final byte ALL_DEVICES = 0;
 
   static Mono<GetPreKeysResponse> getPreKeys(final Account targetAccount,
-      final IdentityType identityType,
+      final ServiceIdentifier targetServiceIdentifier,
       final byte targetDeviceId,
       final KeysManager keysManager) {
 
@@ -36,42 +33,37 @@ class KeysGrpcHelper {
         ? Flux.fromIterable(targetAccount.getDevices())
         : Flux.from(Mono.justOrEmpty(targetAccount.getDevice(targetDeviceId)));
 
+    final String userAgent = RequestAttributesUtil.getUserAgent().orElse(null);
     return devices
-        .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()))
-        .flatMap(device -> Flux.merge(
-                Mono.fromFuture(() -> keysManager.takeEC(targetAccount.getIdentifier(identityType), device.getId())),
-                Mono.fromFuture(() -> keysManager.getEcSignedPreKey(targetAccount.getIdentifier(identityType), device.getId())),
-                Mono.fromFuture(() -> keysManager.takePQ(targetAccount.getIdentifier(identityType), device.getId())))
+        .flatMap(device -> Mono
+            .fromFuture(keysManager.takeDevicePreKeys(device.getId(), targetServiceIdentifier, userAgent))
             .flatMap(Mono::justOrEmpty)
-            .reduce(GetPreKeysResponse.PreKeyBundle.newBuilder(), (builder, preKey) -> {
-              if (preKey instanceof ECPreKey ecPreKey) {
-                builder.setEcOneTimePreKey(EcPreKey.newBuilder()
+            .map(devicePreKeys -> {
+              final GetPreKeysResponse.PreKeyBundle.Builder builder = GetPreKeysResponse.PreKeyBundle.newBuilder()
+                  .setEcSignedPreKey(EcSignedPreKey.newBuilder()
+                      .setKeyId(devicePreKeys.ecSignedPreKey().keyId())
+                      .setPublicKey(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().serializedPublicKey()))
+                      .setSignature(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().signature()))
+                      .build())
+                  .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
+                      .setKeyId(devicePreKeys.kemSignedPreKey().keyId())
+                      .setPublicKey(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().serializedPublicKey()))
+                      .setSignature(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().signature()))
+                      .build());
+              devicePreKeys.ecPreKey().ifPresent(ecPreKey -> builder.setEcOneTimePreKey(EcPreKey.newBuilder()
                     .setKeyId(ecPreKey.keyId())
                     .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))
-                    .build());
-              } else if (preKey instanceof ECSignedPreKey ecSignedPreKey) {
-                builder.setEcSignedPreKey(EcSignedPreKey.newBuilder()
-                    .setKeyId(ecSignedPreKey.keyId())
-                    .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
-                    .setSignature(ByteString.copyFrom(ecSignedPreKey.signature()))
-                    .build());
-              } else if (preKey instanceof KEMSignedPreKey kemSignedPreKey) {
-                builder.setKemOneTimePreKey(KemSignedPreKey.newBuilder()
-                    .setKeyId(kemSignedPreKey.keyId())
-                    .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
-                    .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))
-                    .build());
-              } else {
-                throw new AssertionError("Unexpected pre-key type: " + preKey.getClass());
-              }
-
-              return builder;
-            })
-            // Cast device IDs to `int` to match data types in the response object’s protobuf definition
-            .map(builder -> Tuples.of((int) device.getId(), builder.build())))
+                    .build()));
+              // Cast device IDs to `int` to match data types in the response object’s protobuf definition
+              return Tuples.of((int) device.getId(), builder.build());
+            }))
+        // If there were no devices with valid prekey bundles in the account, the account is gone
+        .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()))
         .collectMap(Tuple2::getT1, Tuple2::getT2)
         .map(preKeyBundles -> GetPreKeysResponse.newBuilder()
-            .setIdentityKey(ByteString.copyFrom(targetAccount.getIdentityKey(identityType).serialize()))
+            .setIdentityKey(ByteString
+                .copyFrom(targetAccount.getIdentityKey(targetServiceIdentifier.identityType())
+                .serialize()))
             .putAllPreKeys(preKeyBundles)
             .build());
   }

@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -100,15 +101,11 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final ECPreKey ecPreKey = new ECPreKey(1, ECKeyPair.generate().getPublicKey());
     final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(2, identityKeyPair);
     final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(3, identityKeyPair);
+    final KeysManager.DevicePreKeys devicePreKeys =
+        new KeysManager.DevicePreKeys(ecSignedPreKey, Optional.of(ecPreKey), kemSignedPreKey);
 
-    when(keysManager.takeEC(uuid, Device.PRIMARY_ID))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(ecPreKey)));
-
-    when(keysManager.takePQ(uuid, Device.PRIMARY_ID))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(kemSignedPreKey)));
-
-    when(keysManager.getEcSignedPreKey(uuid, Device.PRIMARY_ID))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(ecSignedPreKey)));
+    when(keysManager.takeDevicePreKeys(eq(Device.PRIMARY_ID), eq(identifier), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(devicePreKeys)));
 
     final GetPreKeysResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
@@ -151,15 +148,11 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final ECPreKey ecPreKey = new ECPreKey(1, ECKeyPair.generate().getPublicKey());
     final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(2, identityKeyPair);
     final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(3, identityKeyPair);
+    final KeysManager.DevicePreKeys devicePreKeys =
+        new KeysManager.DevicePreKeys(ecSignedPreKey, Optional.of(ecPreKey), kemSignedPreKey);
 
-    when(keysManager.takeEC(uuid, Device.PRIMARY_ID))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(ecPreKey)));
-
-    when(keysManager.takePQ(uuid, Device.PRIMARY_ID))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(kemSignedPreKey)));
-
-    when(keysManager.getEcSignedPreKey(uuid, Device.PRIMARY_ID))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(ecSignedPreKey)));
+    when(keysManager.takeDevicePreKeys(eq(Device.PRIMARY_ID), eq(identifier), any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(devicePreKeys)));
 
     // Expirations must be on day boundaries or libsignal will refuse to create or verify the token
     final Instant expiration = Instant.now().truncatedTo(ChronoUnit.DAYS);
