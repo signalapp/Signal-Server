@@ -78,8 +78,6 @@ public class PushNotificationScheduler implements Managed {
 
     private final int maxConcurrency;
 
-    private static final int PAGE_SIZE = 128;
-
     NotificationWorker(final int maxConcurrency) {
       this.maxConcurrency = maxConcurrency;
     }
