@@ -1204,6 +1204,55 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
+  /v1/archives/auth/svrb:
+    get:
+      tags:
+      - Archive
+      summary: Generate credentials for SVRB
+      description: |
+        Generate SVRB service credentials. Generated credentials have an expiration time of 1 day (subject to change)
+      operationId: svrbAuth
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth
+        in: header
+        description: "Presentation of a ZK backup auth credential acquired from /v1/archives/auth,\
+          \ encoded in standard padded base64"
+        required: true
+        schema:
+          type: string
+      - name: X-Signal-ZK-Auth-Signature
+        in: header
+        description: "Signature of the ZK auth credential's presentation, encoded\
+          \ in standard padded base64"
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: '`JSON` with generated credentials.'
+          content:
+            application/json:
+              schema:
+                type: object
+        "403":
+          description: Forbidden. The request had insufficient permissions to perform
+            the requested action
+        "401":
+          description: |-
+            The provided backup auth credential presentation could not be verified or
+            The public key signature was invalid or
+            There is no backup associated with the backup-id in the presentation or
+            The credential was of the wrong type (messages/media)
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
+      security:
+      - authenticatedAccount: []
+      - {}
   /v1/archives/media/upload/form:
     get:
       tags:
@@ -3118,25 +3167,6 @@ paths:
         Generate SVR2 service credentials. Generated credentials have an expiration time of 30 days
         (however, the TTL is fully controlled by the server side and may change even for already generated credentials).
       operationId: getAuth_2
-      responses:
-        "200":
-          description: '`JSON` with generated credentials.'
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ExternalServiceCredentials"
-        "401":
-          description: Account authentication check failed.
-      security:
-      - authenticatedAccount: []
-  /v1/svrb/auth:
-    get:
-      tags:
-      - Secure Value Recovery B
-      summary: Generate credentials for SVRB
-      description: |
-        Generate SVRB service credentials. Generated credentials have an expiration time of 1 day (subject to change)
-      operationId: getAuth_3
       responses:
         "200":
           description: '`JSON` with generated credentials.'
