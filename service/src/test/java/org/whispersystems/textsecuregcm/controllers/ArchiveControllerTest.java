@@ -63,6 +63,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupAuthTestUtil;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
@@ -116,6 +117,7 @@ public class ArchiveControllerTest {
   @ParameterizedTest
   @CsvSource(textBlock = """
       GET,    v1/archives/auth/read,
+      GET,    v1/archives/auth/svrb,
       GET,    v1/archives/,
       GET,    v1/archives/upload/form,
       GET,    v1/archives/media/upload/form,
@@ -661,6 +663,24 @@ public class ArchiveControllerTest {
         .header("X-Signal-ZK-Auth-Signature", "aaa")
         .get(ArchiveController.ReadAuthResponse.class);
     assertThat(response.headers()).containsExactlyEntriesOf(Map.of("key", "value"));
+  }
+
+
+  @Test
+  public void svrbAuth() throws VerificationFailedException {
+    final BackupAuthCredentialPresentation presentation =
+        backupAuthTestUtil.getPresentation(BackupLevel.PAID, messagesBackupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(backupUser(presentation.getBackupId(), BackupCredentialType.MESSAGES, BackupLevel.PAID)));
+    final ExternalServiceCredentials credentials = new ExternalServiceCredentials("username", "password");
+    when(backupManager.generateSvrbAuth(any())).thenReturn(credentials);
+    final ExternalServiceCredentials response = resources.getJerseyTest()
+        .target("v1/archives/auth/svrb")
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .get(ExternalServiceCredentials.class);
+    assertThat(response).isEqualTo(credentials);
   }
 
   @Test

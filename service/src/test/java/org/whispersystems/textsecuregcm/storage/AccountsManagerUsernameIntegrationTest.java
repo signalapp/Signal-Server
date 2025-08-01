@@ -162,7 +162,6 @@ class AccountsManagerUsernameIntegrationTest {
         profileManager,
         mock(SecureStorageClient.class),
         mock(SecureValueRecoveryClient.class),
-        mock(SecureValueRecoveryClient.class),
         disconnectionRequestManager,
         mock(RegistrationRecoveryPasswordsManager.class),
         mock(ClientPublicKeysManager.class),

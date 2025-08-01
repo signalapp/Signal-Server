@@ -189,6 +189,11 @@ service BackupsAnonymous {
   rpc GetCdnCredentials(GetCdnCredentialsRequest) returns (GetCdnCredentialsResponse) {}
 
   /**
+   * Retrieve credentials used to interact with the SecureValueRecoveryB service
+   */
+  rpc GetSvrBCredentials(GetSvrBCredentialsRequest) returns (GetSvrBCredentialsResponse) {}
+
+  /**
    * Retrieve information about the currently stored backup
    */
   rpc GetBackupInfo(GetBackupInfoRequest) returns (GetBackupInfoResponse) {}
@@ -289,6 +294,21 @@ message GetCdnCredentialsResponse {
    * time limited read-only credentials.
    */
   map<string, string> headers = 1;
+}
+
+message GetSvrBCredentialsRequest {
+  SignedPresentation signed_presentation = 1;
+}
+message GetSvrBCredentialsResponse {
+  /**
+ * A username that can be presented to authenticate with SVRB
+ */
+  string username = 1;
+
+  /**
+   * A password that can be presented to authenticate with SVRB
+   */
+  string password = 2;
 }
 
 message GetBackupInfoRequest {

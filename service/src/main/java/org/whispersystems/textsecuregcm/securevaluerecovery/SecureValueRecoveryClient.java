@@ -30,9 +30,10 @@ import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.util.HttpUtils;
 
 /**
- * A client for sending requests to Signal's secure value recovery v2 service on behalf of authenticated users.
+ * A client for sending requests to Signal's secure value recovery service on behalf of authenticated users.
  */
 public class SecureValueRecoveryClient {
+
   private static final Logger logger = LoggerFactory.getLogger(SecureValueRecoveryClient.class);
 
   private final ExternalServiceCredentialsGenerator secureValueRecoveryCredentialsGenerator;
@@ -67,8 +68,12 @@ public class SecureValueRecoveryClient {
   }
 
   public CompletableFuture<Void> removeData(final UUID accountUuid) {
+    return removeData(accountUuid.toString());
+  }
 
-    final ExternalServiceCredentials credentials = secureValueRecoveryCredentialsGenerator.generateForUuid(accountUuid);
+  public CompletableFuture<Void> removeData(final String userIdentifier) {
+
+    final ExternalServiceCredentials credentials = secureValueRecoveryCredentialsGenerator.generateFor(userIdentifier);
 
     final HttpRequest request = HttpRequest.newBuilder()
         .uri(deleteUri)
@@ -83,11 +88,11 @@ public class SecureValueRecoveryClient {
 
       final List<Integer> allowedErrors = allowedDeletionErrorStatusCodes.get();
       if (allowedErrors.contains(response.statusCode())) {
-        logger.warn("Ignoring failure to delete svr entry for account {} with status {}",
-            accountUuid, response.statusCode());
+        logger.warn("Ignoring failure to delete svr entry for identifier {} with status {}",
+            userIdentifier, response.statusCode());
         return null;
       }
-      logger.warn("Failed to delete svr entry for account {} with status {}", accountUuid, response.statusCode());
+      logger.warn("Failed to delete svr entry for identifier {} with status {}", userIdentifier, response.statusCode());
       throw new SecureValueRecoveryException("Failed to delete backup", String.valueOf(response.statusCode()));
     });
   }

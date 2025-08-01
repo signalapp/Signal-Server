@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.backup;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.util.DataSize;
 import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -19,6 +18,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,9 +38,12 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
 import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -94,8 +97,9 @@ public class BackupManager {
   private final Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator;
   private final RemoteStorageManager remoteStorageManager;
   private final SecureRandom secureRandom = new SecureRandom();
+  private final ExternalServiceCredentialsGenerator secureValueRecoveryBCredentialsGenerator;
+  private final SecureValueRecoveryClient secureValueRecoveryBClient;
   private final Clock clock;
-
 
   public BackupManager(
       final BackupsDb backupsDb,
@@ -104,6 +108,8 @@ public class BackupManager {
       final TusAttachmentGenerator tusAttachmentGenerator,
       final Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator,
       final RemoteStorageManager remoteStorageManager,
+      final ExternalServiceCredentialsGenerator secureValueRecoveryBCredentialsGenerator,
+      final SecureValueRecoveryClient secureValueRecoveryBClient,
       final Clock clock) {
     this.backupsDb = backupsDb;
     this.serverSecretParams = serverSecretParams;
@@ -111,7 +117,9 @@ public class BackupManager {
     this.tusAttachmentGenerator = tusAttachmentGenerator;
     this.cdn3BackupCredentialGenerator = cdn3BackupCredentialGenerator;
     this.remoteStorageManager = remoteStorageManager;
+    this.secureValueRecoveryBClient = secureValueRecoveryBClient;
     this.clock = clock;
+    this.secureValueRecoveryBCredentialsGenerator = secureValueRecoveryBCredentialsGenerator;
   }
 
 
@@ -387,6 +395,26 @@ public class BackupManager {
     return cdn3BackupCredentialGenerator.readHeaders(backupUser.backupDir());
   }
 
+  /**
+   * Generate credentials that can be used with SVRB
+   *
+   * @param backupUser an already ZK authenticated backup user
+   * @return the credential that may be used with SVRB
+   */
+  public ExternalServiceCredentials generateSvrbAuth(final AuthenticatedBackupUser backupUser) {
+    checkBackupLevel(backupUser, BackupLevel.FREE);
+    // Clients may only use SVRB with their messages backup-id
+    checkBackupCredentialType(backupUser, BackupCredentialType.MESSAGES);
+    return secureValueRecoveryBCredentialsGenerator.generateFor(svrbIdentifier(backupUser));
+  }
+
+  private static String svrbIdentifier(final AuthenticatedBackupUser backupUser) {
+    return svrbIdentifier(BackupsDb.hashedBackupId(backupUser.backupId()));
+  }
+
+  private static String svrbIdentifier(final byte[] hashedBackupId) {
+    return HexFormat.of().formatHex(hashedBackupId);
+  }
 
   /**
    * List of media stored for a particular backup id
@@ -427,13 +455,19 @@ public class BackupManager {
 
   public CompletableFuture<Void> deleteEntireBackup(final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.FREE);
-    return backupsDb
+
+    // Clients only include SVRB data with their messages backup-id
+    final CompletableFuture<Void> svrbRemoval = switch(backupUser.credentialType()) {
+      case BackupCredentialType.MESSAGES -> secureValueRecoveryBClient.removeData(svrbIdentifier(backupUser));
+      case BackupCredentialType.MEDIA ->  CompletableFuture.completedFuture(null);
+    };
+    return svrbRemoval.thenCompose(_ -> backupsDb
         // Try to swap out the backupDir for the user
         .scheduleBackupDeletion(backupUser)
         // If there was already a pending swap, try to delete the cdn objects directly
         .exceptionallyCompose(ExceptionUtils.exceptionallyHandler(BackupsDb.PendingDeletionException.class, e ->
             AsyncTimerUtil.record(SYNCHRONOUS_DELETE_TIMER, () ->
-                deletePrefix(backupUser.backupDir(), DELETION_CONCURRENCY))));
+                deletePrefix(backupUser.backupDir(), DELETION_CONCURRENCY)))));
   }
 
 
@@ -617,12 +651,17 @@ public class BackupManager {
    * @return A stage that completes when the deletion operation is finished
    */
   public CompletableFuture<Void> expireBackup(final ExpiredBackup expiredBackup) {
-    return backupsDb.startExpiration(expiredBackup)
+    // Clients only include SVRB data with their messages backup-id
+    final CompletableFuture<Void> svrbRemoval = switch(expiredBackup.expirationType()) {
+      case ALL -> secureValueRecoveryBClient.removeData(svrbIdentifier(expiredBackup.hashedBackupId()));
+      case MEDIA, GARBAGE_COLLECTION ->  CompletableFuture.completedFuture(null);
+    };
+    return svrbRemoval.thenCompose(_ -> backupsDb.startExpiration(expiredBackup)
         // the deletion operation is effectively single threaded -- it's expected that the caller can increase
         // concurrency by deleting more backups at once, rather than increasing concurrency deleting an individual
         // backup
         .thenCompose(ignored -> deletePrefix(expiredBackup.prefixToDelete(), 1))
-        .thenCompose(ignored -> backupsDb.finishExpiration(expiredBackup));
+        .thenCompose(ignored -> backupsDb.finishExpiration(expiredBackup)));
   }
 
   /**

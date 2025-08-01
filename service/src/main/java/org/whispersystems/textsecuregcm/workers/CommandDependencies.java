@@ -30,11 +30,11 @@ import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupsDb;
 import org.whispersystems.textsecuregcm.backup.Cdn3BackupCredentialGenerator;
 import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
+import org.whispersystems.textsecuregcm.backup.SecureValueRecoveryBCredentialsGeneratorFactory;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
-import org.whispersystems.textsecuregcm.controllers.SecureValueRecoveryBController;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
 import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -174,8 +174,8 @@ record CommandDependencies(
         configuration.getSecureStorageServiceConfiguration());
     ExternalServiceCredentialsGenerator secureValueRecovery2CredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
         configuration.getSvr2Configuration());
-    ExternalServiceCredentialsGenerator secureValueRecoveryBCredentialsGenerator = SecureValueRecoveryBController.credentialsGenerator(
-        configuration.getSvrbConfiguration());
+    ExternalServiceCredentialsGenerator secureValueRecoveryBCredentialsGenerator =
+        SecureValueRecoveryBCredentialsGeneratorFactory.svrbCredentialsGenerator(configuration.getSvrbConfiguration());
 
     final ExecutorService awsSdkMetricsExecutor = environment.lifecycle()
         .virtualExecutorService(MetricRegistry.name(WhisperServerService.class, "awsSdkMetrics-%d"));
@@ -276,7 +276,7 @@ record CommandDependencies(
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, secureValueRecoveryBClient, disconnectionRequestManager,
+        secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, messagePollExecutor,
         clock, configuration.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster);
@@ -299,6 +299,8 @@ record CommandDependencies(
             remoteStorageHttpExecutor,
             remoteStorageRetryExecutor,
             configuration.getCdn3StorageManagerConfiguration()),
+        secureValueRecoveryBCredentialsGenerator,
+        secureValueRecoveryBClient,
         clock);
 
     final IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(

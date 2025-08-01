@@ -21,6 +21,8 @@ import org.signal.chat.backup.GetBackupInfoRequest;
 import org.signal.chat.backup.GetBackupInfoResponse;
 import org.signal.chat.backup.GetCdnCredentialsRequest;
 import org.signal.chat.backup.GetCdnCredentialsResponse;
+import org.signal.chat.backup.GetSvrBCredentialsRequest;
+import org.signal.chat.backup.GetSvrBCredentialsResponse;
 import org.signal.chat.backup.GetUploadFormRequest;
 import org.signal.chat.backup.GetUploadFormResponse;
 import org.signal.chat.backup.ListMediaRequest;
@@ -62,6 +64,16 @@ public class BackupsAnonymousGrpcService extends ReactorBackupsAnonymousGrpc.Bac
     return authenticateBackupUserMono(request.getSignedPresentation())
         .map(user -> backupManager.generateReadAuth(user, request.getCdn()))
         .map(credentials -> GetCdnCredentialsResponse.newBuilder().putAllHeaders(credentials).build());
+  }
+
+  @Override
+  public Mono<GetSvrBCredentialsResponse> getSvrBCredentials(final GetSvrBCredentialsRequest request) {
+    return authenticateBackupUserMono(request.getSignedPresentation())
+        .map(backupManager::generateSvrbAuth)
+        .map(credentials -> GetSvrBCredentialsResponse.newBuilder()
+            .setUsername(credentials.username())
+            .setPassword(credentials.password())
+            .build());
   }
 
   @Override

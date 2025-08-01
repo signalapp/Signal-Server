@@ -64,6 +64,7 @@ import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.CopyParameters;
@@ -387,6 +388,35 @@ public class ArchiveController {
     return backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
         .thenApply(user -> backupManager.generateReadAuth(user, cdn))
         .thenApply(ReadAuthResponse::new);
+  }
+
+  @GET
+  @Path("/auth/svrb")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Generate credentials for SVRB",
+      description = """
+          Generate SVRB service credentials. Generated credentials have an expiration time of 1 day (subject to change)
+          """)
+  @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
+  @ApiResponseZkAuth
+  public CompletionStage<ExternalServiceCredentials> svrbAuth(
+      @Auth final Optional<AuthenticatedDevice> account,
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
+
+      @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH) final ArchiveController.BackupAuthCredentialPresentationHeader presentation,
+
+      @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
+      @NotNull
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature) {
+    if (account.isPresent()) {
+      throw new BadRequestException("must not use authenticated connection for anonymous operations");
+    }
+    return backupManager
+        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
+        .thenApply(backupManager::generateSvrbAuth);
   }
 
   public record BackupInfoResponse(

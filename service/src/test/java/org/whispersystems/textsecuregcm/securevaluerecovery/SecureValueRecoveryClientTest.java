@@ -135,7 +135,7 @@ class SecureValueRecoveryClientTest {
     final String username = RandomStringUtils.secure().nextAlphabetic(16);
     final String password = RandomStringUtils.secure().nextAlphanumeric(32);
 
-    when(credentialsGenerator.generateForUuid(accountUuid)).thenReturn(
+    when(credentialsGenerator.generateFor(accountUuid.toString())).thenReturn(
         new ExternalServiceCredentials(username, password));
 
     wireMock.stubFor(delete(urlEqualTo(SecureValueRecoveryClient.DELETE_PATH))

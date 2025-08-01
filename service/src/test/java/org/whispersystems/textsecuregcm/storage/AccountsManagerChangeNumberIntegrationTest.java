@@ -128,7 +128,7 @@ class AccountsManagerChangeNumberIntegrationTest {
       when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
 
       final SecureValueRecoveryClient svr2Client = mock(SecureValueRecoveryClient.class);
-      when(svr2Client.removeData(any())).thenReturn(CompletableFuture.completedFuture(null));
+      when(svr2Client.removeData(any(UUID.class))).thenReturn(CompletableFuture.completedFuture(null));
 
       disconnectionRequestManager = mock(DisconnectionRequestManager.class);
 
@@ -157,7 +157,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           messagesManager,
           profilesManager,
           secureStorageClient,
-          svr2Client,
           svr2Client,
           disconnectionRequestManager,
           registrationRecoveryPasswordsManager,

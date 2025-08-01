@@ -137,7 +137,7 @@ public class AccountCreationDeletionIntegrationTest {
     when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final SecureValueRecoveryClient svr2Client = mock(SecureValueRecoveryClient.class);
-    when(svr2Client.removeData(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(svr2Client.removeData(any(UUID.class))).thenReturn(CompletableFuture.completedFuture(null));
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
         new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
@@ -168,7 +168,6 @@ public class AccountCreationDeletionIntegrationTest {
         messagesManager,
         profilesManager,
         secureStorageClient,
-        svr2Client,
         svr2Client,
         disconnectionRequestManager,
         registrationRecoveryPasswordsManager,

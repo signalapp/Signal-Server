@@ -47,16 +47,6 @@ enum ExternalServiceDefinitions {
         .withClock(clock)
         .build();
   }),
-  SVRB(ExternalServiceType.EXTERNAL_SERVICE_TYPE_SVRB, (chatConfig, clock) -> {
-    final SecureValueRecoveryConfiguration cfg = chatConfig.getSvrbConfiguration();
-    return ExternalServiceCredentialsGenerator
-        .builder(cfg.userAuthenticationTokenSharedSecret())
-        .withUserDerivationKey(cfg.userIdTokenSharedSecret().value())
-        .prependUsername(false)
-        .withDerivedUsernameTruncateLength(16)
-        .withClock(clock)
-        .build();
-  }),
   STORAGE(ExternalServiceType.EXTERNAL_SERVICE_TYPE_STORAGE, (chatConfig, clock) -> {
     final PaymentsServiceConfiguration cfg = chatConfig.getPaymentsServiceConfiguration();
     return ExternalServiceCredentialsGenerator

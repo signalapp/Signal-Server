@@ -93,6 +93,7 @@ import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupsDb;
 import org.whispersystems.textsecuregcm.backup.Cdn3BackupCredentialGenerator;
 import org.whispersystems.textsecuregcm.backup.Cdn3RemoteStorageManager;
+import org.whispersystems.textsecuregcm.backup.SecureValueRecoveryBCredentialsGeneratorFactory;
 import org.whispersystems.textsecuregcm.badges.ConfiguredProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.captcha.CaptchaClient;
@@ -126,7 +127,6 @@ import org.whispersystems.textsecuregcm.controllers.RemoteConfigController;
 import org.whispersystems.textsecuregcm.controllers.RemoteConfigControllerV1;
 import org.whispersystems.textsecuregcm.controllers.SecureStorageController;
 import org.whispersystems.textsecuregcm.controllers.SecureValueRecovery2Controller;
-import org.whispersystems.textsecuregcm.controllers.SecureValueRecoveryBController;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
 import org.whispersystems.textsecuregcm.controllers.VerificationController;
@@ -595,9 +595,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExternalServiceCredentialsGenerator paymentsCredentialsGenerator = PaymentsController.credentialsGenerator(
         config.getPaymentsServiceConfiguration());
     ExternalServiceCredentialsGenerator svr2CredentialsGenerator = SecureValueRecovery2Controller.credentialsGenerator(
-            config.getSvr2Configuration());
-    ExternalServiceCredentialsGenerator svrbCredentialsGenerator = SecureValueRecoveryBController.credentialsGenerator(
-        config.getSvrbConfiguration());
+        config.getSvr2Configuration());
+    ExternalServiceCredentialsGenerator svrbCredentialsGenerator =
+        SecureValueRecoveryBCredentialsGeneratorFactory.svrbCredentialsGenerator(config.getSvrbConfiguration());
 
     RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
@@ -644,7 +644,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keysManager, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, secureValueRecoveryBClient, disconnectionRequestManager,
+        secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, messagePollExecutor,
         clock, config.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
@@ -798,6 +798,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         tusAttachmentGenerator,
         cdn3BackupCredentialGenerator,
         cdn3RemoteStorageManager,
+        svrbCredentialsGenerator,
+        secureValueRecoveryBClient,
         clock);
 
     final AppleDeviceChecks appleDeviceChecks = new AppleDeviceChecks(
@@ -1115,7 +1117,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().globalConfig(), clock),
         new SecureStorageController(storageCredentialsGenerator),
         new SecureValueRecovery2Controller(svr2CredentialsGenerator, accountsManager),
-        new SecureValueRecoveryBController(svrbCredentialsGenerator),
         new StickerController(rateLimiters, config.getCdnConfiguration().credentials().accessKeyId().value(),
             config.getCdnConfiguration().credentials().secretAccessKey().value(), config.getCdnConfiguration().region(),
             config.getCdnConfiguration().bucket()),

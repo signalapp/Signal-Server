@@ -128,7 +128,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final ProfilesManager profilesManager;
   private final SecureStorageClient secureStorageClient;
   private final SecureValueRecoveryClient secureValueRecovery2Client;
-  private final SecureValueRecoveryClient secureValueRecoveryBClient;
   private final DisconnectionRequestManager disconnectionRequestManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final ClientPublicKeysManager clientPublicKeysManager;
@@ -219,7 +218,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final ProfilesManager profilesManager,
       final SecureStorageClient secureStorageClient,
       final SecureValueRecoveryClient secureValueRecovery2Client,
-      final SecureValueRecoveryClient secureValueRecoveryBClient,
       final DisconnectionRequestManager disconnectionRequestManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final ClientPublicKeysManager clientPublicKeysManager,
@@ -238,7 +236,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.profilesManager = profilesManager;
     this.secureStorageClient = secureStorageClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
-    this.secureValueRecoveryBClient = secureValueRecoveryBClient;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
     this.clientPublicKeysManager = clientPublicKeysManager;
@@ -1232,7 +1229,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),
             secureValueRecovery2Client.removeData(account.getUuid()),
-            secureValueRecoveryBClient.removeData(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
             messagesManager.clear(account.getUuid()),

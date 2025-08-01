@@ -134,7 +134,6 @@ class AccountsManagerTest {
   private RedisAdvancedClusterAsyncCommands<String, String> asyncClusterCommands;
   private AccountsManager accountsManager;
   private SecureValueRecoveryClient svr2Client;
-  private SecureValueRecoveryClient svrbClient;
   private DynamicConfiguration dynamicConfiguration;
 
   private static final Answer<?> ACCOUNT_UPDATE_ANSWER = (answer) -> {
@@ -193,13 +192,10 @@ class AccountsManagerTest {
     }).when(accounts).changeNumber(any(), anyString(), any(), any(), any());
 
     final SecureStorageClient storageClient = mock(SecureStorageClient.class);
-    when(storageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(storageClient.deleteStoredData(any(UUID.class))).thenReturn(CompletableFuture.completedFuture(null));
 
     svr2Client = mock(SecureValueRecoveryClient.class);
-    when(svr2Client.removeData(any())).thenReturn(CompletableFuture.completedFuture(null));
-
-    svrbClient = mock(SecureValueRecoveryClient.class);
-    when(svrbClient.removeData(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(svr2Client.removeData(any(UUID.class))).thenReturn(CompletableFuture.completedFuture(null));
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
     phoneNumberIdentifiersByE164 = new HashMap<>();
@@ -259,7 +255,6 @@ class AccountsManagerTest {
         profilesManager,
         storageClient,
         svr2Client,
-        svrbClient,
         disconnectionRequestManager,
         registrationRecoveryPasswordsManager,
         clientPublicKeysManager,
