@@ -194,17 +194,6 @@ class MessagesCacheTest {
     }
 
     @Test
-    void testHasMessages() {
-      assertFalse(messagesCache.hasMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID));
-
-      final UUID messageGuid = UUID.randomUUID();
-      final MessageProtos.Envelope message = generateRandomMessage(messageGuid, true);
-      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
-
-      assertTrue(messagesCache.hasMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID));
-    }
-
-    @Test
     void testHasMessagesAsync() {
       assertFalse(messagesCache.hasMessagesAsync(DESTINATION_UUID, DESTINATION_DEVICE_ID).join());
 

@@ -285,11 +285,6 @@ public class MessagesCache {
 
   }
 
-  public boolean hasMessages(final UUID destinationUuid, final byte destinationDevice) {
-    return redisCluster.withBinaryCluster(
-        connection -> connection.sync().zcard(getMessageQueueKey(destinationUuid, destinationDevice)) > 0);
-  }
-
   public CompletableFuture<Boolean> hasMessagesAsync(final UUID destinationUuid, final byte destinationDevice) {
     return redisCluster.withBinaryCluster(connection ->
             connection.async().zcard(getMessageQueueKey(destinationUuid, destinationDevice))
