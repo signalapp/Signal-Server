@@ -11,6 +11,10 @@ import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
@@ -27,6 +31,9 @@ import reactor.util.retry.Retry;
 public class EncryptDeviceCreationTimestampCommand extends AbstractSinglePassCrawlAccountsCommand {
   @VisibleForTesting
   static final String DRY_RUN_ARGUMENT = "dry-run";
+
+  @VisibleForTesting
+  static final String BUFFER_ARGUMENT = "buffer";
 
   private static final int MAX_CONCURRENCY = 16;
 
@@ -49,14 +56,33 @@ public class EncryptDeviceCreationTimestampCommand extends AbstractSinglePassCra
         .required(false)
         .setDefault(true)
         .help("If true, don't actually update device records");
+
+    subparser.addArgument("--buffer")
+        .type(Integer.class)
+        .dest(BUFFER_ARGUMENT)
+        .setDefault(16_384)
+        .help("Records to buffer");
   }
 
   @Override
   protected void crawlAccounts(final Flux<Account> accounts) {
     final boolean isDryRun = getNamespace().getBoolean(DRY_RUN_ARGUMENT);
+    final int bufferSize = getNamespace().getInt(BUFFER_ARGUMENT);
+
     final Counter processedAccountCounter =
         Metrics.counter(PROCESSED_ACCOUNT_COUNTER_NAME, "dryRun", String.valueOf(isDryRun));
+
     accounts
+        // We've partially processed enough accounts now that this should speed up the crawler
+        .filter(a -> a.getDevices().stream().anyMatch(d -> d.getCreatedAtCiphertext() == null || d.getCreatedAtCiphertext().length == 0))
+        .buffer(bufferSize)
+        .map(source -> {
+          final List<Account> shuffled = new ArrayList<>(source);
+          Collections.shuffle(shuffled);
+          return shuffled;
+        })
+        .limitRate(2)
+        .flatMapIterable(Function.identity())
         .flatMap(account -> {
           Mono<Void> encryptTimestampMono = isDryRun
               ? Mono.empty()
