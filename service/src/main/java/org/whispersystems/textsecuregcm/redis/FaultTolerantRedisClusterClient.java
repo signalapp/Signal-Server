@@ -165,7 +165,7 @@ public class FaultTolerantRedisClusterClient {
     return withConnectionReactive(binaryConnection, function);
   }
 
-  public <K, V> void useConnection(final StatefulRedisClusterConnection<K, V> connection,
+  private <K, V> void useConnection(final StatefulRedisClusterConnection<K, V> connection,
       final Consumer<StatefulRedisClusterConnection<K, V>> consumer) {
     try {
       retry.executeRunnable(() -> consumer.accept(connection));
@@ -178,7 +178,7 @@ public class FaultTolerantRedisClusterClient {
     }
   }
 
-  public <T, K, V> T withConnection(final StatefulRedisClusterConnection<K, V> connection,
+  private <T, K, V> T withConnection(final StatefulRedisClusterConnection<K, V> connection,
       final Function<StatefulRedisClusterConnection<K, V>, T> function) {
     try {
       return retry.executeCallable(() -> function.apply(connection));
@@ -191,7 +191,7 @@ public class FaultTolerantRedisClusterClient {
     }
   }
 
-  public <T, K, V> Publisher<T> withConnectionReactive(
+  private <T, K, V> Publisher<T> withConnectionReactive(
       final StatefulRedisClusterConnection<K, V> connection,
       final Function<StatefulRedisClusterConnection<K, V>, Publisher<T>> function) {
 

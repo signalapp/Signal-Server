@@ -128,7 +128,7 @@ public class FaultTolerantRedisClient {
     return withConnection(binaryConnection, function);
   }
 
-  public <K, V> void useConnection(final StatefulRedisConnection<K, V> connection,
+  private <K, V> void useConnection(final StatefulRedisConnection<K, V> connection,
       final Consumer<StatefulRedisConnection<K, V>> consumer) {
     try {
       circuitBreaker.executeRunnable(() -> retry.executeRunnable(() -> consumer.accept(connection)));
@@ -141,7 +141,7 @@ public class FaultTolerantRedisClient {
     }
   }
 
-  public <T, K, V> T withConnection(final StatefulRedisConnection<K, V> connection,
+  private <T, K, V> T withConnection(final StatefulRedisConnection<K, V> connection,
       final Function<StatefulRedisConnection<K, V>, T> function) {
     try {
       return circuitBreaker.executeCallable(() -> retry.executeCallable(() -> function.apply(connection)));
