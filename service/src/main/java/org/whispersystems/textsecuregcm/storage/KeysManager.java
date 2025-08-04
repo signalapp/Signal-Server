@@ -164,9 +164,9 @@ public class KeysManager {
   }
 
   public CompletableFuture<Integer> getPqCount(final UUID identifier, final byte deviceId) {
-    return pagedPqPreKeys.getCount(identifier, deviceId).thenCompose(count -> count == 0
-        ? pqPreKeys.getCount(identifier, deviceId)
-        : CompletableFuture.completedFuture(count));
+    // We only return the paged prekey count to encourage clients to upload more prekeys if they only have prekeys
+    // stored in the previous key store format
+    return pagedPqPreKeys.getCount(identifier, deviceId);
   }
 
   public CompletableFuture<Void> deleteSingleUsePreKeys(final UUID identifier) {
