@@ -109,8 +109,7 @@ public class AccountCreationDeletionIntegrationTest {
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient,
             DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName()),
         new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
-            DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()),
-        mock(ExperimentEnrollmentManager.class));
+            DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
 
     final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());

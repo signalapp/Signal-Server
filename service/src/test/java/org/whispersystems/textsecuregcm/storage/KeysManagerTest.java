@@ -8,9 +8,6 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
@@ -20,12 +17,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -34,7 +29,6 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 class KeysManagerTest {
 
   private KeysManager keysManager;
-  private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private SingleUseKEMPreKeyStore singleUseKEMPreKeyStore;
   private PagedSingleUseKEMPreKeyStore pagedSingleUseKEMPreKeyStore;
@@ -56,7 +50,6 @@ class KeysManagerTest {
   @BeforeEach
   void setup() {
     final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
-    experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
     singleUseKEMPreKeyStore = new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, Tables.PQ_KEYS.tableName());
     pagedSingleUseKEMPreKeyStore = new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient,
         S3_EXTENSION.getS3Client(),
@@ -68,8 +61,7 @@ class KeysManagerTest {
         singleUseKEMPreKeyStore,
         pagedSingleUseKEMPreKeyStore,
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName()),
-        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()),
-        experimentEnrollmentManager);
+        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
   }
 
   @Test
@@ -85,55 +77,38 @@ class KeysManagerTest {
         "Repeatedly storing same key should have no effect");
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void storeKemOneTimePreKeysClearsOld(boolean inPagedExperiment) {
+  @Test
+  void storeKemOneTimePreKeysClearsOld() {
     final List<KEMSignedPreKey> oldPreKeys = List.of(generateTestKEMSignedPreKey(1));
 
-    // Leave a key in the 'other' key store
-    (inPagedExperiment
-        ? singleUseKEMPreKeyStore.store(ACCOUNT_UUID, DEVICE_ID, oldPreKeys)
-        : pagedSingleUseKEMPreKeyStore.store(ACCOUNT_UUID, DEVICE_ID, oldPreKeys))
-        .join();
-
-    when(experimentEnrollmentManager.isEnrolled(ACCOUNT_UUID, KeysManager.PAGED_KEYS_EXPERIMENT_NAME))
-        .thenReturn(inPagedExperiment);
-
+    // Leave a key in the 'old' key store
+    singleUseKEMPreKeyStore.store(ACCOUNT_UUID, DEVICE_ID, oldPreKeys).join();
 
     final List<KEMSignedPreKey> newPreKeys = List.of(generateTestKEMSignedPreKey(2));
     keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, newPreKeys).join();
 
-    final int expectedPagedKeyCount = inPagedExperiment ? 1 : 0;
-    final int expectedUnpagedKeyCount = 1 - expectedPagedKeyCount;
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(expectedPagedKeyCount, pagedSingleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(expectedUnpagedKeyCount, singleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
+    assertEquals(1, pagedSingleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
+    assertEquals(0, singleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
 
     final KEMSignedPreKey key = keysManager.takePQ(ACCOUNT_UUID, DEVICE_ID).join().orElseThrow();
     assertEquals(2, key.keyId());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void storeKemOneTimePreKeys(boolean inPagedExperiment) {
+  @Test
+  void storeKemOneTimePreKeys() {
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join(),
         "Initial pre-key count for an account should be zero");
 
-    when(experimentEnrollmentManager.isEnrolled(ACCOUNT_UUID, KeysManager.PAGED_KEYS_EXPERIMENT_NAME))
-        .thenReturn(inPagedExperiment);
-
-    final int expectedPagedKeyCount = inPagedExperiment ? 1 : 0;
-    final int expectedUnpagedKeyCount = 1 - expectedPagedKeyCount;
+    keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestKEMSignedPreKey(1))).join();
+    assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
+    assertEquals(1, pagedSingleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
+    assertEquals(0, singleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
 
     keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestKEMSignedPreKey(1))).join();
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(expectedPagedKeyCount, pagedSingleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(expectedUnpagedKeyCount, singleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
-
-    keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestKEMSignedPreKey(1))).join();
-    assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(expectedPagedKeyCount, pagedSingleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(expectedUnpagedKeyCount, singleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
+    assertEquals(1, pagedSingleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
+    assertEquals(0, singleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
   }
 
 
@@ -196,13 +171,9 @@ class KeysManagerTest {
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testDeleteSingleUsePreKeysByAccount(final boolean inPagedExperiment) {
+  @Test
+  void testDeleteSingleUsePreKeysByAccount() {
     int keyId = 1;
-
-    when(experimentEnrollmentManager.isEnrolled(ACCOUNT_UUID, KeysManager.PAGED_KEYS_EXPERIMENT_NAME))
-        .thenReturn(inPagedExperiment);
 
     for (byte deviceId : new byte[] {DEVICE_ID, DEVICE_ID + 1}) {
       keysManager.storeEcOneTimePreKeys(ACCOUNT_UUID, deviceId, List.of(generateTestPreKey(keyId++))).join();
@@ -228,13 +199,9 @@ class KeysManagerTest {
     }
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testDeleteSingleUsePreKeysByAccountAndDevice(final boolean inPagedExperiment) {
+  @Test
+  void testDeleteSingleUsePreKeysByAccountAndDevice() {
     int keyId = 1;
-
-    when(experimentEnrollmentManager.isEnrolled(ACCOUNT_UUID, KeysManager.PAGED_KEYS_EXPERIMENT_NAME))
-        .thenReturn(inPagedExperiment);
 
     for (byte deviceId : new byte[] {DEVICE_ID, DEVICE_ID + 1}) {
       keysManager.storeEcOneTimePreKeys(ACCOUNT_UUID, deviceId, List.of(generateTestPreKey(keyId++))).join();

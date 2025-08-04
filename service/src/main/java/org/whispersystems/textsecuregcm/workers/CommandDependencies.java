@@ -231,8 +231,7 @@ record CommandDependencies(
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient,
             configuration.getDynamoDbTables().getEcSignedPreKeys().getTableName()),
         new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
-            configuration.getDynamoDbTables().getKemLastResortKeys().getTableName()),
-        experimentEnrollmentManager);
+            configuration.getDynamoDbTables().getKemLastResortKeys().getTableName()));
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),

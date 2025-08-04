@@ -449,8 +449,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getDynamoDbTables().getPagedKemKeys().getTableName(),
             config.getPagedSingleUseKEMPreKeyStore().bucket()),
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, config.getDynamoDbTables().getEcSignedPreKeys().getTableName()),
-        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, config.getDynamoDbTables().getKemLastResortKeys().getTableName()),
-        experimentEnrollmentManager);
+        new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, config.getDynamoDbTables().getKemLastResortKeys().getTableName()));
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getMessages().getTableName(),
         config.getDynamoDbTables().getMessages().getExpiration(),
