@@ -18,7 +18,6 @@ import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -49,7 +48,6 @@ import java.util.stream.Stream;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
@@ -633,7 +631,6 @@ class WebSocketConnectionTest {
         account,
         device,
         client,
-        Duration.ofSeconds(1),
         Schedulers.immediate(),
         clientReleaseManager,
         mock(MessageDeliveryLoopMonitor.class),
@@ -925,40 +922,6 @@ class WebSocketConnectionTest {
         .expectTimeout(Duration.ofMillis(100))
         .log()
         .verify();
-  }
-
-  @Test
-  @Disabled("Slow test")
-  public void testClientTimeout() {
-    final WebSocketClient client = mock(WebSocketClient.class);
-    final WebSocketConnection connection = webSocketConnection(client);
-
-    final UUID accountUuid = UUID.randomUUID();
-
-    when(account.getNumber()).thenReturn("+18005551234");
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountUuid);
-    when(device.getId()).thenReturn(Device.PRIMARY_ID);
-    when(client.isOpen()).thenReturn(true);
-
-    when(messagesManager.getMessagesForDeviceReactive(eq(accountUuid), argThat(d -> d.getId() == Device.PRIMARY_ID), anyBoolean()))
-        .thenReturn(Flux.just(createMessage(UUID.randomUUID(), UUID.randomUUID(), 1111, "first")))
-        .thenReturn(Flux.empty());
-
-    final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
-    when(successResponse.getStatus()).thenReturn(200);
-
-    when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), any(), any()))
-        // This future will never complete and should time out
-        .thenAnswer(_ -> new CompletableFuture<>());
-
-    connection.start();
-
-    connection.handleNewMessageAvailable();
-
-    verify(client, timeout(30_000).times(5))
-        .sendRequest(eq("PUT"), eq("/api/v1/message"), any(), any());
-
-    verify(client, timeout(30_000)).close(eq(1011), any());
   }
 
   private Envelope createMessage(UUID senderUuid, UUID destinationUuid, long timestamp, String content) {
