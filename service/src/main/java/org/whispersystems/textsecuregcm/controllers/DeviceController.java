@@ -541,7 +541,7 @@ public class DeviceController {
         UserAgentTagUtil.getPlatformTag(userAgent),
         io.micrometer.core.instrument.Tag.of(
             HAS_REGISTRATION_ID_TAG_NAME,
-            String.valueOf(transferArchiveUploadedRequest.registrationId().isPresent()))
+            String.valueOf(transferArchiveUploadedRequest.destinationDeviceRegistrationId().isPresent()))
     )).increment();
     return rateLimiters.getUploadTransferArchiveLimiter()
         .validateAsync(authenticatedDevice.accountIdentifier())
@@ -553,7 +553,7 @@ public class DeviceController {
           return accounts.recordTransferArchiveUpload(account,
               transferArchiveUploadedRequest.destinationDeviceId(),
               transferArchiveUploadedRequest.destinationDeviceCreated().map(Instant::ofEpochMilli),
-              transferArchiveUploadedRequest.registrationId(),
+              transferArchiveUploadedRequest.destinationDeviceRegistrationId(),
               transferArchiveUploadedRequest.transferArchive());
         });
   }

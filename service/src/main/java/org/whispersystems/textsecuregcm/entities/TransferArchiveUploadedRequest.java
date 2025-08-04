@@ -24,13 +24,13 @@ public record TransferArchiveUploadedRequest(
 
     @Schema(description = """
       The timestamp, in milliseconds since the epoch, at which the destination device was created.
-      Deprecated in favor of registrationId.
+      Deprecated in favor of `destinationDeviceRegistrationId`.
     """, deprecated = true)
     @Deprecated
     Optional<@Positive Long> destinationDeviceCreated,
 
     @Schema(description = "The registration ID of the destination device")
-    Optional<@Min(0) @Max(Device.MAX_REGISTRATION_ID) Integer> registrationId,
+    Optional<@Min(0) @Max(Device.MAX_REGISTRATION_ID) Integer> destinationDeviceRegistrationId,
 
     @NotNull
     @Valid
@@ -42,6 +42,6 @@ public record TransferArchiveUploadedRequest(
   @AssertTrue
   @Schema(hidden = true)
   public boolean isExactlyOneDisambiguatorProvided() {
-    return destinationDeviceCreated.isPresent() ^ registrationId.isPresent();
+    return destinationDeviceCreated.isPresent() ^ destinationDeviceRegistrationId.isPresent();
   }
 }
