@@ -23,7 +23,8 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 public class SchedulingUtil {
-  private static final String NO_TIMEZONE_COUNTER_NAME = MetricsUtil.name(SchedulingUtil.class, "noTimezone");
+  private static final String PARSED_TIMEZONE_COUNTER_NAME = MetricsUtil.name(SchedulingUtil.class, "parsedTimezone");
+  private static final String HAS_TIMEZONE_TAG_NAME = "hasTimezone";
 
   /**
    * Gets a present or future time at which to send a notification to a device associated with the given account. This
@@ -44,9 +45,12 @@ public class SchedulingUtil {
       final Clock clock) {
 
     final ZonedDateTime candidateNotificationTime = getZoneId(account, clock)
-        .map(zoneId -> ZonedDateTime.now(clock.withZone(zoneId)).with(preferredTime))
+        .map(zoneId -> {
+          Metrics.counter(PARSED_TIMEZONE_COUNTER_NAME, HAS_TIMEZONE_TAG_NAME, String.valueOf(true)).increment();
+          return ZonedDateTime.now(clock.withZone(zoneId)).with(preferredTime);
+        })
         .orElseGet(() -> {
-          Metrics.counter(NO_TIMEZONE_COUNTER_NAME).increment();
+          Metrics.counter(PARSED_TIMEZONE_COUNTER_NAME, HAS_TIMEZONE_TAG_NAME, String.valueOf(false)).increment();
           return ZonedDateTime.now(ZoneId.systemDefault()).with(preferredTime);
         });
 
