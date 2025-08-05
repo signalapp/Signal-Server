@@ -9,7 +9,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.zone.ZoneRules;
 import java.util.Comparator;
@@ -19,19 +18,20 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import io.micrometer.core.instrument.Metrics;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 
 public class SchedulingUtil {
+  private static final String NO_TIMEZONE_COUNTER_NAME = MetricsUtil.name(SchedulingUtil.class, "noTimezone");
 
   /**
    * Gets a present or future time at which to send a notification to a device associated with the given account. This
    * is mainly intended to facilitate scheduling notifications such that they arrive during a recipient's waking hours.
    * <p/>
    * This method will attempt to use a timezone derived from the account's phone number to choose an appropriate time
-   * to send a notification. If a timezone cannot be derived from the account's phone number, then this method will use
-   * the account's creation time as a hint. As an example, if the account was created at 07:17 in the server's local
-   * time, we can assume that the account holder was awake at that time of day, and it's likely a safe time to send a
-   * notification in the absence of other hints.
+   * to send a notification. If a timezone cannot be derived from the account's phone number, then this method will
+   * default to the preferred time in the server's timezone.
    *
    * @param account the account that will receive the notification
    * @param preferredTime the preferred local time (e.g. "noon") at which to deliver the notification
@@ -46,12 +46,8 @@ public class SchedulingUtil {
     final ZonedDateTime candidateNotificationTime = getZoneId(account, clock)
         .map(zoneId -> ZonedDateTime.now(clock.withZone(zoneId)).with(preferredTime))
         .orElseGet(() -> {
-          // We couldn't find a reasonable timezone for the account for some reason, so make an educated guess at a
-          // reasonable time to send a notification based on the account's creation time.
-          final Instant accountCreation = Instant.ofEpochMilli(account.getPrimaryDevice().getCreated());
-          final LocalTime accountCreationLocalTime = LocalTime.ofInstant(accountCreation, ZoneId.systemDefault());
-
-          return ZonedDateTime.now(ZoneId.systemDefault()).with(accountCreationLocalTime);
+          Metrics.counter(NO_TIMEZONE_COUNTER_NAME).increment();
+          return ZonedDateTime.now(ZoneId.systemDefault()).with(preferredTime);
         });
 
     if (candidateNotificationTime.toInstant().isBefore(clock.instant())) {
