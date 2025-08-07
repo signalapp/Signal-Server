@@ -61,7 +61,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 
@@ -72,16 +71,8 @@ class FaultTolerantRedisClusterClientTest {
 
   private static final Duration TIMEOUT = Duration.ofMillis(200);
 
-  private static final RetryConfiguration RETRY_CONFIGURATION = new RetryConfiguration();
-
-  static {
-    RETRY_CONFIGURATION.setMaxAttempts(1);
-    RETRY_CONFIGURATION.setWaitDuration(50);
-  }
-
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder()
-      .retryConfiguration(RETRY_CONFIGURATION)
       .timeout(TIMEOUT)
       .build();
 
@@ -94,8 +85,7 @@ class FaultTolerantRedisClusterClientTest {
     return new FaultTolerantRedisClusterClient("test",
         clientResourcesBuilder.socketAddressResolver(REDIS_CLUSTER_EXTENSION.getSocketAddressResolver()),
         RedisClusterExtension.getRedisURIs(), TIMEOUT,
-        Optional.ofNullable(circuitBreakerConfiguration).orElseGet(CircuitBreakerConfiguration::new),
-        RETRY_CONFIGURATION);
+        Optional.ofNullable(circuitBreakerConfiguration).orElseGet(CircuitBreakerConfiguration::new));
   }
 
   @AfterEach

@@ -434,7 +434,7 @@ public class MessagesCache {
         // the message might be addressed to the account's PNI, so use the service ID from the envelope
         ServiceIdentifier.valueOf(mrmMessage.getDestinationServiceId()), destinationDevice);
 
-    return Mono.from(redisCluster.withBinaryClusterReactive(
+    return Mono.from(redisCluster.withBinaryCluster(
             conn -> conn.reactive().hmget(key, "data".getBytes(StandardCharsets.UTF_8), sharedMrmViewKey)
                 .collectList()
                 .publishOn(messageDeliveryScheduler)))

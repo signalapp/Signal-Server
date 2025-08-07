@@ -31,11 +31,6 @@ public class RedisClusterConfiguration implements FaultTolerantRedisClusterFacto
   @Valid
   private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
-  @JsonProperty
-  @NotNull
-  @Valid
-  private RetryConfiguration retry = new RetryConfiguration();
-
   @VisibleForTesting
   void setConfigurationUri(final String configurationUri) {
     this.configurationUri = configurationUri;
@@ -51,10 +46,6 @@ public class RedisClusterConfiguration implements FaultTolerantRedisClusterFacto
 
   public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
     return circuitBreaker;
-  }
-
-  public RetryConfiguration getRetryConfiguration() {
-    return retry;
   }
 
   @Override

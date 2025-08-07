@@ -31,11 +31,6 @@ public class RedisConfiguration implements FaultTolerantRedisClientFactory {
   @Valid
   private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
 
-  @JsonProperty
-  @NotNull
-  @Valid
-  private RetryConfiguration retry = new RetryConfiguration();
-
   public String getUri() {
     return uri;
   }
@@ -51,10 +46,6 @@ public class RedisConfiguration implements FaultTolerantRedisClientFactory {
 
   public @NotNull @Valid CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
     return circuitBreaker;
-  }
-
-  public @NotNull @Valid RetryConfiguration getRetryConfiguration() {
-    return retry;
   }
 
   @Override

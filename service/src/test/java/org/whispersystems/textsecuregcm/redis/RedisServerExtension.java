@@ -16,7 +16,6 @@ import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.testcontainers.utility.DockerImageName;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.TestcontainersImages;
 
 public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, ExtensionContext.Store.CloseableResource {
@@ -65,8 +64,7 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
         redisClientResources.mutate(),
         getRedisURI(),
         Duration.ofSeconds(2),
-        circuitBreakerConfig,
-        new RetryConfiguration());
+        circuitBreakerConfig);
 
     faultTolerantRedisClient.useConnection(connection -> connection.sync().flushall(FlushMode.SYNC));
   }

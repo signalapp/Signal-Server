@@ -30,7 +30,6 @@ import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.util.TestcontainersImages;
 
 public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, ExtensionContext.Store.CloseableResource {
@@ -40,7 +39,6 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   private static List<RedisURI> redisUris;
 
   private final Duration timeout;
-  private final RetryConfiguration retryConfiguration;
 
   private ClientResources redisClientResources;
   private FaultTolerantRedisClusterClient redisClusterClient;
@@ -79,9 +77,8 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
             - 'REDIS_CLUSTER_CREATOR=yes'
       """, TestcontainersImages.getRedisCluster());
 
-  public RedisClusterExtension(final Duration timeout, final RetryConfiguration retryConfiguration) {
+  public RedisClusterExtension(final Duration timeout) {
     this.timeout = timeout;
-    this.retryConfiguration = retryConfiguration;
   }
 
 
@@ -191,8 +188,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
         redisClientResources.mutate(),
         getRedisURIs(),
         timeout,
-        circuitBreakerConfig,
-        retryConfiguration);
+        circuitBreakerConfig);
 
     redisClusterClient.useCluster(connection -> connection.sync().flushall(FlushMode.SYNC));
   }
@@ -226,7 +222,6 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   public static class Builder {
 
     private Duration timeout = DEFAULT_TIMEOUT;
-    private RetryConfiguration retryConfiguration = new RetryConfiguration();
 
     private Builder() {
     }
@@ -236,13 +231,8 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
       return this;
     }
 
-    Builder retryConfiguration(RetryConfiguration retryConfiguration) {
-      this.retryConfiguration = retryConfiguration;
-      return this;
-    }
-
     public RedisClusterExtension build() {
-      return new RedisClusterExtension(timeout, retryConfiguration);
+      return new RedisClusterExtension(timeout);
     }
   }
 }
