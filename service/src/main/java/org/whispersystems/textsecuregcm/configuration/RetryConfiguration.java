@@ -36,13 +36,9 @@ public class RetryConfiguration {
     this.waitDuration = waitDuration;
   }
 
-  public RetryConfig toRetryConfig() {
-    return toRetryConfigBuilder().build();
-  }
-
   public <T> RetryConfig.Builder<T> toRetryConfigBuilder() {
     return RetryConfig.<T>custom()
-                      .maxAttempts(getMaxAttempts())
-                      .waitDuration(Duration.ofMillis(getWaitDuration()));
+        .maxAttempts(getMaxAttempts())
+        .waitDuration(Duration.ofMillis(getWaitDuration()));
   }
 }
