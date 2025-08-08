@@ -9,10 +9,10 @@ import static com.codahale.metrics.MetricRegistry.name;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,14 +27,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
-import io.micrometer.core.instrument.Timer;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.util.StaticException;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
-import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -65,10 +63,6 @@ import reactor.util.retry.Retry;
 
 public class WebSocketConnection implements MessageAvailabilityListener, DisconnectionRequestListener {
 
-  private static final DistributionSummary messageTime = Metrics.summary(
-      name(MessageController.class, "messageDeliveryDuration"));
-  private static final DistributionSummary primaryDeviceMessageTime = Metrics.summary(
-      name(MessageController.class, "primaryDeviceMessageDeliveryDuration"));
   private static final Counter sendMessageCounter = Metrics.counter(name(WebSocketConnection.class, "sendMessage"));
   private static final Counter bytesSentCounter = Metrics.counter(name(WebSocketConnection.class, "bytesSent"));
   private static final Counter sendFailuresCounter = Metrics.counter(name(WebSocketConnection.class, "sendFailures"));
@@ -219,7 +213,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
                 .thenApply(ignored -> null);
 
             if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
-              recordMessageDeliveryDuration(message.getServerTimestamp(), authenticatedDevice);
               sendDeliveryReceiptFor(message);
             }
           } else {
@@ -245,14 +238,6 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
             .publishPercentileHistogram(true)
             .tags(Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent())))
             .register(Metrics.globalRegistry)));
-  }
-
-  public static void recordMessageDeliveryDuration(long timestamp, Device messageDestinationDevice) {
-    final long messageDeliveryDuration = System.currentTimeMillis() - timestamp;
-    messageTime.record(messageDeliveryDuration);
-    if (messageDestinationDevice.isPrimary()) {
-      primaryDeviceMessageTime.record(messageDeliveryDuration);
-    }
   }
 
   private void sendDeliveryReceiptFor(Envelope message) {
