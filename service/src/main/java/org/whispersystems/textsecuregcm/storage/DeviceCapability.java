@@ -10,8 +10,10 @@ import java.util.Optional;
 public enum DeviceCapability {
   STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false),
   TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false),
-  DELETE_SYNC("deleteSync", AccountCapabilityMode.ALL_DEVICES, true, true),
-  STORAGE_SERVICE_RECORD_KEY_ROTATION("ssre2", AccountCapabilityMode.ALL_DEVICES, true, true),
+  @Deprecated(forRemoval = true) // Can be removed sometime after 11/10/2025
+  DELETE_SYNC("deleteSync", AccountCapabilityMode.ALWAYS_CAPABLE, true, true),
+  @Deprecated(forRemoval = true) // Can be removed sometime after 11/10/2025
+  STORAGE_SERVICE_RECORD_KEY_ROTATION("ssre2", AccountCapabilityMode.ALWAYS_CAPABLE, true, true),
   ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true),
   SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, true, true);
 
@@ -28,6 +30,11 @@ public enum DeviceCapability {
      * The account will have the capability iff all devices on the account have the capability
      */
     ALL_DEVICES,
+    /**
+     * The account always has this capability, regardless of the constituent devices' capabilities.
+     * This supports retiring capabilities where older clients still need the field provided.
+     */
+    ALWAYS_CAPABLE,
   }
 
   private final String name;

@@ -271,6 +271,7 @@ public class Account {
       case PRIMARY_DEVICE -> getPrimaryDevice().hasCapability(capability);
       case ANY_DEVICE -> devices.stream().anyMatch(device -> device.hasCapability(capability));
       case ALL_DEVICES -> devices.stream().allMatch(device -> device.hasCapability(capability));
+      case ALWAYS_CAPABLE -> true;
     };
   }
 
