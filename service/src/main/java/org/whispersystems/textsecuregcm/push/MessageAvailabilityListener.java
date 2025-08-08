@@ -29,5 +29,5 @@ public interface MessageAvailabilityListener {
    * Indicates a newer instance of this client has started reading messages and the listener should close this client's
    * underlying network connection.
    */
-  void handleConflictingMessageReader();
+  void handleConflictingMessageConsumer();
 }

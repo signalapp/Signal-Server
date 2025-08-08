@@ -132,7 +132,7 @@ public class RedisMessageAvailabilityManager extends RedisClusterPubSubAdapter<b
   /**
    * Marks the given device as "present" for message delivery and registers a listener for new messages and conflicting
    * connections. If the given device already has a presence registered with this manager, that presence is displaced
-   * immediately and the listener's {@link MessageAvailabilityListener#handleConflictingMessageReader()} method is called.
+   * immediately and the listener's {@link MessageAvailabilityListener#handleConflictingMessageConsumer()} method is called.
    *
    * @param accountIdentifier the account identifier for the newly-connected device
    * @param deviceId the ID of the newly-connected device within the given account
@@ -176,7 +176,7 @@ public class RedisMessageAvailabilityManager extends RedisClusterPubSubAdapter<b
         });
 
     if (displacedListener.get() != null) {
-      listenerEventExecutor.execute(() -> displacedListener.get().handleConflictingMessageReader());
+      listenerEventExecutor.execute(() -> displacedListener.get().handleConflictingMessageConsumer());
     }
 
     return subscribeFuture.get()
@@ -318,7 +318,7 @@ public class RedisMessageAvailabilityManager extends RedisClusterPubSubAdapter<b
           // Only act on new connections to other event manager instances; we'll learn about displacements in THIS
           // instance when we update the listener map in `handleClientConnected`
           if (!this.serverId.equals(UUIDUtil.fromByteString(clientEvent.getClientConnected().getServerId()))) {
-            listenerEventExecutor.execute(listener::handleConflictingMessageReader);
+            listenerEventExecutor.execute(listener::handleConflictingMessageConsumer);
           }
         }
 

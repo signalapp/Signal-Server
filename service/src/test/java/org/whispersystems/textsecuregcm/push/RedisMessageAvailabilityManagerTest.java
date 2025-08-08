@@ -62,7 +62,7 @@ class RedisMessageAvailabilityManagerTest {
     }
 
     @Override
-    public void handleConflictingMessageReader() {
+    public void handleConflictingMessageConsumer() {
     }
   }
 
@@ -110,7 +110,7 @@ class RedisMessageAvailabilityManagerTest {
 
     localEventManager.handleClientConnected(accountIdentifier, deviceId, new MessageAvailabilityAdapter() {
       @Override
-      public void handleConflictingMessageReader() {
+      public void handleConflictingMessageConsumer() {
         synchronized (firstListenerDisplaced) {
           firstListenerDisplaced.set(true);
           firstListenerDisplaced.notifyAll();
@@ -126,7 +126,7 @@ class RedisMessageAvailabilityManagerTest {
 
     displacingManager.handleClientConnected(accountIdentifier, deviceId, new MessageAvailabilityAdapter() {
       @Override
-      public void handleConflictingMessageReader() {
+      public void handleConflictingMessageConsumer() {
         secondListenerDisplaced.set(true);
       }
     }).toCompletableFuture().join();

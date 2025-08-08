@@ -57,6 +57,7 @@ public class MessagesManager {
 
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
+  private final RedisMessageAvailabilityManager redisMessageAvailabilityManager;
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService messageDeletionExecutor;
   private final Clock clock;
@@ -64,12 +65,14 @@ public class MessagesManager {
   public MessagesManager(
       final MessagesDynamoDb messagesDynamoDb,
       final MessagesCache messagesCache,
+      final RedisMessageAvailabilityManager redisMessageAvailabilityManager,
       final ReportMessageManager reportMessageManager,
       final ExecutorService messageDeletionExecutor,
       final Clock clock) {
 
     this.messagesDynamoDb = messagesDynamoDb;
     this.messagesCache = messagesCache;
+    this.redisMessageAvailabilityManager = redisMessageAvailabilityManager;
     this.reportMessageManager = reportMessageManager;
     this.messageDeletionExecutor = messageDeletionExecutor;
     this.clock = clock;
@@ -219,6 +222,10 @@ public class MessagesManager {
       final boolean cachedMessagesOnly) {
 
     return getMessagesForDevice(destinationUuid, destinationDevice, null, cachedMessagesOnly);
+  }
+
+  public MessageStream getMessages(final UUID destinationUuid, final Device destinationDevice) {
+    return new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, destinationUuid, destinationDevice);
   }
 
   private Publisher<Envelope> getMessagesForDevice(UUID destinationUuid, Device destinationDevice,

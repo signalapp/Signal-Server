@@ -82,8 +82,8 @@ class MessagePersisterIntegrationTest {
 
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         messageDeliveryScheduler, messageDeletionExecutorService, Clock.systemUTC());
-    messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(ReportMessageManager.class),
-        messageDeletionExecutorService, Clock.systemUTC());
+    messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(RedisMessageAvailabilityManager.class),
+        mock(ReportMessageManager.class), messageDeletionExecutorService, Clock.systemUTC());
 
     websocketConnectionEventExecutor = Executors.newVirtualThreadPerTaskExecutor();
     asyncOperationQueueingExecutor = Executors.newSingleThreadExecutor();
@@ -165,7 +165,7 @@ class MessagePersisterIntegrationTest {
         }
 
         @Override
-        public void handleConflictingMessageReader() {
+        public void handleConflictingMessageConsumer() {
         }
       });
 

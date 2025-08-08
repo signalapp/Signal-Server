@@ -429,7 +429,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
   }
 
   @Override
-  public void handleConflictingMessageReader() {
+  public void handleConflictingMessageConsumer() {
     closeConnection(4409, "Connected elsewhere");
   }
 
