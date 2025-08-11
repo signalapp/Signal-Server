@@ -25,7 +25,6 @@ import io.micrometer.statsd.StatsdMeterRegistry;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.stream.IntStream;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;

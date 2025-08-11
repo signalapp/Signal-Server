@@ -117,7 +117,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
       StoredMessageState.PERSISTED_NEW_MESSAGES_AVAILABLE);
   private final AtomicBoolean sentInitialQueueEmptyMessage = new AtomicBoolean(false);
   private final LongAdder sentMessageCounter = new LongAdder();
-  private final AtomicLong queueDrainStartTime = new AtomicLong();
+  private final AtomicLong queueDrainStartNanoTime = new AtomicLong();
   private final AtomicReference<Disposable> messageSubscription = new AtomicReference<>();
 
   private final Scheduler messageDeliveryScheduler;
@@ -159,7 +159,7 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
 
   public void start() {
     pushNotificationManager.handleMessagesRetrieved(authenticatedAccount, authenticatedDevice, client.getUserAgent());
-    queueDrainStartTime.set(System.currentTimeMillis());
+    queueDrainStartNanoTime.set(System.nanoTime());
     processStoredMessages();
   }
 
@@ -280,12 +280,12 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
               // Cleared the queue! Send a queue empty message if we need to
               if (sentInitialQueueEmptyMessage.compareAndSet(false, true)) {
                 final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
-                final long drainDuration = System.currentTimeMillis() - queueDrainStartTime.get();
+                final long drainDurationNanos = System.nanoTime() - queueDrainStartNanoTime.get();
 
                 Metrics.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, tags).record(sentMessageCounter.sum());
-                Metrics.timer(INITIAL_QUEUE_DRAIN_TIMER_NAME, tags).record(drainDuration, TimeUnit.MILLISECONDS);
+                Metrics.timer(INITIAL_QUEUE_DRAIN_TIMER_NAME, tags).record(drainDurationNanos, TimeUnit.NANOSECONDS);
 
-                if (drainDuration > SLOW_DRAIN_THRESHOLD) {
+                if (drainDurationNanos > SLOW_DRAIN_THRESHOLD) {
                   Metrics.counter(SLOW_QUEUE_DRAIN_COUNTER_NAME, tags).increment();
                 }
 
