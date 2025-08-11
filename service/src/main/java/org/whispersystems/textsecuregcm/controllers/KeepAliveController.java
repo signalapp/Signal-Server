@@ -61,6 +61,8 @@ public class KeepAliveController {
         Timer.builder(CLOSED_CONNECTION_AGE_DISTRIBUTION_NAME)
             .tags(Tags.of(UserAgentTagUtil.getPlatformTag(context.getClient().getUserAgent())))
             .publishPercentileHistogram(true)
+            .minimumExpectedValue(Duration.ofMillis(50))
+            .maximumExpectedValue(Duration.ofMinutes(2))
             .register(Metrics.globalRegistry)
             .record(age);
       }

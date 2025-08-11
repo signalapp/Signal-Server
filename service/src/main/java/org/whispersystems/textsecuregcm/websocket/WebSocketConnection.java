@@ -236,6 +236,8 @@ public class WebSocketConnection implements MessageAvailabilityListener, Disconn
         })
         .thenRun(() -> sample.stop(Timer.builder(SEND_MESSAGE_DURATION_TIMER_NAME)
             .publishPercentileHistogram(true)
+            .minimumExpectedValue(Duration.ofMillis(100))
+            .maximumExpectedValue(Duration.ofDays(1))
             .tags(Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent())))
             .register(Metrics.globalRegistry)));
   }

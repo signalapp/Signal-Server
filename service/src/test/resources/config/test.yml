@@ -303,6 +303,9 @@ openTelemetry:
   environment: dev
   shutdownWaitDuration: PT0S
   url: http://127.0.0.1:4318/
+  maxBucketCount: 16
+  maxBucketsPerMeter:
+    chat.SomeClass.someMetric: 64
 
 unidentifiedDelivery:
   certificate: CgIIAQ==

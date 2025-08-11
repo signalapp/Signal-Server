@@ -313,26 +313,23 @@ public class MessageSender {
       final boolean isStory,
       final Tag platformTag) throws MessageTooLargeException {
 
-    final boolean oversize = contentLength > MAX_MESSAGE_SIZE;
+    final Tags tags = Tags.of(platformTag,
+      Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
+      Tag.of("syncMessage", String.valueOf(isSyncMessage)),
+      Tag.of("story", String.valueOf(isStory)));
 
-    DistributionSummary.builder(CONTENT_SIZE_DISTRIBUTION_NAME)
-        .tags(Tags.of(platformTag,
-            Tag.of("oversize", String.valueOf(oversize)),
-            Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
-            Tag.of("syncMessage", String.valueOf(isSyncMessage)),
-            Tag.of("story", String.valueOf(isStory))))
-        .publishPercentileHistogram(true)
-        .register(Metrics.globalRegistry)
-        .record(contentLength);
-
-    if (oversize) {
-      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER_NAME, Tags.of(platformTag,
-              Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
-              Tag.of("syncMessage", String.valueOf(isSyncMessage)),
-              Tag.of("story", String.valueOf(isStory))))
-          .increment();
+    if (contentLength > MAX_MESSAGE_SIZE) {
+      Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER_NAME, tags).increment();
 
       throw new MessageTooLargeException();
+    } else {
+      DistributionSummary.builder(CONTENT_SIZE_DISTRIBUTION_NAME)
+        .tags(tags)
+        .publishPercentileHistogram(true)
+        .minimumExpectedValue(256.0)
+        .maximumExpectedValue((double) MAX_MESSAGE_SIZE)
+        .register(Metrics.globalRegistry)
+        .record(contentLength);
     }
   }
 
