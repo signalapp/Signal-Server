@@ -11,7 +11,7 @@ import java.io.IOException;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
-class FoundationDbExtension implements BeforeAllCallback, ExtensionContext.Store.CloseableResource {
+public class FoundationDbExtension implements BeforeAllCallback, ExtensionContext.Store.CloseableResource {
 
   private static FoundationDbDatabaseLifecycleManager databaseLifecycleManager;
 
