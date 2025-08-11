@@ -229,7 +229,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       try {
         return stripeClient.paymentIntents().create(builder.build(), commonOptions());
       } catch (StripeException e) {
-        final String errorCode = e.getCode().toLowerCase(Locale.ROOT);
+        final String errorCode = StringUtils.lowerCase(e.getCode(), Locale.ROOT);
         switch (errorCode) {
           case "amount_too_small","amount_too_large" ->
               throw ExceptionUtils.wrap(new SubscriptionException.InvalidAmount(errorCode));
