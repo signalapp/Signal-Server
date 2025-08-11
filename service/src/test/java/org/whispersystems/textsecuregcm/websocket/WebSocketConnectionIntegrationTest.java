@@ -134,7 +134,7 @@ class WebSocketConnectionIntegrationTest {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
-        new MessageMetrics(),
+        new MessageMetrics(Duration.ofDays(30)),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
         account,
@@ -223,7 +223,7 @@ class WebSocketConnectionIntegrationTest {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
         new MessagesManager(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
-        new MessageMetrics(),
+        new MessageMetrics(Duration.ofDays(30)),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
         account,

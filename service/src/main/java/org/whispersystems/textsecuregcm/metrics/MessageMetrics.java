@@ -45,11 +45,6 @@ public final class MessageMetrics {
     this(Metrics.globalRegistry, messageTtl);
   }
 
-  @VisibleForTesting
-  public MessageMetrics() {
-    this(Metrics.globalRegistry, Duration.ofDays(30));
-  }
-
   public void measureAccountOutgoingMessageUuidMismatches(final Account account,
       final OutgoingMessageEntity outgoingMessage) {
     measureAccountDestinationUuidMismatches(account, outgoingMessage.destinationUuid());
@@ -90,6 +85,7 @@ public final class MessageMetrics {
     tags.add(Tag.of("isUrgent", String.valueOf(isUrgent)));
     tags.add(Tag.of("isEphemeral", String.valueOf(isEphemeral)));
 
+    // This tag makes the metric extremely expensive on some platforms
     // UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager).ifPresent(tags::add);
 
     Timer.builder(DELIVERY_LATENCY_TIMER_NAME)

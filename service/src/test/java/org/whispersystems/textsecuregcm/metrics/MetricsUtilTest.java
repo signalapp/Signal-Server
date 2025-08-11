@@ -99,7 +99,7 @@ class MetricsUtilTest {
     final OpenTelemetryConfiguration openTelemetryConfig =
       new OpenTelemetryConfiguration(true, Duration.ZERO, 8, Map.of(), Map.of());
 
-    // Yes, this has to be OtlpMeterRegistry—its histograms behave differently than SimpleMeterRegistry's 😭
+    // Yes, this has to be OtlpMeterRegistry—its histograms behave differently than SimpleMeterRegistry's
     final MeterRegistry registry = new OtlpMeterRegistry(openTelemetryConfig, Clock.SYSTEM);
 
     MetricsUtil.configureHistogramFilters(registry.config(), openTelemetryConfig);
