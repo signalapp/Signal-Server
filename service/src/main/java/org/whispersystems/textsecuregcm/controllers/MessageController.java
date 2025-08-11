@@ -164,6 +164,9 @@ public class MessageController {
         .register(Metrics.globalRegistry);
   }
 
+  private static final String INCORRECT_SYNC_MESSAGE_REGISTRATION_IDS_COUNTER_NAME =
+      MetricsUtil.name(MessageController.class, "incorrectSyncMessageRegistrationIds");
+
   // The Signal desktop client (really, JavaScript in general) can handle message timestamps at most 100,000,000 days
   // past the epoch; please see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
   // for additional details.
@@ -455,6 +458,12 @@ public class MessageController {
           userAgent);
     } catch (final MismatchedDevicesException e) {
       if (!e.getMismatchedDevices().staleDeviceIds().isEmpty()) {
+        if (messageType == MessageType.SYNC) {
+          Metrics.counter(INCORRECT_SYNC_MESSAGE_REGISTRATION_IDS_COUNTER_NAME,
+              Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
+                  .increment();
+        }
+
         throw new WebApplicationException(Response.status(410)
             .type(MediaType.APPLICATION_JSON)
             .entity(new StaleDevicesResponse(e.getMismatchedDevices().staleDeviceIds()))
