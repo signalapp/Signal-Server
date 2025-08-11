@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,15 +59,16 @@ public class MessagePersister implements Managed {
   private static final Counter TRIMMED_MESSAGE_COUNTER = Metrics.counter(name(MessagePersister.class, "trimmedMessage"));
   private static final Counter TRIMMED_MESSAGE_BYTES_COUNTER = Metrics.counter(name(MessagePersister.class, "trimmedMessageBytes"));
 
-  private static final DistributionSummary QUEUE_COUNT_DISTRIBUTION_SUMMARY = DistributionSummary.builder(
-          name(MessagePersister.class, "queueCount"))
-      .publishPercentileHistogram(true)
-      .register(Metrics.globalRegistry);
-
   private static final String QUEUE_SIZE_DISTRIBUTION_SUMMARY_NAME = name(MessagePersister.class, "queueSize");
 
   static final int QUEUE_BATCH_LIMIT = 100;
   static final int MESSAGE_BATCH_LIMIT = 100;
+
+  private static final DistributionSummary QUEUE_COUNT_DISTRIBUTION_SUMMARY = DistributionSummary.builder(
+          name(MessagePersister.class, "queueCount"))
+      .publishPercentiles(new double[0])
+      .serviceLevelObjectives(IntStream.range(1, QUEUE_BATCH_LIMIT + 1).mapToDouble(i -> i).toArray())
+      .register(Metrics.globalRegistry);
 
   private static final long EXCEPTION_PAUSE_MILLIS = Duration.ofSeconds(3).toMillis();
 

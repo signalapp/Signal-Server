@@ -26,6 +26,8 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.configuration.OpenTelemetryConfiguration;
@@ -34,6 +36,8 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 public class MetricsUtil {
+
+  private static final Logger log = LoggerFactory.getLogger(MetricsUtil.class);
 
   public static final String PREFIX = "chat";
 
@@ -153,6 +157,14 @@ public class MetricsUtil {
       public DistributionStatisticConfig configure(final Meter.Id id, final DistributionStatisticConfig config) {
         if (config.isPercentileHistogram() == null || !config.isPercentileHistogram()) {
           return config;
+        }
+
+        if (config.getMinimumExpectedValueAsDouble() == null || config.getMaximumExpectedValueAsDouble() == null) {
+          log.error("Distribution {} does not specify lower or upper bounds, not exporting histograms", id.getName());
+          return DistributionStatisticConfig.builder()
+            .percentilesHistogram(false)
+            .build()
+            .merge(config);
         }
 
         final double lowerBound = config.getMinimumExpectedValueAsDouble();
