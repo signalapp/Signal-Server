@@ -348,7 +348,8 @@ class DeviceControllerTest {
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     final int expectedStatus =
-        capability.preventDowngrade() && accountHasCapability && !requestHasCapability ? 409 : 200;
+        capability.getAccountCapabilityMode() != DeviceCapability.AccountCapabilityMode.ALWAYS_CAPABLE
+            && capability.preventDowngrade() && accountHasCapability && !requestHasCapability ? 409 : 200;
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/link")
