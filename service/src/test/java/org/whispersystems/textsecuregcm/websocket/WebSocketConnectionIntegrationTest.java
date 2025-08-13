@@ -15,7 +15,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +42,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
@@ -89,18 +90,16 @@ class WebSocketConnectionIntegrationTest {
   private Scheduler messageDeliveryScheduler;
   private ClientReleaseManager clientReleaseManager;
 
+  private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+
   private long serialTimestamp = System.currentTimeMillis();
 
   @BeforeEach
   void setUp() throws Exception {
     sharedExecutorService = Executors.newSingleThreadExecutor();
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
-
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
+    dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
-
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
     messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -116,14 +115,10 @@ class WebSocketConnectionIntegrationTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(UUID.randomUUID());
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
-
-    redisMessageAvailabilityManager.start();
   }
 
   @AfterEach
   void tearDown() throws Exception {
-    redisMessageAvailabilityManager.stop();
-
     sharedExecutorService.shutdown();
     //noinspection ResultOfMethodCallIgnored
     sharedExecutorService.awaitTermination(2, TimeUnit.SECONDS);
@@ -148,8 +143,7 @@ class WebSocketConnectionIntegrationTest {
         messageDeliveryScheduler,
         clientReleaseManager,
         mock(MessageDeliveryLoopMonitor.class),
-        mock(ExperimentEnrollmentManager.class)
-    );
+        mock(ExperimentEnrollmentManager.class));
 
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
 
@@ -177,21 +171,36 @@ class WebSocketConnectionIntegrationTest {
       }
 
       final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
+      final AtomicBoolean queueCleared = new AtomicBoolean(false);
 
       when(successResponse.getStatus()).thenReturn(200);
       when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any()))
           .thenReturn(CompletableFuture.completedFuture(successResponse));
 
-      webSocketConnection.start();
+      when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(), any())).thenAnswer(
+          (Answer<CompletableFuture<WebSocketResponseMessage>>) invocation -> {
+            synchronized (queueCleared) {
+              queueCleared.set(true);
+              queueCleared.notifyAll();
+            }
 
-      @SuppressWarnings("unchecked") final ArgumentCaptor<Optional<byte[]>> messageBodyCaptor =
-          ArgumentCaptor.forClass(Optional.class);
+            return CompletableFuture.completedFuture(successResponse);
+          });
 
-      verify(webSocketClient, timeout(10_000))
-          .sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(), eq(Optional.empty()));
+      webSocketConnection.processStoredMessages();
 
-      verify(webSocketClient, times(persistedMessageCount + cachedMessageCount))
-          .sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
+      synchronized (queueCleared) {
+        while (!queueCleared.get()) {
+          queueCleared.wait();
+        }
+      }
+
+      @SuppressWarnings("unchecked") final ArgumentCaptor<Optional<byte[]>> messageBodyCaptor = ArgumentCaptor.forClass(
+          Optional.class);
+
+      verify(webSocketClient, times(persistedMessageCount + cachedMessageCount)).sendRequest(eq("PUT"),
+          eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
+      verify(webSocketClient).sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(), eq(Optional.empty()));
 
       final List<MessageProtos.Envelope> sentMessages = new ArrayList<>();
 
@@ -223,8 +232,7 @@ class WebSocketConnectionIntegrationTest {
         messageDeliveryScheduler,
         clientReleaseManager,
         mock(MessageDeliveryLoopMonitor.class),
-        mock(ExperimentEnrollmentManager.class)
-    );
+        mock(ExperimentEnrollmentManager.class));
 
     final int persistedMessageCount = 207;
     final int cachedMessageCount = 173;
@@ -256,10 +264,10 @@ class WebSocketConnectionIntegrationTest {
       when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any())).thenReturn(
           CompletableFuture.failedFuture(new IOException("Connection closed")));
 
-      webSocketConnection.start();
+      webSocketConnection.processStoredMessages();
 
       //noinspection unchecked
-      final ArgumentCaptor<Optional<byte[]>> messageBodyCaptor = ArgumentCaptor.forClass(Optional.class);
+      ArgumentCaptor<Optional<byte[]>> messageBodyCaptor = ArgumentCaptor.forClass(Optional.class);
 
       verify(webSocketClient, atMost(persistedMessageCount + cachedMessageCount)).sendRequest(eq("PUT"),
           eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
@@ -267,7 +275,7 @@ class WebSocketConnectionIntegrationTest {
           eq(Optional.empty()));
 
       final List<MessageProtos.Envelope> sentMessages = messageBodyCaptor.getAllValues().stream()
-          .map(Optional::orElseThrow)
+          .map(Optional::get)
           .map(messageBytes -> {
             try {
               return Envelope.parseFrom(messageBytes);
