@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -32,7 +33,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -57,6 +61,7 @@ import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Hooks;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
@@ -79,20 +84,37 @@ class WebSocketConnectionTest {
 
   private static final int SOURCE_DEVICE_ID = 1;
 
+  private static final AtomicInteger ON_ERROR_DROPPED_COUNTER = new AtomicInteger();
+
+  @BeforeAll
+  static void setUpBeforeAll() {
+    Hooks.onErrorDropped(_ -> ON_ERROR_DROPPED_COUNTER.incrementAndGet());
+  }
+
   @BeforeEach
-  void setup() {
+  void setUp() {
     account = mock(Account.class);
     device = mock(Device.class);
     messagesManager = mock(MessagesManager.class);
     receiptSender = mock(ReceiptSender.class);
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     clientReleaseManager = mock(ClientReleaseManager.class);
+
+    ON_ERROR_DROPPED_COUNTER.set(0);
   }
 
   @AfterEach
-  void teardown() {
+  void tearDown() {
     StepVerifier.resetDefaultTimeout();
     messageDeliveryScheduler.dispose();
+
+    assertEquals(0, ON_ERROR_DROPPED_COUNTER.get(),
+        "Errors dropped during test");
+  }
+
+  @AfterAll
+  static void tearDownAfterAll() {
+    Hooks.resetOnErrorDropped();
   }
 
   private WebSocketConnection buildWebSocketConnection(final WebSocketClient client) {
