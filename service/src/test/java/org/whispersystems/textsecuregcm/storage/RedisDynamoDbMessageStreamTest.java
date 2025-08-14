@@ -20,7 +20,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
-import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 
 class RedisDynamoDbMessageStreamTest {
 
@@ -44,9 +43,9 @@ class RedisDynamoDbMessageStreamTest {
 
     redisDynamoDbMessageStream = new RedisDynamoDbMessageStream(messagesDynamoDb,
         messagesCache,
-        mock(RedisMessageAvailabilityManager.class),
         ACCOUNT_IDENTIFIER,
-        device);
+        device,
+        mock(RedisDynamoDbMessagePublisher.class));
 
     when(messagesDynamoDb.deleteMessage(any(), any(), any(), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -74,7 +73,6 @@ class RedisDynamoDbMessageStreamTest {
   void acknowledgeMessageRedis() {
     final MessageProtos.Envelope message = generateMessage();
     final UUID messageGuid = UUID.fromString(message.getServerGuid());
-    final long serverTimestamp = message.getServerTimestamp();
 
     when(messagesCache.remove(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(RemovedMessage.fromEnvelope(message))));

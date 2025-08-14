@@ -27,7 +27,6 @@ import io.lettuce.core.RedisException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -66,7 +65,6 @@ import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 import reactor.test.publisher.TestPublisher;
-import reactor.util.retry.Retry;
 
 class WebSocketConnectionTest {
 
@@ -76,11 +74,6 @@ class WebSocketConnectionTest {
   private ReceiptSender receiptSender;
   private Scheduler messageDeliveryScheduler;
   private ClientReleaseManager clientReleaseManager;
-
-  private static final int MAX_RETRIES = 3;
-  private static final Retry RETRY_SPEC = Retry.backoff(MAX_RETRIES, Duration.ofMillis(5))
-      .maxBackoff(Duration.ofMillis(20))
-      .filter(throwable -> !WebSocketConnection.isConnectionClosedException(throwable));
 
   private static final int SOURCE_DEVICE_ID = 1;
 
@@ -129,8 +122,7 @@ class WebSocketConnectionTest {
         Schedulers.immediate(),
         clientReleaseManager,
         mock(MessageDeliveryLoopMonitor.class),
-        mock(ExperimentEnrollmentManager.class),
-        RETRY_SPEC);
+        mock(ExperimentEnrollmentManager.class));
   }
 
   @Test
@@ -249,14 +241,14 @@ class WebSocketConnectionTest {
     verify(client).sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), argThat(body ->
         body.isPresent() && Arrays.equals(body.get(), WebSocketConnection.serializeMessage(successfulMessage))));
 
-    verify(client, timeout(500).times(MAX_RETRIES + 1)).sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), argThat(body ->
+    verify(client).sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), argThat(body ->
         body.isPresent() && Arrays.equals(body.get(), WebSocketConnection.serializeMessage(failedMessage))));
 
-    verify(client).sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), argThat(body ->
+    verify(client, never()).sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), argThat(body ->
         body.isPresent() && Arrays.equals(body.get(), WebSocketConnection.serializeMessage(secondSuccessfulMessage))));
 
     verify(messageStream).acknowledgeMessage(successfulMessage);
-    verify(messageStream).acknowledgeMessage(secondSuccessfulMessage);
+    verify(messageStream, never()).acknowledgeMessage(secondSuccessfulMessage);
 
     verify(receiptSender)
         .sendReceipt(new AciServiceIdentifier(destinationAccountIdentifier),
@@ -270,7 +262,7 @@ class WebSocketConnectionTest {
             AciServiceIdentifier.valueOf(failedMessage.getSourceServiceId()),
             failedMessage.getClientTimestamp());
 
-    verify(receiptSender)
+    verify(receiptSender, never())
         .sendReceipt(new AciServiceIdentifier(destinationAccountIdentifier),
             deviceId,
             AciServiceIdentifier.valueOf(secondSuccessfulMessage.getSourceServiceId()),
@@ -572,56 +564,6 @@ class WebSocketConnectionTest {
         .expectTimeout(Duration.ofMillis(100))
         .log()
         .verify();
-  }
-
-  @Test
-  void testRetryOnError() {
-    final UUID accountIdentifier = UUID.randomUUID();
-
-    final List<Envelope> outgoingMessages = List.of(createMessage(accountIdentifier, accountIdentifier, 1111, "first"));
-
-    final byte deviceId = 2;
-    when(device.getId()).thenReturn(deviceId);
-
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
-
-    final MessageStream messageStream = mock(MessageStream.class);
-
-    when(messageStream.getMessages())
-        .thenReturn(JdkFlowAdapter.publisherToFlowPublisher(Flux.fromIterable(outgoingMessages)
-            .map(MessageStreamEntry.Envelope::new)));
-
-    when(messageStream.acknowledgeMessage(any())).thenReturn(CompletableFuture.completedFuture(null));
-
-    when(messagesManager.getMessages(account.getIdentifier(IdentityType.ACI), device))
-        .thenReturn(messageStream);
-
-    when(messagesManager.mayHaveMessages(any(), any())).thenReturn(CompletableFuture.completedFuture(false));
-
-    final WebSocketClient client = mock(WebSocketClient.class);
-
-    final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
-    when(successResponse.getStatus()).thenReturn(200);
-
-    when(client.sendRequest(eq("PUT"), eq("/api/v1/message"), any(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new RedisCommandTimeoutException()))
-        .thenReturn(CompletableFuture.failedFuture(new RedisCommandTimeoutException()))
-        .thenReturn(CompletableFuture.completedFuture(successResponse));
-
-    final WebSocketConnection connection = buildWebSocketConnection(client);
-
-    connection.start();
-
-    verify(client, timeout(500).times(3))
-        .sendRequest(eq("PUT"), eq("/api/v1/message"), any(), any());
-
-    verify(messageStream, timeout(500)).acknowledgeMessage(outgoingMessages.getFirst());
-
-    verify(receiptSender, timeout(500))
-        .sendReceipt(new AciServiceIdentifier(accountIdentifier), deviceId, new AciServiceIdentifier(accountIdentifier), 1111L);
-
-    connection.stop();
-    verify(client).close(eq(1000), anyString());
   }
 
   private static Envelope createMessage(final UUID senderUuid,

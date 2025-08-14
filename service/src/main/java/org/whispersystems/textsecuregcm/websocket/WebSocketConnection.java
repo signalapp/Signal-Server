@@ -56,7 +56,6 @@ import reactor.core.Disposable;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
-import reactor.util.retry.Retry;
 
 public class WebSocketConnection implements DisconnectionRequestListener {
 
@@ -103,8 +102,6 @@ public class WebSocketConnection implements DisconnectionRequestListener {
   private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
-  private final Retry retrySpec;
-
   private final Account authenticatedAccount;
   private final Device authenticatedDevice;
   private final MessageStream messageStream;
@@ -131,38 +128,6 @@ public class WebSocketConnection implements DisconnectionRequestListener {
       final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
       final ExperimentEnrollmentManager experimentEnrollmentManager) {
 
-    this(receiptSender,
-        messagesManager,
-        messageMetrics,
-        pushNotificationManager,
-        pushNotificationScheduler,
-        authenticatedAccount,
-        authenticatedDevice,
-        client,
-        messageDeliveryScheduler,
-        clientReleaseManager,
-        messageDeliveryLoopMonitor,
-        experimentEnrollmentManager,
-        Retry.backoff(4, Duration.ofSeconds(1))
-            .maxBackoff(Duration.ofSeconds(2))
-            .filter(throwable -> !isConnectionClosedException(throwable)));
-  }
-
-  @VisibleForTesting
-  WebSocketConnection(final ReceiptSender receiptSender,
-      final MessagesManager messagesManager,
-      final MessageMetrics messageMetrics,
-      final PushNotificationManager pushNotificationManager,
-      final PushNotificationScheduler pushNotificationScheduler,
-      final Account authenticatedAccount,
-      final Device authenticatedDevice,
-      final WebSocketClient client,
-      final Scheduler messageDeliveryScheduler,
-      final ClientReleaseManager clientReleaseManager,
-      final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
-      final ExperimentEnrollmentManager experimentEnrollmentManager,
-      final Retry retrySpec) {
-
     this.receiptSender = receiptSender;
     this.messagesManager = messagesManager;
     this.messageMetrics = messageMetrics;
@@ -175,8 +140,6 @@ public class WebSocketConnection implements DisconnectionRequestListener {
     this.clientReleaseManager = clientReleaseManager;
     this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
     this.experimentEnrollmentManager = experimentEnrollmentManager;
-
-    this.retrySpec = retrySpec;
 
     this.messageStream =
         messagesManager.getMessages(authenticatedAccount.getIdentifier(IdentityType.ACI), authenticatedDevice);
@@ -214,9 +177,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
           }
         })
         .flatMapSequential(entry -> switch (entry) {
-          case MessageStreamEntry.Envelope envelope -> Mono.fromFuture(() -> sendMessage(envelope.message()))
-              .retryWhen(retrySpec)
-              .thenReturn(entry);
+          case MessageStreamEntry.Envelope envelope -> Mono.fromFuture(() -> sendMessage(envelope.message())).thenReturn(entry);
           case MessageStreamEntry.QueueEmpty _ -> Mono.just(entry);
         }, MESSAGE_SENDER_MAX_CONCURRENCY)
         .subscribeOn(messageDeliveryScheduler)

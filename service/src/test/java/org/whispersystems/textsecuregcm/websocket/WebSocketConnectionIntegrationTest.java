@@ -34,6 +34,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +69,7 @@ import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
@@ -126,8 +129,13 @@ class WebSocketConnectionIntegrationTest {
     redisMessageAvailabilityManager.stop();
 
     sharedExecutorService.shutdown();
+    final Mono<Void> schedulerShutdownMono = messageDeliveryScheduler.disposeGracefully();
+
     //noinspection ResultOfMethodCallIgnored
     sharedExecutorService.awaitTermination(2, TimeUnit.SECONDS);
+    schedulerShutdownMono.timeout(Duration.ofSeconds(2))
+        .onErrorResume(TimeoutException.class, _ -> Mono.fromRunnable(() -> messageDeliveryScheduler.dispose()))
+        .block();
   }
 
   @ParameterizedTest
@@ -211,6 +219,101 @@ class WebSocketConnectionIntegrationTest {
   }
 
   @Test
+  void testProcessStoredMessagesMultipleSegments() {
+    final WebSocketConnection webSocketConnection = new WebSocketConnection(
+        mock(ReceiptSender.class),
+        new MessagesManager(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, reportMessageManager, sharedExecutorService, Clock.systemUTC()),
+        new MessageMetrics(),
+        mock(PushNotificationManager.class),
+        mock(PushNotificationScheduler.class),
+        account,
+        device,
+        webSocketClient,
+        messageDeliveryScheduler,
+        clientReleaseManager,
+        mock(MessageDeliveryLoopMonitor.class),
+        mock(ExperimentEnrollmentManager.class)
+    );
+
+    final int persistedMessageCount = 77;
+    final int cachedMessageCount = 104;
+
+    final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistedMessageCount + cachedMessageCount);
+
+    assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
+
+      {
+        final List<MessageProtos.Envelope> persistedMessages = new ArrayList<>(persistedMessageCount);
+
+        for (int i = 0; i < persistedMessageCount; i++) {
+          final MessageProtos.Envelope envelope = generateRandomMessage(UUID.randomUUID());
+
+          persistedMessages.add(envelope);
+          expectedMessages.add(envelope);
+        }
+
+        messagesDynamoDb.store(persistedMessages, account.getIdentifier(IdentityType.ACI), device);
+      }
+
+      for (int i = 0; i < cachedMessageCount; i++) {
+        final UUID messageGuid = UUID.randomUUID();
+        final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
+
+        messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
+        expectedMessages.add(envelope);
+      }
+
+      final WebSocketResponseMessage successResponse = mock(WebSocketResponseMessage.class);
+
+      final AtomicInteger remainingMessages = new AtomicInteger(persistedMessageCount + cachedMessageCount);
+      final int additionalMessageCount = 67;
+
+      when(successResponse.getStatus()).thenReturn(200);
+      when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any()))
+          .thenAnswer(_ -> {
+            if (remainingMessages.addAndGet(-1) == 60) {
+              sharedExecutorService.submit(() -> {
+                for (int i = 0; i < additionalMessageCount; i++) {
+                  final UUID messageGuid = UUID.randomUUID();
+                  final MessageProtos.Envelope envelope = generateRandomMessage(messageGuid);
+
+                  messagesCache.insert(messageGuid, account.getIdentifier(IdentityType.ACI), device.getId(), envelope).join();
+                  expectedMessages.add(envelope);
+                }
+              });
+            }
+
+            return CompletableFuture.completedFuture(successResponse);
+          });
+
+      webSocketConnection.start();
+
+      @SuppressWarnings("unchecked") final ArgumentCaptor<Optional<byte[]>> messageBodyCaptor =
+          ArgumentCaptor.forClass(Optional.class);
+
+      verify(webSocketClient, timeout(10_000))
+          .sendRequest(eq("PUT"), eq("/api/v1/queue/empty"), anyList(), eq(Optional.empty()));
+
+      verify(webSocketClient, timeout(10_000).times(persistedMessageCount + cachedMessageCount + additionalMessageCount))
+          .sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), messageBodyCaptor.capture());
+
+      final List<MessageProtos.Envelope> sentMessages = new ArrayList<>();
+
+      for (final Optional<byte[]> maybeMessageBody : messageBodyCaptor.getAllValues()) {
+        maybeMessageBody.ifPresent(messageBytes -> {
+          try {
+            sentMessages.add(MessageProtos.Envelope.parseFrom(messageBytes));
+          } catch (final InvalidProtocolBufferException e) {
+            fail("Could not parse sent message");
+          }
+        });
+      }
+
+      assertEquals(expectedMessages, sentMessages);
+    });
+  }
+
+  @Test
   void testProcessStoredMessagesClientClosed() {
     final WebSocketConnection webSocketConnection = new WebSocketConnection(
         mock(ReceiptSender.class),
@@ -254,8 +357,8 @@ class WebSocketConnectionIntegrationTest {
         expectedMessages.add(envelope);
       }
 
-      when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any())).thenReturn(
-          CompletableFuture.failedFuture(new IOException("Connection closed")));
+      when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any()))
+          .thenReturn(CompletableFuture.failedFuture(new IOException("Connection closed")));
 
       webSocketConnection.start();
 
@@ -293,5 +396,4 @@ class WebSocketConnectionIntegrationTest {
         .setDestinationServiceId(UUID.randomUUID().toString())
         .build();
   }
-
 }

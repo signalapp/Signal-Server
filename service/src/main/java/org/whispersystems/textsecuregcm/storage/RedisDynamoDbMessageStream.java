@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -29,16 +30,25 @@ public class RedisDynamoDbMessageStream implements MessageStream {
       final UUID accountIdentifier,
       final Device device) {
 
+    this(messagesDynamoDb, messagesCache, accountIdentifier, device, new RedisDynamoDbMessagePublisher(messagesDynamoDb,
+        messagesCache,
+        redisMessageAvailabilityManager,
+        accountIdentifier,
+        device));
+  }
+
+  @VisibleForTesting
+  RedisDynamoDbMessageStream(final MessagesDynamoDb messagesDynamoDb,
+      final MessagesCache messagesCache,
+      final UUID accountIdentifier,
+      final Device device,
+      final RedisDynamoDbMessagePublisher messagePublisher) {
+
     this.messagesDynamoDb = messagesDynamoDb;
     this.messagesCache = messagesCache;
     this.accountIdentifier = accountIdentifier;
     this.device = device;
-
-    this.messagePublisher = new RedisDynamoDbMessagePublisher(messagesDynamoDb,
-        messagesCache,
-        redisMessageAvailabilityManager,
-        accountIdentifier,
-        device);
+    this.messagePublisher = messagePublisher;
   }
 
   @Override
@@ -54,6 +64,7 @@ public class RedisDynamoDbMessageStream implements MessageStream {
         .thenCompose(removed -> removed.map(_ -> CompletableFuture.<Void>completedFuture(null))
             .orElseGet(() ->
                 messagesDynamoDb.deleteMessage(accountIdentifier, device, guid, message.getServerTimestamp())
-                    .thenRun(Util.NOOP)));
+                    .thenRun(Util.NOOP)))
+        .whenComplete((_, _) -> messagePublisher.handleMessageAcknowledged());
   }
 }

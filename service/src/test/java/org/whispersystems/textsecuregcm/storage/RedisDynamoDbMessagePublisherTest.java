@@ -206,7 +206,10 @@ class RedisDynamoDbMessagePublisherTest {
       }
 
       deleteRedisMessage(redisMessage);
+      messagePublisher.handleMessageAcknowledged();
+
       deleteDynamoDbMessage(dynamoDbMessage);
+      messagePublisher.handleMessageAcknowledged();
 
       insertRedisMessage(newArrivalRedisMessage);
       messagePublisher.handleNewMessageAvailable();
@@ -245,7 +248,10 @@ class RedisDynamoDbMessagePublisherTest {
       }
 
       deleteRedisMessage(redisMessage);
+      messagePublisher.handleMessageAcknowledged();
+
       deleteDynamoDbMessage(dynamoDbMessage);
+      messagePublisher.handleMessageAcknowledged();
 
       insertDynamoDbMessage(persistedMessage);
       messagePublisher.handleMessagesPersisted();
@@ -261,6 +267,41 @@ class RedisDynamoDbMessagePublisherTest {
         .expectNext(new MessageStreamEntry.Envelope(redisMessage))
         .expectNext(new MessageStreamEntry.QueueEmpty())
         .expectNext(new MessageStreamEntry.Envelope(persistedMessage))
+        .verifyTimeout(Duration.ofMillis(500));
+  }
+
+  @Test
+  void publishMessagesWaitForAcknowledgement() {
+    final MessageProtos.Envelope dynamoDbMessage = insertDynamoDbMessage(generateRandomMessage());
+    final MessageProtos.Envelope redisMessage = insertRedisMessage(generateRandomMessage());
+
+    final MessageProtos.Envelope persistedMessage = generateRandomMessage();
+
+    final RedisDynamoDbMessagePublisher messagePublisher =
+        new RedisDynamoDbMessagePublisher(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, DESTINATION_SERVICE_IDENTIFIER.uuid(), destinationDevice);
+
+    final CountDownLatch queueEmptyCountDownLatch = new CountDownLatch(1);
+
+    Thread.ofVirtual().start(() -> {
+      try {
+        queueEmptyCountDownLatch.await();
+      } catch (final InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+
+      insertDynamoDbMessage(persistedMessage);
+      messagePublisher.handleMessagesPersisted();
+    });
+
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messagePublisher)
+            .doOnNext(entry -> {
+              if (entry instanceof MessageStreamEntry.QueueEmpty) {
+                queueEmptyCountDownLatch.countDown();
+              }
+            }))
+        .expectNext(new MessageStreamEntry.Envelope(dynamoDbMessage))
+        .expectNext(new MessageStreamEntry.Envelope(redisMessage))
+        .expectNext(new MessageStreamEntry.QueueEmpty())
         .verifyTimeout(Duration.ofMillis(500));
   }
 
