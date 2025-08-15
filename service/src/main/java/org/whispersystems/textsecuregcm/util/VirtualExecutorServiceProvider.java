@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 @ManagedAsyncExecutor
 public class VirtualExecutorServiceProvider implements ExecutorServiceProvider {
+
   private static final Logger logger = LoggerFactory.getLogger(VirtualExecutorServiceProvider.class);
 
 
@@ -22,17 +23,24 @@ public class VirtualExecutorServiceProvider implements ExecutorServiceProvider {
    * Default thread pool executor termination timeout in milliseconds.
    */
   public static final int TERMINATION_TIMEOUT = 5000;
-  private final String virtualThreadNamePrefix;
 
-  public VirtualExecutorServiceProvider(final String virtualThreadNamePrefix) {
+  private final String virtualThreadNamePrefix;
+  private final int maxConcurrentThreads;
+
+  public VirtualExecutorServiceProvider(
+      final String virtualThreadNamePrefix,
+      final int maxConcurrentThreads) {
     this.virtualThreadNamePrefix = virtualThreadNamePrefix;
+    this.maxConcurrentThreads = maxConcurrentThreads;
   }
 
 
   @Override
   public ExecutorService getExecutorService() {
     logger.info("Creating executor service with virtual thread per task");
-    return Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name(virtualThreadNamePrefix, 0).factory());
+    final ExecutorService executor = Executors.newThreadPerTaskExecutor(
+        new BoundedVirtualThreadFactory(virtualThreadNamePrefix, maxConcurrentThreads));
+    return executor;
   }
 
   @Override

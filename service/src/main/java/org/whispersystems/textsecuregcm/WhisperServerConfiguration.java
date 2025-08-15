@@ -316,7 +316,7 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private VirtualThreadConfiguration virtualThread = new VirtualThreadConfiguration(Duration.ofMillis(1));
+  private VirtualThreadConfiguration virtualThread = new VirtualThreadConfiguration();
 
   @Valid
   @NotNull

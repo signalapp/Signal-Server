@@ -34,7 +34,7 @@ public class BufferingInterceptorIntegrationTest {
       final TestController testController = new TestController();
       environment.jersey().register(testController);
       environment.jersey().register(new BufferingInterceptor());
-      environment.jersey().register(new VirtualExecutorServiceProvider("virtual-thread-"));
+      environment.jersey().register(new VirtualExecutorServiceProvider("virtual-thread-", 10));
       JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
     }
   }

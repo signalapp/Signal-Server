@@ -258,6 +258,7 @@ import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.BufferingInterceptor;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
+import org.whispersystems.textsecuregcm.util.ManagedExecutors;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.VirtualExecutorServiceProvider;
@@ -395,8 +396,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.lifecycle().manage(new ManagedAwsCrt());
 
-    final ExecutorService awsSdkMetricsExecutor = environment.lifecycle()
-        .virtualExecutorService(name(getClass(), "awsSdkMetrics-%d"));
+    final ExecutorService awsSdkMetricsExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
+        "awsSdkMetrics",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
+        environment);
 
     final DynamoDbAsyncClient dynamoDbAsyncClient = config.getDynamoDbClientConfiguration()
         .buildAsyncClient(awsCredentialsProvider, new MicrometerAwsSdkMetricPublisher(awsSdkMetricsExecutor, "dynamoDbAsync"));
@@ -561,14 +564,23 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .maxThreads(2)
         .minThreads(2)
         .build();
-    ExecutorService googlePlayBillingExecutor = environment.lifecycle()
-        .virtualExecutorService(name(getClass(), "googlePlayBilling-%d"));
-    ExecutorService appleAppStoreExecutor = environment.lifecycle()
-        .virtualExecutorService(name(getClass(), "appleAppStore-%d"));
-    ExecutorService clientEventExecutor = environment.lifecycle()
-        .virtualExecutorService(name(getClass(), "clientEvent-%d"));
-    ExecutorService disconnectionRequestListenerExecutor = environment.lifecycle()
-        .virtualExecutorService(name(getClass(), "disconnectionRequest-%d"));
+
+    ExecutorService googlePlayBillingExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
+        "googlePlayBilling",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
+        environment);
+    ExecutorService appleAppStoreExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
+        "appleAppStore",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
+        environment);
+    ExecutorService clientEventExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
+        "clientEvent",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
+        environment);
+    ExecutorService disconnectionRequestListenerExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
+        "disconnectionRequest",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
+        environment);
 
     ScheduledExecutorService appleAppStoreRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "appleAppStoreRetry").threads(1).build();
     ScheduledExecutorService subscriptionProcessorRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "subscriptionProcessorRetry").threads(1).build();
@@ -976,7 +988,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.jersey().register(new BufferingInterceptor());
     environment.jersey().register(new RestDeprecationFilter(dynamicConfigurationManager, experimentEnrollmentManager));
 
-    environment.jersey().register(new VirtualExecutorServiceProvider("managed-async-virtual-thread-"));
+    environment.jersey().register(new VirtualExecutorServiceProvider(
+        "managed-async-virtual-thread",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor()));
     environment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
     environment.jersey().register(MultiRecipientMessageProvider.class);
@@ -987,7 +1001,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ///
     WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment = new WebSocketEnvironment<>(environment,
         config.getWebSocketConfiguration(), Duration.ofMillis(90000));
-    webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider("managed-async-websocket-virtual-thread-"));
+    webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider(
+        "managed-async-websocket-virtual-thread",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor()));
     webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
     webSocketEnvironment.setAuthenticatedWebSocketUpgradeFilter(new IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter(
         config.idlePrimaryDeviceReminderConfiguration().minIdleDuration(), Clock.systemUTC()));
