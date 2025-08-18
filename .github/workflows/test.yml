@@ -13,11 +13,16 @@ jobs:
     timeout-minutes: 20
 
     services:
-      foundationdb:
+      foundationdb0:
         # Note: this should generally match the version of the FoundationDB SERVER deployed in production; it's okay if
         # it's a little behind the CLIENT version.
         image: foundationdb/foundationdb:7.3.62
-        options: --name foundationdb
+        options: --name foundationdb0
+      foundationdb1:
+        # Note: this should generally match the version of the FoundationDB SERVER deployed in production; it's okay if
+        # it's a little behind the CLIENT version.
+        image: foundationdb/foundationdb:7.3.62
+        options: --name foundationdb1
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -49,12 +54,14 @@ jobs:
 
           # ca-certificates: required for AWS CRT client
           apt update && apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin ca-certificates
-      - name: Configure FoundationDB database
-        run: docker exec foundationdb /usr/bin/fdbcli --exec 'configure new single memory'
+      - name: Configure FoundationDB0 database
+        run: docker exec foundationdb0 /usr/bin/fdbcli --exec 'configure new single memory'
+      - name: Configure FoundationDB1 database
+        run: docker exec foundationdb1 /usr/bin/fdbcli --exec 'configure new single memory'
       - name: Download and install FoundationDB client
         run: |
           ./mvnw -e -B -Pexclude-spam-filter clean prepare-package -DskipTests=true
           cp service/target/jib-extra/usr/lib/libfdb_c.x86_64.so /usr/lib/libfdb_c.x86_64.so
           ldconfig
       - name: Build with Maven
-        run: ./mvnw -e -B clean verify -DfoundationDb.serviceContainerName=foundationdb
+        run: ./mvnw -e -B clean verify -DfoundationDb.serviceContainerNamePrefix=foundationdb
