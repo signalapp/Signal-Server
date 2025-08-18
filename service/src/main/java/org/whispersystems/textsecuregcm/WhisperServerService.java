@@ -40,6 +40,7 @@ import jakarta.servlet.Filter;
 import jakarta.servlet.ServletRegistration;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
@@ -411,6 +412,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final S3AsyncClient asyncCdnS3Client = S3AsyncClient.builder()
         .credentialsProvider(cdnCredentialsProvider)
         .region(Region.of(config.getCdnConfiguration().region()))
+        .endpointOverride(config.getCdnConfiguration().endpointOverride())
         .build();
 
     BlockingQueue<Runnable> messageDeletionQueue = new LinkedBlockingQueue<>();
@@ -442,6 +444,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     S3AsyncClient asyncKeysS3Client = S3AsyncClient.builder()
         .credentialsProvider(awsCredentialsProvider)
         .region(Region.of(config.getPagedSingleUseKEMPreKeyStore().region()))
+        .endpointOverride(config.getPagedSingleUseKEMPreKeyStore().endpointOverride())
         .build();
     KeysManager keysManager = new KeysManager(
         new SingleUseECPreKeyStore(dynamoDbAsyncClient, config.getDynamoDbTables().getEcKeys().getTableName()),
