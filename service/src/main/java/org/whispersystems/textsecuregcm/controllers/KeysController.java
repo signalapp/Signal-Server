@@ -6,7 +6,6 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
-import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
@@ -371,9 +370,8 @@ public class KeysController {
     final Account target = maybeTarget.orElseThrow(NotFoundException::new);
 
     if (account.isPresent()) {
-      rateLimiters.getPreKeysLimiter().validate(
-          account.get().getUuid() + "." + maybeAuthenticatedDevice.get().deviceId() + "__" + targetIdentifier.uuid()
-              + "." + deviceId);
+      rateLimiters.getPreKeysLimiter().validate(getPreKeysLimiterKey(account.get(), maybeAuthenticatedDevice.get(),
+          targetIdentifier, target, deviceId));
     }
 
     final List<Device> devices = parseDeviceId(deviceId, target);
@@ -408,5 +406,25 @@ public class KeysController {
     } catch (NumberFormatException e) {
       throw new WebApplicationException(Response.status(422).build());
     }
+  }
+
+  private String getPreKeysLimiterKey(
+      final Account account,
+      final AuthenticatedDevice authenticatedDevice,
+      final ServiceIdentifier targetIdentifier,
+      final Account targetAccount,
+      final String targetDeviceId) {
+    final String targetRegistrationId = targetDeviceId.equals("*")
+        ? "*"
+        : String.valueOf(
+            parseDeviceId(targetDeviceId, targetAccount).getFirst().getRegistrationId(targetIdentifier.identityType()));
+
+    return String.format("%s.%s__%s.%s.%s",
+        account.getUuid(),
+        authenticatedDevice.deviceId(),
+        targetIdentifier.uuid(),
+        targetDeviceId,
+        targetRegistrationId
+    );
   }
 }

@@ -371,8 +371,16 @@ class KeysControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get();
 
+    final String expectedRatelimitKey = String.format("%s.%s__%s.%s.%s",
+        AuthHelper.VALID_UUID,
+        AuthHelper.VALID_DEVICE.getId(),
+        EXISTS_PNI,
+        "*",
+        "*");
+
     assertThat(result.getStatus()).isEqualTo(429);
     assertThat(result.getHeaderString("Retry-After")).isEqualTo(String.valueOf(retryAfter.toSeconds()));
+    verify(rateLimiter).validate(expectedRatelimitKey);
   }
 
   @Test
