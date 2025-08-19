@@ -54,7 +54,6 @@ public class BackupAuthManager {
 
 
   final static Duration MAX_REDEMPTION_DURATION = Duration.ofDays(7);
-  final static String BACKUP_EXPERIMENT_NAME = "backup";
   final static String BACKUP_MEDIA_EXPERIMENT_NAME = "backupMedia";
 
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
@@ -99,9 +98,6 @@ public class BackupAuthManager {
       final Device device,
       final BackupAuthCredentialRequest messagesBackupCredentialRequest,
       final BackupAuthCredentialRequest mediaBackupCredentialRequest) {
-    if (configuredBackupLevel(account).isEmpty()) {
-      throw Status.PERMISSION_DENIED.withDescription("Backups not allowed on account").asRuntimeException();
-    }
     if (!device.isPrimary()) {
       throw Status.PERMISSION_DENIED.withDescription("Only primary device can set backup-id").asRuntimeException();
     }
@@ -172,10 +168,6 @@ public class BackupAuthManager {
       }).thenCompose(updated -> getBackupAuthCredentials(updated, credentialType, redemptionStart, redemptionEnd));
     }
 
-    // If this account isn't allowed some level of backup access via configuration, don't continue
-    final BackupLevel configuredBackupLevel = configuredBackupLevel(account).orElseThrow(() ->
-        Status.PERMISSION_DENIED.withDescription("Backups not allowed on account").asRuntimeException());
-
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
     if (redemptionStart.isAfter(redemptionEnd) ||
         redemptionStart.isBefore(startOfDay) ||
@@ -191,6 +183,8 @@ public class BackupAuthManager {
         .orElseThrow(() -> Status.NOT_FOUND.withDescription("No blinded backup-id has been added to the account").asRuntimeException());
 
     try {
+      final BackupLevel defaultBackupLevel = configuredBackupLevel(account);
+
       // create a credential for every day in the requested period
       final BackupAuthCredentialRequest credentialReq = new BackupAuthCredentialRequest(committedBytes);
       return CompletableFuture.completedFuture(Stream
@@ -198,7 +192,7 @@ public class BackupAuthManager {
           .map(redemptionTime -> {
             // Check if the account has a voucher that's good for a certain receiptLevel at redemption time, otherwise
             // use the default receipt level
-            final BackupLevel backupLevel = storedBackupLevel(account, redemptionTime).orElse(configuredBackupLevel);
+            final BackupLevel backupLevel = storedBackupLevel(account, redemptionTime).orElse(defaultBackupLevel);
             return new Credential(
                 credentialReq.issueCredential(redemptionTime, backupLevel, credentialType, serverSecretParams),
                 redemptionTime);
@@ -328,20 +322,12 @@ public class BackupAuthManager {
    * Get the backup receipt level that should be used by default for this account determined via configuration.
    *
    * @param account the account to check
-   * @return If present, the default receipt level that should be used for the account if the account does not have a
-   * BackupVoucher. Empty if the account should never have backup access
+   * @return The default receipt level that should be used for the account if the account does not have a
+   * BackupVoucher.
    */
-  private Optional<BackupLevel> configuredBackupLevel(final Account account) {
-    if (inExperiment(BACKUP_MEDIA_EXPERIMENT_NAME, account)) {
-      return Optional.of(BackupLevel.PAID);
-    }
-    if (inExperiment(BACKUP_EXPERIMENT_NAME, account)) {
-      return Optional.of(BackupLevel.FREE);
-    }
-    return Optional.empty();
-  }
-
-  private boolean inExperiment(final String experimentName, final Account account) {
-    return this.experimentEnrollmentManager.isEnrolled(account.getUuid(), experimentName);
+  private BackupLevel configuredBackupLevel(final Account account) {
+    return this.experimentEnrollmentManager.isEnrolled(account.getUuid(), BACKUP_MEDIA_EXPERIMENT_NAME)
+        ? BackupLevel.PAID
+        : BackupLevel.FREE;
   }
 }

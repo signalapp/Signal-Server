@@ -21,8 +21,8 @@ import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequestContext;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.backups.BackupLevel;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.tests.util.ExperimentHelper;
 
 public class BackupAuthTestUtil {
 
@@ -64,15 +64,15 @@ public class BackupAuthTestUtil {
       final Instant redemptionEnd) {
     final UUID aci = UUID.randomUUID();
 
-    final String experimentName = switch (backupLevel) {
-      case FREE -> BackupAuthManager.BACKUP_EXPERIMENT_NAME;
-      case PAID -> BackupAuthManager.BACKUP_MEDIA_EXPERIMENT_NAME;
-    };
     final BackupAuthManager issuer = new BackupAuthManager(
-        ExperimentHelper.withEnrollment(experimentName, aci), null, null, null, null, params, clock);
+        mock(ExperimentEnrollmentManager.class), null, null, null, null, params, clock);
     Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(aci);
     when(account.getBackupCredentialRequest(credentialType)).thenReturn(Optional.of(request.serialize()));
+    when(account.getBackupVoucher()).thenReturn(switch (backupLevel) {
+      case FREE -> null;
+      case PAID -> new Account.BackupVoucher(201L, redemptionEnd.plus(1, ChronoUnit.SECONDS));
+    });
     return issuer.getBackupAuthCredentials(account, credentialType, redemptionStart, redemptionEnd).join();
   }
 }
