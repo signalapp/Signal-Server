@@ -41,7 +41,7 @@ class MessagesCacheInsertScriptTest {
         .setServerGuid(UUID.randomUUID().toString())
         .build();
 
-    insertScript.executeAsync(destinationUuid, deviceId, envelope1);
+    insertScript.executeAsync(destinationUuid, deviceId, envelope1).join();
 
     assertEquals(List.of(EnvelopeUtil.compress(envelope1)), getStoredMessages(destinationUuid, deviceId));
 
@@ -50,12 +50,12 @@ class MessagesCacheInsertScriptTest {
         .setServerGuid(UUID.randomUUID().toString())
         .build();
 
-    insertScript.executeAsync(destinationUuid, deviceId, envelope2);
+    insertScript.executeAsync(destinationUuid, deviceId, envelope2).join();
 
     assertEquals(List.of(EnvelopeUtil.compress(envelope1), EnvelopeUtil.compress(envelope2)),
         getStoredMessages(destinationUuid, deviceId));
 
-    insertScript.executeAsync(destinationUuid, deviceId, envelope1);
+    insertScript.executeAsync(destinationUuid, deviceId, envelope1).join();
 
     assertEquals(List.of(EnvelopeUtil.compress(envelope1), EnvelopeUtil.compress(envelope2)),
         getStoredMessages(destinationUuid, deviceId),
@@ -92,9 +92,10 @@ class MessagesCacheInsertScriptTest {
         new MessagesCacheInsertScript(REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
     assertFalse(insertScript.executeAsync(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
-        .setServerTimestamp(Instant.now().getEpochSecond())
-        .setServerGuid(UUID.randomUUID().toString())
-        .build()).join());
+            .setServerTimestamp(Instant.now().getEpochSecond())
+            .setServerGuid(UUID.randomUUID().toString())
+            .build())
+        .join());
 
     final FaultTolerantPubSubClusterConnection<byte[], byte[]> pubSubClusterConnection =
         REDIS_CLUSTER_EXTENSION.getRedisCluster().createBinaryPubSubConnection();
@@ -103,8 +104,9 @@ class MessagesCacheInsertScriptTest {
         connection.sync().ssubscribe(RedisMessageAvailabilityManager.getClientEventChannel(destinationUuid, deviceId)));
 
     assertTrue(insertScript.executeAsync(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
-        .setServerTimestamp(Instant.now().getEpochSecond())
-        .setServerGuid(UUID.randomUUID().toString())
-        .build()).join());
+            .setServerTimestamp(Instant.now().getEpochSecond())
+            .setServerGuid(UUID.randomUUID().toString())
+            .build())
+        .join());
   }
 }
