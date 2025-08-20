@@ -4,6 +4,7 @@ import io.netty.channel.local.LocalAddress;
 import io.netty.channel.nio.NioEventLoopGroup;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.grpc.net.FramingType;
 import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.grpc.net.client.NoiseTunnelClient;
 import org.whispersystems.textsecuregcm.grpc.net.AbstractNoiseTunnelServerIntegrationTest;
@@ -44,6 +45,6 @@ class DirectNoiseTunnelServerIntegrationTest extends AbstractNoiseTunnelServerIn
   protected NoiseTunnelClient.Builder clientBuilder(final NioEventLoopGroup eventLoopGroup, final ECPublicKey serverPublicKey) {
     return new NoiseTunnelClient
         .Builder(noiseDirectTunnelServer.getLocalAddress(), eventLoopGroup, serverPublicKey)
-        .setFramingType(NoiseTunnelClient.FramingType.NOISE_DIRECT);
+        .setFramingType(FramingType.NOISE_DIRECT);
   }
 }

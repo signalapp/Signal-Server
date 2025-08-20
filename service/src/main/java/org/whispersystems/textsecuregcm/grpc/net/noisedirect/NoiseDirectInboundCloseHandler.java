@@ -16,7 +16,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
  * Watches for inbound close frames and closes the connection in response
  */
 public class NoiseDirectInboundCloseHandler extends ChannelInboundHandlerAdapter {
-  private static String CLIENT_CLOSE_COUNTER_NAME = MetricsUtil.name(ChannelInboundHandlerAdapter.class, "clientClose");
+  private static String CLIENT_CLOSE_COUNTER_NAME = MetricsUtil.name(NoiseDirectInboundCloseHandler.class, "clientClose");
   @Override
   public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
     if (msg instanceof NoiseDirectFrame ndf && ndf.frameType() == NoiseDirectFrame.FrameType.CLOSE) {

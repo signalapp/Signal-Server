@@ -104,6 +104,8 @@ public class NoiseWebSocketTunnelServer implements Managed {
                 // request and passed it down the pipeline
                 .addLast(new WebSocketOpeningHandshakeHandler(AUTHENTICATED_SERVICE_PATH, ANONYMOUS_SERVICE_PATH, HEALTH_CHECK_PATH))
                 .addLast(new WebSocketServerProtocolHandler("/", true))
+                // Metrics on inbound/outbound Close frames
+                .addLast(new WebSocketCloseMetricHandler())
                 // Turn generic OutboundCloseErrorMessages into websocket close frames
                 .addLast(new WebSocketOutboundErrorHandler())
                 .addLast(new RejectUnsupportedMessagesHandler())
@@ -116,7 +118,10 @@ public class NoiseWebSocketTunnelServer implements Managed {
                 .addLast(new NoiseHandshakeHandler(clientPublicKeysManager, ecKeyPair))
                 // This handler will open a local connection to the appropriate gRPC server and install a ProxyHandler
                 // once the Noise handshake has completed
-                .addLast(new EstablishLocalGrpcConnectionHandler(grpcClientConnectionManager, authenticatedGrpcServerAddress, anonymousGrpcServerAddress))
+                .addLast(new EstablishLocalGrpcConnectionHandler(
+                    grpcClientConnectionManager,
+                    authenticatedGrpcServerAddress, anonymousGrpcServerAddress,
+                    FramingType.WEBSOCKET))
                 .addLast(new ErrorHandler());
           }
         });

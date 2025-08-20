@@ -46,6 +46,7 @@ import java.util.function.Supplier;
 import javax.net.ssl.SSLException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.grpc.net.FramingType;
 import org.whispersystems.textsecuregcm.grpc.net.NoiseTunnelProtos;
 import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectFrame;
 import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectFrameCodec;
@@ -63,11 +64,6 @@ public class NoiseTunnelClient implements AutoCloseable {
 
   public static final URI AUTHENTICATED_WEBSOCKET_URI = URI.create("wss://localhost/authenticated");
   public static final URI ANONYMOUS_WEBSOCKET_URI = URI.create("wss://localhost/anonymous");
-
-  public enum FramingType {
-    WEBSOCKET,
-    NOISE_DIRECT
-  }
 
   public static class Builder {
 

@@ -10,11 +10,13 @@ import io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.grpc.net.OutboundCloseErrorMessage;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 
 /**
  * Converts {@link OutboundCloseErrorMessage}s written to the pipeline into WebSocket close frames
  */
 class WebSocketOutboundErrorHandler extends ChannelDuplexHandler {
+  private static String SERVER_CLOSE_COUNTER_NAME = MetricsUtil.name(WebSocketOutboundErrorHandler.class, "serverClose");
 
   private boolean websocketHandshakeComplete = false;
 

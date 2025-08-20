@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.grpc.net.noisedirect;
 
+import io.micrometer.core.instrument.Metrics;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufOutputStream;
 import io.netty.channel.ChannelFutureListener;
@@ -7,12 +8,14 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
 import org.whispersystems.textsecuregcm.grpc.net.OutboundCloseErrorMessage;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 
 /**
  * Translates {@link OutboundCloseErrorMessage}s into {@link NoiseDirectFrame} error frames. After error frames are
  * written, the channel is closed
  */
 class NoiseDirectOutboundErrorHandler extends ChannelOutboundHandlerAdapter {
+  private static String SERVER_CLOSE_COUNTER_NAME = MetricsUtil.name(NoiseDirectInboundCloseHandler.class, "serverClose");
 
   @Override
   public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
@@ -23,6 +26,8 @@ class NoiseDirectOutboundErrorHandler extends ChannelOutboundHandlerAdapter {
         case NOISE_HANDSHAKE_ERROR -> NoiseDirectProtos.CloseReason.Code.HANDSHAKE_ERROR;
         case INTERNAL_SERVER_ERROR -> NoiseDirectProtos.CloseReason.Code.INTERNAL_ERROR;
       };
+      Metrics.counter(SERVER_CLOSE_COUNTER_NAME, "reason", code.name()).increment();
+
       final NoiseDirectProtos.CloseReason proto = NoiseDirectProtos.CloseReason.newBuilder()
           .setCode(code)
           .setMessage(err.message())

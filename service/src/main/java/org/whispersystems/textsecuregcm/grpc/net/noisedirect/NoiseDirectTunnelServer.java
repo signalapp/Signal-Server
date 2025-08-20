@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.grpc.net.ErrorHandler;
 import org.whispersystems.textsecuregcm.grpc.net.EstablishLocalGrpcConnectionHandler;
+import org.whispersystems.textsecuregcm.grpc.net.FramingType;
 import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.grpc.net.HAProxyMessageHandler;
 import org.whispersystems.textsecuregcm.grpc.net.NoiseHandshakeHandler;
@@ -68,7 +69,9 @@ public class NoiseDirectTunnelServer implements Managed {
                 // This handler will open a local connection to the appropriate gRPC server and install a ProxyHandler
                 // once the Noise handshake has completed
                 .addLast(new EstablishLocalGrpcConnectionHandler(
-                    grpcClientConnectionManager, authenticatedGrpcServerAddress, anonymousGrpcServerAddress))
+                    grpcClientConnectionManager,
+                    authenticatedGrpcServerAddress, anonymousGrpcServerAddress,
+                    FramingType.NOISE_DIRECT))
                 .addLast(new ErrorHandler());
           }
         });

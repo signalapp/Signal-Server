@@ -1,5 +1,8 @@
 package org.whispersystems.textsecuregcm.grpc.net;
 
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -15,6 +18,8 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 
 /**
  * An "establish local connection" handler waits for a Noise handshake to complete upstream in the pipeline, buffering
@@ -22,24 +27,28 @@ import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
  * server.
  */
 public class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAdapter {
+  private static final Logger log = LoggerFactory.getLogger(EstablishLocalGrpcConnectionHandler.class);
 
   private final GrpcClientConnectionManager grpcClientConnectionManager;
 
   private final LocalAddress authenticatedGrpcServerAddress;
   private final LocalAddress anonymousGrpcServerAddress;
+  private final FramingType framingType;
 
   private final List<Object> pendingReads = new ArrayList<>();
 
-  private static final Logger log = LoggerFactory.getLogger(EstablishLocalGrpcConnectionHandler.class);
+  private static final String CONNECTION_ESTABLISHED_COUNTER_NAME = MetricsUtil.name(EstablishLocalGrpcConnectionHandler.class, "established");
 
   public EstablishLocalGrpcConnectionHandler(final GrpcClientConnectionManager grpcClientConnectionManager,
       final LocalAddress authenticatedGrpcServerAddress,
-      final LocalAddress anonymousGrpcServerAddress) {
+      final LocalAddress anonymousGrpcServerAddress,
+      final FramingType framingType) {
 
     this.grpcClientConnectionManager = grpcClientConnectionManager;
 
     this.authenticatedGrpcServerAddress = authenticatedGrpcServerAddress;
     this.anonymousGrpcServerAddress = anonymousGrpcServerAddress;
+    this.framingType = framingType;
   }
 
   @Override
@@ -62,6 +71,12 @@ public class EstablishLocalGrpcConnectionHandler extends ChannelInboundHandlerAd
 
       GrpcClientConnectionManager.handleHandshakeInitiated(
           remoteChannelContext.channel(), remoteAddress, userAgent, acceptLanguage);
+
+      final List<Tag> tags = UserAgentTagUtil.getLibsignalAndPlatformTags(userAgent);
+      Metrics.counter(CONNECTION_ESTABLISHED_COUNTER_NAME, Tags.of(tags)
+          .and("authenticated", Boolean.toString(authenticatedDevice.isPresent()))
+          .and("framingType", framingType.name()))
+          .increment();
 
       new Bootstrap()
           .remoteAddress(grpcServerAddress)

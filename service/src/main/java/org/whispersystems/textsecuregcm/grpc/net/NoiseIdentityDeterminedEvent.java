@@ -18,4 +18,5 @@ public record NoiseIdentityDeterminedEvent(
     Optional<AuthenticatedDevice> authenticatedDevice,
     InetAddress remoteAddress,
     String userAgent,
-    String acceptLanguage) {}
+    String acceptLanguage) {
+}
