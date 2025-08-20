@@ -148,6 +148,7 @@ import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsAnonymous
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
+import org.whispersystems.textsecuregcm.grpc.MetricServerInterceptor;
 import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
@@ -830,8 +831,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final ManagedDefaultEventLoopGroup localEventLoopGroup = new ManagedDefaultEventLoopGroup();
 
     final RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
-    final MetricCollectingServerInterceptor metricCollectingServerInterceptor =
-        new MetricCollectingServerInterceptor(Metrics.globalRegistry);
+    final MetricServerInterceptor metricServerInterceptor = new MetricServerInterceptor(Metrics.globalRegistry, clientReleaseManager);
 
     final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
     final RequestAttributesInterceptor requestAttributesInterceptor =
@@ -853,8 +853,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                 new ExternalRequestFilter(config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
                     config.getExternalRequestFilterConfiguration().grpcMethods()))
             .intercept(validatingInterceptor)
-            // TODO: specialize metrics with user-agent platform
-            .intercept(metricCollectingServerInterceptor)
+            .intercept(metricServerInterceptor)
             .intercept(errorMappingInterceptor)
             .intercept(remoteDeprecationFilter)
             .intercept(requestAttributesInterceptor)
@@ -874,9 +873,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         // depends on the user-agent context so it has to come first here!
         // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
         serverBuilder
-            // TODO: specialize metrics with user-agent platform
             .intercept(validatingInterceptor)
-            .intercept(metricCollectingServerInterceptor)
+            .intercept(metricServerInterceptor)
             .intercept(errorMappingInterceptor)
             .intercept(remoteDeprecationFilter)
             .intercept(requestAttributesInterceptor)
