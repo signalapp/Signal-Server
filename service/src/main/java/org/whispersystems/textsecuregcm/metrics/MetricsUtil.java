@@ -19,24 +19,16 @@ import io.micrometer.core.instrument.binder.system.FileDescriptorMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
-import io.micrometer.registry.otlp.HistogramFlavor;
 import io.micrometer.registry.otlp.OtlpMeterRegistry;
 import io.micrometer.statsd.StatsdMeterRegistry;
 import java.time.Duration;
-import java.util.Optional;
-import java.util.stream.IntStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
-import org.whispersystems.textsecuregcm.configuration.OpenTelemetryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Constants;
 
 public class MetricsUtil {
-
-  private static final Logger log = LoggerFactory.getLogger(MetricsUtil.class);
 
   public static final String PREFIX = "chat";
 
@@ -92,7 +84,6 @@ public class MetricsUtil {
         config.getOpenTelemetryConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
 
       configureMeterFilters(otlpMeterRegistry.config(), dynamicConfigurationManager);
-      configureHistogramFilters(otlpMeterRegistry.config(), config.getOpenTelemetryConfiguration());
       Metrics.addRegistry(otlpMeterRegistry);
 
       if (config.getOpenTelemetryConfiguration().shutdownWaitDuration().compareTo(shutdownWaitDuration) > 0) {
@@ -112,6 +103,7 @@ public class MetricsUtil {
   static void configureMeterFilters(MeterRegistry.Config config,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     final DistributionStatisticConfig defaultDistributionStatisticConfig = DistributionStatisticConfig.builder()
+        .percentilesHistogram(true)
         .percentiles(.75, .95, .99, .999)
         .build();
 
@@ -120,7 +112,7 @@ public class MetricsUtil {
     config.meterFilter(new MeterFilter() {
           @Override
           public DistributionStatisticConfig configure(final Meter.Id id, final DistributionStatisticConfig config) {
-            return Optional.ofNullable(config.isPercentileHistogram()).orElse(false) ? config : defaultDistributionStatisticConfig.merge(config);
+            return defaultDistributionStatisticConfig.merge(config);
           }
         })
         // Remove high-cardinality `command` tags from Lettuce metrics and prepend "chat." to meter names
@@ -142,54 +134,6 @@ public class MetricsUtil {
         .meterFilter(MeterFilter.denyNameStartsWith(MessageMetrics.DELIVERY_LATENCY_TIMER_NAME + ".percentile"))
         .meterFilter(MeterFilter.deny(id -> !dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().enableAwsSdkMetrics()
             && id.getName().startsWith(awsSdkMetricNamePrefix)));
-  }
-
-  @VisibleForTesting
-  static void configureHistogramFilters(MeterRegistry.Config config, OpenTelemetryConfiguration openTelemetryConfig) {
-    if (openTelemetryConfig.histogramFlavor() != HistogramFlavor.EXPLICIT_BUCKET_HISTOGRAM) {
-      // This workaround for Micrometer's awful defaults is only required for explicit bucket histograms.
-      return;
-    }
-
-    config.meterFilter(new MeterFilter() {
-      @Override
-      public DistributionStatisticConfig configure(final Meter.Id id, final DistributionStatisticConfig config) {
-        if (config.isPercentileHistogram() == null || !config.isPercentileHistogram()) {
-          return config;
-        }
-
-        if (config.getMinimumExpectedValueAsDouble() == null || config.getMaximumExpectedValueAsDouble() == null) {
-          log.error("Distribution {} does not specify lower or upper bounds, not exporting histograms", id.getName());
-          return DistributionStatisticConfig.builder()
-            .percentilesHistogram(false)
-            .build()
-            .merge(config);
-        }
-
-        final double lowerBound = config.getMinimumExpectedValueAsDouble();
-        final double upperBound = config.getMaximumExpectedValueAsDouble();
-
-        final int numBuckets = Optional.ofNullable(openTelemetryConfig.maxBucketsPerMeter().get(id.getName()))
-          .orElse(openTelemetryConfig.maxBucketCount());
-
-        // Bucket i covers values from (buckets[i-1], buckets[i]] except the first one which covers (-inf, buckets[0]].
-        // A final bucket will automatically be added at positive infinity, so if we want numBuckets total buckets, we
-        // need numBuckets - 1 explicit ones; if we want those to have equal ratios between values, and want an explicit
-        // bucket for (-inf, lowerBound] as well as an implicit one for (upperBound, inf], the ratio between buckets will be
-        // r = (upperBound/lowerBound)^(1/(numBuckets - 2)), so that we have values at lowerBound * r^i
-        // for i in [0, numBuckets-2] i.e. numBuckets - 1 values, plus the one at infinity
-        final double scale = Math.pow(upperBound / lowerBound, 1.0 / (numBuckets - 2));
-        final double[] buckets = IntStream.range(0, numBuckets - 1).mapToDouble(i -> lowerBound * Math.pow(scale, i)).toArray();
-
-        // yes, percentilesHistogram(false)! Otherwise, Micrometer will add its own non-configurable buckets based on an
-        // inferior selection algorithm that produces 69(!) buckets for a range from 1ms to 30s and still yields ±25% relative error
-        return DistributionStatisticConfig.builder()
-            .percentilesHistogram(false)
-            .serviceLevelObjectives(buckets)
-            .build()
-            .merge(config);
-      }
-    });
   }
 
   public static void registerSystemResourceMetrics(final Environment environment) {

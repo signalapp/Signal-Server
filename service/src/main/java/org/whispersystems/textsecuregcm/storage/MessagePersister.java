@@ -66,8 +66,6 @@ public class MessagePersister implements Managed {
 
   private static final DistributionSummary QUEUE_COUNT_DISTRIBUTION_SUMMARY = DistributionSummary.builder(
           name(MessagePersister.class, "queueCount"))
-      .publishPercentiles(new double[0])
-      .serviceLevelObjectives(IntStream.range(1, QUEUE_BATCH_LIMIT + 1).mapToDouble(i -> i).toArray())
       .register(Metrics.globalRegistry);
 
   private static final long EXCEPTION_PAUSE_MILLIS = Duration.ofSeconds(3).toMillis();

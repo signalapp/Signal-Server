@@ -37,8 +37,6 @@ public class MultiRecipientMessageProvider implements MessageBodyReader<SealedSe
   private static final DistributionSummary RECIPIENT_COUNT_DISTRIBUTION = DistributionSummary
       .builder(name(MultiRecipientMessageProvider.class, "recipients"))
       .publishPercentileHistogram(true)
-      .minimumExpectedValue(1.0)
-      .maximumExpectedValue((double) MAX_RECIPIENT_COUNT)
       .register(Metrics.globalRegistry);
 
   @Override

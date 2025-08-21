@@ -119,7 +119,7 @@ class WebSocketConnectionTest {
     WebSocketAccountAuthenticator webSocketAuthenticator =
         new WebSocketAccountAuthenticator(accountAuthenticator);
     AuthenticatedConnectListener connectListener = new AuthenticatedConnectListener(accountsManager, receiptSender, messagesManager,
-        new MessageMetrics(Duration.ofDays(30)), mock(PushNotificationManager.class), mock(PushNotificationScheduler.class),
+        new MessageMetrics(), mock(PushNotificationManager.class), mock(PushNotificationScheduler.class),
         mock(RedisMessageAvailabilityManager.class), mock(DisconnectionRequestManager.class),
         messageDeliveryScheduler, clientReleaseManager, mock(MessageDeliveryLoopMonitor.class),
         mock(ExperimentEnrollmentManager.class));
@@ -625,7 +625,7 @@ class WebSocketConnectionTest {
   private WebSocketConnection webSocketConnection(final WebSocketClient client) {
     return new WebSocketConnection(receiptSender,
         messagesManager,
-        new MessageMetrics(Duration.ofDays(30)),
+        new MessageMetrics(),
         mock(PushNotificationManager.class),
         mock(PushNotificationScheduler.class),
         account,

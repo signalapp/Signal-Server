@@ -980,7 +980,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(clientReleaseManager,
         Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
     metricsHttpChannelListener.configure(environment);
-    final MessageMetrics messageMetrics = new MessageMetrics(config.getDynamoDbTables().getMessages().getExpiration());
+    final MessageMetrics messageMetrics = new MessageMetrics();
     final BackupMetrics backupMetrics = new BackupMetrics();
 
     // BufferingInterceptor is needed on the base environment but not the WebSocketEnvironment,

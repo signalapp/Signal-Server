@@ -394,8 +394,6 @@ public class DeviceController {
               if (response != null && response.getStatus() == Response.Status.OK.getStatusCode()) {
                 accountAndSample.second().stop(Timer.builder(WAIT_FOR_LINKED_DEVICE_TIMER_NAME)
                     .publishPercentileHistogram(true)
-                    .minimumExpectedValue(Duration.ofMillis(100))
-                    .maximumExpectedValue(Duration.ofMinutes(1))
                     .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
                     .register(Metrics.globalRegistry));
               }
@@ -616,8 +614,6 @@ public class DeviceController {
               if (response != null && response.getStatus() == Response.Status.OK.getStatusCode()) {
                 accountAndSample.second().stop(Timer.builder(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME)
                     .publishPercentileHistogram(true)
-                    .minimumExpectedValue(Duration.ofMillis(250))
-                    .maximumExpectedValue(Duration.ofMinutes(5))
                     .tags(Tags.of(
                         UserAgentTagUtil.getPlatformTag(userAgent),
                         primaryPlatformTag(accountAndSample.first())))

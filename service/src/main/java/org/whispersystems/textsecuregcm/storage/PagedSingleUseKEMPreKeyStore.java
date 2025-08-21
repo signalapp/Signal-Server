@@ -22,8 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,8 +73,7 @@ public class PagedSingleUseKEMPreKeyStore {
 
   final DistributionSummary availableKeyCountDistributionSummary = DistributionSummary
       .builder(name(getClass(), "availableKeyCount"))
-      .publishPercentiles(new double[0])
-      .serviceLevelObjectives(IntStream.range(1, 102).mapToDouble(i -> i).toArray())
+      .publishPercentileHistogram()
       .register(Metrics.globalRegistry);
 
   private final String takeKeyTimerName = name(getClass(), "takeKey");

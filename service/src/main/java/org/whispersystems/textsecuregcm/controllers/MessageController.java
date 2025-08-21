@@ -152,15 +152,11 @@ public class MessageController {
     INDIVIDUAL_MESSAGE_LATENCY_TIMER = Timer.builder(timerName)
         .tags(multiRecipientTagName, "false")
         .publishPercentileHistogram(true)
-        .minimumExpectedValue(Duration.ofMillis(1))
-        .minimumExpectedValue(Duration.ofSeconds(10))
         .register(Metrics.globalRegistry);
 
     MULTI_RECIPIENT_MESSAGE_LATENCY_TIMER = Timer.builder(timerName)
         .tags(multiRecipientTagName, "true")
         .publishPercentileHistogram(true)
-        .minimumExpectedValue(Duration.ofMillis(1))
-        .minimumExpectedValue(Duration.ofSeconds(10))
         .register(Metrics.globalRegistry);
   }
 

@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.configuration;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.micrometer.registry.otlp.HistogramFlavor;
 import io.micrometer.registry.otlp.OtlpConfig;
 import java.time.Duration;
 import java.util.Map;
@@ -31,6 +32,11 @@ public record OpenTelemetryConfiguration(
       return Map.of();
     }
     return maxBucketsPerMeter;
+  }
+
+  @Override
+  public HistogramFlavor histogramFlavor() {
+    return HistogramFlavor.BASE2_EXPONENTIAL_BUCKET_HISTOGRAM;
   }
 
   public Duration shutdownWaitDuration() {

@@ -195,7 +195,7 @@ class MessageControllerTest {
           new MessageController(rateLimiters, cardinalityEstimator, messageSender, receiptSender, accountsManager,
               messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
               reportMessageManager, messageDeliveryScheduler, mock(ClientReleaseManager.class),
-              serverSecretParams, SpamChecker.noop(), new MessageMetrics(Duration.ofDays(30)), mock(MessageDeliveryLoopMonitor.class),
+              serverSecretParams, SpamChecker.noop(), new MessageMetrics(), mock(MessageDeliveryLoopMonitor.class),
               clock))
       .build();
 

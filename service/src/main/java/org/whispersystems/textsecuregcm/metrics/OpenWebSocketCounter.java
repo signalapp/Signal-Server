@@ -6,8 +6,6 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
-
-import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.whispersystems.textsecuregcm.util.EnumMapUtil;
@@ -22,7 +20,6 @@ public class OpenWebSocketCounter {
 
   private final String newConnectionCounterName;
   private final String durationTimerName;
-  private final Duration longestExpectedConnectionDuration;
 
   private final Tags tags;
 
@@ -31,21 +28,18 @@ public class OpenWebSocketCounter {
 
   public OpenWebSocketCounter(final String openWebSocketGaugeName,
       final String newConnectionCounterName,
-      final String durationTimerName,
-      final Duration longestExpectedConnectionDuration) {
+      final String durationTimerName) {
 
-    this(openWebSocketGaugeName, newConnectionCounterName, durationTimerName, longestExpectedConnectionDuration, Tags.empty());
+    this(openWebSocketGaugeName, newConnectionCounterName, durationTimerName, Tags.empty());
   }
 
   public OpenWebSocketCounter(final String openWebSocketGaugeName,
       final String newConnectionCounterName,
       final String durationTimerName,
-      final Duration longestExpectedConnectionDuration,
       final Tags tags) {
 
     this.newConnectionCounterName = newConnectionCounterName;
     this.durationTimerName = durationTimerName;
-    this.longestExpectedConnectionDuration = longestExpectedConnectionDuration;
 
     this.tags = tags;
 
@@ -92,8 +86,6 @@ public class OpenWebSocketCounter {
     context.addWebsocketClosedListener((_, statusCode, _) -> {
       sample.stop(Timer.builder(durationTimerName)
           .publishPercentileHistogram(true)
-          .minimumExpectedValue(Duration.ofSeconds(1))
-          .maximumExpectedValue(longestExpectedConnectionDuration)
           .tags(tagsWithClientPlatform)
           .register(Metrics.globalRegistry));
 

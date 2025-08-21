@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +42,7 @@ class MessageMetricsTest {
     when(account.isIdentifiedBy(new AciServiceIdentifier(aci))).thenReturn(true);
     when(account.isIdentifiedBy(new PniServiceIdentifier(pni))).thenReturn(true);
     simpleMeterRegistry = new SimpleMeterRegistry();
-    messageMetrics = new MessageMetrics(simpleMeterRegistry, Duration.ofDays(30));
+    messageMetrics = new MessageMetrics(simpleMeterRegistry);
   }
 
   @Test
