@@ -101,10 +101,10 @@ class WebSocketConnectionIntegrationTest {
     dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
+        messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class));
     messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(7),
-        sharedExecutorService);
+        sharedExecutorService, mock(ExperimentEnrollmentManager.class));
     redisMessageAvailabilityManager = new RedisMessageAvailabilityManager(REDIS_CLUSTER_EXTENSION.getRedisCluster(), sharedExecutorService, sharedExecutorService);
     reportMessageManager = mock(ReportMessageManager.class);
     account = mock(Account.class);

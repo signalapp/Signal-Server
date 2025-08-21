@@ -69,6 +69,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.reactivestreams.Publisher;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -106,7 +107,7 @@ class MessagesCacheTest {
       resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
       messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
+          messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class));
     }
 
     @AfterEach
@@ -299,7 +300,7 @@ class MessagesCacheTest {
       }
 
       final MessagesCache messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-          messageDeliveryScheduler, sharedExecutorService, cacheClock);
+          messageDeliveryScheduler, sharedExecutorService, cacheClock, mock(ExperimentEnrollmentManager.class));
 
       final List<MessageProtos.Envelope> actualMessages = Flux.from(
               messagesCache.get(DESTINATION_UUID, DESTINATION_DEVICE_ID))
@@ -623,7 +624,7 @@ class MessagesCacheTest {
       messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
 
       messagesCache = new MessagesCache(mockCluster, messageDeliveryScheduler,
-          Executors.newSingleThreadExecutor(), Clock.systemUTC());
+          Executors.newSingleThreadExecutor(), Clock.systemUTC(), mock(ExperimentEnrollmentManager.class));
     }
 
     @AfterEach

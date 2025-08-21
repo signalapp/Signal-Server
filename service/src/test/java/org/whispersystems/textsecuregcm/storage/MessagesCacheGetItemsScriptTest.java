@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 
 import io.lettuce.core.RedisCommandExecutionException;
 import io.lettuce.core.ScriptOutputType;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 
@@ -51,7 +53,8 @@ class MessagesCacheGetItemsScriptTest {
     assertNotNull(messageAndScores);
     assertEquals(2, messageAndScores.size());
     final MessageProtos.Envelope resultEnvelope =
-        EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(messageAndScores.getFirst()));
+        EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(messageAndScores.getFirst()),
+            mock(ExperimentEnrollmentManager.class));
 
     assertEquals(serverGuid, resultEnvelope.getServerGuid());
   }

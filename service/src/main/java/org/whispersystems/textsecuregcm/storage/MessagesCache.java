@@ -42,6 +42,7 @@ import org.signal.libsignal.protocol.ServiceId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -118,6 +119,7 @@ public class MessagesCache {
   private final ExecutorService messageDeletionExecutorService;
   // messageDeletionExecutorService wrapped into a reactor Scheduler
   private final Scheduler messageDeletionScheduler;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private final MessagesCacheInsertScript insertScript;
   private final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript;
@@ -167,7 +169,8 @@ public class MessagesCache {
   public MessagesCache(final FaultTolerantRedisClusterClient redisCluster,
       final Scheduler messageDeliveryScheduler,
       final ExecutorService messageDeletionExecutorService,
-      final Clock clock)
+      final Clock clock,
+      final ExperimentEnrollmentManager experimentEnrollmentManager)
       throws IOException {
 
     this(
@@ -175,6 +178,7 @@ public class MessagesCache {
         messageDeliveryScheduler,
         messageDeletionExecutorService,
         clock,
+        experimentEnrollmentManager,
         new MessagesCacheInsertScript(redisCluster),
         new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(redisCluster),
         new MessagesCacheGetItemsScript(redisCluster),
@@ -190,6 +194,7 @@ public class MessagesCache {
   MessagesCache(final FaultTolerantRedisClusterClient redisCluster,
                 final Scheduler messageDeliveryScheduler,
                 final ExecutorService messageDeletionExecutorService, final Clock clock,
+                final ExperimentEnrollmentManager experimentEnrollmentManager,
                 final MessagesCacheInsertScript insertScript,
                 final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript,
                 final MessagesCacheGetItemsScript getItemsScript, final MessagesCacheRemoveByGuidScript removeByGuidScript,
@@ -204,6 +209,7 @@ public class MessagesCache {
     this.messageDeliveryScheduler = messageDeliveryScheduler;
     this.messageDeletionExecutorService = messageDeletionExecutorService;
     this.messageDeletionScheduler = Schedulers.fromExecutorService(messageDeletionExecutorService, "messageDeletion");
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
 
     this.insertScript = insertScript;
     this.insertMrmScript = insertMrmScript;
@@ -750,9 +756,9 @@ public class MessagesCache {
     return Byte.parseByte(queueName.substring(queueName.lastIndexOf("::") + 2, queueName.lastIndexOf('}')));
   }
 
-  private static MessageProtos.Envelope parseEnvelope(final byte[] envelopeBytes)
+  private MessageProtos.Envelope parseEnvelope(final byte[] envelopeBytes)
       throws InvalidProtocolBufferException {
 
-    return EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(envelopeBytes));
+    return EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(envelopeBytes), experimentEnrollmentManager);
   }
 }

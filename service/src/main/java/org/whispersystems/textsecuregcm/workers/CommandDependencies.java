@@ -235,7 +235,7 @@ record CommandDependencies(
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getMessages().getTableName(),
         configuration.getDynamoDbTables().getMessages().getExpiration(),
-        messageDeletionExecutor);
+        messageDeletionExecutor, experimentEnrollmentManager);
     FaultTolerantRedisClusterClient messagesCluster = configuration.getMessageCacheConfiguration()
         .getRedisClusterConfiguration().build("messages", redisClientResourcesBuilder);
     FaultTolerantRedisClusterClient rateLimitersCluster = configuration.getRateLimitersCluster().build("rate_limiters",
@@ -257,7 +257,7 @@ record CommandDependencies(
     GrpcClientConnectionManager grpcClientConnectionManager = new GrpcClientConnectionManager();
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, grpcClientConnectionManager, disconnectionRequestListenerExecutor);
     MessagesCache messagesCache = new MessagesCache(messagesCluster,
-        messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC());
+        messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC(), experimentEnrollmentManager);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster, asyncCdnS3Client,
         configuration.getCdnConfiguration().bucket());
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient, dynamoDbAsyncClient,

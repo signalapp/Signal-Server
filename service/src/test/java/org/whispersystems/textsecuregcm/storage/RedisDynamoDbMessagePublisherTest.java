@@ -36,6 +36,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
@@ -80,10 +81,11 @@ class RedisDynamoDbMessagePublisherTest {
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.MESSAGES.tableName(),
         Duration.ofDays(14),
-        sharedExecutorService);
+        sharedExecutorService,
+        mock(ExperimentEnrollmentManager.class));
 
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
+        messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class));
 
     redisMessageAvailabilityManager = mock(RedisMessageAvailabilityManager.class);
 

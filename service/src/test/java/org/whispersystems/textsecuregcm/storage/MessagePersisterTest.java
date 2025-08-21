@@ -53,6 +53,7 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagePersisterConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -115,7 +116,7 @@ class MessagePersisterTest {
     resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC());
+        messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class));
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY, 1);
 

@@ -5,9 +5,21 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.google.protobuf.ByteString;
-import org.junit.jupiter.api.Test;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.grpc.ServiceIdentifierUtil;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -16,15 +28,15 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
-import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
-
-import static org.junit.jupiter.api.Assertions.*;
-
 class EnvelopeUtilTest {
 
-  @Test
-  void compressExpand() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void compressExpand(final boolean includeBinaryServiceIdentifiers) {
+    final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
+    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(EnvelopeUtil.INCLUDE_BINARY_SERVICE_ID_EXPERIMENT_NAME)))
+        .thenReturn(includeBinaryServiceIdentifiers);
+
     {
       final MessageProtos.Envelope compressibleFieldsNullMessage = generateRandomMessageBuilder().build();
       final MessageProtos.Envelope compressed = EnvelopeUtil.compress(compressibleFieldsNullMessage);
@@ -38,7 +50,7 @@ class EnvelopeUtilTest {
       assertFalse(compressed.hasUpdatedPni());
       assertFalse(compressed.hasUpdatedPniBinary());
 
-      final MessageProtos.Envelope expanded = EnvelopeUtil.expand(compressed);
+      final MessageProtos.Envelope expanded = EnvelopeUtil.expand(compressed, experimentEnrollmentManager);
 
       assertFalse(expanded.hasSourceServiceId());
       assertFalse(expanded.hasSourceServiceIdBinary());
@@ -76,22 +88,31 @@ class EnvelopeUtilTest {
 
       assertEquals(compressed, EnvelopeUtil.compress(compressed), "Double compression should make no changes");
 
-      final MessageProtos.Envelope expanded = EnvelopeUtil.expand(compressed);
+      final MessageProtos.Envelope expanded = EnvelopeUtil.expand(compressed, experimentEnrollmentManager);
 
       assertEquals(sourceServiceId.toServiceIdentifierString(), expanded.getSourceServiceId());
-      assertFalse(expanded.hasSourceServiceIdBinary());
       assertEquals(destinationServiceId.toServiceIdentifierString(), expanded.getDestinationServiceId());
-      assertFalse(expanded.hasDestinationServiceIdBinary());
       assertEquals(serverGuid.toString(), expanded.getServerGuid());
-      assertFalse(expanded.hasServerGuidBinary());
       assertEquals(updatedPni.toString(), expanded.getUpdatedPni());
       assertEquals(UUIDUtil.toByteString(updatedPni), expanded.getUpdatedPniBinary());
 
-      assertEquals(expanded, EnvelopeUtil.expand(expanded), "Double expansion should make no changes");
+      if (includeBinaryServiceIdentifiers) {
+        assertEquals(ServiceIdentifierUtil.toCompactByteString(sourceServiceId), expanded.getSourceServiceIdBinary());
+        assertEquals(ServiceIdentifierUtil.toCompactByteString(destinationServiceId), expanded.getDestinationServiceIdBinary());
+        assertEquals(UUIDUtil.toByteString(serverGuid), expanded.getServerGuidBinary());
+      } else {
+        assertFalse(expanded.hasSourceServiceIdBinary());
+        assertFalse(expanded.hasDestinationServiceIdBinary());
+        assertFalse(expanded.hasServerGuidBinary());
+      }
+
+      assertEquals(expanded, EnvelopeUtil.expand(expanded, experimentEnrollmentManager),
+          "Double expansion should make no changes");
 
       // Expanded envelopes include both representations of the `updatedPni` field
-      assertEquals(compressibleFieldsExpandedMessage.toBuilder().setUpdatedPniBinary(UUIDUtil.toByteString(updatedPni)).build(),
-          expanded);
+      assertTrue(expanded.hasUpdatedPni());
+      assertTrue(expanded.hasUpdatedPniBinary());
+      assertEquals(UUID.fromString(expanded.getUpdatedPni()), UUIDUtil.fromByteString(expanded.getUpdatedPniBinary()));
     }
   }
 

@@ -27,7 +27,6 @@ import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
 import io.lettuce.core.metrics.MicrometerOptions;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.binder.grpc.MetricCollectingServerInterceptor;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
 import io.netty.channel.local.LocalAddress;
 import io.netty.channel.socket.nio.NioDatagramChannel;
@@ -40,7 +39,6 @@ import jakarta.servlet.Filter;
 import jakarta.servlet.ServletRegistration;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
@@ -460,7 +458,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getMessages().getTableName(),
         config.getDynamoDbTables().getMessages().getExpiration(),
-        messageDeletionAsyncExecutor);
+        messageDeletionAsyncExecutor, experimentEnrollmentManager);
     RemoteConfigs remoteConfigs = new RemoteConfigs(dynamoDbClient,
         config.getDynamoDbTables().getRemoteConfig().getTableName());
     PushChallengeDynamoDb pushChallengeDynamoDb = new PushChallengeDynamoDb(dynamoDbClient,
@@ -641,7 +639,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, grpcClientConnectionManager, disconnectionRequestListenerExecutor);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster, asyncCdnS3Client, config.getCdnConfiguration().bucket());
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
-        messageDeletionAsyncExecutor, clock);
+        messageDeletionAsyncExecutor, clock, experimentEnrollmentManager);
     ClientReleaseManager clientReleaseManager = new ClientReleaseManager(clientReleases,
         recurringJobExecutor,
         config.getClientReleaseConfiguration().refreshInterval(),

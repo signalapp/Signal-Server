@@ -6,7 +6,9 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import java.util.UUID;
+import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.grpc.ServiceIdentifierUtil;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -18,6 +20,9 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
  * the near future), but we can use the more compressed forms at rest for more efficient storage and transfer.
  */
 public class EnvelopeUtil {
+
+  @VisibleForTesting
+  static final String INCLUDE_BINARY_SERVICE_ID_EXPERIMENT_NAME = "envelopeIncludeBinaryServiceIdentifier";
 
   /**
    * Converts all "compressible" UUID-like fields in the given envelope to more compact binary representations.
@@ -68,7 +73,22 @@ public class EnvelopeUtil {
    *
    * @return an envelope with binary representations of UUID-like fields expanded to string representations
    */
-  public static MessageProtos.Envelope expand(final MessageProtos.Envelope envelope) {
+  public static MessageProtos.Envelope expand(final MessageProtos.Envelope envelope,
+      final ExperimentEnrollmentManager experimentEnrollmentManager) {
+
+    final boolean includeBinaryServiceIdentifiers;
+
+    if (envelope.hasDestinationServiceIdBinary() || envelope.hasDestinationServiceId()) {
+      final ServiceIdentifier destinationIdentifier = envelope.hasDestinationServiceIdBinary()
+          ? ServiceIdentifier.fromBytes(envelope.getDestinationServiceIdBinary().toByteArray())
+          : ServiceIdentifier.valueOf(envelope.getDestinationServiceId());
+
+      includeBinaryServiceIdentifiers =
+          experimentEnrollmentManager.isEnrolled(destinationIdentifier.uuid(), INCLUDE_BINARY_SERVICE_ID_EXPERIMENT_NAME);
+    } else {
+      includeBinaryServiceIdentifiers = false;
+    }
+
     final MessageProtos.Envelope.Builder builder = envelope.toBuilder();
 
     if (builder.hasSourceServiceIdBinary()) {
@@ -76,7 +96,10 @@ public class EnvelopeUtil {
           ServiceIdentifierUtil.fromByteString(builder.getSourceServiceIdBinary());
 
       builder.setSourceServiceId(sourceServiceId.toServiceIdentifierString());
-      builder.clearSourceServiceIdBinary();
+
+      if (!includeBinaryServiceIdentifiers) {
+        builder.clearSourceServiceIdBinary();
+      }
     }
 
     if (builder.hasDestinationServiceIdBinary()) {
@@ -84,14 +107,20 @@ public class EnvelopeUtil {
           ServiceIdentifierUtil.fromByteString(builder.getDestinationServiceIdBinary());
 
       builder.setDestinationServiceId(destinationServiceId.toServiceIdentifierString());
-      builder.clearDestinationServiceIdBinary();
+
+      if (!includeBinaryServiceIdentifiers) {
+        builder.clearDestinationServiceIdBinary();
+      }
     }
 
     if (builder.hasServerGuidBinary()) {
       final UUID serverGuid = UUIDUtil.fromByteString(builder.getServerGuidBinary());
       
       builder.setServerGuid(serverGuid.toString());
-      builder.clearServerGuidBinary();
+
+      if (!includeBinaryServiceIdentifiers) {
+        builder.clearServerGuidBinary();
+      }
     }
 
     if (builder.hasUpdatedPniBinary()) {

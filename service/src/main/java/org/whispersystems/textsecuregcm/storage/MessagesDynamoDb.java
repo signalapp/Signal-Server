@@ -27,6 +27,7 @@ import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -69,11 +70,13 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private final Duration timeToLive;
   private final ExecutorService messageDeletionExecutor;
   private final Scheduler messageDeletionScheduler;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesDynamoDb.class);
 
   public MessagesDynamoDb(DynamoDbClient dynamoDb, DynamoDbAsyncClient dynamoDbAsyncClient, String tableName,
-      Duration timeToLive, ExecutorService messageDeletionExecutor) {
+      Duration timeToLive, ExecutorService messageDeletionExecutor,
+      final ExperimentEnrollmentManager experimentEnrollmentManager) {
     super(dynamoDb);
 
     this.dbAsyncClient = dynamoDbAsyncClient;
@@ -82,6 +85,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
 
     this.messageDeletionExecutor = messageDeletionExecutor;
     this.messageDeletionScheduler = Schedulers.fromExecutor(messageDeletionExecutor);
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   public void store(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid,
@@ -151,7 +155,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     return dbAsyncClient.queryPaginator(queryRequest).items()
         .map(message -> {
           try {
-            return convertItemToEnvelope(message);
+            return convertItemToEnvelope(message, experimentEnrollmentManager);
           } catch (final InvalidProtocolBufferException e) {
             logger.error("Failed to parse envelope", e);
             return null;
@@ -189,7 +193,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         .mapNotNull(deleteItemResponse -> {
           try {
             if (deleteItemResponse.attributes() != null && deleteItemResponse.attributes().containsKey(KEY_PARTITION)) {
-              return convertItemToEnvelope(deleteItemResponse.attributes());
+              return convertItemToEnvelope(deleteItemResponse.attributes(), experimentEnrollmentManager);
             }
           } catch (final InvalidProtocolBufferException e) {
             logger.error("Failed to parse envelope", e);
@@ -213,7 +217,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         .thenApplyAsync(deleteItemResponse -> {
           if (deleteItemResponse.attributes() != null && deleteItemResponse.attributes().containsKey(KEY_PARTITION)) {
             try {
-              return Optional.of(convertItemToEnvelope(deleteItemResponse.attributes()));
+              return Optional.of(convertItemToEnvelope(deleteItemResponse.attributes(), experimentEnrollmentManager));
             } catch (final InvalidProtocolBufferException e) {
               logger.error("Failed to parse envelope", e);
             }
@@ -224,10 +228,11 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   @VisibleForTesting
-  static MessageProtos.Envelope convertItemToEnvelope(final Map<String, AttributeValue> item)
-      throws InvalidProtocolBufferException {
+  static MessageProtos.Envelope convertItemToEnvelope(final Map<String, AttributeValue> item,
+      final ExperimentEnrollmentManager experimentEnrollmentManager) throws InvalidProtocolBufferException {
 
-    return EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(item.get(KEY_ENVELOPE_BYTES).b().asByteArray()));
+    return EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(item.get(KEY_ENVELOPE_BYTES).b().asByteArray()),
+        experimentEnrollmentManager);
   }
 
   private long getTtlForMessage(MessageProtos.Envelope message) {
