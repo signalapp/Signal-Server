@@ -15,7 +15,7 @@ public enum DeviceCapability {
   @Deprecated(forRemoval = true) // Can be removed sometime after 11/10/2025
   STORAGE_SERVICE_RECORD_KEY_ROTATION("ssre2", AccountCapabilityMode.ALWAYS_CAPABLE, true, true),
   ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true),
-  SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, true, true);
+  SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, false, true);
 
   public enum AccountCapabilityMode {
     /**
