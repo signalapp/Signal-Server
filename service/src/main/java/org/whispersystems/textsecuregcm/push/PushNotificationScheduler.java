@@ -51,6 +51,8 @@ public class PushNotificationScheduler implements Managed {
   @VisibleForTesting
   static final String NEXT_SLOT_TO_PROCESS_KEY = "pending_notification_next_slot";
 
+  private static final Duration EXCEPTION_PAUSE = Duration.ofSeconds(3);
+
   private static final String BACKGROUND_NOTIFICATION_SCHEDULED_COUNTER_NAME = name(PushNotificationScheduler.class, "backgroundNotification", "scheduled");
   private static final String BACKGROUND_NOTIFICATION_SENT_COUNTER_NAME = name(PushNotificationScheduler.class, "backgroundNotification", "sent");
 
@@ -92,7 +94,12 @@ public class PushNotificationScheduler implements Managed {
             Util.sleep(1000);
           }
         } catch (Exception e) {
-          logger.warn("Exception while operating", e);
+          logger.warn("Exception while processing scheduled notifications", e);
+
+          try {
+            Thread.sleep(EXCEPTION_PAUSE);
+          } catch (final InterruptedException _) {
+          }
         }
       } while (running.get());
     }
