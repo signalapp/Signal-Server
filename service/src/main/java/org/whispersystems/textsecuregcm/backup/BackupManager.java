@@ -74,8 +74,8 @@ public class BackupManager {
   private static final Timer SYNCHRONOUS_DELETE_TIMER =
       Metrics.timer(MetricsUtil.name(BackupManager.class, "synchronousDelete"));
 
-  private static final String NUM_OBJECTS_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "numObjects");
-  private static final String BYTES_USED_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "bytesUsed");
+  private static final String NUM_OBJECTS_SUMMARY_NAME = MetricsUtil.name(BackupManager.class, "numObjects");
+  private static final String BYTES_USED_SUMMARY_NAME = MetricsUtil.name(BackupManager.class, "bytesUsed");
 
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String FAILURE_REASON_TAG_NAME = "reason";

@@ -35,7 +35,7 @@ import reactor.core.scheduler.Scheduler;
 
 public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
-  private static final String OPEN_WEBSOCKET_GAUGE_NAME = name(WebSocketConnection.class, "openWebsockets");
+  private static final String OPEN_WEBSOCKET_GAUGE_NAME = name(AuthenticatedConnectListener.class, "openWebsockets");
   private static final String NEW_CONNECTION_COUNTER_NAME = name(AuthenticatedConnectListener.class, "newConnections");
   private static final String CONNECTED_DURATION_TIMER_NAME =
       name(AuthenticatedConnectListener.class, "connectedDuration");

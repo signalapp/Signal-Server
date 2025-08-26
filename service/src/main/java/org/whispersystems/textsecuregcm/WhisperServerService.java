@@ -4,7 +4,7 @@
  */
 package org.whispersystems.textsecuregcm;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.collect.Lists;
@@ -1173,7 +1173,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     });
   }
 
-  private static class ExecutorServiceBuilder extends io.dropwizard.lifecycle.setup.ExecutorServiceBuilder {
+  public static class ExecutorServiceBuilder extends io.dropwizard.lifecycle.setup.ExecutorServiceBuilder {
     private final String baseName;
 
     public ExecutorServiceBuilder(final LifecycleEnvironment environment, final String baseName) {
@@ -1191,7 +1191,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     }
   }
 
-  private static class ScheduledExecutorServiceBuilder extends io.dropwizard.lifecycle.setup.ScheduledExecutorServiceBuilder {
+  public static class ScheduledExecutorServiceBuilder extends io.dropwizard.lifecycle.setup.ScheduledExecutorServiceBuilder {
     private final String baseName;
 
     public ScheduledExecutorServiceBuilder(final LifecycleEnvironment environment, final String baseName) {

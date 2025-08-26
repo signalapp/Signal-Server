@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
@@ -55,7 +55,7 @@ public class CertificateController {
 
   @VisibleForTesting
   public static final Duration MAX_REDEMPTION_DURATION = Duration.ofDays(7);
-  private static final String GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME = name(CertificateGenerator.class, "generateCertificate");
+  private static final String GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME = name(CertificateController.class, "generateCertificate");
   private static final String INCLUDE_E164_TAG_NAME = "includeE164";
 
   public CertificateController(

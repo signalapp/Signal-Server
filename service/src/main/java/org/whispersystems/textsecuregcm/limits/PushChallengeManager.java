@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.limits;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Metrics;
 import java.security.SecureRandom;

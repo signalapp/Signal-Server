@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;

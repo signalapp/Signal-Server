@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.auth;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Authenticator;
@@ -29,13 +29,11 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 public class AccountAuthenticator implements Authenticator<BasicCredentials, AuthenticatedDevice> {
 
-  private static final String LEGACY_NAME_PREFIX = "org.whispersystems.textsecuregcm.auth.BaseAccountAuthenticator";
-
-  private static final String AUTHENTICATION_COUNTER_NAME = name(LEGACY_NAME_PREFIX, "authentication");
+  private static final String AUTHENTICATION_COUNTER_NAME = name(AccountAuthenticator.class, "authentication");
   private static final String AUTHENTICATION_SUCCEEDED_TAG_NAME = "succeeded";
   private static final String AUTHENTICATION_FAILURE_REASON_TAG_NAME = "reason";
 
-  private static final String DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME = name(LEGACY_NAME_PREFIX, "daysSinceLastSeen");
+  private static final String DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME = name(AccountAuthenticator.class, "daysSinceLastSeen");
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
 
   private static final Counter OLD_TOKEN_VERSION_COUNTER =

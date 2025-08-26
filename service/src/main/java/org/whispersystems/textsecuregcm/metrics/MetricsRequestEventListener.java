@@ -5,7 +5,8 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import com.codahale.metrics.MetricRegistry;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -35,10 +36,10 @@ public class MetricsRequestEventListener implements RequestEventListener {
 
   private final ClientReleaseManager clientReleaseManager;
 
-  public static final String REQUEST_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "request");
-  public static final String REQUESTS_BY_VERSION_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "requestByVersion");
-  public static final String RESPONSE_BYTES_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "responseBytes");
-  public static final String REQUEST_BYTES_COUNTER_NAME = MetricRegistry.name(MetricsRequestEventListener.class, "requestBytes");
+  public static final String REQUEST_COUNTER_NAME = name(MetricsRequestEventListener.class, "request");
+  public static final String REQUESTS_BY_VERSION_COUNTER_NAME = name(MetricsRequestEventListener.class, "requestByVersion");
+  public static final String RESPONSE_BYTES_COUNTER_NAME = name(MetricsRequestEventListener.class, "responseBytes");
+  public static final String REQUEST_BYTES_COUNTER_NAME = name(MetricsRequestEventListener.class, "requestBytes");
 
   @VisibleForTesting
   static final String PATH_TAG = "path";

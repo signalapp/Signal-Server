@@ -4,7 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -34,7 +34,7 @@ public record IncomingMessageList(@NotNull
 
   private static final Counter REJECT_DUPLICATE_RECIPIENT_COUNTER =
       Metrics.counter(
-          name(MessageController.class, "rejectDuplicateRecipients"),
+          name(IncomingMessageList.class, "rejectDuplicateRecipients"),
           "multiRecipient", "false");
 
   @JsonCreator

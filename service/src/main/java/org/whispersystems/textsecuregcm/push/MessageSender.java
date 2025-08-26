@@ -4,7 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.push;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -24,7 +24,6 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.util.Pair;
-import org.whispersystems.textsecuregcm.controllers.MessageController;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
@@ -54,8 +53,8 @@ public class MessageSender {
   private final PushNotificationManager pushNotificationManager;
 
   // Note that these names deliberately reference `MessageController` for metric continuity
-  private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageController.class, "rejectOversizeMessage");
-  private static final String CONTENT_SIZE_DISTRIBUTION_NAME = MetricsUtil.name(MessageController.class, "messageContentSize");
+  private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageSender.class, "rejectOversizeMessage");
+  private static final String CONTENT_SIZE_DISTRIBUTION_NAME = MetricsUtil.name(MessageSender.class, "messageContentSize");
   private static final String EMPTY_MESSAGE_LIST_COUNTER_NAME = MetricsUtil.name(MessageSender.class, "emptyMessageList");
 
   private static final String SEND_COUNTER_NAME = name(MessageSender.class, "sendMessage");

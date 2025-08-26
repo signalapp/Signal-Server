@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.filters;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.net.InetAddresses;

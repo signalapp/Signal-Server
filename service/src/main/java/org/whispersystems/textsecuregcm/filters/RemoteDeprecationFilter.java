@@ -5,7 +5,7 @@
 
 package org.whispersystems.textsecuregcm.filters;
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.net.HttpHeaders;
 import com.vdurmont.semver4j.Semver;

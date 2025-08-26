@@ -6,7 +6,7 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 
-import static com.codahale.metrics.MetricRegistry.name;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -24,7 +24,7 @@ public class ApplicationShutdownMonitor implements LifeCycle.Listener {
   public ApplicationShutdownMonitor(final MeterRegistry meterRegistry) {
     // without a strong reference to the gauge’s value supplier, shutdown garbage collection
     // might prevent the final value from being reported
-    Gauge.builder(name(getClass().getSimpleName(), "shuttingDown"), () -> shuttingDown.get() ? 1 : 0)
+    Gauge.builder(name(getClass(), "shuttingDown"), () -> shuttingDown.get() ? 1 : 0)
         .strongReference(true)
         .register(meterRegistry);
   }
