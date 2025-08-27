@@ -40,8 +40,8 @@ public class FaultTolerantRedisClient {
         RedisUriUtil.createRedisUriWithTimeout(redisConfiguration.getUri(), redisConfiguration.getTimeout()),
         redisConfiguration.getTimeout(),
         redisConfiguration.getCircuitBreakerConfigurationName() != null
-            ? ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name + "-breaker", redisConfiguration.getCircuitBreakerConfigurationName())
-            : ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name + "-breaker"));
+            ? ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name, redisConfiguration.getCircuitBreakerConfigurationName())
+            : ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name));
   }
 
   @VisibleForTesting

@@ -219,16 +219,14 @@ public class FaultTolerantHttpClient {
           retryConfigBuilder.retryOnException(retryOnException);
         }
 
-        retry = ResilienceUtil.getRetryRegistry().retry(name + "-retry", retryConfigBuilder.build());
+        retry = ResilienceUtil.getRetryRegistry().retry(name, retryConfigBuilder.build());
       } else {
         retry = null;
       }
 
-      final String circuitBreakerName = name + "-breaker";
-
       final CircuitBreaker circuitBreaker = circuitBreakerConfigurationName != null
-          ? ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, circuitBreakerConfigurationName)
-          : ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName);
+          ? ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name, circuitBreakerConfigurationName)
+          : ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name);
 
       return new FaultTolerantHttpClient(httpClients, requestTimeout, retryExecutor, retry, circuitBreaker);
     }
