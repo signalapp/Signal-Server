@@ -22,7 +22,9 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 public class CertificateCommand extends Command {
 
   private static final Set<Integer> RESERVED_CERTIFICATE_IDS = Set.of(
-      0xdeadc357 // Reserved for testing; see https://github.com/signalapp/libsignal-client/pull/118
+    // Reserved for testing in libsignal.
+    0xdeadc357, // "dead cert", one considered revoked
+    0x7357c357  // "test cert", one signed with a testing trust root
   );
 
   public CertificateCommand() {
