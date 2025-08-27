@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.List;
 import jakarta.validation.constraints.Positive;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
+import javax.annotation.Nullable;
 
 /**
  * Configuration properties for Cloudflare TURN integration.
@@ -27,8 +28,10 @@ import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
  * @param urlsWithIps a collection of {@link String#format(String, Object...)} patterns to be populated with resolved IP
  *                    addresses for {@link #hostname} in responses to clients; each pattern must include a single
  *                    {@code %s} placeholder for the IP address
- * @param circuitBreaker a circuit breaker for requests to Cloudflare
- * @param retry a retry policy for requests to Cloudflare
+ * @param circuitBreakerConfigurationName the name of a circuit breaker configuration for requests to Cloudflare; if
+ *                                        `null`, uses the global default configuration
+ * @param retryConfigurationName the name of a retry policy for requests to Cloudflare; if `null`, uses the global
+ *                               default configuration
  * @param hostname the hostname to resolve to IP addresses for use with {@link #urlsWithIps}; also transmitted to
  *                 clients for use as an SNI when connecting to pre-resolved hosts
  * @param numHttpClients the number of parallel HTTP clients to use to communicate with Cloudflare
@@ -39,23 +42,10 @@ public record CloudflareTurnConfiguration(@NotNull SecretString apiToken,
                                           @NotNull Duration clientCredentialTtl,
                                           @NotNull @NotEmpty @Valid List<@NotBlank String> urls,
                                           @NotNull @NotEmpty @Valid List<@NotBlank String> urlsWithIps,
-                                          @NotNull @Valid CircuitBreakerConfiguration circuitBreaker,
-                                          @NotNull @Valid RetryConfiguration retry,
+                                          @Nullable String circuitBreakerConfigurationName,
+                                          @Nullable String retryConfigurationName,
                                           @NotBlank String hostname,
                                           @Positive int numHttpClients) {
-
-  public CloudflareTurnConfiguration {
-    if (circuitBreaker == null) {
-      // It’s a little counter-intuitive, but this compact constructor allows a default value
-      // to be used when one isn’t specified (e.g. in YAML), allowing the field to still be
-      // validated as @NotNull
-      circuitBreaker = new CircuitBreakerConfiguration();
-    }
-
-    if (retry == null) {
-      retry = new RetryConfiguration();
-    }
-  }
 
   @AssertTrue
   @Schema(hidden = true)

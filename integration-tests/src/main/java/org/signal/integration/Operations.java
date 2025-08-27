@@ -41,7 +41,6 @@ import org.signal.libsignal.protocol.kem.KEMKeyType;
 import org.signal.libsignal.protocol.kem.KEMPublicKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
@@ -306,11 +305,7 @@ public final class Operations {
 
   private static FaultTolerantHttpClient buildClient() {
     try {
-      return FaultTolerantHttpClient.newBuilder()
-          .withName("integration-test")
-          .withExecutor(Executors.newFixedThreadPool(16))
-          .withRetryExecutor(Executors.newSingleThreadScheduledExecutor())
-          .withCircuitBreaker(new CircuitBreakerConfiguration())
+      return FaultTolerantHttpClient.newBuilder("integration-test", Executors.newFixedThreadPool(16))
           .withTrustedServerCertificates(CONFIG.rootCert())
           .build();
     } catch (final CertificateException e) {

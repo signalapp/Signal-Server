@@ -8,11 +8,15 @@ package org.whispersystems.textsecuregcm.util;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryRegistry;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 
 public class CircuitBreakerUtil {
 
@@ -23,6 +27,22 @@ public class CircuitBreakerUtil {
   private static final String BREAKER_NAME_TAG_NAME = "breakerName";
   private static final String OUTCOME_TAG_NAME = "outcome";
 
+  private static final CircuitBreakerRegistry CIRCUIT_BREAKER_REGISTRY =
+      CircuitBreakerRegistry.of(new CircuitBreakerConfiguration().toCircuitBreakerConfig());
+
+  private static final RetryRegistry RETRY_REGISTRY =
+      RetryRegistry.of(new RetryConfiguration().toRetryConfigBuilder().build());
+
+  public static CircuitBreakerRegistry getCircuitBreakerRegistry() {
+    return CIRCUIT_BREAKER_REGISTRY;
+  }
+
+  public static RetryRegistry getRetryRegistry() {
+    return RETRY_REGISTRY;
+  }
+
+  /// @deprecated [CircuitBreakerRegistry] maintains its own set of metrics, and manually managing them is unnecessary
+  @Deprecated(forRemoval = true)
   public static void registerMetrics(CircuitBreaker circuitBreaker, Class<?> clazz, Tags additionalTags) {
     final String breakerName = clazz.getSimpleName() + "/" + circuitBreaker.getName();
 
@@ -57,6 +77,8 @@ public class CircuitBreakerUtil {
         circuitBreaker, breaker -> breaker.getState().getOrder());
   }
 
+  /// @deprecated [RetryRegistry] maintains its own set of metrics, and manually managing them is unnecessary
+  @Deprecated(forRemoval = true)
   public static void registerMetrics(Retry retry, Class<?> clazz) {
     final String retryName = clazz.getSimpleName() + "/" + retry.getName();
 

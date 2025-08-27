@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.resource.ClientResources;
@@ -34,9 +35,14 @@ class FaultTolerantRedisClientTest {
       @Nullable final CircuitBreakerConfiguration circuitBreakerConfiguration,
       final ClientResources.Builder clientResourcesBuilder) {
 
-    return new FaultTolerantRedisClient("test", clientResourcesBuilder,
-        RedisServerExtension.getRedisURI(), TIMEOUT,
-        Optional.ofNullable(circuitBreakerConfiguration).orElseGet(CircuitBreakerConfiguration::new));
+    final CircuitBreaker circuitBreaker = CircuitBreaker.of("test", Optional.ofNullable(circuitBreakerConfiguration)
+            .orElseGet(CircuitBreakerConfiguration::new).toCircuitBreakerConfig());
+
+    return new FaultTolerantRedisClient("test",
+        clientResourcesBuilder,
+        RedisServerExtension.getRedisURI(),
+        TIMEOUT,
+        circuitBreaker);
   }
 
   @AfterEach

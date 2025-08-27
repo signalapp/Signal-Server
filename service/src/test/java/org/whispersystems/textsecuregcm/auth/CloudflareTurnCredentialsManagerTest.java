@@ -35,8 +35,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 
 public class CloudflareTurnCredentialsManagerTest {
   @RegisterExtension
@@ -77,9 +75,9 @@ public class CloudflareTurnCredentialsManagerTest {
         IP_URL_PATTERNS,
         TURN_HOSTNAME,
         2,
-        new CircuitBreakerConfiguration(),
+        null,
         httpExecutor,
-        new RetryConfiguration(),
+        null,
         retryExecutor,
         dnsResolver
     );

@@ -11,6 +11,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 
@@ -22,7 +23,8 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
  * @param supportedCurrenciesByPaymentMethod the set of supported currencies
  * @param graphqlUrl          the Braintree GraphQL URl to use (this must match the environment)
  * @param merchantAccounts    merchant account within the merchant for processing individual currencies
- * @param circuitBreaker      configuration for the circuit breaker used by the GraphQL HTTP client
+ * @param circuitBreakerConfigurationName the name of the circuit breaker configuration for the breaker used by the
+ *                                        GraphQL HTTP client; if `null`, uses the global default configuration
  */
 public record BraintreeConfiguration(@NotBlank String merchantId,
                                      @NotBlank String publicKey,
@@ -31,15 +33,6 @@ public record BraintreeConfiguration(@NotBlank String merchantId,
                                      @Valid @NotEmpty Map<PaymentMethod, Set<@NotBlank String>> supportedCurrenciesByPaymentMethod,
                                      @NotBlank String graphqlUrl,
                                      @NotEmpty Map<String, String> merchantAccounts,
-                                     @NotNull @Valid CircuitBreakerConfiguration circuitBreaker,
+                                     @Nullable String circuitBreakerConfigurationName,
                                      @Valid @NotNull PubSubPublisherFactory pubSubPublisher) {
-
-  public BraintreeConfiguration {
-    if (circuitBreaker == null) {
-      // It’s a little counter-intuitive, but this compact constructor allows a default value
-      // to be used when one isn’t specified (e.g. in YAML), allowing the field to still be
-      // validated as @NotNull
-      circuitBreaker = new CircuitBreakerConfiguration();
-    }
-  }
 }

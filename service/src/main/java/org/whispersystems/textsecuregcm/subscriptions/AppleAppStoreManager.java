@@ -19,17 +19,20 @@ import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.retry.Retry;
+import io.github.resilience4j.retry.RetryConfig;
 import io.micrometer.core.instrument.Metrics;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -37,13 +40,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 /**
@@ -82,12 +86,12 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
       final String subscriptionGroupId,
       final Map<String, Long> productIdToLevel,
       final List<String> base64AppleRootCerts,
-      final RetryConfiguration retryConfiguration,
+      @Nullable final String retryConfigurationName,
       final ExecutorService executor,
       final ScheduledExecutorService retryExecutor) {
     this(new AppStoreServerAPIClient(encodedKey, keyId, issuerId, bundleId, env),
         new SignedDataVerifier(decodeRootCerts(base64AppleRootCerts), bundleId, appAppleId, env, true),
-        subscriptionGroupId, productIdToLevel, retryConfiguration, executor, retryExecutor);
+        subscriptionGroupId, productIdToLevel, retryConfigurationName, executor, retryExecutor);
   }
 
   @VisibleForTesting
@@ -96,18 +100,24 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
       final SignedDataVerifier signedDataVerifier,
       final String subscriptionGroupId,
       final Map<String, Long> productIdToLevel,
-      final RetryConfiguration retryConfiguration,
+      @Nullable final String retryConfigurationName,
       final ExecutorService executor,
       final ScheduledExecutorService retryExecutor) {
     this.apiClient = apiClient;
     this.signedDataVerifier = signedDataVerifier;
     this.subscriptionGroupId = subscriptionGroupId;
     this.productIdToLevel = productIdToLevel;
-    this.retry = Retry.of("appstore-retry", retryConfiguration
-        .toRetryConfigBuilder()
-        .retryOnException(AppleAppStoreManager::shouldRetry).build());
     this.executor = Objects.requireNonNull(executor);
     this.retryExecutor = Objects.requireNonNull(retryExecutor);
+
+    final RetryConfig.Builder<HttpResponse<?>> retryConfigBuilder =
+        RetryConfig.from(Optional.ofNullable(retryConfigurationName)
+            .flatMap(name -> CircuitBreakerUtil.getRetryRegistry().getConfiguration(name))
+            .orElseGet(() -> CircuitBreakerUtil.getRetryRegistry().getDefaultConfig()));
+
+    retryConfigBuilder.retryOnException(AppleAppStoreManager::shouldRetry);
+
+    this.retry = CircuitBreakerUtil.getRetryRegistry().retry("appstore-retry", retryConfigBuilder.build());
   }
 
   @Override

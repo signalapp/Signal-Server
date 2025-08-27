@@ -11,6 +11,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -19,6 +20,8 @@ import static org.mockito.Mockito.when;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.retry.Retry;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -39,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 
 class FaultTolerantHttpClientTest {
 
@@ -71,12 +75,8 @@ class FaultTolerantHttpClientTest {
             .withHeader("Content-Type", "text/plain")
             .withBody("Pong!")));
 
-    FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder()
-        .withCircuitBreaker(new CircuitBreakerConfiguration())
-        .withRetry(new RetryConfiguration())
-        .withExecutor(httpExecutor)
-        .withRetryExecutor(retryExecutor)
-        .withName("test")
+    FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testSimpleGet", httpExecutor)
+        .withRetry(null, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
@@ -101,12 +101,8 @@ class FaultTolerantHttpClientTest {
                                              .withHeader("Content-Type", "text/plain")
                                              .withBody("Pong!")));
 
-    FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder()
-        .withCircuitBreaker(new CircuitBreakerConfiguration())
-        .withRetry(new RetryConfiguration())
-        .withExecutor(httpExecutor)
-        .withRetryExecutor(retryExecutor)
-        .withName("test")
+    FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testRetryGet", httpExecutor)
+        .withRetry(null, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
@@ -126,14 +122,17 @@ class FaultTolerantHttpClientTest {
   @Test
   void testRetryGetOnException() {
     final HttpClient mockHttpClient = mock(HttpClient.class);
+
+    final Retry retry = Retry.of("test", new RetryConfiguration().toRetryConfigBuilder()
+        .retryOnException(throwable -> throwable instanceof IOException)
+        .build());
+
     final FaultTolerantHttpClient client = new FaultTolerantHttpClient(
-        "test",
         List.of(mockHttpClient),
-        retryExecutor,
         Duration.ofSeconds(1),
-        new RetryConfiguration(),
-        throwable -> throwable instanceof IOException,
-        new CircuitBreakerConfiguration());
+        retryExecutor,
+        retry,
+        CircuitBreaker.ofDefaults("test"));
 
     when(mockHttpClient.sendAsync(any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new IOException("test exception")));
@@ -156,14 +155,17 @@ class FaultTolerantHttpClientTest {
   void testMultipleClients() throws IOException, InterruptedException {
     final HttpClient mockHttpClient1 = mock(HttpClient.class);
     final HttpClient mockHttpClient2 = mock(HttpClient.class);
+
+    final Retry retry = Retry.of("test", new RetryConfiguration().toRetryConfigBuilder()
+        .retryOnException(throwable -> throwable instanceof IOException)
+        .build());
+
     final FaultTolerantHttpClient client = new FaultTolerantHttpClient(
-        "test",
         List.of(mockHttpClient1, mockHttpClient2),
-        retryExecutor,
         Duration.ofSeconds(1),
-        new RetryConfiguration(),
-        throwable -> throwable instanceof IOException,
-        new CircuitBreakerConfiguration());
+        retryExecutor,
+        retry,
+        CircuitBreaker.ofDefaults("test"));
 
     // Just to get a dummy HttpResponse
     wireMock.stubFor(get(urlEqualTo("/ping"))
@@ -201,68 +203,50 @@ class FaultTolerantHttpClientTest {
 
   @Test
   void testNetworkFailureCircuitBreaker() throws InterruptedException {
-    CircuitBreakerConfiguration circuitBreakerConfiguration = new CircuitBreakerConfiguration();
+    final CircuitBreakerConfiguration circuitBreakerConfiguration = new CircuitBreakerConfiguration();
     circuitBreakerConfiguration.setSlidingWindowSize(2);
     circuitBreakerConfiguration.setSlidingWindowMinimumNumberOfCalls(2);
     circuitBreakerConfiguration.setPermittedNumberOfCallsInHalfOpenState(1);
     circuitBreakerConfiguration.setFailureRateThreshold(50);
     circuitBreakerConfiguration.setWaitDurationInOpenState(Duration.ofSeconds(1));
 
-    FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder()
-        .withCircuitBreaker(circuitBreakerConfiguration)
-        .withRetry(new RetryConfiguration())
-        .withRetryExecutor(retryExecutor)
-        .withExecutor(httpExecutor)
-        .withName("test")
+    final String circuitBreakerConfigurationName = getClass().getSimpleName() + "#testNetworkFailureCircuitBreaker";
+
+    CircuitBreakerUtil.getCircuitBreakerRegistry()
+        .addConfiguration(circuitBreakerConfigurationName, circuitBreakerConfiguration.toCircuitBreakerConfig());
+
+    final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testNetworkFailureCircuitBreaker", httpExecutor)
+        .withCircuitBreaker(circuitBreakerConfigurationName)
+        .withRetry(null, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
-    HttpRequest request = HttpRequest.newBuilder()
-                                     .uri(URI.create("http://localhost:" + 39873 + "/failure"))
-                                     .GET()
-                                     .build();
+    final HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("http://localhost:" + 39873 + "/failure"))
+        .GET()
+        .build();
 
-    try {
-      client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
-      throw new AssertionError("Should have failed!");
-    } catch (CompletionException e) {
-      assertThat(e.getCause()).isInstanceOf(IOException.class);
-      // good
-    }
+    assertThatThrownBy(() -> client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join())
+        .isInstanceOf(CompletionException.class)
+        .hasCauseInstanceOf(IOException.class);
 
-    try {
-      client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
-      throw new AssertionError("Should have failed!");
-    } catch (CompletionException e) {
-      assertThat(e.getCause()).isInstanceOf(IOException.class);
-      // good
-    }
+    assertThatThrownBy(() -> client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join())
+        .isInstanceOf(CompletionException.class)
+        .hasCauseInstanceOf(IOException.class);
 
-    try {
-      client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
-      throw new AssertionError("Should have failed!");
-    } catch (CompletionException e) {
-      assertThat(e.getCause()).isInstanceOf(CallNotPermittedException.class);
-      // good
-    }
+    assertThatThrownBy(() -> client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join())
+        .isInstanceOf(CompletionException.class)
+        .hasCauseInstanceOf(CallNotPermittedException.class);
 
     Thread.sleep(1001);
 
-    try {
-      client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
-      throw new AssertionError("Should have failed!");
-    } catch (CompletionException e) {
-      assertThat(e.getCause()).isInstanceOf(IOException.class);
-      // good
-    }
+    assertThatThrownBy(() -> client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join())
+        .isInstanceOf(CompletionException.class)
+        .hasCauseInstanceOf(IOException.class);
 
-    try {
-      client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
-      throw new AssertionError("Should have failed!");
-    } catch (CompletionException e) {
-      assertThat(e.getCause()).isInstanceOf(CallNotPermittedException.class);
-      // good
-    }
+    assertThatThrownBy(() -> client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join())
+        .isInstanceOf(CompletionException.class)
+        .hasCauseInstanceOf(CallNotPermittedException.class);
   }
 
 }

@@ -53,15 +53,12 @@ public class SecureValueRecoveryClient {
     this.secureValueRecoveryCredentialsGenerator = secureValueRecoveryCredentialsGenerator;
     this.deleteUri = URI.create(configuration.uri()).resolve(DELETE_PATH);
     this.allowedDeletionErrorStatusCodes = allowedDeletionErrorStatusCodes;
-    this.httpClient = FaultTolerantHttpClient.newBuilder()
-        .withCircuitBreaker(configuration.circuitBreaker())
-        .withRetry(configuration.retry())
-        .withRetryExecutor(retryExecutor)
+    this.httpClient = FaultTolerantHttpClient.newBuilder("secure-value-recovery", executor)
+        .withCircuitBreaker(configuration.circuitBreakerConfigurationName())
+        .withRetry(configuration.retryConfigurationName(), retryExecutor)
         .withVersion(HttpClient.Version.HTTP_1_1)
         .withConnectTimeout(Duration.ofSeconds(10))
         .withRedirect(HttpClient.Redirect.NEVER)
-        .withExecutor(executor)
-        .withName("secure-value-recovery")
         .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_2)
         .withTrustedServerCertificates(configuration.svrCaCertificates().toArray(new String[0]))
         .build();

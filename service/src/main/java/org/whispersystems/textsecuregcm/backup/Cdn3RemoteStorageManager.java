@@ -67,12 +67,9 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
     this.clientSecret = configuration.clientSecret().value();
 
     // Client used for calls to storage-manager
-    this.storageManagerHttpClient = FaultTolerantHttpClient.newBuilder()
-        .withName("cdn3-storage-manager")
-        .withCircuitBreaker(configuration.circuitBreaker())
-        .withExecutor(httpExecutor)
-        .withRetryExecutor(retryExecutor)
-        .withRetry(configuration.retry())
+    this.storageManagerHttpClient = FaultTolerantHttpClient.newBuilder("cdn3-storage-manager", httpExecutor)
+        .withCircuitBreaker(configuration.circuitBreakerConfigurationName())
+        .withRetry(configuration.retryConfigurationName(), retryExecutor)
         .withConnectTimeout(Duration.ofSeconds(10))
         .withVersion(HttpClient.Version.HTTP_2)
         .withNumClients(configuration.numHttpClients())

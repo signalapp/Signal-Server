@@ -42,7 +42,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -81,7 +80,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
       final String graphqlUri,
       final CurrencyConversionManager currencyConversionManager,
       final PublisherInterface pubsubPublisher,
-      final CircuitBreakerConfiguration circuitBreakerConfiguration,
+      @Nullable final String circuitBreakerConfigurationName,
       final Executor executor,
       final ScheduledExecutorService retryExecutor) {
 
@@ -89,11 +88,8 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
             braintreePrivateKey),
         supportedCurrenciesByPaymentMethod,
         currenciesToMerchantAccounts,
-        new BraintreeGraphqlClient(FaultTolerantHttpClient.newBuilder()
-            .withName("braintree-graphql")
-            .withCircuitBreaker(circuitBreakerConfiguration)
-            .withExecutor(executor)
-            .withRetryExecutor(retryExecutor)
+        new BraintreeGraphqlClient(FaultTolerantHttpClient.newBuilder("braintree-graphql", executor)
+            .withCircuitBreaker(circuitBreakerConfigurationName)
             // Braintree documents its internal timeout at 60 seconds, and we want to make sure we don’t miss
             // a response
             // https://developer.paypal.com/braintree/docs/reference/general/best-practices/java#timeouts

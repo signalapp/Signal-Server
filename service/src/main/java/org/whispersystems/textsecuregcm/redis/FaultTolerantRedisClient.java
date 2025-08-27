@@ -1,5 +1,6 @@
 package org.whispersystems.textsecuregcm.redis;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisClient;
@@ -15,8 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 
 public class FaultTolerantRedisClient {
 
@@ -38,14 +39,17 @@ public class FaultTolerantRedisClient {
     this(name, clientResourcesBuilder,
         RedisUriUtil.createRedisUriWithTimeout(redisConfiguration.getUri(), redisConfiguration.getTimeout()),
         redisConfiguration.getTimeout(),
-        redisConfiguration.getCircuitBreakerConfiguration());
+        redisConfiguration.getCircuitBreakerConfigurationName() != null
+            ? CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(name + "-breaker", redisConfiguration.getCircuitBreakerConfigurationName())
+            : CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(name + "-breaker"));
   }
 
+  @VisibleForTesting
   FaultTolerantRedisClient(String name,
                            final ClientResources.Builder clientResourcesBuilder,
                            final RedisURI redisUri,
                            final Duration commandTimeout,
-                           final CircuitBreakerConfiguration circuitBreakerConfiguration) {
+                           final CircuitBreaker circuitBreaker) {
 
     this.name = name;
 
@@ -73,7 +77,7 @@ public class FaultTolerantRedisClient {
     this.stringConnection = redisClient.connect();
     this.binaryConnection = redisClient.connect(ByteArrayCodec.INSTANCE);
 
-    this.circuitBreaker = CircuitBreaker.of(name + "-breaker", circuitBreakerConfiguration.toCircuitBreakerConfig());
+    this.circuitBreaker = circuitBreaker;
   }
 
   public void shutdown() {

@@ -43,15 +43,12 @@ public class SecureStorageClient {
       throws CertificateException {
     this.storageServiceCredentialsGenerator = storageServiceCredentialsGenerator;
     this.deleteUri = URI.create(configuration.uri()).resolve(DELETE_PATH);
-    this.httpClient = FaultTolerantHttpClient.newBuilder()
-        .withCircuitBreaker(configuration.circuitBreaker())
-        .withRetry(configuration.retry())
-        .withRetryExecutor(retryExecutor)
+    this.httpClient = FaultTolerantHttpClient.newBuilder("secure-storage", executor)
+        .withCircuitBreaker(configuration.circuitBreakerConfigurationName())
+        .withRetry(configuration.retryConfigurationName(), retryExecutor)
         .withVersion(HttpClient.Version.HTTP_1_1)
         .withConnectTimeout(Duration.ofSeconds(10))
         .withRedirect(HttpClient.Redirect.NEVER)
-        .withExecutor(executor)
-        .withName("secure-storage")
         .withSecurityProtocol(FaultTolerantHttpClient.SECURITY_PROTOCOL_TLS_1_3)
         .withTrustedServerCertificates(configuration.storageCaCertificates().toArray(new String[0]))
         .build();

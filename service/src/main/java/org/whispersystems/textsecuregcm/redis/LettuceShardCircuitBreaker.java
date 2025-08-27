@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.redis;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
-import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.lettuce.core.RedisNoScriptException;
 import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
@@ -31,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +54,8 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
   private static final Logger logger = LoggerFactory.getLogger(LettuceShardCircuitBreaker.class);
 
   private final String clusterName;
-  private final CircuitBreakerConfig circuitBreakerConfig;
+  @Nullable
+  private final String circuitBreakerConfigurationName;
   private final Scheduler scheduler;
   // this set will be shared with all child channel breakers
   private final Set<String> upstreamAddresses = ConcurrentHashMap.newKeySet();
@@ -62,10 +63,12 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
   // resources, which cannot be built without this NettyCustomizer
   private EventBus eventBus;
 
-  public LettuceShardCircuitBreaker(final String clusterName, final CircuitBreakerConfig circuitBreakerConfig,
+  public LettuceShardCircuitBreaker(final String clusterName,
+      @Nullable final String circuitBreakerConfigurationName,
       final Scheduler scheduler) {
+
     this.clusterName = clusterName;
-    this.circuitBreakerConfig = circuitBreakerConfig;
+    this.circuitBreakerConfigurationName = circuitBreakerConfigurationName;
     this.scheduler = scheduler;
   }
 
@@ -110,7 +113,7 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
     }
 
     final ChannelCircuitBreakerHandler channelCircuitBreakerHandler = new ChannelCircuitBreakerHandler(clusterName,
-        circuitBreakerConfig, upstreamAddresses, eventBus, scheduler);
+        circuitBreakerConfigurationName, upstreamAddresses, eventBus, scheduler);
 
     final String commandHandlerName = StreamSupport.stream(channel.pipeline().spliterator(), false)
         .filter(entry -> entry.getValue() instanceof CommandHandler)
@@ -127,7 +130,7 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
     private static final String CLUSTER_TAG_NAME = "cluster";
 
     private final String clusterName;
-    private final CircuitBreakerConfig circuitBreakerConfig;
+    @Nullable private final String circuitBreakerConfigurationName;
     private final AtomicBoolean registeredMetrics = new AtomicBoolean(false);
     private final Set<String> upstreamAddresses;
 
@@ -136,11 +139,12 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
     @VisibleForTesting
     CircuitBreaker breaker;
 
-    public ChannelCircuitBreakerHandler(final String name, final CircuitBreakerConfig circuitBreakerConfig,
+    public ChannelCircuitBreakerHandler(final String name,
+        @Nullable final String circuitBreakerConfigurationName,
         final Set<String> upstreamAddresses,
         final EventBus eventBus, final Scheduler scheduler) {
       this.clusterName = name;
-      this.circuitBreakerConfig = circuitBreakerConfig;
+      this.circuitBreakerConfigurationName = circuitBreakerConfigurationName;
       this.upstreamAddresses = upstreamAddresses;
 
       eventBus.get()
@@ -183,7 +187,12 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
 
       // In some cases, like the default connection, the remote address includes the DNS hostname, which we want to exclude.
       shardAddress = StringUtils.substringAfter(remoteAddress.toString(), "/");
-      breaker = CircuitBreaker.of("%s/%s-breaker".formatted(clusterName, shardAddress), circuitBreakerConfig);
+
+      final String circuitBreakerName = "%s/%s-breaker".formatted(clusterName, shardAddress);
+
+      breaker = circuitBreakerConfigurationName != null
+          ? CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, circuitBreakerConfigurationName)
+          : CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName);
 
       if (upstreamAddresses.contains(shardAddress)) {
         registerMetrics();

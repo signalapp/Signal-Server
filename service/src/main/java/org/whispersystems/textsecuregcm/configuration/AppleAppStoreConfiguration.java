@@ -12,6 +12,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
+import javax.annotation.Nullable;
 
 /**
  * @param env                 The ios environment to use, typically SANDBOX or PRODUCTION
@@ -26,6 +27,8 @@ import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
  *                            subscription levels
  * @param appleRootCerts      Apple root certificates to verify signed API responses, encoded as base64 strings:
  *                            https://www.apple.com/certificateauthority/
+ * @param retryConfigurationName The name of the retry configuration to use in the App Store client; if `null`, uses the
+ *                               global default configuration.
  */
 public record AppleAppStoreConfiguration(
     @NotNull Environment env,
@@ -37,11 +40,5 @@ public record AppleAppStoreConfiguration(
     @NotBlank String subscriptionGroupId,
     @NotNull Map<String, Long> productIdToLevel,
     @NotNull List<@NotBlank String> appleRootCerts,
-    @NotNull @Valid RetryConfiguration retry) {
-
-  public AppleAppStoreConfiguration {
-    if (retry == null) {
-      retry = new RetryConfiguration();
-    }
-  }
+    @Nullable String retryConfigurationName) {
 }

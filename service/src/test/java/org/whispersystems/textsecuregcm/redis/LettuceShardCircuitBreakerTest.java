@@ -33,19 +33,15 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.StreamSupport;
-import javax.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
@@ -59,15 +55,15 @@ class LettuceShardCircuitBreakerTest {
     eventBus = mock(EventBus.class);
     when(eventBus.get()).thenReturn(Flux.never());
     channelCircuitBreakerHandler = new LettuceShardCircuitBreaker.ChannelCircuitBreakerHandler(
-        "test", new CircuitBreakerConfiguration().toCircuitBreakerConfig(), Collections.emptySet(), eventBus,
-        Schedulers.immediate());
+        "test", null, Collections.emptySet(), eventBus, Schedulers.immediate());
   }
 
   @Test
   void testAfterChannelInitialized() {
 
-    final LettuceShardCircuitBreaker lettuceShardCircuitBreaker = new LettuceShardCircuitBreaker("test",
-        new CircuitBreakerConfiguration().toCircuitBreakerConfig(), Schedulers.immediate());
+    final LettuceShardCircuitBreaker lettuceShardCircuitBreaker =
+        new LettuceShardCircuitBreaker("test", null, Schedulers.immediate());
+
     lettuceShardCircuitBreaker.setEventBus(eventBus);
 
     final Channel channel = new EmbeddedChannel(

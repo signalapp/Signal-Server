@@ -39,7 +39,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 
@@ -63,7 +62,7 @@ class AppleAppStoreManagerTest {
     reset(apiClient, signedDataVerifier);
     executor = Executors.newSingleThreadScheduledExecutor();
     appleAppStoreManager = new AppleAppStoreManager(apiClient, signedDataVerifier,
-        SUBSCRIPTION_GROUP_ID, Map.of(PRODUCT_ID, LEVEL), new RetryConfiguration(), executor, executor);
+        SUBSCRIPTION_GROUP_ID, Map.of(PRODUCT_ID, LEVEL), null, executor, executor);
   }
 
   @AfterEach

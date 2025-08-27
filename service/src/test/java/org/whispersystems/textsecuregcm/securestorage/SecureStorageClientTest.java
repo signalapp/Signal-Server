@@ -32,7 +32,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureStorageServiceConfiguration;
 
 class SecureStorageClientTest {
@@ -104,8 +103,8 @@ class SecureStorageClientTest {
             lY6ZKNA81Lm3YADYtObmK1IUrOPo9BeIaPy0UM08SmN880Vunqa91Q==
             -----END CERTIFICATE-----
             """),
-        new CircuitBreakerConfiguration(),
-        new RetryConfiguration());
+        null,
+        null);
 
     secureStorageClient = new SecureStorageClient(credentialsGenerator, httpExecutor, retryExecutor, config);
   }

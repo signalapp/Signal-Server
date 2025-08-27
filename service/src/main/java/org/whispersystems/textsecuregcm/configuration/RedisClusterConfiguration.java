@@ -9,10 +9,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.annotations.VisibleForTesting;
 import io.lettuce.core.resource.ClientResources;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 @JsonTypeName("default")
@@ -27,9 +27,8 @@ public class RedisClusterConfiguration implements FaultTolerantRedisClusterFacto
   private Duration timeout = Duration.ofSeconds(1);
 
   @JsonProperty
-  @NotNull
-  @Valid
-  private CircuitBreakerConfiguration circuitBreaker = new CircuitBreakerConfiguration();
+  @Nullable
+  private String circuitBreakerConfigurationName;
 
   @VisibleForTesting
   void setConfigurationUri(final String configurationUri) {
@@ -44,8 +43,8 @@ public class RedisClusterConfiguration implements FaultTolerantRedisClusterFacto
     return timeout;
   }
 
-  public CircuitBreakerConfiguration getCircuitBreakerConfiguration() {
-    return circuitBreaker;
+  @Nullable public String getCircuitBreakerConfigurationName() {
+    return circuitBreakerConfigurationName;
   }
 
   @Override

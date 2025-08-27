@@ -27,8 +27,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.Cdn3StorageManagerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -58,8 +56,8 @@ public class Cdn3RemoteStorageManagerTest {
             new SecretString("clientSecret"),
             Map.of(2, "gcs", 3, "r2"),
             2,
-            new CircuitBreakerConfiguration(),
-            new RetryConfiguration()));
+            null,
+            null));
   }
 
   @ParameterizedTest

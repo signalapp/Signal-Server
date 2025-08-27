@@ -257,6 +257,7 @@ import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.BufferingInterceptor;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.ManagedExecutors;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -362,6 +363,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final AwsCredentialsProvider awsCredentialsProvider = config.getAwsCredentialsConfiguration().build();
 
     UncaughtExceptionHandler.register();
+
+    config.getCircuitBreakerConfigurations().forEach((name, configuration) ->
+        CircuitBreakerUtil.getCircuitBreakerRegistry().addConfiguration(name, configuration.toCircuitBreakerConfig()));
+
+    config.getRetryConfigurations().forEach((name, configuration) ->
+        CircuitBreakerUtil.getRetryRegistry().addConfiguration(name, configuration.toRetryConfigBuilder().build()));
 
     ScheduledExecutorService dynamicConfigurationExecutor = ScheduledExecutorServiceBuilder.of(environment, "dynamicConfiguration")
         .threads(1).build();
@@ -706,9 +713,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getTurnConfiguration().cloudflare().urlsWithIps(),
         config.getTurnConfiguration().cloudflare().hostname(),
         config.getTurnConfiguration().cloudflare().numHttpClients(),
-        config.getTurnConfiguration().cloudflare().circuitBreaker(),
+        config.getTurnConfiguration().cloudflare().circuitBreakerConfigurationName(),
         cloudflareTurnHttpExecutor,
-        config.getTurnConfiguration().cloudflare().retry(),
+        config.getTurnConfiguration().cloudflare().retryConfigurationName(),
         cloudflareTurnRetryExecutor,
         cloudflareDnsResolver
         );
@@ -741,7 +748,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getBraintree().environment(),
         config.getBraintree().supportedCurrenciesByPaymentMethod(), config.getBraintree().merchantAccounts(),
         config.getBraintree().graphqlUrl(), currencyManager, config.getBraintree().pubSubPublisher().build(),
-        config.getBraintree().circuitBreaker(), subscriptionProcessorExecutor,
+        config.getBraintree().circuitBreakerConfigurationName(), subscriptionProcessorExecutor,
         subscriptionProcessorRetryExecutor);
     GooglePlayBillingManager googlePlayBillingManager = new GooglePlayBillingManager(
         new ByteArrayInputStream(config.getGooglePlayBilling().credentialsJson().value().getBytes(StandardCharsets.UTF_8)),
@@ -755,7 +762,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAppleAppStore().encodedKey().value(), config.getAppleAppStore().subscriptionGroupId(),
         config.getAppleAppStore().productIdToLevel(),
         config.getAppleAppStore().appleRootCerts(),
-        config.getAppleAppStore().retry(), appleAppStoreExecutor, appleAppStoreRetryExecutor);
+        config.getAppleAppStore().retryConfigurationName(), appleAppStoreExecutor, appleAppStoreRetryExecutor);
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(pushNotificationScheduler);

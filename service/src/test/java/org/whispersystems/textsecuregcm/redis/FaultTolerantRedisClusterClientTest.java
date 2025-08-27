@@ -46,7 +46,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -61,6 +60,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 
@@ -71,6 +71,8 @@ class FaultTolerantRedisClusterClientTest {
 
   private static final Duration TIMEOUT = Duration.ofMillis(200);
 
+  private static int circuitBreakerConfigurationCount = 0;
+
   @RegisterExtension
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder()
       .timeout(TIMEOUT)
@@ -79,13 +81,24 @@ class FaultTolerantRedisClusterClientTest {
   private FaultTolerantRedisClusterClient cluster;
 
   private static FaultTolerantRedisClusterClient buildCluster(
+      final String name,
       @Nullable final CircuitBreakerConfiguration circuitBreakerConfiguration,
       final ClientResources.Builder clientResourcesBuilder) {
 
-    return new FaultTolerantRedisClusterClient("test",
+    final String circuitBreakerConfigurationName;
+
+    if (circuitBreakerConfiguration != null) {
+      circuitBreakerConfigurationName = FaultTolerantRedisClusterClientTest.class.getSimpleName() + "-" + circuitBreakerConfigurationCount++;
+      CircuitBreakerUtil.getCircuitBreakerRegistry().addConfiguration(circuitBreakerConfigurationName, circuitBreakerConfiguration.toCircuitBreakerConfig());
+    } else {
+      circuitBreakerConfigurationName = null;
+    }
+
+    return new FaultTolerantRedisClusterClient(name,
         clientResourcesBuilder.socketAddressResolver(REDIS_CLUSTER_EXTENSION.getSocketAddressResolver()),
-        RedisClusterExtension.getRedisURIs(), TIMEOUT,
-        Optional.ofNullable(circuitBreakerConfiguration).orElseGet(CircuitBreakerConfiguration::new));
+        RedisClusterExtension.getRedisURIs(),
+        TIMEOUT,
+        circuitBreakerConfigurationName);
   }
 
   @AfterEach
@@ -95,7 +108,7 @@ class FaultTolerantRedisClusterClientTest {
 
   @Test
   void testTimeout() {
-    cluster = buildCluster(null, ClientResources.builder());
+    cluster = buildCluster("testTimeout", null, ClientResources.builder());
 
     final ExecutionException asyncException = assertThrows(ExecutionException.class,
         () -> cluster.withCluster(connection -> connection.async().blpop(10 * TIMEOUT.toMillis() / 1000d, "key"))
@@ -119,7 +132,7 @@ class FaultTolerantRedisClusterClientTest {
     circuitBreakerConfig.setSlidingWindowSize(1);
     circuitBreakerConfig.setWaitDurationInOpenState(breakerWaitDuration);
 
-    cluster = buildCluster(circuitBreakerConfig, ClientResources.builder());
+    cluster = buildCluster("testTimeoutCircuitBreaker", circuitBreakerConfig, ClientResources.builder());
 
     final String key = "key";
 
@@ -149,7 +162,7 @@ class FaultTolerantRedisClusterClientTest {
     final ClientResources.Builder builder = CompositeNettyCustomizerClientResourcesBuilder.builder()
         .nettyCustomizer(testBreakerManager);
 
-    cluster = buildCluster(circuitBreakerConfig, builder);
+    cluster = buildCluster("testShardUnavailable", circuitBreakerConfig, builder);
 
     // this test will open the breaker on one shard and check that other shards are still available,
     // so we get two nodes and a slot+key on each to test
@@ -202,7 +215,7 @@ class FaultTolerantRedisClusterClientTest {
     final ClientResources.Builder builder = CompositeNettyCustomizerClientResourcesBuilder.builder()
         .nettyCustomizer(testBreakerManager);
 
-    cluster = buildCluster(circuitBreakerConfig, builder);
+    cluster = buildCluster("testShardUnavailablePubSub", circuitBreakerConfig, builder);
 
     cluster.useCluster(
         connection -> connection.sync().upstream().commands().configSet("notify-keyspace-events", "K$glz"));

@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.redis;
 
 import com.redis.testcontainers.RedisContainer;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.FlushMode;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.resource.ClientResources;
@@ -64,7 +65,7 @@ public class RedisServerExtension implements BeforeAllCallback, BeforeEachCallba
         redisClientResources.mutate(),
         getRedisURI(),
         Duration.ofSeconds(2),
-        circuitBreakerConfig);
+        CircuitBreaker.of("test", circuitBreakerConfig.toCircuitBreakerConfig()));
 
     faultTolerantRedisClient.useConnection(connection -> connection.sync().flushall(FlushMode.SYNC));
   }

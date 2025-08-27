@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -30,6 +31,7 @@ import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.TestcontainersImages;
 
 public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, ExtensionContext.Store.CloseableResource {
@@ -42,6 +44,9 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
 
   private ClientResources redisClientResources;
   private FaultTolerantRedisClusterClient redisClusterClient;
+
+  private static final String CIRCUIT_BREAKER_CONFIGURATION_NAME =
+      RedisClusterExtension.class.getSimpleName() + "-" + RandomStringUtils.insecure().nextAlphanumeric(8);
 
   private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(2);
 
@@ -97,6 +102,11 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
   @Override
   public void beforeAll(final ExtensionContext context) throws Exception {
     if (composeContainer == null) {
+      final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
+      circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
+
+      CircuitBreakerUtil.getCircuitBreakerRegistry().addConfiguration(CIRCUIT_BREAKER_CONFIGURATION_NAME, circuitBreakerConfig.toCircuitBreakerConfig());
+
       final File clusterComposeFile = File.createTempFile("redis-cluster", ".yml");
       clusterComposeFile.deleteOnExit();
 
@@ -181,14 +191,11 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
         .socketAddressResolver(getSocketAddressResolver())
         .build();
 
-    final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
-    circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
-
     redisClusterClient = new FaultTolerantRedisClusterClient("test-cluster",
         redisClientResources.mutate(),
         getRedisURIs(),
         timeout,
-        circuitBreakerConfig);
+        CIRCUIT_BREAKER_CONFIGURATION_NAME);
 
     redisClusterClient.useCluster(connection -> connection.sync().flushall(FlushMode.SYNC));
   }

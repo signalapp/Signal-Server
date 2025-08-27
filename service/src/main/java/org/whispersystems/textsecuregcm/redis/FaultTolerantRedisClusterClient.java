@@ -26,7 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.configuration.RedisClusterConfiguration;
 import reactor.core.scheduler.Schedulers;
 
@@ -57,7 +57,7 @@ public class FaultTolerantRedisClusterClient {
         Collections.singleton(RedisUriUtil.createRedisUriWithTimeout(clusterConfiguration.getConfigurationUri(),
             clusterConfiguration.getTimeout())),
         clusterConfiguration.getTimeout(),
-        clusterConfiguration.getCircuitBreakerConfiguration());
+        clusterConfiguration.getCircuitBreakerConfigurationName());
 
   }
 
@@ -65,7 +65,7 @@ public class FaultTolerantRedisClusterClient {
       final ClientResources.Builder clientResourcesBuilder,
       final Iterable<RedisURI> redisUris,
       final Duration commandTimeout,
-      final CircuitBreakerConfiguration circuitBreakerConfig) {
+      @Nullable final String circuitBreakerConfigurationName) {
 
     this.name = name;
 
@@ -83,7 +83,7 @@ public class FaultTolerantRedisClusterClient {
     });
 
     final LettuceShardCircuitBreaker lettuceShardCircuitBreaker = new LettuceShardCircuitBreaker(name,
-        circuitBreakerConfig.toCircuitBreakerConfig(), Schedulers.newSingle("topology-changed-" + name, true));
+        circuitBreakerConfigurationName, Schedulers.newSingle("topology-changed-" + name, true));
     this.clusterClient = RedisClusterClient.create(
         clientResourcesBuilder.nettyCustomizer(lettuceShardCircuitBreaker).
             build(),

@@ -19,10 +19,9 @@ import java.util.List;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -60,18 +59,15 @@ public class CloudflareTurnCredentialsManager {
       final List<String> cloudflareTurnUrlsWithIps,
       final String cloudflareTurnHostname,
       final int cloudflareTurnNumHttpClients,
-      final CircuitBreakerConfiguration circuitBreaker,
+      @Nullable final String circuitBreakerConfigurationName,
       final ExecutorService executor,
-      final RetryConfiguration retry,
+      @Nullable final String retryConfigurationName,
       final ScheduledExecutorService retryExecutor,
       final DnsNameResolver dnsNameResolver) {
 
-    this.cloudflareTurnClient = FaultTolerantHttpClient.newBuilder()
-        .withName("cloudflare-turn")
-        .withCircuitBreaker(circuitBreaker)
-        .withExecutor(executor)
-        .withRetry(retry)
-        .withRetryExecutor(retryExecutor)
+    this.cloudflareTurnClient = FaultTolerantHttpClient.newBuilder("cloudflare-turn", executor)
+        .withCircuitBreaker(circuitBreakerConfigurationName)
+        .withRetry(retryConfigurationName, retryExecutor)
         .withNumClients(cloudflareTurnNumHttpClients)
         .build();
     this.cloudflareTurnUrls = cloudflareTurnUrls;
