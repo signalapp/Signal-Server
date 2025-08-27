@@ -57,6 +57,6 @@ public class ResilienceUtil {
   /// @param name The name of this `Retry`. Calls to this method with the same name will return the same `Retry`
   /// instance, and the name is used to identify metrics tied to the returned `Retry` instance.
   public static Retry getGeneralRedisRetry(final String name) {
-    return RETRY_REGISTRY.retry(name, GENERAL_REDIS_CONFIGURATION_NAME);
+    return RETRY_REGISTRY.retry("redis/" + name, GENERAL_REDIS_CONFIGURATION_NAME);
   }
 }

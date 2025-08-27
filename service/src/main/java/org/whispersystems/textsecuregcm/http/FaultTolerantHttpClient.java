@@ -111,7 +111,7 @@ public class FaultTolerantHttpClient {
     @Nullable private String circuitBreakerConfigurationName;
 
     private Builder(final String name, final Executor executor) {
-      this.name = Objects.requireNonNull(name);
+      this.name = getClass().getSimpleName() + "/" + Objects.requireNonNull(name);
       this.executor = Objects.requireNonNull(executor);
     }
 
