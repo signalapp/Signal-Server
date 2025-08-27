@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -32,7 +33,8 @@ class MessagesCacheGetItemsScriptTest {
   @Test
   void testCacheGetItemsScript() throws Exception {
     final MessagesCacheInsertScript insertScript = new MessagesCacheInsertScript(
-        REDIS_CLUSTER_EXTENSION.getRedisCluster());
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        mock(ScheduledExecutorService.class));
 
     final UUID destinationUuid = UUID.randomUUID();
     final byte deviceId = 1;

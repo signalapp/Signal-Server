@@ -6,10 +6,12 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -25,7 +27,8 @@ class MessagesCacheRemoveByGuidScriptTest {
   @Test
   void testCacheRemoveByGuid() throws Exception {
     final MessagesCacheInsertScript insertScript = new MessagesCacheInsertScript(
-        REDIS_CLUSTER_EXTENSION.getRedisCluster());
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        mock(ScheduledExecutorService.class));
 
     final UUID destinationUuid = UUID.randomUUID();
     final byte deviceId = 1;
@@ -38,10 +41,12 @@ class MessagesCacheRemoveByGuidScriptTest {
     insertScript.executeAsync(destinationUuid, deviceId, envelope1);
 
     final MessagesCacheRemoveByGuidScript removeByGuidScript = new MessagesCacheRemoveByGuidScript(
-        REDIS_CLUSTER_EXTENSION.getRedisCluster());
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), mock(ScheduledExecutorService.class));
 
-    final List<byte[]> removedMessages = removeByGuidScript.execute(destinationUuid, deviceId,
-        List.of(serverGuid)).get(1, TimeUnit.SECONDS);
+    final List<byte[]> removedMessages =
+        removeByGuidScript.execute(destinationUuid, deviceId, List.of(serverGuid))
+            .toCompletableFuture()
+            .get(1, TimeUnit.SECONDS);
 
     assertEquals(1, removedMessages.size());
 

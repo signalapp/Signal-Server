@@ -161,14 +161,10 @@ record CommandDependencies(
     ExecutorService disconnectionRequestListenerExecutor = environment.lifecycle()
         .virtualExecutorService(name(WhisperServerService.class, "disconnectionRequest-%d"));
 
-    ScheduledExecutorService secureValueRecoveryServiceRetryExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(WhisperServerService.class, "secureValueRecoveryServiceRetry-%d")).threads(1).build();
-    ScheduledExecutorService remoteStorageRetryExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(WhisperServerService.class, "remoteStorageRetry-%d")).threads(1).build();
-    ScheduledExecutorService storageServiceRetryExecutor = environment.lifecycle()
-        .scheduledExecutorService(name(WhisperServerService.class, "storageServiceRetry-%d")).threads(1).build();
-    ScheduledExecutorService messagePollExecutor = environment.lifecycle()
+    final ScheduledExecutorService messagePollExecutor = environment.lifecycle()
         .scheduledExecutorService(name(WhisperServerService.class, "messagePollExecutor-%d")).threads(1).build();
+    final ScheduledExecutorService retryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(WhisperServerService.class, "retry-%d")).threads(4).build();
 
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
         configuration.getSecureStorageServiceConfiguration());
@@ -243,22 +239,23 @@ record CommandDependencies(
     SecureValueRecoveryClient secureValueRecovery2Client = new SecureValueRecoveryClient(
         secureValueRecovery2CredentialsGenerator,
         secureValueRecoveryServiceExecutor,
-        secureValueRecoveryServiceRetryExecutor,
+        retryExecutor,
         configuration.getSvr2Configuration(),
         () -> dynamicConfigurationManager.getConfiguration().getSvr2StatusCodesToIgnoreForAccountDeletion());
     SecureValueRecoveryClient secureValueRecoveryBClient = new SecureValueRecoveryClient(
         secureValueRecoveryBCredentialsGenerator,
         secureValueRecoveryServiceExecutor,
-        secureValueRecoveryServiceRetryExecutor,
+        retryExecutor,
         configuration.getSvrbConfiguration(),
         () -> dynamicConfigurationManager.getConfiguration().getSvrbStatusCodesToIgnoreForAccountDeletion());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
-        storageServiceExecutor, storageServiceRetryExecutor, configuration.getSecureStorageServiceConfiguration());
+        storageServiceExecutor, retryExecutor, configuration.getSecureStorageServiceConfiguration());
     GrpcClientConnectionManager grpcClientConnectionManager = new GrpcClientConnectionManager();
-    DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, grpcClientConnectionManager, disconnectionRequestListenerExecutor);
+    DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient,
+        grpcClientConnectionManager, disconnectionRequestListenerExecutor, retryExecutor);
     MessagesCache messagesCache = new MessagesCache(messagesCluster,
-        messageDeliveryScheduler, messageDeletionExecutor, Clock.systemUTC(), experimentEnrollmentManager);
-    ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster, asyncCdnS3Client,
+        messageDeliveryScheduler, messageDeletionExecutor, retryExecutor, Clock.systemUTC(), experimentEnrollmentManager);
+    ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster, retryExecutor, asyncCdnS3Client,
         configuration.getCdnConfiguration().bucket());
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
         configuration.getDynamoDbTables().getReportMessage().getTableName(),
@@ -279,8 +276,9 @@ record CommandDependencies(
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, messagePollExecutor,
-        clock, configuration.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
-    RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster);
+        retryExecutor, clock, configuration.getLinkDeviceSecretConfiguration().secret().value(),
+        dynamicConfigurationManager);
+    RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster, retryExecutor);
     final BackupsDb backupsDb =
         new BackupsDb(dynamoDbAsyncClient, configuration.getDynamoDbTables().getBackups().getTableName(), clock);
     final GenericServerSecretParams backupsGenericZkSecretParams;
@@ -298,7 +296,7 @@ record CommandDependencies(
         new Cdn3BackupCredentialGenerator(configuration.getTus()),
         new Cdn3RemoteStorageManager(
             remoteStorageHttpExecutor,
-            remoteStorageRetryExecutor,
+            retryExecutor,
             configuration.getCdn3StorageManagerConfiguration()),
         secureValueRecoveryBCredentialsGenerator,
         secureValueRecoveryBClient,
@@ -314,7 +312,7 @@ record CommandDependencies(
     APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, configuration.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
-        apnSender, fcmSender, accountsManager, 0, 0);
+        apnSender, fcmSender, accountsManager, 0, 0, retryExecutor);
     PushNotificationManager pushNotificationManager = new PushNotificationManager(accountsManager,
         apnSender, fcmSender, pushNotificationScheduler);
     PushNotificationExperimentSamples pushNotificationExperimentSamples =

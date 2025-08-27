@@ -5,11 +5,14 @@
 
 package org.whispersystems.textsecuregcm.workers;
 
+import static com.codahale.metrics.MetricRegistry.name;
+
 import io.dropwizard.core.Application;
 import io.dropwizard.core.cli.ServerCommand;
 import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Environment;
 import io.dropwizard.jetty.HttpsConnectorFactory;
+import java.util.concurrent.ScheduledExecutorService;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
@@ -21,6 +24,7 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
 
   private static final String WORKER_COUNT = "workers";
   private static final String MAX_CONCURRENCY = "max_concurrency";
+  private static final String RETRY_THREADS = "retry_threads";
 
   public ScheduledApnPushNotificationSenderServiceCommand() {
     super(new Application<>() {
@@ -48,6 +52,13 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
         .required(false)
         .setDefault(16)
         .help("The number of concurrent operations per worker thread");
+
+    subparser.addArgument("--retry-threads")
+        .type(Integer.class)
+        .dest(RETRY_THREADS)
+        .required(false)
+        .setDefault(4)
+        .help("The number of threads to use in the retry executor's pool");
   }
 
   @Override
@@ -68,8 +79,20 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
           });
     }
 
+    final ScheduledExecutorService retryExecutor = environment.lifecycle()
+        .scheduledExecutorService(name(ScheduledApnPushNotificationSenderServiceCommand.class, "retry-%d"))
+        .threads(namespace.getInt(RETRY_THREADS))
+        .build();
+
     final PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(
-        deps.pushSchedulerCluster(), deps.apnSender(), deps.fcmSender(), deps.accountsManager(), namespace.getInt(WORKER_COUNT), namespace.getInt(MAX_CONCURRENCY));
+        deps.pushSchedulerCluster(),
+        deps.apnSender(),
+        deps.fcmSender(),
+        deps.accountsManager(),
+        namespace.getInt(WORKER_COUNT),
+        namespace.getInt(MAX_CONCURRENCY),
+        retryExecutor
+    );
 
     environment.lifecycle().manage(pushNotificationScheduler);
 

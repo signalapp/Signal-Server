@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.limits;
 import com.google.common.annotations.VisibleForTesting;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.concurrent.ScheduledExecutorService;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -77,9 +78,10 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public static RateLimiters create(
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final FaultTolerantRedisClusterClient cacheCluster) {
+      final FaultTolerantRedisClusterClient cacheCluster,
+      final ScheduledExecutorService retryExecutor) {
     return new RateLimiters(
-        dynamicConfigurationManager, defaultScript(cacheCluster), cacheCluster, Clock.systemUTC());
+        dynamicConfigurationManager, defaultScript(cacheCluster), cacheCluster, retryExecutor, Clock.systemUTC());
   }
 
   @VisibleForTesting
@@ -87,8 +89,9 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final ClusterLuaScript validateScript,
       final FaultTolerantRedisClusterClient cacheCluster,
+      final ScheduledExecutorService retryExecutor,
       final Clock clock) {
-    super(For.values(), dynamicConfigurationManager, validateScript, cacheCluster, clock);
+    super(For.values(), dynamicConfigurationManager, validateScript, cacheCluster, retryExecutor, clock);
   }
 
   public RateLimiter getAllocateDeviceLimiter() {

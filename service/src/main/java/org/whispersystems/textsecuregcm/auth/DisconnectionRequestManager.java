@@ -8,10 +8,12 @@ package org.whispersystems.textsecuregcm.auth;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.lifecycle.Managed;
+import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -21,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +35,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 /**
@@ -45,6 +49,11 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
   private final FaultTolerantRedisClient pubSubClient;
   private final GrpcClientConnectionManager grpcClientConnectionManager;
   private final Executor listenerEventExecutor;
+  private final ScheduledExecutorService retryExecutor;
+
+  private static final String RETRY_NAME = DisconnectionRequestManager.class.getSimpleName();
+
+  private static final Duration SUBSCRIBE_RETRY_DELAY = Duration.ofSeconds(5);
 
   private final Map<AccountIdentifierAndDeviceId, List<DisconnectionRequestListener>> listeners =
       new ConcurrentHashMap<>();
@@ -66,11 +75,13 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
 
   public DisconnectionRequestManager(final FaultTolerantRedisClient pubSubClient,
       final GrpcClientConnectionManager grpcClientConnectionManager,
-      final Executor listenerEventExecutor) {
+      final Executor listenerEventExecutor,
+      final ScheduledExecutorService retryExecutor) {
 
     this.pubSubClient = pubSubClient;
     this.grpcClientConnectionManager = grpcClientConnectionManager;
     this.listenerEventExecutor = listenerEventExecutor;
+    this.retryExecutor = retryExecutor;
   }
 
   @Override
@@ -78,7 +89,25 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
     this.pubSubConnection = pubSubClient.createBinaryPubSubConnection();
     this.pubSubConnection.usePubSubConnection(connection -> {
       connection.addListener(this);
-      connection.sync().subscribe(DISCONNECTION_REQUEST_CHANNEL);
+
+      boolean subscribed = false;
+
+      // Loop indefinitely until we establish a subscription. We don't want to fail immediately if there's a temporary
+      // Redis connectivity issue, since that would derail the whole startup process and likely lead to unnecessary pod
+      // churn, which might make things worse. If we never establish a connection, readiness probes will eventually fail
+      // and terminate the pods.
+      do {
+        try {
+          connection.sync().subscribe(DISCONNECTION_REQUEST_CHANNEL);
+          subscribed = true;
+        } catch (final RedisCommandTimeoutException e) {
+          try {
+            Thread.sleep(SUBSCRIBE_RETRY_DELAY);
+          } catch (final InterruptedException ex) {
+            throw new RuntimeException(ex);
+          }
+        }
+      } while (!subscribed);
     });
   }
 
@@ -159,9 +188,10 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
         .addAllDeviceIds(deviceIds.stream().mapToInt(Byte::intValue).boxed().toList())
         .build();
 
-    return pubSubClient.withBinaryConnection(connection ->
-            connection.async().publish(DISCONNECTION_REQUEST_CHANNEL, disconnectionRequest.toByteArray()))
-        .toCompletableFuture()
+    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+        .executeCompletionStage(retryExecutor, () -> pubSubClient.withBinaryConnection(connection ->
+                connection.async().publish(DISCONNECTION_REQUEST_CHANNEL, disconnectionRequest.toByteArray()))
+            .toCompletableFuture())
         .thenRun(DISCONNECTION_REQUESTS_SENT_COUNTER::increment);
   }
 

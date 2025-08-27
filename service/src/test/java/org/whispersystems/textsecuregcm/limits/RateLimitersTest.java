@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
@@ -36,7 +37,7 @@ public class RateLimitersTest {
   private final MutableClock clock = MockUtils.mutableClock(0);
 
   @Test
-  public void testValidateDuplicates() throws Exception {
+  public void testValidateDuplicates() {
     final TestDescriptor td1 = new TestDescriptor("id1");
     final TestDescriptor td2 = new TestDescriptor("id2");
     final TestDescriptor td3 = new TestDescriptor("id3");
@@ -47,6 +48,7 @@ public class RateLimitersTest {
         dynamicConfig,
         validateScript,
         redisCluster,
+        mock(ScheduledExecutorService.class),
         clock) {});
 
     new BaseRateLimiters<>(
@@ -54,12 +56,13 @@ public class RateLimitersTest {
         dynamicConfig,
         validateScript,
         redisCluster,
+        mock(ScheduledExecutorService.class),
         clock) {};
   }
 
   @Test
   void testUnchangingConfiguration() {
-    final RateLimiters rateLimiters = new RateLimiters(dynamicConfig, validateScript, redisCluster, clock);
+    final RateLimiters rateLimiters = new RateLimiters(dynamicConfig, validateScript, redisCluster, mock(ScheduledExecutorService.class), clock);
     final RateLimiter limiter = rateLimiters.getRateLimitResetLimiter();
     final RateLimiterConfig expected = RateLimiters.For.RATE_LIMIT_RESET.defaultConfig();
     assertEquals(expected, limiter.config());
@@ -78,7 +81,7 @@ public class RateLimitersTest {
 
     when(configuration.getLimits()).thenReturn(limitsConfigMap);
 
-    final RateLimiters rateLimiters = new RateLimiters(dynamicConfig, validateScript, redisCluster, clock);
+    final RateLimiters rateLimiters = new RateLimiters(dynamicConfig, validateScript, redisCluster, mock(ScheduledExecutorService.class), clock);
     final RateLimiter limiter = rateLimiters.getRateLimitResetLimiter();
 
     limitsConfigMap.put(RateLimiters.For.RATE_LIMIT_RESET.id(), initialRateLimiterConfig);
@@ -104,7 +107,7 @@ public class RateLimitersTest {
 
     when(configuration.getLimits()).thenReturn(mapForDynamic);
 
-    final RateLimiters rateLimiters = new RateLimiters(dynamicConfig, validateScript, redisCluster, clock);
+    final RateLimiters rateLimiters = new RateLimiters(dynamicConfig, validateScript, redisCluster, mock(ScheduledExecutorService.class), clock);
     final RateLimiter limiter = rateLimiters.forDescriptor(descriptor);
 
     // test only default is present

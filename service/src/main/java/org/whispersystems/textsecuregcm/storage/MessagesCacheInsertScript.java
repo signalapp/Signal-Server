@@ -12,13 +12,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ScheduledExecutorService;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.ClientEvent;
 import org.whispersystems.textsecuregcm.push.NewMessageAvailableEvent;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 
 /**
  * Inserts an envelope into the message queue for a destination device and publishes a "new message available" event.
@@ -26,14 +28,18 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 class MessagesCacheInsertScript {
 
   private final ClusterLuaScript insertScript;
+  private final ScheduledExecutorService retryExecutor;
 
   private static final byte[] NEW_MESSAGE_EVENT_BYTES = ClientEvent.newBuilder()
       .setNewMessageAvailable(NewMessageAvailableEvent.getDefaultInstance())
       .build()
       .toByteArray();
 
-  MessagesCacheInsertScript(FaultTolerantRedisClusterClient redisCluster) throws IOException {
+  MessagesCacheInsertScript(FaultTolerantRedisClusterClient redisCluster,
+      final ScheduledExecutorService retryExecutor) throws IOException {
+
     this.insertScript = ClusterLuaScript.fromResource(redisCluster, "lua/insert_item.lua", ScriptOutputType.BOOLEAN);
+    this.retryExecutor = retryExecutor;
   }
 
   /**
@@ -45,7 +51,7 @@ class MessagesCacheInsertScript {
    * @return {@code true} if the destination device had a registered "presence"/event subscriber or {@code false}
    * otherwise
    */
-  CompletableFuture<Boolean> executeAsync(final UUID destinationUuid, final byte destinationDevice, final MessageProtos.Envelope envelope) {
+  CompletionStage<Boolean> executeAsync(final UUID destinationUuid, final byte destinationDevice, final MessageProtos.Envelope envelope) {
     assert envelope.hasServerGuid();
     assert envelope.hasServerTimestamp();
 
@@ -63,7 +69,8 @@ class MessagesCacheInsertScript {
         NEW_MESSAGE_EVENT_BYTES // eventPayload
     ));
 
-    return insertScript.executeBinaryAsync(keys, args)
+    return CircuitBreakerUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
+        .executeCompletionStage(retryExecutor, () -> insertScript.executeBinaryAsync(keys, args))
         .thenApply(result -> (boolean) result);
   }
 }

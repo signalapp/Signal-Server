@@ -23,6 +23,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 
 public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> implements Managed {
 
@@ -39,6 +40,8 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
 
   private static final String RECEIVE_PROVISIONING_MESSAGE_COUNTER_NAME =
       name(ProvisioningManager.class, "receiveProvisioningMessage");
+
+  private static final String RETRY_NAME = ProvisioningManager.class.getSimpleName();
 
   private static final Logger logger = LoggerFactory.getLogger(ProvisioningManager.class);
 
@@ -77,8 +80,9 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
         .setContent(ByteString.copyFrom(body))
         .build();
 
-    final boolean receiverPresent = pubSubClient.withBinaryConnection(connection ->
-        connection.sync().publish(address.getBytes(StandardCharsets.UTF_8), pubSubMessage.toByteArray()) > 0);
+    final boolean receiverPresent = CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+        .executeSupplier(() -> pubSubClient.withBinaryConnection(connection ->
+            connection.sync().publish(address.getBytes(StandardCharsets.UTF_8), pubSubMessage.toByteArray()) > 0));
 
     Metrics.counter(SEND_PROVISIONING_MESSAGE_COUNTER_NAME, "online", String.valueOf(receiverPresent)).increment();
 

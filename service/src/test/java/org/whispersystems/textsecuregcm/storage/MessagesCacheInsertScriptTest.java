@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -32,7 +34,7 @@ class MessagesCacheInsertScriptTest {
   @Test
   void testCacheInsertScript() throws Exception {
     final MessagesCacheInsertScript insertScript =
-        new MessagesCacheInsertScript(REDIS_CLUSTER_EXTENSION.getRedisCluster());
+        new MessagesCacheInsertScript(REDIS_CLUSTER_EXTENSION.getRedisCluster(), mock(ScheduledExecutorService.class));
 
     final UUID destinationUuid = UUID.randomUUID();
     final byte deviceId = 1;
@@ -41,7 +43,7 @@ class MessagesCacheInsertScriptTest {
         .setServerGuid(UUID.randomUUID().toString())
         .build();
 
-    insertScript.executeAsync(destinationUuid, deviceId, envelope1).join();
+    insertScript.executeAsync(destinationUuid, deviceId, envelope1).toCompletableFuture().join();
 
     assertEquals(List.of(EnvelopeUtil.compress(envelope1)), getStoredMessages(destinationUuid, deviceId));
 
@@ -50,12 +52,12 @@ class MessagesCacheInsertScriptTest {
         .setServerGuid(UUID.randomUUID().toString())
         .build();
 
-    insertScript.executeAsync(destinationUuid, deviceId, envelope2).join();
+    insertScript.executeAsync(destinationUuid, deviceId, envelope2).toCompletableFuture().join();
 
     assertEquals(List.of(EnvelopeUtil.compress(envelope1), EnvelopeUtil.compress(envelope2)),
         getStoredMessages(destinationUuid, deviceId));
 
-    insertScript.executeAsync(destinationUuid, deviceId, envelope1).join();
+    insertScript.executeAsync(destinationUuid, deviceId, envelope1).toCompletableFuture().join();
 
     assertEquals(List.of(EnvelopeUtil.compress(envelope1), EnvelopeUtil.compress(envelope2)),
         getStoredMessages(destinationUuid, deviceId),
@@ -89,12 +91,13 @@ class MessagesCacheInsertScriptTest {
     final byte deviceId = 1;
 
     final MessagesCacheInsertScript insertScript =
-        new MessagesCacheInsertScript(REDIS_CLUSTER_EXTENSION.getRedisCluster());
+        new MessagesCacheInsertScript(REDIS_CLUSTER_EXTENSION.getRedisCluster(), mock(ScheduledExecutorService.class));
 
     assertFalse(insertScript.executeAsync(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
             .setServerTimestamp(Instant.now().getEpochSecond())
             .setServerGuid(UUID.randomUUID().toString())
             .build())
+        .toCompletableFuture()
         .join());
 
     final FaultTolerantPubSubClusterConnection<byte[], byte[]> pubSubClusterConnection =
@@ -107,6 +110,7 @@ class MessagesCacheInsertScriptTest {
             .setServerTimestamp(Instant.now().getEpochSecond())
             .setServerGuid(UUID.randomUUID().toString())
             .build())
+        .toCompletableFuture()
         .join());
   }
 }

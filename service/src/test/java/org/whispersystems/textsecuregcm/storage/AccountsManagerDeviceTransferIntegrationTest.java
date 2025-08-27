@@ -78,6 +78,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(ClientPublicKeysManager.class),
         mock(ExecutorService.class),
         mock(ScheduledExecutorService.class),
+        mock(ScheduledExecutorService.class),
         Clock.systemUTC(),
         "link-device-secret".getBytes(StandardCharsets.UTF_8),
         mock(DynamicConfigurationManager.class));

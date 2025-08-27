@@ -260,6 +260,7 @@ class AccountsManagerTest {
         clientPublicKeysManager,
         mock(Executor.class),
         mock(ScheduledExecutorService.class),
+        mock(ScheduledExecutorService.class),
         CLOCK,
         LINK_DEVICE_SECRET,
         dynamicConfigurationManager);

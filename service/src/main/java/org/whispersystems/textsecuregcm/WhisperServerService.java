@@ -370,6 +370,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     config.getRetryConfigurations().forEach((name, configuration) ->
         CircuitBreakerUtil.getRetryRegistry().addConfiguration(name, configuration.toRetryConfigBuilder().build()));
 
+    CircuitBreakerUtil.setGeneralRedisRetryConfiguration(config.getGeneralRedisRetryConfiguration());
+
     ScheduledExecutorService dynamicConfigurationExecutor = ScheduledExecutorServiceBuilder.of(environment, "dynamicConfiguration")
         .threads(1).build();
 
@@ -524,13 +526,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .minThreads(1).maxThreads(1).build();
     ExecutorService asyncOperationQueueingExecutor = ExecutorServiceBuilder.of(environment, "asyncOperationQueueing")
         .minThreads(1).maxThreads(1).build();
-    ScheduledExecutorService secureValueRecoveryServiceRetryExecutor =
-      ScheduledExecutorServiceBuilder.of(environment, "secureValueRecoveryServiceRetry").threads(1).build();
-    ScheduledExecutorService storageServiceRetryExecutor =
-      ScheduledExecutorServiceBuilder.of(environment, "storageServiceRetry").threads(1).build();
-    ScheduledExecutorService remoteStorageRetryExecutor =
-      ScheduledExecutorServiceBuilder.of(environment, "remoteStorageRetry").threads(1).build();
-    ScheduledExecutorService registrationIdentityTokenRefreshExecutor =
+
+    final ScheduledExecutorService retryExecutor = ScheduledExecutorServiceBuilder.of(environment, "retry")
+        .threads(16).build();
+    final ScheduledExecutorService registrationIdentityTokenRefreshExecutor =
       ScheduledExecutorServiceBuilder.of(environment, "registrationIdentityTokenRefresh").threads(1).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
@@ -631,22 +630,24 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     SecureValueRecoveryClient secureValueRecovery2Client = new SecureValueRecoveryClient(
         svr2CredentialsGenerator,
         secureValueRecoveryServiceExecutor,
-        secureValueRecoveryServiceRetryExecutor,
+        retryExecutor,
         config.getSvr2Configuration(),
         () -> dynamicConfigurationManager.getConfiguration().getSvr2StatusCodesToIgnoreForAccountDeletion());
     SecureValueRecoveryClient secureValueRecoveryBClient = new SecureValueRecoveryClient(
         svrbCredentialsGenerator,
         secureValueRecoveryServiceExecutor,
-        secureValueRecoveryServiceRetryExecutor,
+        retryExecutor,
         config.getSvrbConfiguration(),
         () -> dynamicConfigurationManager.getConfiguration().getSvrbStatusCodesToIgnoreForAccountDeletion());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
-        storageServiceExecutor, storageServiceRetryExecutor, config.getSecureStorageServiceConfiguration());
+        storageServiceExecutor, retryExecutor, config.getSecureStorageServiceConfiguration());
     final GrpcClientConnectionManager grpcClientConnectionManager = new GrpcClientConnectionManager();
-    DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient, grpcClientConnectionManager, disconnectionRequestListenerExecutor);
-    ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster, asyncCdnS3Client, config.getCdnConfiguration().bucket());
+    DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient,
+        grpcClientConnectionManager, disconnectionRequestListenerExecutor, retryExecutor);
+    ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster, retryExecutor, asyncCdnS3Client,
+        config.getCdnConfiguration().bucket());
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
-        messageDeletionAsyncExecutor, clock, experimentEnrollmentManager);
+        messageDeletionAsyncExecutor, retryExecutor, clock, experimentEnrollmentManager);
     ClientReleaseManager clientReleaseManager = new ClientReleaseManager(clientReleases,
         recurringJobExecutor,
         config.getClientReleaseConfiguration().refreshInterval(),
@@ -665,15 +666,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         pubsubClient, accountLockManager, keysManager, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, clientPublicKeysManager, accountLockExecutor, messagePollExecutor,
-        clock, config.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
+        retryExecutor, clock, config.getLinkDeviceSecretConfiguration().secret().value(), dynamicConfigurationManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
     APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
-        apnSender, fcmSender, accountsManager, 0, 0);
+        apnSender, fcmSender, accountsManager, 0, 0, retryExecutor);
     PushNotificationManager pushNotificationManager =
         new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
-    RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster);
+    RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster, retryExecutor);
     ProvisioningManager provisioningManager = new ProvisioningManager(pubsubClient);
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         config.getDynamoDbTables().getIssuedReceipts().getTableName(),
@@ -806,7 +807,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         clock);
     final Cdn3RemoteStorageManager cdn3RemoteStorageManager = new Cdn3RemoteStorageManager(
         remoteStorageHttpExecutor,
-        remoteStorageRetryExecutor,
+        retryExecutor,
         config.getCdn3StorageManagerConfiguration());
     BackupManager backupManager = new BackupManager(
         backupsDb,

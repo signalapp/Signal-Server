@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -67,7 +68,7 @@ public class ProfilesManagerTest {
     profiles = mock(Profiles.class);
     s3Client = mock(S3AsyncClient.class);
 
-    profilesManager = new ProfilesManager(profiles, cacheCluster, s3Client, BUCKET);
+    profilesManager = new ProfilesManager(profiles, cacheCluster, mock(ScheduledExecutorService.class), s3Client, BUCKET);
   }
 
   @Test

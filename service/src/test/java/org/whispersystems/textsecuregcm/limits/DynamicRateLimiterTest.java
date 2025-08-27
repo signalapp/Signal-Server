@@ -19,10 +19,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -36,6 +39,7 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 class DynamicRateLimiterTest {
 
   private ClusterLuaScript validateRateLimitScript;
+  private ScheduledExecutorService retryExecutor;
 
   private static final TestClock CLOCK = TestClock.pinned(Instant.now());
 
@@ -44,8 +48,15 @@ class DynamicRateLimiterTest {
 
   @BeforeEach
   void setUp() throws IOException {
+    retryExecutor = Executors.newSingleThreadScheduledExecutor();
+
     validateRateLimitScript = ClusterLuaScript.fromResource(
         REDIS_CLUSTER_EXTENSION.getRedisCluster(), "lua/validate_rate_limit.lua", ScriptOutputType.INTEGER);
+  }
+
+  @AfterEach
+  void tearDown() {
+    retryExecutor.shutdown();
   }
 
   @ParameterizedTest
@@ -56,6 +67,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(1, Duration.ofHours(1), failOpen),
         validateRateLimitScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
@@ -72,6 +84,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(1, Duration.ofHours(1), failOpen),
         validateRateLimitScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
@@ -94,6 +107,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(1, Duration.ofHours(1), failOpen),
         failingScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
@@ -116,6 +130,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(1, Duration.ofHours(1), failOpen),
         failingScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
@@ -138,6 +153,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(1, refillRate.get(), false),
         validateRateLimitScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
@@ -161,6 +177,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(1, refillRate.get(), false),
         validateRateLimitScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
@@ -187,6 +204,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(bucketSize.get(), Duration.ofMinutes(1), false),
         validateRateLimitScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
@@ -211,6 +229,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(bucketSize.get(), Duration.ofMinutes(1), false),
         validateRateLimitScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
@@ -238,6 +257,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(1, Duration.ofMinutes(1), failOpen.get()),
         failingScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
@@ -260,6 +280,7 @@ class DynamicRateLimiterTest {
         () -> new RateLimiterConfig(1, Duration.ofMinutes(1), failOpen.get()),
         failingScript,
         REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
         CLOCK);
 
     final String key = RandomStringUtils.insecure().nextAlphanumeric(16);

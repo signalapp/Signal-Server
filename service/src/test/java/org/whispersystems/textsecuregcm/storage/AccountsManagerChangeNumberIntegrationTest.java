@@ -161,6 +161,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           clientPublicKeysManager,
           executor,
           executor,
+          executor,
           mock(Clock.class),
           "link-device-secret".getBytes(StandardCharsets.UTF_8),
           dynamicConfigurationManager);

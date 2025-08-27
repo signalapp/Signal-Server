@@ -9,10 +9,12 @@ import io.lettuce.core.ScriptOutputType;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ScheduledExecutorService;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 
 /**
@@ -24,16 +26,20 @@ import org.whispersystems.textsecuregcm.util.Util;
 class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
 
   private final ClusterLuaScript script;
+  private final ScheduledExecutorService retryExecutor;
 
   static final String ERROR_KEY_EXISTS = "ERR key exists";
 
-  MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(FaultTolerantRedisClusterClient redisCluster)
-      throws IOException {
+  MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(FaultTolerantRedisClusterClient redisCluster,
+      final ScheduledExecutorService retryExecutor) throws IOException {
+
     this.script = ClusterLuaScript.fromResource(redisCluster, "lua/insert_shared_multirecipient_message_data.lua",
         ScriptOutputType.INTEGER);
+
+    this.retryExecutor = retryExecutor;
   }
 
-  CompletableFuture<Void> executeAsync(final byte[] sharedMrmKey, final SealedSenderMultiRecipientMessage message) {
+  CompletionStage<Void> executeAsync(final byte[] sharedMrmKey, final SealedSenderMultiRecipientMessage message) {
     final List<byte[]> keys = List.of(
         sharedMrmKey // sharedMrmKey
     );
@@ -49,7 +55,8 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
       }
     });
 
-    return script.executeBinaryAsync(keys, args)
+    return CircuitBreakerUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
+        .executeCompletionStage(retryExecutor, () -> script.executeBinaryAsync(keys, args))
         .thenRun(Util.NOOP);
   }
 }

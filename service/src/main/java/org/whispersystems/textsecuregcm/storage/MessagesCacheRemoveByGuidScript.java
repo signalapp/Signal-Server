@@ -10,9 +10,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ScheduledExecutorService;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 
 /**
  * Removes a list of message GUIDs from the queue of a destination device.
@@ -20,13 +22,17 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 class MessagesCacheRemoveByGuidScript {
 
   private final ClusterLuaScript removeByGuidScript;
+  private final ScheduledExecutorService retryExecutor;
 
-  MessagesCacheRemoveByGuidScript(final FaultTolerantRedisClusterClient redisCluster) throws IOException {
+  MessagesCacheRemoveByGuidScript(final FaultTolerantRedisClusterClient redisCluster,
+      final ScheduledExecutorService retryExecutor) throws IOException {
+
     this.removeByGuidScript = ClusterLuaScript.fromResource(redisCluster, "lua/remove_item_by_guid.lua",
         ScriptOutputType.OBJECT);
+    this.retryExecutor = retryExecutor;
   }
 
-  CompletableFuture<List<byte[]>> execute(final UUID destinationUuid, final byte destinationDevice,
+  CompletionStage<List<byte[]>> execute(final UUID destinationUuid, final byte destinationDevice,
       final List<UUID> messageGuids) {
 
     final List<byte[]> keys = List.of(
@@ -38,7 +44,8 @@ class MessagesCacheRemoveByGuidScript {
         .toList();
 
     //noinspection unchecked
-    return removeByGuidScript.executeBinaryAsync(keys, args)
+    return CircuitBreakerUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
+        .executeCompletionStage(retryExecutor, () -> removeByGuidScript.executeBinaryAsync(keys, args))
         .thenApply(result -> (List<byte[]>) result);
   }
 

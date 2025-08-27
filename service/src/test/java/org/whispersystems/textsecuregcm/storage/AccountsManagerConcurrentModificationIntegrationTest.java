@@ -140,6 +140,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(ClientPublicKeysManager.class),
           mock(Executor.class),
           mock(ScheduledExecutorService.class),
+          mock(ScheduledExecutorService.class),
           mock(Clock.class),
           "link-device-secret".getBytes(StandardCharsets.UTF_8),
           dynamicConfigurationManager

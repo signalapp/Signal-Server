@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import io.github.resilience4j.reactor.retry.RetryOperator;
 import io.lettuce.core.ScriptOutputType;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import reactor.core.publisher.Mono;
 
 /**
@@ -38,6 +40,7 @@ class MessagesCacheGetItemsScript {
     );
     //noinspection unchecked
     return getItemsScript.executeBinaryReactive(keys, args)
+        .transformDeferred(RetryOperator.of(CircuitBreakerUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)))
         .map(result -> (List<byte[]>) result)
         .next();
   }

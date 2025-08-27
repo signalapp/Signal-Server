@@ -66,7 +66,6 @@ import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.VirtualThreadConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
-import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
 /** @noinspection MismatchedQueryAndUpdateOfCollection, WeakerAccess */
@@ -191,11 +190,6 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private List<MaxDeviceConfiguration> maxDevices = new LinkedList<>();
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private Map<String, RateLimiterConfig> limits = new HashMap<>();
 
   @Valid
   @NotNull
@@ -344,10 +338,15 @@ public class WhisperServerConfiguration extends Configuration {
       new IdlePrimaryDeviceReminderConfiguration(Duration.ofDays(30));
 
   @JsonProperty
-  private Map<String, CircuitBreakerConfiguration> circuitBreakers = Collections.emptyMap();
+  private Map<String, @Valid CircuitBreakerConfiguration> circuitBreakers = Collections.emptyMap();
 
   @JsonProperty
-  private Map<String, RetryConfiguration> retries = Collections.emptyMap();
+  private Map<String, @Valid RetryConfiguration> retries = Collections.emptyMap();
+
+  @JsonProperty
+  @Valid
+  @NotNull
+  private RetryConfiguration generalRedisRetry = new RetryConfiguration();
 
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
@@ -578,5 +577,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public Map<String, RetryConfiguration> getRetryConfigurations() {
     return retries;
+  }
+
+  public RetryConfiguration getGeneralRedisRetryConfiguration() {
+    return generalRedisRetry;
   }
 }

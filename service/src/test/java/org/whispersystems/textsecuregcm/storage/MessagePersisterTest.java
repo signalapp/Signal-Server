@@ -116,7 +116,7 @@ class MessagePersisterTest {
     resubscribeRetryExecutorService = Executors.newSingleThreadScheduledExecutor();
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, sharedExecutorService, Clock.systemUTC(), mock(ExperimentEnrollmentManager.class));
+        messageDeliveryScheduler, sharedExecutorService, mock(ScheduledExecutorService.class), Clock.systemUTC(), mock(ExperimentEnrollmentManager.class));
     messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
         dynamicConfigurationManager, PERSIST_DELAY, 1);
 

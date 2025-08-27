@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,8 +40,10 @@ class DisconnectionRequestManagerTest {
   void setUp() {
     grpcClientConnectionManager = mock(GrpcClientConnectionManager.class);
 
-    disconnectionRequestManager =
-        new DisconnectionRequestManager(REDIS_EXTENSION.getRedisClient(), grpcClientConnectionManager, Runnable::run);
+    disconnectionRequestManager = new DisconnectionRequestManager(REDIS_EXTENSION.getRedisClient(),
+        grpcClientConnectionManager,
+        Runnable::run,
+        mock(ScheduledExecutorService.class));
 
     disconnectionRequestManager.start();
   }

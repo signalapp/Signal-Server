@@ -77,7 +77,7 @@ public class AddRemoveDeviceIntegrationTest {
   static final S3LocalStackExtension S3_EXTENSION = new S3LocalStackExtension("testbucket");
 
   private ExecutorService accountLockExecutor;
-  private ScheduledExecutorService messagePollExecutor;
+  private ScheduledExecutorService scheduledExecutorService;
 
   private KeysManager keysManager;
   private ClientPublicKeysManager clientPublicKeysManager;
@@ -123,7 +123,7 @@ public class AddRemoveDeviceIntegrationTest {
         DynamoDbExtensionSchema.Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
     accountLockExecutor = Executors.newSingleThreadExecutor();
-    messagePollExecutor = mock(ScheduledExecutorService.class);
+    scheduledExecutorService = mock(ScheduledExecutorService.class);
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK.tableName());
@@ -172,7 +172,8 @@ public class AddRemoveDeviceIntegrationTest {
         mock(RegistrationRecoveryPasswordsManager.class),
         clientPublicKeysManager,
         accountLockExecutor,
-        messagePollExecutor,
+        scheduledExecutorService,
+        scheduledExecutorService,
         clock,
         "link-device-secret".getBytes(StandardCharsets.UTF_8),
         dynamicConfigurationManager);
@@ -635,7 +636,7 @@ public class AddRemoveDeviceIntegrationTest {
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
     clock.pin(Instant.ofEpochMilli(10_000));
     // Run any scheduled job right away
-    when(messagePollExecutor.schedule(any(Runnable.class), anyLong(), any())).thenAnswer(x -> {
+    when(scheduledExecutorService.schedule(any(Runnable.class), anyLong(), any())).thenAnswer(x -> {
       x.getArgument(0, Runnable.class).run();
       return null;
     });

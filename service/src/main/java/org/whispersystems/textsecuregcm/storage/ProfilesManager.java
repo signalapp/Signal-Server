@@ -15,12 +15,14 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Mono;
@@ -35,16 +37,23 @@ public class ProfilesManager {
 
   private final Profiles profiles;
   private final FaultTolerantRedisClusterClient cacheCluster;
+  private final ScheduledExecutorService retryExecutor;
   private final S3AsyncClient s3Client;
   private final String bucket;
   private final ObjectMapper mapper;
 
+  private static final String RETRY_NAME = ProfilesManager.class.getSimpleName();
+
   private static final String DELETE_AVATAR_COUNTER_NAME = name(ProfilesManager.class, "deleteAvatar");
 
-  public ProfilesManager(final Profiles profiles, final FaultTolerantRedisClusterClient cacheCluster, final S3AsyncClient s3Client,
+  public ProfilesManager(final Profiles profiles,
+      final FaultTolerantRedisClusterClient cacheCluster,
+      final ScheduledExecutorService retryExecutor,
+      final S3AsyncClient s3Client,
       final String bucket) {
     this.profiles = profiles;
     this.cacheCluster = cacheCluster;
+    this.retryExecutor = retryExecutor;
     this.s3Client = s3Client;
     this.bucket = bucket;
     this.mapper = SystemMapper.jsonMapper();
@@ -181,7 +190,9 @@ public class ProfilesManager {
   }
 
   private CompletableFuture<Void> redisDelete(UUID uuid) {
-    return cacheCluster.withCluster(connection -> connection.async().del(getCacheKey(uuid)))
+    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+        .executeCompletionStage(retryExecutor,
+            () -> cacheCluster.withCluster(connection -> connection.async().del(getCacheKey(uuid))))
         .toCompletableFuture()
         .thenRun(Util.NOOP);
   }

@@ -9,17 +9,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
-import io.lettuce.core.RedisCommandExecutionException;
+import io.lettuce.core.RedisException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import io.lettuce.core.RedisException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -40,11 +41,11 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
   void testInsert(final int count, final Map<ServiceIdentifier, List<Byte>> destinations) throws Exception {
 
     final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript = new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(
-        REDIS_CLUSTER_EXTENSION.getRedisCluster());
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), mock(ScheduledExecutorService.class));
 
     final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
     insertMrmScript.executeAsync(sharedMrmKey,
-        MessagesCacheTest.generateRandomMrmMessage(destinations)).join();
+        MessagesCacheTest.generateRandomMrmMessage(destinations)).toCompletableFuture().join();
 
     final int totalDevices = destinations.values().stream().mapToInt(List::size).sum();
     final long hashFieldCount = REDIS_CLUSTER_EXTENSION.getRedisCluster()
@@ -83,16 +84,18 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScriptTest {
   @Test
   void testInsertDuplicateKey() throws Exception {
     final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript = new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(
-        REDIS_CLUSTER_EXTENSION.getRedisCluster());
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(), mock(ScheduledExecutorService.class));
 
     final byte[] sharedMrmKey = MessagesCache.getSharedMrmKey(UUID.randomUUID());
     insertMrmScript.executeAsync(sharedMrmKey,
-        MessagesCacheTest.generateRandomMrmMessage(new AciServiceIdentifier(UUID.randomUUID()), Device.PRIMARY_ID)).join();
+        MessagesCacheTest.generateRandomMrmMessage(new AciServiceIdentifier(UUID.randomUUID()), Device.PRIMARY_ID))
+        .toCompletableFuture()
+        .join();
 
     final CompletionException completionException = assertThrows(CompletionException.class,
         () -> insertMrmScript.executeAsync(sharedMrmKey,
             MessagesCacheTest.generateRandomMrmMessage(new AciServiceIdentifier(UUID.randomUUID()),
-                Device.PRIMARY_ID)).join());
+                Device.PRIMARY_ID)).toCompletableFuture().join());
 
     assertInstanceOf(RedisException.class, completionException.getCause());
     assertTrue(completionException.getCause().getMessage()

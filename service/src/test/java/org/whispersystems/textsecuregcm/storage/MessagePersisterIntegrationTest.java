@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -84,7 +85,7 @@ class MessagePersisterIntegrationTest {
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, messageDeletionExecutorService, Clock.systemUTC(), experimentEnrollmentManager);
+        messageDeliveryScheduler, messageDeletionExecutorService, mock(ScheduledExecutorService.class), Clock.systemUTC(), experimentEnrollmentManager);
     messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(RedisMessageAvailabilityManager.class),
         mock(ReportMessageManager.class), messageDeletionExecutorService, Clock.systemUTC());
 

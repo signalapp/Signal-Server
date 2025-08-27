@@ -11,6 +11,7 @@ import org.whispersystems.textsecuregcm.push.MessagesPersistedEvent;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
@@ -38,6 +39,7 @@ class MessagesCacheUnlockQueueScript {
         RedisMessageAvailabilityManager.getClientEventChannel(accountIdentifier, deviceId) // eventChannelKey
     );
 
-    unlockQueueScript.executeBinary(keys, MESSAGES_PERSISTED_EVENT_ARGS);
+    CircuitBreakerUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
+        .executeRunnable(() -> unlockQueueScript.executeBinary(keys, MESSAGES_PERSISTED_EVENT_ARGS));
   }
 }

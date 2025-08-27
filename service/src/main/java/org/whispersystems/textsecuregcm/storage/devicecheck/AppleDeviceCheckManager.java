@@ -32,10 +32,9 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
 
 /**
  * Register Apple DeviceCheck App Attestations and verify the corresponding assertions.
@@ -64,6 +63,8 @@ public class AppleDeviceCheckManager {
   private final DeviceCheckManager deviceCheckManager;
   private final String teamId;
   private final String bundleId;
+
+  private static final String RETRY_NAME = AppleDeviceCheckManager.class.getSimpleName();
 
   public AppleDeviceCheckManager(
       AppleDeviceChecks appleDeviceChecks,
@@ -115,7 +116,10 @@ public class AppleDeviceCheckManager {
     }
 
     final String redisChallengeKey = challengeKey(ChallengeType.ATTEST, account.getUuid());
-    final String challenge = redisClient.withCluster(cluster -> cluster.sync().get(redisChallengeKey));
+
+    @Nullable final String challenge = CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+        .executeSupplier(() -> redisClient.withCluster(cluster -> cluster.sync().get(redisChallengeKey)));
+
     if (challenge == null) {
       throw new ChallengeNotFoundException();
     }
@@ -172,7 +176,9 @@ public class AppleDeviceCheckManager {
       throws ChallengeNotFoundException, DeviceCheckVerificationFailedException, DeviceCheckKeyIdNotFoundException, RequestReuseException {
 
     final String redisChallengeKey = challengeKey(challengeType, account.getUuid());
-    final String storedChallenge = redisClient.withCluster(cluster -> cluster.sync().get(redisChallengeKey));
+    @Nullable final String storedChallenge = CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+            .executeSupplier(() -> redisClient.withCluster(cluster -> cluster.sync().get(redisChallengeKey)));
+
     if (storedChallenge == null) {
       throw new ChallengeNotFoundException();
     }
@@ -211,29 +217,29 @@ public class AppleDeviceCheckManager {
    * @param account       The account that will use the challenge
    * @return The challenge to be included as part of an attestation or assertion
    */
-  public String createChallenge(final ChallengeType challengeType, final Account account)
-      throws RateLimitExceededException {
+  public String createChallenge(final ChallengeType challengeType, final Account account) {
     final UUID accountIdentifier = account.getUuid();
 
     final String challengeKey = challengeKey(challengeType, accountIdentifier);
-    return redisClient.withCluster(cluster -> {
-      final RedisAdvancedClusterCommands<String, String> commands = cluster.sync();
+    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+        .executeSupplier(() -> redisClient.withCluster(cluster -> {
+          final RedisAdvancedClusterCommands<String, String> commands = cluster.sync();
 
-      // Sets the new challenge if and only if there isn't already one stored for the challenge key; returns the existing
-      // challenge if present or null if no challenge was previously set.
-      final String proposedChallenge = generateChallenge();
-      @Nullable final String existingChallenge =
-          commands.setGet(challengeKey, proposedChallenge, SetArgs.Builder.nx().ex(CHALLENGE_TTL));
+          // Sets the new challenge if and only if there isn't already one stored for the challenge key; returns the existing
+          // challenge if present or null if no challenge was previously set.
+          final String proposedChallenge = generateChallenge();
+          @Nullable final String existingChallenge =
+              commands.setGet(challengeKey, proposedChallenge, SetArgs.Builder.nx().ex(CHALLENGE_TTL));
 
-      if (existingChallenge != null) {
-        // If the key was already set, make sure we extend the TTL. This is racy because the key could disappear or have
-        // been updated since the get returned, but it's fine. In the former case, this is a noop. In the latter
-        // case we may slightly extend the TTL from after it was set, but that's also no big deal.
-        commands.expire(challengeKey, CHALLENGE_TTL);
-      }
+          if (existingChallenge != null) {
+            // If the key was already set, make sure we extend the TTL. This is racy because the key could disappear or have
+            // been updated since the get returned, but it's fine. In the former case, this is a noop. In the latter
+            // case we may slightly extend the TTL from after it was set, but that's also no big deal.
+            commands.expire(challengeKey, CHALLENGE_TTL);
+          }
 
-      return existingChallenge != null ? existingChallenge : proposedChallenge;
-    });
+          return existingChallenge != null ? existingChallenge : proposedChallenge;
+        }));
   }
 
   private void removeChallenge(final String challengeKey) {

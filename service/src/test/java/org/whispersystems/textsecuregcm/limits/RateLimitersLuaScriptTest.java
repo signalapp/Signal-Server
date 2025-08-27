@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -65,6 +66,7 @@ public class RateLimitersLuaScriptTest {
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,
+        mock(ScheduledExecutorService.class),
         Clock.systemUTC());
 
     final RateLimiter rateLimiter = limiters.forDescriptor(descriptor);
@@ -84,6 +86,7 @@ public class RateLimitersLuaScriptTest {
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,
+        mock(ScheduledExecutorService.class),
         Clock.systemUTC());
 
     final RateLimiter rateLimiter = limiters.forDescriptor(descriptor);
@@ -138,6 +141,7 @@ public class RateLimitersLuaScriptTest {
         dynamicConfig,
         RateLimiters.defaultScript(redisCluster),
         redisCluster,
+        mock(ScheduledExecutorService.class),
         Clock.systemUTC());
     when(redisCluster.withCluster(any())).thenThrow(new RedisException("fail"));
     final RateLimiter rateLimiter = limiters.forDescriptor(descriptor);
