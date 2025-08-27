@@ -210,7 +210,10 @@ public class VerificationController {
         Collections.emptyList(), null, null, false,
         clock.millis(), clock.millis(), registrationServiceSession.expiration());
 
-    verificationSession = handlePushToken(pushTokenAndType, verificationSession);
+    // FLT(uoemai): Use dummy verification handler during development.
+    // Original: verificationSession = handlePushToken(pushTokenAndType, verificationSession);
+    verificationSession = handleDummy(verificationSession);
+
     // unconditionally request a captcha -- it will either be the only requested information, or a fallback
     // if a push challenge sent in `handlePushToken` doesn't arrive in time
     verificationSession.requestedInformation().add(VerificationSession.Information.CAPTCHA);
@@ -263,6 +266,9 @@ public class VerificationController {
 
     try {
       // these handle* methods ordered from least likely to fail to most, so take care when considering a change
+
+      // FLT(uoemai): Use dummy handler as the first verification method during development.
+      verificationSession = handleDummy(verificationSession);
 
       verificationSession = verificationCheck.updatedSession().orElse(verificationSession);
 
@@ -468,6 +474,20 @@ public class VerificationController {
     }
 
     return verificationSession;
+  }
+
+  // FLT(uoemai): Dummy handler that always succeeds and allows requesting a verification code.
+  private VerificationSession handleDummy(VerificationSession verificationSession) {
+    // FLT(uoemai): The dummy handler never requires any additional information.
+    final List<VerificationSession.Information> requestedInformation = new ArrayList<>(
+        verificationSession.requestedInformation());
+    requestedInformation.remove(VerificationSession.Information.PUSH_CHALLENGE);
+    requestedInformation.remove(VerificationSession.Information.CAPTCHA);
+
+    return new VerificationSession(verificationSession.pushChallenge(), requestedInformation,
+        null, verificationSession.smsSenderOverride(), verificationSession.voiceSenderOverride(),
+        true, verificationSession.createdTimestamp(), clock.millis(),
+        verificationSession.remoteExpirationSeconds());
   }
 
   @GET
