@@ -90,7 +90,8 @@
     <localstack.image>localstack/localstack:3.5.0</localstack.image>
 
     <!-- eclipse-temurin:21.0.6_7-jre-jammy (note: always use the multi-arch manifest *LIST* here) -->
-    <docker.image.sha256>02fc89fa8766a9ba221e69225f8d1c10bb91885ddbd3c112448e23488ba40ab6</docker.image.sha256>
+    <!-- FLT(uoemai): Use correct checksum for container image tag. -->
+    <docker.image.sha256>903dcea12637919198041da42cd270d549656c06bfda9126be36f182bb0de72d</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
