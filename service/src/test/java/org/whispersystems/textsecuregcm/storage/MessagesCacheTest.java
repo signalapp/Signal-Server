@@ -195,6 +195,17 @@ class MessagesCacheTest {
     }
 
     @Test
+    void testHasMessagesAsync() {
+      assertFalse(messagesCache.hasMessagesAsync(DESTINATION_UUID, DESTINATION_DEVICE_ID).join());
+
+      final UUID messageGuid = UUID.randomUUID();
+      final MessageProtos.Envelope message = generateRandomMessage(messageGuid, true);
+      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
+
+      assertTrue(messagesCache.hasMessagesAsync(DESTINATION_UUID, DESTINATION_DEVICE_ID).join());
+    }
+
+    @Test
     void getOldestTimestamp() {
       final int messageCount = 100;
 

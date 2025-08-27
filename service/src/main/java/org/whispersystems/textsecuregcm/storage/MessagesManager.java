@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.observability.micrometer.Micrometer;
@@ -50,6 +51,9 @@ public class MessagesManager {
 
   private static final Counter PERSIST_MESSAGE_BYTES_COUNTER = Metrics.counter(
       name(MessagesManager.class, "persistMessageBytes"));
+
+  private static final String MAY_HAVE_MESSAGES_COUNTER_NAME =
+      MetricsUtil.name(MessagesManager.class, "mayHaveMessages");
 
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
@@ -176,6 +180,28 @@ public class MessagesManager {
 
   public CompletableFuture<Boolean> mayHavePersistedMessages(final UUID destinationUuid, final Device destinationDevice) {
     return messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice);
+  }
+
+  public CompletableFuture<Boolean> mayHaveMessages(final UUID destinationUuid, final Device destinationDevice) {
+    return messagesCache.hasMessagesAsync(destinationUuid, destinationDevice.getId())
+        .thenCombine(messagesDynamoDb.mayHaveMessages(destinationUuid, destinationDevice),
+            (mayHaveCachedMessages, mayHavePersistedMessages) -> {
+              final String outcome;
+
+              if (mayHaveCachedMessages && mayHavePersistedMessages) {
+                outcome = "both";
+              } else if (mayHaveCachedMessages) {
+                outcome = "cached";
+              } else if (mayHavePersistedMessages) {
+                outcome = "persisted";
+              } else {
+                outcome = "none";
+              }
+
+              Metrics.counter(MAY_HAVE_MESSAGES_COUNTER_NAME, "outcome", outcome).increment();
+
+              return mayHaveCachedMessages || mayHavePersistedMessages;
+            });
   }
 
   public CompletableFuture<Boolean> mayHaveUrgentPersistedMessages(final UUID destinationUuid, final Device destinationDevice) {

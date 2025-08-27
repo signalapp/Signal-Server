@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -183,6 +184,31 @@ class MessagesManagerTest {
         eq(unresolvedAccountAciServiceIdentifier.uuid()),
         anyByte(),
         any());
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+      "false, false, false",
+      "false, true, true",
+      "true, false, true",
+      "true, true, true"
+  })
+  void mayHaveMessages(final boolean hasCachedMessages, final boolean hasPersistedMessages, final boolean expectMayHaveMessages) {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final Device device = mock(Device.class);
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
+
+    when(messagesCache.hasMessagesAsync(accountIdentifier, Device.PRIMARY_ID))
+        .thenReturn(CompletableFuture.completedFuture(hasCachedMessages));
+
+    when(messagesDynamoDb.mayHaveMessages(accountIdentifier, device))
+        .thenReturn(CompletableFuture.completedFuture(hasPersistedMessages));
+
+    if (hasCachedMessages) {
+      verifyNoInteractions(messagesDynamoDb);
+    }
+
+    assertEquals(expectMayHaveMessages, messagesManager.mayHaveMessages(accountIdentifier, device).join());
   }
 
   @ParameterizedTest

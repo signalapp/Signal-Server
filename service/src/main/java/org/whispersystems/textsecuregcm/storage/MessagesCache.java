@@ -300,6 +300,13 @@ public class MessagesCache {
 
   }
 
+  public CompletableFuture<Boolean> hasMessagesAsync(final UUID destinationUuid, final byte destinationDevice) {
+    return redisCluster.withBinaryCluster(connection ->
+            connection.async().zcard(getMessageQueueKey(destinationUuid, destinationDevice))
+                .thenApply(cardinality -> cardinality > 0))
+        .toCompletableFuture();
+  }
+
   public Publisher<MessageProtos.Envelope> get(final UUID destinationUuid, final byte destinationDevice) {
 
     final long earliestAllowableEphemeralTimestamp =
