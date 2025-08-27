@@ -257,7 +257,7 @@ import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.BufferingInterceptor;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.ManagedExecutors;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -365,12 +365,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     UncaughtExceptionHandler.register();
 
     config.getCircuitBreakerConfigurations().forEach((name, configuration) ->
-        CircuitBreakerUtil.getCircuitBreakerRegistry().addConfiguration(name, configuration.toCircuitBreakerConfig()));
+        ResilienceUtil.getCircuitBreakerRegistry().addConfiguration(name, configuration.toCircuitBreakerConfig()));
 
     config.getRetryConfigurations().forEach((name, configuration) ->
-        CircuitBreakerUtil.getRetryRegistry().addConfiguration(name, configuration.toRetryConfigBuilder().build()));
+        ResilienceUtil.getRetryRegistry().addConfiguration(name, configuration.toRetryConfigBuilder().build()));
 
-    CircuitBreakerUtil.setGeneralRedisRetryConfiguration(config.getGeneralRedisRetryConfiguration());
+    ResilienceUtil.setGeneralRedisRetryConfiguration(config.getGeneralRedisRetryConfiguration());
 
     ScheduledExecutorService dynamicConfigurationExecutor = ScheduledExecutorServiceBuilder.of(environment, "dynamicConfiguration")
         .threads(1).build();

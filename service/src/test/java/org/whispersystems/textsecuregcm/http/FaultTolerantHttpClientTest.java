@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 class FaultTolerantHttpClientTest {
 
@@ -212,7 +212,7 @@ class FaultTolerantHttpClientTest {
 
     final String circuitBreakerConfigurationName = getClass().getSimpleName() + "#testNetworkFailureCircuitBreaker";
 
-    CircuitBreakerUtil.getCircuitBreakerRegistry()
+    ResilienceUtil.getCircuitBreakerRegistry()
         .addConfiguration(circuitBreakerConfigurationName, circuitBreakerConfiguration.toCircuitBreakerConfig());
 
     final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testNetworkFailureCircuitBreaker", httpExecutor)

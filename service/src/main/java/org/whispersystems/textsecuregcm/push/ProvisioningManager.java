@@ -23,7 +23,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisOperation;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> implements Managed {
 
@@ -80,7 +80,7 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
         .setContent(ByteString.copyFrom(body))
         .build();
 
-    final boolean receiverPresent = CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    final boolean receiverPresent = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeSupplier(() -> pubSubClient.withBinaryConnection(connection ->
             connection.sync().publish(address.getBytes(StandardCharsets.UTF_8), pubSubMessage.toByteArray()) > 0));
 

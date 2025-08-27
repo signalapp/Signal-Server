@@ -34,7 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.Account;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 /**
  * Register Apple DeviceCheck App Attestations and verify the corresponding assertions.
@@ -117,7 +117,7 @@ public class AppleDeviceCheckManager {
 
     final String redisChallengeKey = challengeKey(ChallengeType.ATTEST, account.getUuid());
 
-    @Nullable final String challenge = CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    @Nullable final String challenge = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeSupplier(() -> redisClient.withCluster(cluster -> cluster.sync().get(redisChallengeKey)));
 
     if (challenge == null) {
@@ -176,7 +176,7 @@ public class AppleDeviceCheckManager {
       throws ChallengeNotFoundException, DeviceCheckVerificationFailedException, DeviceCheckKeyIdNotFoundException, RequestReuseException {
 
     final String redisChallengeKey = challengeKey(challengeType, account.getUuid());
-    @Nullable final String storedChallenge = CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    @Nullable final String storedChallenge = ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
             .executeSupplier(() -> redisClient.withCluster(cluster -> cluster.sync().get(redisChallengeKey)));
 
     if (storedChallenge == null) {
@@ -221,7 +221,7 @@ public class AppleDeviceCheckManager {
     final UUID accountIdentifier = account.getUuid();
 
     final String challengeKey = challengeKey(challengeType, accountIdentifier);
-    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeSupplier(() -> redisClient.withCluster(cluster -> {
           final RedisAdvancedClusterCommands<String, String> commands = cluster.sync();
 

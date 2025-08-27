@@ -85,7 +85,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RegistrationIdValidator;
@@ -522,7 +522,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
               throw new UncheckedIOException(e);
             }
 
-            CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+            ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
                 .executeCompletionStage(retryExecutor, () -> pubSubRedisClient.withConnection(connection ->
                     connection.async().set(key, deviceInfoJson, SetArgs.Builder.ex(RECENTLY_ADDED_DEVICE_TTL))))
                 .whenComplete((_, pubSubThrowable) -> {
@@ -1427,7 +1427,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   private void redisDelete(final Account account) {
-    CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME).executeRunnable(() ->
+    ResilienceUtil.getGeneralRedisRetry(RETRY_NAME).executeRunnable(() ->
         redisDeleteTimer.record(() ->
             cacheCluster.useCluster(connection ->
                 connection.sync().del(getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
@@ -1442,7 +1442,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         getAccountEntityKey(account.getUuid())
     };
 
-    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME).executeCompletionStage(retryExecutor,
+    return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME).executeCompletionStage(retryExecutor,
             () -> cacheCluster.withCluster(connection -> connection.async().del(keysToDelete))
                 .thenRun(Util.NOOP))
         .toCompletableFuture()
@@ -1601,7 +1601,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
               // We validate the request object so this should never happen
               .orElseThrow(() -> new AssertionError("No creation timestamp or registration ID provided")));
 
-      return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+      return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
           .executeCompletionStage(retryExecutor, () -> pubSubRedisClient.withConnection(connection -> connection.async()
                   .set(key, transferArchiveJson, SetArgs.Builder.ex(RECENTLY_ADDED_TRANSFER_ARCHIVE_TTL)))
               .toCompletableFuture())
@@ -1662,7 +1662,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       throw new UncheckedIOException(e);
     }
 
-    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeCompletionStage(retryExecutor, () -> pubSubRedisClient.withConnection(connection ->
                 connection.async().set(key, requestJson, SetArgs.Builder.ex(RESTORE_ACCOUNT_REQUEST_TTL)))
             .toCompletableFuture())

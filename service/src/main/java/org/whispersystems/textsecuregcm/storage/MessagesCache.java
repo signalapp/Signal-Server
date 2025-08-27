@@ -48,7 +48,7 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import reactor.core.observability.micrometer.Micrometer;
@@ -440,7 +440,7 @@ public class MessagesCache {
             conn -> conn.reactive().hmget(key, "data".getBytes(StandardCharsets.UTF_8), sharedMrmViewKey)
                 .collectList()
                 .publishOn(messageDeliveryScheduler)))
-        .transformDeferred(RetryOperator.of(CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)))
+        .transformDeferred(RetryOperator.of(ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)))
         .<MessageProtos.Envelope>handle((mrmDataAndView, sink) -> {
           try {
             assert mrmDataAndView.size() == 2;

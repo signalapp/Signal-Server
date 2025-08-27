@@ -35,7 +35,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -236,7 +236,7 @@ public class PushNotificationScheduler implements Managed {
   public CompletableFuture<Void> scheduleDelayedNotification(final Account account, final Device device, final Duration minDelay) {
     final long deliveryTime = clock.instant().plus(minDelay).toEpochMilli();
 
-    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeCompletionStage(retryExecutor, () -> pushSchedulingCluster.withCluster(connection ->
                 connection.async().zadd(getDelayedNotificationQueueKey(account, device),
                     deliveryTime,

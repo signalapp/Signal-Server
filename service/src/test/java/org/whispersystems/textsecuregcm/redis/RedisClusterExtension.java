@@ -31,7 +31,7 @@ import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.TestcontainersImages;
 
 public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, ExtensionContext.Store.CloseableResource {
@@ -105,7 +105,7 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
       final CircuitBreakerConfiguration circuitBreakerConfig = new CircuitBreakerConfiguration();
       circuitBreakerConfig.setWaitDurationInOpenState(Duration.ofMillis(500));
 
-      CircuitBreakerUtil.getCircuitBreakerRegistry().addConfiguration(CIRCUIT_BREAKER_CONFIGURATION_NAME, circuitBreakerConfig.toCircuitBreakerConfig());
+      ResilienceUtil.getCircuitBreakerRegistry().addConfiguration(CIRCUIT_BREAKER_CONFIGURATION_NAME, circuitBreakerConfig.toCircuitBreakerConfig());
 
       final File clusterComposeFile = File.createTempFile("redis-cluster", ".yml");
       clusterComposeFile.deleteOnExit();

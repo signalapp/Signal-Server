@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.whispersystems.textsecuregcm.configuration.RedisConfiguration;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 public class FaultTolerantRedisClient {
 
@@ -40,8 +40,8 @@ public class FaultTolerantRedisClient {
         RedisUriUtil.createRedisUriWithTimeout(redisConfiguration.getUri(), redisConfiguration.getTimeout()),
         redisConfiguration.getTimeout(),
         redisConfiguration.getCircuitBreakerConfigurationName() != null
-            ? CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(name + "-breaker", redisConfiguration.getCircuitBreakerConfigurationName())
-            : CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(name + "-breaker"));
+            ? ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name + "-breaker", redisConfiguration.getCircuitBreakerConfigurationName())
+            : ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(name + "-breaker"));
   }
 
   @VisibleForTesting

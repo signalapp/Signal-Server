@@ -14,7 +14,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledExecutorService;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 /**
  * Removes a list of message GUIDs from the queue of a destination device.
@@ -44,7 +44,7 @@ class MessagesCacheRemoveByGuidScript {
         .toList();
 
     //noinspection unchecked
-    return CircuitBreakerUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
+    return ResilienceUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
         .executeCompletionStage(retryExecutor, () -> removeByGuidScript.executeBinaryAsync(keys, args))
         .thenApply(result -> (List<byte[]>) result);
   }

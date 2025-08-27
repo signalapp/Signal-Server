@@ -47,7 +47,7 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 /**
@@ -112,12 +112,12 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
 
     final RetryConfig.Builder<HttpResponse<?>> retryConfigBuilder =
         RetryConfig.from(Optional.ofNullable(retryConfigurationName)
-            .flatMap(name -> CircuitBreakerUtil.getRetryRegistry().getConfiguration(name))
-            .orElseGet(() -> CircuitBreakerUtil.getRetryRegistry().getDefaultConfig()));
+            .flatMap(name -> ResilienceUtil.getRetryRegistry().getConfiguration(name))
+            .orElseGet(() -> ResilienceUtil.getRetryRegistry().getDefaultConfig()));
 
     retryConfigBuilder.retryOnException(AppleAppStoreManager::shouldRetry);
 
-    this.retry = CircuitBreakerUtil.getRetryRegistry().retry("appstore-retry", retryConfigBuilder.build());
+    this.retry = ResilienceUtil.getRetryRegistry().retry("appstore-retry", retryConfigBuilder.build());
   }
 
   @Override

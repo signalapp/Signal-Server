@@ -35,7 +35,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 /**
@@ -188,7 +188,7 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
         .addAllDeviceIds(deviceIds.stream().mapToInt(Byte::intValue).boxed().toList())
         .build();
 
-    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeCompletionStage(retryExecutor, () -> pubSubClient.withBinaryConnection(connection ->
                 connection.async().publish(DISCONNECTION_REQUEST_CHANNEL, disconnectionRequest.toByteArray()))
             .toCompletableFuture())

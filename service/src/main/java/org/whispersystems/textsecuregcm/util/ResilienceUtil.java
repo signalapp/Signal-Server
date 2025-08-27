@@ -16,7 +16,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
 
-public class CircuitBreakerUtil {
+public class ResilienceUtil {
 
   private static final CircuitBreakerRegistry CIRCUIT_BREAKER_REGISTRY =
       CircuitBreakerRegistry.of(new CircuitBreakerConfiguration().toCircuitBreakerConfig());

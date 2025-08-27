@@ -20,7 +20,7 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -135,13 +135,13 @@ public class DynamicRateLimiter implements RateLimiter {
 
   @Override
   public void clear(final String key) {
-    CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeRunnable(() -> cluster.useCluster(connection -> connection.sync().del(bucketName(name, key))));
   }
 
   @Override
   public CompletionStage<Void> clearAsync(final String key) {
-    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeCompletionStage(retryExecutor, () -> cluster.withCluster(connection -> connection.async().del(bucketName(name, key)))
             .thenRun(Util.NOOP));
   }

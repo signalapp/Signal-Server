@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import reactor.core.publisher.Mono;
 
 /**
@@ -40,7 +40,7 @@ class MessagesCacheGetItemsScript {
     );
     //noinspection unchecked
     return getItemsScript.executeBinaryReactive(keys, args)
-        .transformDeferred(RetryOperator.of(CircuitBreakerUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)))
+        .transformDeferred(RetryOperator.of(ResilienceUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)))
         .map(result -> (List<byte[]>) result)
         .next();
   }

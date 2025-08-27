@@ -22,7 +22,7 @@ import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Mono;
@@ -190,7 +190,7 @@ public class ProfilesManager {
   }
 
   private CompletableFuture<Void> redisDelete(UUID uuid) {
-    return CircuitBreakerUtil.getGeneralRedisRetry(RETRY_NAME)
+    return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
         .executeCompletionStage(retryExecutor,
             () -> cacheCluster.withCluster(connection -> connection.async().del(getCacheKey(uuid))))
         .toCompletableFuture()

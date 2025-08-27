@@ -9,7 +9,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
-import io.micrometer.core.instrument.Tags;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -30,7 +29,7 @@ import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.glassfish.jersey.SslConfigurator;
 import org.whispersystems.textsecuregcm.util.CertificateUtil;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 public class FaultTolerantHttpClient {
@@ -211,8 +210,8 @@ public class FaultTolerantHttpClient {
       if (retryExecutor != null) {
         final RetryConfig.Builder<HttpResponse<?>> retryConfigBuilder =
             RetryConfig.from(Optional.ofNullable(retryConfigurationName)
-                .flatMap(name -> CircuitBreakerUtil.getRetryRegistry().getConfiguration(name))
-                .orElseGet(() -> CircuitBreakerUtil.getRetryRegistry().getDefaultConfig()));
+                .flatMap(name -> ResilienceUtil.getRetryRegistry().getConfiguration(name))
+                .orElseGet(() -> ResilienceUtil.getRetryRegistry().getDefaultConfig()));
 
         retryConfigBuilder.retryOnResult(response -> response.statusCode() >= 500);
 
@@ -220,7 +219,7 @@ public class FaultTolerantHttpClient {
           retryConfigBuilder.retryOnException(retryOnException);
         }
 
-        retry = CircuitBreakerUtil.getRetryRegistry().retry(name + "-retry", retryConfigBuilder.build());
+        retry = ResilienceUtil.getRetryRegistry().retry(name + "-retry", retryConfigBuilder.build());
       } else {
         retry = null;
       }
@@ -228,8 +227,8 @@ public class FaultTolerantHttpClient {
       final String circuitBreakerName = name + "-breaker";
 
       final CircuitBreaker circuitBreaker = circuitBreakerConfigurationName != null
-          ? CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, circuitBreakerConfigurationName)
-          : CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName);
+          ? ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, circuitBreakerConfigurationName)
+          : ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName);
 
       return new FaultTolerantHttpClient(httpClients, requestTimeout, retryExecutor, retry, circuitBreaker);
     }

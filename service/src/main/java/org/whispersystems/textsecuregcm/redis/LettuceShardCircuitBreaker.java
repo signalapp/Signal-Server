@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 /**
  * Adds a circuit breaker to every Netty {@link Channel} that gets created, so that a single unhealthy shard does not
@@ -105,8 +105,8 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
           SHARD_ADDRESS_TAG_NAME, shardAddress);
 
       breaker = circuitBreakerConfigurationName != null
-          ? CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, circuitBreakerConfigurationName, tags)
-          : CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, tags);
+          ? ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, circuitBreakerConfigurationName, tags)
+          : ResilienceUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, tags);
     }
 
     @Override

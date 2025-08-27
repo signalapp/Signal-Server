@@ -14,7 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 
 /**
@@ -55,7 +55,7 @@ class MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript {
       }
     });
 
-    return CircuitBreakerUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
+    return ResilienceUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
         .executeCompletionStage(retryExecutor, () -> script.executeBinaryAsync(keys, args))
         .thenRun(Util.NOOP);
   }

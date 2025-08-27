@@ -60,7 +60,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 
@@ -89,7 +89,7 @@ class FaultTolerantRedisClusterClientTest {
 
     if (circuitBreakerConfiguration != null) {
       circuitBreakerConfigurationName = FaultTolerantRedisClusterClientTest.class.getSimpleName() + "-" + circuitBreakerConfigurationCount++;
-      CircuitBreakerUtil.getCircuitBreakerRegistry().addConfiguration(circuitBreakerConfigurationName, circuitBreakerConfiguration.toCircuitBreakerConfig());
+      ResilienceUtil.getCircuitBreakerRegistry().addConfiguration(circuitBreakerConfigurationName, circuitBreakerConfiguration.toCircuitBreakerConfig());
     } else {
       circuitBreakerConfigurationName = null;
     }

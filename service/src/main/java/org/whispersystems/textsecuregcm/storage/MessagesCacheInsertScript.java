@@ -20,7 +20,7 @@ import org.whispersystems.textsecuregcm.push.NewMessageAvailableEvent;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 /**
  * Inserts an envelope into the message queue for a destination device and publishes a "new message available" event.
@@ -69,7 +69,7 @@ class MessagesCacheInsertScript {
         NEW_MESSAGE_EVENT_BYTES // eventPayload
     ));
 
-    return CircuitBreakerUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
+    return ResilienceUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
         .executeCompletionStage(retryExecutor, () -> insertScript.executeBinaryAsync(keys, args))
         .thenApply(result -> (boolean) result);
   }
