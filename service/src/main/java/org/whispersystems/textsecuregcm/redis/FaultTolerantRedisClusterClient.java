@@ -82,8 +82,9 @@ public class FaultTolerantRedisClusterClient {
       redisUri.setLibraryVersion(null);
     });
 
-    final LettuceShardCircuitBreaker lettuceShardCircuitBreaker = new LettuceShardCircuitBreaker(name,
-        circuitBreakerConfigurationName, Schedulers.newSingle("topology-changed-" + name, true));
+    final LettuceShardCircuitBreaker lettuceShardCircuitBreaker =
+        new LettuceShardCircuitBreaker(name, circuitBreakerConfigurationName);
+
     this.clusterClient = RedisClusterClient.create(
         clientResourcesBuilder.nettyCustomizer(lettuceShardCircuitBreaker).
             build(),
@@ -100,8 +101,6 @@ public class FaultTolerantRedisClusterClient {
             .build())
         .publishOnScheduler(true)
         .build());
-
-    lettuceShardCircuitBreaker.setEventBus(clusterClient.getResources().eventBus());
 
     this.stringConnection = clusterClient.connect();
     this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);

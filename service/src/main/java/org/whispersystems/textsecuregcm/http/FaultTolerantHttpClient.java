@@ -60,8 +60,6 @@ public class FaultTolerantHttpClient {
     this.retryExecutor = retryExecutor;
     this.retry = retry;
     this.breaker = circuitBreaker;
-
-    CircuitBreakerUtil.registerMetrics(breaker, FaultTolerantHttpClient.class, Tags.empty());
   }
 
   private HttpClient httpClient() {

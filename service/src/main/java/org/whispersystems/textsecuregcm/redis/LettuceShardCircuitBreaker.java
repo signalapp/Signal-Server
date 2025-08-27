@@ -10,13 +10,10 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.RedisNoScriptException;
 import io.lettuce.core.cluster.event.ClusterTopologyChangedEvent;
-import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
-import io.lettuce.core.event.EventBus;
 import io.lettuce.core.protocol.CommandHandler;
 import io.lettuce.core.protocol.CompleteableCommand;
 import io.lettuce.core.protocol.RedisCommand;
 import io.lettuce.core.resource.NettyCustomizer;
-import io.micrometer.core.instrument.Tags;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
@@ -24,18 +21,13 @@ import io.netty.channel.ChannelPromise;
 import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.util.CircuitBreakerUtil;
-import reactor.core.scheduler.Scheduler;
 
 /**
  * Adds a circuit breaker to every Netty {@link Channel} that gets created, so that a single unhealthy shard does not
@@ -56,64 +48,16 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
   private final String clusterName;
   @Nullable
   private final String circuitBreakerConfigurationName;
-  private final Scheduler scheduler;
-  // this set will be shared with all child channel breakers
-  private final Set<String> upstreamAddresses = ConcurrentHashMap.newKeySet();
-  // The EventBus is not available at construction time, because it is one of the client
-  // resources, which cannot be built without this NettyCustomizer
-  private EventBus eventBus;
 
-  public LettuceShardCircuitBreaker(final String clusterName,
-      @Nullable final String circuitBreakerConfigurationName,
-      final Scheduler scheduler) {
-
+  public LettuceShardCircuitBreaker(final String clusterName, @Nullable final String circuitBreakerConfigurationName) {
     this.clusterName = clusterName;
     this.circuitBreakerConfigurationName = circuitBreakerConfigurationName;
-    this.scheduler = scheduler;
-  }
-
-  private static String toShardAddress(final RedisClusterNode redisClusterNode) {
-    return "%s:%s".formatted(redisClusterNode.getUri().getHost(), redisClusterNode.getUri().getPort());
-  }
-
-  void setEventBus(final EventBus eventBus) {
-    this.eventBus = eventBus;
-
-    eventBus.get()
-        .filter(e -> e instanceof ClusterTopologyChangedEvent)
-        .map(e -> (ClusterTopologyChangedEvent) e)
-        .subscribeOn(scheduler)
-        .subscribe(event -> {
-
-          final Set<String> currentUpstreams = event.after().stream()
-              .filter(node -> node.getRole().isUpstream())
-              .map(LettuceShardCircuitBreaker::toShardAddress)
-              .collect(Collectors.toSet());
-
-          final Set<String> previousUpstreams = event.before().stream()
-              .filter(node -> node.getRole().isUpstream())
-              .map(LettuceShardCircuitBreaker::toShardAddress)
-              .collect(Collectors.toSet());
-          if (previousUpstreams.removeAll(currentUpstreams)) {
-            logger.info("No longer upstream in cluster {}: {}", clusterName, StringUtils.join(previousUpstreams, ", "));
-          }
-
-          // Channels may be created at any time, not just immediately after the cluster client connect()s or when topology
-          // changes, so we maintain a set that can be queried by channel handlers during their connect() method.
-          upstreamAddresses.addAll(currentUpstreams);
-          upstreamAddresses.removeAll(previousUpstreams);
-        });
   }
 
   @Override
   public void afterChannelInitialized(final Channel channel) {
-
-    if (eventBus == null) {
-      throw new IllegalStateException("Event bus must be set before channel customization can occur");
-    }
-
-    final ChannelCircuitBreakerHandler channelCircuitBreakerHandler = new ChannelCircuitBreakerHandler(clusterName,
-        circuitBreakerConfigurationName, upstreamAddresses, eventBus, scheduler);
+    final ChannelCircuitBreakerHandler channelCircuitBreakerHandler =
+        new ChannelCircuitBreakerHandler(clusterName, circuitBreakerConfigurationName);
 
     final String commandHandlerName = StreamSupport.stream(channel.pipeline().spliterator(), false)
         .filter(entry -> entry.getValue() instanceof CommandHandler)
@@ -128,52 +72,19 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
     private static final Logger logger = LoggerFactory.getLogger(ChannelCircuitBreakerHandler.class);
 
     private static final String CLUSTER_TAG_NAME = "cluster";
+    private static final String SHARD_ADDRESS_TAG_NAME = "shard";
 
     private final String clusterName;
     @Nullable private final String circuitBreakerConfigurationName;
-    private final AtomicBoolean registeredMetrics = new AtomicBoolean(false);
-    private final Set<String> upstreamAddresses;
 
     private String shardAddress;
 
     @VisibleForTesting
     CircuitBreaker breaker;
 
-    public ChannelCircuitBreakerHandler(final String name,
-        @Nullable final String circuitBreakerConfigurationName,
-        final Set<String> upstreamAddresses,
-        final EventBus eventBus, final Scheduler scheduler) {
+    public ChannelCircuitBreakerHandler(final String name, @Nullable final String circuitBreakerConfigurationName) {
       this.clusterName = name;
       this.circuitBreakerConfigurationName = circuitBreakerConfigurationName;
-      this.upstreamAddresses = upstreamAddresses;
-
-      eventBus.get()
-          .filter(e -> e instanceof ClusterTopologyChangedEvent)
-          .map(e -> (ClusterTopologyChangedEvent) e)
-          .subscribeOn(scheduler)
-          .subscribe(event -> {
-            if (shardAddress == null) {
-              logger.warn("Received a topology changed event without a shard address");
-              return;
-            }
-
-            final Set<String> newUpstreams = event.after().stream().filter(node -> node.getRole().isUpstream())
-                .map(LettuceShardCircuitBreaker::toShardAddress)
-                .collect(Collectors.toSet());
-
-            if (newUpstreams.contains(shardAddress)) {
-              registerMetrics();
-            }
-          });
-    }
-
-    void registerMetrics() {
-      // Registering metrics is not idempotent--some counters are added as event listeners,
-      // and there would be duplicated calls to increment()
-      if (registeredMetrics.compareAndSet(false, true)) {
-        logger.info("Registered metrics for: {}/{}", clusterName, shardAddress);
-        CircuitBreakerUtil.registerMetrics(breaker, getClass(), Tags.of(CLUSTER_TAG_NAME, clusterName));
-      }
     }
 
     @Override
@@ -188,15 +99,14 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
       // In some cases, like the default connection, the remote address includes the DNS hostname, which we want to exclude.
       shardAddress = StringUtils.substringAfter(remoteAddress.toString(), "/");
 
-      final String circuitBreakerName = "%s/%s-breaker".formatted(clusterName, shardAddress);
+      final String circuitBreakerName = "%s/%s".formatted(clusterName, shardAddress);
+      final Map<String, String> tags = Map.of(
+          CLUSTER_TAG_NAME, clusterName,
+          SHARD_ADDRESS_TAG_NAME, shardAddress);
 
       breaker = circuitBreakerConfigurationName != null
-          ? CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, circuitBreakerConfigurationName)
-          : CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName);
-
-      if (upstreamAddresses.contains(shardAddress)) {
-        registerMetrics();
-      }
+          ? CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, circuitBreakerConfigurationName, tags)
+          : CircuitBreakerUtil.getCircuitBreakerRegistry().circuitBreaker(circuitBreakerName, tags);
     }
 
     @Override

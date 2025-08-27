@@ -13,13 +13,11 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.codec.StringCodec;
-import io.lettuce.core.event.EventBus;
 import io.lettuce.core.output.StatusOutput;
 import io.lettuce.core.protocol.AsyncCommand;
 import io.lettuce.core.protocol.Command;
@@ -33,7 +31,6 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -42,29 +39,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
 
 class LettuceShardCircuitBreakerTest {
 
   private LettuceShardCircuitBreaker.ChannelCircuitBreakerHandler channelCircuitBreakerHandler;
-  private EventBus eventBus;
 
   @BeforeEach
   void setUp() {
-    eventBus = mock(EventBus.class);
-    when(eventBus.get()).thenReturn(Flux.never());
-    channelCircuitBreakerHandler = new LettuceShardCircuitBreaker.ChannelCircuitBreakerHandler(
-        "test", null, Collections.emptySet(), eventBus, Schedulers.immediate());
+    channelCircuitBreakerHandler = new LettuceShardCircuitBreaker.ChannelCircuitBreakerHandler("test", null);
   }
 
   @Test
   void testAfterChannelInitialized() {
 
     final LettuceShardCircuitBreaker lettuceShardCircuitBreaker =
-        new LettuceShardCircuitBreaker("test", null, Schedulers.immediate());
-
-    lettuceShardCircuitBreaker.setEventBus(eventBus);
+        new LettuceShardCircuitBreaker("test", null);
 
     final Channel channel = new EmbeddedChannel(
         new CommandHandler(ClientOptions.create(), ClientResources.create(), mock(Endpoint.class)));
