@@ -51,7 +51,7 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
   private final Executor listenerEventExecutor;
   private final ScheduledExecutorService retryExecutor;
 
-  private static final String RETRY_NAME = DisconnectionRequestManager.class.getSimpleName();
+  private static final String RETRY_NAME = ResilienceUtil.name(DisconnectionRequestManager.class);
 
   private static final Duration SUBSCRIBE_RETRY_DELAY = Duration.ofSeconds(5);
 

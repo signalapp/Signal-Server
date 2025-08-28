@@ -41,7 +41,7 @@ public class ProvisioningManager extends RedisPubSubAdapter<byte[], byte[]> impl
   private static final String RECEIVE_PROVISIONING_MESSAGE_COUNTER_NAME =
       name(ProvisioningManager.class, "receiveProvisioningMessage");
 
-  private static final String RETRY_NAME = ProvisioningManager.class.getSimpleName();
+  private static final String RETRY_NAME = ResilienceUtil.name(ProvisioningManager.class);
 
   private static final Logger logger = LoggerFactory.getLogger(ProvisioningManager.class);
 

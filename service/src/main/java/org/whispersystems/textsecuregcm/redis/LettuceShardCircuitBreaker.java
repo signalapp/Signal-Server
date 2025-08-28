@@ -99,7 +99,9 @@ public class LettuceShardCircuitBreaker implements NettyCustomizer {
       // In some cases, like the default connection, the remote address includes the DNS hostname, which we want to exclude.
       shardAddress = StringUtils.substringAfter(remoteAddress.toString(), "/");
 
-      final String circuitBreakerName = "%s-%s/%s".formatted(LettuceShardCircuitBreaker.class.getSimpleName(), clusterName, shardAddress);
+      final String circuitBreakerName =
+          ResilienceUtil.name(LettuceShardCircuitBreaker.class, "%s/%s".formatted(clusterName, shardAddress));
+
       final Map<String, String> tags = Map.of(
           CLUSTER_TAG_NAME, clusterName,
           SHARD_ADDRESS_TAG_NAME, shardAddress);

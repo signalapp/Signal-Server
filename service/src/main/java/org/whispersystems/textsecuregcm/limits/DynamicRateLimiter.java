@@ -38,7 +38,7 @@ public class DynamicRateLimiter implements RateLimiter {
 
   private final Clock clock;
 
-  private static final String RETRY_NAME = DynamicRateLimiter.class.getSimpleName();
+  private static final String RETRY_NAME = ResilienceUtil.name(DynamicRateLimiter.class);
 
   public DynamicRateLimiter(
       final String name,

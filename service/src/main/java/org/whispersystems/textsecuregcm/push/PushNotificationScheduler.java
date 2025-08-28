@@ -79,7 +79,7 @@ public class PushNotificationScheduler implements Managed {
 
   private final AtomicBoolean running = new AtomicBoolean(false);
 
-  private static final String RETRY_NAME = PushNotificationScheduler.class.getSimpleName();
+  private static final String RETRY_NAME = ResilienceUtil.name(PushNotificationScheduler.class);
 
   class NotificationWorker implements Runnable {
 

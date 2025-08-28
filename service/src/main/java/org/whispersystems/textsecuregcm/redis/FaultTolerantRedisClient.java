@@ -45,7 +45,7 @@ public class FaultTolerantRedisClient {
   }
 
   private static String getCircuitBreakerName(final String name) {
-    return FaultTolerantRedisClient.class.getSimpleName() + "/" + name;
+    return ResilienceUtil.name(FaultTolerantRedisClient.class, name);
   }
 
   @VisibleForTesting

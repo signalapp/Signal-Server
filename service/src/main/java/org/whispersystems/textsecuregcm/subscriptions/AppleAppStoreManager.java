@@ -117,7 +117,8 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
 
     retryConfigBuilder.retryOnException(AppleAppStoreManager::shouldRetry);
 
-    this.retry = ResilienceUtil.getRetryRegistry().retry("appstore-retry", retryConfigBuilder.build());
+    this.retry = ResilienceUtil.getRetryRegistry()
+        .retry(ResilienceUtil.name(AppleAppStoreManager.class, "appstore-retry"), retryConfigBuilder.build());
   }
 
   @Override

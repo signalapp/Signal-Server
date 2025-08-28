@@ -42,7 +42,7 @@ public class ProfilesManager {
   private final String bucket;
   private final ObjectMapper mapper;
 
-  private static final String RETRY_NAME = ProfilesManager.class.getSimpleName();
+  private static final String RETRY_NAME = ResilienceUtil.name(ProfilesManager.class);
 
   private static final String DELETE_AVATAR_COUNTER_NAME = name(ProfilesManager.class, "deleteAvatar");
 

@@ -152,7 +152,7 @@ public class MessagesCache {
   private final Counter sharedMrmDataKeyRemovedCounter = Metrics.counter(
       name(MessagesCache.class, "sharedMrmKeyRemoved"));
 
-  static final String RETRY_NAME = MessagesCache.class.getSimpleName();
+  static final String RETRY_NAME = ResilienceUtil.name(MessagesCache.class);
 
   static final String NEXT_SLOT_TO_PERSIST_KEY = "user_queue_persist_slot";
   private static final byte[] LOCK_VALUE = "1".getBytes(StandardCharsets.UTF_8);

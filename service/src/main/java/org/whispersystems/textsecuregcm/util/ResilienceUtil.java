@@ -84,6 +84,27 @@ public class ResilienceUtil {
         .build());
   }
 
+  /// Generates a standardized name for a `CircuitBreaker` or `Retry`.
+  ///
+  /// @param clazz the class to which the circuit breaker or retry belongs
+  ///
+  /// @return a standardized name for a `CircuitBreaker` or `Retry`
+  public static String name(final Class<?> clazz) {
+    return name(clazz, null);
+  }
+
+  /// Generates a standardized name for a `CircuitBreaker` or `Retry`.
+  ///
+  /// @param clazz the class to which the circuit breaker or retry belongs
+  /// @param name the name of the circuit breaker or retry; may be `null``
+  ///
+  /// @return a standardized name for a `CircuitBreaker` or `Retry`
+  public static String name(final Class<?> clazz, @Nullable final String name) {
+    return name != null
+        ? clazz.getSimpleName() + "/" + name
+        : clazz.getSimpleName();
+  }
+
   /// Returns a `Retry` instance with a default configuration suitable for general Redis operations.
   ///
   /// @param name The name of this `Retry`. Calls to this method with the same name will return the same `Retry`

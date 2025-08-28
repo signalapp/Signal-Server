@@ -64,7 +64,7 @@ public class AppleDeviceCheckManager {
   private final String teamId;
   private final String bundleId;
 
-  private static final String RETRY_NAME = AppleDeviceCheckManager.class.getSimpleName();
+  private static final String RETRY_NAME = ResilienceUtil.name(AppleDeviceCheckManager.class);
 
   public AppleDeviceCheckManager(
       AppleDeviceChecks appleDeviceChecks,
