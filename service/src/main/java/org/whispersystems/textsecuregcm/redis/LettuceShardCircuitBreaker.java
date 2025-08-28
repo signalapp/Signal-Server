@@ -32,6 +32,14 @@ import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 /**
  * Adds a circuit breaker to every Netty {@link Channel} that gets created, so that a single unhealthy shard does not
  * impact all cluster operations.
+ * <p>
+ * For metrics to be registered, users <em>must</em> create a synthetic {@link ClusterTopologyChangedEvent} after the
+ * initial connection. For example:
+ * <pre>
+ *   clusterClient.connect();
+ *   clusterClient.getResources().eventBus().publish(
+ *         new ClusterTopologyChangedEvent(Collections.emptyList(), clusterClient.getPartitions().getPartitions()));
+ * </pre>
  */
 public class LettuceShardCircuitBreaker implements NettyCustomizer {
 

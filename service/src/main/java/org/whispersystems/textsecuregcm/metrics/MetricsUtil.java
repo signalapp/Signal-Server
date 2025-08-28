@@ -22,7 +22,6 @@ import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.registry.otlp.OtlpMeterRegistry;
 import io.micrometer.statsd.StatsdMeterRegistry;
 import java.time.Duration;
-import java.util.Set;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -32,9 +31,6 @@ import org.whispersystems.textsecuregcm.util.Constants;
 public class MetricsUtil {
 
   public static final String PREFIX = "chat";
-
-  private static Set<String> ALLOWED_R4J_METRICS = Set.of("resilience4j.circuitbreaker.calls", "resilience4j.circuitbreaker.not.permitted.calls", "resilience4j.circuitbreaker.state");
-  private static Set<String> ALLOWED_R4J_STATE_GAUGES = Set.of("open", "closed", "half_open");
 
   private static volatile boolean registeredMetrics = false;
 
@@ -88,7 +84,6 @@ public class MetricsUtil {
         config.getOpenTelemetryConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
 
       configureMeterFilters(otlpMeterRegistry.config(), dynamicConfigurationManager);
-      configureCircuitBreakerMeterFilters(otlpMeterRegistry.config());
       Metrics.addRegistry(otlpMeterRegistry);
 
       if (config.getOpenTelemetryConfiguration().shutdownWaitDuration().compareTo(shutdownWaitDuration) > 0) {
@@ -139,36 +134,6 @@ public class MetricsUtil {
         .meterFilter(MeterFilter.denyNameStartsWith(MessageMetrics.DELIVERY_LATENCY_TIMER_NAME + ".percentile"))
         .meterFilter(MeterFilter.deny(id -> !dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().enableAwsSdkMetrics()
             && id.getName().startsWith(awsSdkMetricNamePrefix)));
-  }
-
-  // A separate function from configureMeterFilters only so we can use it on OTLP but not statsd
-  static void configureCircuitBreakerMeterFilters(MeterRegistry.Config config) {
-    config.meterFilter(
-      MeterFilter.deny(
-        id -> id.getName().equals("resilience4j.circuitbreaker.state") &&
-              id.getTags().stream().anyMatch(
-                t -> t.getKey().equals("state") && !ALLOWED_R4J_STATE_GAUGES.contains(t.getValue()))));
-
-    config.meterFilter(
-      MeterFilter.deny(
-        id -> id.getName().equals("resilience4j.circuitbreaker.calls") &&
-              id.getTags().stream().anyMatch(
-                  t -> t.getKey().equals("kind") && t.getValue().equals("ignored"))));
-
-    config.meterFilter(
-        MeterFilter.deny(
-            id -> id.getName().startsWith("resilience4j.circuitbreaker") &&
-                !ALLOWED_R4J_METRICS.contains(id.getName())));
-
-    config.meterFilter(new MeterFilter() {
-      @Override
-      public DistributionStatisticConfig configure(final Meter.Id id, final DistributionStatisticConfig config) {
-        if (id.getName().equals("resilience4j.circuitbreaker.calls")) {
-          return DistributionStatisticConfig.NONE;
-        }
-        return config;
-      }
-    });
   }
 
   public static void registerSystemResourceMetrics(final Environment environment) {
