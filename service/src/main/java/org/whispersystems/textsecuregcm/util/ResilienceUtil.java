@@ -6,12 +6,9 @@
 package org.whispersystems.textsecuregcm.util;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
-import io.github.resilience4j.micrometer.tagged.TaggedCircuitBreakerMetrics;
-import io.github.resilience4j.micrometer.tagged.TaggedRetryMetrics;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryRegistry;
 import io.lettuce.core.RedisCommandTimeoutException;
-import io.micrometer.core.instrument.Metrics;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.RetryConfiguration;
@@ -30,12 +27,6 @@ public class ResilienceUtil {
 
   static {
     setGeneralRedisRetryConfiguration(new RetryConfiguration());
-
-    TaggedCircuitBreakerMetrics.ofCircuitBreakerRegistry(CIRCUIT_BREAKER_REGISTRY)
-        .bindTo(Metrics.globalRegistry);
-
-    TaggedRetryMetrics.ofRetryRegistry(RETRY_REGISTRY)
-        .bindTo(Metrics.globalRegistry);
   }
 
   public static CircuitBreakerRegistry getCircuitBreakerRegistry() {
