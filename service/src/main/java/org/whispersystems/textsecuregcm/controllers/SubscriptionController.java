@@ -52,11 +52,11 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
@@ -74,6 +74,7 @@ import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
+import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
@@ -85,7 +86,6 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -233,12 +233,14 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public CompletableFuture<Response> deleteSubscriber(
+  @ManagedAsync
+  public Response deleteSubscriber(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
+      @PathParam("subscriberId") String subscriberId) throws SubscriptionException, RateLimitExceededException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.deleteSubscriber(subscriberCredentials).thenApply(unused -> Response.ok().build());
+    subscriptionManager.deleteSubscriber(subscriberCredentials);
+    return Response.ok().build();
   }
 
   @PUT
@@ -255,15 +257,17 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "200", description = "The subscriber was successfully created or refreshed")
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "subscriberId is malformed")
-  public CompletableFuture<Response> updateSubscriber(
+  @ManagedAsync
+  public Response updateSubscriber(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.updateSubscriber(subscriberCredentials).thenApply(record -> Response.ok().build());
+    subscriptionManager.updateSubscriber(subscriberCredentials);
+    return Response.ok().build();
   }
 
-  record CreatePaymentMethodResponse(String clientSecret, PaymentProvider processor) {
+  public record CreatePaymentMethodResponse(String clientSecret, PaymentProvider processor) {
 
   }
 
@@ -271,7 +275,8 @@ public class SubscriptionController {
   @Path("/{subscriberId}/create_payment_method")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createPaymentMethod(
+  @ManagedAsync
+  public CreatePaymentMethodResponse createPaymentMethod(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @QueryParam("type") @DefaultValue("CARD") PaymentMethod paymentMethodType,
@@ -290,13 +295,13 @@ public class SubscriptionController {
       case UNKNOWN -> throw new BadRequestException("Invalid payment method");
     };
 
-    return subscriptionManager.addPaymentMethodToCustomer(
-            subscriberCredentials,
-            customerAwareSubscriptionPaymentProcessor,
-            getClientPlatform(userAgentString),
-            CustomerAwareSubscriptionPaymentProcessor::createPaymentMethodSetupToken)
-        .thenApply(token ->
-            Response.ok(new CreatePaymentMethodResponse(token, customerAwareSubscriptionPaymentProcessor.getProvider())).build());
+    final String token = subscriptionManager.addPaymentMethodToCustomer(
+        subscriberCredentials,
+        customerAwareSubscriptionPaymentProcessor,
+        getClientPlatform(userAgentString),
+        CustomerAwareSubscriptionPaymentProcessor::createPaymentMethodSetupToken);
+
+    return new CreatePaymentMethodResponse(token, customerAwareSubscriptionPaymentProcessor.getProvider());
   }
 
   public record CreatePayPalBillingAgreementRequest(@NotBlank String returnUrl, @NotBlank String cancelUrl) {}
@@ -307,7 +312,8 @@ public class SubscriptionController {
   @Path("/{subscriberId}/create_payment_method/paypal")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createPayPalPaymentMethod(
+  @ManagedAsync
+  public CreatePayPalBillingAgreementResponse createPayPalPaymentMethod(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @NotNull @Valid CreatePayPalBillingAgreementRequest request,
@@ -321,17 +327,16 @@ public class SubscriptionController {
         .findFirst()
         .orElse(Locale.US);
 
-    return subscriptionManager.addPaymentMethodToCustomer(
+    final BraintreeManager.PayPalBillingAgreementApprovalDetails billingAgreementApprovalDetails = subscriptionManager.addPaymentMethodToCustomer(
             subscriberCredentials,
             braintreeManager,
             getClientPlatform(userAgentString),
             (mgr, customerId) ->
                 mgr.createPayPalBillingAgreement(request.returnUrl, request.cancelUrl, locale.toLanguageTag()))
-        .thenApply(billingAgreementApprovalDetails -> Response.ok(
-                new CreatePayPalBillingAgreementResponse(
-                    billingAgreementApprovalDetails.approvalUrl(),
-                    billingAgreementApprovalDetails.billingAgreementToken()))
-            .build());
+        .join();
+    return new CreatePayPalBillingAgreementResponse(
+        billingAgreementApprovalDetails.approvalUrl(),
+        billingAgreementApprovalDetails.billingAgreementToken());
   }
 
   private CustomerAwareSubscriptionPaymentProcessor getCustomerAwareProcessor(PaymentProvider processor) {
@@ -346,7 +351,8 @@ public class SubscriptionController {
   @Path("/{subscriberId}/default_payment_method/{processor}/{paymentMethodToken}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> setDefaultPaymentMethodWithProcessor(
+  @ManagedAsync
+  public Response setDefaultPaymentMethodWithProcessor(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("processor") PaymentProvider processor,
@@ -356,7 +362,8 @@ public class SubscriptionController {
 
     final CustomerAwareSubscriptionPaymentProcessor manager = getCustomerAwareProcessor(processor);
 
-    return setDefaultPaymentMethod(manager, paymentMethodToken, subscriberCredentials);
+    setDefaultPaymentMethod(manager, paymentMethodToken, subscriberCredentials);
+    return Response.ok().build();
   }
 
   public record SetSubscriptionLevelSuccessResponse(long level) {
@@ -383,7 +390,8 @@ public class SubscriptionController {
   @Path("/{subscriberId}/level/{level}/{currency}/{idempotencyKey}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> setSubscriptionLevel(
+  @ManagedAsync
+  public SetSubscriptionLevelSuccessResponse setSubscriptionLevel(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("level") long level,
@@ -391,42 +399,40 @@ public class SubscriptionController {
       @PathParam("idempotencyKey") String idempotencyKey) throws SubscriptionException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.getSubscriber(subscriberCredentials)
-        .thenCompose(record -> {
-          final ProcessorCustomer processorCustomer = record.getProcessorCustomer()
-              .orElseThrow(() ->
-                  // a missing customer ID indicates the client made requests out of order,
-                  // and needs to call create_payment_method to create a customer for the given payment method
-                  new ClientErrorException(Status.CONFLICT));
+    try {
+      final Subscriptions.Record record = subscriptionManager.getSubscriber(subscriberCredentials);
+      final ProcessorCustomer processorCustomer = record.getProcessorCustomer()
+          .orElseThrow(() ->
+              // a missing customer ID indicates the client made requests out of order,
+              // and needs to call create_payment_method to create a customer for the given payment method
+              new ClientErrorException(Status.CONFLICT));
 
-          final String subscriptionTemplateId = getSubscriptionTemplateId(level, currency,
-              processorCustomer.processor());
+      final String subscriptionTemplateId = getSubscriptionTemplateId(level, currency,
+          processorCustomer.processor());
 
-          final CustomerAwareSubscriptionPaymentProcessor manager = getCustomerAwareProcessor(processorCustomer.processor());
-          return subscriptionManager.updateSubscriptionLevelForCustomer(subscriberCredentials, record, manager, level,
-              currency, idempotencyKey, subscriptionTemplateId, this::subscriptionsAreSameType);
-        })
-        .exceptionally(ExceptionUtils.exceptionallyHandler(SubscriptionException.InvalidLevel.class, e -> {
-          throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
-              .entity(new SubscriptionController.SetSubscriptionLevelErrorResponse(List.of(
-                  new SubscriptionController.SetSubscriptionLevelErrorResponse.Error(
-                      SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL,
-                      null))))
-              .build());
-        }))
-        .exceptionally(ExceptionUtils.exceptionallyHandler(SubscriptionException.PaymentRequiresAction.class, e -> {
-          throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
-              .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
-                  SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null))))
-              .build());
-        }))
-        .exceptionally(ExceptionUtils.exceptionallyHandler(SubscriptionException.InvalidArguments.class, e -> {
-          throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
-              .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
-                  SetSubscriptionLevelErrorResponse.Error.Type.INVALID_ARGUMENTS, e.getMessage()))))
-              .build());
-        }))
-        .thenApply(unused -> Response.ok(new SetSubscriptionLevelSuccessResponse(level)).build());
+      final CustomerAwareSubscriptionPaymentProcessor manager = getCustomerAwareProcessor(
+          processorCustomer.processor());
+      subscriptionManager.updateSubscriptionLevelForCustomer(subscriberCredentials, record, manager, level,
+          currency, idempotencyKey, subscriptionTemplateId, this::subscriptionsAreSameType);
+      return new SetSubscriptionLevelSuccessResponse(level);
+    } catch (SubscriptionException.InvalidLevel e) {
+      throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
+          .entity(new SubscriptionController.SetSubscriptionLevelErrorResponse(List.of(
+              new SubscriptionController.SetSubscriptionLevelErrorResponse.Error(
+                  SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL,
+                  null))))
+          .build());
+    } catch (SubscriptionException.PaymentRequiresAction e) {
+      throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
+          .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
+              SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null))))
+          .build());
+    } catch (SubscriptionException.InvalidArguments e) {
+      throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
+          .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
+              SetSubscriptionLevelErrorResponse.Error.Type.INVALID_ARGUMENTS, e.getMessage()))))
+          .build());
+    }
   }
 
   public boolean subscriptionsAreSameType(long level1, long level2) {
@@ -449,7 +455,7 @@ public class SubscriptionController {
   4. Obtain a receipt at `POST /v1/subscription/{subscriberId}/receipt_credentials` which can then be used to obtain the
      entitlement
   """)
-  @ApiResponse(responseCode = "200", description = "The originalTransactionId was successfully validated")
+  @ApiResponse(responseCode = "200", description = "The originalTransactionId was successfully validated", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "402", description = "The subscription transaction is incomplete or invalid")
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed or the specified transaction does not exist")
@@ -457,16 +463,16 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public CompletableFuture<SetSubscriptionLevelSuccessResponse> setAppStoreSubscription(
+  @ManagedAsync
+  public SetSubscriptionLevelSuccessResponse setAppStoreSubscription(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @PathParam("originalTransactionId") String originalTransactionId) throws SubscriptionException {
+      @PathParam("originalTransactionId") String originalTransactionId) throws SubscriptionException, RateLimitExceededException {
     final SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
-    return subscriptionManager
-        .updateAppStoreTransactionId(subscriberCredentials, appleAppStoreManager, originalTransactionId)
-        .thenApply(SetSubscriptionLevelSuccessResponse::new);
+    return new SetSubscriptionLevelSuccessResponse(subscriptionManager
+        .updateAppStoreTransactionId(subscriberCredentials, appleAppStoreManager, originalTransactionId));
   }
 
 
@@ -493,7 +499,7 @@ public class SubscriptionController {
   method. A different playbilling purchaseToken can be posted to the same subscriberId, in this case the subscription
   associated with the old purchaseToken will be cancelled.
   """)
-  @ApiResponse(responseCode = "200", description = "The purchaseToken was validated and acknowledged")
+  @ApiResponse(responseCode = "200", description = "The purchaseToken was validated and acknowledged", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "402", description = "The purchaseToken payment is incomplete or invalid")
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed or the purchaseToken does not exist")
@@ -501,16 +507,16 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public CompletableFuture<SetSubscriptionLevelSuccessResponse> setPlayStoreSubscription(
+  @ManagedAsync
+  public SetSubscriptionLevelSuccessResponse setPlayStoreSubscription(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @PathParam("purchaseToken") String purchaseToken) throws SubscriptionException {
+      @PathParam("purchaseToken") String purchaseToken) throws SubscriptionException, RateLimitExceededException {
     final SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
-    return subscriptionManager
-        .updatePlayBillingPurchaseToken(subscriberCredentials, googlePlayBillingManager, purchaseToken)
-        .thenApply(SetSubscriptionLevelSuccessResponse::new);
+    return new SetSubscriptionLevelSuccessResponse(subscriptionManager
+        .updatePlayBillingPurchaseToken(subscriberCredentials, googlePlayBillingManager, purchaseToken));
   }
 
   @Schema(description = """
@@ -572,24 +578,21 @@ public class SubscriptionController {
       description = """
           Returns all configuration for badges, donation subscriptions, backup subscriptions, and one-time donation (
           "boost" and "gift") minimum and suggested amounts.""")
-  @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = GetSubscriptionConfigurationResponse.class)))
-  public CompletableFuture<Response> getConfiguration(@Context ContainerRequestContext containerRequestContext) {
-    return CompletableFuture.supplyAsync(() -> {
-      List<Locale> acceptableLanguages = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
-      return Response.ok(buildGetSubscriptionConfigurationResponse(acceptableLanguages)).build();
-    });
+  @ApiResponse(responseCode = "200", useReturnTypeSchema = true)
+  @ManagedAsync
+  public GetSubscriptionConfigurationResponse getConfiguration(@Context ContainerRequestContext containerRequestContext) {
+    List<Locale> acceptableLanguages = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
+    return buildGetSubscriptionConfigurationResponse(acceptableLanguages);
   }
 
   @GET
   @Path("/bank_mandate/{bankTransferType}")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> getBankMandate(final @Context ContainerRequestContext containerRequestContext,
+  @ManagedAsync
+  public GetBankMandateResponse getBankMandate(final @Context ContainerRequestContext containerRequestContext,
       final @PathParam("bankTransferType") BankTransferType bankTransferType) {
-    return CompletableFuture.supplyAsync(() -> {
-      List<Locale> acceptableLanguages = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
-      return Response.ok(new GetBankMandateResponse(
-          bankMandateTranslator.translate(acceptableLanguages, bankTransferType))).build();
-    });
+    List<Locale> acceptableLanguages = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
+    return new GetBankMandateResponse(bankMandateTranslator.translate(acceptableLanguages, bankTransferType));
   }
 
   public record GetBankMandateResponse(String mandate) {}
@@ -652,19 +655,20 @@ public class SubscriptionController {
       to Stripe's. Since we don’t support trials or unpaid subscriptions, the associated statuses will never be returned
       by the API.
       """)
-  @ApiResponse(responseCode = "200", description = "The subscriberId exists", content = @Content(schema = @Schema(implementation = GetSubscriptionInformationResponse.class)))
+  @ApiResponse(responseCode = "200", description = "The subscriberId exists", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "No such subscriberId exists or subscriberId is malformed")
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public CompletableFuture<Response> getSubscriptionInformation(
+  @ManagedAsync
+  public GetSubscriptionInformationResponse getSubscriptionInformation(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
-      @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
+      @PathParam("subscriberId") String subscriberId) throws SubscriptionException, RateLimitExceededException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.getSubscriptionInformation(subscriberCredentials).thenApply(maybeInfo -> maybeInfo
-        .map(subscriptionInformation -> Response.ok(
+    return subscriptionManager.getSubscriptionInformation( subscriberCredentials)
+        .map(subscriptionInformation ->
             new GetSubscriptionInformationResponse(
                 new GetSubscriptionInformationResponse.Subscription(
                     subscriptionInformation.level(),
@@ -679,8 +683,8 @@ public class SubscriptionController {
                     subscriptionInformation.paymentMethod(),
                     subscriptionInformation.paymentProcessing()),
                 subscriptionInformation.chargeFailure()
-            )).build())
-        .orElseGet(() -> Response.ok(new GetSubscriptionInformationResponse(null, null)).build()));
+            ))
+        .orElseGet(() -> new GetSubscriptionInformationResponse(null, null));
   }
 
   public record GetReceiptCredentialsRequest(
@@ -717,7 +721,7 @@ public class SubscriptionController {
 
       Clients MUST validate that the generated receipt credential's level and expiration matches their expectations.
       """)
-  @ApiResponse(responseCode = "200", description = "Successfully created receipt", content = @Content(schema = @Schema(implementation = GetReceiptCredentialsResponse.class)))
+  @ApiResponse(responseCode = "200", description = "Successfully created receipt", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "204", description = "No invoice has been issued for this subscription OR invoice is in 'open' state")
   @ApiResponse(responseCode = "400", description = "Bad ReceiptCredentialRequest")
   @ApiResponse(responseCode = "402", description = "Invoice is in any state other than 'open' or 'paid'. May include chargeFailure details in body.",
@@ -741,63 +745,68 @@ public class SubscriptionController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public CompletableFuture<Response> createSubscriptionReceiptCredentials(
+  @ManagedAsync
+  public Response createSubscriptionReceiptCredentials(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @PathParam("subscriberId") String subscriberId,
-      @NotNull @Valid GetReceiptCredentialsRequest request) throws SubscriptionException {
+      @NotNull @Valid GetReceiptCredentialsRequest request) throws SubscriptionException, RateLimitExceededException {
     SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
-    return subscriptionManager.createReceiptCredentials(subscriberCredentials, request, this::receiptExpirationWithGracePeriod)
-        .thenApply(receiptCredential -> {
-          final ReceiptCredentialResponse receiptCredentialResponse = receiptCredential.receiptCredentialResponse();
-          final CustomerAwareSubscriptionPaymentProcessor.ReceiptItem receipt = receiptCredential.receiptItem();
-          Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
-                  Tags.of(
-                      Tag.of(PROCESSOR_TAG_NAME, receiptCredential.paymentProvider().toString()),
-                      Tag.of(TYPE_TAG_NAME, "subscription"),
-                      Tag.of(SUBSCRIPTION_TYPE_TAG_NAME,
-                          subscriptionConfiguration.getSubscriptionLevel(receipt.level()).type().name()
-                              .toLowerCase(Locale.ROOT)),
-                      UserAgentTagUtil.getPlatformTag(userAgent)))
-              .increment();
-          return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
-        })
-        .exceptionally(ExceptionUtils.exceptionallyHandler(
-            SubscriptionException.ReceiptRequestedForOpenPayment.class,
-            e -> Response.noContent().build()));
+    try {
+      final SubscriptionManager.ReceiptResult receiptCredential = subscriptionManager.createReceiptCredentials(
+          subscriberCredentials, request, this::receiptExpirationWithGracePeriod);
+
+      final ReceiptCredentialResponse receiptCredentialResponse = receiptCredential.receiptCredentialResponse();
+      final CustomerAwareSubscriptionPaymentProcessor.ReceiptItem receipt = receiptCredential.receiptItem();
+      Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
+              Tags.of(
+                  Tag.of(PROCESSOR_TAG_NAME, receiptCredential.paymentProvider().toString()),
+                  Tag.of(TYPE_TAG_NAME, "subscription"),
+                  Tag.of(SUBSCRIPTION_TYPE_TAG_NAME,
+                      subscriptionConfiguration.getSubscriptionLevel(receipt.level()).type().name()
+                          .toLowerCase(Locale.ROOT)),
+                  UserAgentTagUtil.getPlatformTag(userAgent)))
+          .increment();
+      return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
+    } catch (SubscriptionException.ReceiptRequestedForOpenPayment e) {
+      return Response.noContent().build();
+    }
   }
 
   @POST
   @Path("/{subscriberId}/default_payment_method_for_ideal/{setupIntentId}")
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> setDefaultPaymentMethodForIdeal(
+  @ManagedAsync
+  public Response setDefaultPaymentMethodForIdeal(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("setupIntentId") @NotEmpty String setupIntentId) throws SubscriptionException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
-    return stripeManager.getGeneratedSepaIdFromSetupIntent(setupIntentId)
-        .thenCompose(generatedSepaId -> setDefaultPaymentMethod(stripeManager, generatedSepaId, subscriberCredentials));
+    final String generatedSepaId = stripeManager.getGeneratedSepaIdFromSetupIntent(setupIntentId).join();
+    setDefaultPaymentMethod(stripeManager, generatedSepaId, subscriberCredentials);
+    return Response.ok().build();
   }
 
-  private CompletableFuture<Response> setDefaultPaymentMethod(final CustomerAwareSubscriptionPaymentProcessor manager,
+  private void setDefaultPaymentMethod(final CustomerAwareSubscriptionPaymentProcessor manager,
       final String paymentMethodId,
-      final SubscriberCredentials requestData) {
-    return subscriptionManager.getSubscriber(requestData)
-        .thenCompose(record -> record.getProcessorCustomer()
-            .map(processorCustomer -> manager.setDefaultPaymentMethodForCustomer(processorCustomer.customerId(),
-                paymentMethodId, record.subscriptionId))
-            .orElseThrow(() ->
-                // a missing customer ID indicates the client made requests out of order,
-                // and needs to call create_payment_method to create a customer for the given payment method
-                new ClientErrorException(Status.CONFLICT)))
-        .exceptionally(ExceptionUtils.exceptionallyHandler(SubscriptionException.InvalidArguments.class, e -> {
-          // Here, invalid arguments must mean that the client has made requests out of order, and needs to finish
-          // setting up the paymentMethod first
-          throw new ClientErrorException(Status.CONFLICT);
-        }))
-        .thenApply(customer -> Response.ok().build());
+      final SubscriberCredentials requestData) throws SubscriptionException {
+    try {
+      final Subscriptions.Record record = subscriptionManager.getSubscriber(requestData);
+
+      final ProcessorCustomer processorCustomer = record.getProcessorCustomer()
+          // a missing customer ID indicates the client made requests out of order,
+          // and needs to call create_payment_method to create a customer for the given payment method
+          .orElseThrow(() ->new ClientErrorException(Status.CONFLICT));
+
+      manager
+          .setDefaultPaymentMethodForCustomer(processorCustomer.customerId(), paymentMethodId, record.subscriptionId);
+    } catch (SubscriptionException.InvalidArguments e) {
+      // Here, invalid arguments must mean that the client has made requests out of order, and needs to finish
+      // setting up the paymentMethod first
+      throw new ClientErrorException(Status.CONFLICT);
+    }
   }
 
   private Instant receiptExpirationWithGracePeriod(CustomerAwareSubscriptionPaymentProcessor.ReceiptItem receiptItem) {

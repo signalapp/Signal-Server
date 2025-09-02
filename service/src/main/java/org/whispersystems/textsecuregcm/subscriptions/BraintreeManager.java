@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.subscriptions;
 
+import com.braintree.graphql.clientoperation.TokenizePayPalBillingAgreementMutation;
+import com.braintree.graphql.clientoperation.VaultPaymentMethodMutation;
 import com.braintreegateway.BraintreeGateway;
 import com.braintreegateway.ClientTokenRequest;
 import com.braintreegateway.Customer;
@@ -30,13 +32,11 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
@@ -48,6 +48,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.ExecutorUtil;
 import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -81,8 +82,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
       final CurrencyConversionManager currencyConversionManager,
       final PublisherInterface pubsubPublisher,
       @Nullable final String circuitBreakerConfigurationName,
-      final Executor executor,
-      final ScheduledExecutorService retryExecutor) {
+      final Executor executor) {
 
     this(new BraintreeGateway(braintreeEnvironment, braintreeMerchantId, braintreePublicKey,
             braintreePrivateKey),
@@ -317,130 +317,105 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
   }
 
   @Override
-  public CompletableFuture<ProcessorCustomer> createCustomer(final byte[] subscriberUser, @Nullable final ClientPlatform clientPlatform) {
-    return CompletableFuture.supplyAsync(() -> {
-          CustomerRequest request = new CustomerRequest()
-              .customField("subscriber_user", HexFormat.of().formatHex(subscriberUser));
+  public ProcessorCustomer createCustomer(final byte[] subscriberUser, @Nullable final ClientPlatform clientPlatform) {
+    CustomerRequest request = new CustomerRequest()
+        .customField("subscriber_user", HexFormat.of().formatHex(subscriberUser));
 
-          if (clientPlatform != null) {
-            request.customField("client_platform", clientPlatform.name().toLowerCase());
-          }
+    if (clientPlatform != null) {
+      request.customField("client_platform", clientPlatform.name().toLowerCase());
+    }
 
-          try {
-            return braintreeGateway.customer().create(request);
-          } catch (BraintreeException e) {
-            throw new CompletionException(e);
-          }
-        }, executor)
-        .thenApply(result -> {
-          if (!result.isSuccess()) {
-            throw new CompletionException(new BraintreeException(result.getMessage()));
-          }
-
-          return new ProcessorCustomer(result.getTarget().getId(), PaymentProvider.BRAINTREE);
-        });
-
+    final Result<Customer> result = braintreeGateway.customer().create(request);
+    if (!result.isSuccess()) {
+      throw new BraintreeException(result.getMessage());
+    }
+    return new ProcessorCustomer(result.getTarget().getId(), PaymentProvider.BRAINTREE);
   }
 
   @Override
-  public CompletableFuture<String> createPaymentMethodSetupToken(final String customerId) {
-    return CompletableFuture.supplyAsync(() -> {
-      ClientTokenRequest request = new ClientTokenRequest()
-          .customerId(customerId);
+  public String createPaymentMethodSetupToken(final String customerId) {
+    ClientTokenRequest request = new ClientTokenRequest().customerId(customerId);
 
-      return braintreeGateway.clientToken().generate(request);
-    }, executor);
+    return braintreeGateway.clientToken().generate(request);
   }
 
   @Override
-  public CompletableFuture<Void> setDefaultPaymentMethodForCustomer(String customerId, String billingAgreementToken,
+  public void setDefaultPaymentMethodForCustomer(String customerId, String billingAgreementToken,
       @Nullable String currentSubscriptionId) {
     final Optional<String> maybeSubscriptionId = Optional.ofNullable(currentSubscriptionId);
-    return braintreeGraphqlClient.tokenizePayPalBillingAgreement(billingAgreementToken)
-        .thenCompose(tokenizePayPalBillingAgreement ->
-            braintreeGraphqlClient.vaultPaymentMethod(customerId, tokenizePayPalBillingAgreement.paymentMethod.id))
-        .thenApplyAsync(vaultPaymentMethod -> braintreeGateway.customer()
-                .update(customerId, new CustomerRequest()
-                    .defaultPaymentMethodToken(vaultPaymentMethod.paymentMethod.id)),
-            executor)
-        .thenAcceptAsync(result -> {
-          maybeSubscriptionId.ifPresent(
-              subscriptionId -> braintreeGateway.subscription()
-                  .update(subscriptionId, new SubscriptionRequest()
-                      .paymentMethodToken(result.getTarget().getDefaultPaymentMethod().getToken())));
-        }, executor);
+    final TokenizePayPalBillingAgreementMutation.TokenizePayPalBillingAgreement tokenizePayPalBillingAgreement =
+        braintreeGraphqlClient.tokenizePayPalBillingAgreement(billingAgreementToken).join();
+    final VaultPaymentMethodMutation.VaultPaymentMethod vaultPaymentMethod =
+        braintreeGraphqlClient.vaultPaymentMethod(customerId, tokenizePayPalBillingAgreement.paymentMethod.id).join();
+    final Result<Customer> result = braintreeGateway.customer()
+        .update(customerId, new CustomerRequest().defaultPaymentMethodToken(vaultPaymentMethod.paymentMethod.id));
+    maybeSubscriptionId.ifPresent(subscriptionId ->
+        braintreeGateway.subscription().update(subscriptionId, new SubscriptionRequest()
+            .paymentMethodToken(result.getTarget().getDefaultPaymentMethod().getToken())));
   }
 
   @Override
-  public CompletableFuture<Object> getSubscription(String subscriptionId) {
-    return CompletableFuture.supplyAsync(() -> braintreeGateway.subscription().find(subscriptionId), executor);
+  public Object getSubscription(String subscriptionId) {
+    return braintreeGateway.subscription().find(subscriptionId);
   }
 
   @Override
-  public CompletableFuture<SubscriptionId> createSubscription(String customerId, String planId, long level,
-                                                              long lastSubscriptionCreatedAt) {
+  public SubscriptionId createSubscription(String customerId, String planId, long level,
+      long lastSubscriptionCreatedAt)
+      throws SubscriptionException.ProcessorConflict, SubscriptionException.ProcessorException {
 
-    return getDefaultPaymentMethod(customerId)
-        .thenCompose(paymentMethod -> {
-          if (paymentMethod == null) {
-            throw ExceptionUtils.wrap(new SubscriptionException.ProcessorConflict());
-          }
+    final com.braintreegateway.PaymentMethod paymentMethod = getDefaultPaymentMethod(customerId);
+    if (paymentMethod == null) {
+      throw new SubscriptionException.ProcessorConflict();
+    }
 
-          final Optional<Subscription> maybeExistingSubscription = paymentMethod.getSubscriptions().stream()
-              .filter(sub -> sub.getStatus().equals(Subscription.Status.ACTIVE))
-              .filter(Subscription::neverExpires)
-              .findAny();
+    final Optional<Subscription> maybeExistingSubscription = paymentMethod.getSubscriptions().stream()
+        .filter(sub -> sub.getStatus().equals(Subscription.Status.ACTIVE))
+        .filter(Subscription::neverExpires)
+        .findAny();
 
-          return maybeExistingSubscription.map(subscription -> findPlan(subscription.getPlanId())
-                  .thenApply(plan -> {
-                    if (getLevelForPlan(plan) != level) {
-                      // if this happens, the likely cause is retrying an apparently failed request (likely some sort of timeout or network interruption)
-                      // with a different level.
-                      // In this case, it’s safer and easier to recover by returning this subscription, rather than
-                      // returning an error
-                      logger.warn("existing subscription had unexpected level");
-                    }
-                    return subscription;
-                  }))
-              .orElseGet(() -> findPlan(planId).thenApplyAsync(plan -> {
-                final Result<Subscription> result = braintreeGateway.subscription().create(new SubscriptionRequest()
-                    .planId(planId)
-                    .paymentMethodToken(paymentMethod.getToken())
-                    .merchantAccountId(
-                        currenciesToMerchantAccounts.get(plan.getCurrencyIsoCode().toLowerCase(Locale.ROOT)))
-                    .options()
-                    .startImmediately(true)
-                    .done()
-                );
+    if (maybeExistingSubscription.isPresent()) {
+      final Subscription subscription = maybeExistingSubscription.get();
+      final Plan plan = findPlan(subscription.getPlanId());
+      if (getLevelForPlan(plan) != level) {
+        // if this happens, the likely cause is retrying an apparently failed request (likely some sort of timeout or network interruption)
+        // with a different level.
+        // In this case, it’s safer and easier to recover by returning this subscription, rather than
+        // returning an error
+        logger.warn("existing subscription had unexpected level");
+      }
+      return new SubscriptionId(subscription.getId());
+    }
+    final Plan plan = findPlan(planId);
+    final Result<Subscription> result = braintreeGateway.subscription().create(new SubscriptionRequest()
+        .planId(planId)
+        .paymentMethodToken(paymentMethod.getToken())
+        .merchantAccountId(
+            currenciesToMerchantAccounts.get(plan.getCurrencyIsoCode().toLowerCase(Locale.ROOT)))
+        .options()
+        .startImmediately(true)
+        .done());
 
-                if (!result.isSuccess()) {
-                  final CompletionException completionException;
-                  if (result.getTarget() != null) {
-                    completionException = result.getTarget().getTransactions().stream().findFirst()
-                        .map(transaction -> new CompletionException(
-                            new SubscriptionException.ProcessorException(getProvider(), createChargeFailure(transaction))))
-                        .orElseGet(() -> new CompletionException(new BraintreeException(result.getMessage())));
-                  } else {
-                    completionException = new CompletionException(new BraintreeException(result.getMessage()));
-                  }
+    if (!result.isSuccess()) {
+      throw Optional
+          .ofNullable(result.getTarget())
+          .flatMap(subscription -> subscription.getTransactions().stream().findFirst())
+          .map(transaction -> new SubscriptionException.ProcessorException(getProvider(),
+              createChargeFailure(transaction)))
+          .orElseThrow(() -> new BraintreeException(result.getMessage()));
+    }
 
-                  throw completionException;
-                }
-
-                return result.getTarget();
-              }));
-        }).thenApply(subscription -> new SubscriptionId(subscription.getId()));
+    return new SubscriptionId(result.getTarget().getId());
   }
 
-  private CompletableFuture<com.braintreegateway.PaymentMethod> getDefaultPaymentMethod(String customerId) {
-    return CompletableFuture.supplyAsync(() -> braintreeGateway.customer().find(customerId).getDefaultPaymentMethod(),
-        executor);
+  private com.braintreegateway.PaymentMethod getDefaultPaymentMethod(String customerId) {
+    return braintreeGateway.customer().find(customerId).getDefaultPaymentMethod();
   }
 
 
   @Override
-  public CompletableFuture<SubscriptionId> updateSubscription(Object subscriptionObj, String planId, long level,
-      String idempotencyKey) {
+  public CustomerAwareSubscriptionPaymentProcessor.SubscriptionId updateSubscription(Object subscriptionObj, String planId, long level,
+      String idempotencyKey) throws SubscriptionException.ProcessorConflict, SubscriptionException.ProcessorException {
 
     if (!(subscriptionObj instanceof final Subscription subscription)) {
       throw new IllegalArgumentException("invalid subscription object: " + subscriptionObj.getClass().getName());
@@ -449,31 +424,26 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     // since badge redemption is untrackable by design and unrevokable, subscription changes must be immediate and
     // not prorated. Braintree subscriptions cannot change their next billing date,
     // so we must end the existing one and create a new one
-    return endSubscription(subscription)
-        .thenCompose(ignored -> {
+    endSubscription(subscription);
 
-          final Transaction transaction = getLatestTransactionForSubscription(subscription)
-              .orElseThrow(() -> ExceptionUtils.wrap(new SubscriptionException.ProcessorConflict()));
+    final Transaction transaction = getLatestTransactionForSubscription(subscription)
+        .orElseThrow(() -> ExceptionUtils.wrap(new SubscriptionException.ProcessorConflict()));
 
-          final Customer customer = transaction.getCustomer();
+    final Customer customer = transaction.getCustomer();
 
-          return createSubscription(customer.getId(), planId, level,
-              subscription.getCreatedAt().toInstant().getEpochSecond());
-        });
+    return createSubscription(customer.getId(), planId, level,
+        subscription.getCreatedAt().toInstant().getEpochSecond());
   }
 
   @Override
-  public CompletableFuture<LevelAndCurrency> getLevelAndCurrencyForSubscription(Object subscriptionObj) {
+  public LevelAndCurrency getLevelAndCurrencyForSubscription(Object subscriptionObj) {
     final Subscription subscription = getSubscription(subscriptionObj);
-
-    return findPlan(subscription.getPlanId())
-        .thenApply(
-            plan -> new LevelAndCurrency(getLevelForPlan(plan), plan.getCurrencyIsoCode().toLowerCase(Locale.ROOT)));
-
+    final Plan plan = findPlan(subscription.getPlanId());
+    return new LevelAndCurrency(getLevelForPlan(plan), plan.getCurrencyIsoCode().toLowerCase(Locale.ROOT));
   }
 
-  private CompletableFuture<Plan> findPlan(String planId) {
-    return CompletableFuture.supplyAsync(() -> braintreeGateway.plan().find(planId), executor);
+  private Plan findPlan(String planId) {
+    return braintreeGateway.plan().find(planId);
   }
 
   private long getLevelForPlan(final Plan plan) {
@@ -489,37 +459,32 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
   }
 
   @Override
-  public CompletableFuture<SubscriptionInformation> getSubscriptionInformation(final String subscriptionId) {
-    return getSubscription(subscriptionId).thenApplyAsync(subscriptionObj -> {
-      final Subscription subscription = getSubscription(subscriptionObj);
+  public SubscriptionInformation getSubscriptionInformation(final String subscriptionId) {
+    final Subscription subscription =  getSubscription(getSubscription(subscriptionId));
+    final Plan plan = braintreeGateway.plan().find(subscription.getPlanId());
+    final long level = getLevelForPlan(plan);
 
-      final Plan plan = braintreeGateway.plan().find(subscription.getPlanId());
+    final Instant anchor = subscription.getFirstBillingDate().toInstant();
+    final Instant endOfCurrentPeriod = subscription.getBillingPeriodEndDate().toInstant();
 
-      final long level = getLevelForPlan(plan);
+    final TransactionInfo latestTransactionInfo = getLatestTransactionForSubscription(subscription)
+        .map(this::getTransactionInfo)
+        .orElse(new TransactionInfo(PaymentMethod.PAYPAL, false, false, null));
 
-      final Instant anchor = subscription.getFirstBillingDate().toInstant();
-      final Instant endOfCurrentPeriod = subscription.getBillingPeriodEndDate().toInstant();
-
-      final TransactionInfo latestTransactionInfo = getLatestTransactionForSubscription(subscription)
-          .map(this::getTransactionInfo)
-          .orElse(new TransactionInfo(PaymentMethod.PAYPAL, false, false, null));
-
-      return new SubscriptionInformation(
-          new SubscriptionPrice(plan.getCurrencyIsoCode().toUpperCase(Locale.ROOT),
-              SubscriptionCurrencyUtil.convertBraintreeAmountToApiAmount(plan.getCurrencyIsoCode(), plan.getPrice())),
-          level,
-          anchor,
-          endOfCurrentPeriod,
-          Subscription.Status.ACTIVE == subscription.getStatus(),
-          !subscription.neverExpires(),
-          getSubscriptionStatus(subscription.getStatus(), latestTransactionInfo.transactionFailed()),
-          PaymentProvider.BRAINTREE,
-          latestTransactionInfo.paymentMethod(),
-          latestTransactionInfo.paymentProcessing(),
-          latestTransactionInfo.chargeFailure()
-      );
-
-    }, executor);
+    return new SubscriptionInformation(
+        new SubscriptionPrice(plan.getCurrencyIsoCode().toUpperCase(Locale.ROOT),
+            SubscriptionCurrencyUtil.convertBraintreeAmountToApiAmount(plan.getCurrencyIsoCode(), plan.getPrice())),
+        level,
+        anchor,
+        endOfCurrentPeriod,
+        Subscription.Status.ACTIVE == subscription.getStatus(),
+        !subscription.neverExpires(),
+        getSubscriptionStatus(subscription.getStatus(), latestTransactionInfo.transactionFailed()),
+        PaymentProvider.BRAINTREE,
+        latestTransactionInfo.paymentMethod(),
+        latestTransactionInfo.paymentProcessing(),
+        latestTransactionInfo.chargeFailure()
+    );
   }
 
   private record TransactionInfo(
@@ -576,76 +541,69 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
   }
 
   @Override
-  public CompletableFuture<Void> cancelAllActiveSubscriptions(String customerId) {
-
-    return CompletableFuture.supplyAsync(() -> braintreeGateway.customer().find(customerId), executor).thenCompose(customer -> {
-
-      final List<CompletableFuture<Void>> subscriptionCancelFutures = Optional.ofNullable(customer.getDefaultPaymentMethod())
-              .map(com.braintreegateway.PaymentMethod::getSubscriptions)
-              .orElse(Collections.emptyList())
-              .stream()
-              .map(this::endSubscription)
-              .toList();
-
-      return CompletableFuture.allOf(subscriptionCancelFutures.toArray(new CompletableFuture[0]));
-    });
+  public void cancelAllActiveSubscriptions(String customerId) {
+    final Customer customer = braintreeGateway.customer().find(customerId);
+    ExecutorUtil.runAll(executor, Optional.ofNullable(customer.getDefaultPaymentMethod())
+        .stream()
+        .flatMap(paymentMethod -> paymentMethod.getSubscriptions().stream())
+        .<Runnable>map(subscription -> () -> this.endSubscription(subscription))
+        .toList());
   }
 
-  private CompletableFuture<Void> endSubscription(Subscription subscription) {
+  private void endSubscription(Subscription subscription) {
     final boolean latestTransactionFailed = getLatestTransactionForSubscription(subscription)
         .map(this::getTransactionInfo)
         .map(TransactionInfo::transactionFailed)
         .orElse(false);
-    return switch (getSubscriptionStatus(subscription.getStatus(), latestTransactionFailed)) {
+    switch (getSubscriptionStatus(subscription.getStatus(), latestTransactionFailed)) {
       // The payment for this period has not processed yet, we should immediately cancel to prevent any payment from
       // going through.
       case INCOMPLETE, PAST_DUE, UNPAID -> cancelSubscriptionImmediately(subscription);
       // Otherwise, set the subscription to cancel at the current period end. If the subscription is active, it may
       // continue to be used until the end of the period.
       default -> cancelSubscriptionAtEndOfCurrentPeriod(subscription);
-    };
+    }
   }
 
-  private CompletableFuture<Void> cancelSubscriptionAtEndOfCurrentPeriod(Subscription subscription) {
-    return CompletableFuture.runAsync(() -> braintreeGateway
+  private void cancelSubscriptionAtEndOfCurrentPeriod(Subscription subscription) {
+    braintreeGateway
         .subscription()
         .update(subscription.getId(),
-            new SubscriptionRequest().numberOfBillingCycles(subscription.getCurrentBillingCycle())), executor);
+            new SubscriptionRequest().numberOfBillingCycles(subscription.getCurrentBillingCycle()));
   }
 
-  private CompletableFuture<Void> cancelSubscriptionImmediately(Subscription subscription) {
-    return CompletableFuture.runAsync(() -> braintreeGateway.subscription().cancel(subscription.getId()), executor);
+  private void cancelSubscriptionImmediately(Subscription subscription) {
+    braintreeGateway.subscription().cancel(subscription.getId());
   }
 
 
   @Override
-  public CompletableFuture<ReceiptItem> getReceiptItem(String subscriptionId) {
-    return getSubscription(subscriptionId)
-        .thenApply(BraintreeManager::getSubscription)
-        .thenApply(subscription -> getLatestTransactionForSubscription(subscription)
-            .map(transaction -> {
-              if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
-                final SubscriptionStatus subscriptionStatus = getSubscriptionStatus(subscription.getStatus(), true);
-                if (subscriptionStatus.equals(SubscriptionStatus.ACTIVE) || subscriptionStatus.equals(SubscriptionStatus.PAST_DUE)) {
-                  throw ExceptionUtils.wrap(new SubscriptionException.ReceiptRequestedForOpenPayment());
-                }
-                throw ExceptionUtils.wrap(new SubscriptionException.ChargeFailurePaymentRequired(getProvider(), createChargeFailure(transaction)));
-              }
+  public ReceiptItem getReceiptItem(String subscriptionId)
+      throws SubscriptionException.ReceiptRequestedForOpenPayment, SubscriptionException.ChargeFailurePaymentRequired {
+    final Subscription subscription = getSubscription(getSubscription(subscriptionId));
+    final Transaction transaction = getLatestTransactionForSubscription(subscription)
+        .orElseThrow(SubscriptionException.ReceiptRequestedForOpenPayment::new);
+    if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
+      final SubscriptionStatus subscriptionStatus = getSubscriptionStatus(subscription.getStatus(), true);
+      if (subscriptionStatus.equals(SubscriptionStatus.ACTIVE) || subscriptionStatus.equals(
+          SubscriptionStatus.PAST_DUE)) {
+        throw new SubscriptionException.ReceiptRequestedForOpenPayment();
+      }
+      throw new SubscriptionException.ChargeFailurePaymentRequired(getProvider(), createChargeFailure(transaction));
+    }
 
-              final Instant paidAt = transaction.getSubscriptionDetails().getBillingPeriodStartDate().toInstant();
-              final Plan plan = braintreeGateway.plan().find(transaction.getPlanId());
+    final Instant paidAt = transaction.getSubscriptionDetails().getBillingPeriodStartDate().toInstant();
+    final Plan plan = braintreeGateway.plan().find(transaction.getPlanId());
 
-              final BraintreePlanMetadata metadata;
-              try {
-                metadata = SystemMapper.jsonMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
+    final BraintreePlanMetadata metadata;
+    try {
+      metadata = SystemMapper.jsonMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
 
-              } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
-              }
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
 
-              return new ReceiptItem(transaction.getId(), PaymentTime.periodStart(paidAt), metadata.level());
-            })
-            .orElseThrow(() -> ExceptionUtils.wrap(new SubscriptionException.ReceiptRequestedForOpenPayment())));
+    return new ReceiptItem(transaction.getId(), PaymentTime.periodStart(paidAt), metadata.level());
   }
 
   private static Subscription getSubscription(Object subscriptionObj) {

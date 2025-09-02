@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
@@ -86,64 +87,59 @@ public class DonationController {
       specific error message suitable for logging will be included as text/plain body
       """)
   @ApiResponse(responseCode = "429", description = "Rate limited.")
-  public CompletionStage<Response> redeemReceipt(
+  @ManagedAsync
+  public Response redeemReceipt(
       @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final RedeemReceiptRequest request) {
-    return CompletableFuture.supplyAsync(() -> {
-      ReceiptCredentialPresentation receiptCredentialPresentation;
-      try {
-        receiptCredentialPresentation = receiptCredentialPresentationFactory
-            .build(request.getReceiptCredentialPresentation());
-      } catch (InvalidInputException e) {
-        return CompletableFuture.completedFuture(Response.status(Status.BAD_REQUEST)
-            .entity("invalid receipt credential presentation")
-            .type(MediaType.TEXT_PLAIN_TYPE)
-            .build());
+    ReceiptCredentialPresentation receiptCredentialPresentation;
+    try {
+      receiptCredentialPresentation = receiptCredentialPresentationFactory
+          .build(request.getReceiptCredentialPresentation());
+    } catch (InvalidInputException e) {
+      return Response.status(Status.BAD_REQUEST)
+          .entity("invalid receipt credential presentation")
+          .type(MediaType.TEXT_PLAIN_TYPE)
+          .build();
+    }
+    try {
+      serverZkReceiptOperations.verifyReceiptCredentialPresentation(receiptCredentialPresentation);
+    } catch (VerificationFailedException e) {
+      return Response.status(Status.BAD_REQUEST)
+          .entity("receipt credential presentation verification failed")
+          .type(MediaType.TEXT_PLAIN_TYPE)
+          .build();
+    }
+
+    final ReceiptSerial receiptSerial = receiptCredentialPresentation.getReceiptSerial();
+    final Instant receiptExpiration = Instant.ofEpochSecond(receiptCredentialPresentation.getReceiptExpirationTime());
+    final long receiptLevel = receiptCredentialPresentation.getReceiptLevel();
+    final String badgeId = badgesConfiguration.getReceiptLevels().get(receiptLevel);
+    if (badgeId == null) {
+      return Response.serverError()
+          .entity("server does not recognize the requested receipt level")
+          .type(MediaType.TEXT_PLAIN_TYPE)
+          .build();
+    }
+
+    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
+
+    final boolean receiptMatched = redeemedReceiptsManager.put(
+        receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.accountIdentifier()).join();
+    if (!receiptMatched) {
+      return Response.status(Status.BAD_REQUEST)
+          .entity("receipt serial is already redeemed")
+          .type(MediaType.TEXT_PLAIN_TYPE)
+          .build();
+    }
+
+    accountsManager.update(account, a -> {
+      a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
+      if (request.isPrimary()) {
+        a.makeBadgePrimaryIfExists(clock, badgeId);
       }
-      try {
-        serverZkReceiptOperations.verifyReceiptCredentialPresentation(receiptCredentialPresentation);
-      } catch (VerificationFailedException e) {
-        return CompletableFuture.completedFuture(Response.status(Status.BAD_REQUEST)
-            .entity("receipt credential presentation verification failed")
-            .type(MediaType.TEXT_PLAIN_TYPE)
-            .build());
-      }
-
-      final ReceiptSerial receiptSerial = receiptCredentialPresentation.getReceiptSerial();
-      final Instant receiptExpiration = Instant.ofEpochSecond(receiptCredentialPresentation.getReceiptExpirationTime());
-      final long receiptLevel = receiptCredentialPresentation.getReceiptLevel();
-      final String badgeId = badgesConfiguration.getReceiptLevels().get(receiptLevel);
-      if (badgeId == null) {
-        return CompletableFuture.completedFuture(Response.serverError()
-            .entity("server does not recognize the requested receipt level")
-            .type(MediaType.TEXT_PLAIN_TYPE)
-            .build());
-      }
-
-      return accountsManager.getByAccountIdentifierAsync(auth.accountIdentifier())
-          .thenCompose(maybeAccount -> {
-            final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-            return redeemedReceiptsManager.put(
-                    receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.accountIdentifier())
-                .thenCompose(receiptMatched -> {
-                  if (!receiptMatched) {
-                    return CompletableFuture.completedFuture(Response.status(Status.BAD_REQUEST)
-                        .entity("receipt serial is already redeemed")
-                        .type(MediaType.TEXT_PLAIN_TYPE)
-                        .build());
-                  }
-
-                  return accountsManager.updateAsync(account, a -> {
-                        a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
-                        if (request.isPrimary()) {
-                          a.makeBadgePrimaryIfExists(clock, badgeId);
-                        }
-                      })
-                      .thenApply(ignored -> Response.ok().build());
-                });
-          });
-    }).thenCompose(Function.identity());
+    });
+    return Response.ok().build();
   }
 
 }

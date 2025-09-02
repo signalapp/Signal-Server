@@ -24,6 +24,7 @@ import io.micrometer.core.instrument.Metrics;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.net.http.HttpResponse;
 import java.time.Instant;
@@ -31,14 +32,8 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
@@ -48,7 +43,6 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 
 /**
  * Manages subscriptions made with the Apple App Store
@@ -63,8 +57,6 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
 
   private final AppStoreServerAPIClient apiClient;
   private final SignedDataVerifier signedDataVerifier;
-  private final ExecutorService executor;
-  private final ScheduledExecutorService retryExecutor;
   private final Map<String, Long> productIdToLevel;
 
   private static final Status[] EMPTY_STATUSES = new Status[0];
@@ -86,12 +78,10 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
       final String subscriptionGroupId,
       final Map<String, Long> productIdToLevel,
       final List<String> base64AppleRootCerts,
-      @Nullable final String retryConfigurationName,
-      final ExecutorService executor,
-      final ScheduledExecutorService retryExecutor) {
+      @Nullable final String retryConfigurationName) {
     this(new AppStoreServerAPIClient(encodedKey, keyId, issuerId, bundleId, env),
         new SignedDataVerifier(decodeRootCerts(base64AppleRootCerts), bundleId, appAppleId, env, true),
-        subscriptionGroupId, productIdToLevel, retryConfigurationName, executor, retryExecutor);
+        subscriptionGroupId, productIdToLevel, retryConfigurationName);
   }
 
   @VisibleForTesting
@@ -100,25 +90,16 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
       final SignedDataVerifier signedDataVerifier,
       final String subscriptionGroupId,
       final Map<String, Long> productIdToLevel,
-      @Nullable final String retryConfigurationName,
-      final ExecutorService executor,
-      final ScheduledExecutorService retryExecutor) {
+      @Nullable final String retryConfigurationName) {
     this.apiClient = apiClient;
     this.signedDataVerifier = signedDataVerifier;
     this.subscriptionGroupId = subscriptionGroupId;
     this.productIdToLevel = productIdToLevel;
-    this.executor = Objects.requireNonNull(executor);
-    this.retryExecutor = Objects.requireNonNull(retryExecutor);
-
-    final RetryConfig.Builder<HttpResponse<?>> retryConfigBuilder =
-        RetryConfig.from(Optional.ofNullable(retryConfigurationName)
+    this.retry = ResilienceUtil.getRetryRegistry().retry("appstore-retry", RetryConfig
+        .<HttpResponse<?>>from(Optional.ofNullable(retryConfigurationName)
             .flatMap(name -> ResilienceUtil.getRetryRegistry().getConfiguration(name))
-            .orElseGet(() -> ResilienceUtil.getRetryRegistry().getDefaultConfig()));
-
-    retryConfigBuilder.retryOnException(AppleAppStoreManager::shouldRetry);
-
-    this.retry = ResilienceUtil.getRetryRegistry()
-        .retry(ResilienceUtil.name(AppleAppStoreManager.class, "appstore-retry"), retryConfigBuilder.build());
+            .orElseGet(() -> ResilienceUtil.getRetryRegistry().getDefaultConfig()))
+        .retryOnException(AppleAppStoreManager::shouldRetry).build());
   }
 
   @Override
@@ -131,16 +112,20 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
    * Check if the subscription with the provided originalTransactionId is valid.
    *
    * @param originalTransactionId The originalTransactionId associated with the subscription
-   * @return A stage that completes successfully when the transaction has been validated, or fails if the token does not
-   * represent an active subscription.
+   * @return the subscription level of the valid transaction.
+   * @throws RateLimitExceededException            If rate-limited
+   * @throws SubscriptionException.NotFound        If the provided originalTransactionId was not found
+   * @throws SubscriptionException.PaymentRequired If the originalTransactionId exists but is in a state that does not
+   *                                               grant the user an entitlement
+   * @throws SubscriptionException.InvalidArguments If the transaction is valid but does not contain a subscription
    */
-  public CompletableFuture<Long> validateTransaction(final String originalTransactionId) {
-    return lookup(originalTransactionId).thenApplyAsync(tx -> {
-      if (!isSubscriptionActive(tx)) {
-        throw ExceptionUtils.wrap(new SubscriptionException.PaymentRequired());
-      }
-      return getLevel(tx);
-    }, executor);
+  public Long validateTransaction(final String originalTransactionId)
+      throws SubscriptionException.InvalidArguments, RateLimitExceededException, SubscriptionException.NotFound, SubscriptionException.PaymentRequired {
+    final DecodedTransaction tx = lookup(originalTransactionId);
+    if (!isSubscriptionActive(tx)) {
+      throw new SubscriptionException.PaymentRequired();
+    }
+    return getLevel(tx);
   }
 
 
@@ -152,125 +137,128 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
    * this method.
    *
    * @param originalTransactionId The originalTransactionId associated with the subscription
-   * @return A stage that completes when the subscription has successfully been cancelled
+   * @throws SubscriptionException.NotFound         If the provided originalTransactionId was not found
+   * @throws SubscriptionException.InvalidArguments If the transaction is valid but does not contain a subscription, or
+   *                                                the transaction has not already been cancelled with storekit
    */
   @Override
-  public CompletableFuture<Void> cancelAllActiveSubscriptions(String originalTransactionId) {
-    return lookup(originalTransactionId).thenApplyAsync(tx -> {
-      if (tx.signedTransaction.getStatus() != Status.EXPIRED &&
-          tx.signedTransaction.getStatus() != Status.REVOKED &&
-          tx.renewalInfo.getAutoRenewStatus() != AutoRenewStatus.OFF) {
-        throw ExceptionUtils.wrap(
-            new SubscriptionException.InvalidArguments("must cancel subscription with storekit before deleting"));
-      }
+  public void cancelAllActiveSubscriptions(String originalTransactionId)
+      throws SubscriptionException.InvalidArguments, RateLimitExceededException, SubscriptionException.NotFound {
+    final DecodedTransaction tx = lookup(originalTransactionId);
+    if (tx.signedTransaction.getStatus() != Status.EXPIRED &&
+        tx.signedTransaction.getStatus() != Status.REVOKED &&
+        tx.renewalInfo.getAutoRenewStatus() != AutoRenewStatus.OFF) {
+      throw new SubscriptionException.InvalidArguments("must cancel subscription with storekit before deleting");
+    }
       // The subscription will not auto-renew, so we can stop tracking it
-      return null;
-    }, executor);
   }
 
   @Override
-  public CompletableFuture<SubscriptionInformation> getSubscriptionInformation(final String originalTransactionId) {
-    return lookup(originalTransactionId).thenApplyAsync(tx -> {
+  public SubscriptionInformation getSubscriptionInformation(final String originalTransactionId)
+      throws SubscriptionException.InvalidArguments, RateLimitExceededException, SubscriptionException.NotFound {
+    final DecodedTransaction tx = lookup(originalTransactionId);
+    final SubscriptionStatus status = switch (tx.signedTransaction.getStatus()) {
+      case ACTIVE -> SubscriptionStatus.ACTIVE;
+      case BILLING_RETRY -> SubscriptionStatus.PAST_DUE;
+      case BILLING_GRACE_PERIOD -> SubscriptionStatus.UNPAID;
+      case EXPIRED, REVOKED -> SubscriptionStatus.CANCELED;
+    };
 
-      final SubscriptionStatus status = switch (tx.signedTransaction.getStatus()) {
-        case ACTIVE -> SubscriptionStatus.ACTIVE;
-        case BILLING_RETRY -> SubscriptionStatus.PAST_DUE;
-        case BILLING_GRACE_PERIOD -> SubscriptionStatus.UNPAID;
-        case EXPIRED, REVOKED -> SubscriptionStatus.CANCELED;
-      };
-
-      return new SubscriptionInformation(
-          getSubscriptionPrice(tx),
-          getLevel(tx),
-          Instant.ofEpochMilli(tx.transaction.getOriginalPurchaseDate()),
-          Instant.ofEpochMilli(tx.transaction.getExpiresDate()),
-          isSubscriptionActive(tx),
-          tx.renewalInfo.getAutoRenewStatus() == AutoRenewStatus.OFF,
-          status,
-          PaymentProvider.APPLE_APP_STORE,
-          PaymentMethod.APPLE_APP_STORE,
-          false,
-          null);
-    }, executor);
+    return new SubscriptionInformation(
+        getSubscriptionPrice(tx),
+        getLevel(tx),
+        Instant.ofEpochMilli(tx.transaction.getOriginalPurchaseDate()),
+        Instant.ofEpochMilli(tx.transaction.getExpiresDate()),
+        isSubscriptionActive(tx),
+        tx.renewalInfo.getAutoRenewStatus() == AutoRenewStatus.OFF,
+        status,
+        PaymentProvider.APPLE_APP_STORE,
+        PaymentMethod.APPLE_APP_STORE,
+        false,
+        null);
   }
 
 
   @Override
-  public CompletableFuture<ReceiptItem> getReceiptItem(String originalTransactionId) {
-    return lookup(originalTransactionId).thenApplyAsync(tx -> {
-      if (!isSubscriptionActive(tx)) {
-        throw ExceptionUtils.wrap(new SubscriptionException.PaymentRequired());
-      }
+  public ReceiptItem getReceiptItem(String originalTransactionId)
+      throws SubscriptionException.InvalidArguments, RateLimitExceededException, SubscriptionException.NotFound, SubscriptionException.PaymentRequired {
+    final DecodedTransaction tx = lookup(originalTransactionId);
+    if (!isSubscriptionActive(tx)) {
+      throw new SubscriptionException.PaymentRequired();
+    }
 
-      // A new transactionId might be generated if you restore a subscription on a new device. webOrderLineItemId is
-      // guaranteed not to change for a specific renewal purchase.
-      // See: https://developer.apple.com/documentation/appstoreservernotifications/weborderlineitemid
-      final String itemId = tx.transaction.getWebOrderLineItemId();
-      final PaymentTime paymentTime = PaymentTime.periodEnds(Instant.ofEpochMilli(tx.transaction.getExpiresDate()));
+    // A new transactionId might be generated if you restore a subscription on a new device. webOrderLineItemId is
+    // guaranteed not to change for a specific renewal purchase.
+    // See: https://developer.apple.com/documentation/appstoreservernotifications/weborderlineitemid
+    final String itemId = tx.transaction.getWebOrderLineItemId();
+    final PaymentTime paymentTime = PaymentTime.periodEnds(Instant.ofEpochMilli(tx.transaction.getExpiresDate()));
 
-      return new ReceiptItem(itemId, paymentTime, getLevel(tx));
+    return new ReceiptItem(itemId, paymentTime, getLevel(tx));
 
-    }, executor);
   }
 
-  private CompletableFuture<DecodedTransaction> lookup(final String originalTransactionId) {
-    return getAllSubscriptions(originalTransactionId).thenApplyAsync(statuses -> {
+  private DecodedTransaction lookup(final String originalTransactionId)
+      throws SubscriptionException.InvalidArguments, RateLimitExceededException, SubscriptionException.NotFound {
+    final StatusResponse statuses = getAllSubscriptions(originalTransactionId);
+    final SubscriptionGroupIdentifierItem item = statuses.getData().stream()
+        .filter(s -> subscriptionGroupId.equals(s.getSubscriptionGroupIdentifier())).findFirst()
+        .orElseThrow(() -> new SubscriptionException.InvalidArguments("transaction did not contain a backup subscription", null));
 
-      final SubscriptionGroupIdentifierItem item = statuses.getData().stream()
-          .filter(s -> subscriptionGroupId.equals(s.getSubscriptionGroupIdentifier())).findFirst()
-          .orElseThrow(() -> ExceptionUtils.wrap(
-              new SubscriptionException.InvalidArguments("transaction did not contain a backup subscription", null)));
+    final List<DecodedTransaction> txs = item.getLastTransactions().stream()
+        .map(this::decode)
+        .filter(decoded -> productIdToLevel.containsKey(decoded.transaction.getProductId()))
+        .toList();
 
-      final List<DecodedTransaction> txs = item.getLastTransactions().stream()
-          .map(this::decode)
-          .filter(decoded -> productIdToLevel.containsKey(decoded.transaction.getProductId()))
-          .toList();
+    if (txs.isEmpty()) {
+      throw new SubscriptionException.InvalidArguments("transactionId did not include a paid subscription", null);
+    }
 
-      if (txs.isEmpty()) {
-        throw ExceptionUtils.wrap(
-            new SubscriptionException.InvalidArguments("transactionId did not include a paid subscription", null));
-      }
+    if (txs.size() > 1) {
+      logger.warn("Multiple matching product transactions found for transactionId {}, only considering first",
+          originalTransactionId);
+    }
 
-      if (txs.size() > 1) {
-        logger.warn("Multiple matching product transactions found for transactionId {}, only considering first",
-            originalTransactionId);
-      }
-
-      if (!originalTransactionId.equals(txs.getFirst().signedTransaction.getOriginalTransactionId())) {
-        // Get All Subscriptions only requires that the transaction be some transaction associated with the
-        // subscription. This is too flexible, since we'd like to key on the originalTransactionId in the
-        // SubscriptionManager.
-        throw ExceptionUtils.wrap(
-            new SubscriptionException.InvalidArguments(
-                "transactionId was not the transaction's originalTransactionId", null));
-      }
-
-      return txs.getFirst();
-    }, executor).toCompletableFuture();
+    if (!originalTransactionId.equals(txs.getFirst().signedTransaction.getOriginalTransactionId())) {
+      // Get All Subscriptions only requires that the transaction be some transaction associated with the
+      // subscription. This is too flexible, since we'd like to key on the originalTransactionId in the
+      // SubscriptionManager.
+      throw new SubscriptionException.InvalidArguments("transactionId was not the transaction's originalTransactionId", null);
+    }
+    return txs.getFirst();
   }
 
-  private CompletionStage<StatusResponse> getAllSubscriptions(final String originalTransactionId) {
-    Supplier<CompletionStage<StatusResponse>> supplier = () -> CompletableFuture.supplyAsync(() -> {
-      try {
-        return apiClient.getAllSubscriptionStatuses(originalTransactionId, EMPTY_STATUSES);
-      } catch (final APIException e) {
-        Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, "reason", e.getApiError().name()).increment();
-        throw ExceptionUtils.wrap(switch (e.getApiError()) {
-          case ORIGINAL_TRANSACTION_ID_NOT_FOUND, TRANSACTION_ID_NOT_FOUND -> new SubscriptionException.NotFound();
-          case RATE_LIMIT_EXCEEDED -> new RateLimitExceededException(null);
-          case INVALID_ORIGINAL_TRANSACTION_ID -> new SubscriptionException.InvalidArguments(e.getApiErrorMessage());
-          default -> e;
-        });
-      } catch (final IOException e) {
-        Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, "reason", "io_error").increment();
-        throw ExceptionUtils.wrap(e);
-      }
-    }, executor);
-    return retry.executeCompletionStage(retryExecutor, supplier);
+  private StatusResponse getAllSubscriptions(final String originalTransactionId)
+      throws SubscriptionException.NotFound, SubscriptionException.InvalidArguments, RateLimitExceededException {
+    try {
+      return retry.executeCallable(() -> {
+        try {
+          return apiClient.getAllSubscriptionStatuses(originalTransactionId, EMPTY_STATUSES);
+        } catch (final APIException e) {
+          Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, "reason", e.getApiError().name()).increment();
+          throw switch (e.getApiError()) {
+            case ORIGINAL_TRANSACTION_ID_NOT_FOUND, TRANSACTION_ID_NOT_FOUND -> new SubscriptionException.NotFound();
+            case RATE_LIMIT_EXCEEDED -> new RateLimitExceededException(null);
+            case INVALID_ORIGINAL_TRANSACTION_ID -> new SubscriptionException.InvalidArguments(e.getApiErrorMessage());
+            default -> e;
+          };
+        } catch (final IOException e) {
+          Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, "reason", "io_error").increment();
+          throw e;
+        }
+      });
+    } catch (SubscriptionException.NotFound | SubscriptionException.InvalidArguments | RateLimitExceededException e) {
+      throw e;
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    } catch (APIException e) {
+      throw new UncheckedIOException(new IOException(e));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private static boolean shouldRetry(Throwable e) {
-    return ExceptionUtils.unwrap(e) instanceof APIException apiException && switch (apiException.getApiError()) {
+    return e instanceof APIException apiException && switch (apiException.getApiError()) {
       case ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE, GENERAL_INTERNAL_RETRYABLE, APP_NOT_FOUND_RETRYABLE -> true;
       default -> false;
     };
@@ -291,7 +279,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
           signedDataVerifier.verifyAndDecodeTransaction(tx.getSignedTransactionInfo()),
           signedDataVerifier.verifyAndDecodeRenewalInfo(tx.getSignedRenewalInfo()));
     } catch (VerificationException e) {
-      throw ExceptionUtils.wrap(new IOException("Failed to verify payload from App Store Server", e));
+      throw new UncheckedIOException(new IOException("Failed to verify payload from App Store Server", e));
     }
   }
 
@@ -302,12 +290,11 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
         SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(tx.transaction.getCurrency(), amount));
   }
 
-  private long getLevel(final DecodedTransaction tx) {
+  private long getLevel(final DecodedTransaction tx) throws SubscriptionException.InvalidArguments {
     final Long level = productIdToLevel.get(tx.transaction.getProductId());
     if (level == null) {
-      throw ExceptionUtils.wrap(
-          new SubscriptionException.InvalidArguments(
-              "Transaction for unknown productId " + tx.transaction.getProductId()));
+      throw new SubscriptionException.InvalidArguments(
+          "Transaction for unknown productId " + tx.transaction.getProductId());
     }
     return level;
   }

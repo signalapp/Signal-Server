@@ -542,11 +542,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     // TODO: generally speaking this is a DynamoDB I/O executor for the accounts table; we should eventually have a general executor for speaking to the accounts table, but most of the server is still synchronous so this isn't widely useful yet
     ExecutorService batchIdentityCheckExecutor = ExecutorServiceBuilder.of(environment, "batchIdentityCheck").minThreads(32).maxThreads(32).build();
-    ExecutorService subscriptionProcessorExecutor = ExecutorServiceBuilder.of(environment, "subscriptionProcessor")
-        .maxThreads(availableProcessors)  // mostly this is IO bound so tying to number of processors is tenuous at best
-        .minThreads(availableProcessors)  // mostly this is IO bound so tying to number of processors is tenuous at best
-        .allowCoreThreadTimeOut(true).
-        build();
+
     ExecutorService receiptSenderExecutor = ExecutorServiceBuilder.of(environment, "receiptSender")
         .maxThreads(2)
         .minThreads(2)
@@ -573,12 +569,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .minThreads(2)
         .build();
 
-    ExecutorService googlePlayBillingExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
-        "googlePlayBilling",
-        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
-        environment);
-    ExecutorService appleAppStoreExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
-        "appleAppStore",
+    ExecutorService subscriptionProcessorExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
+        "subscriptionProcessor",
         config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
         environment);
     ExecutorService clientEventExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
@@ -590,8 +582,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
         environment);
 
-    ScheduledExecutorService appleAppStoreRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "appleAppStoreRetry").threads(1).build();
-    ScheduledExecutorService subscriptionProcessorRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "subscriptionProcessorRetry").threads(1).build();
     ScheduledExecutorService cloudflareTurnRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "cloudflareTurnRetry").threads(1).build();
     ScheduledExecutorService messagePollExecutor = ScheduledExecutorServiceBuilder.of(environment, "messagePollExecutor").threads(1).build();
     ScheduledExecutorService provisioningWebsocketTimeoutExecutor = ScheduledExecutorServiceBuilder.of(environment, "provisioningWebsocketTimeout").threads(1).build();
@@ -749,21 +739,19 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getBraintree().environment(),
         config.getBraintree().supportedCurrenciesByPaymentMethod(), config.getBraintree().merchantAccounts(),
         config.getBraintree().graphqlUrl(), currencyManager, config.getBraintree().pubSubPublisher().build(),
-        config.getBraintree().circuitBreakerConfigurationName(), subscriptionProcessorExecutor,
-        subscriptionProcessorRetryExecutor);
+        config.getBraintree().circuitBreakerConfigurationName(), subscriptionProcessorExecutor);
     GooglePlayBillingManager googlePlayBillingManager = new GooglePlayBillingManager(
         new ByteArrayInputStream(config.getGooglePlayBilling().credentialsJson().value().getBytes(StandardCharsets.UTF_8)),
         config.getGooglePlayBilling().packageName(),
         config.getGooglePlayBilling().applicationName(),
-        config.getGooglePlayBilling().productIdToLevel(),
-        googlePlayBillingExecutor);
+        config.getGooglePlayBilling().productIdToLevel());
     AppleAppStoreManager appleAppStoreManager = new AppleAppStoreManager(
         config.getAppleAppStore().env(), config.getAppleAppStore().bundleId(), config.getAppleAppStore().appAppleId(),
         config.getAppleAppStore().issuerId(), config.getAppleAppStore().keyId(),
         config.getAppleAppStore().encodedKey().value(), config.getAppleAppStore().subscriptionGroupId(),
         config.getAppleAppStore().productIdToLevel(),
         config.getAppleAppStore().appleRootCerts(),
-        config.getAppleAppStore().retryConfigurationName(), appleAppStoreExecutor, appleAppStoreRetryExecutor);
+        config.getAppleAppStore().retryConfigurationName());
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(pushNotificationScheduler);

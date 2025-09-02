@@ -51,6 +51,6 @@ class BraintreeManagerTest {
     when(braintreeGateway.customer()).thenReturn(customerGateway);
 
     assertTimeoutPreemptively(Duration.ofSeconds(5), () ->
-        braintreeManager.cancelAllActiveSubscriptions("customerId")).join();
+        braintreeManager.cancelAllActiveSubscriptions("customerId"));
   }
 }
