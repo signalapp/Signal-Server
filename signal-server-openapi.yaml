@@ -3228,17 +3228,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
+                $ref: "#/components/schemas/CreatePayPalBillingAgreementResponse"
       security:
       - authenticatedAccount: []
       - {}
@@ -3276,17 +3266,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
+                $ref: "#/components/schemas/CreatePaymentMethodResponse"
       security:
       - authenticatedAccount: []
       - {}
@@ -3334,10 +3314,6 @@ paths:
       responses:
         "200":
           description: Successfully created receipt
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GetReceiptCredentialsResponse"
         "204":
           description: No invoice has been issued for this subscription OR invoice
             is in 'open' state
@@ -3490,7 +3466,9 @@ paths:
         default:
           description: default response
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetBankMandateResponse"
   /v1/subscription/configuration:
     get:
       tags:
@@ -3501,7 +3479,8 @@ paths:
         "boost" and "gift") minimum and suggested amounts.
       operationId: getConfiguration
       responses:
-        "200":
+        default:
+          description: default response
           content:
             application/json:
               schema:
@@ -3536,6 +3515,10 @@ paths:
       responses:
         "200":
           description: The originalTransactionId was successfully validated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetSubscriptionLevelSuccessResponse"
         "402":
           description: The subscription transaction is incomplete or invalid
         "403":
@@ -3578,19 +3561,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
+            application/json: {}
       security:
       - authenticatedAccount: []
       - {}
@@ -3625,19 +3596,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
+            application/json: {}
       security:
       - authenticatedAccount: []
       - {}
@@ -3679,6 +3638,10 @@ paths:
       responses:
         "200":
           description: The purchaseToken was validated and acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetSubscriptionLevelSuccessResponse"
         "402":
           description: The purchaseToken payment is incomplete or invalid
         "403":
@@ -3733,17 +3696,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
+                $ref: "#/components/schemas/SetSubscriptionLevelSuccessResponse"
       security:
       - authenticatedAccount: []
       - {}
@@ -6160,6 +6113,18 @@ components:
           type: string
         signature:
           type: string
+    CreatePayPalBillingAgreementResponse:
+      required:
+      - approvalUrl
+      - token
+      type: object
+      properties:
+        approvalUrl:
+          minLength: 1
+          type: string
+        token:
+          minLength: 1
+          type: string
     CreatePayPalBillingAgreementRequest:
       required:
       - cancelUrl
@@ -6172,17 +6137,18 @@ components:
         cancelUrl:
           minLength: 1
           type: string
-    GetReceiptCredentialsResponse:
-      required:
-      - receiptCredentialResponse
+    CreatePaymentMethodResponse:
       type: object
       properties:
-        receiptCredentialResponse:
-          minLength: 1
+        clientSecret:
           type: string
-          description: A ReceiptCredentialResponse encoded in standard base64 with
-            padding
-          format: byte
+        processor:
+          type: string
+          enum:
+          - STRIPE
+          - BRAINTREE
+          - GOOGLE_PLAY_BILLING
+          - APPLE_APP_STORE
     ChargeFailure:
       type: object
       properties:
@@ -6245,6 +6211,11 @@ components:
           description: A ReceiptCredentialRequest encoded in standard base64 with
             padding
           format: byte
+    GetBankMandateResponse:
+      type: object
+      properties:
+        mandate:
+          type: string
     BackupConfiguration:
       type: object
       properties:
@@ -6432,6 +6403,12 @@ components:
             state
       description: "Information about the subscription, or null if no subscription\
         \ is present"
+    SetSubscriptionLevelSuccessResponse:
+      type: object
+      properties:
+        level:
+          type: integer
+          format: int64
     VerificationSessionResponse:
       required:
       - allowedToRequestCode
