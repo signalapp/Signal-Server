@@ -6,9 +6,7 @@
 package org.whispersystems.textsecuregcm.subscriptions;
 
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
-import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 /**
@@ -42,11 +40,11 @@ public interface CustomerAwareSubscriptionPaymentProcessor extends SubscriptionP
    * @param paymentMethodToken    a processor-specific token previously acquired at
    *                              {@link #createPaymentMethodSetupToken}
    * @param currentSubscriptionId (nullable) an active subscription ID, in case it needs an explicit update
-   * @throws SubscriptionException.InvalidArguments If the paymentMethodToken is invalid or the payment method has not
+   * @throws SubscriptionInvalidArgumentsException If the paymentMethodToken is invalid or the payment method has not
    *                                                finished being set up
    */
   void setDefaultPaymentMethodForCustomer(String customerId, String paymentMethodToken,
-      @Nullable String currentSubscriptionId) throws SubscriptionException.InvalidArguments;
+      @Nullable String currentSubscriptionId) throws SubscriptionInvalidArgumentsException;
 
   Object getSubscription(String subscriptionId);
 
@@ -58,14 +56,14 @@ public interface CustomerAwareSubscriptionPaymentProcessor extends SubscriptionP
    * @param level                     The level of the subscription
    * @param lastSubscriptionCreatedAt The timestamp of the last successfully created subscription
    * @return A subscription identifier
-   * @throws SubscriptionException.ProcessorException If there was a failure processing the charge
-   * @throws SubscriptionException.InvalidArguments   If there was a failure because an idempotency key was reused on a
+   * @throws SubscriptionProcessorException If there was a failure processing the charge
+   * @throws SubscriptionInvalidArgumentsException   If there was a failure because an idempotency key was reused on a
    *                                                  modified request, or if the payment requires additional steps
    *                                                  before charging
-   * @throws SubscriptionException.ProcessorConflict  If there was no payment method on the customer
+   * @throws SubscriptionProcessorConflictException  If there was no payment method on the customer
    */
   SubscriptionId createSubscription(String customerId, String templateId, long level, long lastSubscriptionCreatedAt)
-      throws SubscriptionException.ProcessorException, SubscriptionException.InvalidArguments, SubscriptionException.ProcessorConflict;
+      throws SubscriptionProcessorException, SubscriptionInvalidArgumentsException, SubscriptionProcessorConflictException;
 
   /**
    * Update an existing subscription on a customer
@@ -75,14 +73,14 @@ public interface CustomerAwareSubscriptionPaymentProcessor extends SubscriptionP
    * @param level                     The target level of the subscription
    * @param idempotencyKey            An idempotency key to prevent retries of successful requests
    * @return A subscription identifier
-   * @throws SubscriptionException.ProcessorException If there was a failure processing the charge
-   * @throws SubscriptionException.InvalidArguments   If there was a failure because an idempotency key was reused on a
+   * @throws SubscriptionProcessorException If there was a failure processing the charge
+   * @throws SubscriptionInvalidArgumentsException   If there was a failure because an idempotency key was reused on a
    *                                                  modified request, or if the payment requires additional steps
    *                                                  before charging
-   * @throws SubscriptionException.ProcessorConflict  If there was no payment method on the customer
+   * @throws SubscriptionProcessorConflictException  If there was no payment method on the customer
    */
   SubscriptionId updateSubscription(Object subscription, String templateId, long level, String idempotencyKey)
-      throws SubscriptionException.InvalidArguments, SubscriptionException.ProcessorException, SubscriptionException.ProcessorConflict;
+      throws SubscriptionInvalidArgumentsException, SubscriptionProcessorException, SubscriptionProcessorConflictException;
 
   /**
    * @param subscription

@@ -65,7 +65,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -76,7 +75,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
-import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ExecutorUtil;
@@ -175,7 +173,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
   @Override
   public void setDefaultPaymentMethodForCustomer(String customerId, String paymentMethodId,
-      @Nullable String currentSubscriptionId) throws SubscriptionException.InvalidArguments {
+      @Nullable String currentSubscriptionId) throws SubscriptionInvalidArgumentsException {
       CustomerUpdateParams params = CustomerUpdateParams.builder()
           .setInvoiceSettings(InvoiceSettings.builder()
               .setDefaultPaymentMethod(paymentMethodId)
@@ -185,7 +183,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         stripeClient.customers().update(customerId, params, commonOptions());
       } catch (InvalidRequestException e) {
         // Could happen if the paymentMethodId was bunk or the client didn't actually finish setting it up
-        throw new SubscriptionException.InvalidArguments(e.getMessage());
+        throw new SubscriptionInvalidArgumentsException(e.getMessage());
       } catch (StripeException e) {
         throw new UncheckedIOException(new IOException(e));
       }
@@ -209,7 +207,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   }
 
   /**
-   * Creates a payment intent. May throw a {@link SubscriptionException.InvalidAmount} if stripe rejects the
+   * Creates a payment intent. May throw a {@link SubscriptionInvalidAmountException} if stripe rejects the
    * attempt if the amount is too large or too small
    */
   public CompletableFuture<PaymentIntent> createPaymentIntent(final String currency,
@@ -234,7 +232,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         final String errorCode = StringUtils.lowerCase(e.getCode(), Locale.ROOT);
         switch (errorCode) {
           case "amount_too_small","amount_too_large" ->
-              throw ExceptionUtils.wrap(new SubscriptionException.InvalidAmount(errorCode));
+              throw ExceptionUtils.wrap(new SubscriptionInvalidAmountException(errorCode));
           default -> throw new CompletionException(e);
         }
       }
@@ -286,7 +284,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   @Override
   public SubscriptionId createSubscription(String customerId, String priceId, long level,
       long lastSubscriptionCreatedAt)
-      throws SubscriptionException.ProcessorException, SubscriptionException.InvalidArguments {
+      throws SubscriptionProcessorException, SubscriptionInvalidArgumentsException {
     // this relies on Stripe's idempotency key to avoid creating more than one subscription if the client
     // retries this request
     SubscriptionCreateParams params = SubscriptionCreateParams.builder()
@@ -308,12 +306,12 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           commonOptions(generateIdempotencyKeyForCreateSubscription(customerId, lastSubscriptionCreatedAt)));
       return new SubscriptionId(subscription.getId());
     } catch (IdempotencyException e) {
-      throw new SubscriptionException.InvalidArguments(e.getStripeError().getMessage());
+      throw new SubscriptionInvalidArgumentsException(e.getStripeError().getMessage());
     } catch (CardException e) {
-      throw new SubscriptionException.ProcessorException(getProvider(), createChargeFailureFromCardException(e));
+      throw new SubscriptionProcessorException(getProvider(), createChargeFailureFromCardException(e));
     } catch (StripeException e) {
       if ("subscription_payment_intent_requires_action".equals(e.getCode())) {
-        throw new SubscriptionException.PaymentRequiresAction();
+        throw new SubscriptionPaymentRequiresActionException();
       }
       throw new UncheckedIOException(new IOException(e));
     }
@@ -321,7 +319,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
   @Override
   public SubscriptionId updateSubscription(Object subscriptionObj, String priceId, long level, String idempotencyKey)
-      throws SubscriptionException.InvalidArguments, SubscriptionException.ProcessorException {
+      throws SubscriptionInvalidArgumentsException, SubscriptionProcessorException {
 
     final Subscription subscription = getSubscription(subscriptionObj);
 
@@ -360,9 +358,9 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           commonOptions(generateIdempotencyKeyForSubscriptionUpdate(subscription.getCustomer(), idempotencyKey)));
       return new SubscriptionId(subscription1.getId());
     } catch (IdempotencyException e) {
-      throw new SubscriptionException.InvalidArguments(e.getStripeError().getMessage());
+      throw new SubscriptionInvalidArgumentsException(e.getStripeError().getMessage());
     } catch (CardException e) {
-      throw new SubscriptionException.ProcessorException(getProvider(), createChargeFailureFromCardException(e));
+      throw new SubscriptionProcessorException(getProvider(), createChargeFailureFromCardException(e));
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -607,27 +605,27 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
   @Override
   public ReceiptItem getReceiptItem(String subscriptionId)
-      throws SubscriptionException.ChargeFailurePaymentRequired, SubscriptionException.PaymentRequired, SubscriptionException.ReceiptRequestedForOpenPayment {
+      throws SubscriptionPaymentRequiredException, SubscriptionReceiptRequestedForOpenPaymentException {
     final Invoice invoice = getSubscription(getSubscription(subscriptionId)).getLatestInvoiceObject();
     return convertInvoiceToReceipt(invoice, subscriptionId);
   }
 
   private ReceiptItem convertInvoiceToReceipt(Invoice latestSubscriptionInvoice, String subscriptionId)
-      throws SubscriptionException.ReceiptRequestedForOpenPayment, SubscriptionException.ChargeFailurePaymentRequired, SubscriptionException.PaymentRequired {
+      throws SubscriptionReceiptRequestedForOpenPaymentException, SubscriptionPaymentRequiredException {
     if (latestSubscriptionInvoice == null) {
-      throw new SubscriptionException.ReceiptRequestedForOpenPayment();
+      throw new SubscriptionReceiptRequestedForOpenPaymentException();
     }
     if (StringUtils.equalsIgnoreCase("open", latestSubscriptionInvoice.getStatus())) {
-      throw new SubscriptionException.ReceiptRequestedForOpenPayment();
+      throw new SubscriptionReceiptRequestedForOpenPaymentException();
     }
     if (!StringUtils.equalsIgnoreCase("paid", latestSubscriptionInvoice.getStatus())) {
       final Charge charge = latestSubscriptionInvoice.getChargeObject();
       if (charge != null && (charge.getFailureCode() != null || charge.getFailureMessage() != null)) {
         // If the charge object has a failure reason we can present to the user, create a detailed exception
-        throw new SubscriptionException.ChargeFailurePaymentRequired(getProvider(), createChargeFailure(charge));
+        throw new SubscriptionChargeFailurePaymentRequiredException(getProvider(), createChargeFailure(charge));
       } else {
         // Otherwise, return a generic payment required error
-        throw new SubscriptionException.PaymentRequired();
+        throw new SubscriptionPaymentRequiredException();
       }
     }
 
@@ -689,12 +687,12 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           // This usually indicates that the client has made requests out of order, either by not confirming
           // the SetupIntent or not having the user authorize the transaction.
           logger.debug("setupIntent {} missing expected fields", setupIntentId);
-          throw ExceptionUtils.wrap(new SubscriptionException.ProcessorConflict());
+          throw ExceptionUtils.wrap(new SubscriptionProcessorConflictException());
         }
         return setupIntent.getLatestAttemptObject().getPaymentMethodDetails().getIdeal().getGeneratedSepaDebit();
       } catch (StripeException e) {
         if (e.getStatusCode() == 404) {
-          throw ExceptionUtils.wrap(new SubscriptionException.NotFound());
+          throw ExceptionUtils.wrap(new SubscriptionNotFoundException());
         }
         logger.error("unexpected error from Stripe when retrieving setupIntent {}", setupIntentId, e);
         throw ExceptionUtils.wrap(e);

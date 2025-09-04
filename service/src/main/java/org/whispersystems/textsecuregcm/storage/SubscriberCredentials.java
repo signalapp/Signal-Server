@@ -15,6 +15,9 @@ import javax.annotation.Nonnull;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionForbiddenException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
 
 public record SubscriberCredentials(@Nonnull byte[] subscriberBytes,
                              @Nonnull byte[] subscriberUser,
@@ -25,10 +28,10 @@ public record SubscriberCredentials(@Nonnull byte[] subscriberBytes,
   public static SubscriberCredentials process(
       Optional<AuthenticatedDevice> authenticatedAccount,
       String subscriberId,
-      Clock clock) throws SubscriptionException{
+      Clock clock) throws SubscriptionException {
     Instant now = clock.instant();
     if (authenticatedAccount.isPresent()) {
-      throw new SubscriptionException.Forbidden("must not use authenticated connection for subscriber operations");
+      throw new SubscriptionForbiddenException("must not use authenticated connection for subscriber operations");
     }
     byte[] subscriberBytes = convertSubscriberIdStringToBytes(subscriberId);
     byte[] subscriberUser = getUser(subscriberBytes);
@@ -37,15 +40,15 @@ public record SubscriberCredentials(@Nonnull byte[] subscriberBytes,
     return new SubscriberCredentials(subscriberBytes, subscriberUser, subscriberKey, hmac, now);
   }
 
-  private static byte[] convertSubscriberIdStringToBytes(String subscriberId) throws SubscriptionException.NotFound {
+  private static byte[] convertSubscriberIdStringToBytes(String subscriberId) throws SubscriptionNotFoundException {
     try {
       byte[] bytes = Base64.getUrlDecoder().decode(subscriberId);
       if (bytes.length != 32) {
-        throw new SubscriptionException.NotFound();
+        throw new SubscriptionNotFoundException();
       }
       return bytes;
     } catch (IllegalArgumentException e) {
-      throw new SubscriptionException.NotFound(e);
+      throw new SubscriptionNotFoundException(e);
     }
   }
 

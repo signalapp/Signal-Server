@@ -38,7 +38,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +45,6 @@ import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
-import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ExecutorUtil;
 import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
@@ -207,7 +205,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
               return switch (unsuccessfulTx.getProcessorResponseCode()) {
                 case GENERIC_DECLINED_PROCESSOR_CODE, PAYPAL_FUNDING_INSTRUMENT_DECLINED_PROCESSOR_CODE ->
                     CompletableFuture.failedFuture(
-                        new SubscriptionException.ProcessorException(getProvider(), createChargeFailure(unsuccessfulTx)));
+                        new SubscriptionProcessorException(getProvider(), createChargeFailure(unsuccessfulTx)));
 
                 default -> {
                   logger.info("PayPal charge unexpectedly failed: {}", unsuccessfulTx.getProcessorResponseCode());
@@ -362,11 +360,11 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
   @Override
   public SubscriptionId createSubscription(String customerId, String planId, long level,
       long lastSubscriptionCreatedAt)
-      throws SubscriptionException.ProcessorConflict, SubscriptionException.ProcessorException {
+      throws SubscriptionProcessorConflictException, SubscriptionProcessorException {
 
     final com.braintreegateway.PaymentMethod paymentMethod = getDefaultPaymentMethod(customerId);
     if (paymentMethod == null) {
-      throw new SubscriptionException.ProcessorConflict();
+      throw new SubscriptionProcessorConflictException();
     }
 
     final Optional<Subscription> maybeExistingSubscription = paymentMethod.getSubscriptions().stream()
@@ -400,7 +398,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
       throw Optional
           .ofNullable(result.getTarget())
           .flatMap(subscription -> subscription.getTransactions().stream().findFirst())
-          .map(transaction -> new SubscriptionException.ProcessorException(getProvider(),
+          .map(transaction -> new SubscriptionProcessorException(getProvider(),
               createChargeFailure(transaction)))
           .orElseThrow(() -> new BraintreeException(result.getMessage()));
     }
@@ -415,7 +413,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
 
   @Override
   public CustomerAwareSubscriptionPaymentProcessor.SubscriptionId updateSubscription(Object subscriptionObj, String planId, long level,
-      String idempotencyKey) throws SubscriptionException.ProcessorConflict, SubscriptionException.ProcessorException {
+      String idempotencyKey) throws SubscriptionProcessorConflictException, SubscriptionProcessorException {
 
     if (!(subscriptionObj instanceof final Subscription subscription)) {
       throw new IllegalArgumentException("invalid subscription object: " + subscriptionObj.getClass().getName());
@@ -427,7 +425,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     endSubscription(subscription);
 
     final Transaction transaction = getLatestTransactionForSubscription(subscription)
-        .orElseThrow(() -> ExceptionUtils.wrap(new SubscriptionException.ProcessorConflict()));
+        .orElseThrow(() -> ExceptionUtils.wrap(new SubscriptionProcessorConflictException()));
 
     final Customer customer = transaction.getCustomer();
 
@@ -579,17 +577,17 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
 
   @Override
   public ReceiptItem getReceiptItem(String subscriptionId)
-      throws SubscriptionException.ReceiptRequestedForOpenPayment, SubscriptionException.ChargeFailurePaymentRequired {
+      throws SubscriptionReceiptRequestedForOpenPaymentException, SubscriptionChargeFailurePaymentRequiredException {
     final Subscription subscription = getSubscription(getSubscription(subscriptionId));
     final Transaction transaction = getLatestTransactionForSubscription(subscription)
-        .orElseThrow(SubscriptionException.ReceiptRequestedForOpenPayment::new);
+        .orElseThrow(SubscriptionReceiptRequestedForOpenPaymentException::new);
     if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
       final SubscriptionStatus subscriptionStatus = getSubscriptionStatus(subscription.getStatus(), true);
       if (subscriptionStatus.equals(SubscriptionStatus.ACTIVE) || subscriptionStatus.equals(
           SubscriptionStatus.PAST_DUE)) {
-        throw new SubscriptionException.ReceiptRequestedForOpenPayment();
+        throw new SubscriptionReceiptRequestedForOpenPaymentException();
       }
-      throw new SubscriptionException.ChargeFailurePaymentRequired(getProvider(), createChargeFailure(transaction));
+      throw new SubscriptionChargeFailurePaymentRequiredException(getProvider(), createChargeFailure(transaction));
     }
 
     final Instant paidAt = transaction.getSubscriptionDetails().getBillingPeriodStartDate().toInstant();

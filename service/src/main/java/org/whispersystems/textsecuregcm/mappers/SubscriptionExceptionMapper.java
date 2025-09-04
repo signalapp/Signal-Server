@@ -12,8 +12,16 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import java.util.Map;
-import org.whispersystems.textsecuregcm.storage.SubscriptionException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionForbiddenException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidAmountException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConflictException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 
 public class SubscriptionExceptionMapper implements ExceptionMapper<SubscriptionException> {
   @VisibleForTesting
@@ -25,20 +33,20 @@ public class SubscriptionExceptionMapper implements ExceptionMapper<Subscription
   public Response toResponse(final SubscriptionException exception) {
 
     // Some exceptions have specific error body formats
-    if (exception instanceof SubscriptionException.InvalidAmount e) {
+    if (exception instanceof SubscriptionInvalidAmountException e) {
       return Response
           .status(Response.Status.BAD_REQUEST)
           .entity(Map.of("error", e.getErrorCode()))
           .type(MediaType.APPLICATION_JSON_TYPE)
           .build();
     }
-    if (exception instanceof SubscriptionException.ProcessorException e) {
+    if (exception instanceof SubscriptionProcessorException e) {
       return Response.status(PROCESSOR_ERROR_STATUS_CODE)
           .entity(new ChargeFailureResponse(e.getProcessor().name(), e.getChargeFailure()))
           .type(MediaType.APPLICATION_JSON_TYPE)
           .build();
     }
-    if (exception instanceof SubscriptionException.ChargeFailurePaymentRequired e) {
+    if (exception instanceof SubscriptionChargeFailurePaymentRequiredException e) {
       return Response
           .status(Response.Status.PAYMENT_REQUIRED)
           .entity(new ChargeFailureResponse(e.getProcessor().name(), e.getChargeFailure()))
@@ -48,11 +56,11 @@ public class SubscriptionExceptionMapper implements ExceptionMapper<Subscription
 
     // Otherwise, we'll return a generic error message WebApplicationException, with a detailed error if one is provided
     final Response.Status status = (switch (exception) {
-      case SubscriptionException.NotFound e -> Response.Status.NOT_FOUND;
-      case SubscriptionException.Forbidden e -> Response.Status.FORBIDDEN;
-      case SubscriptionException.InvalidArguments e -> Response.Status.BAD_REQUEST;
-      case SubscriptionException.ProcessorConflict e -> Response.Status.CONFLICT;
-      case SubscriptionException.PaymentRequired e -> Response.Status.PAYMENT_REQUIRED;
+      case SubscriptionNotFoundException e -> Response.Status.NOT_FOUND;
+      case SubscriptionForbiddenException e -> Response.Status.FORBIDDEN;
+      case SubscriptionInvalidArgumentsException e -> Response.Status.BAD_REQUEST;
+      case SubscriptionProcessorConflictException e -> Response.Status.CONFLICT;
+      case SubscriptionPaymentRequiredException e -> Response.Status.PAYMENT_REQUIRED;
       default -> Response.Status.INTERNAL_SERVER_ERROR;
     });
 

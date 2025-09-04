@@ -46,7 +46,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
-import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 
 /**
  * Manages subscriptions made with the Play Billing API
@@ -134,7 +133,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
      * @return A stage that completes when the purchase has been successfully acknowledged
      */
     public void acknowledgePurchase()
-        throws RateLimitExceededException, SubscriptionException.NotFound {
+        throws RateLimitExceededException, SubscriptionNotFoundException {
       if (!requiresAck) {
         // We've already acknowledged this purchase on a previous attempt, nothing to do
         return;
@@ -155,12 +154,12 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
    * @param purchaseToken The play store billing purchaseToken that represents a subscription purchase
    * @return A {@link ValidatedToken} that can be acknowledged
    * @throws RateLimitExceededException            If rate-limited by play-billing
-   * @throws SubscriptionException.NotFound        If the provided purchaseToken was not found in play-billing
-   * @throws SubscriptionException.PaymentRequired If the purchaseToken exists but is in a state that does not grant the
+   * @throws SubscriptionNotFoundException        If the provided purchaseToken was not found in play-billing
+   * @throws SubscriptionPaymentRequiredException If the purchaseToken exists but is in a state that does not grant the
    *                                               user an entitlement
    */
   public ValidatedToken validateToken(String purchaseToken)
-      throws RateLimitExceededException, SubscriptionException.NotFound, SubscriptionException.PaymentRequired {
+      throws RateLimitExceededException, SubscriptionNotFoundException, SubscriptionPaymentRequiredException {
     final SubscriptionPurchaseV2 subscription = lookupSubscription(purchaseToken);
     final SubscriptionState state = SubscriptionState
         .fromString(subscription.getSubscriptionState())
@@ -175,7 +174,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
     if (state != SubscriptionState.ACTIVE
         && state != SubscriptionState.IN_GRACE_PERIOD
         && state != SubscriptionState.CANCELED) {
-      throw new SubscriptionException.PaymentRequired(
+      throw new SubscriptionPaymentRequiredException(
           "Cannot acknowledge purchase for subscription in state " + subscription.getSubscriptionState());
     }
 
@@ -221,14 +220,14 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
 
       executeTokenOperation(pub ->
           pub.purchases().subscriptions().cancel(packageName, purchase.getProductId(), purchaseToken));
-    } catch (SubscriptionException.NotFound e) {
-      // If the subscription is not found, no need to do anything so we can squash it
+    } catch (SubscriptionNotFoundException e) {
+      // If the subscription is not found there is no need to do anything, so we can squash it
     }
   }
 
   @Override
   public SubscriptionInformation getSubscriptionInformation(final String purchaseToken)
-      throws RateLimitExceededException, SubscriptionException.NotFound {
+      throws RateLimitExceededException, SubscriptionNotFoundException {
 
     final SubscriptionPurchaseV2 subscription = lookupSubscription(purchaseToken);
     final SubscriptionPrice price = getSubscriptionPrice(subscription);
@@ -300,7 +299,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
 
   @Override
   public ReceiptItem getReceiptItem(String purchaseToken)
-      throws RateLimitExceededException, SubscriptionException.NotFound, SubscriptionException.PaymentRequired {
+      throws RateLimitExceededException, SubscriptionNotFoundException, SubscriptionPaymentRequiredException {
     final SubscriptionPurchaseV2 subscription = lookupSubscription(purchaseToken);
     final AcknowledgementState acknowledgementState = AcknowledgementState
         .fromString(subscription.getAcknowledgementState())
@@ -321,7 +320,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
       // We don't need to check any state at this point, just whether the subscription is currently valid. If the
       // subscription is in a grace period, the expiration time will be dynamically extended, see
       // https://developer.android.com/google/play/billing/lifecycle/subscriptions#grace-period
-      throw new SubscriptionException.PaymentRequired();
+      throw new SubscriptionPaymentRequiredException();
     }
 
     return new ReceiptItem(
@@ -345,13 +344,13 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
    * @return A stage that completes with the result of the API call
    */
   private <R> R executeTokenOperation(final ApiCall<R> apiCall)
-      throws RateLimitExceededException, SubscriptionException.NotFound {
+      throws RateLimitExceededException, SubscriptionNotFoundException {
     try {
       return apiCall.req(androidPublisher).execute();
     } catch (HttpResponseException e) {
       if (e.getStatusCode() == Response.Status.NOT_FOUND.getStatusCode()
           || e.getStatusCode() == Response.Status.GONE.getStatusCode()) {
-        throw new SubscriptionException.NotFound();
+        throw new SubscriptionNotFoundException();
       }
       if (e.getStatusCode() == Response.Status.TOO_MANY_REQUESTS.getStatusCode()) {
         throw new RateLimitExceededException(null);
@@ -368,7 +367,7 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
   }
 
   private SubscriptionPurchaseV2 lookupSubscription(final String purchaseToken)
-      throws RateLimitExceededException, SubscriptionException.NotFound {
+      throws RateLimitExceededException, SubscriptionNotFoundException {
     return executeTokenOperation(publisher -> publisher.purchases().subscriptionsv2().get(packageName, purchaseToken));
   }
 

@@ -8,18 +8,11 @@ package org.whispersystems.textsecuregcm.subscriptions;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.braintreegateway.BraintreeGateway;
-import com.braintreegateway.Customer;
-import com.braintreegateway.CustomerGateway;
-import com.google.cloud.pubsub.v1.Publisher;
 import com.stripe.StripeClient;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -32,8 +25,6 @@ import com.stripe.service.SubscriptionService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
-import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 
 class StripeManagerTest {
 
@@ -67,7 +58,7 @@ class StripeManagerTest {
 
     when(subscriptionService.create(any(), any())).thenThrow(stripeException);
     when(stripeClient.subscriptions()).thenReturn(subscriptionService);
-    assertThatExceptionOfType(SubscriptionException.PaymentRequiresAction.class).isThrownBy(() ->
+    assertThatExceptionOfType(SubscriptionPaymentRequiresActionException.class).isThrownBy(() ->
         stripeManager.createSubscription("customerId", "priceId", 1, 0));
   }
 }

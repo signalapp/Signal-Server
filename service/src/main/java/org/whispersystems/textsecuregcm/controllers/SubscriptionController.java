@@ -72,7 +72,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
-import org.whispersystems.textsecuregcm.storage.SubscriptionException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
@@ -86,6 +86,10 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidLevelException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiresActionException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -415,19 +419,19 @@ public class SubscriptionController {
       subscriptionManager.updateSubscriptionLevelForCustomer(subscriberCredentials, record, manager, level,
           currency, idempotencyKey, subscriptionTemplateId, this::subscriptionsAreSameType);
       return new SetSubscriptionLevelSuccessResponse(level);
-    } catch (SubscriptionException.InvalidLevel e) {
+    } catch (SubscriptionInvalidLevelException e) {
       throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
           .entity(new SubscriptionController.SetSubscriptionLevelErrorResponse(List.of(
               new SubscriptionController.SetSubscriptionLevelErrorResponse.Error(
                   SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL,
                   null))))
           .build());
-    } catch (SubscriptionException.PaymentRequiresAction e) {
+    } catch (SubscriptionPaymentRequiresActionException e) {
       throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
           .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
               SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION, null))))
           .build());
-    } catch (SubscriptionException.InvalidArguments e) {
+    } catch (SubscriptionInvalidArgumentsException e) {
       throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
           .entity(new SetSubscriptionLevelErrorResponse(List.of(new SetSubscriptionLevelErrorResponse.Error(
               SetSubscriptionLevelErrorResponse.Error.Type.INVALID_ARGUMENTS, e.getMessage()))))
@@ -768,7 +772,7 @@ public class SubscriptionController {
                   UserAgentTagUtil.getPlatformTag(userAgent)))
           .increment();
       return Response.ok(new GetReceiptCredentialsResponse(receiptCredentialResponse.serialize())).build();
-    } catch (SubscriptionException.ReceiptRequestedForOpenPayment e) {
+    } catch (SubscriptionReceiptRequestedForOpenPaymentException e) {
       return Response.noContent().build();
     }
   }
@@ -802,7 +806,7 @@ public class SubscriptionController {
 
       manager
           .setDefaultPaymentMethodForCustomer(processorCustomer.customerId(), paymentMethodId, record.subscriptionId);
-    } catch (SubscriptionException.InvalidArguments e) {
+    } catch (SubscriptionInvalidArgumentsException e) {
       // Here, invalid arguments must mean that the client has made requests out of order, and needs to finish
       // setting up the paymentMethod first
       throw new ClientErrorException(Status.CONFLICT);

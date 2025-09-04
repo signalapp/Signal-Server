@@ -34,16 +34,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 
 class AppleAppStoreManagerTest {
 
@@ -101,7 +96,7 @@ class AppleAppStoreManagerTest {
   public void generateReceiptExpired()
       throws VerificationException, APIException, IOException {
     mockSubscription(Status.EXPIRED, AutoRenewStatus.ON);
-    assertThatExceptionOfType(SubscriptionException.PaymentRequired.class)
+    assertThatExceptionOfType(SubscriptionPaymentRequiredException.class)
         .isThrownBy(() -> appleAppStoreManager.getReceiptItem(ORIGINAL_TX_ID));
   }
 
@@ -196,7 +191,7 @@ class AppleAppStoreManagerTest {
   @EnumSource(mode = EnumSource.Mode.EXCLUDE, names = {"EXPIRED", "REVOKED"})
   public void cancelFailsForActiveSubscription(Status status) throws APIException, VerificationException, IOException {
     mockSubscription(status, AutoRenewStatus.ON);
-    assertThatExceptionOfType(SubscriptionException.InvalidArguments.class)
+    assertThatExceptionOfType(SubscriptionInvalidArgumentsException.class)
         .isThrownBy(() -> appleAppStoreManager.cancelAllActiveSubscriptions(ORIGINAL_TX_ID));
   }
 

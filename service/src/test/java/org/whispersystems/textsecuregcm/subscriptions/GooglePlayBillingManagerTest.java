@@ -41,7 +41,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.storage.SubscriptionException;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
 
@@ -133,7 +132,7 @@ class GooglePlayBillingManagerTest {
     switch (subscriptionState) {
       case ACTIVE, IN_GRACE_PERIOD, CANCELED -> assertThatNoException()
           .isThrownBy(() -> googlePlayBillingManager.validateToken(PURCHASE_TOKEN));
-      default -> assertThatExceptionOfType(SubscriptionException.PaymentRequired.class)
+      default -> assertThatExceptionOfType(SubscriptionPaymentRequiredException.class)
           .isThrownBy(() -> googlePlayBillingManager.validateToken(PURCHASE_TOKEN));
     }
   }
@@ -234,7 +233,7 @@ class GooglePlayBillingManagerTest {
     // next second should be expired
     clock.setTimeInstant(day10.plus(Duration.ofSeconds(1)));
 
-    assertThatExceptionOfType(SubscriptionException.PaymentRequired.class)
+    assertThatExceptionOfType(SubscriptionPaymentRequiredException.class)
         .isThrownBy(() -> googlePlayBillingManager.getReceiptItem(PURCHASE_TOKEN));
   }
 
@@ -272,8 +271,8 @@ class GooglePlayBillingManagerTest {
 
   public static Stream<Arguments> tokenErrors() {
     return Stream.of(
-        Arguments.of(404, SubscriptionException.NotFound.class),
-        Arguments.of(410, SubscriptionException.NotFound.class),
+        Arguments.of(404, SubscriptionNotFoundException.class),
+        Arguments.of(410, SubscriptionNotFoundException.class),
         Arguments.of(400, HttpResponseException.class)
     );
   }
