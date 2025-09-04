@@ -495,6 +495,10 @@ class AccountsTest {
     final UUID existingPni = UUID.randomUUID();
     final Account existingAccount = generateAccount(e164, existingUuid, existingPni, List.of(device));
 
+    // Backup vouchers should be carried over accross re-registration
+    final Account.BackupVoucher bv = new Account.BackupVoucher(1, Instant.now().plus(Duration.ofDays(1)));
+    existingAccount.setBackupVoucher(bv);
+
     createAccount(existingAccount);
 
     final byte[] usernameHash = TestRandomUtil.nextBytes(32);
@@ -530,6 +534,8 @@ class AccountsTest {
     assertThat(result.getUsernameHash()).isEmpty();
     assertThat(result.getEncryptedUsername()).isEmpty();
     assertArrayEquals(result.getReservedUsernameHash().orElseThrow(), usernameHash);
+
+    assertThat(result.getBackupVoucher()).isEqualTo(bv);
 
     // should keep the same usernameLink, now encryptedUsername should be set
     accounts.confirmUsernameHash(result, usernameHash, encryptedUsername).join();

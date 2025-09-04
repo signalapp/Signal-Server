@@ -322,6 +322,9 @@ public class Accounts {
           existingAccount.getBackupCredentialRequest(BackupCredentialType.MESSAGES).orElse(null),
           existingAccount.getBackupCredentialRequest(BackupCredentialType.MEDIA).orElse(null));
 
+      // Carry over the existing backup voucher to the new account
+      accountToCreate.setBackupVoucher(existingAccount.getBackupVoucher());
+
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
       // If we're reclaiming an account that already has a username, we'd like to give the re-registering client
