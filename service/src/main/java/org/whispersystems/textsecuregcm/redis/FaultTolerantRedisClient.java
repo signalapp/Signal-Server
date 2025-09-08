@@ -69,14 +69,17 @@ public class FaultTolerantRedisClient {
     redisUri.setLibraryVersion(null);
 
     this.redisClient = RedisClient.create(clientResourcesBuilder.build(), redisUri);
-    this.redisClient.setOptions(ClientOptions.builder()
+    final ClientOptions.Builder clientOptionsBuilder = ClientOptions.builder()
         .disconnectedBehavior(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS)
         // for asynchronous commands
         .timeoutOptions(TimeoutOptions.builder()
             .fixedTimeout(commandTimeout)
             .build())
-        .publishOnScheduler(true)
-        .build());
+        .publishOnScheduler(true);
+
+    NettyUtil.setSocketTimeoutsIfApplicable(clientOptionsBuilder);
+
+    this.redisClient.setOptions(clientOptionsBuilder.build());
 
     this.stringConnection = redisClient.connect();
     this.binaryConnection = redisClient.connect(ByteArrayCodec.INSTANCE);

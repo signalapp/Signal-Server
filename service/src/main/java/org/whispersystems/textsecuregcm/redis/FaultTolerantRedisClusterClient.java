@@ -89,7 +89,8 @@ public class FaultTolerantRedisClusterClient {
         clientResourcesBuilder.nettyCustomizer(lettuceShardCircuitBreaker).
             build(),
         redisUris);
-    this.clusterClient.setOptions(ClusterClientOptions.builder()
+
+    final ClusterClientOptions.Builder clusterClientOptionsBuilder = ClusterClientOptions.builder()
         .disconnectedBehavior(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS)
         .validateClusterNodeMembership(false)
         .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
@@ -99,8 +100,11 @@ public class FaultTolerantRedisClusterClient {
         .timeoutOptions(TimeoutOptions.builder()
             .fixedTimeout(commandTimeout)
             .build())
-        .publishOnScheduler(true)
-        .build());
+        .publishOnScheduler(true);
+
+    NettyUtil.setSocketTimeoutsIfApplicable(clusterClientOptionsBuilder);
+
+    this.clusterClient.setOptions(clusterClientOptionsBuilder.build());
 
     this.stringConnection = clusterClient.connect();
     this.binaryConnection = clusterClient.connect(ByteArrayCodec.INSTANCE);

@@ -332,12 +332,12 @@ class FaultTolerantRedisClusterClientTest {
       final LettuceShardCircuitBreaker.ChannelCircuitBreakerHandler channelCircuitBreakerHandler =
           ctx.channel().pipeline().get(LettuceShardCircuitBreaker.ChannelCircuitBreakerHandler.class);
 
-      urisToChannelBreakers.computeIfAbsent(getRedisURI(ctx.channel()), ignored -> new HashSet<>())
+      urisToChannelBreakers.computeIfAbsent(getRedisURI(remoteAddress), ignored -> new HashSet<>())
           .add(channelCircuitBreakerHandler);
     }
 
-    private static RedisURI getRedisURI(Channel channel) {
-      final InetSocketAddress inetAddress = (InetSocketAddress) channel.remoteAddress();
+    private static RedisURI getRedisURI(SocketAddress remoteAddress) {
+      final InetSocketAddress inetAddress = (InetSocketAddress) remoteAddress;
       return RedisURI.create(inetAddress.getHostString(), inetAddress.getPort());
     }
 
