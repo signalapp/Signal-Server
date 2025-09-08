@@ -80,7 +80,9 @@ public class SubscriptionCurrencyUtil {
    * BigDecimal)
    */
   static BigDecimal convertGoogleMoneyToApiAmount(final Money money) {
-    final BigDecimal fractionalComponent = BigDecimal.valueOf(money.getNanos()).scaleByPowerOfTen(-9);
+    final BigDecimal fractionalComponent = money.getNanos() == null
+        ? BigDecimal.ZERO
+        : BigDecimal.valueOf(money.getNanos()).scaleByPowerOfTen(-9);
     final BigDecimal amount = BigDecimal.valueOf(money.getUnits()).add(fractionalComponent);
     return convertConfiguredAmountToApiAmount(money.getCurrencyCode(), amount);
   }
