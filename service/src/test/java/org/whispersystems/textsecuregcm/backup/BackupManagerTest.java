@@ -73,10 +73,13 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicBackupConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
@@ -109,6 +112,8 @@ public class BackupManagerTest {
   private final RemoteStorageManager remoteStorageManager = mock(RemoteStorageManager.class);
   private final byte[] backupKey = TestRandomUtil.nextBytes(32);
   private final UUID aci = UUID.randomUUID();
+  private final DynamicBackupConfiguration backupConfiguration = new DynamicBackupConfiguration(
+    3, 4, 5, Duration.ofSeconds(30));
 
 
   private static final SecureValueRecoveryConfiguration CFG = new SecureValueRecoveryConfiguration(
@@ -139,6 +144,12 @@ public class BackupManagerTest {
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.BACKUPS.tableName(),
         testClock);
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfiguration.getBackupConfiguration()).thenReturn(backupConfiguration);
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
     this.backupManager = new BackupManager(
         backupsDb,
         backupAuthTestUtil.params,
@@ -148,7 +159,8 @@ public class BackupManagerTest {
         remoteStorageManager,
         svrbCredentialGenerator,
         svrbClient,
-        testClock);
+        testClock,
+        dynamicConfigurationManager);
   }
 
   @ParameterizedTest
@@ -490,7 +502,7 @@ public class BackupManagerTest {
         .map(source -> new CopyParameters(3, source, 100, COPY_ENCRYPTION_PARAM, TestRandomUtil.nextBytes(15)))
         .toList();
 
-    final int slowIndex = BackupManager.USAGE_CHECKPOINT_COUNT - 1;
+    final int slowIndex = backupConfiguration.usageCheckpointCount() - 1;
     final CompletableFuture<Void> slow = new CompletableFuture<>();
     when(remoteStorageManager.copy(eq(3), anyString(), eq(100), any(), anyString()))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -511,11 +523,11 @@ public class BackupManagerTest {
     final long bytesPerObject = COPY_ENCRYPTION_PARAM.outputSize(100);
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo()).isIn(
         new UsageInfo(
-            bytesPerObject * BackupManager.USAGE_CHECKPOINT_COUNT,
-            BackupManager.USAGE_CHECKPOINT_COUNT),
+            bytesPerObject * backupConfiguration.usageCheckpointCount(),
+            backupConfiguration.usageCheckpointCount()),
         new UsageInfo(
-            2 * bytesPerObject * BackupManager.USAGE_CHECKPOINT_COUNT,
-            2 * BackupManager.USAGE_CHECKPOINT_COUNT));
+            2 * bytesPerObject * backupConfiguration.usageCheckpointCount(),
+            2L * backupConfiguration.usageCheckpointCount()));
 
     // We should still be waiting since we have a slow delete
     assertThat(future).isNotDone();
@@ -590,7 +602,7 @@ public class BackupManagerTest {
     backupsDb.setMediaUsage(backupUser, new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES, 1000)).join();
     // check still within staleness bound (t=0 + 1 day - 1 sec)
     testClock.pin(Instant.ofEpochSecond(0)
-        .plus(BackupManager.MAX_QUOTA_STALENESS)
+        .plus(backupConfiguration.maxQuotaStaleness())
         .minus(Duration.ofSeconds(1)));
 
     // Try to copy
@@ -611,7 +623,7 @@ public class BackupManagerTest {
     // set the backupsDb to be totally out of quota at t=0
     testClock.pin(Instant.ofEpochSecond(0));
     backupsDb.setMediaUsage(backupUser, new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES, 1000)).join();
-    testClock.pin(Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS));
+    testClock.pin(Instant.ofEpochSecond(0).plus(backupConfiguration.maxQuotaStaleness()));
 
     // Should recalculate quota and copy can succeed
     assertThat(copy(backupUser).outcome()).isEqualTo(CopyResult.Outcome.SUCCESS);
@@ -619,7 +631,7 @@ public class BackupManagerTest {
     // backupsDb should have the new value
     final BackupsDb.TimestampedUsageInfo info = backupsDb.getMediaUsage(backupUser).join();
     assertThat(info.lastRecalculationTime())
-        .isEqualTo(Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS));
+        .isEqualTo(Instant.ofEpochSecond(0).plus(backupConfiguration.maxQuotaStaleness()));
     assertThat(info.usageInfo().bytesUsed()).isEqualTo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES);
     assertThat(info.usageInfo().numObjects()).isEqualTo(1001);
   }
@@ -643,7 +655,7 @@ public class BackupManagerTest {
     backupsDb.setMediaUsage(backupUser, new UsageInfo(originalRemainingSpace, 1000)).join();
 
     if (doesReaclc) {
-      testClock.pin(Instant.ofEpochSecond(0).plus(BackupManager.MAX_QUOTA_STALENESS).plus(Duration.ofSeconds(1)));
+      testClock.pin(Instant.ofEpochSecond(0).plus(backupConfiguration.maxQuotaStaleness()).plus(Duration.ofSeconds(1)));
       when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
           .thenReturn(CompletableFuture.completedFuture(new UsageInfo(afterRecalcRemainingSpace, 1000)));
     }
@@ -806,7 +818,7 @@ public class BackupManagerTest {
     final String slowMediaKey = "%s/%s/%s".formatted(
         backupUser.backupDir(),
         backupUser.mediaDir(),
-        BackupManager.encodeMediaIdForCdn(mediaIds.get(BackupManager.USAGE_CHECKPOINT_COUNT + 3)));
+        BackupManager.encodeMediaIdForCdn(mediaIds.get(backupConfiguration.usageCheckpointCount() + 3)));
 
     when(remoteStorageManager.delete(anyString())).thenReturn(CompletableFuture.completedFuture(2L));
     when(remoteStorageManager.delete(slowMediaKey)).thenReturn(slowFuture);
@@ -819,21 +831,21 @@ public class BackupManagerTest {
             .toList());
     final ArrayBlockingQueue<BackupManager.StorageDescriptor> sds = new ArrayBlockingQueue<>(100);
     final CompletableFuture<Void> future = flux.doOnNext(sds::add).then().toFuture();
-    for (int i = 0; i < BackupManager.USAGE_CHECKPOINT_COUNT; i++) {
+    for (int i = 0; i < backupConfiguration.usageCheckpointCount(); i++) {
       sds.poll(1, TimeUnit.SECONDS);
     }
 
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
         .isEqualTo(new UsageInfo(
-            200 - (2 * BackupManager.USAGE_CHECKPOINT_COUNT),
-            100 - BackupManager.USAGE_CHECKPOINT_COUNT));
+            200 - (2L * backupConfiguration.usageCheckpointCount()),
+            100 - backupConfiguration.usageCheckpointCount()));
     // We should still be waiting since we have a slow delete
     assertThat(future).isNotDone();
     // But we should checkpoint the usage periodically
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
         .isEqualTo(new UsageInfo(
-            200 - (2 * BackupManager.USAGE_CHECKPOINT_COUNT),
-            100 - BackupManager.USAGE_CHECKPOINT_COUNT));
+            200 - (2L * backupConfiguration.usageCheckpointCount()),
+            100 - backupConfiguration.usageCheckpointCount()));
 
     slowFuture.complete(2L);
     future.join();

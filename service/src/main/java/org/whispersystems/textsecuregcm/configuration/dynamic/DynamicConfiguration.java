@@ -64,6 +64,10 @@ public class DynamicConfiguration {
   @Valid
   DynamicRestDeprecationConfiguration restDeprecation = new DynamicRestDeprecationConfiguration(Map.of());
 
+  @JsonProperty
+  @Valid
+  private DynamicBackupConfiguration backup = new DynamicBackupConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -114,4 +118,7 @@ public class DynamicConfiguration {
     return restDeprecation;
   }
 
+  public DynamicBackupConfiguration getBackupConfiguration() {
+    return backup;
+  }
 }

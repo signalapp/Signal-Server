@@ -300,7 +300,8 @@ record CommandDependencies(
             configuration.getCdn3StorageManagerConfiguration()),
         secureValueRecoveryBCredentialsGenerator,
         secureValueRecoveryBClient,
-        clock);
+        clock,
+        dynamicConfigurationManager);
 
     final IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(
         configuration.getDynamoDbTables().getIssuedReceipts().getTableName(),

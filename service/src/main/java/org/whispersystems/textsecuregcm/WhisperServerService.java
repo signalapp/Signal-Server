@@ -806,7 +806,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         cdn3RemoteStorageManager,
         svrbCredentialsGenerator,
         secureValueRecoveryBClient,
-        clock);
+        clock,
+        dynamicConfigurationManager);
 
     final AppleDeviceChecks appleDeviceChecks = new AppleDeviceChecks(
         dynamoDbClient,
