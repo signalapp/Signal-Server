@@ -519,7 +519,6 @@ public class BackupManagerTest {
 
     // Copying can start on the next batch of USAGE_CHECKPOINT_COUNT before the current one is done, so we should see
     // at least one usage update, and at most 2
-    final UsageInfo usage = backupsDb.getMediaUsage(backupUser).join().usageInfo();
     final long bytesPerObject = COPY_ENCRYPTION_PARAM.outputSize(100);
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo()).isIn(
         new UsageInfo(
@@ -570,6 +569,7 @@ public class BackupManagerTest {
     final List<CopyResult> results = backupManager.copyToBackup(backupUser, toCopy)
         .collectList().block();
 
+    assertThat(results).hasSize(3);
     assertThat(results.get(0).outcome()).isEqualTo(CopyResult.Outcome.SUCCESS);
     assertThat(results.get(1).outcome()).isEqualTo(CopyResult.Outcome.SOURCE_NOT_FOUND);
     assertThat(results.get(2).outcome()).isEqualTo(CopyResult.Outcome.SOURCE_WRONG_LENGTH);
@@ -577,7 +577,7 @@ public class BackupManagerTest {
     // usage should be rolled back after a known copy failure
     final Map<String, AttributeValue> backup = getBackupItem(backupUser);
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_BYTES_USED, -1L))
-        .isEqualTo(toCopy.get(0).destinationObjectSize());
+        .isEqualTo(toCopy.getFirst().destinationObjectSize());
     assertThat(AttributeValues.getLong(backup, BackupsDb.ATTR_MEDIA_COUNT, -1L)).isEqualTo(1L);
   }
 
@@ -682,7 +682,9 @@ public class BackupManagerTest {
     backupsDb.setMediaUsage(backupUser, oldUsage).join();
     when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
         .thenReturn(CompletableFuture.completedFuture(newUsage));
-    final StoredBackupAttributes attrs = backupManager.listBackupAttributes(1, Schedulers.immediate()).single().block();
+    final StoredBackupAttributes attrs = backupManager.listBackupAttributes(1, Schedulers.immediate())
+        .single()
+        .blockOptional().orElseThrow();
 
     testClock.pin(Instant.ofEpochSecond(456));
     assertThat(backupManager.recalculateQuota(attrs).toCompletableFuture().join())
@@ -750,7 +752,8 @@ public class BackupManagerTest {
     // The original prefix to expire should be flagged as requiring expiration
     final ExpiredBackup expiredBackup = backupManager
         .getExpiredBackups(1, Schedulers.immediate(), Instant.ofEpochSecond(1L))
-        .collectList().block()
+        .collectList()
+        .blockOptional().orElseThrow()
         .getFirst();
     assertThat(expiredBackup.hashedBackupId()).isEqualTo(hashedBackupId(original.backupId()));
     assertThat(expiredBackup.prefixToDelete()).isEqualTo(original.backupDir());
@@ -782,11 +785,6 @@ public class BackupManagerTest {
   public void deleteWrongCredentialType() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MESSAGES, BackupLevel.PAID);
     final byte[] mediaId = TestRandomUtil.nextBytes(16);
-    final String backupMediaKey = "%s/%s/%s".formatted(
-        backupUser.backupDir(),
-        backupUser.mediaDir(),
-        BackupManager.encodeMediaIdForCdn(mediaId));
-
     assertThatThrownBy(() ->
         backupManager.deleteMedia(backupUser, List.of(new BackupManager.StorageDescriptor(5, mediaId))).then().block())
         .isInstanceOf(StatusRuntimeException.class)
@@ -810,7 +808,7 @@ public class BackupManagerTest {
         BackupLevel.PAID);
 
     // 100 objects, each 2 bytes large
-    final List<byte[]> mediaIds = IntStream.range(0, 100).mapToObj(ig -> TestRandomUtil.nextBytes(16)).toList();
+    final List<byte[]> mediaIds = IntStream.range(0, 100).mapToObj(_ -> TestRandomUtil.nextBytes(16)).toList();
     backupsDb.setMediaUsage(backupUser, new UsageInfo(200, 100)).join();
 
     // One object is slow to delete
@@ -835,10 +833,6 @@ public class BackupManagerTest {
       sds.poll(1, TimeUnit.SECONDS);
     }
 
-    assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
-        .isEqualTo(new UsageInfo(
-            200 - (2L * backupConfiguration.usageCheckpointCount()),
-            100 - backupConfiguration.usageCheckpointCount()));
     // We should still be waiting since we have a slow delete
     assertThat(future).isNotDone();
     // But we should checkpoint the usage periodically
@@ -872,7 +866,7 @@ public class BackupManagerTest {
       // fail deletion 3, otherwise return the corresponding object's size as i
       final CompletableFuture<Long> deleteResult = i == 3
           ? CompletableFuture.failedFuture(new IOException("oh no"))
-          : CompletableFuture.completedFuture(Long.valueOf(i));
+          : CompletableFuture.completedFuture((long) i);
 
       when(remoteStorageManager.delete(backupMediaKey)).thenReturn(deleteResult);
     }
@@ -882,7 +876,8 @@ public class BackupManagerTest {
     final List<BackupManager.StorageDescriptor> deleted = backupManager
         .deleteMedia(backupUser, descriptors)
         .onErrorComplete()
-        .collectList().block();
+        .collectList()
+        .blockOptional().orElseThrow();
     // first two objects should be deleted
     assertThat(deleted.size()).isEqualTo(2);
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo())
@@ -913,7 +908,7 @@ public class BackupManagerTest {
   @Test
   public void listExpiredBackups() {
     final List<AuthenticatedBackupUser> backupUsers = IntStream.range(0, 10)
-        .mapToObj(i -> backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MESSAGES, BackupLevel.PAID))
+        .mapToObj(_ -> backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MESSAGES, BackupLevel.PAID))
         .toList();
     for (int i = 0; i < backupUsers.size(); i++) {
       testClock.pin(days(i));
@@ -931,7 +926,7 @@ public class BackupManagerTest {
       final List<ExpiredBackup> expired = backupManager
           .getExpiredBackups(1, Schedulers.immediate(), day)
           .collectList()
-          .block();
+          .blockOptional().orElseThrow();
 
       // all the backups tht should be expired at t=i should be returned (ones with expiration time 0,1,...i-1)
       assertThat(expired.size()).isEqualTo(expectedHashes.size());
@@ -1165,7 +1160,7 @@ public class BackupManagerTest {
    * Retrieve an existing BackupUser from the database
    */
   private AuthenticatedBackupUser retrieveBackupUser(final byte[] backupId, final BackupCredentialType credentialType, final BackupLevel backupLevel) {
-    final BackupsDb.AuthenticationData authData = backupsDb.retrieveAuthenticationData(backupId).join().get();
+    final BackupsDb.AuthenticationData authData = backupsDb.retrieveAuthenticationData(backupId).join().orElseThrow();
     return new AuthenticatedBackupUser(backupId, credentialType, backupLevel, authData.backupDir(), authData.mediaDir(), null);
   }
 
