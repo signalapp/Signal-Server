@@ -74,7 +74,7 @@ public class BackupUsageRecalculationCommand extends AbstractCommandWithDependen
 
     final BackupManager backupManager = commandDependencies.backupManager();
     final Long backupsConsidered = backupManager
-        .listBackupAttributes(segments, Schedulers.parallel())
+        .listBackupAttributes(segments)
         .flatMap(attrs -> Mono.fromCompletionStage(() -> backupManager.recalculateQuota(attrs)).doOnNext(maybeRecalculationResult -> maybeRecalculationResult.ifPresent(recalculationResult -> {
               if (!recalculationResult.newUsage().equals(recalculationResult.oldUsage())) {
                 logger.info("Recalculated usage. oldUsage={}, newUsage={}, lastRefresh={}, lastMediaRefresh={}",

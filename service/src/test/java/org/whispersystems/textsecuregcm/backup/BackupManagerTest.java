@@ -682,7 +682,7 @@ public class BackupManagerTest {
     backupsDb.setMediaUsage(backupUser, oldUsage).join();
     when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
         .thenReturn(CompletableFuture.completedFuture(newUsage));
-    final StoredBackupAttributes attrs = backupManager.listBackupAttributes(1, Schedulers.immediate())
+    final StoredBackupAttributes attrs = backupManager.listBackupAttributes(1)
         .single()
         .blockOptional().orElseThrow();
 

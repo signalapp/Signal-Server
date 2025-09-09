@@ -497,14 +497,12 @@ public class BackupsDb {
     }
   }
 
-  Flux<StoredBackupAttributes> listBackupAttributes(final int segments, final Scheduler scheduler) {
+  Flux<StoredBackupAttributes> listBackupAttributes(final int segments) {
     if (segments < 1) {
       throw new IllegalArgumentException("Total number of segments must be positive");
     }
 
     return Flux.range(0, segments)
-        .parallel()
-        .runOn(scheduler)
         .flatMap(segment -> dynamoClient.scanPaginator(ScanRequest.builder()
                 .tableName(backupTableName)
                 .consistentRead(true)
@@ -519,9 +517,9 @@ public class BackupsDb {
                     "#backupDir", ATTR_BACKUP_DIR,
                     "#mediaDir", ATTR_MEDIA_DIR))
                 .projectionExpression("#backupIdHash, #refresh, #mediaRefresh, #bytesUsed, #numObjects, #backupDir, #mediaDir")
-                .build())
-            .items())
-        .sequential()
+                .build()))
+        // Don't use the SDK's item publisher, works around https://github.com/aws/aws-sdk-java-v2/issues/6411
+        .concatMap(page -> Flux.fromIterable(page.items()))
         .filter(item -> item.containsKey(KEY_BACKUP_ID_HASH))
         .map(item -> new StoredBackupAttributes(
             AttributeValues.getByteArray(item, KEY_BACKUP_ID_HASH, null),

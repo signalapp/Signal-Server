@@ -70,7 +70,7 @@ public class BackupMetricsCommand extends AbstractCommandWithDependencies {
 
     final BackupManager backupManager = commandDependencies.backupManager();
     final Long backupsExpired = backupManager
-        .listBackupAttributes(segments, Schedulers.parallel())
+        .listBackupAttributes(segments)
         .doOnNext(backupMetadata -> {
           timeSinceLastRefresh.record(timeSince(backupMetadata.lastRefresh()).getSeconds());
           timeSinceLastMediaRefresh.record(timeSince(backupMetadata.lastMediaRefresh()).getSeconds());

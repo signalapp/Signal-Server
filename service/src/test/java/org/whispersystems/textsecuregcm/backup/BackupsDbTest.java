@@ -236,7 +236,7 @@ public class BackupsDbTest {
     backupsDb.trackMedia(users.get(1), 10, 100).join();
     backupsDb.trackMedia(users.get(2), 1, 1000).join();
 
-    final List<StoredBackupAttributes> sbms = backupsDb.listBackupAttributes(1, Schedulers.immediate())
+    final List<StoredBackupAttributes> sbms = backupsDb.listBackupAttributes(1)
         .sort(Comparator.comparing(StoredBackupAttributes::lastRefresh))
         .collectList()
         .block();
