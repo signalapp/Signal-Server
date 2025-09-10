@@ -83,6 +83,9 @@ class FinishPushNotificationExperimentCommandTest {
         null,
         null,
         null,
+        null,
+        null,
+        null,
         null);
 
     //noinspection unchecked

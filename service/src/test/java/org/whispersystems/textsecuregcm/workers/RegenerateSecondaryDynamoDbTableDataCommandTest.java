@@ -50,6 +50,9 @@ class RegenerateSecondaryDynamoDbTableDataCommandTest {
           null,
           null,
           null,
+          null,
+          null,
+          null,
           dynamoDbRecoveryManager);
 
       namespace = new Namespace(Map.of(

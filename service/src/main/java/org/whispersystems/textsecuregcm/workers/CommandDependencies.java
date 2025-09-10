@@ -11,16 +11,23 @@ import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.dropwizard.core.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.time.Clock;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerService;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
@@ -72,6 +79,10 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.SingleUseECPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.SingleUseKEMPreKeyStore;
+import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
+import org.whispersystems.textsecuregcm.storage.Subscriptions;
+import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
+import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -101,6 +112,9 @@ record CommandDependencies(
     ClientResources.Builder redisClusterClientResourcesBuilder,
     BackupManager backupManager,
     IssuedReceiptsManager issuedReceiptsManager,
+    GooglePlayBillingManager googlePlayBillingManager,
+    AppleAppStoreManager appleAppStoreManager,
+    SubscriptionManager subscriptionManager,
     DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
     DynamoDbAsyncClient dynamoDbAsyncClient,
     PhoneNumberIdentifiers phoneNumberIdentifiers,
@@ -110,7 +124,7 @@ record CommandDependencies(
       final String name,
       final Environment environment,
       final WhisperServerConfiguration configuration)
-      throws IOException, CertificateException, NoSuchAlgorithmException, InvalidKeyException {
+      throws IOException, GeneralSecurityException, InvalidInputException {
     Clock clock = Clock.systemUTC();
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -310,6 +324,30 @@ record CommandDependencies(
         configuration.getDynamoDbTables().getIssuedReceipts().getGenerator(),
         configuration.getDynamoDbTables().getIssuedReceipts().getmaxIssuedReceiptsPerPaymentId());
 
+    final ServerSecretParams zkSecretParams = new ServerSecretParams(configuration.getZkConfig().serverSecret().value());
+    final ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);
+    GooglePlayBillingManager googlePlayBillingManager = new GooglePlayBillingManager(
+        new ByteArrayInputStream(configuration.getGooglePlayBilling().credentialsJson().value().getBytes(StandardCharsets.UTF_8)),
+        configuration.getGooglePlayBilling().packageName(),
+        configuration.getGooglePlayBilling().applicationName(),
+        configuration.getGooglePlayBilling().productIdToLevel());
+    AppleAppStoreManager appleAppStoreManager = new AppleAppStoreManager(
+        configuration.getAppleAppStore().env(),
+        configuration.getAppleAppStore().bundleId(),
+        configuration.getAppleAppStore().appAppleId(),
+        configuration.getAppleAppStore().issuerId(),
+        configuration.getAppleAppStore().keyId(),
+        configuration.getAppleAppStore().encodedKey().value(),
+        configuration.getAppleAppStore().subscriptionGroupId(),
+        configuration.getAppleAppStore().productIdToLevel(),
+        configuration.getAppleAppStore().appleRootCerts(),
+        configuration.getAppleAppStore().retryConfigurationName());
+    final SubscriptionManager subscriptionManager = new SubscriptionManager(
+        new Subscriptions(configuration.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient),
+        List.of(googlePlayBillingManager, appleAppStoreManager),
+        zkReceiptOperations,
+        issuedReceiptsManager);
+
     APNSender apnSender = new APNSender(apnSenderExecutor, configuration.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, configuration.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
@@ -346,6 +384,9 @@ record CommandDependencies(
         redisClientResourcesBuilder,
         backupManager,
         issuedReceiptsManager,
+        googlePlayBillingManager,
+        appleAppStoreManager,
+        subscriptionManager,
         dynamicConfigurationManager,
         dynamoDbAsyncClient,
         phoneNumberIdentifiers,

@@ -34,6 +34,7 @@ import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
@@ -107,6 +108,24 @@ public class IssuedReceiptsManager {
       }
       return null;
     });
+  }
+
+  /**
+   * Clear the recorded issuances for a particular item
+   *
+   * @param processorItemId The itemId within the processor to clear
+   * @param processor The processor
+   * @return a future that yields true if the item was deleted, false if the item already did not exist
+   */
+  public CompletableFuture<Boolean> clearIssuance(String processorItemId, PaymentProvider processor) {
+    final AttributeValue key = dynamoDbKey(processor, processorItemId);
+    final DeleteItemRequest deleteItemRequest = DeleteItemRequest.builder()
+        .tableName(table)
+        .key(Map.of(KEY_PROCESSOR_ITEM_ID, key))
+        .returnValues(ReturnValue.ALL_OLD)
+        .build();
+    return dynamoDbAsyncClient.deleteItem(deleteItemRequest)
+        .thenApply(item -> item.hasAttributes() && !item.attributes().isEmpty());
   }
 
   @VisibleForTesting
