@@ -44,7 +44,7 @@ public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
     return requireNonNull(rateLimiterByDescriptor.get(handle));
   }
 
-  protected static ClusterLuaScript defaultScript(final FaultTolerantRedisClusterClient cacheCluster) {
+  public static ClusterLuaScript defaultScript(final FaultTolerantRedisClusterClient cacheCluster) {
     try {
       return ClusterLuaScript.fromResource(
           cacheCluster, "lua/validate_rate_limit.lua", ScriptOutputType.INTEGER);
