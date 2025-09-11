@@ -70,7 +70,9 @@ public class BackupMetricsCommand extends AbstractCommandWithDependencies {
         "numObjects"));
     final DistributionSummary mediaBytesUsed = Metrics.summary(name(getClass(),
         "bytesUsed"));
-    final Counter backups = Metrics.counter(name(getClass(), "backups"));
+
+    final Counter freeTierBackups = Metrics.counter(name(getClass(), "backups"), "tier", "free");
+    final Counter paidTierBackups = Metrics.counter(name(getClass(), "backups"), "tier", "paid");
 
 
     final BackupManager backupManager = commandDependencies.backupManager();
@@ -79,7 +81,6 @@ public class BackupMetricsCommand extends AbstractCommandWithDependencies {
         .doOnNext(backupMetadata -> {
           timeSinceLastRefresh.record(timeSince(backupMetadata.lastRefresh()).getSeconds());
           timeSinceLastMediaRefresh.record(timeSince(backupMetadata.lastMediaRefresh()).getSeconds());
-          backups.increment();
 
           final boolean hasMediaTier = Duration
               .between(backupMetadata.lastMediaRefresh(), backupMetadata.lastRefresh())
@@ -88,6 +89,9 @@ public class BackupMetricsCommand extends AbstractCommandWithDependencies {
           if (hasMediaTier) {
             numMediaObjects.record(backupMetadata.numObjects());
             mediaBytesUsed.record(backupMetadata.bytesUsed());
+            paidTierBackups.increment();
+          } else {
+            freeTierBackups.increment();
           }
         })
         .count()
