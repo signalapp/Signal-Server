@@ -254,8 +254,7 @@ public class BackupsDb {
             .updateItemBuilder()
             .returnValues(ReturnValue.ALL_OLD)
             .build())
-        .thenAccept(updateItemResponse ->
-            updateMetricsAfterRefresh(backupUser, today, updateItemResponse.attributes()));
+        .thenRun(Util.NOOP);
   }
 
   /**
@@ -274,10 +273,10 @@ public class BackupsDb {
                 .returnValues(ReturnValue.ALL_OLD)
                 .build())
         .thenAccept(updateItemResponse ->
-            updateMetricsAfterRefresh(backupUser, today, updateItemResponse.attributes()));
+            updateMetricsAfterUpload(backupUser, today, updateItemResponse.attributes()));
   }
 
-  private void updateMetricsAfterRefresh(final AuthenticatedBackupUser backupUser, final Instant today, final Map<String, AttributeValue> item) {
+  private void updateMetricsAfterUpload(final AuthenticatedBackupUser backupUser, final Instant today, final Map<String, AttributeValue> item) {
     final Instant previousRefreshTime = Instant.ofEpochSecond(
         AttributeValues.getLong(item, ATTR_LAST_REFRESH, 0L));
     // Only publish a metric update once per day

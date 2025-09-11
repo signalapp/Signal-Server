@@ -5,24 +5,23 @@
 
 package org.whispersystems.textsecuregcm.workers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import io.dropwizard.core.Application;
 import io.dropwizard.core.setup.Environment;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Objects;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
-import reactor.core.scheduler.Schedulers;
-
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Objects;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 public class BackupMetricsCommand extends AbstractCommandWithDependencies {
 
@@ -67,17 +66,33 @@ public class BackupMetricsCommand extends AbstractCommandWithDependencies {
         "timeSinceLastRefresh"));
     final DistributionSummary timeSinceLastMediaRefresh = Metrics.summary(name(getClass(),
         "timeSinceLastMediaRefresh"));
+    final DistributionSummary numMediaObjects = Metrics.summary(name(getClass(),
+        "numObjects"));
+    final DistributionSummary mediaBytesUsed = Metrics.summary(name(getClass(),
+        "bytesUsed"));
+    final Counter backups = Metrics.counter(name(getClass(), "backups"));
+
 
     final BackupManager backupManager = commandDependencies.backupManager();
-    final Long backupsExpired = backupManager
+    final Long backupsCrawled = backupManager
         .listBackupAttributes(segments)
         .doOnNext(backupMetadata -> {
           timeSinceLastRefresh.record(timeSince(backupMetadata.lastRefresh()).getSeconds());
           timeSinceLastMediaRefresh.record(timeSince(backupMetadata.lastMediaRefresh()).getSeconds());
+          backups.increment();
+
+          final boolean hasMediaTier = Duration
+              .between(backupMetadata.lastMediaRefresh(), backupMetadata.lastRefresh())
+              .abs()
+              .compareTo(Duration.ofDays(1)) < 1;
+          if (hasMediaTier) {
+            numMediaObjects.record(backupMetadata.numObjects());
+            mediaBytesUsed.record(backupMetadata.bytesUsed());
+          }
         })
         .count()
         .block();
-    logger.info("Crawled {} backups", backupsExpired);
+    logger.info("Crawled {} backups", backupsCrawled);
   }
 
   private Duration timeSince(Instant t) {
