@@ -163,6 +163,34 @@ public class ArchiveController {
         });
   }
 
+
+  public record BackupIdLimitResponse(
+      @Schema(description = "If true, a call to PUT /v1/archive/backupid may succeed without waiting")
+      boolean hasPermitsRemaining,
+      @Schema(description = "How long to wait before a permit becomes available, in seconds")
+      long retryAfterSeconds) {}
+
+  @GET
+  @Produces(MediaType.APPLICATION_JSON)
+  @Path("/backupid/limits")
+  @Operation(
+      summary = "Retrieve limits",
+      description = """
+          Determine whether the backup-id can currently be rotated
+          """)
+  @ApiResponse(responseCode = "200", description = "Successfully retrieved backup-id rotation limits", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "403", description = "Invalid account authentication")
+  public CompletionStage<BackupIdLimitResponse> checkLimits(@Auth final AuthenticatedDevice authenticatedDevice) {
+    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())
+        .thenCompose(maybeAccount -> {
+          final Account account = maybeAccount
+              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+
+          return backupAuthManager.checkBackupIdRotationLimit(account).thenApply(limit ->
+              new BackupIdLimitResponse(limit.hasPermitsRemaining(), limit.nextPermitAvailable().getSeconds()));
+        });
+  }
+
   public record RedeemBackupReceiptRequest(
       @Schema(description = "Presentation of a ZK receipt encoded in standard padded base64", implementation = String.class)
       @JsonDeserialize(using = Deserializer.class)

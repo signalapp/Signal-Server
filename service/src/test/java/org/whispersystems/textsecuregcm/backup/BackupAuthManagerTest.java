@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -57,6 +58,7 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -511,6 +513,26 @@ public class BackupAuthManagerTest {
     return clientOps.createReceiptCredentialPresentation(receiptCredential);
   }
 
+  @CartesianTest
+  void testCheckLimits(
+      @CartesianTest.Values(booleans = {true, false}) boolean messageLimited,
+      @CartesianTest.Values(booleans = {true, false}) boolean mediaLimited,
+      @CartesianTest.Values(booleans = {true, false}) boolean hasVoucher) {
+    clock.pin(Instant.EPOCH);
+    final BackupAuthManager authManager = create(BackupLevel.FREE, rateLimiter(aci, messageLimited, mediaLimited));
+    final Account account = new MockAccountBuilder()
+        .backupVoucher(hasVoucher
+            ? new Account.BackupVoucher(1, Instant.EPOCH.plus(Duration.ofSeconds(1)))
+            : null)
+        .build();
+    final BackupAuthManager.BackupIdRotationLimit limit = authManager.checkBackupIdRotationLimit(account)
+        .toCompletableFuture().join();
+    final boolean expectHasPermits = !messageLimited && (!mediaLimited || !hasVoucher);
+    final Duration expectedDuration = expectHasPermits ? Duration.ZERO : Duration.ofDays(1);
+    assertThat(limit.hasPermitsRemaining()).isEqualTo(expectHasPermits);
+    assertThat(limit.nextPermitAvailable()).isEqualTo(expectedDuration);
+  }
+
 
   @CartesianTest
   void testChangeIdRateLimits(
@@ -643,11 +665,15 @@ public class BackupAuthManagerTest {
     final RateLimiters limiters = mock(RateLimiters.class);
 
     final RateLimiter allowLimiter = mock(RateLimiter.class);
+    when(allowLimiter.hasAvailablePermitsAsync(eq(aci), anyInt())).thenReturn(CompletableFuture.completedFuture(true));
     when(allowLimiter.validateAsync(aci)).thenReturn(CompletableFuture.completedFuture(null));
+    when(allowLimiter.config()).thenReturn(new RateLimiterConfig(1, Duration.ofDays(1), false));
 
     final RateLimiter denyLimiter = mock(RateLimiter.class);
+    when(denyLimiter.hasAvailablePermitsAsync(eq(aci), anyInt())).thenReturn(CompletableFuture.completedFuture(false));
     when(denyLimiter.validateAsync(aci))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
+    when(denyLimiter.config()).thenReturn(new RateLimiterConfig(1, Duration.ofDays(1), false));
 
     when(limiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID))
         .thenReturn(rateLimitBackupId ? denyLimiter : allowLimiter);

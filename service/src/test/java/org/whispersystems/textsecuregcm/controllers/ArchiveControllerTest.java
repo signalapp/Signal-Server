@@ -182,6 +182,27 @@ public class ArchiveControllerTest {
         backupAuthTestUtil.getRequest(mediaBackupKey, aci));
   }
 
+  @ParameterizedTest
+  @CsvSource({
+      "true, 0",
+      "false, 1",
+      "false, 12345"
+  })
+  public void backupIdLimits(boolean hasPermits, long waitSeconds) {
+    when(backupAuthManager.checkBackupIdRotationLimit(any()))
+        .thenReturn(CompletableFuture.completedFuture(
+            new BackupAuthManager.BackupIdRotationLimit(hasPermits, Duration.ofSeconds(waitSeconds))));
+
+    final ArchiveController.BackupIdLimitResponse response = resources.getJerseyTest()
+        .target("v1/archives/backupid/limits")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .get(ArchiveController.BackupIdLimitResponse.class);
+
+    assertThat(response.hasPermitsRemaining()).isEqualTo(hasPermits);
+    assertThat(response.retryAfterSeconds()).isEqualTo(waitSeconds);
+  }
+
   @Test
   public void redeemReceipt() throws InvalidInputException, VerificationFailedException {
     final ServerSecretParams params = ServerSecretParams.generate();

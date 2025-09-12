@@ -11,6 +11,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -132,6 +135,32 @@ public class BackupAuthManager {
             .updateAsync(account, a -> a.setBackupCredentialRequests(serializedMessageCredentialRequest, serializedMediaCredentialRequest))
             .thenRun(Util.NOOP))
         .toCompletableFuture();
+  }
+
+  public record BackupIdRotationLimit(boolean hasPermitsRemaining, Duration nextPermitAvailable) {}
+
+  public CompletionStage<BackupIdRotationLimit> checkBackupIdRotationLimit(final Account account) {
+    final RateLimiter messagesLimiter = rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID);
+    final RateLimiter mediaLimiter = rateLimiters.forDescriptor(RateLimiters.For.SET_PAID_MEDIA_BACKUP_ID);
+
+    final boolean isPaid = hasActiveVoucher(account);
+
+    final CompletionStage<Boolean> hasSetMessagesPermits =
+        messagesLimiter.hasAvailablePermitsAsync(account.getUuid(), 1);
+    final CompletionStage<Boolean> hasSetMediaPermits = isPaid
+        ? mediaLimiter.hasAvailablePermitsAsync(account.getUuid(), 1)
+        : CompletableFuture.completedFuture(true);
+
+    return hasSetMessagesPermits.thenCombine(hasSetMediaPermits, (hasMessage, hasMedia) -> {
+      if (hasMedia && hasMessage) {
+        return new BackupIdRotationLimit(true, Duration.ZERO);
+      } else {
+        final Duration timeToNextPermit = Collections.max(Arrays.asList(
+            messagesLimiter.config().permitRegenerationDuration(),
+            isPaid ? mediaLimiter.config().permitRegenerationDuration() : Duration.ZERO));
+        return new BackupIdRotationLimit(false, timeToNextPermit);
+      }
+    });
   }
 
   public record Credential(BackupAuthCredentialResponse credential, Instant redemptionTime) {}
