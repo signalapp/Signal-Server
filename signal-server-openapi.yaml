@@ -739,6 +739,25 @@ paths:
       security:
       - authenticatedAccount: []
       - {}
+  /v1/archives/backupid/limits:
+    get:
+      tags:
+      - Archive
+      summary: Retrieve limits
+      description: |
+        Determine whether the backup-id can currently be rotated
+      operationId: checkLimits
+      responses:
+        "200":
+          description: Successfully retrieved backup-id rotation limits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupIdLimitResponse"
+        "403":
+          description: Invalid account authentication
+      security:
+      - authenticatedAccount: []
   /v1/archives/media/batch:
     put:
       tags:
@@ -2399,15 +2418,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/uuid/{uuid}:
@@ -2644,15 +2663,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2735,15 +2754,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2771,15 +2790,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -4555,6 +4574,17 @@ components:
         usedSpace:
           type: integer
           description: The amount of space used to store media
+          format: int64
+    BackupIdLimitResponse:
+      type: object
+      properties:
+        hasPermitsRemaining:
+          type: boolean
+          description: "If true, a call to PUT /v1/archive/backupid may succeed without\
+            \ waiting"
+        retryAfterSeconds:
+          type: integer
+          description: "How long to wait before a permit becomes available, in seconds"
           format: int64
     CopyMediaBatchResponse:
       type: object
