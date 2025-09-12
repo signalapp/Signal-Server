@@ -22,6 +22,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.util.Conversions;
 
 /// An implementation of a message store backed by FoundationDB.
@@ -244,6 +246,18 @@ public class FoundationDbMessageStore {
 
           return presenceByDeviceId;
         }, executor);
+  }
+
+  public MessageStream getMessages(final AciServiceIdentifier aci, final Device destinationDevice) {
+    return getMessages(aci, destinationDevice, FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN);
+  }
+
+  @VisibleForTesting
+  MessageStream getMessages(final AciServiceIdentifier aci, final Device destinationDevice, final int maxMessagesPerScan) {
+    return new FoundationDbMessageStream(getDeviceQueueSubspace(aci, destinationDevice.getId()),
+        getMessagesAvailableWatchKey(aci),
+        getShardForAci(aci),
+        maxMessagesPerScan);
   }
 
   @VisibleForTesting

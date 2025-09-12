@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -14,6 +15,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.UncheckedIOException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Collections;
@@ -25,7 +27,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -43,8 +47,12 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.FoundationDbClusterExtension;
+import org.whispersystems.textsecuregcm.storage.MessageStream;
+import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import reactor.adapter.JdkFlowAdapter;
+import reactor.test.StepVerifier;
 
 @Timeout(value = 5, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class FoundationDbMessageStoreTest {
@@ -358,11 +366,115 @@ class FoundationDbMessageStoreTest {
         Map.of(generateRandomAciForShard(0), Collections.emptyMap())));
   }
 
-  private static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral) {
+  @ParameterizedTest
+  @MethodSource
+  void getMessages(final int numMessages, final int batchSize) {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
+    for (int i = 0; i < numMessages; i++) {
+      final MessageProtos.Envelope message = generateRandomMessage(false);
+      assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message)).join());
+    }
+
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device, batchSize);
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
+        .expectNextCount(numMessages)
+        .expectNext(new MessageStreamEntry.QueueEmpty())
+        .verifyTimeout(Duration.ofSeconds(1));
+  }
+
+  static Stream<Arguments> getMessages() {
+    final int batchSize = 16;
+    
+    return Stream.of(
+        Arguments.argumentSet("Single message", 1, batchSize),
+        Arguments.argumentSet("Queue is empty", 0, batchSize),
+        Arguments.argumentSet("Multiple of batch size", batchSize * 4, batchSize),
+        Arguments.argumentSet("Non-multiple of batch size", (batchSize * 4) + 1, batchSize)
+    );
+  }
+
+  @Test
+  void getMessagesPublishMoreAfterQueueEmpty() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
+    final MessageProtos.Envelope message1 = generateRandomMessage(false);
+    assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message1)).join());
+    final MessageProtos.Envelope message2 = generateRandomMessage(false);
+    assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message2)).join());
+
+    final CountDownLatch latch = new CountDownLatch(1);
+    final MessageProtos.Envelope message3 = generateRandomMessage(false);
+    Thread.ofVirtual().start(() -> {
+      try {
+        // Wait until queue is empty
+        assertTrue(latch.await(1000, TimeUnit.MILLISECONDS));
+        // Then publish more messages
+        assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message3)).join());
+      } catch (final InterruptedException e) {
+        fail(e);
+      }
+    });
+
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
+        .expectNext(new MessageStreamEntry.Envelope(message1))
+        .expectNext(new MessageStreamEntry.Envelope(message2))
+        .expectNext(new MessageStreamEntry.QueueEmpty())
+        .then(latch::countDown)
+        .expectNext(new MessageStreamEntry.Envelope(message3))
+        .verifyTimeout(Duration.ofSeconds(3));
+  }
+
+  @Test
+  void getMessagesPublishMoreAfterSubscriptionStarts() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
+    for (int i = 0; i < 16; i++) {
+      final MessageProtos.Envelope message = generateRandomMessage(false);
+      assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message)).join());
+    }
+
+    final CountDownLatch latch = new CountDownLatch(1);
+    Thread.ofVirtual().start(() -> {
+      try {
+        // Wait until queue is empty
+        assertTrue(latch.await(1000, TimeUnit.MILLISECONDS));
+        // Then publish more messages
+        for (int i = 0; i < 16; i++) {
+          final MessageProtos.Envelope message = generateRandomMessage(false);
+          assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message)).join());
+        }
+      } catch (final InterruptedException e) {
+        fail(e);
+      }
+    });
+
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
+    // Initially only request a single message, then give the go ahead to the publisher. This verifies that we get the
+    // queue empty signal when we consume the initial batch of messages even though the publisher keeps publishing in
+    // the meantime.
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()), 1)
+        .expectNextCount(1)
+        .then(latch::countDown)
+        .thenRequest(100)
+        .expectNextCount(15)
+        .expectNext(new MessageStreamEntry.QueueEmpty())
+        .expectNextCount(16)
+        .verifyTimeout(Duration.ofSeconds(3));
+  }
+
+  static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral) {
     return generateRandomMessage(ephemeral, 16);
   }
 
-  private static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
+  static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
     return MessageProtos.Envelope.newBuilder()
         .setContent(ByteString.copyFrom(TestRandomUtil.nextBytes(contentSize)))
         .setEphemeral(ephemeral)
