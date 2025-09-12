@@ -220,6 +220,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           .setAmount(amount)
           .setCurrency(currency.toLowerCase(Locale.ROOT))
           .setDescription(boostDescription)
+          .setCaptureMethod(PaymentIntentCreateParams.CaptureMethod.AUTOMATIC)
           .putMetadata("level", Long.toString(level));
 
       if (clientPlatform != null) {
