@@ -63,6 +63,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import org.eclipse.jetty.websocket.core.WebSocketComponents;
+import org.eclipse.jetty.websocket.core.server.WebSocketServerComponents;
 import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.glassfish.jersey.server.ServerProperties;
 import org.signal.i18n.HeaderControlledResourceBundleLookup;
@@ -1165,7 +1167,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
     provisioningEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
 
-    JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
+    JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), (context, container) -> {
+      if (config.getWebSocketConfiguration().isDisablePerMessageDeflate()) {
+        WebSocketComponents components =
+            WebSocketServerComponents.getWebSocketComponents(environment.getApplicationContext().getServletContext());
+        components.getExtensionRegistry().unregister("permessage-deflate");
+      }
+    });
 
     WebSocketResourceProviderFactory<AuthenticatedDevice> webSocketServlet = new WebSocketResourceProviderFactory<>(
         webSocketEnvironment, AuthenticatedDevice.class, config.getWebSocketConfiguration(),

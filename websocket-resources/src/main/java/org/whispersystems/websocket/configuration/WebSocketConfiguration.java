@@ -28,6 +28,10 @@ public class WebSocketConfiguration {
   @JsonProperty
   private int maxTextMessageSize = 512 * 1024;
 
+  @Valid
+  @JsonProperty
+  private boolean disablePerMessageDeflate = false;
+
   public WebsocketRequestLoggerFactory getRequestLog() {
     return requestLog;
   }
@@ -38,5 +42,9 @@ public class WebSocketConfiguration {
 
   public int getMaxTextMessageSize() {
     return maxTextMessageSize;
+  }
+
+  public boolean isDisablePerMessageDeflate() {
+    return disablePerMessageDeflate;
   }
 }
