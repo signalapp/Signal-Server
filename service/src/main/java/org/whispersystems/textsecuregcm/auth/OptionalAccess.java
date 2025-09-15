@@ -72,6 +72,11 @@ public class OptionalAccess {
       throw new NotAuthorizedException(Response.Status.UNAUTHORIZED);
     }
 
+    // Unidentified access is only for ACI identities
+    if (IdentityType.PNI.equals(targetIdentifier.identityType())) {
+      throw new NotAuthorizedException(Response.Status.UNAUTHORIZED);
+    }
+
     // Unrestricted unidentified access does what it says on the tin: we don't check if the key the
     // caller provided is right or not.
     if (targetAccount.get().isUnrestrictedUnidentifiedAccess()) {
@@ -80,11 +85,6 @@ public class OptionalAccess {
 
     if (!targetAccount.get().isIdentifiedBy(targetIdentifier)) {
       throw new IllegalArgumentException("Target account is not identified by the given identifier");
-    }
-
-    // Unidentified access is only for ACI identities
-    if (IdentityType.PNI.equals(targetIdentifier.identityType())) {
-      throw new NotAuthorizedException(Response.Status.UNAUTHORIZED);
     }
 
     // At this point, any successful authentication requires a real access key on the target account
