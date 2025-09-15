@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.MockUtils.randomSecretBytes;
 
+import io.dropwizard.util.DataSize;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
@@ -103,6 +104,7 @@ public class BackupManagerTest {
   private static final CopyParameters COPY_PARAM = new CopyParameters(
       3, "abc", 100,
       COPY_ENCRYPTION_PARAM, TestRandomUtil.nextBytes(15));
+  private static final long MAX_TOTAL_MEDIA_BYTES = DataSize.mebibytes(1).toBytes();
 
   private final TestClock testClock = TestClock.now();
   private final BackupAuthTestUtil backupAuthTestUtil = new BackupAuthTestUtil(testClock);
@@ -113,7 +115,7 @@ public class BackupManagerTest {
   private final byte[] backupKey = TestRandomUtil.nextBytes(32);
   private final UUID aci = UUID.randomUUID();
   private final DynamicBackupConfiguration backupConfiguration = new DynamicBackupConfiguration(
-    3, 4, 5, Duration.ofSeconds(30));
+    3, 4, 5, Duration.ofSeconds(30), MAX_TOTAL_MEDIA_BYTES);
 
 
   private static final SecureValueRecoveryConfiguration CFG = new SecureValueRecoveryConfiguration(
@@ -599,7 +601,7 @@ public class BackupManagerTest {
 
     // set the backupsDb to be out of quota at t=0
     testClock.pin(Instant.ofEpochSecond(1));
-    backupsDb.setMediaUsage(backupUser, new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES, 1000)).join();
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(MAX_TOTAL_MEDIA_BYTES, 1000)).join();
     // check still within staleness bound (t=0 + 1 day - 1 sec)
     testClock.pin(Instant.ofEpochSecond(0)
         .plus(backupConfiguration.maxQuotaStaleness())
@@ -614,7 +616,7 @@ public class BackupManagerTest {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
     final String backupMediaPrefix = "%s/%s/".formatted(backupUser.backupDir(), backupUser.mediaDir());
 
-    final long remainingAfterRecalc = BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - COPY_PARAM.destinationObjectSize();
+    final long remainingAfterRecalc = MAX_TOTAL_MEDIA_BYTES - COPY_PARAM.destinationObjectSize();
 
     // on recalculation, say there's actually enough left to do the copy
     when(remoteStorageManager.calculateBytesUsed(eq(backupMediaPrefix)))
@@ -622,7 +624,7 @@ public class BackupManagerTest {
 
     // set the backupsDb to be totally out of quota at t=0
     testClock.pin(Instant.ofEpochSecond(0));
-    backupsDb.setMediaUsage(backupUser, new UsageInfo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES, 1000)).join();
+    backupsDb.setMediaUsage(backupUser, new UsageInfo(MAX_TOTAL_MEDIA_BYTES, 1000)).join();
     testClock.pin(Instant.ofEpochSecond(0).plus(backupConfiguration.maxQuotaStaleness()));
 
     // Should recalculate quota and copy can succeed
@@ -632,7 +634,7 @@ public class BackupManagerTest {
     final BackupsDb.TimestampedUsageInfo info = backupsDb.getMediaUsage(backupUser).join();
     assertThat(info.lastRecalculationTime())
         .isEqualTo(Instant.ofEpochSecond(0).plus(backupConfiguration.maxQuotaStaleness()));
-    assertThat(info.usageInfo().bytesUsed()).isEqualTo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES);
+    assertThat(info.usageInfo().bytesUsed()).isEqualTo(MAX_TOTAL_MEDIA_BYTES);
     assertThat(info.usageInfo().numObjects()).isEqualTo(1001);
   }
 
@@ -646,9 +648,9 @@ public class BackupManagerTest {
 
     final long destSize = COPY_PARAM.destinationObjectSize();
     final long originalRemainingSpace =
-        BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - (hasSpaceBeforeRecalc ? destSize : (destSize - 1));
+        MAX_TOTAL_MEDIA_BYTES - (hasSpaceBeforeRecalc ? destSize : (destSize - 1));
     final long afterRecalcRemainingSpace =
-        BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - (hasSpaceAfterRecalc ? destSize : (destSize - 1));
+        MAX_TOTAL_MEDIA_BYTES - (hasSpaceAfterRecalc ? destSize : (destSize - 1));
 
     // set the backupsDb to be out of quota at t=0
     testClock.pin(Instant.ofEpochSecond(0));

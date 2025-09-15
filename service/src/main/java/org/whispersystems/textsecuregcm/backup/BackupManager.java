@@ -17,6 +17,7 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -60,7 +61,6 @@ import reactor.core.scheduler.Scheduler;
 public class BackupManager {
 
   static final String MESSAGE_BACKUP_NAME = "messageBackup";
-  public static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = DataSize.gibibytes(100).toBytes();
   public static final long MAX_MESSAGE_BACKUP_OBJECT_SIZE = DataSize.mebibytes(101).toBytes();
   public static final long MAX_MEDIA_OBJECT_SIZE = DataSize.mebibytes(101).toBytes();
 
@@ -73,6 +73,10 @@ public class BackupManager {
       "deleteCount");
   private static final Timer SYNCHRONOUS_DELETE_TIMER =
       Metrics.timer(MetricsUtil.name(BackupManager.class, "synchronousDelete"));
+
+  private static final String NUM_OBJECTS_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "numObjects");
+  private static final String BYTES_USED_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "bytesUsed");
+  private static final String BACKUPS_COUNTER_NAME = MetricsUtil.name(BackupsDb.class, "backups");
 
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String FAILURE_REASON_TAG_NAME = "reason";
@@ -161,11 +165,42 @@ public class BackupManager {
       final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.FREE);
     checkBackupCredentialType(backupUser, BackupCredentialType.MESSAGES);
+    final Instant today = clock.instant().truncatedTo(ChronoUnit.DAYS);
+    final long maxTotalMediaSize =
+        dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
 
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
     return backupsDb
         .addMessageBackup(backupUser)
-        .thenApply(result -> cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser)));
+        .thenApply(storedBackupAttributes -> {
+          final Instant previousRefreshTime = storedBackupAttributes.lastRefresh();
+          // Only publish a metric update once per day
+          if (previousRefreshTime.isBefore(today)) {
+            final Tags tags = Tags.of(
+                UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
+                Tag.of("tier", backupUser.backupLevel().name()));
+
+            DistributionSummary.builder(NUM_OBJECTS_SUMMARY_NAME)
+                .tags(tags)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry)
+                .record(storedBackupAttributes.numObjects());
+            DistributionSummary.builder(BYTES_USED_SUMMARY_NAME)
+                .tags(tags)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry)
+                .record(storedBackupAttributes.bytesUsed());
+
+            // Report that the backup is out of quota if it cannot store a max size media object
+            final boolean quotaExhausted = storedBackupAttributes.bytesUsed() >=
+                (maxTotalMediaSize - BackupManager.MAX_MEDIA_OBJECT_SIZE);
+
+            Metrics.counter(BACKUPS_COUNTER_NAME,
+                    tags.and("quotaExhausted", String.valueOf(quotaExhausted)))
+                .increment();
+          }
+          return cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser));
+        });
   }
 
   public CompletableFuture<BackupUploadDescriptor> createTemporaryAttachmentUploadDescriptor(
@@ -312,12 +347,14 @@ public class BackupManager {
         })
         .sum();
 
-    final Duration maxQuotaStaleness =
-        dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxQuotaStaleness();
+    final DynamicBackupConfiguration backupConfiguration =
+        dynamicConfigurationManager.getConfiguration().getBackupConfiguration();
+    final Duration maxQuotaStaleness = backupConfiguration.maxQuotaStaleness();
+    final long maxTotalMediaSize = backupConfiguration.maxTotalMediaSize();
 
     return backupsDb.getMediaUsage(backupUser)
         .thenComposeAsync(info -> {
-          long remainingQuota = MAX_TOTAL_BACKUP_MEDIA_BYTES - info.usageInfo().bytesUsed();
+          long remainingQuota = maxTotalMediaSize - info.usageInfo().bytesUsed();
           final boolean canStore = remainingQuota >= totalBytesAdded;
           if (canStore || info.lastRecalculationTime().isAfter(clock.instant().minus(maxQuotaStaleness))) {
             return CompletableFuture.completedFuture(remainingQuota);
@@ -336,7 +373,7 @@ public class BackupManager {
                     Tag.of("usageChanged", String.valueOf(usageChanged))))
                     .increment();
               })
-              .thenApply(newUsage -> MAX_TOTAL_BACKUP_MEDIA_BYTES - newUsage.bytesUsed());
+              .thenApply(newUsage -> maxTotalMediaSize - newUsage.bytesUsed());
         })
         .thenApply(remainingQuota -> {
           // Figure out how many of the requested objects fit in the remaining quota

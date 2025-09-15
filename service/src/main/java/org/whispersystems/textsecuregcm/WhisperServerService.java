@@ -1142,7 +1142,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           zkReceiptOperations, issuedReceiptsManager);
       commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
           subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
-          profileBadgeConverter, bankMandateTranslator));
+          profileBadgeConverter, bankMandateTranslator, dynamicConfigurationManager));
       commonControllers.add(new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
           zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager));
     }

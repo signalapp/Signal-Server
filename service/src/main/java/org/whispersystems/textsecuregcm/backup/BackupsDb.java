@@ -87,10 +87,6 @@ public class BackupsDb {
 
   private final SecureRandom secureRandom;
 
-  private static final String NUM_OBJECTS_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "numObjects");
-  private static final String BYTES_USED_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "bytesUsed");
-  private static final String BACKUPS_COUNTER_NAME = MetricsUtil.name(BackupsDb.class, "backups");
-
   // The backups table
 
   // B: 16 bytes that identifies the backup
@@ -257,12 +253,14 @@ public class BackupsDb {
         .thenRun(Util.NOOP);
   }
 
+
   /**
    * Track that a backup will be stored for the user
    *
    * @param backupUser an already authorized backup user
+   * @return A future that completes with the attributes of the backup before the update
    */
-  CompletableFuture<Void> addMessageBackup(final AuthenticatedBackupUser backupUser) {
+  CompletableFuture<StoredBackupAttributes> addMessageBackup(final AuthenticatedBackupUser backupUser) {
     final Instant today = clock.instant().truncatedTo(ChronoUnit.DAYS);
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
     return dynamoClient.updateItem(
@@ -272,40 +270,7 @@ public class BackupsDb {
                 .updateItemBuilder()
                 .returnValues(ReturnValue.ALL_OLD)
                 .build())
-        .thenAccept(updateItemResponse ->
-            updateMetricsAfterUpload(backupUser, today, updateItemResponse.attributes()));
-  }
-
-  private void updateMetricsAfterUpload(final AuthenticatedBackupUser backupUser, final Instant today, final Map<String, AttributeValue> item) {
-    final Instant previousRefreshTime = Instant.ofEpochSecond(
-        AttributeValues.getLong(item, ATTR_LAST_REFRESH, 0L));
-    // Only publish a metric update once per day
-    if (previousRefreshTime.isBefore(today)) {
-      final long mediaCount = AttributeValues.getLong(item, ATTR_MEDIA_COUNT, 0L);
-      final long bytesUsed = AttributeValues.getLong(item, ATTR_MEDIA_BYTES_USED, 0L);
-      final Tags tags = Tags.of(
-          UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
-          Tag.of("tier", backupUser.backupLevel().name()));
-
-      DistributionSummary.builder(NUM_OBJECTS_SUMMARY_NAME)
-          .tags(tags)
-          .publishPercentileHistogram()
-          .register(Metrics.globalRegistry)
-          .record(mediaCount);
-      DistributionSummary.builder(BYTES_USED_SUMMARY_NAME)
-          .tags(tags)
-          .publishPercentileHistogram()
-          .register(Metrics.globalRegistry)
-          .record(bytesUsed);
-
-      // Report that the backup is out of quota if it cannot store a max size media object
-      final boolean quotaExhausted = bytesUsed >=
-          (BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES - BackupManager.MAX_MEDIA_OBJECT_SIZE);
-
-      Metrics.counter(BACKUPS_COUNTER_NAME,
-              tags.and("quotaExhausted", String.valueOf(quotaExhausted)))
-          .increment();
-    }
+        .thenApply(updateItemResponse -> fromItem(updateItemResponse.attributes()));
   }
 
   /**
@@ -520,14 +485,18 @@ public class BackupsDb {
         // Don't use the SDK's item publisher, works around https://github.com/aws/aws-sdk-java-v2/issues/6411
         .concatMap(page -> Flux.fromIterable(page.items()))
         .filter(item -> item.containsKey(KEY_BACKUP_ID_HASH))
-        .map(item -> new StoredBackupAttributes(
-            AttributeValues.getByteArray(item, KEY_BACKUP_ID_HASH, null),
-            AttributeValues.getString(item, ATTR_BACKUP_DIR, null),
-            AttributeValues.getString(item, ATTR_MEDIA_DIR, null),
-            Instant.ofEpochSecond(AttributeValues.getLong(item, ATTR_LAST_REFRESH, 0L)),
-            Instant.ofEpochSecond(AttributeValues.getLong(item, ATTR_LAST_MEDIA_REFRESH, 0L)),
-            AttributeValues.getLong(item, ATTR_MEDIA_BYTES_USED, 0L),
-            AttributeValues.getLong(item, ATTR_MEDIA_COUNT, 0L)));
+        .map(BackupsDb::fromItem);
+  }
+
+  private static StoredBackupAttributes fromItem(Map<String, AttributeValue> item) {
+    return new StoredBackupAttributes(
+        AttributeValues.getByteArray(item, KEY_BACKUP_ID_HASH, null),
+        AttributeValues.getString(item, ATTR_BACKUP_DIR, null),
+        AttributeValues.getString(item, ATTR_MEDIA_DIR, null),
+        Instant.ofEpochSecond(AttributeValues.getLong(item, ATTR_LAST_REFRESH, 0L)),
+        Instant.ofEpochSecond(AttributeValues.getLong(item, ATTR_LAST_MEDIA_REFRESH, 0L)),
+        AttributeValues.getLong(item, ATTR_MEDIA_BYTES_USED, 0L),
+        AttributeValues.getLong(item, ATTR_MEDIA_COUNT, 0L));
   }
 
   Flux<ExpiredBackup> getExpiredBackups(final int segments, final Scheduler scheduler, final Instant purgeTime) {

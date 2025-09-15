@@ -65,11 +65,13 @@ import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfigurati
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationCurrencyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
@@ -109,6 +111,7 @@ public class SubscriptionController {
   private final AppleAppStoreManager appleAppStoreManager;
   private final BadgeTranslator badgeTranslator;
   private final BankMandateTranslator bankMandateTranslator;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
   static final String PROCESSOR_TAG_NAME = "processor";
   static final String TYPE_TAG_NAME = "type";
@@ -124,7 +127,8 @@ public class SubscriptionController {
       @Nonnull GooglePlayBillingManager googlePlayBillingManager,
       @Nonnull AppleAppStoreManager appleAppStoreManager,
       @Nonnull BadgeTranslator badgeTranslator,
-      @Nonnull BankMandateTranslator bankMandateTranslator) {
+      @Nonnull BankMandateTranslator bankMandateTranslator,
+      @NotNull DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.subscriptionManager = subscriptionManager;
     this.clock = Objects.requireNonNull(clock);
     this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
@@ -135,6 +139,7 @@ public class SubscriptionController {
     this.appleAppStoreManager = appleAppStoreManager;
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   private Map<String, CurrencyConfiguration> buildCurrencyConfiguration() {
@@ -207,12 +212,14 @@ public class SubscriptionController {
                 giftBadge,
                 oneTimeDonationConfiguration.gift().expiration())));
 
+    final long maxTotalBackupMediaBytes =
+        dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
     final Map<String, BackupLevelConfiguration> backupLevels = subscriptionConfiguration.getBackupLevels()
         .entrySet().stream()
         .collect(Collectors.toMap(
             e -> String.valueOf(e.getKey()),
             e -> new BackupLevelConfiguration(
-                BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES,
+                maxTotalBackupMediaBytes,
                 e.getValue().playProductId(),
                 e.getValue().mediaTtl().toDays())));
 

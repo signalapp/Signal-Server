@@ -63,16 +63,18 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicBackupConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetBankMandateResponse;
 import org.whispersystems.textsecuregcm.controllers.SubscriptionController.GetSubscriptionConfigurationResponse;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
@@ -112,6 +114,7 @@ class SubscriptionControllerTest {
 
   private static final ObjectMapper YAML_MAPPER = SystemMapper.yamlMapper();
 
+  private static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = 1234L;
   private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = ConfigHelper.getSubscriptionConfig();
   private static final OneTimeDonationConfiguration ONETIME_CONFIG = ConfigHelper.getOneTimeConfig();
   private static final Subscriptions SUBSCRIPTIONS = mock(Subscriptions.class);
@@ -129,11 +132,12 @@ class SubscriptionControllerTest {
   private static final OneTimeDonationsManager ONE_TIME_DONATIONS_MANAGER = mock(OneTimeDonationsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
+  private static final DynamicConfigurationManager<DynamicConfiguration> DYNAMIC_CONFIGURATION_MANAGER = mock(DynamicConfigurationManager.class);
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK,
       SUBSCRIPTION_CONFIG, ONETIME_CONFIG,
       new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
           ZK_OPS, ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER,
-      BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR);
+      BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR, DYNAMIC_CONFIGURATION_MANAGER);
   private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK,
       ONETIME_CONFIG, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
@@ -154,6 +158,10 @@ class SubscriptionControllerTest {
 
     when(STRIPE_MANAGER.getProvider()).thenReturn(PaymentProvider.STRIPE);
     when(BRAINTREE_MANAGER.getProvider()).thenReturn(PaymentProvider.BRAINTREE);
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfiguration.getBackupConfiguration())
+        .thenReturn(new DynamicBackupConfiguration(null, null, null, null, MAX_TOTAL_BACKUP_MEDIA_BYTES));
+    when(DYNAMIC_CONFIGURATION_MANAGER.getConfiguration()).thenReturn(dynamicConfiguration);
 
     List.of(STRIPE_MANAGER, BRAINTREE_MANAGER)
         .forEach(manager -> when(manager.supportsPaymentMethod(any()))
@@ -1223,7 +1231,7 @@ class SubscriptionControllerTest {
     });
 
     assertThat(response.backup().levels()).containsOnlyKeys("201").extractingByKey("201").satisfies(configuration -> {
-      assertThat(configuration.storageAllowanceBytes()).isEqualTo(BackupManager.MAX_TOTAL_BACKUP_MEDIA_BYTES);
+      assertThat(configuration.storageAllowanceBytes()).isEqualTo(MAX_TOTAL_BACKUP_MEDIA_BYTES);
       assertThat(configuration.playProductId()).isEqualTo("testPlayProductId");
       assertThat(configuration.mediaTtlDays()).isEqualTo(40);
     });
