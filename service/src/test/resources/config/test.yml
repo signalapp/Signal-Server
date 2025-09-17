@@ -305,7 +305,7 @@ openTelemetry:
   url: http://127.0.0.1:4318/
 
 unidentifiedDelivery:
-  certificate: CikIp/SIvwESIQWXK5ikKQdvB7XpwPowV4djRj6Ni0I9MO12AVNpzQ9DDBJApovqX/gmIc+ukn4YeYtCsk9Q0EoDoXAZPD0D5vflcnncUs2fFLEQLlnSZ/ckXVChZByyuiNiegtl468+A+u5gw==
+  certificate: CikI14bfmgcSIQWEfA0sN1I082XmYJVRh6NzWg92E9FgnTpqTYxTrqpaIhJA4LnrrN/Dqign95JLaXeE0cJeRMoF3UM+GjjcY4LrJzDUGcqaJQsb6dWpRj5h79Z4F3epG4PJe4RNAUIG4oKXhQ==
   privateKey: secret://unidentifiedDelivery.privateKey
   expiresDays: 7
 
