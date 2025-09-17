@@ -68,7 +68,14 @@ public class VirtualThreadPinEventMonitor implements Managed {
   @Override
   public void stop() throws InterruptedException {
     // flushes events and waits for callbacks to finish
-    recordingStream.stop();
+    try {
+      recordingStream.stop();
+    } catch (final IllegalStateException _) {
+      // The JFR recorder registers its own shutdown hook with the JVM.
+      // Since shutdown hook execution order is not guaranteed but JFR's hook usually runs early,
+      // this recording may already be stopped before our managed resource cleanup runs.
+      logger.info("RecordingStream already stopped");
+    }
     // immediately frees all resources
     recordingStream.close();
   }
