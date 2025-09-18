@@ -37,11 +37,11 @@
   </modules>
 
   <properties>
-    <aws.sdk2.version>2.31.70</aws.sdk2.version>
-    <braintree.version>3.42.0</braintree.version>
-    <commons-csv.version>1.14.0</commons-csv.version>
-    <commons-io.version>2.19.0</commons-io.version>
-    <dropwizard.version>4.0.12</dropwizard.version>
+    <aws.sdk2.version>2.33.8</aws.sdk2.version>
+    <braintree.version>3.44.0</braintree.version>
+    <commons-csv.version>1.14.1</commons-csv.version>
+    <commons-io.version>2.20.0</commons-io.version>
+    <dropwizard.version>4.0.16</dropwizard.version>
     <dropwizard-metrics-datadog.version>1.1.14</dropwizard-metrics-datadog.version>
     <!-- Note: when updating FoundationDB, also include a copy of `libfdb_c.so` from the FoundationDB release at
     src/main/jib/usr/lib/libfdb_c.so. We use x86_64 builds without AVX instructions enabled (i.e. FoundationDB versions
@@ -50,39 +50,39 @@
     <foundationdb.version>7.3.62</foundationdb.version>
     <foundationdb.api-version>730</foundationdb.api-version>
     <foundationdb.client-library-sha256>bfed237b787fae3cde1222676e6bfbb0d218fc27bf9e903397a7a7aa96fb2d33</foundationdb.client-library-sha256>
-    <google-cloud-libraries.version>26.62.0</google-cloud-libraries.version>
+    <google-cloud-libraries.version>26.67.0</google-cloud-libraries.version>
     <grpc.version>1.73.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
-    <gson.version>2.13.1</gson.version>
+    <gson.version>2.13.2</gson.version>
     <!-- several libraries (AWS, Google Cloud) use Apache http components transitively, and we need to align them -->
     <httpcore.version>4.4.16</httpcore.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <jackson.version>2.19.1</jackson.version>
+    <jackson.version>2.20.0</jackson.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
-    <kotlin.version>2.2.0</kotlin.version>
+    <kotlin.version>2.2.20</kotlin.version>
     <!-- Logback 1.5.14+ has a null pointer bug: https://github.com/qos-ch/logback/issues/929. -->
     <logback.version>1.5.13</logback.version>
-    <logback-access-common.version>2.0.5</logback-access-common.version>
-    <lettuce.version>6.7.1.RELEASE</lettuce.version>
-    <libphonenumber.version>9.0.8</libphonenumber.version>
+    <logback-access-common.version>2.0.6</logback-access-common.version>
+    <lettuce.version>6.8.1.RELEASE</lettuce.version>
+    <libphonenumber.version>9.0.13</libphonenumber.version>
     <logstash.logback.version>8.1</logstash.logback.version>
-    <log4j-bom.version>2.25.0</log4j-bom.version>
+    <log4j-bom.version>2.25.1</log4j-bom.version>
     <luajava.version>3.5.0</luajava.version>
-    <micrometer.version>1.15.1</micrometer.version>
-    <netty.version>4.1.122.Final</netty.version>
+    <micrometer.version>1.15.4</micrometer.version>
+    <netty.version>4.1.127.Final</netty.version>
     <!-- Must be less than or equal to the value from Google libraries-bom which controls the protobuf runtime version.
     See https://protobuf.dev/support/cross-version-runtime-guarantee/. -->
     <protoc.version>4.29.4</protoc.version>
     <pushy.version>0.15.4</pushy.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
-    <reactor-bom.version>2024.0.7</reactor-bom.version> <!-- 3.7.4, see https://github.com/reactor/reactor#bom-versioning-scheme -->
+    <reactor-bom.version>2024.0.10</reactor-bom.version> <!-- 3.7.11, see https://github.com/reactor/reactor#bom-versioning-scheme -->
     <resilience4j.version>2.3.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
     <simple-grpc.version>0.1.0</simple-grpc.version>
     <slf4j.version>2.0.17</slf4j.version>
     <stripe.version>28.4.0</stripe.version>
-    <swagger.version>2.2.31</swagger.version>
-    <testcontainers.version>1.21.2</testcontainers.version>
+    <swagger.version>2.2.36</swagger.version>
+    <testcontainers.version>1.21.3</testcontainers.version>
 
     <!-- images to use in tests via testcontainers  -->
     <dynamodb.image>amazon/dynamodb-local:3.0.0@sha256:2fed5e3a965a4ba5aa6ac82baec57058b5a3848e959d705518f3fd579a77e76b</dynamodb.image>
@@ -90,8 +90,8 @@
     <redis.image>redis:7.4-alpine@sha256:af1d0fc3f63b02b13ff7906c9baf7c5b390b8881ca08119cd570677fe2f60b55</redis.image>
     <redis-cluster.image>docker.io/bitnami/redis-cluster:7.4@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af</redis-cluster.image>
 
-    <!-- eclipse-temurin:24.0.1_9-jre-noble (note: always use the multi-arch manifest *LIST* here) -->
-    <docker.image.sha256>a42f2330212db8bc1459a2550def18f6ec04a8c31494ffc20dea13dfa82a211e</docker.image.sha256>
+    <!-- eclipse-temurin:24.0.2_12-jre-noble (note: always use the multi-arch manifest *LIST* here) -->
+    <docker.image.sha256>85ecfc9bbb42af046d2bacbf1219d2005be4840cbfa16c2e6fd910d9ccfec95b</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -246,7 +246,7 @@
       <dependency>
         <groupId>org.ow2.asm</groupId>
         <artifactId>asm</artifactId>
-        <version>9.7.1 </version>
+        <version>9.8</version>
         <scope>test</scope>
       </dependency>
       <dependency>
@@ -272,13 +272,13 @@
       <dependency>
         <groupId>com.redis</groupId>
         <artifactId>testcontainers-redis</artifactId>
-        <version>2.2.2</version>
+        <version>2.2.4</version>
         <scope>test</scope>
       </dependency>
       <dependency>
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
-        <version>0.76.5</version>
+        <version>0.80.3</version>
       </dependency>
       <dependency>
         <groupId>org.signal</groupId>
@@ -352,7 +352,7 @@
     <dependency>
       <groupId>org.wiremock</groupId>
       <artifactId>wiremock</artifactId>
-      <version>3.12.1</version>
+      <version>3.13.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -551,7 +551,7 @@
               <rules>
                 <dependencyConvergence/>
                 <requireMavenVersion>
-                  <version>3.9.9</version>
+                  <version>3.9.11</version>
                 </requireMavenVersion>
               </rules>
             </configuration>
