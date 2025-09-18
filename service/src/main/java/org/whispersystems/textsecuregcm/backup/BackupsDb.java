@@ -242,7 +242,7 @@ public class BackupsDb {
    *
    * @param backupUser an already authorized backup user
    */
-  CompletableFuture<Void> ttlRefresh(final AuthenticatedBackupUser backupUser) {
+  CompletableFuture<StoredBackupAttributes> ttlRefresh(final AuthenticatedBackupUser backupUser) {
     final Instant today = clock.instant().truncatedTo(ChronoUnit.DAYS);
     // update message backup TTL
     return dynamoClient.updateItem(UpdateBuilder.forUser(backupTableName, backupUser)
@@ -250,7 +250,7 @@ public class BackupsDb {
             .updateItemBuilder()
             .returnValues(ReturnValue.ALL_OLD)
             .build())
-        .thenRun(Util.NOOP);
+        .thenApply(updateItemResponse -> fromItem(updateItemResponse.attributes()));
   }
 
 

@@ -17,7 +17,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -76,7 +75,6 @@ public class BackupManager {
 
   private static final String NUM_OBJECTS_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "numObjects");
   private static final String BYTES_USED_SUMMARY_NAME = MetricsUtil.name(BackupsDb.class, "bytesUsed");
-  private static final String BACKUPS_COUNTER_NAME = MetricsUtil.name(BackupsDb.class, "backups");
 
   private static final String SUCCESS_TAG_NAME = "success";
   private static final String FAILURE_REASON_TAG_NAME = "reason";
@@ -152,7 +150,6 @@ public class BackupManager {
         }));
   }
 
-
   /**
    * Create a form that may be used to upload a backup file for the backupId encoded in the presentation.
    * <p>
@@ -165,42 +162,12 @@ public class BackupManager {
       final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.FREE);
     checkBackupCredentialType(backupUser, BackupCredentialType.MESSAGES);
-    final Instant today = clock.instant().truncatedTo(ChronoUnit.DAYS);
-    final long maxTotalMediaSize =
-        dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
 
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
     return backupsDb
         .addMessageBackup(backupUser)
-        .thenApply(storedBackupAttributes -> {
-          final Instant previousRefreshTime = storedBackupAttributes.lastRefresh();
-          // Only publish a metric update once per day
-          if (previousRefreshTime.isBefore(today)) {
-            final Tags tags = Tags.of(
-                UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
-                Tag.of("tier", backupUser.backupLevel().name()));
-
-            DistributionSummary.builder(NUM_OBJECTS_SUMMARY_NAME)
-                .tags(tags)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry)
-                .record(storedBackupAttributes.numObjects());
-            DistributionSummary.builder(BYTES_USED_SUMMARY_NAME)
-                .tags(tags)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry)
-                .record(storedBackupAttributes.bytesUsed());
-
-            // Report that the backup is out of quota if it cannot store a max size media object
-            final boolean quotaExhausted = storedBackupAttributes.bytesUsed() >=
-                (maxTotalMediaSize - BackupManager.MAX_MEDIA_OBJECT_SIZE);
-
-            Metrics.counter(BACKUPS_COUNTER_NAME,
-                    tags.and("quotaExhausted", String.valueOf(quotaExhausted)))
-                .increment();
-          }
-          return cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser));
-        });
+        .thenApply(_ ->
+            cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser)));
   }
 
   public CompletableFuture<BackupUploadDescriptor> createTemporaryAttachmentUploadDescriptor(
@@ -226,7 +193,33 @@ public class BackupManager {
   public CompletableFuture<Void> ttlRefresh(final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.FREE);
     // update message backup TTL
-    return backupsDb.ttlRefresh(backupUser);
+    return backupsDb.ttlRefresh(backupUser).thenAccept(storedBackupAttributes -> {
+          if (backupUser.credentialType() == BackupCredentialType.MEDIA) {
+            final long maxTotalMediaSize =
+                dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
+
+            // Report that the backup is out of quota if it cannot store a max size media object
+            final boolean quotaExhausted = storedBackupAttributes.bytesUsed() >=
+                (maxTotalMediaSize - BackupManager.MAX_MEDIA_OBJECT_SIZE);
+
+            final Tags tags = Tags.of(
+                UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
+                Tag.of("type", backupUser.credentialType().name()),
+                Tag.of("tier", backupUser.backupLevel().name()),
+                Tag.of("quotaExhausted", String.valueOf(quotaExhausted)));
+
+            DistributionSummary.builder(NUM_OBJECTS_SUMMARY_NAME)
+                .tags(tags)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry)
+                .record(storedBackupAttributes.numObjects());
+            DistributionSummary.builder(BYTES_USED_SUMMARY_NAME)
+                .tags(tags)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry)
+                .record(storedBackupAttributes.bytesUsed());
+          }
+    });
   }
 
   public record BackupInfo(int cdn, String backupSubdir, String mediaSubdir, String messageBackupKey,

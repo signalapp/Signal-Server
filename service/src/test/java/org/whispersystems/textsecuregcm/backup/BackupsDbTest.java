@@ -54,22 +54,30 @@ public class BackupsDbTest {
   @Test
   public void trackMediaStats() {
     final AuthenticatedBackupUser backupUser = backupUser(TestRandomUtil.nextBytes(16), BackupCredentialType.MEDIA, BackupLevel.PAID);
-    // add at least one message backup so we can describe it
-    backupsDb.addMessageBackup(backupUser).join();
     int total = 0;
     for (int i = 0; i < 5; i++) {
       this.backupsDb.trackMedia(backupUser, 1, i).join();
       total += i;
       final BackupsDb.BackupDescription description = this.backupsDb.describeBackup(backupUser).join();
-      assertThat(description.mediaUsedSpace().get()).isEqualTo(total);
+      final StoredBackupAttributes storedAttrs = backupsDb.ttlRefresh(backupUser).join();
+      assertThat(description.mediaUsedSpace().orElseThrow())
+          .isEqualTo(total)
+          .isEqualTo(storedAttrs.bytesUsed());
+      assertThat(storedAttrs.numObjects()).isEqualTo(i + 1);
     }
+
 
     for (int i = 0; i < 5; i++) {
       this.backupsDb.trackMedia(backupUser, -1, -i).join();
       total -= i;
       final BackupsDb.BackupDescription description = this.backupsDb.describeBackup(backupUser).join();
-      assertThat(description.mediaUsedSpace().get()).isEqualTo(total);
+      final StoredBackupAttributes storedAttrs = backupsDb.ttlRefresh(backupUser).join();
+      assertThat(description.mediaUsedSpace().orElseThrow())
+          .isEqualTo(total)
+          .isEqualTo(storedAttrs.bytesUsed());
+      assertThat(storedAttrs.numObjects()).isEqualTo(5 - i - 1);
     }
+
   }
 
   @ParameterizedTest
