@@ -28,6 +28,7 @@ import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.logs.SdkLoggerProvider;
 import io.opentelemetry.sdk.logs.export.BatchLogRecordProcessor;
 import io.opentelemetry.sdk.resources.Resource;
+import io.opentelemetry.sdk.resources.ResourceBuilder;
 import io.opentelemetry.semconv.ServiceAttributes;
 
 import java.time.Duration;
@@ -122,15 +123,14 @@ public class MetricsUtil {
         .map(u -> u.endsWith("/v1/logs") ? u : u + "/v1/logs")
         .orElse("http://localhost:4318/v1/logs");
 
+    final ResourceBuilder resource = Resource.builder();
+    config.getOpenTelemetryConfiguration().resourceAttributes().forEach((k, v) -> resource.put(k, v));
+
     final OpenTelemetrySdk openTelemetry =
       OpenTelemetrySdk.builder()
         .setLoggerProvider(
           SdkLoggerProvider.builder()
-            .setResource(
-              Resource.builder()
-                .put(ServiceAttributes.SERVICE_NAME, "chat")
-                .put(ServiceAttributes.SERVICE_VERSION, WhisperServerVersion.getServerVersion())
-                .build())
+            .setResource(resource.build())
             .addLogRecordProcessor(
               BatchLogRecordProcessor.builder(
                 OtlpHttpLogRecordExporter.builder()

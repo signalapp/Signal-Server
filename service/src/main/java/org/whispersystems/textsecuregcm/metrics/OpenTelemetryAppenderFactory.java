@@ -15,7 +15,6 @@ import io.dropwizard.logging.common.async.AsyncAppenderFactory;
 import io.dropwizard.logging.common.filter.LevelFilterFactory;
 import io.dropwizard.logging.common.layout.LayoutFactory;
 import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender;
-import jakarta.validation.constraints.NotEmpty;
 
 @JsonTypeName("otlp")
 public class OpenTelemetryAppenderFactory extends AbstractAppenderFactory<ILoggingEvent> {
