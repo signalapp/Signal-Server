@@ -31,6 +31,8 @@ import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.semconv.ServiceAttributes;
 
 import java.time.Duration;
+import java.util.Map;
+import java.util.Optional;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -112,6 +114,14 @@ public class MetricsUtil {
     if (!config.getOpenTelemetryConfiguration().enabled()) {
       return;
     }
+
+    final Map<String, String> env = System.getenv();
+    final String endpoint =
+      Optional.ofNullable(env.get("OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"))
+        .or(() -> Optional.ofNullable(env.get("OTEL_EXPORTER_OTLP_ENDPOINT")))
+        .map(u -> u.endsWith("/v1/logs") ? u : u + "/v1/logs")
+        .orElse("http://localhost:4318/v1/logs");
+
     final OpenTelemetrySdk openTelemetry =
       OpenTelemetrySdk.builder()
         .setLoggerProvider(
@@ -122,7 +132,10 @@ public class MetricsUtil {
                 .put(ServiceAttributes.SERVICE_VERSION, WhisperServerVersion.getServerVersion())
                 .build())
             .addLogRecordProcessor(
-              BatchLogRecordProcessor.builder(OtlpHttpLogRecordExporter.getDefault()).build())
+              BatchLogRecordProcessor.builder(
+                OtlpHttpLogRecordExporter.builder()
+                  .setEndpoint(endpoint)
+                  .build()).build())
             .build())
         .build();
 
