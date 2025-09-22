@@ -1,1 +1,2 @@
 org.whispersystems.textsecuregcm.metrics.LogstashTcpSocketAppenderFactory
+org.whispersystems.textsecuregcm.metrics.OpenTelemetryAppenderFactory

@@ -385,6 +385,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     dynamicConfigurationManager.start();
 
     MetricsUtil.configureRegistries(config, environment, dynamicConfigurationManager);
+    MetricsUtil.configureLogging(config, environment);
 
     ExperimentEnrollmentManager experimentEnrollmentManager = new ExperimentEnrollmentManager(dynamicConfigurationManager);
 

@@ -35,7 +35,7 @@
       <artifactId>app-store-server-library</artifactId>
       <version>${storekit.version}</version>
       <exclusions>
-        <!-- conflicts with okio-jvm from apollo-api-jvm -->
+        <!-- conflicts with other users; resolved manually with explicit import -->
         <exclusion>
           <groupId>com.squareup.okio</groupId>
           <artifactId>okio-jvm</artifactId>
@@ -199,6 +199,28 @@
     </dependency>
 
     <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-exporter-otlp</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry.instrumentation</groupId>
+      <artifactId>opentelemetry-logback-appender-1.0</artifactId>
+      <!-- *all* opentelemetry-logback-appender versions are "alpha" despite the advanced version number -->
+      <version>2.19.0-alpha</version>
+      <exclusions>
+        <!-- incubator packages aren't included in the opentelemetry BOM, and we don't use them -->
+        <exclusion>
+          <groupId>io.opentelemetry.instrumentation</groupId>
+          <artifactId>opentelemetry-instrumentation-api-incubator</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
       <groupId>party.iroiro.luajava</groupId>
       <artifactId>luajava</artifactId>
       <version>${luajava.version}</version>
@@ -258,16 +280,11 @@
       </exclusions>
     </dependency>
 
-    <!-- resolve opentelemetry-semconv conflicts from lower in firebase-admin and firestore dependency trees -->
     <dependency>
       <groupId>com.google.firebase</groupId>
       <artifactId>firebase-admin</artifactId>
       <version>${firebase-admin.version}</version>
       <exclusions>
-        <exclusion>
-          <groupId>io.opentelemetry.semconv</groupId>
-          <artifactId>opentelemetry-semconv</artifactId>
-        </exclusion>
         <!-- our direct import of guava brings in a more recent version of failureaccess, so excluding it here -->
         <exclusion>
           <groupId>com.google.guava</groupId>
@@ -275,18 +292,15 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <dependency>
-      <groupId>io.opentelemetry.semconv</groupId>
-      <artifactId>opentelemetry-semconv</artifactId>
-      <version>1.37.0</version>
-    </dependency>
+
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-firestore</artifactId>
       <exclusions>
+        <!-- incubator packages aren't included in the opentelemetry BOM, and we don't use them -->
         <exclusion>
-          <groupId>io.opentelemetry.semconv</groupId>
-          <artifactId>opentelemetry-semconv</artifactId>
+          <groupId>io.opentelemetry.instrumentation</groupId>
+          <artifactId>opentelemetry-instrumentation-api-incubator</artifactId>
         </exclusion>
         <!-- our direct import of guava brings in a more recent version of failureaccess, so excluding it here -->
         <exclusion>
@@ -561,7 +575,19 @@
           <groupId>org.jetbrains</groupId>
           <artifactId>annotations</artifactId>
         </exclusion>
+        <!-- conflicts with other users; resolved manually with explicit import -->
+        <exclusion>
+          <groupId>com.squareup.okio</groupId>
+          <artifactId>okio-jvm</artifactId>
+        </exclusion>
       </exclusions>
+    </dependency>
+
+    <!-- to resolve conflicting imports from other dependencies -->
+    <dependency>
+      <groupId>com.squareup.okio</groupId>
+      <artifactId>okio-jvm</artifactId>
+      <version>3.15.0</version>
     </dependency>
 
   </dependencies>
