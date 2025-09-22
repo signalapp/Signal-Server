@@ -89,6 +89,9 @@ public record RegistrationRequest(@Schema(requiredMode = Schema.RequiredMode.NOT
   @AssertTrue
   @Schema(hidden = true)
   boolean hasExactlyOneMessageDeliveryChannel() {
+    if (deviceActivationRequest == null || accountAttributes == null) {
+      return false;
+    }
     if (accountAttributes.getFetchesMessages()) {
       return deviceActivationRequest().apnToken().isEmpty() && deviceActivationRequest().gcmToken().isEmpty();
     } else {
