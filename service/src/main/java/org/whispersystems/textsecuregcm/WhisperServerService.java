@@ -1193,8 +1193,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     provisioning.setAsyncSupported(true);
 
     environment.admin().addTask(new SetRequestLoggingEnabledTask());
-
-    MetricsUtil.registerSystemResourceMetrics(environment);
   }
 
   private void registerExceptionMappers(Environment environment,

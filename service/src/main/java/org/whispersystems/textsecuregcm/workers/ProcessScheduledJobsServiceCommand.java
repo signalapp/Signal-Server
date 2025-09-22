@@ -166,8 +166,6 @@ public class ProcessScheduledJobsServiceCommand extends ServerCommand<WhisperSer
 
     environment.lifecycle().manage(new ScheduledJobProcessor(jobScheduler, scheduledExecutorService, fixedDelaySeconds));
 
-    MetricsUtil.registerSystemResourceMetrics(environment);
-
     super.run(environment, namespace, configuration);
   }
 }

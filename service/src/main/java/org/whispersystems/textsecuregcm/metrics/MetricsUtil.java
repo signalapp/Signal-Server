@@ -109,6 +109,8 @@ public class MetricsUtil {
     environment.lifecycle().addEventListener(new ApplicationShutdownMonitor(Metrics.globalRegistry));
     environment.lifecycle().addEventListener(
         new MicrometerRegistryManager(Metrics.globalRegistry, shutdownWaitDuration));
+
+    registerSystemResourceMetrics();
   }
 
   public static void configureLogging(final WhisperServerConfiguration config, final Environment environment) {
@@ -186,7 +188,7 @@ public class MetricsUtil {
             && id.getName().startsWith(awsSdkMetricNamePrefix)));
   }
 
-  public static void registerSystemResourceMetrics(final Environment environment) {
+  static void registerSystemResourceMetrics() {
     new ProcessorMetrics().bindTo(Metrics.globalRegistry);
     new FileDescriptorMetrics().bindTo(Metrics.globalRegistry);
 

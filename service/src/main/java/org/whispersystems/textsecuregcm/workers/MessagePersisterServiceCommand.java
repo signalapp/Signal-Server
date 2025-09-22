@@ -14,7 +14,6 @@ import java.time.Duration;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
@@ -69,8 +68,6 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
         namespace.getInt(WORKER_COUNT));
 
     environment.lifecycle().manage(messagePersister);
-
-    MetricsUtil.registerSystemResourceMetrics(environment);
 
     super.run(environment, namespace, configuration);
   }

@@ -96,8 +96,6 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
 
     environment.lifecycle().manage(pushNotificationScheduler);
 
-    MetricsUtil.registerSystemResourceMetrics(environment);
-
     super.run(environment, namespace, configuration);
   }
 
