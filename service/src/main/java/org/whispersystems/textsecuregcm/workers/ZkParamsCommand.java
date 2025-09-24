@@ -10,6 +10,8 @@ import io.dropwizard.core.setup.Bootstrap;
 import java.util.Base64;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
+import org.signal.libsignal.zkgroup.GenericServerPublicParams;
+import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.ServerPublicParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 
@@ -24,13 +26,23 @@ public class ZkParamsCommand extends Command {
 
   }
 
+  private static String formatKey(byte[] contents) {
+        return Base64.getEncoder().encodeToString(contents);
+      }
+
   @Override
   public void run(Bootstrap<?> bootstrap, Namespace namespace) throws Exception {
     ServerSecretParams serverSecretParams = ServerSecretParams.generate();
     ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
 
-    System.out.println("Public: " + Base64.getEncoder().withoutPadding().encodeToString(serverPublicParams.serialize()));
-    System.out.println("Private: " + Base64.getEncoder().withoutPadding().encodeToString(serverSecretParams.serialize()));
+    System.out.println("Public: " + formatKey(serverPublicParams.serialize()));
+    System.out.println("Private: " + formatKey(serverSecretParams.serialize()));
+
+    GenericServerSecretParams genericZkSecretParams = GenericServerSecretParams.generate();
+    GenericServerPublicParams genericZkPublicParams = genericZkSecretParams.getPublicParams();
+
+    System.out.println("zk Public: " + formatKey(genericZkPublicParams.serialize()));
+    System.out.println("zk Private: " + formatKey(genericZkSecretParams.serialize()));
   }
 
 }
