@@ -35,7 +35,7 @@ public record DynamicBackupConfiguration(
       usageCheckpointCount = 10;
     }
     if (maxQuotaStaleness == null) {
-      maxQuotaStaleness = Duration.ofSeconds(10);
+      maxQuotaStaleness = Duration.ofDays(1);
     }
     if (maxTotalMediaSize == null) {
       maxTotalMediaSize = DataSize.gibibytes(100).toBytes();
