@@ -12,6 +12,10 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
@@ -20,11 +24,6 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
 import org.whispersystems.websocket.WebSocketResourceProvider;
-
-import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
 
 /**
  * Gathers and reports request-level metrics for WebSocket traffic only.
@@ -52,6 +51,9 @@ public class MetricsRequestEventListener implements RequestEventListener {
 
   @VisibleForTesting
   static final String TRAFFIC_SOURCE_TAG = "trafficSource";
+
+  @VisibleForTesting
+  static final String AUTHENTICATED_TAG = "authenticated";
 
   private final TrafficSource trafficSource;
   private final MeterRegistry meterRegistry;
@@ -86,6 +88,12 @@ public class MetricsRequestEventListener implements RequestEventListener {
             .map(ContainerResponse::getStatus)
             .orElse(499))));
         tags.add(Tag.of(TRAFFIC_SOURCE_TAG, trafficSource.name().toLowerCase()));
+        tags.add(Tag.of(AUTHENTICATED_TAG, Optional.ofNullable(event.getContainerRequest().getProperty(WebSocketResourceProvider.REUSABLE_AUTH_PROPERTY))
+            .filter(Optional.class::isInstance)
+            .map(Optional.class::cast)
+            .map(Optional::isPresent)
+            .orElse(false)
+            .toString()));
 
         @Nullable final String userAgent;
         {
