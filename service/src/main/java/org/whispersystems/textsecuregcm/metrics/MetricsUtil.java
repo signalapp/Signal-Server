@@ -86,6 +86,7 @@ public class MetricsUtil {
               "env", config.getDatadogConfiguration().getEnvironment()));
 
       configureMeterFilters(dogstatsdMeterRegistry.config(), dynamicConfigurationManager);
+      configureDatadogAllowList(dogstatsdMeterRegistry.config(), dynamicConfigurationManager);
       Metrics.addRegistry(dogstatsdMeterRegistry);
 
       shutdownWaitDuration = config.getDatadogConfiguration().getShutdownWaitDuration();
@@ -186,6 +187,14 @@ public class MetricsUtil {
         .meterFilter(MeterFilter.denyNameStartsWith(MessageMetrics.DELIVERY_LATENCY_TIMER_NAME + ".percentile"))
         .meterFilter(MeterFilter.deny(id -> !dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().enableAwsSdkMetrics()
             && id.getName().startsWith(awsSdkMetricNamePrefix)));
+  }
+
+  @VisibleForTesting
+  static void configureDatadogAllowList(
+      final MeterRegistry.Config config, final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+    config.meterFilter(MeterFilter.denyUnless(id ->
+            dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().datadogAllowList() == null ||
+            dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().datadogAllowList().contains(id.getName())));
   }
 
   static void registerSystemResourceMetrics() {

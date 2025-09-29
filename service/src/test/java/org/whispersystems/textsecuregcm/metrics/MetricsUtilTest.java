@@ -14,6 +14,8 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
+import java.util.Set;
+
 import org.assertj.core.api.AbstractStringAssert;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -37,7 +39,7 @@ class MetricsUtilTest {
   @ValueSource(booleans = {true, false})
   void lettuceTagRejection(final boolean enableLettuceRemoteTag) {
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(enableLettuceRemoteTag, false);
+    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(enableLettuceRemoteTag, false, null);
     when(dynamicConfiguration.getMetricsConfiguration()).thenReturn(metricsConfiguration);
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
@@ -70,7 +72,7 @@ class MetricsUtilTest {
         mock(DynamicConfigurationManager.class);
 
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false, enableAwsSdkMetrics);
+    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false, enableAwsSdkMetrics, null);
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getMetricsConfiguration()).thenReturn(metricsConfiguration);
@@ -81,4 +83,25 @@ class MetricsUtilTest {
 
     assertThat(registry.getMeters()).hasSize(enableAwsSdkMetrics ? 1 : 0);
   }
+
+  @ParameterizedTest
+  @ValueSource(booleans={true, false})
+  void datadogAllowList(boolean useAllowlist) {
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(true, true, useAllowlist ? Set.of("chat.ImportantMetrics.messages") : null);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+    when(dynamicConfiguration.getMetricsConfiguration()).thenReturn(metricsConfiguration);
+
+    final MeterRegistry registry = new SimpleMeterRegistry();
+    MetricsUtil.configureDatadogAllowList(registry.config(), dynamicConfigurationManager);
+    registry.counter("chat.ImportantMetrics.messages").increment();
+    registry.counter("chat.ChattyMetrics.days_since_last_incident").increment();
+
+    assertThat(registry.getMeters()).hasSize(useAllowlist ? 1 : 2);
+  }
+
 }

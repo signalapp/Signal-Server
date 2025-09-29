@@ -50,7 +50,7 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false, false);
+  DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false, false, null);
 
   @JsonProperty
   @Valid
