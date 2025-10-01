@@ -27,7 +27,7 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
  *                                        GraphQL HTTP client; if `null`, uses the global default configuration
  */
 public record BraintreeConfiguration(@NotBlank String merchantId,
-                                     @NotBlank String publicKey,
+                                     @NotNull SecretString publicKey,
                                      @NotNull SecretString privateKey,
                                      @NotBlank String environment,
                                      @Valid @NotEmpty Map<PaymentMethod, Set<@NotBlank String>> supportedCurrenciesByPaymentMethod,

@@ -740,7 +740,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     StripeManager stripeManager = new StripeManager(config.getStripe().apiKey().value(), subscriptionProcessorExecutor,
         config.getStripe().idempotencyKeyGenerator().value(), config.getStripe().boostDescription(), config.getStripe().supportedCurrenciesByPaymentMethod());
     BraintreeManager braintreeManager = new BraintreeManager(config.getBraintree().merchantId(),
-        config.getBraintree().publicKey(), config.getBraintree().privateKey().value(),
+        config.getBraintree().publicKey().value(), config.getBraintree().privateKey().value(),
         config.getBraintree().environment(),
         config.getBraintree().supportedCurrenciesByPaymentMethod(), config.getBraintree().merchantAccounts(),
         config.getBraintree().graphqlUrl(), currencyManager, config.getBraintree().pubSubPublisher().build(),

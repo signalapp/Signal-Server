@@ -57,7 +57,7 @@ stripe:
 
 braintree:
   merchantId: unset
-  publicKey: unset
+  publicKey: secret://braintree.publicKey
   privateKey: secret://braintree.privateKey
   environment: unset
   graphqlUrl: unset
