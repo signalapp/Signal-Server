@@ -78,7 +78,8 @@ public class ChallengeController {
           AnswerCaptchaChallengeRequest.class}))})
   )
   @ApiResponse(responseCode = "200", description = "Indicates the challenge proof was accepted")
-  @ApiResponse(responseCode = "428", description = "Submitted captcha token is invalid")
+  @ApiResponse(responseCode = "400", description = "The request was invalid")
+  @ApiResponse(responseCode = "428", description = "Submitted captcha token was not accepted")
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
