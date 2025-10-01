@@ -24,7 +24,6 @@ import java.security.InvalidKeyException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -36,6 +35,7 @@ import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
+import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -97,17 +97,13 @@ public class CertificateController {
       @QueryParam("redemptionStartSeconds") long startSeconds,
       @QueryParam("redemptionEndSeconds") long endSeconds) {
 
-    final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
-    final Instant redemptionStart = Instant.ofEpochSecond(startSeconds);
-    final Instant redemptionEnd = Instant.ofEpochSecond(endSeconds);
-
-    if (redemptionStart.isAfter(redemptionEnd) ||
-        redemptionStart.isBefore(startOfDay) ||
-        redemptionEnd.isAfter(startOfDay.plus(MAX_REDEMPTION_DURATION)) ||
-        !redemptionStart.equals(redemptionStart.truncatedTo(ChronoUnit.DAYS)) ||
-        !redemptionEnd.equals(redemptionEnd.truncatedTo(ChronoUnit.DAYS))) {
-
-      throw new BadRequestException();
+    final RedemptionRange redemptionRange;
+    try {
+      final Instant redemptionStart = Instant.ofEpochSecond(startSeconds);
+      final Instant redemptionEnd = Instant.ofEpochSecond(endSeconds);
+      redemptionRange = RedemptionRange.inclusive(clock, redemptionStart, redemptionEnd);
+    } catch (IllegalArgumentException e) {
+      throw new BadRequestException(e.getCause());
     }
 
     final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
@@ -116,12 +112,10 @@ public class CertificateController {
     final List<GroupCredentials.GroupCredential> credentials = new ArrayList<>();
     final List<GroupCredentials.CallLinkAuthCredential> callLinkAuthCredentials = new ArrayList<>();
 
-    Instant redemption = redemptionStart;
-
     final ServiceId.Aci aci = new ServiceId.Aci(account.getIdentifier(IdentityType.ACI));
     final ServiceId.Pni pni = new ServiceId.Pni(account.getIdentifier(IdentityType.PNI));
 
-    while (!redemption.isAfter(redemptionEnd)) {
+    for (Instant redemption : redemptionRange) {
       AuthCredentialWithPniResponse authCredentialWithPni = serverZkAuthOperations.issueAuthCredentialWithPniZkc(aci, pni, redemption);
       credentials.add(new GroupCredentials.GroupCredential(
           authCredentialWithPni.serialize(),
@@ -130,8 +124,6 @@ public class CertificateController {
       callLinkAuthCredentials.add(new GroupCredentials.CallLinkAuthCredential(
           CallLinkAuthCredentialResponse.issueCredential(aci, redemption, genericServerSecretParams).serialize(),
           redemption.getEpochSecond()));
-
-      redemption = redemption.plus(Duration.ofDays(1));
     }
 
     return new GroupCredentials(credentials, callLinkAuthCredentials, pni.getRawUUID());

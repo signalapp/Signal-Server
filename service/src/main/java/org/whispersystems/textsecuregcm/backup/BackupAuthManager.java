@@ -18,6 +18,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -31,6 +32,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -177,15 +179,13 @@ public class BackupAuthManager {
    *
    * @param account         The account to create the credentials for
    * @param credentialType  The type of backup credentials to create
-   * @param redemptionStart The day (must be truncated to a day boundary) the first credential should be valid
-   * @param redemptionEnd   The day (must be truncated to a day boundary) the last credential should be valid
+   * @param redemptionRange The time range to return credentials for
    * @return Credentials and the day on which they may be redeemed
    */
   public CompletableFuture<List<Credential>> getBackupAuthCredentials(
       final Account account,
       final BackupCredentialType credentialType,
-      final Instant redemptionStart,
-      final Instant redemptionEnd) {
+      final RedemptionRange redemptionRange) {
 
     // If the account has an expired payment, clear it before continuing
     if (hasExpiredVoucher(account)) {
@@ -194,17 +194,7 @@ public class BackupAuthManager {
         if (hasExpiredVoucher(a)) {
           a.setBackupVoucher(null);
         }
-      }).thenCompose(updated -> getBackupAuthCredentials(updated, credentialType, redemptionStart, redemptionEnd));
-    }
-
-    final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
-    if (redemptionStart.isAfter(redemptionEnd) ||
-        redemptionStart.isBefore(startOfDay) ||
-        redemptionEnd.isAfter(startOfDay.plus(MAX_REDEMPTION_DURATION)) ||
-        !redemptionStart.equals(redemptionStart.truncatedTo(ChronoUnit.DAYS)) ||
-        !redemptionEnd.equals(redemptionEnd.truncatedTo(ChronoUnit.DAYS))) {
-
-      throw Status.INVALID_ARGUMENT.withDescription("invalid redemption window").asRuntimeException();
+      }).thenCompose(updated -> getBackupAuthCredentials(updated, credentialType, redemptionRange));
     }
 
     // fetch the blinded backup-id the account should have previously committed to
@@ -216,8 +206,7 @@ public class BackupAuthManager {
 
       // create a credential for every day in the requested period
       final BackupAuthCredentialRequest credentialReq = new BackupAuthCredentialRequest(committedBytes);
-      return CompletableFuture.completedFuture(Stream
-          .iterate(redemptionStart, redemptionTime -> !redemptionTime.isAfter(redemptionEnd), curr -> curr.plus(Duration.ofDays(1)))
+      return CompletableFuture.completedFuture(StreamSupport.stream(redemptionRange.spliterator(), false)
           .map(redemptionTime -> {
             // Check if the account has a voucher that's good for a certain receiptLevel at redemption time, otherwise
             // use the default receipt level

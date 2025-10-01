@@ -45,6 +45,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
@@ -65,6 +66,7 @@ import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
+import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.CopyParameters;
@@ -309,6 +311,13 @@ public class ArchiveController {
     final Map<BackupCredentialType, List<BackupAuthCredentialsResponse.BackupAuthCredential>> credentialsByType =
         new ConcurrentHashMap<>();
 
+    final RedemptionRange redemptionRange;
+    try {
+      redemptionRange = RedemptionRange.inclusive(Clock.systemUTC(), Instant.ofEpochSecond(startSeconds), Instant.ofEpochSecond(endSeconds));
+    } catch (IllegalArgumentException e) {
+      throw new BadRequestException(e.getMessage());
+    }
+
     return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())
         .thenCompose(maybeAccount -> {
           final Account account = maybeAccount
@@ -318,7 +327,7 @@ public class ArchiveController {
                   .map(credentialType -> this.backupAuthManager.getBackupAuthCredentials(
                           account,
                           credentialType,
-                          Instant.ofEpochSecond(startSeconds), Instant.ofEpochSecond(endSeconds))
+                          redemptionRange)
                       .thenAccept(credentials -> {
                         backupMetrics.updateGetCredentialCounter(
                             UserAgentTagUtil.getPlatformTag(userAgent),

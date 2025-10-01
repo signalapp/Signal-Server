@@ -28,9 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
 import org.signal.chat.backup.BackupsGrpc;
 import org.signal.chat.backup.GetBackupAuthCredentialsRequest;
@@ -51,6 +49,7 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequestContext;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
+import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupAuthTestUtil;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -193,6 +192,7 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
   void getCredentials() {
     final Instant start = Instant.now().truncatedTo(ChronoUnit.DAYS);
     final Instant end = start.plus(Duration.ofDays(1));
+    final RedemptionRange expectedRange = RedemptionRange.inclusive(Clock.systemUTC(), start, end);
 
     final Map<BackupCredentialType, List<BackupAuthManager.Credential>> expectedCredentialsByType =
         EnumMapUtil.toEnumMap(BackupCredentialType.class, credentialType -> backupAuthTestUtil.getCredentials(
@@ -200,7 +200,7 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
             start, end));
 
     expectedCredentialsByType.forEach((credentialType, expectedCredentials) ->
-        when(backupAuthManager.getBackupAuthCredentials(any(), eq(credentialType), eq(start), eq(end)))
+        when(backupAuthManager.getBackupAuthCredentials(any(), eq(credentialType), eq(expectedRange)))
             .thenReturn(CompletableFuture.completedFuture(expectedCredentials)));
 
     final GetBackupAuthCredentialsResponse credentialResponse = authenticatedServiceStub().getBackupAuthCredentials(

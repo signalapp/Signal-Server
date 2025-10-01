@@ -21,6 +21,7 @@ import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequestContext;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.backups.BackupLevel;
+import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.storage.Account;
 
@@ -73,6 +74,8 @@ public class BackupAuthTestUtil {
       case FREE -> null;
       case PAID -> new Account.BackupVoucher(201L, redemptionEnd.plus(1, ChronoUnit.SECONDS));
     });
-    return issuer.getBackupAuthCredentials(account, credentialType, redemptionStart, redemptionEnd).join();
+    final RedemptionRange redemptionRange;
+    redemptionRange = RedemptionRange.inclusive(clock, redemptionStart, redemptionEnd);
+    return issuer.getBackupAuthCredentials(account, credentialType, redemptionRange).join();
   }
 }
