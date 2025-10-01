@@ -1484,8 +1484,10 @@ paths:
       responses:
         "200":
           description: Indicates the challenge proof was accepted
+        "400":
+          description: The request was invalid
         "428":
-          description: Submitted captcha token is invalid
+          description: Submitted captcha token was not accepted
         "429":
           description: Too many attempts
           headers:
