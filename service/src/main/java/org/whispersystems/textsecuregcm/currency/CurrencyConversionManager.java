@@ -138,24 +138,15 @@ public class CurrencyConversionManager implements Managed {
 
   private void updateCoinGeckoCacheIfNecessary() throws IOException {
     {
-      final Map<String, BigDecimal> coinGeckoValuesFromSharedCache = cacheCluster.withCluster(connection -> {
-        final Map<String, BigDecimal> parsedSharedCacheData = new HashMap<>();
-
-        connection.sync().hgetall(COIN_GECKO_SHARED_CACHE_DATA_KEY).forEach((currency, conversionRate) ->
-            parsedSharedCacheData.put(currency, new BigDecimal(conversionRate)));
-
-        return parsedSharedCacheData;
-      });
+      final Map<String, BigDecimal> coinGeckoValuesFromSharedCache = getCachedData(COIN_GECKO_SHARED_CACHE_DATA_KEY);
 
       if (coinGeckoValuesFromSharedCache != null && !coinGeckoValuesFromSharedCache.isEmpty()) {
         cachedCoinGeckoValues = coinGeckoValuesFromSharedCache;
       }
     }
 
-    final boolean shouldUpdateSharedCache = cacheCluster.withCluster(connection ->
-        "OK".equals(connection.sync().set(COIN_GECKO_SHARED_CACHE_CURRENT_KEY,
-            "true",
-            SetArgs.Builder.nx().ex(COIN_GECKO_REFRESH_INTERVAL))));
+    final boolean shouldUpdateSharedCache = shouldUpdateSharedCache(COIN_GECKO_SHARED_CACHE_CURRENT_KEY,
+        COIN_GECKO_REFRESH_INTERVAL);
 
     if (shouldUpdateSharedCache || cachedCoinGeckoValues == null) {
       final Map<String, BigDecimal> conversionRatesFromCoinGecko = new HashMap<>(currencies.size());
@@ -167,16 +158,35 @@ public class CurrencyConversionManager implements Managed {
       cachedCoinGeckoValues = conversionRatesFromCoinGecko;
 
       if (shouldUpdateSharedCache) {
-        cacheCluster.useCluster(connection -> {
-          final Map<String, String> sharedCoinGeckoValues = new HashMap<>();
-
-          cachedCoinGeckoValues.forEach((currency, conversionRate) ->
-              sharedCoinGeckoValues.put(currency, conversionRate.toString()));
-
-          connection.sync().hset(COIN_GECKO_SHARED_CACHE_DATA_KEY, sharedCoinGeckoValues);
-        });
+        updateCachedData(COIN_GECKO_SHARED_CACHE_DATA_KEY, cachedCoinGeckoValues);
       }
     }
+  }
+
+  private Map<String, BigDecimal> getCachedData(final String cacheKey) {
+    return cacheCluster.withCluster(connection -> {
+      final Map<String, BigDecimal> parsedSharedCacheData = new HashMap<>();
+
+      connection.sync().hgetall(cacheKey).forEach((currency, conversionRate) ->
+          parsedSharedCacheData.put(currency, new BigDecimal(conversionRate)));
+
+      return parsedSharedCacheData;
+    });
+  }
+
+  private boolean shouldUpdateSharedCache(final String cacheKey, final Duration interval) {
+    return cacheCluster.withCluster(connection ->
+        "OK".equals(connection.sync().set(cacheKey, "true", SetArgs.Builder.nx().ex(interval))));
+  }
+
+  private void updateCachedData(final String cacheKey, final Map<String, BigDecimal> data) {
+    cacheCluster.useCluster(connection -> {
+      final Map<String, String> sharedCoinGeckoValues = new HashMap<>();
+
+      data.forEach((currency, conversionRate) -> sharedCoinGeckoValues.put(currency, conversionRate.toString()));
+
+      connection.sync().hset(cacheKey, sharedCoinGeckoValues);
+    });
   }
 
   private BigDecimal stripTrailingZerosAfterDecimal(BigDecimal bigDecimal) {
