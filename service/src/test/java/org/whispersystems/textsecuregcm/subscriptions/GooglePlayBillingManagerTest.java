@@ -273,7 +273,7 @@ class GooglePlayBillingManagerTest {
     return Stream.of(
         Arguments.of(404, SubscriptionNotFoundException.class),
         Arguments.of(410, SubscriptionNotFoundException.class),
-        Arguments.of(400, HttpResponseException.class)
+        Arguments.of(400, IOException.class)
     );
   }
   @ParameterizedTest

@@ -359,8 +359,10 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
           ? ((GoogleJsonResponseException) e).getDetails().toString()
           : "";
 
-      logger.warn("Unexpected HTTP status code {} from androidpublisher: {}", e.getStatusCode(), details);
-      throw new UncheckedIOException(e);
+      final String message =
+          String.format("Unexpected HTTP status code %s from androidpublisher: %s", e.getStatusCode(), details);
+      logger.warn(message);
+      throw new UncheckedIOException(new IOException(message));
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
