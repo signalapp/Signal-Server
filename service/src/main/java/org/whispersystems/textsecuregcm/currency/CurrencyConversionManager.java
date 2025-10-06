@@ -37,10 +37,10 @@ public class CurrencyConversionManager implements Managed {
   @VisibleForTesting
   static final Duration FIXER_REFRESH_INTERVAL = Duration.ofHours(2);
 
-  private static final Duration COIN_GECKO_CAP_REFRESH_INTERVAL = Duration.ofMinutes(5);
+  private static final Duration COIN_GECKO_REFRESH_INTERVAL = Duration.ofMinutes(5);
 
   @VisibleForTesting
-  static final String COIN_GECKO_CAP_SHARED_CACHE_CURRENT_KEY = "CurrencyConversionManager::CoinGeckoCacheCurrent";
+  static final String COIN_GECKO_SHARED_CACHE_CURRENT_KEY = "CurrencyConversionManager::CoinGeckoCacheCurrent";
 
   private static final String COIN_GECKO_SHARED_CACHE_DATA_KEY = "CurrencyConversionManager::CoinGeckoCacheData";
 
@@ -89,7 +89,7 @@ public class CurrencyConversionManager implements Managed {
   public void start() throws Exception {
     cacheUpdateFuture = executor.scheduleWithFixedDelay(() -> {
       try {
-        updateCacheIfNecessary();
+        update();
       } catch (Throwable t) {
         logger.warn("Error updating currency conversions", t);
       }
@@ -104,12 +104,39 @@ public class CurrencyConversionManager implements Managed {
   }
 
   @VisibleForTesting
-  void updateCacheIfNecessary() throws IOException {
+  void update() throws IOException {
+    updateFixerCacheIfNecessary();
+    updateCoinGeckoCacheIfNecessary();
+    updateEntity();
+  }
+
+  private void updateEntity() {
+    List<CurrencyConversionEntity> entities = new LinkedList<>();
+
+    for (Map.Entry<String, BigDecimal> currency : cachedCoinGeckoValues.entrySet()) {
+      BigDecimal usdValue = stripTrailingZerosAfterDecimal(currency.getValue());
+
+      Map<String, BigDecimal> values = new HashMap<>();
+      values.put("USD", usdValue);
+
+      for (Map.Entry<String, BigDecimal> conversion : cachedFixerValues.entrySet()) {
+        values.put(conversion.getKey(), stripTrailingZerosAfterDecimal(conversion.getValue().multiply(usdValue)));
+      }
+
+      entities.add(new CurrencyConversionEntity(currency.getKey(), values));
+    }
+
+    this.cached.set(new CurrencyConversionEntityList(entities, clock.millis()));
+  }
+
+  private void updateFixerCacheIfNecessary() throws IOException {
     if (Duration.between(fixerUpdatedTimestamp, clock.instant()).abs().compareTo(FIXER_REFRESH_INTERVAL) >= 0 || cachedFixerValues == null) {
       this.cachedFixerValues = new HashMap<>(fixerClient.getConversionsForBase("USD"));
       this.fixerUpdatedTimestamp = clock.instant();
     }
+  }
 
+  private void updateCoinGeckoCacheIfNecessary() throws IOException {
     {
       final Map<String, BigDecimal> coinGeckoValuesFromSharedCache = cacheCluster.withCluster(connection -> {
         final Map<String, BigDecimal> parsedSharedCacheData = new HashMap<>();
@@ -126,9 +153,9 @@ public class CurrencyConversionManager implements Managed {
     }
 
     final boolean shouldUpdateSharedCache = cacheCluster.withCluster(connection ->
-        "OK".equals(connection.sync().set(COIN_GECKO_CAP_SHARED_CACHE_CURRENT_KEY,
+        "OK".equals(connection.sync().set(COIN_GECKO_SHARED_CACHE_CURRENT_KEY,
             "true",
-            SetArgs.Builder.nx().ex(COIN_GECKO_CAP_REFRESH_INTERVAL))));
+            SetArgs.Builder.nx().ex(COIN_GECKO_REFRESH_INTERVAL))));
 
     if (shouldUpdateSharedCache || cachedCoinGeckoValues == null) {
       final Map<String, BigDecimal> conversionRatesFromCoinGecko = new HashMap<>(currencies.size());
@@ -150,23 +177,6 @@ public class CurrencyConversionManager implements Managed {
         });
       }
     }
-
-    List<CurrencyConversionEntity> entities = new LinkedList<>();
-
-    for (Map.Entry<String, BigDecimal> currency : cachedCoinGeckoValues.entrySet()) {
-      BigDecimal usdValue = stripTrailingZerosAfterDecimal(currency.getValue());
-
-      Map<String, BigDecimal> values = new HashMap<>();
-      values.put("USD", usdValue);
-
-      for (Map.Entry<String, BigDecimal> conversion : cachedFixerValues.entrySet()) {
-        values.put(conversion.getKey(), stripTrailingZerosAfterDecimal(conversion.getValue().multiply(usdValue)));
-      }
-
-      entities.add(new CurrencyConversionEntity(currency.getKey(), values));
-    }
-
-    this.cached.set(new CurrencyConversionEntityList(entities, clock.millis()));
   }
 
   private BigDecimal stripTrailingZerosAfterDecimal(BigDecimal bigDecimal) {
