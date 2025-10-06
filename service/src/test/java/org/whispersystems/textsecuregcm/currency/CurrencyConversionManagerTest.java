@@ -219,9 +219,9 @@ class CurrencyConversionManagerTest {
         "FKP", new BigDecimal("0.743446")
     ));
 
-    final Instant afterFixerExpiration = currentTime.plus(CurrencyConversionManager.FIXER_REFRESH_INTERVAL).plusMillis(1);
-    when(clock.instant()).thenReturn(afterFixerExpiration);
-    when(clock.millis()).thenReturn(afterFixerExpiration.toEpochMilli());
+    REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection ->
+        connection.sync().del(CurrencyConversionManager.FIXER_SHARED_CACHE_CURRENT_KEY));
+
 
     manager.update();
 
