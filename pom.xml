@@ -300,11 +300,6 @@
         <version>${simple-grpc.version}</version>
       </dependency>
       <dependency>
-        <groupId>org.signal.forks</groupId>
-        <artifactId>noise-java</artifactId>
-        <version>0.1.1</version>
-      </dependency>
-      <dependency>
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-bom</artifactId>
         <version>${log4j-bom.version}</version>

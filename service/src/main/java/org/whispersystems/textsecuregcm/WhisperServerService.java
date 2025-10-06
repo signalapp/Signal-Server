@@ -23,12 +23,14 @@ import io.dropwizard.core.setup.Environment;
 import io.dropwizard.jetty.HttpsConnectorFactory;
 import io.dropwizard.lifecycle.setup.LifecycleEnvironment;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerInterceptors;
+import io.grpc.ServerServiceDefinition;
+import io.grpc.netty.NettyServerBuilder;
 import io.lettuce.core.metrics.MicrometerCommandLatencyRecorder;
 import io.lettuce.core.metrics.MicrometerOptions;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
-import io.netty.channel.local.LocalAddress;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.resolver.ResolvedAddressTypes;
@@ -38,16 +40,12 @@ import jakarta.servlet.DispatcherType;
 import jakarta.servlet.Filter;
 import jakarta.servlet.ServletRegistration;
 import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
+import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyStore;
-import java.security.PrivateKey;
-import java.security.cert.X509Certificate;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -62,7 +60,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import org.eclipse.jetty.websocket.core.WebSocketComponents;
 import org.eclipse.jetty.websocket.core.server.WebSocketServerComponents;
 import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
@@ -154,12 +151,8 @@ import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ValidatingInterceptor;
-import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
-import org.whispersystems.textsecuregcm.grpc.net.ManagedDefaultEventLoopGroup;
-import org.whispersystems.textsecuregcm.grpc.net.ManagedLocalGrpcServer;
+import org.whispersystems.textsecuregcm.grpc.net.ManagedGrpcServer;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedNioEventLoopGroup;
-import org.whispersystems.textsecuregcm.grpc.net.noisedirect.NoiseDirectTunnelServer;
-import org.whispersystems.textsecuregcm.grpc.net.websocket.NoiseWebSocketTunnelServer;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
@@ -259,9 +252,9 @@ import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.util.BufferingInterceptor;
-import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.ManagedExecutors;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.VirtualExecutorServiceProvider;
@@ -636,9 +629,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         () -> dynamicConfigurationManager.getConfiguration().getSvrbStatusCodesToIgnoreForAccountDeletion());
     SecureStorageClient secureStorageClient = new SecureStorageClient(storageCredentialsGenerator,
         storageServiceExecutor, retryExecutor, config.getSecureStorageServiceConfiguration());
-    final GrpcClientConnectionManager grpcClientConnectionManager = new GrpcClientConnectionManager();
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient,
-        grpcClientConnectionManager, disconnectionRequestListenerExecutor, retryExecutor);
+        disconnectionRequestListenerExecutor, retryExecutor);
     ProfilesManager profilesManager = new ProfilesManager(profiles, cacheCluster, retryExecutor, asyncCdnS3Client,
         config.getCdnConfiguration().bucket());
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
@@ -828,127 +820,63 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAppleDeviceCheck().teamId(),
         config.getAppleDeviceCheck().bundleId());
 
-    final ManagedDefaultEventLoopGroup localEventLoopGroup = new ManagedDefaultEventLoopGroup();
-
     final RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
     final MetricServerInterceptor metricServerInterceptor = new MetricServerInterceptor(Metrics.globalRegistry, clientReleaseManager);
 
     final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
-    final RequestAttributesInterceptor requestAttributesInterceptor =
-        new RequestAttributesInterceptor(grpcClientConnectionManager);
+    final RequestAttributesInterceptor requestAttributesInterceptor = new RequestAttributesInterceptor();
 
     final ValidatingInterceptor validatingInterceptor = new ValidatingInterceptor();
 
-    final LocalAddress anonymousGrpcServerAddress = new LocalAddress("grpc-anonymous");
-    final LocalAddress authenticatedGrpcServerAddress = new LocalAddress("grpc-authenticated");
+    final ExternalRequestFilter grpcExternalRequestFilter = new ExternalRequestFilter(
+        config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
+        config.getExternalRequestFilterConfiguration().grpcMethods());
+    final RequireAuthenticationInterceptor requireAuthenticationInterceptor = new RequireAuthenticationInterceptor(accountAuthenticator);
+    final ProhibitAuthenticationInterceptor prohibitAuthenticationInterceptor = new ProhibitAuthenticationInterceptor();
 
-    final ManagedLocalGrpcServer anonymousGrpcServer = new ManagedLocalGrpcServer(anonymousGrpcServerAddress, localEventLoopGroup) {
-      @Override
-      protected void configureServer(final ServerBuilder<?> serverBuilder) {
-        // Note: interceptors run in the reverse order they are added; the remote deprecation filter
-        // depends on the user-agent context so it has to come first here!
-        // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
-        serverBuilder
-            .intercept(
-                new ExternalRequestFilter(config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
-                    config.getExternalRequestFilterConfiguration().grpcMethods()))
-            .intercept(validatingInterceptor)
-            .intercept(metricServerInterceptor)
-            .intercept(errorMappingInterceptor)
-            .intercept(remoteDeprecationFilter)
-            .intercept(requestAttributesInterceptor)
-            .intercept(new ProhibitAuthenticationInterceptor(grpcClientConnectionManager))
-            .addService(new AccountsAnonymousGrpcService(accountsManager, rateLimiters))
-            .addService(new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()))
-            .addService(new PaymentsGrpcService(currencyManager))
-            .addService(ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
-            .addService(new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkSecretParams));
-      }
-    };
+    final List<ServerServiceDefinition> authenticatedServices = Stream.of(
+        new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager),
+        ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters),
+        new KeysGrpcService(accountsManager, keysManager, rateLimiters),
+        new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
+            config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations))
+        .map(bindableService -> ServerInterceptors.intercept(bindableService,
+            // Note: interceptors run in the reverse order they are added; the remote deprecation filter
+            // depends on the user-agent context so it has to come first here!
+            validatingInterceptor,
+            metricServerInterceptor,
+            errorMappingInterceptor,
+            remoteDeprecationFilter,
+            requestAttributesInterceptor,
+            requireAuthenticationInterceptor))
+        .toList();
 
-    final ManagedLocalGrpcServer authenticatedGrpcServer = new ManagedLocalGrpcServer(authenticatedGrpcServerAddress, localEventLoopGroup) {
-      @Override
-      protected void configureServer(final ServerBuilder<?> serverBuilder) {
-        // Note: interceptors run in the reverse order they are added; the remote deprecation filter
-        // depends on the user-agent context so it has to come first here!
-        // http://grpc.github.io/grpc-java/javadoc/io/grpc/ServerBuilder.html#intercept-io.grpc.ServerInterceptor-
-        serverBuilder
-            .intercept(validatingInterceptor)
-            .intercept(metricServerInterceptor)
-            .intercept(errorMappingInterceptor)
-            .intercept(remoteDeprecationFilter)
-            .intercept(requestAttributesInterceptor)
-            .intercept(new RequireAuthenticationInterceptor(grpcClientConnectionManager))
-            .addService(new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager))
-            .addService(ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters))
-            .addService(new KeysGrpcService(accountsManager, keysManager, rateLimiters))
-            .addService(new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
-                config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations));
-      }
-    };
+    final List<ServerServiceDefinition> unauthenticatedServices = Stream.of(
+            new AccountsAnonymousGrpcService(accountsManager, rateLimiters),
+            new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()),
+            new PaymentsGrpcService(currencyManager),
+            ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config),
+            new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkSecretParams))
+        .map(bindableService -> ServerInterceptors.intercept(bindableService,
+            // Note: interceptors run in the reverse order they are added; the remote deprecation filter
+            // depends on the user-agent context so it has to come first here!
+            grpcExternalRequestFilter,
+            validatingInterceptor,
+            metricServerInterceptor,
+            errorMappingInterceptor,
+            remoteDeprecationFilter,
+            requestAttributesInterceptor,
+            prohibitAuthenticationInterceptor))
+        .toList();
 
-    @Nullable final X509Certificate[] noiseWebSocketTlsCertificateChain;
-    @Nullable final PrivateKey noiseWebSocketTlsPrivateKey;
+    final ServerBuilder<?> serverBuilder =
+        NettyServerBuilder.forAddress(new InetSocketAddress(config.getGrpc().bindAddress(), config.getGrpc().port()));
+    authenticatedServices.forEach(serverBuilder::addService);
+    unauthenticatedServices.forEach(serverBuilder::addService);
+    final ManagedGrpcServer exposedGrpcServer = new ManagedGrpcServer(serverBuilder.build());
 
-    if (config.getNoiseTunnelConfiguration().tlsKeyStoreFile() != null &&
-        config.getNoiseTunnelConfiguration().tlsKeyStoreEntryAlias() != null &&
-        config.getNoiseTunnelConfiguration().tlsKeyStorePassword() != null) {
-
-      try (final FileInputStream websocketNoiseTunnelTlsKeyStoreInputStream = new FileInputStream(config.getNoiseTunnelConfiguration().tlsKeyStoreFile())) {
-        final KeyStore keyStore = KeyStore.getInstance("PKCS12");
-        keyStore.load(websocketNoiseTunnelTlsKeyStoreInputStream, config.getNoiseTunnelConfiguration().tlsKeyStorePassword().value().toCharArray());
-
-        final KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(
-            config.getNoiseTunnelConfiguration().tlsKeyStoreEntryAlias(),
-            new KeyStore.PasswordProtection(config.getNoiseTunnelConfiguration().tlsKeyStorePassword().value().toCharArray()));
-
-        noiseWebSocketTlsCertificateChain =
-            Arrays.copyOf(privateKeyEntry.getCertificateChain(), privateKeyEntry.getCertificateChain().length, X509Certificate[].class);
-
-        noiseWebSocketTlsPrivateKey = privateKeyEntry.getPrivateKey();
-      }
-    } else {
-      noiseWebSocketTlsCertificateChain = null;
-      noiseWebSocketTlsPrivateKey = null;
-    }
-
-    final ExecutorService noiseWebSocketDelegatedTaskExecutor = ExecutorServiceBuilder.of(environment, "noiseWebsocketDelegatedTask")
-        .minThreads(8)
-        .maxThreads(8)
-        .allowCoreThreadTimeOut(false)
-        .build();
-
-    final ManagedNioEventLoopGroup noiseTunnelEventLoopGroup = new ManagedNioEventLoopGroup();
-
-    final NoiseWebSocketTunnelServer noiseWebSocketTunnelServer = new NoiseWebSocketTunnelServer(
-        config.getNoiseTunnelConfiguration().webSocketPort(),
-        noiseWebSocketTlsCertificateChain,
-        noiseWebSocketTlsPrivateKey,
-        noiseTunnelEventLoopGroup,
-        noiseWebSocketDelegatedTaskExecutor,
-        grpcClientConnectionManager,
-        clientPublicKeysManager,
-        config.getNoiseTunnelConfiguration().noiseStaticKeyPair(),
-        authenticatedGrpcServerAddress,
-        anonymousGrpcServerAddress,
-        config.getNoiseTunnelConfiguration().recognizedProxySecret().value());
-
-    final NoiseDirectTunnelServer noiseDirectTunnelServer = new NoiseDirectTunnelServer(
-        config.getNoiseTunnelConfiguration().directPort(),
-        noiseTunnelEventLoopGroup,
-        grpcClientConnectionManager,
-        clientPublicKeysManager,
-        config.getNoiseTunnelConfiguration().noiseStaticKeyPair(),
-        authenticatedGrpcServerAddress,
-        anonymousGrpcServerAddress);
-
-    environment.lifecycle().manage(localEventLoopGroup);
     environment.lifecycle().manage(dnsResolutionEventLoopGroup);
-    environment.lifecycle().manage(anonymousGrpcServer);
-    environment.lifecycle().manage(authenticatedGrpcServer);
-    environment.lifecycle().manage(noiseTunnelEventLoopGroup);
-    environment.lifecycle().manage(noiseWebSocketTunnelServer);
-    environment.lifecycle().manage(noiseDirectTunnelServer);
+    environment.lifecycle().manage(exposedGrpcServer);
 
     final List<Filter> filters = new ArrayList<>();
     filters.add(remoteDeprecationFilter);

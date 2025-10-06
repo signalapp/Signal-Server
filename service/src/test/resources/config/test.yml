@@ -525,12 +525,6 @@ turn:
 linkDevice:
   secret: secret://linkDevice.secret
 
-noiseTunnel:
-  webSocketPort: 8444
-  directPort: 8445
-  noiseStaticPrivateKey: secret://noiseTunnel.noiseStaticPrivateKey
-  recognizedProxySecret: secret://noiseTunnel.recognizedProxySecret
-
 externalRequestFilter:
   grpcMethods:
     - com.example.grpc.ExampleService/exampleMethod
@@ -541,3 +535,6 @@ externalRequestFilter:
 
 idlePrimaryDeviceReminder:
   minIdleDuration: P30D
+
+grpc:
+  port: 50051

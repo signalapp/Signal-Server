@@ -1,44 +1,102 @@
 package org.whispersystems.textsecuregcm.auth.grpc;
 
+import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import io.dropwizard.auth.basic.BasicCredentials;
+import io.grpc.ManagedChannel;
+import io.grpc.Server;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.inprocess.InProcessServerBuilder;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import org.junit.Assert;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.signal.chat.rpc.GetAuthenticatedDeviceRequest;
 import org.signal.chat.rpc.GetAuthenticatedDeviceResponse;
-import org.whispersystems.textsecuregcm.grpc.ChannelNotFoundException;
-import org.whispersystems.textsecuregcm.grpc.GrpcTestUtils;
-import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
-import org.whispersystems.textsecuregcm.storage.Device;
+import org.signal.chat.rpc.GetRequestAttributesRequest;
+import org.signal.chat.rpc.RequestAttributesGrpc;
+import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.grpc.RequestAttributesServiceImpl;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
-class RequireAuthenticationInterceptorTest extends AbstractAuthenticationInterceptorTest {
+class RequireAuthenticationInterceptorTest {
+  private Server server;
+  private ManagedChannel channel;
+  private AccountAuthenticator authenticator;
 
-  @Override
-  protected AbstractAuthenticationInterceptor getInterceptor() {
-    return new RequireAuthenticationInterceptor(getClientConnectionManager());
+  @BeforeEach
+  void setUp() throws Exception {
+    authenticator = mock(AccountAuthenticator.class);
+    server = InProcessServerBuilder.forName("RequestAttributesInterceptorTest")
+        .directExecutor()
+        .intercept(new RequireAuthenticationInterceptor(authenticator))
+        .addService(new RequestAttributesServiceImpl())
+        .build()
+        .start();
+
+    channel = InProcessChannelBuilder.forName("RequestAttributesInterceptorTest")
+        .directExecutor()
+        .build();
+  }
+
+  @AfterEach
+  void tearDown() throws Exception {
+    channel.shutdownNow();
+    server.shutdownNow();
+    channel.awaitTermination(5, TimeUnit.SECONDS);
+    server.awaitTermination(5, TimeUnit.SECONDS);
   }
 
   @Test
-  void interceptCall() throws ChannelNotFoundException {
-    final GrpcClientConnectionManager grpcClientConnectionManager = getClientConnectionManager();
+  void hasAuth() {
+    final UUID aci = UUID.randomUUID();
+    final byte deviceId = 2;
+    when(authenticator.authenticate(eq(new BasicCredentials("test", "password"))))
+        .thenReturn(Optional.of(
+            new org.whispersystems.textsecuregcm.auth.AuthenticatedDevice(aci, deviceId, Instant.now())));
 
-    when(grpcClientConnectionManager.getAuthenticatedDevice(any())).thenReturn(Optional.empty());
+    final RequestAttributesGrpc.RequestAttributesBlockingStub client = RequestAttributesGrpc
+        .newBlockingStub(channel)
+        .withCallCredentials(new BasicAuthCallCredentials("test", "password"));
 
-    GrpcTestUtils.assertStatusException(Status.INTERNAL, this::getAuthenticatedDevice);
+    final GetAuthenticatedDeviceResponse authenticatedDevice = client.getAuthenticatedDevice(
+        GetAuthenticatedDeviceRequest.getDefaultInstance());
+    assertEquals(authenticatedDevice.getDeviceId(), deviceId);
+    assertEquals(UUIDUtil.fromByteString(authenticatedDevice.getAccountIdentifier()), aci);
+  }
 
-    final AuthenticatedDevice authenticatedDevice = new AuthenticatedDevice(UUID.randomUUID(), Device.PRIMARY_ID);
-    when(grpcClientConnectionManager.getAuthenticatedDevice(any())).thenReturn(Optional.of(authenticatedDevice));
+  @Test
+  void badCredentials() {
+    when(authenticator.authenticate(any())).thenReturn(Optional.empty());
 
-    final GetAuthenticatedDeviceResponse response = getAuthenticatedDevice();
-    assertEquals(UUIDUtil.toByteString(authenticatedDevice.accountIdentifier()), response.getAccountIdentifier());
-    assertEquals(authenticatedDevice.deviceId(), response.getDeviceId());
+    final RequestAttributesGrpc.RequestAttributesBlockingStub client = RequestAttributesGrpc
+        .newBlockingStub(channel)
+        .withCallCredentials(new BasicAuthCallCredentials("test", "password"));
 
-    when(grpcClientConnectionManager.getAuthenticatedDevice(any())).thenThrow(ChannelNotFoundException.class);
+    final StatusRuntimeException e = assertThrows(StatusRuntimeException.class,
+        () -> client.getRequestAttributes(GetRequestAttributesRequest.getDefaultInstance()));
+    Assert.assertEquals(e.getStatus().getCode(), Status.Code.UNAUTHENTICATED);
+  }
 
-    GrpcTestUtils.assertStatusException(Status.UNAVAILABLE, this::getAuthenticatedDevice);
+  @Test
+  void missingCredentials() {
+    when(authenticator.authenticate(any())).thenReturn(Optional.empty());
+
+    final RequestAttributesGrpc.RequestAttributesBlockingStub client = RequestAttributesGrpc.newBlockingStub(channel);
+
+    final StatusRuntimeException e = assertThrows(StatusRuntimeException.class,
+        () -> client.getRequestAttributes(GetRequestAttributesRequest.getDefaultInstance()));
+    Assert.assertEquals(e.getStatus().getCode(), Status.Code.UNAUTHENTICATED);
   }
 }

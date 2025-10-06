@@ -83,11 +83,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.signal.forks</groupId>
-      <artifactId>noise-java</artifactId>
-    </dependency>
-
-    <dependency>
       <groupId>org.signal</groupId>
       <artifactId>simple-grpc-runtime</artifactId>
     </dependency>

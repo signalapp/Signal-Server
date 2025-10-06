@@ -27,8 +27,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubConnection;
@@ -47,7 +45,6 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte[]> implements Managed {
 
   private final FaultTolerantRedisClient pubSubClient;
-  private final GrpcClientConnectionManager grpcClientConnectionManager;
   private final Executor listenerEventExecutor;
   private final ScheduledExecutorService retryExecutor;
 
@@ -74,12 +71,10 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
   private record AccountIdentifierAndDeviceId(UUID accountIdentifier, byte deviceId) {}
 
   public DisconnectionRequestManager(final FaultTolerantRedisClient pubSubClient,
-      final GrpcClientConnectionManager grpcClientConnectionManager,
       final Executor listenerEventExecutor,
       final ScheduledExecutorService retryExecutor) {
 
     this.pubSubClient = pubSubClient;
-    this.grpcClientConnectionManager = grpcClientConnectionManager;
     this.listenerEventExecutor = listenerEventExecutor;
     this.retryExecutor = retryExecutor;
   }
@@ -223,8 +218,6 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
     }
 
     deviceIds.forEach(deviceId -> {
-      grpcClientConnectionManager.closeConnection(new AuthenticatedDevice(accountIdentifier, deviceId));
-
       listeners.getOrDefault(new AccountIdentifierAndDeviceId(accountIdentifier, deviceId), Collections.emptyList())
           .forEach(listener -> listenerEventExecutor.execute(() -> {
             try {

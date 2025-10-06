@@ -1,44 +1,64 @@
 package org.whispersystems.textsecuregcm.auth.grpc;
 
+import io.grpc.ManagedChannel;
+import io.grpc.Server;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.inprocess.InProcessServerBuilder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.signal.chat.rpc.GetAuthenticatedDeviceResponse;
-import org.whispersystems.textsecuregcm.grpc.ChannelNotFoundException;
-import org.whispersystems.textsecuregcm.grpc.GrpcTestUtils;
-import org.whispersystems.textsecuregcm.grpc.net.GrpcClientConnectionManager;
-import org.whispersystems.textsecuregcm.storage.Device;
+import org.signal.chat.rpc.EchoRequest;
+import org.signal.chat.rpc.EchoServiceGrpc;
+import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
 
-import java.util.Optional;
-import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-class ProhibitAuthenticationInterceptorTest extends AbstractAuthenticationInterceptorTest {
+class ProhibitAuthenticationInterceptorTest  {
+  private Server server;
+  private ManagedChannel channel;
 
-  @Override
-  protected AbstractAuthenticationInterceptor getInterceptor() {
-    return new ProhibitAuthenticationInterceptor(getClientConnectionManager());
+  @BeforeEach
+  void setUp() throws Exception {
+    server = InProcessServerBuilder.forName("RequestAttributesInterceptorTest")
+        .directExecutor()
+        .intercept(new ProhibitAuthenticationInterceptor())
+        .addService(new EchoServiceImpl())
+        .build()
+        .start();
+
+    channel = InProcessChannelBuilder.forName("RequestAttributesInterceptorTest")
+        .directExecutor()
+        .build();
+  }
+
+  @AfterEach
+  void tearDown() throws Exception {
+    channel.shutdownNow();
+    server.shutdownNow();
+    channel.awaitTermination(5, TimeUnit.SECONDS);
+    server.awaitTermination(5, TimeUnit.SECONDS);
   }
 
   @Test
-  void interceptCall() throws ChannelNotFoundException {
-    final GrpcClientConnectionManager grpcClientConnectionManager = getClientConnectionManager();
+  void hasAuth() {
+    final EchoServiceGrpc.EchoServiceBlockingStub client = EchoServiceGrpc
+        .newBlockingStub(channel)
+        .withCallCredentials(new BasicAuthCallCredentials("test", "password"));
 
-    when(grpcClientConnectionManager.getAuthenticatedDevice(any())).thenReturn(Optional.empty());
+    final StatusRuntimeException e = assertThrows(StatusRuntimeException.class,
+        () -> client.echo(EchoRequest.getDefaultInstance()));
+    assertEquals(e.getStatus().getCode(), Status.Code.UNAUTHENTICATED);
+  }
 
-    final GetAuthenticatedDeviceResponse response = getAuthenticatedDevice();
-    assertTrue(response.getAccountIdentifier().isEmpty());
-    assertEquals(0, response.getDeviceId());
-
-    final AuthenticatedDevice authenticatedDevice = new AuthenticatedDevice(UUID.randomUUID(), Device.PRIMARY_ID);
-    when(grpcClientConnectionManager.getAuthenticatedDevice(any())).thenReturn(Optional.of(authenticatedDevice));
-
-    GrpcTestUtils.assertStatusException(Status.INTERNAL, this::getAuthenticatedDevice);
-
-    when(grpcClientConnectionManager.getAuthenticatedDevice(any())).thenThrow(ChannelNotFoundException.class);
-
-    GrpcTestUtils.assertStatusException(Status.UNAVAILABLE, this::getAuthenticatedDevice);
+  @Test
+  void noAuth() {
+    final EchoServiceGrpc.EchoServiceBlockingStub client = EchoServiceGrpc.newBlockingStub(channel);
+    assertDoesNotThrow(() -> client.echo(EchoRequest.getDefaultInstance()));
   }
 }

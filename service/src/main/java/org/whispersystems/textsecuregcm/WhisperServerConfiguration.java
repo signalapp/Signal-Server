@@ -39,13 +39,13 @@ import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
 import org.whispersystems.textsecuregcm.configuration.GooglePlayBillingConfiguration;
+import org.whispersystems.textsecuregcm.configuration.GrpcConfiguration;
 import org.whispersystems.textsecuregcm.configuration.IdlePrimaryDeviceReminderConfiguration;
 import org.whispersystems.textsecuregcm.configuration.KeyTransparencyServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
-import org.whispersystems.textsecuregcm.configuration.NoiseTunnelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OpenTelemetryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.PagedSingleUseKEMPreKeyStoreConfiguration;
@@ -318,11 +318,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private NoiseTunnelConfiguration noiseTunnel;
-
-  @Valid
-  @NotNull
-  @JsonProperty
   private ExternalRequestFilterConfiguration externalRequestFilter;
 
   @Valid
@@ -347,6 +342,11 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   private RetryConfiguration generalRedisRetry = new RetryConfiguration();
+
+  @NotNull
+  @Valid
+  @JsonProperty
+  private GrpcConfiguration grpc;
 
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
@@ -551,10 +551,6 @@ public class WhisperServerConfiguration extends Configuration {
     return virtualThread;
   }
 
-  public NoiseTunnelConfiguration getNoiseTunnelConfiguration() {
-    return noiseTunnel;
-  }
-
   public ExternalRequestFilterConfiguration getExternalRequestFilterConfiguration() {
     return externalRequestFilter;
   }
@@ -581,5 +577,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public RetryConfiguration getGeneralRedisRetryConfiguration() {
     return generalRedisRetry;
+  }
+
+  public GrpcConfiguration getGrpc() {
+    return grpc;
   }
 }
