@@ -28,9 +28,9 @@ public class FixerClient {
 
   public Map<String, BigDecimal> getConversionsForBase(String base) throws FixerException {
     try {
-      URI uri = URI.create("https://data.fixer.io/api/latest?access_key=" + apiKey + "&base=" + base);
+      final URI uri = URI.create("https://data.fixer.io/api/latest?access_key=" + apiKey + "&base=" + base);
 
-      HttpResponse<String> response = client.send(HttpRequest.newBuilder()
+      final HttpResponse<String> response = client.send(HttpRequest.newBuilder()
               .GET()
               .uri(uri)
               .timeout(Duration.ofSeconds(15))
@@ -41,10 +41,13 @@ public class FixerClient {
         throw new FixerException("Bad response: " + response.statusCode() + " " + response.toString());
       }
 
-      FixerResponse parsedResponse = SystemMapper.jsonMapper().readValue(response.body(), FixerResponse.class);
+      final FixerResponse parsedResponse = SystemMapper.jsonMapper().readValue(response.body(), FixerResponse.class);
 
-      if (parsedResponse.success) return parsedResponse.rates;
-      else                        throw new FixerException("Got failed response!");
+      if (parsedResponse.success) {
+        return parsedResponse.rates;
+      } else {
+        throw new FixerException("Got failed response!");
+      }
     } catch (IOException | InterruptedException e) {
       throw new FixerException(e);
     }

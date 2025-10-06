@@ -15,8 +15,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -118,12 +118,12 @@ public class CurrencyConversionManager implements Managed {
   }
 
   private void updateEntity() {
-    List<CurrencyConversionEntity> entities = new LinkedList<>();
+    final List<CurrencyConversionEntity> entities = new ArrayList<>(cachedCoinGeckoValues.size());
 
     for (Map.Entry<String, BigDecimal> currency : cachedCoinGeckoValues.entrySet()) {
-      BigDecimal usdValue = stripTrailingZerosAfterDecimal(currency.getValue());
+      final BigDecimal usdValue = stripTrailingZerosAfterDecimal(currency.getValue());
 
-      Map<String, BigDecimal> values = new HashMap<>();
+      final Map<String, BigDecimal> values = new HashMap<>();
       values.put("USD", usdValue);
 
       for (Map.Entry<String, BigDecimal> conversion : cachedFixerValues.entrySet()) {
