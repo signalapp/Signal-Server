@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
@@ -63,6 +64,7 @@ public class CurrencyConversionManager implements Managed {
 
   private Map<String, BigDecimal> cachedCoinGeckoValues;
 
+  private ScheduledFuture<?> cacheUpdateFuture;
 
   public CurrencyConversionManager(
       final FixerClient fixerClient,
@@ -85,13 +87,20 @@ public class CurrencyConversionManager implements Managed {
 
   @Override
   public void start() throws Exception {
-    executor.scheduleAtFixedRate(() -> {
+    cacheUpdateFuture = executor.scheduleWithFixedDelay(() -> {
       try {
         updateCacheIfNecessary();
       } catch (Throwable t) {
         logger.warn("Error updating currency conversions", t);
       }
     }, 0, 15, TimeUnit.SECONDS);
+  }
+
+  @Override
+  public void stop() throws Exception {
+    if (cacheUpdateFuture != null) {
+      cacheUpdateFuture.cancel(true);
+    }
   }
 
   @VisibleForTesting
@@ -102,7 +111,7 @@ public class CurrencyConversionManager implements Managed {
     }
 
     {
-      final Map<String, BigDecimal> CoinGeckoValuesFromSharedCache = cacheCluster.withCluster(connection -> {
+      final Map<String, BigDecimal> coinGeckoValuesFromSharedCache = cacheCluster.withCluster(connection -> {
         final Map<String, BigDecimal> parsedSharedCacheData = new HashMap<>();
 
         connection.sync().hgetall(COIN_GECKO_SHARED_CACHE_DATA_KEY).forEach((currency, conversionRate) ->
@@ -111,8 +120,8 @@ public class CurrencyConversionManager implements Managed {
         return parsedSharedCacheData;
       });
 
-      if (CoinGeckoValuesFromSharedCache != null && !CoinGeckoValuesFromSharedCache.isEmpty()) {
-        cachedCoinGeckoValues = CoinGeckoValuesFromSharedCache;
+      if (coinGeckoValuesFromSharedCache != null && !coinGeckoValuesFromSharedCache.isEmpty()) {
+        cachedCoinGeckoValues = coinGeckoValuesFromSharedCache;
       }
     }
 
