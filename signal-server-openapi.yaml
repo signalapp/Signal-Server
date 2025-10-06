@@ -1147,11 +1147,13 @@ paths:
       - Archive
       summary: Set backup id
       description: |
-        Set a (blinded) backup-id for the account. Each account may have a single active backup-id that can be used
-        to store and retrieve backups. Once the backup-id is set, BackupAuthCredentials can be generated
-        using /v1/archives/auth.
+        Set (blinded) backup-id(s) for the account. Each account may have a single active backup-id for each
+        credential type that can be used to store and retrieve backups. Once the backup-id is set,
+        BackupAuthCredentials can be generated using /v1/archives/auth.
 
         The blinded backup-id and the key-pair used to blind it should be derived from a recoverable secret.
+
+        At least one of `messagesBackupAuthCredentialRequest`, `mediaBackupAuthCredentialRequest` must be set.
       operationId: setBackupId
       requestBody:
         content:
@@ -4791,9 +4793,6 @@ components:
           type: string
           description: Presentation of a ZK receipt encoded in standard padded base64
     SetBackupIdRequest:
-      required:
-      - mediaBackupAuthCredentialRequest
-      - messagesBackupAuthCredentialRequest
       type: object
       properties:
         messagesBackupAuthCredentialRequest:
@@ -4801,12 +4800,13 @@ components:
           description: |
             A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64.
             This backup-id should be used for message backups only, and must have the message backup type set on the
-            credential.
+            credential. If absent, the message credential request will not be updated.
         mediaBackupAuthCredentialRequest:
           type: string
           description: |
             A BackupAuthCredentialRequest containing a blinded encrypted backup-id, encoded in standard padded base64.
-            This backup-id should be used for media only, and must have the media type set on the credential.
+            This backup-id should be used for media only, and must have the media type set on the credential. If absent,
+            only the media credential request will not be updated.
     SetPublicKeyRequest:
       type: object
       properties:
