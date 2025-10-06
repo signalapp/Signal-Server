@@ -14,6 +14,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -47,12 +48,13 @@ public class CoinGeckoClient {
 
     try {
       final HttpResponse<String> response = httpClient.send(HttpRequest.newBuilder()
-                      .GET()
-                      .uri(quoteUri)
-                      .header("Accept", "application/json")
-                      .header("x-cg-pro-api-key", apiKey)
-                      .build(),
-              HttpResponse.BodyHandlers.ofString());
+              .GET()
+              .uri(quoteUri)
+              .header("Accept", "application/json")
+              .header("x-cg-pro-api-key", apiKey)
+              .timeout(Duration.ofSeconds(15))
+              .build(),
+          HttpResponse.BodyHandlers.ofString());
 
       if (response.statusCode() < 200 || response.statusCode() >= 300) {
         logger.warn("CoinGecko request failed with response: {}", response);

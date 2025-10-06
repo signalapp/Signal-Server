@@ -12,12 +12,13 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 public class FixerClient {
 
-  private final String     apiKey;
+  private final String apiKey;
   private final HttpClient client;
 
   public FixerClient(HttpClient client, String apiKey) {
@@ -29,11 +30,12 @@ public class FixerClient {
     try {
       URI uri = URI.create("https://data.fixer.io/api/latest?access_key=" + apiKey + "&base=" + base);
 
-      HttpResponse<String> response =  client.send(HttpRequest.newBuilder()
-                                                              .GET()
-                                                              .uri(uri)
-                                                              .build(),
-                                                   HttpResponse.BodyHandlers.ofString());
+      HttpResponse<String> response = client.send(HttpRequest.newBuilder()
+              .GET()
+              .uri(uri)
+              .timeout(Duration.ofSeconds(15))
+              .build(),
+          HttpResponse.BodyHandlers.ofString());
 
       if (response.statusCode() < 200 || response.statusCode() >= 300) {
         throw new FixerException("Bad response: " + response.statusCode() + " " + response.toString());
