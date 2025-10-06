@@ -34,14 +34,16 @@ service Backups {
   option (require.auth) = AUTH_ONLY_AUTHENTICATED;
 
   /**
-   * Set a (blinded) backup-id for the account.
+   * Set (blinded) backup-id(s) for the account.
    *
-   * Each account may have a single active backup-id that can be used
-   * to store and retrieve backups. Once the backup-id is set,
+   * Each account may have a single active backup-id for each credential type
+   * that can be used to store and retrieve backups. Once the backup-id is set,
    * BackupAuthCredentials can be generated using GetBackupAuthCredentials.
    *
    * The blinded backup-id and the key-pair used to blind it must be derived
    * from a recoverable secret.
+   *
+   * At least one of the credential types must be set on the request.
    *
    * errors:
    * PERMISSION_DENIED: This account is not currently eligible for backups
@@ -89,14 +91,15 @@ message SetBackupIdRequest {
    * A BackupAuthCredentialRequest containing a blinded encrypted backup-id,
    * encoded in standard padded base64. This backup-id should be used for
    * message backups only, and must have the message backup type set on the
-   * credential.
+   * credential. If absent, the message credential request will not be updated.
    */
   bytes messages_backup_auth_credential_request = 1;
 
   /**
    * A BackupAuthCredentialRequest containing a blinded encrypted backup-id,
    * encoded in standard padded base64. This backup-id should be used for
-   * media only, and must have the media type set on the credential.
+   * media only, and must have the media type set on the credential. If absent,
+   * the media credential request will not be updated.
    */
   bytes media_backup_auth_credential_request = 2;
 }

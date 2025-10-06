@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -101,40 +100,59 @@ public class BackupAuthManager {
   public CompletableFuture<Void> commitBackupId(
       final Account account,
       final Device device,
-      final BackupAuthCredentialRequest messagesBackupCredentialRequest,
-      final BackupAuthCredentialRequest mediaBackupCredentialRequest) {
+      final Optional<BackupAuthCredentialRequest> messagesBackupCredentialRequest,
+      final Optional<BackupAuthCredentialRequest> mediaBackupCredentialRequest) {
     if (!device.isPrimary()) {
       throw Status.PERMISSION_DENIED.withDescription("Only primary device can set backup-id").asRuntimeException();
     }
-    final byte[] serializedMessageCredentialRequest = messagesBackupCredentialRequest.serialize();
-    final byte[] serializedMediaCredentialRequest = mediaBackupCredentialRequest.serialize();
 
-    final boolean messageCredentialRequestMatches = account.getBackupCredentialRequest(BackupCredentialType.MESSAGES)
-        .map(storedCredentialRequest -> MessageDigest.isEqual(storedCredentialRequest, serializedMessageCredentialRequest))
-        .orElse(false);
+    if (messagesBackupCredentialRequest.isEmpty() && mediaBackupCredentialRequest.isEmpty()) {
+      throw Status.INVALID_ARGUMENT
+          .withDescription("Must set at least one of message/media credential requests")
+          .asRuntimeException();
+    }
 
-    final boolean mediaCredentialRequestMatches = account.getBackupCredentialRequest(BackupCredentialType.MEDIA)
-        .map(storedCredentialRequest -> MessageDigest.isEqual(storedCredentialRequest, serializedMediaCredentialRequest))
-        .orElse(false);
+    final byte[] storedMessageCredentialRequest = account.getBackupCredentialRequest(BackupCredentialType.MESSAGES)
+        .orElse(null);
+    final byte[] storedMediaCredentialRequest = account.getBackupCredentialRequest(BackupCredentialType.MEDIA)
+        .orElse(null);
 
-    if (messageCredentialRequestMatches && mediaCredentialRequestMatches) {
+    // If the provided credential request is null, we want to set to the existing request
+    final byte[] targetMessageCredentialRequest = messagesBackupCredentialRequest
+        .map(BackupAuthCredentialRequest::serialize)
+        .orElse(storedMessageCredentialRequest);
+    final byte[] targetMediaCredentialRequest = mediaBackupCredentialRequest
+        .map(BackupAuthCredentialRequest::serialize)
+        .orElse(storedMediaCredentialRequest);
+
+    final boolean requiresMessageRotation =
+        !MessageDigest.isEqual(targetMessageCredentialRequest, storedMessageCredentialRequest);
+    final boolean requiresMediaRotation =
+        !MessageDigest.isEqual(targetMediaCredentialRequest, storedMediaCredentialRequest);
+
+    if (!requiresMessageRotation && !requiresMediaRotation) {
       // No need to update or enforce rate limits, this is the credential that the user has already
       // committed to.
       return CompletableFuture.completedFuture(null);
     }
 
-    CompletionStage<Void> rateLimitFuture = rateLimiters
-        .forDescriptor(RateLimiters.For.SET_BACKUP_ID)
-        .validateAsync(account.getUuid());
+    CompletableFuture<Void> rateLimitFuture = CompletableFuture.completedFuture(null);
 
-    if (!mediaCredentialRequestMatches && hasActiveVoucher(account)) {
+    if (requiresMessageRotation) {
+      rateLimitFuture = rateLimitFuture.thenCombine(
+          rateLimiters.forDescriptor(RateLimiters.For.SET_BACKUP_ID).validateAsync(account.getUuid()),
+          (_, _) -> null);
+    }
+
+    if (requiresMediaRotation && hasActiveVoucher(account)) {
       rateLimitFuture = rateLimitFuture.thenCombine(
           rateLimiters.forDescriptor(RateLimiters.For.SET_PAID_MEDIA_BACKUP_ID).validateAsync(account.getUuid()),
-          (ignore1, ignore2) -> null);
+          (_, _) -> null);
     }
 
     return rateLimitFuture.thenCompose(ignored -> this.accountsManager
-            .updateAsync(account, a -> a.setBackupCredentialRequests(serializedMessageCredentialRequest, serializedMediaCredentialRequest))
+            .updateAsync(account, a ->
+                a.setBackupCredentialRequests(targetMessageCredentialRequest, targetMediaCredentialRequest))
             .thenRun(Util.NOOP))
         .toCompletableFuture();
   }

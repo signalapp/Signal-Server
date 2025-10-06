@@ -6,7 +6,9 @@
 package org.whispersystems.textsecuregcm.backup;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatException;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -27,6 +29,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.assertj.core.api.Assertions;
@@ -124,7 +127,9 @@ public class BackupAuthManagerTest {
     final BackupAuthCredentialRequest messagesCredentialRequest = backupAuthTestUtil.getRequest(messagesBackupKey, aci);
     final BackupAuthCredentialRequest mediaCredentialRequest = backupAuthTestUtil.getRequest(mediaBackupKey, aci);
 
-    authManager.commitBackupId(account, primaryDevice(), messagesCredentialRequest, mediaCredentialRequest).join();
+    authManager.commitBackupId(account, primaryDevice(),
+        Optional.of(messagesCredentialRequest),
+        Optional.of(mediaCredentialRequest)).join();
 
     verify(account).setBackupCredentialRequests(messagesCredentialRequest.serialize(),
         mediaCredentialRequest.serialize());
@@ -140,8 +145,8 @@ public class BackupAuthManagerTest {
     final ThrowableAssert.ThrowingCallable commit = () ->
         authManager.commitBackupId(account,
             primaryDevice(),
-            backupAuthTestUtil.getRequest(messagesBackupKey, aci),
-            backupAuthTestUtil.getRequest(mediaBackupKey, aci)).join();
+            Optional.of(backupAuthTestUtil.getRequest(messagesBackupKey, aci)),
+            Optional.of(backupAuthTestUtil.getRequest(mediaBackupKey, aci))).join();
     Assertions.assertThatNoException().isThrownBy(commit);
   }
 
@@ -154,8 +159,8 @@ public class BackupAuthManagerTest {
     final ThrowableAssert.ThrowingCallable commit = () ->
         authManager.commitBackupId(account,
             linkedDevice(),
-            backupAuthTestUtil.getRequest(messagesBackupKey, aci),
-            backupAuthTestUtil.getRequest(mediaBackupKey, aci)).join();
+            Optional.of(backupAuthTestUtil.getRequest(messagesBackupKey, aci)),
+            Optional.of(backupAuthTestUtil.getRequest(mediaBackupKey, aci))).join();
     assertThatExceptionOfType(StatusRuntimeException.class)
         .isThrownBy(commit)
         .extracting(ex -> ex.getStatus().getCode())
@@ -489,76 +494,68 @@ public class BackupAuthManagerTest {
     assertThat(limit.nextPermitAvailable()).isEqualTo(expectedDuration);
   }
 
+  enum CredentialChangeType {
+    // Provided a new credential that matches the stored credential
+    MATCH,
+    // Provided a new credential that did not match the stored credential
+    MISMATCH,
+    // Provided no credential (should not update the credential)
+    NO_UPDATE
+  }
+
 
   @CartesianTest
   void testChangeIdRateLimits(
-      @CartesianTest.Values(booleans = {true, false}) boolean changeMessage,
-      @CartesianTest.Values(booleans = {true, false}) boolean changeMedia,
-      @CartesianTest.Values(booleans = {true, false}) boolean rateLimitBackupId) {
-
-    final BackupAuthManager authManager = create(BackupLevel.FREE, rateLimiter(aci, rateLimitBackupId, false));
-    final BackupAuthCredentialRequest storedMessagesCredential = backupAuthTestUtil.getRequest(messagesBackupKey, aci);
-    final BackupAuthCredentialRequest storedMediaCredential = backupAuthTestUtil.getRequest(mediaBackupKey, aci);
-    final Account account = new MockAccountBuilder()
-        .mediaCredential(storedMediaCredential)
-        .messagesCredential(storedMessagesCredential)
-        .backupVoucher(null)
-        .build();
-    when(accountsManager.updateAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(account));
-
-    final BackupAuthCredentialRequest newMessagesCredential = changeMessage
-        ? backupAuthTestUtil.getRequest(TestRandomUtil.nextBytes(32), aci)
-        : storedMessagesCredential;
-
-    final BackupAuthCredentialRequest newMediaCredential = changeMedia
-        ? backupAuthTestUtil.getRequest(TestRandomUtil.nextBytes(32), aci)
-        : storedMediaCredential;
-
-    final boolean expectRateLimit = (changeMedia || changeMessage) && rateLimitBackupId;
-    final CompletableFuture<Void> future = authManager.commitBackupId(account, primaryDevice(), newMessagesCredential, newMediaCredential);
-    if (expectRateLimit) {
-      CompletableFutureTestUtil.assertFailsWithCause(RateLimitExceededException.class, future);
-    } else {
-      assertDoesNotThrow(() -> future.join());
-    }
-  }
-
-  @CartesianTest
-  void testChangePaidMediaIdRateLimits(
-      @CartesianTest.Values(booleans = {true, false}) boolean changeMessage,
-      @CartesianTest.Values(booleans = {true, false}) boolean changeMedia,
+      @CartesianTest.Enum CredentialChangeType messageChange,
+      @CartesianTest.Enum CredentialChangeType mediaChange,
       @CartesianTest.Values(booleans = {true, false}) boolean paid,
-      @CartesianTest.Values(booleans = {true, false}) boolean rateLimitPaidMedia) {
+      @CartesianTest.Values(booleans = {true, false}) boolean rateLimitMessagesBackupId,
+      @CartesianTest.Values(booleans = {true, false}) boolean rateLimitMediaBackupId) {
 
-    final BackupAuthManager authManager = create(BackupLevel.FREE, rateLimiter(aci, false, rateLimitPaidMedia));
+    final BackupAuthManager authManager =
+        create(BackupLevel.FREE, rateLimiter(aci, rateLimitMessagesBackupId, rateLimitMediaBackupId));
     final BackupAuthCredentialRequest storedMessagesCredential = backupAuthTestUtil.getRequest(messagesBackupKey, aci);
     final BackupAuthCredentialRequest storedMediaCredential = backupAuthTestUtil.getRequest(mediaBackupKey, aci);
+
     // Set clock before the voucher expires if paid, otherwise after
     final Account.BackupVoucher backupVoucher = new Account.BackupVoucher(1, Instant.ofEpochSecond(100));
     clock.pin(paid ? Instant.ofEpochSecond(99) : Instant.ofEpochSecond(101));
-
     final Account account = new MockAccountBuilder()
         .mediaCredential(storedMediaCredential)
         .messagesCredential(storedMessagesCredential)
         .backupVoucher(backupVoucher)
         .build();
+
     when(accountsManager.updateAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(account));
 
-    final BackupAuthCredentialRequest newMessagesCredential = changeMessage
-        ? backupAuthTestUtil.getRequest(TestRandomUtil.nextBytes(32), aci)
-        : storedMessagesCredential;
+    final Optional<BackupAuthCredentialRequest> newMessagesCredential = switch (messageChange) {
+      case MATCH -> Optional.of(storedMessagesCredential);
+      case MISMATCH -> Optional.of(backupAuthTestUtil.getRequest(TestRandomUtil.nextBytes(32), aci));
+      case NO_UPDATE -> Optional.empty();
+    };
+    final Optional<BackupAuthCredentialRequest> newMediaCredential = switch (mediaChange) {
+      case MATCH -> Optional.of(storedMediaCredential);
+      case MISMATCH -> Optional.of(backupAuthTestUtil.getRequest(TestRandomUtil.nextBytes(32), aci));
+      case NO_UPDATE -> Optional.empty();
+    };
 
-    final BackupAuthCredentialRequest newMediaCredential = changeMedia
-        ? backupAuthTestUtil.getRequest(TestRandomUtil.nextBytes(32), aci)
-        : storedMediaCredential;
+    // We should get rate limited if we try to change and
+    // 1. we are out of media changes on a paid account, or
+    // 2. we are out of messages changes
+    final boolean expectRateLimit = ((mediaChange == CredentialChangeType.MISMATCH) && rateLimitMediaBackupId && paid)
+        || ((messageChange == CredentialChangeType.MISMATCH) && rateLimitMessagesBackupId);
+    final ThrowableAssert.ThrowingCallable commit = () ->
+        authManager.commitBackupId(account, primaryDevice(), newMessagesCredential, newMediaCredential).join();
 
-    // We should get rate limited iff we are out of paid media changes and we changed the media backup-id
-    final boolean expectRateLimit =  changeMedia && paid && rateLimitPaidMedia;
-    final CompletableFuture<Void> future = authManager.commitBackupId(account, primaryDevice(), newMessagesCredential, newMediaCredential);
-    if (expectRateLimit) {
-      CompletableFutureTestUtil.assertFailsWithCause(RateLimitExceededException.class, future);
+    if (messageChange == CredentialChangeType.NO_UPDATE && mediaChange == CredentialChangeType.NO_UPDATE) {
+      assertThatExceptionOfType(StatusRuntimeException.class)
+          .isThrownBy(commit)
+          .extracting(ex -> ex.getStatus().getCode())
+          .isEqualTo(Status.Code.INVALID_ARGUMENT);
+    } else if (expectRateLimit) {
+      assertThatException().isThrownBy(commit).withRootCauseInstanceOf(RateLimitExceededException.class);
     } else {
-      assertDoesNotThrow(() -> future.join());
+      assertThatNoException().isThrownBy(commit);
     }
   }
 

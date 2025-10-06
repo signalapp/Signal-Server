@@ -179,8 +179,27 @@ public class ArchiveControllerTest {
     assertThat(response.getStatus()).isEqualTo(204);
 
     verify(backupAuthManager).commitBackupId(AuthHelper.VALID_ACCOUNT, AuthHelper.VALID_DEVICE,
-        backupAuthTestUtil.getRequest(messagesBackupKey, aci),
-        backupAuthTestUtil.getRequest(mediaBackupKey, aci));
+        Optional.of(backupAuthTestUtil.getRequest(messagesBackupKey, aci)),
+        Optional.of(backupAuthTestUtil.getRequest(mediaBackupKey, aci)));
+  }
+
+  @Test
+  public void setBackupIdPartial() {
+    when(backupAuthManager.commitBackupId(any(), any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+
+    final Response response = resources.getJerseyTest()
+        .target("v1/archives/backupid")
+        .request()
+        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json("""
+            {"messagesBackupAuthCredentialRequest": "%s"}
+            """.formatted(Base64.getEncoder().encodeToString(backupAuthTestUtil.getRequest(messagesBackupKey, aci).serialize()))));
+
+    assertThat(response.getStatus()).isEqualTo(204);
+
+    verify(backupAuthManager).commitBackupId(AuthHelper.VALID_ACCOUNT, AuthHelper.VALID_DEVICE,
+        Optional.of(backupAuthTestUtil.getRequest(messagesBackupKey, aci)),
+        Optional.empty());
   }
 
   @ParameterizedTest
@@ -279,7 +298,6 @@ public class ArchiveControllerTest {
 
   @ParameterizedTest
   @CsvSource(textBlock = """
-      {}, 422
       '{"messagesBackupAuthCredentialRequest": "aaa", "mediaBackupAuthCredentialRequest": "aaa"}', 400
       '{"messagesBackupAuthCredentialRequest": "", "mediaBackupAuthCredentialRequest": ""}', 400
       """)

@@ -10,6 +10,7 @@ import io.micrometer.core.instrument.Tag;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.signal.chat.backup.GetBackupAuthCredentialsRequest;
 import org.signal.chat.backup.GetBackupAuthCredentialsResponse;
@@ -46,17 +47,16 @@ public class BackupsGrpcService extends ReactorBackupsGrpc.BackupsImplBase {
     this.backupMetrics = backupMetrics;
   }
 
-
   @Override
   public Mono<SetBackupIdResponse> setBackupId(SetBackupIdRequest request) {
 
-    final BackupAuthCredentialRequest messagesCredentialRequest = deserialize(
+    final Optional<BackupAuthCredentialRequest> messagesCredentialRequest = deserializeWithEmptyPresenceCheck(
         BackupAuthCredentialRequest::new,
-        request.getMessagesBackupAuthCredentialRequest().toByteArray());
+        request.getMessagesBackupAuthCredentialRequest());
 
-    final BackupAuthCredentialRequest mediaCredentialRequest = deserialize(
+    final Optional<BackupAuthCredentialRequest> mediaCredentialRequest = deserializeWithEmptyPresenceCheck(
         BackupAuthCredentialRequest::new,
-        request.getMediaBackupAuthCredentialRequest().toByteArray());
+        request.getMediaBackupAuthCredentialRequest());
 
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
     return authenticatedAccount()
@@ -135,6 +135,13 @@ public class BackupsGrpcService extends ReactorBackupsGrpc.BackupsImplBase {
   private interface Deserializer<T> {
 
     T deserialize(byte[] bytes) throws InvalidInputException;
+  }
+
+  private <T> Optional<T> deserializeWithEmptyPresenceCheck(Deserializer<T> deserializer, ByteString byteString) {
+    if (byteString.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(deserialize(deserializer, byteString.toByteArray()));
   }
 
   private <T> T deserialize(Deserializer<T> deserializer, byte[] bytes) {
