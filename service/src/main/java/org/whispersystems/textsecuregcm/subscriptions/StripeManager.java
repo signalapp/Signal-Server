@@ -371,7 +371,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   public Object getSubscription(String subscriptionId) {
     SubscriptionRetrieveParams params = SubscriptionRetrieveParams.builder()
         .addExpand("latest_invoice")
-        .addExpand("latest_invoice.charge")
+        .addExpand("latest_invoice.payments")
         .build();
     try {
       return stripeClient.subscriptions().retrieve(subscriptionId, params, commonOptions());
@@ -557,8 +557,8 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       final Invoice invoice = subscription.getLatestInvoiceObject();
       paymentProcessing = "open".equals(invoice.getStatus());
 
-      if (invoice.getChargeObject() != null) {
-        final Charge charge = invoice.getChargeObject();
+      if (invoice.getPayments().getData().getFirst() != null) {
+        final Charge charge = invoice.getPayments().getData().getFirst().getPayment().getChargeObject();
         if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
           chargeFailure = createChargeFailure(charge);
         }
@@ -574,7 +574,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         new SubscriptionPrice(price.getCurrency().toUpperCase(Locale.ROOT), price.getUnitAmountDecimal()),
         level,
         Instant.ofEpochSecond(subscription.getBillingCycleAnchor()),
-        Instant.ofEpochSecond(subscription.getCurrentPeriodEnd()),
+        Instant.ofEpochSecond(subscription.getItems().getData().getFirst().getCurrentPeriodEnd()),
         Objects.equals(subscription.getStatus(), "active"),
         subscription.getCancelAtPeriodEnd(),
         getSubscriptionStatus(subscription.getStatus()),
@@ -620,7 +620,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       throw new SubscriptionReceiptRequestedForOpenPaymentException();
     }
     if (!StringUtils.equalsIgnoreCase("paid", latestSubscriptionInvoice.getStatus())) {
-      final Charge charge = latestSubscriptionInvoice.getChargeObject();
+      final Charge charge = latestSubscriptionInvoice.getPayments().getData().getFirst().getPayment().getChargeObject();
       if (charge != null && (charge.getFailureCode() != null || charge.getFailureMessage() != null)) {
         // If the charge object has a failure reason we can present to the user, create a detailed exception
         throw new SubscriptionChargeFailurePaymentRequiredException(getProvider(), createChargeFailure(charge));
@@ -632,7 +632,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
     final Collection<InvoiceLineItem> invoiceLineItems = getInvoiceLineItemsForInvoice(latestSubscriptionInvoice);
     Collection<InvoiceLineItem> subscriptionLineItems = invoiceLineItems.stream()
-        .filter(invoiceLineItem -> Objects.equals("subscription", invoiceLineItem.getType()))
+        .filter(invoiceLineItem -> "subscription_item_details".equalsIgnoreCase(invoiceLineItem.getParent().getType()))
         .toList();
     if (subscriptionLineItems.isEmpty()) {
       throw new IllegalStateException("latest subscription invoice has no subscription line items; subscriptionId="
@@ -657,7 +657,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           invoice.getId());
       paidAt = Instant.ofEpochSecond(subscriptionLineItem.getPeriod().getStart());
     }
-    final Product product = getProductForPrice(subscriptionLineItem.getPrice().getId());
+    final Product product = getProductForPrice(subscriptionLineItem.getPricing().getPriceDetails().getPrice());
     return new ReceiptItem(
         subscriptionLineItem.getId(),
         PaymentTime.periodStart(paidAt),
