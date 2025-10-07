@@ -205,11 +205,11 @@ public class CurrencyConversionManager implements Managed {
 
   private void updateCachedData(final String cacheKey, final Map<String, BigDecimal> data) {
     cacheCluster.useCluster(connection -> {
-      final Map<String, String> sharedCoinGeckoValues = new HashMap<>();
+      final Map<String, String> sharedValues = new HashMap<>();
 
-      data.forEach((currency, conversionRate) -> sharedCoinGeckoValues.put(currency, conversionRate.toString()));
+      data.forEach((currency, conversionRate) -> sharedValues.put(currency, conversionRate.toString()));
 
-      connection.sync().hset(cacheKey, sharedCoinGeckoValues);
+      connection.sync().hset(cacheKey, sharedValues);
     });
   }
 
