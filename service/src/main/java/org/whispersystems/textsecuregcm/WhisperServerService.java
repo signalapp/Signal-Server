@@ -73,6 +73,8 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProviderImpl;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
@@ -200,6 +202,7 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
+import org.whispersystems.textsecuregcm.s3.S3MonitoringSupplier;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
@@ -603,6 +606,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ExternalServiceCredentialsGenerator svrbCredentialsGenerator =
         SecureValueRecoveryBCredentialsGeneratorFactory.svrbCredentialsGenerator(config.getSvrbConfiguration());
 
+    final S3MonitoringSupplier<AsnInfoProvider> asnInfoProviderSupplier = new S3MonitoringSupplier<>(
+        recurringJobExecutor,
+        awsCredentialsProvider,
+        config.getAsnTableConfiguration(),
+        AsnInfoProviderImpl::fromTsvGz,
+        AsnInfoProvider.EMPTY,
+        "AsnManager");
+
     RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
     UsernameHashZkProofVerifier usernameHashZkProofVerifier = new UsernameHashZkProofVerifier();
@@ -749,6 +760,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAppleAppStore().productIdToLevel(),
         config.getAppleAppStore().appleRootCerts(),
         config.getAppleAppStore().retryConfigurationName());
+
+    environment.lifecycle().manage(asnInfoProviderSupplier);
 
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(pushNotificationScheduler);

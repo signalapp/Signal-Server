@@ -1,0 +1,6 @@
+1.3.0.0	1.4.127.255	0	None	Not routed
+1.0.0.0	1.0.0.255	13335	US	CLOUDFLARENET
+2.16.112.0	2.16.113.255	16625	US	AKAMAI-AS
+2001:4:113::	2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff	0	None	Not routed
+2001:200:e00::	2001:200:eff:ffff:ffff:ffff:ffff:ffff	4690	JP	WIDE-SFO WIDE Project
+2001:420:4488::	2001:420:c0ef:ffff:ffff:ffff:ffff:ffff	109	US	CISCOSYSTEMS

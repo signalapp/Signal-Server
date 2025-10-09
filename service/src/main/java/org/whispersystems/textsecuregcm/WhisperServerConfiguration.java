@@ -348,6 +348,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private GrpcConfiguration grpc;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private S3ObjectMonitorFactory asnTable;
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -581,5 +586,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public GrpcConfiguration getGrpc() {
     return grpc;
+  }
+
+  public S3ObjectMonitorFactory getAsnTableConfiguration() {
+    return asnTable;
   }
 }

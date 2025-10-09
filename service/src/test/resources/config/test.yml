@@ -538,3 +538,10 @@ idlePrimaryDeviceReminder:
 
 grpc:
   port: 50051
+
+asnTable:
+  s3Region: a-region
+  s3Bucket: a-bucket
+  objectKey: asn.tsv
+  maxSize: 100000
+  refreshInterval: PT10S
