@@ -1,0 +1,88 @@
+// Copyright 2025 Signal Messenger, LLC
+// SPDX-License-Identifier: AGPL-3.0-only
+
+// Note: proto2 is de-facto required here because BigQuery pub/sub
+// subscriptions demand strict matching of "modes" (i.e. nullability), and
+// the BigQuery subscription system doesn't recognize proto3 fields as
+// "required".
+syntax = "proto2";
+
+package org.signal.calling.survey;
+
+option java_multiple_files = true;
+
+message CallQualitySurveyResponsePubSubMessage {
+  // A unique identifier for this call quality survey response
+  required string response_id = 1;
+
+  // The time at which this call quality survey response was received in
+  // microseconds since the epoch (see
+  // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#timestamp_type)
+  required int64 submission_timestamp = 2;
+
+  // The geographic region (an ISO 3166-1 alpha-2 region code) associated with
+  // the IP address of the client that submitted this call quality survey
+  // response
+  optional string asn_region = 3;
+
+  // The platform of the client that submitted this call quality survey response
+  optional string client_platform = 4;
+
+  // The semantic version of the client that submitted this call quality survey
+  // response
+  optional string client_version = 5;
+
+  // Any additional specifiers (e.g. "Windows 10.0.19045 libsignal/0.81.1") from
+  // the caller's user-agent string
+  optional string client_ua_additional_specifiers = 6;
+
+  // Indicates whether the user was generally satisfied with the quality of the
+  // call
+  optional bool user_satisfied = 7;
+
+  // A list of call quality issues selected by the user
+  repeated string call_quality_issues = 8;
+
+  // A free-form description of any additional issues as written by the user
+  optional string additional_issues_description = 9;
+
+  // A URL for a set of debug logs associated with the call if the user chose to
+  // submit debug logs
+  optional string debug_log_url = 10;
+
+  // The time at which the call started in microseconds since the epoch (see
+  // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#timestamp_type)
+  optional int64 start_timestamp = 11;
+
+  // The time at which the call ended in microseconds since the epoch (see
+  // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#timestamp_type)
+  optional int64 end_timestamp = 12;
+
+  // The type of call; note that direct voice calls can become video calls and
+  // vice versa, and this field indicates which mode was selected at call
+  // initiation time. At the time of writing, expected call types are
+  // "direct_voice", "direct_video", "group", and "call_link".
+  optional string call_type = 13;
+
+  // Indicates whether the call completed without error or if it terminated
+  // abnormally
+  optional bool success = 14;
+
+  // A client-defined, but human-readable reason for call termination
+  optional string call_end_reason = 15;
+
+  // The median round-trip time, measured in milliseconds, for packets over the
+  // duration of the call
+  optional float rtt_median = 16;
+
+  // The median jitter, measured in milliseconds, for the duration of the call
+  optional float jitter_median = 17;
+
+  // The fraction of all packets lost over the duration of the call
+  optional float packet_loss_fraction = 18;
+
+  // Technical, machine-generated data about the quality and mechanics of a
+  // call; this is a serialized protobuf entity generated (and, critically,
+  // explained to the user!) by the calling library
+  optional bytes call_telemetry = 19;
+}

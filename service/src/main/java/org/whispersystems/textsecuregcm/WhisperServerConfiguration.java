@@ -21,6 +21,7 @@ import org.whispersystems.textsecuregcm.configuration.AppleDeviceCheckConfigurat
 import org.whispersystems.textsecuregcm.configuration.AwsCredentialsProviderFactory;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
+import org.whispersystems.textsecuregcm.configuration.CallQualitySurveyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.Cdn3StorageManagerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
@@ -353,6 +354,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private S3ObjectMonitorFactory asnTable;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private CallQualitySurveyConfiguration callQualitySurvey;
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -590,5 +596,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public S3ObjectMonitorFactory getAsnTableConfiguration() {
     return asnTable;
+  }
+
+  public CallQualitySurveyConfiguration getCallQualitySurveyConfiguration() {
+    return callQualitySurvey;
   }
 }

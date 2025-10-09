@@ -545,3 +545,7 @@ asnTable:
   objectKey: asn.tsv
   maxSize: 100000
   refreshInterval: PT10S
+
+callQualitySurvey:
+  pubSubPublisher:
+    type: stub

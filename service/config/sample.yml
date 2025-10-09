@@ -549,3 +549,12 @@ asnTable:
   objectKey: asn.tsv
   maxSize: 100000
   refreshInterval: PT10S
+
+callQualitySurvey:
+  pubSubPublisher:
+    project: example-project
+    topic: example-topic
+    credentialConfiguration: |
+      {
+        "credential": "configuration"
+      }

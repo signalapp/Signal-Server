@@ -179,6 +179,7 @@ import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExcepti
 import org.whispersystems.textsecuregcm.mappers.ServerRejectedExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
+import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
 import org.whispersystems.textsecuregcm.metrics.MetricsHttpChannelListener;
@@ -582,6 +583,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         "disconnectionRequest",
         config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
         environment);
+    ExecutorService callQualitySurveyPubSubExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
+        "callQualitySurvey",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor(),
+        environment);
 
     ScheduledExecutorService cloudflareTurnRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "cloudflareTurnRetry").threads(1).build();
     ScheduledExecutorService messagePollExecutor = ScheduledExecutorServiceBuilder.of(environment, "messagePollExecutor").threads(1).build();
@@ -690,6 +695,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient);
     MessageDeliveryLoopMonitor messageDeliveryLoopMonitor =
         config.logMessageDeliveryLoops() ? new RedisMessageDeliveryLoopMonitor(rateLimitersCluster) : new NoopMessageDeliveryLoopMonitor();
+    CallQualitySurveyManager callQualitySurveyManager = new CallQualitySurveyManager(asnInfoProviderSupplier,
+        config.getCallQualitySurveyConfiguration().pubSubPublisher().build(),
+        Clock.systemUTC(),
+        callQualitySurveyPubSubExecutor);
 
     final RegistrationLockVerificationManager registrationLockVerificationManager = new RegistrationLockVerificationManager(
         accountsManager, disconnectionRequestManager, svr2CredentialsGenerator, registrationRecoveryPasswordsManager,
