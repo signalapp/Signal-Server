@@ -38,7 +38,7 @@ class MessagesCacheRemoveQueueScriptTest {
         .setServerGuid(UUID.randomUUID().toString())
         .build();
 
-    insertScript.executeAsync(destinationUuid, deviceId, envelope1);
+    insertScript.executeAsync(destinationUuid, deviceId, envelope1).toCompletableFuture().join();
 
     final MessagesCacheRemoveQueueScript removeScript = new MessagesCacheRemoveQueueScript(
         REDIS_CLUSTER_EXTENSION.getRedisCluster());
