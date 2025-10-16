@@ -32,7 +32,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 
 @Path("/v1/call_quality_survey")
-@io.swagger.v3.oas.annotations.tags.Tag(name = "Account")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Call quality survey")
 public class CallQualitySurveyController {
 
   private final CallQualitySurveyManager callQualitySurveyManager;
