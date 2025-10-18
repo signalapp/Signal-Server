@@ -18,6 +18,7 @@ import com.stripe.model.Charge;
 import com.stripe.model.Customer;
 import com.stripe.model.Invoice;
 import com.stripe.model.InvoiceLineItem;
+import com.stripe.model.InvoicePayment;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Price;
 import com.stripe.model.Product;
@@ -26,6 +27,7 @@ import com.stripe.model.StripeCollection;
 import com.stripe.model.Subscription;
 import com.stripe.model.SubscriptionItem;
 import com.stripe.net.RequestOptions;
+import com.stripe.param.ChargeRetrieveParams;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.CustomerRetrieveParams;
 import com.stripe.param.CustomerUpdateParams;
@@ -61,6 +63,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -370,11 +373,31 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   @Override
   public Object getSubscription(String subscriptionId) {
     SubscriptionRetrieveParams params = SubscriptionRetrieveParams.builder()
-        .addExpand("latest_invoice")
-        .addExpand("latest_invoice.payments")
+        .addExpand("latest_invoice.payments.data.payment")
         .build();
     try {
       return stripeClient.subscriptions().retrieve(subscriptionId, params, commonOptions());
+    } catch (StripeException e) {
+      throw new UncheckedIOException(new IOException(e));
+    }
+  }
+
+  public PaymentIntent getPaymentIntent(String paymentIntentId) {
+    PaymentIntentRetrieveParams params = PaymentIntentRetrieveParams.builder()
+        .addExpand("latest_charge")
+        .build();
+    try {
+      return stripeClient.paymentIntents().retrieve(paymentIntentId, params, commonOptions());
+    } catch (StripeException e) {
+      throw new UncheckedIOException(new IOException(e));
+    }
+  }
+
+  public Charge getCharge(String chargeId) {
+    ChargeRetrieveParams params = ChargeRetrieveParams.builder()
+        .build();
+    try {
+      return stripeClient.charges().retrieve(chargeId, params, commonOptions());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -557,15 +580,31 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       final Invoice invoice = subscription.getLatestInvoiceObject();
       paymentProcessing = "open".equals(invoice.getStatus());
 
-      if (invoice.getPayments().getData().getFirst() != null) {
-        final Charge charge = invoice.getPayments().getData().getFirst().getPayment().getChargeObject();
-        if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
-          chargeFailure = createChargeFailure(charge);
-        }
+      final Optional<InvoicePayment> latestInvoicePayment = invoice.getPayments().getData()
+          .stream()
+          .reduce((a, b) -> {
+            if (a.getCreated() > b.getCreated()) {
+              return a;
+            }
+            return b;
+          });
 
-        if (charge.getPaymentMethodDetails() != null
-            && charge.getPaymentMethodDetails().getType() != null) {
-          paymentMethod = getPaymentMethodFromStripeString(charge.getPaymentMethodDetails().getType(), invoice.getId());
+      if (latestInvoicePayment.isPresent()) {
+        final Optional<Charge> maybeCharge = Optional.ofNullable(latestInvoicePayment.get().getPayment().getPaymentIntent())
+            .map(this::getPaymentIntent)
+            .map(PaymentIntent::getLatestChargeObject)
+            .or(() -> Optional.ofNullable(latestInvoicePayment.get().getPayment().getCharge()).map(this::getCharge));
+
+        if (maybeCharge.isPresent()) {
+          final Charge charge = maybeCharge.get();
+          if (charge.getFailureCode() != null || charge.getFailureMessage() != null) {
+            chargeFailure = createChargeFailure(charge);
+          }
+
+          if (charge.getPaymentMethodDetails() != null
+              && charge.getPaymentMethodDetails().getType() != null) {
+            paymentMethod = getPaymentMethodFromStripeString(charge.getPaymentMethodDetails().getType(), invoice.getId());
+          }
         }
       }
     }
@@ -620,14 +659,34 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       throw new SubscriptionReceiptRequestedForOpenPaymentException();
     }
     if (!StringUtils.equalsIgnoreCase("paid", latestSubscriptionInvoice.getStatus())) {
-      final Charge charge = latestSubscriptionInvoice.getPayments().getData().getFirst().getPayment().getChargeObject();
-      if (charge != null && (charge.getFailureCode() != null || charge.getFailureMessage() != null)) {
-        // If the charge object has a failure reason we can present to the user, create a detailed exception
-        throw new SubscriptionChargeFailurePaymentRequiredException(getProvider(), createChargeFailure(charge));
-      } else {
-        // Otherwise, return a generic payment required error
-        throw new SubscriptionPaymentRequiredException();
-      }
+
+      final Optional<InvoicePayment> latestInvoicePayment = latestSubscriptionInvoice.getPayments().getData()
+          .stream()
+          .reduce((a, b) -> {
+            if (a.getCreated() > b.getCreated()) {
+              return a;
+            }
+            return b;
+          });
+
+      final SubscriptionPaymentRequiredException exception = latestInvoicePayment.map(invoicePayment -> {
+
+        final Optional<Charge> maybeCharge = Optional.ofNullable(invoicePayment.getPayment().getPaymentIntent())
+            .map(this::getPaymentIntent)
+            .map(PaymentIntent::getLatestChargeObject)
+            .or(() -> Optional.ofNullable(invoicePayment.getPayment().getCharge()).map(this::getCharge));
+
+            return maybeCharge.filter(charge -> charge.getFailureCode() != null && charge.getFailureMessage() != null)
+                .map(charge -> {
+                  // If the charge object has a failure reason we can present to the user, create a detailed exception
+                  return (SubscriptionPaymentRequiredException) (new SubscriptionChargeFailurePaymentRequiredException(
+                      getProvider(), createChargeFailure(charge)));
+                })
+                .orElseGet(SubscriptionPaymentRequiredException::new);
+      })
+          .orElseGet(SubscriptionPaymentRequiredException::new);
+
+      throw exception;
     }
 
     final Collection<InvoiceLineItem> invoiceLineItems = getInvoiceLineItemsForInvoice(latestSubscriptionInvoice);
