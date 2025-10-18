@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.subscriptions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.stripe.Stripe;
 import com.stripe.StripeClient;
@@ -120,7 +119,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       @Nonnull Map<PaymentMethod, Set<String>> supportedCurrenciesByPaymentMethod) {
     this(new StripeClient(apiKey), executor, idempotencyKeyGenerator, boostDescription, supportedCurrenciesByPaymentMethod);
 
-    if (Strings.isNullOrEmpty(apiKey)) {
+    if (StringUtils.isEmpty(apiKey)) {
       throw new IllegalArgumentException("apiKey cannot be empty");
     }
   }
@@ -655,10 +654,10 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     if (latestSubscriptionInvoice == null) {
       throw new SubscriptionReceiptRequestedForOpenPaymentException();
     }
-    if (StringUtils.equalsIgnoreCase("open", latestSubscriptionInvoice.getStatus())) {
+    if ("open".equalsIgnoreCase(latestSubscriptionInvoice.getStatus())) {
       throw new SubscriptionReceiptRequestedForOpenPaymentException();
     }
-    if (!StringUtils.equalsIgnoreCase("paid", latestSubscriptionInvoice.getStatus())) {
+    if (!"paid".equalsIgnoreCase(latestSubscriptionInvoice.getStatus())) {
 
       final Optional<InvoicePayment> latestInvoicePayment = latestSubscriptionInvoice.getPayments().getData()
           .stream()
