@@ -70,6 +70,7 @@ import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledExcepti
 import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.Update;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.paginators.ScanPublisher;
 import software.amazon.awssdk.utils.CompletableFutureUtils;
 
 /**
@@ -1244,14 +1245,20 @@ public class Accounts {
     return Flux.range(0, segments)
         .parallel()
         .runOn(scheduler)
-        .flatMap(segment -> dynamoDbAsyncClient.scanPaginator(ScanRequest.builder()
-                .tableName(accountsTableName)
-                .consistentRead(true)
-                .segment(segment)
-                .totalSegments(segments)
-                .build())
-            .items()
-            .map(Accounts::fromItem))
+        .flatMap(segment -> {
+          final ScanPublisher scanPublisher = dynamoDbAsyncClient.scanPaginator(ScanRequest.builder()
+              .tableName(accountsTableName)
+              .consistentRead(true)
+              .segment(segment)
+              .totalSegments(segments)
+              .build());
+
+          // Subscribe to the publisher of responses (i.e. `scanPublisher`) rather than the publisher of items
+          // (i.e. `scanPublisher.items()`) to work around https://github.com/aws/aws-sdk-java-v2/issues/6411
+          return Flux.from(scanPublisher)
+              .flatMap(scanResponse -> Flux.fromIterable(scanResponse.items()))
+              .map(Accounts::fromItem);
+        })
         .sequential();
   }
 
