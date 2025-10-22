@@ -177,7 +177,7 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/registration_lock")
   public void setRegistrationLock(@Auth AuthenticatedDevice auth, @NotNull @Valid RegistrationLock accountLock) {
-    final SaltedTokenHash credentials = SaltedTokenHash.generateFor(accountLock.getRegistrationLock());
+    final SaltedTokenHash credentials = SaltedTokenHash.generateFor(accountLock.registrationLock());
 
     final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
