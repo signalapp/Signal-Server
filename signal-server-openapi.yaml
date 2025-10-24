@@ -1394,7 +1394,7 @@ paths:
   /v1/call_quality_survey:
     put:
       tags:
-      - Account
+      - Call quality survey
       summary: Submit survey response
       description: Submits a call quality survey response
       operationId: submitCallQualitySurvey
@@ -1784,6 +1784,7 @@ paths:
       parameters:
       - name: Authorization
         in: header
+        required: true
         schema:
           $ref: "#/components/schemas/BasicAuthorizationHeader"
       - name: User-Agent
