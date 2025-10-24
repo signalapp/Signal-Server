@@ -105,7 +105,7 @@ public class ExperimentEnrollmentManager {
     }).orElse(false);
   }
 
-  private boolean isEnrolled(final Object entity, final int enrollmentPercentage, final String experimentName) {
+  private static boolean isEnrolled(final Object entity, final int enrollmentPercentage, final String experimentName) {
     final int enrollmentHash = ((entity.hashCode() ^ experimentName.hashCode()) & Integer.MAX_VALUE) % 100;
 
     return enrollmentHash < enrollmentPercentage;

@@ -291,6 +291,7 @@ import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
 import org.whispersystems.textsecuregcm.workers.SetRequestLoggingEnabledTask;
 import org.whispersystems.textsecuregcm.workers.SetUserDiscoverabilityCommand;
 import org.whispersystems.textsecuregcm.workers.UnlinkDeviceCommand;
+import org.whispersystems.textsecuregcm.workers.UnlinkDevicesWithIdlePrimaryCommand;
 import org.whispersystems.textsecuregcm.workers.ZkParamsCommand;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
@@ -343,6 +344,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new BackupMetricsCommand(Clock.systemUTC()));
     bootstrap.addCommand(new BackupUsageRecalculationCommand());
     bootstrap.addCommand(new RemoveExpiredLinkedDevicesCommand());
+    bootstrap.addCommand(new UnlinkDevicesWithIdlePrimaryCommand(Clock.systemUTC()));
     bootstrap.addCommand(new NotifyIdleDevicesCommand());
     bootstrap.addCommand(new ClearIssuedReceiptRedemptionsCommand());
 
