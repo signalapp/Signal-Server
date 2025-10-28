@@ -88,7 +88,7 @@
     <dynamodb.image>amazon/dynamodb-local:3.0.0@sha256:2fed5e3a965a4ba5aa6ac82baec57058b5a3848e959d705518f3fd579a77e76b</dynamodb.image>
     <localstack.image>localstack/localstack:4@sha256:5a97e0f9917a3f0d9630bb13b9d8ccf10cbe52f33252807d3b4e21418cc21348</localstack.image>
     <redis.image>redis:7.4-alpine@sha256:af1d0fc3f63b02b13ff7906c9baf7c5b390b8881ca08119cd570677fe2f60b55</redis.image>
-    <redis-cluster.image>docker.io/bitnami/redis-cluster:7.4@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af</redis-cluster.image>
+    <redis-cluster.image>docker.io/bitnamilegacy/redis-cluster:7.4.3@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af</redis-cluster.image>
 
     <!-- eclipse-temurin:24.0.2_12-jre-noble (note: always use the multi-arch manifest *LIST* here) -->
     <docker.image.sha256>85ecfc9bbb42af046d2bacbf1219d2005be4840cbfa16c2e6fd910d9ccfec95b</docker.image.sha256>
