@@ -156,7 +156,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     }
 
     try {
-      final Customer customer = stripeClient.customers()
+      final Customer customer = stripeClient.v1().customers()
           .create(builder.build(), commonOptions(generateIdempotencyKeyForSubscriberUser(subscriberUser)));
       return new ProcessorCustomer(customer.getId(), getProvider());
     } catch (StripeException e) {
@@ -167,7 +167,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   public Customer getCustomer(String customerId) {
     CustomerRetrieveParams params = CustomerRetrieveParams.builder().build();
     try {
-      return stripeClient.customers().retrieve(customerId, params, commonOptions());
+      return stripeClient.v1().customers().retrieve(customerId, params, commonOptions());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -182,7 +182,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
               .build())
           .build();
       try {
-        stripeClient.customers().update(customerId, params, commonOptions());
+        stripeClient.v1().customers().update(customerId, params, commonOptions());
       } catch (InvalidRequestException e) {
         // Could happen if the paymentMethodId was bunk or the client didn't actually finish setting it up
         throw new SubscriptionInvalidArgumentsException(e.getMessage());
@@ -197,7 +197,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         .setCustomer(customerId)
         .build();
     try {
-      return stripeClient.setupIntents().create(params, commonOptions()).getClientSecret();
+      return stripeClient.v1().setupIntents().create(params, commonOptions()).getClientSecret();
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -230,7 +230,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       }
 
       try {
-        return stripeClient.paymentIntents().create(builder.build(), commonOptions());
+        return stripeClient.v1().paymentIntents().create(builder.build(), commonOptions());
       } catch (StripeException e) {
         final String errorCode = StringUtils.lowerCase(e.getCode(), Locale.ROOT);
         switch (errorCode) {
@@ -247,7 +247,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       try {
         final PaymentIntentRetrieveParams params = PaymentIntentRetrieveParams.builder()
             .addExpand("latest_charge").build();
-        final PaymentIntent paymentIntent = stripeClient.paymentIntents().retrieve(paymentIntentId, params, commonOptions());
+        final PaymentIntent paymentIntent = stripeClient.v1().paymentIntents().retrieve(paymentIntentId, params, commonOptions());
 
         ChargeFailure chargeFailure = null;
         if (paymentIntent.getLatestChargeObject() != null) {
@@ -304,7 +304,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
       //
       // If the client tells the server several times in a row before the initial creation of a subscription to
       // create a subscription, we want to ensure only one gets created.
-      final Subscription subscription = stripeClient.subscriptions().create(
+      final Subscription subscription = stripeClient.v1().subscriptions().create(
           params,
           commonOptions(generateIdempotencyKeyForCreateSubscription(customerId, lastSubscriptionCreatedAt)));
       return new SubscriptionId(subscription.getId());
@@ -334,7 +334,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
     List<SubscriptionUpdateParams.Item> items = new ArrayList<>();
     try {
-      final StripeCollection<SubscriptionItem> subscriptionItems = stripeClient.subscriptionItems()
+      final StripeCollection<SubscriptionItem> subscriptionItems = stripeClient.v1().subscriptionItems()
           .list(SubscriptionItemListParams.builder().setSubscription(subscription.getId()).build(),
               commonOptions());
       for (final SubscriptionItem item : subscriptionItems.autoPagingIterable()) {
@@ -357,7 +357,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           .setPaymentBehavior(SubscriptionUpdateParams.PaymentBehavior.ERROR_IF_INCOMPLETE)
           .addAllItem(items)
           .build();
-      final Subscription subscription1 = stripeClient.subscriptions().update(subscription.getId(), params,
+      final Subscription subscription1 = stripeClient.v1().subscriptions().update(subscription.getId(), params,
           commonOptions(generateIdempotencyKeyForSubscriptionUpdate(subscription.getCustomer(), idempotencyKey)));
       return new SubscriptionId(subscription1.getId());
     } catch (IdempotencyException e) {
@@ -375,7 +375,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         .addExpand("latest_invoice.payments.data.payment")
         .build();
     try {
-      return stripeClient.subscriptions().retrieve(subscriptionId, params, commonOptions());
+      return stripeClient.v1().subscriptions().retrieve(subscriptionId, params, commonOptions());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -386,7 +386,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         .addExpand("latest_charge")
         .build();
     try {
-      return stripeClient.paymentIntents().retrieve(paymentIntentId, params, commonOptions());
+      return stripeClient.v1().paymentIntents().retrieve(paymentIntentId, params, commonOptions());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -396,7 +396,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     ChargeRetrieveParams params = ChargeRetrieveParams.builder()
         .build();
     try {
-      return stripeClient.charges().retrieve(chargeId, params, commonOptions());
+      return stripeClient.v1().charges().retrieve(chargeId, params, commonOptions());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -431,7 +431,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         .build();
     try {
       return Lists.newArrayList(
-          stripeClient.subscriptions().list(params, commonOptions()).autoPagingIterable());
+          stripeClient.v1().subscriptions().list(params, commonOptions()).autoPagingIterable());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -452,7 +452,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   private Subscription cancelSubscriptionImmediately(Subscription subscription) {
     SubscriptionCancelParams params = SubscriptionCancelParams.builder().build();
     try {
-      return stripeClient.subscriptions().cancel(subscription.getId(), params, commonOptions());
+      return stripeClient.v1().subscriptions().cancel(subscription.getId(), params, commonOptions());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -463,7 +463,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
         .setCancelAtPeriodEnd(true)
         .build();
     try {
-      return stripeClient.subscriptions().update(subscription.getId(), params, commonOptions());
+      return stripeClient.v1().subscriptions().update(subscription.getId(), params, commonOptions());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -471,7 +471,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
   public Collection<SubscriptionItem> getItemsForSubscription(Subscription subscription) {
     try {
-      final StripeCollection<SubscriptionItem> subscriptionItems = stripeClient.subscriptionItems().list(
+      final StripeCollection<SubscriptionItem> subscriptionItems = stripeClient.v1().subscriptionItems().list(
           SubscriptionItemListParams.builder().setSubscription(subscription.getId()).build(), commonOptions());
       return Lists.newArrayList(subscriptionItems.autoPagingIterable());
 
@@ -513,7 +513,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   public Product getProductForPrice(String priceId) {
     PriceRetrieveParams params = PriceRetrieveParams.builder().addExpand("product").build();
     try {
-      return stripeClient.prices().retrieve(priceId, params, commonOptions()).getProductObject();
+      return stripeClient.v1().prices().retrieve(priceId, params, commonOptions()).getProductObject();
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
@@ -536,7 +536,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
             .build())
         .build();
     try {
-      ArrayList<Invoice> invoices = Lists.newArrayList(stripeClient.invoices().list(params, commonOptions())
+      ArrayList<Invoice> invoices = Lists.newArrayList(stripeClient.v1().invoices().list(params, commonOptions())
           .autoPagingIterable());
       invoices.sort(Comparator.comparingLong(Invoice::getCreated).reversed());
       return invoices;
@@ -724,7 +724,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
   public Collection<InvoiceLineItem> getInvoiceLineItemsForInvoice(Invoice invoice) {
     try {
-      final StripeCollection<InvoiceLineItem> lineItems = stripeClient.invoices().lineItems()
+      final StripeCollection<InvoiceLineItem> lineItems = stripeClient.v1().invoices().lineItems()
           .list(invoice.getId(), commonOptions());
       return Lists.newArrayList(lineItems.autoPagingIterable());
     } catch (final StripeException e) {
@@ -738,7 +738,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           .addExpand("latest_attempt")
           .build();
       try {
-        final SetupIntent setupIntent = stripeClient.setupIntents().retrieve(setupIntentId, params, commonOptions());
+        final SetupIntent setupIntent = stripeClient.v1().setupIntents().retrieve(setupIntentId, params, commonOptions());
         if (setupIntent.getLatestAttemptObject() == null
             || setupIntent.getLatestAttemptObject().getPaymentMethodDetails() == null
             || setupIntent.getLatestAttemptObject().getPaymentMethodDetails().getIdeal() == null

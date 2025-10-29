@@ -6,12 +6,14 @@
 package org.whispersystems.textsecuregcm.subscriptions;
 
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.stripe.StripeClient;
+import com.stripe.exception.ApiException;
+import com.stripe.exception.StripeException;
+import com.stripe.service.SubscriptionService;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
@@ -19,9 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import com.stripe.exception.ApiException;
-import com.stripe.exception.StripeException;
-import com.stripe.service.SubscriptionService;
+import com.stripe.service.V1Services;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 class StripeManagerTest {
 
   private StripeClient stripeClient;
+  private SubscriptionService subscriptionService;
   private StripeManager stripeManager;
   private ExecutorService executor;
 
@@ -42,6 +43,12 @@ class StripeManagerTest {
         "idempotencyKey".getBytes(StandardCharsets.UTF_8),
         "boost",
         Map.of(PaymentMethod.CARD, Set.of("usd")));
+
+    final V1Services v1Services = mock(V1Services.class);
+    when(stripeClient.v1()).thenReturn(v1Services);
+
+    subscriptionService = mock(SubscriptionService.class);
+    when(v1Services.subscriptions()).thenReturn(subscriptionService);
   }
 
   @AfterEach
@@ -52,12 +59,10 @@ class StripeManagerTest {
 
   @Test
   void paymentRequiresAction() throws StripeException {
-    final SubscriptionService subscriptionService = mock(SubscriptionService.class);
     final ApiException stripeException = new ApiException("Payment intent requires action",
         UUID.randomUUID().toString(), "subscription_payment_intent_requires_action", 400, new Exception());
 
     when(subscriptionService.create(any(), any())).thenThrow(stripeException);
-    when(stripeClient.subscriptions()).thenReturn(subscriptionService);
     assertThatExceptionOfType(SubscriptionPaymentRequiresActionException.class).isThrownBy(() ->
         stripeManager.createSubscription("customerId", "priceId", 1, 0));
   }
