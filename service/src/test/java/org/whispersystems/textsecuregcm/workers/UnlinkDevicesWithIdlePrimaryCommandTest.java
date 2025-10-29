@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import net.sourceforge.argparse4j.inf.Namespace;
-import org.junit.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -41,8 +40,7 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
 
     public TestUnlinkDevicesWithIdlePrimaryCommand(final Clock clock,
         final AccountsManager accountsManager,
-        final boolean isDryRun,
-        final int enrollmentPercentage) {
+        final boolean isDryRun) {
 
       super(clock);
 
@@ -51,7 +49,6 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
 
       namespace = new Namespace(Map.of(
           UnlinkDevicesWithIdlePrimaryCommand.DRY_RUN_ARGUMENT, isDryRun,
-          UnlinkDevicesWithIdlePrimaryCommand.ENROLLMENT_PERCENTAGE_ARGUMENT, enrollmentPercentage,
           UnlinkDevicesWithIdlePrimaryCommand.MAX_CONCURRENCY_ARGUMENT, 16,
           UnlinkDevicesWithIdlePrimaryCommand.PRIMARY_IDLE_DAYS_ARGUMENT, UnlinkDevicesWithIdlePrimaryCommand.DEFAULT_PRIMARY_IDLE_DAYS
       ));
@@ -121,7 +118,7 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
     }
 
     final UnlinkDevicesWithIdlePrimaryCommand unlinkDevicesWithIdlePrimaryCommand =
-        new TestUnlinkDevicesWithIdlePrimaryCommand(CLOCK, accountsManager, isDryRun, 100);
+        new TestUnlinkDevicesWithIdlePrimaryCommand(CLOCK, accountsManager, isDryRun);
 
     unlinkDevicesWithIdlePrimaryCommand.crawlAccounts(Flux.just(accountWithIdlePrimaryAndNoLinkedDevice,
         accountWithActivePrimaryAndLinkedDevice,
@@ -132,65 +129,6 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
     }
 
     verifyNoMoreInteractions(accountsManager);
-  }
-
-  @Test
-  void crawlAccountsPartialEnrollment() {
-    final AccountsManager accountsManager = mock(AccountsManager.class);
-    when(accountsManager.removeDevice(any(), anyByte()))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
-    final UUID enrolledAccountIdentifier = randomUUIDWithEnrollmentHash(1);
-    final UUID unenrolledAccountIdentifier = randomUUIDWithEnrollmentHash(25);
-
-    final byte linkedDeviceId = Device.PRIMARY_ID + 1;
-
-    final Duration idleDeviceLastSeenDuration =
-        Duration.ofDays(UnlinkDevicesWithIdlePrimaryCommand.DEFAULT_PRIMARY_IDLE_DAYS).plus(Duration.ofDays(1));
-
-    final Account enrolledAccount = mock(Account.class);
-    {
-      when(enrolledAccount.getIdentifier(IdentityType.ACI)).thenReturn(enrolledAccountIdentifier);
-
-      final Device primaryDevice =
-          generateMockDevice(Device.PRIMARY_ID, idleDeviceLastSeenDuration);
-
-      final Device linkedDevice = generateMockDevice(linkedDeviceId, idleDeviceLastSeenDuration);
-
-      when(enrolledAccount.getPrimaryDevice()).thenReturn(primaryDevice);
-      when(enrolledAccount.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
-    }
-
-    final Account unenrolledAccount = mock(Account.class);
-    {
-      when(unenrolledAccount.getIdentifier(IdentityType.ACI)).thenReturn(unenrolledAccountIdentifier);
-
-      final Device primaryDevice =
-          generateMockDevice(Device.PRIMARY_ID, idleDeviceLastSeenDuration);
-
-      final Device linkedDevice = generateMockDevice(linkedDeviceId, idleDeviceLastSeenDuration);
-
-      when(unenrolledAccount.getPrimaryDevice()).thenReturn(primaryDevice);
-      when(unenrolledAccount.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
-    }
-
-    final UnlinkDevicesWithIdlePrimaryCommand unlinkDevicesWithIdlePrimaryCommand =
-        new TestUnlinkDevicesWithIdlePrimaryCommand(CLOCK, accountsManager, false, 10);
-
-    unlinkDevicesWithIdlePrimaryCommand.crawlAccounts(Flux.just(enrolledAccount, unenrolledAccount));
-
-    verify(accountsManager).removeDevice(enrolledAccount, linkedDeviceId);
-    verifyNoMoreInteractions(accountsManager);
-  }
-
-  private static UUID randomUUIDWithEnrollmentHash(final int enrollmentHash) {
-    UUID uuid;
-
-    do {
-      uuid = UUID.randomUUID();
-    } while ((uuid.hashCode() & Integer.MAX_VALUE) % 100 != enrollmentHash);
-
-    return uuid;
   }
 
   private static Device generateMockDevice(final byte deviceId, final Duration primaryIdleDuration) {

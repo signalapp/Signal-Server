@@ -37,9 +37,6 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
   static final String PRIMARY_IDLE_DAYS_ARGUMENT = "primary-idle-days";
 
   @VisibleForTesting
-  static final String ENROLLMENT_PERCENTAGE_ARGUMENT = "enrollment-percentage";
-
-  @VisibleForTesting
   static final int DEFAULT_PRIMARY_IDLE_DAYS = 90;
 
   private static final String UNLINK_DEVICE_COUNTER_NAME =
@@ -75,19 +72,12 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
         .setDefault(DEFAULT_PRIMARY_IDLE_DAYS)
         .help("The number of inactivity after which a primary device is considered idle");
 
-    subparser.addArgument("--enrollment-percentage")
-        .type(Integer.class)
-        .dest(ENROLLMENT_PERCENTAGE_ARGUMENT)
-        .required(true)
-        .help("The percentage of eligible accounts from which to unlink devices");
-
     super.configure(subparser);
   }
 
   @Override
   protected void crawlAccounts(final Flux<Account> accounts) {
     final boolean isDryRun = getNamespace().getBoolean(DRY_RUN_ARGUMENT);
-    final int enrollmentPercentage = getNamespace().getInt(ENROLLMENT_PERCENTAGE_ARGUMENT);
     final Duration idleDurationThreshold = Duration.ofDays(getNamespace().getInt(PRIMARY_IDLE_DAYS_ARGUMENT));
 
     final AccountsManager accountsManager = getCommandDependencies().accountsManager();
@@ -98,7 +88,6 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
     final Instant currentTime = clock.instant();
 
     accounts
-        .filter(account -> isEnrolled(account, enrollmentPercentage))
         .filter(account -> isPrimaryDeviceIdle(account, currentTime, idleDurationThreshold))
         .flatMap(accountWithIdlePrimaryDevice -> Flux.fromIterable(accountWithIdlePrimaryDevice.getDevices())
             .filter(device -> !device.isPrimary())
@@ -127,9 +116,5 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
         Duration.between(Instant.ofEpochMilli(account.getPrimaryDevice().getLastSeen()), currentTime);
 
     return durationSincePrimaryLastSeen.compareTo(idleDurationThreshold) > 0;
-  }
-
-  private static boolean isEnrolled(final Account account, final int enrollmentPercentage) {
-    return (account.getIdentifier(IdentityType.ACI).hashCode() & Integer.MAX_VALUE) % 100 < enrollmentPercentage;
   }
 }
