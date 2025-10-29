@@ -252,6 +252,7 @@ import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckTrustAnchor;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceChecks;
+import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreClient;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
@@ -767,12 +768,17 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getGooglePlayBilling().applicationName(),
         config.getGooglePlayBilling().productIdToLevel());
     AppleAppStoreManager appleAppStoreManager = new AppleAppStoreManager(
-        config.getAppleAppStore().env(), config.getAppleAppStore().bundleId(), config.getAppleAppStore().appAppleId(),
-        config.getAppleAppStore().issuerId(), config.getAppleAppStore().keyId(),
-        config.getAppleAppStore().encodedKey().value(), config.getAppleAppStore().subscriptionGroupId(),
-        config.getAppleAppStore().productIdToLevel(),
-        config.getAppleAppStore().appleRootCerts(),
-        config.getAppleAppStore().retryConfigurationName());
+        new AppleAppStoreClient(
+            config.getAppleAppStore().env(),
+            config.getAppleAppStore().bundleId(),
+            config.getAppleAppStore().appAppleId(),
+            config.getAppleAppStore().issuerId(),
+            config.getAppleAppStore().keyId(),
+            config.getAppleAppStore().encodedKey().value(),
+            config.getAppleAppStore().appleRootCerts(),
+            config.getAppleAppStore().retryConfigurationName()),
+        config.getAppleAppStore().subscriptionGroupId(),
+        config.getAppleAppStore().productIdToLevel());
 
     environment.lifecycle().manage(asnInfoProviderSupplier);
 

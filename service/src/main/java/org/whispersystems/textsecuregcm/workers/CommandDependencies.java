@@ -77,6 +77,7 @@ import org.whispersystems.textsecuregcm.storage.SingleUseECPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.SingleUseKEMPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
+import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreClient;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
@@ -329,16 +330,17 @@ record CommandDependencies(
         configuration.getGooglePlayBilling().applicationName(),
         configuration.getGooglePlayBilling().productIdToLevel());
     AppleAppStoreManager appleAppStoreManager = new AppleAppStoreManager(
-        configuration.getAppleAppStore().env(),
-        configuration.getAppleAppStore().bundleId(),
-        configuration.getAppleAppStore().appAppleId(),
-        configuration.getAppleAppStore().issuerId(),
-        configuration.getAppleAppStore().keyId(),
-        configuration.getAppleAppStore().encodedKey().value(),
+        new AppleAppStoreClient(
+            configuration.getAppleAppStore().env(),
+            configuration.getAppleAppStore().bundleId(),
+            configuration.getAppleAppStore().appAppleId(),
+            configuration.getAppleAppStore().issuerId(),
+            configuration.getAppleAppStore().keyId(),
+            configuration.getAppleAppStore().encodedKey().value(),
+            configuration.getAppleAppStore().appleRootCerts(),
+            configuration.getAppleAppStore().retryConfigurationName()),
         configuration.getAppleAppStore().subscriptionGroupId(),
-        configuration.getAppleAppStore().productIdToLevel(),
-        configuration.getAppleAppStore().appleRootCerts(),
-        configuration.getAppleAppStore().retryConfigurationName());
+        configuration.getAppleAppStore().productIdToLevel());
     final SubscriptionManager subscriptionManager = new SubscriptionManager(
         new Subscriptions(configuration.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient),
         List.of(googlePlayBillingManager, appleAppStoreManager),

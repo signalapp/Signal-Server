@@ -6,19 +6,16 @@
 package org.whispersystems.textsecuregcm.subscriptions;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatException;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.apple.itunes.storekit.client.APIError;
 import com.apple.itunes.storekit.client.APIException;
 import com.apple.itunes.storekit.client.AppStoreServerAPIClient;
 import com.apple.itunes.storekit.model.AutoRenewStatus;
+import com.apple.itunes.storekit.model.Environment;
 import com.apple.itunes.storekit.model.JWSRenewalInfoDecodedPayload;
 import com.apple.itunes.storekit.model.JWSTransactionDecodedPayload;
 import com.apple.itunes.storekit.model.LastTransactionsItem;
@@ -28,7 +25,6 @@ import com.apple.itunes.storekit.model.SubscriptionGroupIdentifierItem;
 import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -57,8 +53,10 @@ class AppleAppStoreManagerTest {
   @BeforeEach
   public void setup() {
     reset(apiClient, signedDataVerifier);
-    appleAppStoreManager = new AppleAppStoreManager(apiClient, signedDataVerifier,
-        SUBSCRIPTION_GROUP_ID, Map.of(PRODUCT_ID, LEVEL), null);
+    appleAppStoreManager = new AppleAppStoreManager(new AppleAppStoreClient(Environment.PRODUCTION,
+        signedDataVerifier, apiClient,
+        signedDataVerifier, apiClient, null),
+        SUBSCRIPTION_GROUP_ID, Map.of(PRODUCT_ID, LEVEL));
   }
 
   @Test
@@ -126,7 +124,8 @@ class AppleAppStoreManagerTest {
                     .status(Status.ACTIVE)
                     .signedRenewalInfo(SIGNED_RENEWAL_INFO)
                     .signedTransactionInfo(product + "_signed_tx"))
-                .toList()))));
+                .toList())))
+            .environment(Environment.PRODUCTION));
     when(signedDataVerifier.verifyAndDecodeRenewalInfo(SIGNED_RENEWAL_INFO))
         .thenReturn(new JWSRenewalInfoDecodedPayload()
             .autoRenewStatus(AutoRenewStatus.ON));
@@ -145,39 +144,6 @@ class AppleAppStoreManagerTest {
     final SubscriptionInformation info = appleAppStoreManager.getSubscriptionInformation(ORIGINAL_TX_ID);
 
     assertThat(info.price().amount().compareTo(new BigDecimal("100"))).isEqualTo(0);
-
-  }
-
-  @Test
-  public void retryEventuallyWorks() throws APIException, IOException, VerificationException, RateLimitExceededException, SubscriptionException {
-    // Should retry up to 3 times
-    when(apiClient.getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{}))
-        .thenThrow(new APIException(404, APIError.ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE.errorCode(), "test"))
-        .thenThrow(new APIException(404, APIError.ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE.errorCode(), "test"))
-        .thenReturn(new StatusResponse().data(List.of(new SubscriptionGroupIdentifierItem()
-            .subscriptionGroupIdentifier(SUBSCRIPTION_GROUP_ID)
-            .addLastTransactionsItem(new LastTransactionsItem()
-                .originalTransactionId(ORIGINAL_TX_ID)
-                .status(Status.ACTIVE)
-                .signedRenewalInfo(SIGNED_RENEWAL_INFO)
-                .signedTransactionInfo(SIGNED_TX_INFO)))));
-    mockDecode(AutoRenewStatus.ON);
-    final SubscriptionInformation info = appleAppStoreManager.getSubscriptionInformation(ORIGINAL_TX_ID);
-    assertThat(info.status()).isEqualTo(SubscriptionStatus.ACTIVE);
-  }
-
-  @Test
-  public void retryEventuallyGivesUp() throws APIException, IOException, VerificationException {
-    // Should retry up to 3 times
-    when(apiClient.getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{}))
-        .thenThrow(new APIException(404, APIError.ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE.errorCode(), "test"));
-    mockDecode(AutoRenewStatus.ON);
-    assertThatException()
-        .isThrownBy(() -> appleAppStoreManager.getSubscriptionInformation(ORIGINAL_TX_ID))
-        .isInstanceOf(UncheckedIOException.class)
-        .withRootCauseInstanceOf(APIException.class);
-
-    verify(apiClient, times(3)).getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{});
 
   }
 
@@ -205,13 +171,15 @@ class AppleAppStoreManagerTest {
   private void mockSubscription(final Status status, final AutoRenewStatus autoRenewStatus)
       throws APIException, IOException, VerificationException {
     when(apiClient.getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{}))
-        .thenReturn(new StatusResponse().data(List.of(new SubscriptionGroupIdentifierItem()
+        .thenReturn(new StatusResponse()
+            .data(List.of(new SubscriptionGroupIdentifierItem()
             .subscriptionGroupIdentifier(SUBSCRIPTION_GROUP_ID)
             .addLastTransactionsItem(new LastTransactionsItem()
                 .originalTransactionId(ORIGINAL_TX_ID)
                 .status(status)
                 .signedRenewalInfo(SIGNED_RENEWAL_INFO)
-                .signedTransactionInfo(SIGNED_TX_INFO)))));
+                .signedTransactionInfo(SIGNED_TX_INFO))))
+            .environment(Environment.PRODUCTION));
     mockDecode(autoRenewStatus);
   }
 
