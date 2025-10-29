@@ -331,7 +331,7 @@ public class KeyTransparencyControllerTest {
     try (Response response = request.post(Entity.json(
         createRequestJson(
             new KeyTransparencyMonitorRequest(
-                new KeyTransparencyMonitorRequest.AciMonitor(ACI,3, COMMITMENT_INDEX),
+                new KeyTransparencyMonitorRequest.AciMonitor(ACI, 0, COMMITMENT_INDEX),
                 Optional.empty(), Optional.empty(), 3L, 4L))))) {
       assertEquals(200, response.getStatus());
 
@@ -414,8 +414,8 @@ public class KeyTransparencyControllerTest {
         Arguments.argumentSet("aci monitor fields can't be null - null commitment index", createRequestJson(
             new KeyTransparencyMonitorRequest(new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, null),
                 Optional.empty(), Optional.empty(), 3L, 4L))),
-        Arguments.argumentSet("aciPosition must be positive", createRequestJson(new KeyTransparencyMonitorRequest(
-            new KeyTransparencyMonitorRequest.AciMonitor(ACI, 0, COMMITMENT_INDEX),
+        Arguments.argumentSet("aciPosition must be non-negative", createRequestJson(new KeyTransparencyMonitorRequest(
+            new KeyTransparencyMonitorRequest.AciMonitor(ACI, -1, COMMITMENT_INDEX),
             Optional.empty(), Optional.empty(), 3L, 4L))),
         Arguments.argumentSet("aci commitment index must be the correct size - too small", createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, new byte[0]),
@@ -438,12 +438,12 @@ public class KeyTransparencyControllerTest {
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX), Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH, 5, null)),
                 3L, 4L))),
-        Arguments.argumentSet("usernameHashPosition must be positive", createRequestJson(
+        Arguments.argumentSet("usernameHashPosition must be non-negative", createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
                 Optional.empty(),
                 Optional.of(new KeyTransparencyMonitorRequest.UsernameHashMonitor(USERNAME_HASH,
-                    0, COMMITMENT_INDEX)), 3L, 4L))),
+                    -1, COMMITMENT_INDEX)), 3L, 4L))),
         Arguments.argumentSet("username commitment index must be the correct size - too small", createRequestJson(
             new KeyTransparencyMonitorRequest(
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, new byte[0]),
@@ -470,10 +470,10 @@ public class KeyTransparencyControllerTest {
                 new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
                 Optional.of(new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, 5, null)),
                 Optional.empty(), 3L, 4L))),
-        Arguments.argumentSet("e164Position must be positive", createRequestJson(new KeyTransparencyMonitorRequest(
+        Arguments.argumentSet("e164Position must be non-negative", createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),
             Optional.of(
-                new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, 0, COMMITMENT_INDEX)),
+                new KeyTransparencyMonitorRequest.E164Monitor(NUMBER, -1, COMMITMENT_INDEX)),
             Optional.empty(), 3L, 4L))),
         Arguments.argumentSet("e164 commitment index must be the correct size - too small", createRequestJson(new KeyTransparencyMonitorRequest(
             new KeyTransparencyMonitorRequest.AciMonitor(ACI, 4, COMMITMENT_INDEX),

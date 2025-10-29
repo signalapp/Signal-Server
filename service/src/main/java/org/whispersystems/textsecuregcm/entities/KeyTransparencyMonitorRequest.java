@@ -14,6 +14,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.util.Optional;
+import jakarta.validation.constraints.PositiveOrZero;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
@@ -49,7 +50,7 @@ public record KeyTransparencyMonitorRequest(
       AciServiceIdentifier value,
 
       @Schema(description = "A log tree position maintained by the client for the aci.")
-      @Positive
+      @PositiveOrZero
       long entryPosition,
 
       @Schema(description = "The commitment index derived from a previous search request, encoded in standard unpadded base64")
@@ -66,7 +67,7 @@ public record KeyTransparencyMonitorRequest(
       String value,
 
       @Schema(description = "A log tree position maintained by the client for the e164.")
-      @Positive
+      @PositiveOrZero
       long entryPosition,
 
       @Schema(description = "The commitment index derived from a previous search request, encoded in standard unpadded base64")
@@ -87,7 +88,7 @@ public record KeyTransparencyMonitorRequest(
       byte[] value,
 
       @Schema(description = "A log tree position maintained by the client for the username hash.")
-      @Positive
+      @PositiveOrZero
       long entryPosition,
 
       @Schema(description = "The commitment index derived from a previous search request, encoded in standard unpadded base64")
