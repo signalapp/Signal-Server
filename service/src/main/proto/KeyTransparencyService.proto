@@ -68,6 +68,18 @@ message SearchRequest {
    * The tree head size(s) to prove consistency against.
    */
   ConsistencyParameters consistency = 5 [(org.signal.chat.require.present) = true];
+  /**
+   * The version of the ACI to look up.
+   */
+  optional uint32 aci_version = 6;
+  /**
+   * The version of the E164 to look up.
+   */
+  optional uint32 e164_version = 7;
+  /**
+   * The version of the username hash to look up.
+   */
+  optional uint32 username_hash_version = 8;
 }
 
 /**
