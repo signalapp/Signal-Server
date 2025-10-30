@@ -78,6 +78,7 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
   @Override
   protected void crawlAccounts(final Flux<Account> accounts) {
     final boolean isDryRun = getNamespace().getBoolean(DRY_RUN_ARGUMENT);
+    final int maxConcurrency = getNamespace().getInt(MAX_CONCURRENCY_ARGUMENT);
     final Duration idleDurationThreshold = Duration.ofDays(getNamespace().getInt(PRIMARY_IDLE_DAYS_ARGUMENT));
 
     final AccountsManager accountsManager = getCommandDependencies().accountsManager();
@@ -106,7 +107,7 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
 
                 return Mono.empty();
               });
-        })
+        }, maxConcurrency)
         .then()
         .block();
   }
