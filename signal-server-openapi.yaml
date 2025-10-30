@@ -2263,10 +2263,9 @@ paths:
         "400":
           description: Invalid request. See response for any available details.
         "403":
-          description: The ACI was found but its mapped value did not match the provided
-            ACI identity key
-        "404":
-          description: The ACI was not found in the log
+          description: |
+            The ACI was found but its mapped value did not match the provided ACI identity key
+            or the ACI was not found in the log.
         "422":
           description: Invalid request format
         "429":
@@ -5376,6 +5375,18 @@ components:
         distinguishedTreeHeadSize:
           type: integer
           description: The distinguished tree head size to prove consistency against.
+          format: int64
+        aciVersion:
+          type: integer
+          description: The version of the ACI to look up.
+          format: int64
+        e164Version:
+          type: integer
+          description: The version of the E164 to look up.
+          format: int64
+        usernameHashVersion:
+          type: integer
+          description: The version of the username hash to look up.
           format: int64
     CheckKeysRequest:
       required:
