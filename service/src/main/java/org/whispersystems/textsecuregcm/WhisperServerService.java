@@ -58,7 +58,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.eclipse.jetty.ee10.websocket.server.config.JettyWebSocketServletContainerInitializer;
-import org.eclipse.jetty.websocket.core.WebSocketComponents;
+import org.eclipse.jetty.websocket.core.WebSocketExtensionRegistry;
 import org.eclipse.jetty.websocket.core.server.WebSocketServerComponents;
 import org.glassfish.jersey.server.ServerProperties;
 import org.signal.i18n.HeaderControlledResourceBundleLookup;
@@ -267,6 +267,7 @@ import org.whispersystems.textsecuregcm.util.VirtualThreadPinEventMonitor;
 import org.whispersystems.textsecuregcm.util.logging.LoggingUnhandledExceptionMapper;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
 import org.whispersystems.textsecuregcm.websocket.AuthenticatedConnectListener;
+import org.whispersystems.textsecuregcm.websocket.NoContextTakeoverPerMessageDeflateExtension;
 import org.whispersystems.textsecuregcm.websocket.ProvisioningConnectListener;
 import org.whispersystems.textsecuregcm.websocket.WebSocketAccountAuthenticator;
 import org.whispersystems.textsecuregcm.workers.BackupMetricsCommand;
@@ -1132,11 +1133,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           container.setMaxBinaryMessageSize(config.getWebSocketConfiguration().getMaxBinaryMessageSize());
           container.setMaxTextMessageSize(config.getWebSocketConfiguration().getMaxTextMessageSize());
 
-
+          final WebSocketExtensionRegistry extensionRegistry = WebSocketServerComponents
+              .getWebSocketComponents(environment.getApplicationContext())
+              .getExtensionRegistry();
           if (config.getWebSocketConfiguration().isDisablePerMessageDeflate()) {
-            WebSocketComponents components =
-                WebSocketServerComponents.getWebSocketComponents(environment.getApplicationContext());
-            components.getExtensionRegistry().unregister("permessage-deflate");
+            extensionRegistry.unregister("permessage-deflate");
+          } else if (config.getWebSocketConfiguration().isDisableCrossMessageOutgoingCompression()) {
+            extensionRegistry.unregister("permessage-deflate");
+            extensionRegistry.register("permessage-deflate", NoContextTakeoverPerMessageDeflateExtension.class);
           }
         });
 

@@ -32,6 +32,10 @@ public class WebSocketConfiguration {
   @JsonProperty
   private boolean disablePerMessageDeflate = false;
 
+  @Valid
+  @JsonProperty
+  private boolean disableCrossMessageOutgoingCompression = false;
+
   public WebsocketRequestLoggerFactory getRequestLog() {
     return requestLog;
   }
@@ -46,5 +50,9 @@ public class WebSocketConfiguration {
 
   public boolean isDisablePerMessageDeflate() {
     return disablePerMessageDeflate;
+  }
+
+  public boolean isDisableCrossMessageOutgoingCompression() {
+    return disableCrossMessageOutgoingCompression;
   }
 }
