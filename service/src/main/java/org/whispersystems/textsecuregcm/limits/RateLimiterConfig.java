@@ -17,7 +17,7 @@ public record RateLimiterConfig(int bucketSize, Duration permitRegenerationDurat
 
   @AssertTrue
   @Schema(hidden = true)
-  public boolean hasPositiveRegenerationRate() {
+  public boolean isPositiveRegenerationRate() {
     try {
       return permitRegenerationDuration.toNanos() > 0;
     } catch (final ArithmeticException e) {

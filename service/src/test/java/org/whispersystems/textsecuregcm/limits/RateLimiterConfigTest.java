@@ -21,9 +21,9 @@ class RateLimiterConfigTest {
 
   @Test
   void isRegenerationRatePositive() {
-    assertTrue(new RateLimiterConfig(1, Duration.ofSeconds(1), false).hasPositiveRegenerationRate());
-    assertTrue(new RateLimiterConfig(1, Duration.ofNanos(1), false).hasPositiveRegenerationRate());
-    assertFalse(new RateLimiterConfig(1, Duration.ZERO, false).hasPositiveRegenerationRate());
-    assertFalse(new RateLimiterConfig(1, Duration.ofSeconds(-1), false).hasPositiveRegenerationRate());
+    assertTrue(new RateLimiterConfig(1, Duration.ofSeconds(1), false).isPositiveRegenerationRate());
+    assertTrue(new RateLimiterConfig(1, Duration.ofNanos(1), false).isPositiveRegenerationRate());
+    assertFalse(new RateLimiterConfig(1, Duration.ZERO, false).isPositiveRegenerationRate());
+    assertFalse(new RateLimiterConfig(1, Duration.ofSeconds(-1), false).isPositiveRegenerationRate());
   }
 }
