@@ -36,6 +36,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 
@@ -75,10 +76,11 @@ class MetricsHttpEventHandlerTest {
     listener = new MetricsHttpEventHandler(null, meterRegistry, clientReleaseManager, Set.of("/test"));
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
+  @CartesianTest
   @SuppressWarnings("unchecked")
-  void testRequests(boolean pathFromFilter) {
+  void testRequests(@CartesianTest.Values(booleans = {true, false}) final boolean pathFromFilter,
+      @CartesianTest.Values(booleans = {true, false}) final boolean versionActive) {
+
     final String path = "/test";
     final String method = "GET";
     final int statusCode = 200;
@@ -105,9 +107,10 @@ class MetricsHttpEventHandlerTest {
       });
     }
 
-
     final Response response = mock(Response.class);
     when(response.getStatus()).thenReturn(statusCode);
+
+    when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(versionActive);
 
     final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
 
@@ -127,7 +130,7 @@ class MetricsHttpEventHandlerTest {
       tags.add(tag);
     }
 
-    assertEquals(6, tags.size());
+    assertEquals(versionActive ? 7 : 6, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsHttpEventHandler.PATH_TAG, path)));
     assertTrue(tags.contains(Tag.of(MetricsHttpEventHandler.METHOD_TAG, method)));
     assertTrue(tags.contains(Tag.of(MetricsHttpEventHandler.STATUS_CODE_TAG, String.valueOf(statusCode))));
@@ -135,6 +138,7 @@ class MetricsHttpEventHandlerTest {
         tags.contains(Tag.of(MetricsHttpEventHandler.TRAFFIC_SOURCE_TAG, TrafficSource.HTTP.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
+    assertEquals(versionActive, tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "6.53.7")));
   }
 
   @ParameterizedTest

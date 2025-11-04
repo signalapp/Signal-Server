@@ -98,10 +98,15 @@ public class MetricsRequestEventListener implements RequestEventListener {
         @Nullable final String userAgent;
         {
           final List<String> userAgentValues = event.getContainerRequest().getRequestHeader(HttpHeaders.USER_AGENT);
-          userAgent = userAgentValues != null && !userAgentValues.isEmpty() ? userAgentValues.get(0) : null;
+          userAgent = userAgentValues != null && !userAgentValues.isEmpty() ? userAgentValues.getFirst() : null;
         }
 
         tags.addAll(UserAgentTagUtil.getLibsignalAndPlatformTags(userAgent));
+
+        final Optional<Tag> maybeClientVersionTag =
+            UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager);
+
+        maybeClientVersionTag.ifPresent(tags::add);
 
         meterRegistry.counter(REQUEST_COUNTER_NAME, tags).increment();
 
@@ -117,10 +122,9 @@ public class MetricsRequestEventListener implements RequestEventListener {
             .filter(bytes -> bytes >= 0)
             .ifPresent(bytes -> meterRegistry.counter(RESPONSE_BYTES_COUNTER_NAME, tags).increment(bytes));
 
-        UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager)
-            .ifPresent(clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,
-                    Tags.of(clientVersionTag, UserAgentTagUtil.getPlatformTag(userAgent)))
-                .increment());
+        maybeClientVersionTag.ifPresent(clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,
+                Tags.of(clientVersionTag, UserAgentTagUtil.getPlatformTag(userAgent)))
+            .increment());
       }
     }
   }

@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -65,6 +67,8 @@ class MetricsRequestEventListenerTest {
   private Counter counter;
   private Counter responseBytesCounter;
   private Counter requestBytesCounter;
+  private Counter requestsByVersionCounter;
+  private ClientReleaseManager clientReleaseManager;
   private MetricsRequestEventListener listener;
 
   private static final TrafficSource TRAFFIC_SOURCE = TrafficSource.HTTP;
@@ -75,19 +79,21 @@ class MetricsRequestEventListenerTest {
     counter = mock(Counter.class);
     responseBytesCounter = mock(Counter.class);
     requestBytesCounter = mock(Counter.class);
-
-    final ClientReleaseManager clientReleaseManager = mock(ClientReleaseManager.class);
-    when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(false);
+    requestsByVersionCounter = mock(Counter.class);
+    clientReleaseManager = mock(ClientReleaseManager.class);
 
     listener = new MetricsRequestEventListener(TRAFFIC_SOURCE, meterRegistry, clientReleaseManager);
   }
 
-  @Test
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
   @SuppressWarnings("unchecked")
-  void testOnEvent() {
+  void testOnEvent(final boolean versionActive) {
     final String path = "/test";
     final String method = "GET";
     final int statusCode = 200;
+
+    when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(versionActive);
 
     final ExtendedUriInfo uriInfo = mock(ExtendedUriInfo.class);
     when(uriInfo.getMatchedTemplates()).thenReturn(Collections.singletonList(new UriTemplate(path)));
@@ -115,6 +121,8 @@ class MetricsRequestEventListenerTest {
         .thenReturn(responseBytesCounter);
     when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUEST_BYTES_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(requestBytesCounter);
+    when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUESTS_BY_VERSION_COUNTER_NAME), any(Iterable.class)))
+        .thenReturn(requestsByVersionCounter);
 
     listener.onEvent(event);
 
@@ -122,6 +130,7 @@ class MetricsRequestEventListenerTest {
     verify(counter).increment();
     verify(responseBytesCounter).increment(1024L);
     verify(requestBytesCounter).increment(512L);
+    verify(requestsByVersionCounter, versionActive ? times(1) : never()).increment();
 
     final Iterable<Tag> tagIterable = tagCaptor.getValue();
     final Set<Tag> tags = new HashSet<>();
@@ -130,7 +139,7 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(7, tags.size());
+    assertEquals(versionActive ? 8 : 7, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, path)));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, method)));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
@@ -138,6 +147,7 @@ class MetricsRequestEventListenerTest {
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, "false")));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "true")));
+    assertEquals(versionActive, tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "7.6.2")));
   }
 
   @Test
