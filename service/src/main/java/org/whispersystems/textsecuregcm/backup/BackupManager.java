@@ -56,6 +56,7 @@ import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
+import javax.annotation.Nullable;
 
 public class BackupManager {
 
@@ -622,11 +623,13 @@ public class BackupManager {
     return backupsDb
         .retrieveAuthenticationData(presentation.getBackupId())
         .thenApply(optionalAuthenticationData -> {
+          final UserAgent userAgent = parseUserAgent(userAgentString);
           final BackupsDb.AuthenticationData authenticationData = optionalAuthenticationData
               .orElseGet(() -> {
-                Metrics.counter(ZK_AUTHN_COUNTER_NAME,
-                        SUCCESS_TAG_NAME, String.valueOf(false),
-                        FAILURE_REASON_TAG_NAME, "missing_public_key")
+                Metrics.counter(ZK_AUTHN_COUNTER_NAME, Tags.of(
+                        Tag.of(SUCCESS_TAG_NAME, String.valueOf(false)),
+                        Tag.of(FAILURE_REASON_TAG_NAME, "missing_public_key"),
+                        UserAgentTagUtil.getPlatformTag(userAgent)))
                     .increment();
                 // There was no stored public key, use a bunk public key so that validation will fail
                 return new BackupsDb.AuthenticationData(INVALID_PUBLIC_KEY, null, null);
@@ -634,13 +637,6 @@ public class BackupManager {
 
           final Pair<BackupCredentialType, BackupLevel> credentialTypeAndBackupLevel =
               signatureVerifier.verifySignature(signature, authenticationData.publicKey());
-
-          UserAgent userAgent;
-          try {
-            userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
-          } catch (UnrecognizedUserAgentException e) {
-            userAgent = null;
-          }
 
           return new AuthenticatedBackupUser(
               presentation.getBackupId(),
@@ -841,5 +837,13 @@ public class BackupManager {
 
   static String rateLimitKey(final AuthenticatedBackupUser backupUser) {
     return Base64.getEncoder().encodeToString(BackupsDb.hashedBackupId(backupUser.backupId()));
+  }
+
+  private static @Nullable UserAgent parseUserAgent(final String userAgentString) {
+    try {
+      return UserAgentUtil.parseUserAgentString(userAgentString);
+    } catch (UnrecognizedUserAgentException e) {
+      return null;
+    }
   }
 }
