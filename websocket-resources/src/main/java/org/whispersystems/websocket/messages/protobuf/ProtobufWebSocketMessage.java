@@ -10,14 +10,15 @@ import org.whispersystems.websocket.messages.InvalidMessageException;
 import org.whispersystems.websocket.messages.WebSocketMessage;
 import org.whispersystems.websocket.messages.WebSocketRequestMessage;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
+import java.nio.ByteBuffer;
 
 public class ProtobufWebSocketMessage implements WebSocketMessage {
 
   private final SubProtocol.WebSocketMessage message;
 
-  ProtobufWebSocketMessage(byte[] buffer, int offset, int length) throws InvalidMessageException {
+  ProtobufWebSocketMessage(ByteBuffer buffer) throws InvalidMessageException {
     try {
-      this.message = SubProtocol.WebSocketMessage.parseFrom(ByteString.copyFrom(buffer, offset, length));
+      this.message = SubProtocol.WebSocketMessage.parseFrom(ByteString.copyFrom(buffer));
 
       if (getType() == Type.REQUEST_MESSAGE) {
         if (!message.getRequest().hasVerb() || !message.getRequest().hasPath()) {

@@ -13,11 +13,9 @@ import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest;
-import org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse;
-import org.eclipse.jetty.websocket.server.JettyWebSocketCreator;
-import org.eclipse.jetty.websocket.server.JettyWebSocketServlet;
-import org.eclipse.jetty.websocket.server.JettyWebSocketServletFactory;
+import org.eclipse.jetty.ee10.websocket.server.JettyServerUpgradeRequest;
+import org.eclipse.jetty.ee10.websocket.server.JettyServerUpgradeResponse;
+import org.eclipse.jetty.ee10.websocket.server.JettyWebSocketCreator;
 import org.glassfish.jersey.CommonProperties;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.slf4j.Logger;
@@ -25,23 +23,20 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.websocket.auth.InvalidCredentialsException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
 import org.whispersystems.websocket.auth.WebsocketAuthValueFactoryProvider;
-import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 import org.whispersystems.websocket.session.WebSocketSessionContextValueFactoryProvider;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
-public class WebSocketResourceProviderFactory<T extends Principal> extends JettyWebSocketServlet implements
-    JettyWebSocketCreator {
+public class WebSocketResourceProviderFactory<T extends Principal> implements JettyWebSocketCreator {
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketResourceProviderFactory.class);
 
   private final WebSocketEnvironment<T> environment;
   private final ApplicationHandler jerseyApplicationHandler;
-  private final WebSocketConfiguration configuration;
 
   private final String remoteAddressPropertyName;
 
   public WebSocketResourceProviderFactory(WebSocketEnvironment<T> environment, Class<T> principalClass,
-      WebSocketConfiguration configuration, String remoteAddressPropertyName) {
+      String remoteAddressPropertyName) {
     this.environment = environment;
 
     environment.jersey().register(new WebSocketSessionContextValueFactoryProvider.Binder());
@@ -55,7 +50,6 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
 
     this.jerseyApplicationHandler = new ApplicationHandler(environment.jersey());
 
-    this.configuration = configuration;
     this.remoteAddressPropertyName = remoteAddressPropertyName;
   }
 
@@ -89,19 +83,13 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
       // Authentication may fail for non-incorrect-credential reasons (e.g. we couldn't read from the account database).
       // If that happens, we don't want to incorrectly tell clients that they provided bad credentials.
       logger.warn("Authentication failure", e);
+
       try {
         response.sendError(500, "Failure");
       } catch (final IOException ignored) {
       }
       return null;
     }
-  }
-
-  @Override
-  public void configure(JettyWebSocketServletFactory factory) {
-    factory.setCreator(this);
-    factory.setMaxBinaryMessageSize(configuration.getMaxBinaryMessageSize());
-    factory.setMaxTextMessageSize(configuration.getMaxTextMessageSize());
   }
 
   private String getRemoteAddress(JettyServerUpgradeRequest request) {

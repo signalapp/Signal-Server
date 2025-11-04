@@ -37,15 +37,12 @@ import io.netty.resolver.ResolvedAddressTypes;
 import io.netty.resolver.dns.DnsNameResolver;
 import io.netty.resolver.dns.DnsNameResolverBuilder;
 import jakarta.servlet.DispatcherType;
-import jakarta.servlet.Filter;
-import jakarta.servlet.ServletRegistration;
 import java.io.ByteArrayInputStream;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -60,9 +57,9 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.eclipse.jetty.ee10.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.eclipse.jetty.websocket.core.WebSocketComponents;
 import org.eclipse.jetty.websocket.core.server.WebSocketServerComponents;
-import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.glassfish.jersey.server.ServerProperties;
 import org.signal.i18n.HeaderControlledResourceBundleLookup;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -136,6 +133,7 @@ import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.ExternalRequestFilter;
+import org.whispersystems.textsecuregcm.filters.PriorityFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
@@ -184,7 +182,7 @@ import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
-import org.whispersystems.textsecuregcm.metrics.MetricsHttpChannelListener;
+import org.whispersystems.textsecuregcm.metrics.MetricsHttpEventHandler;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
@@ -911,17 +909,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     environment.lifecycle().manage(dnsResolutionEventLoopGroup);
     environment.lifecycle().manage(exposedGrpcServer);
 
-    final List<Filter> filters = new ArrayList<>();
-    filters.add(remoteDeprecationFilter);
-    filters.add(new RemoteAddressFilter());
-    filters.add(new TimestampResponseFilter());
-
-    for (Filter filter : filters) {
-      environment.servlets()
-          .addFilter(filter.getClass().getSimpleName(), filter)
-          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
-    }
-
     if (!config.getExternalRequestFilterConfiguration().paths().isEmpty()) {
       environment.servlets().addFilter(ExternalRequestFilter.class.getSimpleName(),
               new ExternalRequestFilter(config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
@@ -938,9 +925,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final String websocketServletPath = "/v1/websocket/";
     final String provisioningWebsocketServletPath = "/v1/websocket/provisioning/";
 
-    final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(clientReleaseManager,
-        Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
-    metricsHttpChannelListener.configure(environment);
+    MetricsHttpEventHandler.configure(environment, Metrics.globalRegistry, clientReleaseManager, Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
     final MessageMetrics messageMetrics = new MessageMetrics();
     final BackupMetrics backupMetrics = new BackupMetrics();
 
@@ -1130,29 +1115,30 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
     provisioningEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
 
-    JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), (context, container) -> {
-      if (config.getWebSocketConfiguration().isDisablePerMessageDeflate()) {
-        WebSocketComponents components =
-            WebSocketServerComponents.getWebSocketComponents(environment.getApplicationContext().getServletContext());
-        components.getExtensionRegistry().unregister("permessage-deflate");
-      }
-    });
-
     WebSocketResourceProviderFactory<AuthenticatedDevice> webSocketServlet = new WebSocketResourceProviderFactory<>(
-        webSocketEnvironment, AuthenticatedDevice.class, config.getWebSocketConfiguration(),
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
+        webSocketEnvironment, AuthenticatedDevice.class, RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
     WebSocketResourceProviderFactory<AuthenticatedDevice> provisioningServlet = new WebSocketResourceProviderFactory<>(
-        provisioningEnvironment, AuthenticatedDevice.class, config.getWebSocketConfiguration(),
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
+        provisioningEnvironment, AuthenticatedDevice.class, RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
-    ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", webSocketServlet);
-    ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);
+    JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(),
+        (servletContext, container) -> {
+          container.addMapping(websocketServletPath, webSocketServlet);
+          container.addMapping(provisioningWebsocketServletPath, provisioningServlet);
 
-    websocket.addMapping(websocketServletPath);
-    websocket.setAsyncSupported(true);
+          PriorityFilter.ensureFilter(servletContext, new TimestampResponseFilter());
+          PriorityFilter.ensureFilter(servletContext, new RemoteAddressFilter());
+          PriorityFilter.ensureFilter(servletContext, remoteDeprecationFilter);
 
-    provisioning.addMapping(provisioningWebsocketServletPath);
-    provisioning.setAsyncSupported(true);
+          container.setMaxBinaryMessageSize(config.getWebSocketConfiguration().getMaxBinaryMessageSize());
+          container.setMaxTextMessageSize(config.getWebSocketConfiguration().getMaxTextMessageSize());
+
+
+          if (config.getWebSocketConfiguration().isDisablePerMessageDeflate()) {
+            WebSocketComponents components =
+                WebSocketServerComponents.getWebSocketComponents(environment.getApplicationContext());
+            components.getExtensionRegistry().unregister("permessage-deflate");
+          }
+        });
 
     environment.admin().addTask(new SetRequestLoggingEnabledTask());
   }

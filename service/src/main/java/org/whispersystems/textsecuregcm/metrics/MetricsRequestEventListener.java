@@ -27,7 +27,7 @@ import org.whispersystems.websocket.WebSocketResourceProvider;
 
 /**
  * Gathers and reports request-level metrics for WebSocket traffic only.
- * For HTTP traffic, use {@link MetricsHttpChannelListener}.
+ * For HTTP traffic, use {@link MetricsHttpEventHandler}.
  */
 public class MetricsRequestEventListener implements RequestEventListener {
 
@@ -62,7 +62,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
     this(trafficSource, Metrics.globalRegistry, clientReleaseManager);
 
     if (trafficSource == TrafficSource.HTTP) {
-      logger.warn("Use {} for HTTP traffic", MetricsHttpChannelListener.class.getName());
+      logger.warn("Use {} for HTTP traffic", MetricsHttpEventHandler.class.getName());
     }
   }
 
