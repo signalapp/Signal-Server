@@ -26,6 +26,10 @@ public class RemoteAddressFilter implements Filter {
   public static final String REMOTE_ADDRESS_ATTRIBUTE_NAME = RemoteAddressFilter.class.getName() + ".remoteAddress";
   private static final Logger logger = LoggerFactory.getLogger(RemoteAddressFilter.class);
 
+
+  public RemoteAddressFilter() {
+  }
+
   @Override
   public void doFilter(final ServletRequest request, final ServletResponse response, final FilterChain chain)
       throws ServletException, IOException {

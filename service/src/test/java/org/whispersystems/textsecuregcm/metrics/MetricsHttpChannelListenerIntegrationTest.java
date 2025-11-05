@@ -27,6 +27,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import jakarta.annotation.Priority;
+import jakarta.servlet.DispatcherType;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotAuthorizedException;
@@ -43,6 +44,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.security.Principal;
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -52,28 +54,25 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.security.auth.Subject;
-import org.eclipse.jetty.ee10.websocket.server.config.JettyWebSocketServletContainerInitializer;
-import org.eclipse.jetty.http.HttpFields;
-import org.eclipse.jetty.server.Handler;
+import org.eclipse.jetty.server.Connector;
+import org.eclipse.jetty.server.HttpChannel;
 import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.EventsHandler;
+import org.eclipse.jetty.util.component.Container;
 import org.eclipse.jetty.util.component.LifeCycle;
-import org.eclipse.jetty.websocket.api.Callback;
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketListener;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
+import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
-import org.whispersystems.textsecuregcm.filters.PriorityFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
@@ -81,8 +80,7 @@ import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
-@Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
-class MetricsHttpEventHandlerIntegrationTest {
+class MetricsHttpChannelListenerIntegrationTest {
 
   private static final TrafficSource TRAFFIC_SOURCE = TrafficSource.HTTP;
   private static final MeterRegistry METER_REGISTRY = mock(MeterRegistry.class);
@@ -92,7 +90,7 @@ class MetricsHttpEventHandlerIntegrationTest {
   private static final AtomicReference<CountDownLatch> COUNT_DOWN_LATCH_FUTURE_REFERENCE = new AtomicReference<>();
 
   private static final DropwizardAppExtension<Configuration> EXTENSION = new DropwizardAppExtension<>(
-      MetricsHttpEventHandlerIntegrationTest.TestApplication.class);
+      MetricsHttpChannelListenerIntegrationTest.TestApplication.class);
 
   @AfterEach
   void teardown() {
@@ -113,9 +111,9 @@ class MetricsHttpEventHandlerIntegrationTest {
 
     final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
     final Map<String, Counter> counterMap = Map.of(
-        MetricsHttpEventHandler.REQUEST_COUNTER_NAME, REQUEST_COUNTER,
-        MetricsHttpEventHandler.RESPONSE_BYTES_COUNTER_NAME, RESPONSE_BYTES_COUNTER,
-        MetricsHttpEventHandler.REQUEST_BYTES_COUNTER_NAME, REQUEST_BYTES_COUNTER
+        MetricsHttpChannelListener.REQUEST_COUNTER_NAME, REQUEST_COUNTER,
+        MetricsHttpChannelListener.RESPONSE_BYTES_COUNTER_NAME, RESPONSE_BYTES_COUNTER,
+        MetricsHttpChannelListener.REQUEST_BYTES_COUNTER_NAME, REQUEST_BYTES_COUNTER
     );
     when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
         .thenAnswer(a -> counterMap.getOrDefault(a.getArgument(0, String.class), mock(Counter.class)));
@@ -149,7 +147,7 @@ class MetricsHttpEventHandlerIntegrationTest {
 
     assertTrue(countDownLatch.await(1000, TimeUnit.MILLISECONDS));
 
-    verify(METER_REGISTRY).counter(eq(MetricsHttpEventHandler.REQUEST_COUNTER_NAME), tagCaptor.capture());
+    verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
     verify(REQUEST_COUNTER).increment();
 
     final Iterable<Tag> tagIterable = tagCaptor.getValue();
@@ -160,11 +158,11 @@ class MetricsHttpEventHandlerIntegrationTest {
     }
 
     assertEquals(6, tags.size());
-    assertTrue(tags.contains(Tag.of(MetricsHttpEventHandler.PATH_TAG, expectedTagPath)));
-    assertTrue(tags.contains(Tag.of(MetricsHttpEventHandler.METHOD_TAG, "GET")));
-    assertTrue(tags.contains(Tag.of(MetricsHttpEventHandler.STATUS_CODE_TAG, String.valueOf(expectedStatus))));
+    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.PATH_TAG, expectedTagPath)));
+    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.METHOD_TAG, "GET")));
+    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(expectedStatus))));
     assertTrue(
-        tags.contains(Tag.of(MetricsHttpEventHandler.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
+        tags.contains(Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
   }
@@ -196,19 +194,24 @@ class MetricsHttpEventHandlerIntegrationTest {
 
       final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
       final Map<String, Counter> counterMap = Map.of(
-          MetricsHttpEventHandler.REQUEST_COUNTER_NAME, REQUEST_COUNTER,
-          MetricsHttpEventHandler.RESPONSE_BYTES_COUNTER_NAME, RESPONSE_BYTES_COUNTER,
-          MetricsHttpEventHandler.REQUEST_BYTES_COUNTER_NAME, REQUEST_BYTES_COUNTER
+          MetricsHttpChannelListener.REQUEST_COUNTER_NAME, REQUEST_COUNTER,
+          MetricsHttpChannelListener.RESPONSE_BYTES_COUNTER_NAME, RESPONSE_BYTES_COUNTER,
+          MetricsHttpChannelListener.REQUEST_BYTES_COUNTER_NAME, REQUEST_BYTES_COUNTER
       );
       when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
           .thenAnswer(a -> counterMap.getOrDefault(a.getArgument(0, String.class), mock(Counter.class)));
 
-      client.connect(new AutoClosingWebSocketSessionListener(),
+      client.connect(new WebSocketListener() {
+                       @Override
+                       public void onWebSocketConnect(final Session session) {
+                         session.close(1000, "OK");
+                       }
+                     },
           URI.create(String.format("ws://localhost:%d%s", EXTENSION.getLocalPort(), "/v1/websocket")), upgradeRequest);
 
       assertTrue(countDownLatch.await(1000, TimeUnit.MILLISECONDS));
 
-      verify(METER_REGISTRY).counter(eq(MetricsHttpEventHandler.REQUEST_COUNTER_NAME), tagCaptor.capture());
+      verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
       verify(REQUEST_COUNTER).increment();
 
       final Iterable<Tag> tagIterable = tagCaptor.getValue();
@@ -219,11 +222,11 @@ class MetricsHttpEventHandlerIntegrationTest {
       }
 
       assertEquals(6, tags.size());
-      assertTrue(tags.contains(Tag.of(MetricsHttpEventHandler.PATH_TAG, "/v1/websocket")));
-      assertTrue(tags.contains(Tag.of(MetricsHttpEventHandler.METHOD_TAG, "GET")));
-      assertTrue(tags.contains(Tag.of(MetricsHttpEventHandler.STATUS_CODE_TAG, String.valueOf(101))));
+      assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.PATH_TAG, "/v1/websocket")));
+      assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.METHOD_TAG, "GET")));
+      assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(101))));
       assertTrue(
-          tags.contains(Tag.of(MetricsHttpEventHandler.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
+          tags.contains(Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
       assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
       assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
     }
@@ -245,16 +248,17 @@ class MetricsHttpEventHandlerIntegrationTest {
     public void run(final Configuration configuration,
         final Environment environment) throws Exception {
 
-      MetricsHttpEventHandler.configure(environment, METER_REGISTRY, mock(ClientReleaseManager.class), Set.of("/v1/websocket"));
+      final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(
+          METER_REGISTRY,
+          mock(ClientReleaseManager.class),
+          Set.of("/v1/websocket")
+      );
 
-      environment.lifecycle().addEventListener(new LifeCycle.Listener() {
-        @Override
-        public void lifeCycleStarting(final LifeCycle event) {
-          if (event instanceof Server server) {
-            server.setHandler(new TestListener(server.getHandler(), COUNT_DOWN_LATCH_FUTURE_REFERENCE));
-          }
-        }
-      });
+      metricsHttpChannelListener.configure(environment);
+      environment.lifecycle().addEventListener(new TestListener(COUNT_DOWN_LATCH_FUTURE_REFERENCE));
+
+      environment.servlets().addFilter("RemoteAddressFilter", new RemoteAddressFilter())
+          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
 
       environment.jersey().register(new TestResource());
       environment.jersey().register(new TestAuthFilter());
@@ -267,15 +271,14 @@ class MetricsHttpEventHandlerIntegrationTest {
 
       webSocketEnvironment.jersey().register(new TestResource());
 
+      JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
+
       WebSocketResourceProviderFactory<TestPrincipal> webSocketServlet = new WebSocketResourceProviderFactory<>(
-          webSocketEnvironment, TestPrincipal.class,
+          webSocketEnvironment, TestPrincipal.class, webSocketConfiguration,
           RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
-      JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(),
-          (servletContext, container) -> {
-            container.addMapping("/v1/websocket", webSocketServlet);
-            PriorityFilter.ensureFilter(servletContext, new RemoteAddressFilter());
-      });
+      environment.servlets().addServlet("WebSocket", webSocketServlet)
+          .addMapping("/v1/websocket");
     }
   }
 
@@ -291,23 +294,36 @@ class MetricsHttpEventHandlerIntegrationTest {
   }
 
   /**
-   * A simple listener to signal that {@link EventsHandler} has completed its work, since its onComplete() is on
+   * A simple listener to signal that {@link HttpChannel.Listener} has completed its work, since its onComplete() is on
    * a different thread from the one that sends the response, creating a race condition between the listener and the
    * test assertions
    */
-  static class TestListener extends EventsHandler {
+  static class TestListener implements HttpChannel.Listener, Container.Listener, LifeCycle.Listener {
 
     private final AtomicReference<CountDownLatch> completableFutureAtomicReference;
 
-    TestListener(final Handler handler, AtomicReference<CountDownLatch> countDownLatchReference) {
-      super(handler);
+    TestListener(AtomicReference<CountDownLatch> countDownLatchReference) {
+
       this.completableFutureAtomicReference = countDownLatchReference;
     }
 
     @Override
-    public void onComplete(Request request, int status, HttpFields headers, Throwable failure) {
+    public void onComplete(final Request request) {
       completableFutureAtomicReference.get().countDown();
     }
+
+    @Override
+    public void beanAdded(final Container parent, final Object child) {
+      if (child instanceof Connector connector) {
+          connector.addBean(this);
+      }
+    }
+
+    @Override
+    public void beanRemoved(final Container parent, final Object child) {
+
+    }
+
   }
 
   @Path("/v1/test")
@@ -347,13 +363,6 @@ class MetricsHttpEventHandlerIntegrationTest {
     public boolean implies(final Subject subject) {
       return false;
     }
-  }
-
-  public static class AutoClosingWebSocketSessionListener implements Session.Listener.AutoDemanding {
-      @Override
-      public void onWebSocketOpen(final Session session) {
-        session.close(1000, "OK", Callback.NOOP);
-      }
   }
 
 }

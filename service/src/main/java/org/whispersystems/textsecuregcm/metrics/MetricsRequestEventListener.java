@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
@@ -28,7 +29,7 @@ import org.whispersystems.websocket.WebSocketResourceProvider;
 
 /**
  * Gathers and reports request-level metrics for WebSocket traffic only.
- * For HTTP traffic, use {@link MetricsHttpEventHandler}.
+ * For HTTP traffic, use {@link MetricsHttpChannelListener}.
  */
 public class MetricsRequestEventListener implements RequestEventListener {
 
@@ -63,7 +64,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
     this(trafficSource, Metrics.globalRegistry, clientReleaseManager);
 
     if (trafficSource == TrafficSource.HTTP) {
-      logger.warn("Use {} for HTTP traffic", MetricsHttpEventHandler.class.getName());
+      logger.warn("Use {} for HTTP traffic", MetricsHttpChannelListener.class.getName());
     }
   }
 

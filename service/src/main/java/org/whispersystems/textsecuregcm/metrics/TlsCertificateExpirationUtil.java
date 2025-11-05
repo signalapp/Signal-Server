@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
-import org.eclipse.jetty.util.resource.PathResourceFactory;
+import org.eclipse.jetty.util.resource.Resource;
 import org.eclipse.jetty.util.security.CertificateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +37,7 @@ public class TlsCertificateExpirationUtil {
 
     final KeyStore keyStore;
     try {
-      keyStore = CertificateUtils.getKeyStore(new PathResourceFactory().newResource(keyStorePath), keyStoreType, keyStoreProvider,
+      keyStore = CertificateUtils.getKeyStore(Resource.newResource(keyStorePath), keyStoreType, keyStoreProvider,
           keyStorePassword);
 
     } catch (Exception e) {

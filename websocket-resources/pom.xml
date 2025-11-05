@@ -13,19 +13,15 @@
   <dependencies>
     <dependency>
       <groupId>org.eclipse.jetty.websocket</groupId>
-      <artifactId>jetty-websocket-jetty-api</artifactId>
+      <artifactId>websocket-jetty-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.eclipse.jetty.websocket</groupId>
-      <artifactId>jetty-websocket-jetty-server</artifactId>
+      <artifactId>websocket-jetty-server</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.jetty.ee10.websocket</groupId>
-      <artifactId>jetty-ee10-websocket-jetty-server</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.eclipse.jetty.ee10.websocket</groupId>
-      <artifactId>jetty-ee10-websocket-servlet</artifactId>
+      <groupId>org.eclipse.jetty.websocket</groupId>
+      <artifactId>websocket-servlet</artifactId>
     </dependency>
     <dependency>
       <groupId>io.dropwizard</groupId>

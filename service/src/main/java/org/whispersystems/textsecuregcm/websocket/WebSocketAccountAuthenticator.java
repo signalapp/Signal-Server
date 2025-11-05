@@ -8,14 +8,14 @@ package org.whispersystems.textsecuregcm.websocket;
 import static org.whispersystems.textsecuregcm.util.HeaderUtils.basicCredentialsFromAuthHeader;
 
 import com.google.common.net.HttpHeaders;
-import io.dropwizard.auth.basic.BasicCredentials;
-import java.util.Optional;
 import javax.annotation.Nullable;
-import org.eclipse.jetty.ee10.websocket.server.JettyServerUpgradeRequest;
+import io.dropwizard.auth.basic.BasicCredentials;
+import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.websocket.auth.InvalidCredentialsException;
 import org.whispersystems.websocket.auth.WebSocketAuthenticator;
+import java.util.Optional;
 
 
 public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<AuthenticatedDevice> {
@@ -27,7 +27,7 @@ public class WebSocketAccountAuthenticator implements WebSocketAuthenticator<Aut
   }
 
   @Override
-  public Optional<AuthenticatedDevice> authenticate(final JettyServerUpgradeRequest request)
+  public Optional<AuthenticatedDevice> authenticate(final UpgradeRequest request)
       throws InvalidCredentialsException {
 
     @Nullable final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);

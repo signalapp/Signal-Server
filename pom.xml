@@ -41,7 +41,7 @@
     <braintree.version>3.44.0</braintree.version>
     <commons-csv.version>1.14.1</commons-csv.version>
     <commons-io.version>2.20.0</commons-io.version>
-    <dropwizard.version>5.0.0</dropwizard.version>
+    <dropwizard.version>4.0.16</dropwizard.version>
     <!-- Note: when updating FoundationDB, also include a copy of `libfdb_c.so` from the FoundationDB release at
     src/main/jib/usr/lib/libfdb_c.so. We use x86_64 builds without AVX instructions enabled (i.e. FoundationDB versions
     with even-numbered patch versions). Also when updating FoundationDB, make sure to update the version of FoundationDB
@@ -252,6 +252,12 @@
         <version>1.3.5</version>
       </dependency>
       <dependency>
+        <groupId>org.ow2.asm</groupId>
+        <artifactId>asm</artifactId>
+        <version>9.8</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
         <groupId>com.stripe</groupId>
         <artifactId>stripe-java</artifactId>
         <version>${stripe.version}</version>
@@ -348,7 +354,7 @@
     </dependency>
     <dependency>
       <groupId>org.wiremock</groupId>
-      <artifactId>wiremock-jetty12</artifactId>
+      <artifactId>wiremock</artifactId>
       <version>3.13.1</version>
       <scope>test</scope>
     </dependency>

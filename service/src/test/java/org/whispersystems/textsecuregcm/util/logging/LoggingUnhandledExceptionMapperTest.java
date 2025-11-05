@@ -39,9 +39,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
-import org.eclipse.jetty.websocket.api.Callback;
+import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
+import org.eclipse.jetty.websocket.api.WriteCallback;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.server.ServerProperties;
@@ -142,12 +143,12 @@ class LoggingUnhandledExceptionMapperTest {
     WebSocketResourceProvider<TestPrincipal> provider = createWebsocketProvider(userAgentHeader, session,
         responseFuture::complete);
 
-    provider.onWebSocketOpen(session);
+    provider.onWebSocketConnect(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory()
         .createRequest(Optional.of(111L), "GET", targetPath, new LinkedList<>(), Optional.empty()).toByteArray();
 
-    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
+    provider.onWebSocketBinary(message, 0, message.length);
 
     responseFuture.get(1, TimeUnit.SECONDS);
 
@@ -178,13 +179,15 @@ class LoggingUnhandledExceptionMapperTest {
         TestPrincipal.authenticatedTestPrincipal("foo"),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
+    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     doAnswer(answer -> {
       responseHandler.accept(answer.getArgument(0, ByteBuffer.class));
       return null;
-    }).when(session).sendBinary(any(ByteBuffer.class), any(Callback.class));
+    }).when(remoteEndpoint).sendBytes(any(), any(WriteCallback.class));
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
+    when(session.getRemote()).thenReturn(remoteEndpoint);
     when(request.getHeader(HttpHeaders.USER_AGENT)).thenReturn(userAgentHeader);
     when(request.getHeaders()).thenReturn(Map.of(HttpHeaders.USER_AGENT, List.of(userAgentHeader)));
 

@@ -24,8 +24,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.eclipse.jetty.websocket.api.Callback;
+import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketListener;
+import org.eclipse.jetty.websocket.api.WriteCallback;
 import org.eclipse.jetty.websocket.api.exceptions.MessageTooLargeException;
 import org.glassfish.jersey.internal.MapPropertiesDelegate;
 import org.glassfish.jersey.server.ApplicationHandler;
@@ -45,7 +47,7 @@ import org.whispersystems.websocket.setup.WebSocketConnectListener;
 
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class WebSocketResourceProvider<T extends Principal> implements Session.Listener.AutoDemanding {
+public class WebSocketResourceProvider<T extends Principal> implements WebSocketListener {
 
   /**
    * A static exception instance passed to outstanding requests (via {@code completeExceptionally} in
@@ -66,6 +68,7 @@ public class WebSocketResourceProvider<T extends Principal> implements Session.L
   private final String remoteAddressPropertyName;
 
   private Session session;
+  private RemoteEndpoint remoteEndpoint;
   private WebSocketSessionContext context;
 
   private static final Set<String> EXCLUDED_UPGRADE_REQUEST_HEADERS = Set.of("connection", "upgrade");
@@ -89,10 +92,11 @@ public class WebSocketResourceProvider<T extends Principal> implements Session.L
   }
 
   @Override
-  public void onWebSocketOpen(Session session) {
+  public void onWebSocketConnect(Session session) {
     this.session = session;
+    this.remoteEndpoint = session.getRemote();
     this.context = new WebSocketSessionContext(
-        new WebSocketClient(session, messageFactory, requestMap));
+        new WebSocketClient(session, remoteEndpoint, messageFactory, requestMap));
     this.context.setAuthenticated(reusableAuth.orElse(null));
     this.session.setIdleTimeout(idleTimeout);
 
@@ -117,9 +121,9 @@ public class WebSocketResourceProvider<T extends Principal> implements Session.L
   }
 
   @Override
-  public void onWebSocketBinary(final ByteBuffer payload, final Callback callback) {
+  public void onWebSocketBinary(byte[] payload, int offset, int length) {
     try {
-      WebSocketMessage webSocketMessage = messageFactory.parseMessage(payload);
+      WebSocketMessage webSocketMessage = messageFactory.parseMessage(payload, offset, length);
 
       switch (webSocketMessage.getType()) {
         case REQUEST_MESSAGE:
@@ -254,7 +258,7 @@ public class WebSocketResourceProvider<T extends Principal> implements Session.L
   }
 
   private void close(Session session, int status, String message) {
-    session.close(status, message, Callback.NOOP);
+    session.close(status, message);
   }
 
   private void sendResponse(WebSocketRequestMessage requestMessage, ContainerResponse response,
@@ -273,7 +277,7 @@ public class WebSocketResourceProvider<T extends Principal> implements Session.L
               Optional.ofNullable(body))
           .toByteArray();
 
-      session.sendBinary(ByteBuffer.wrap(responseBytes), Callback.NOOP);
+      remoteEndpoint.sendBytes(ByteBuffer.wrap(responseBytes), WriteCallback.NOOP);
     }
   }
 
@@ -285,7 +289,7 @@ public class WebSocketResourceProvider<T extends Principal> implements Session.L
           getHeaderList(error.getStringHeaders()),
           Optional.empty());
 
-      session.sendBinary(ByteBuffer.wrap(response.toByteArray()), Callback.NOOP);
+      remoteEndpoint.sendBytes(ByteBuffer.wrap(response.toByteArray()), WriteCallback.NOOP);
     }
   }
 

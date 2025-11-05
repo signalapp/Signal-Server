@@ -5,23 +5,22 @@
 package org.whispersystems.websocket.messages;
 
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public interface WebSocketMessageFactory {
 
-  WebSocketMessage parseMessage(ByteBuffer serialized)
+  public WebSocketMessage parseMessage(byte[] serialized, int offset, int len)
       throws InvalidMessageException;
 
-  WebSocketMessage createRequest(Optional<Long> requestId,
-      String verb, String path,
-      List<String> headers,
-      Optional<byte[]> body);
+  public WebSocketMessage createRequest(Optional<Long> requestId,
+                                        String verb, String path,
+                                        List<String> headers,
+                                        Optional<byte[]> body);
 
-  WebSocketMessage createResponse(long requestId, int status, String message,
-      List<String> headers,
-      Optional<byte[]> body);
+  public WebSocketMessage createResponse(long requestId, int status, String message,
+                                         List<String> headers,
+                                         Optional<byte[]> body);
 
 }

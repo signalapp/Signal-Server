@@ -14,7 +14,7 @@ import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 /**
  * Delegates request events to a listener that captures and reports request-level metrics.
  *
- * @see MetricsHttpEventHandler
+ * @see MetricsHttpChannelListener
  * @see MetricsRequestEventListener
  */
 public class MetricsApplicationEventListener implements ApplicationEventListener {
@@ -23,7 +23,7 @@ public class MetricsApplicationEventListener implements ApplicationEventListener
 
   public MetricsApplicationEventListener(final TrafficSource trafficSource, final ClientReleaseManager clientReleaseManager) {
     if (trafficSource == TrafficSource.HTTP) {
-      throw new IllegalArgumentException("Use " + MetricsHttpEventHandler.class.getName() + " for HTTP traffic");
+      throw new IllegalArgumentException("Use " + MetricsHttpChannelListener.class.getName() + " for HTTP traffic");
     }
     this.metricsRequestEventListener = new MetricsRequestEventListener(trafficSource, clientReleaseManager);
   }
