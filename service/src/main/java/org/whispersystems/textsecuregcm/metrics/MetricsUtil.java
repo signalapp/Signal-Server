@@ -12,7 +12,6 @@ import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.binder.jetty.JettySslHandshakeMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
@@ -21,7 +20,6 @@ import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.registry.otlp.OtlpMeterRegistry;
-import io.micrometer.statsd.StatsdMeterRegistry;
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter;
 import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -29,13 +27,10 @@ import io.opentelemetry.sdk.logs.SdkLoggerProvider;
 import io.opentelemetry.sdk.logs.export.BatchLogRecordProcessor;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.resources.ResourceBuilder;
-import io.opentelemetry.semconv.ServiceAttributes;
-
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
-import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.Constants;
@@ -75,23 +70,6 @@ public class MetricsUtil {
 
     Duration shutdownWaitDuration = Duration.ZERO;
 
-    if (config.getDatadogConfiguration().enabled()) {
-      final StatsdMeterRegistry dogstatsdMeterRegistry = new StatsdMeterRegistry(
-          config.getDatadogConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
-
-      dogstatsdMeterRegistry.config().commonTags(
-          Tags.of(
-              "service", "chat",
-              "version", WhisperServerVersion.getServerVersion(),
-              "env", config.getDatadogConfiguration().getEnvironment()));
-
-      configureMeterFilters(dogstatsdMeterRegistry.config(), dynamicConfigurationManager);
-      configureDatadogAllowList(dogstatsdMeterRegistry.config(), dynamicConfigurationManager);
-      Metrics.addRegistry(dogstatsdMeterRegistry);
-
-      shutdownWaitDuration = config.getDatadogConfiguration().getShutdownWaitDuration();
-    }
-
     if (config.getOpenTelemetryConfiguration().enabled()) {
       final OtlpMeterRegistry otlpMeterRegistry = new OtlpMeterRegistry(
         config.getOpenTelemetryConfiguration(), io.micrometer.core.instrument.Clock.SYSTEM);
@@ -99,9 +77,7 @@ public class MetricsUtil {
       configureMeterFilters(otlpMeterRegistry.config(), dynamicConfigurationManager);
       Metrics.addRegistry(otlpMeterRegistry);
 
-      if (config.getOpenTelemetryConfiguration().shutdownWaitDuration().compareTo(shutdownWaitDuration) > 0) {
-        shutdownWaitDuration = config.getOpenTelemetryConfiguration().shutdownWaitDuration();
-      }
+      shutdownWaitDuration = config.getOpenTelemetryConfiguration().shutdownWaitDuration();
     }
 
     environment.lifecycle().addServerLifecycleListener(
@@ -187,14 +163,6 @@ public class MetricsUtil {
         .meterFilter(MeterFilter.denyNameStartsWith(MessageMetrics.DELIVERY_LATENCY_TIMER_NAME + ".percentile"))
         .meterFilter(MeterFilter.deny(id -> !dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().enableAwsSdkMetrics()
             && id.getName().startsWith(awsSdkMetricNamePrefix)));
-  }
-
-  @VisibleForTesting
-  static void configureDatadogAllowList(
-      final MeterRegistry.Config config, final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
-    config.meterFilter(MeterFilter.denyUnless(id ->
-            dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().datadogAllowList() == null ||
-            dynamicConfigurationManager.getConfiguration().getMetricsConfiguration().datadogAllowList().contains(id.getName())));
   }
 
   static void registerSystemResourceMetrics() {

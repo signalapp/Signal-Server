@@ -39,7 +39,7 @@ class MetricsUtilTest {
   @ValueSource(booleans = {true, false})
   void lettuceTagRejection(final boolean enableLettuceRemoteTag) {
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(enableLettuceRemoteTag, false, null);
+    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(enableLettuceRemoteTag, false);
     when(dynamicConfiguration.getMetricsConfiguration()).thenReturn(metricsConfiguration);
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
@@ -72,7 +72,7 @@ class MetricsUtilTest {
         mock(DynamicConfigurationManager.class);
 
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false, enableAwsSdkMetrics, null);
+    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(false, enableAwsSdkMetrics);
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getMetricsConfiguration()).thenReturn(metricsConfiguration);
@@ -82,26 +82,6 @@ class MetricsUtilTest {
     registry.counter("chat.MicrometerAwsSdkMetricPublisher.days_since_last_incident").increment();
 
     assertThat(registry.getMeters()).hasSize(enableAwsSdkMetrics ? 1 : 0);
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans={true, false})
-  void datadogAllowList(boolean useAllowlist) {
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    final DynamicMetricsConfiguration metricsConfiguration = new DynamicMetricsConfiguration(true, true, useAllowlist ? Set.of("chat.ImportantMetrics.messages") : null);
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-    when(dynamicConfiguration.getMetricsConfiguration()).thenReturn(metricsConfiguration);
-
-    final MeterRegistry registry = new SimpleMeterRegistry();
-    MetricsUtil.configureDatadogAllowList(registry.config(), dynamicConfigurationManager);
-    registry.counter("chat.ImportantMetrics.messages").increment();
-    registry.counter("chat.ChattyMetrics.days_since_last_incident").increment();
-
-    assertThat(registry.getMeters()).hasSize(useAllowlist ? 1 : 2);
   }
 
 }

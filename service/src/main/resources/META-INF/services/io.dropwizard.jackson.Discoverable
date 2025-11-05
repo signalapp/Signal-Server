@@ -1,5 +1,4 @@
 org.whispersystems.textsecuregcm.configuration.AwsCredentialsProviderFactory
-org.whispersystems.textsecuregcm.configuration.DatadogConfiguration
 org.whispersystems.textsecuregcm.configuration.DynamoDbClientFactory
 org.whispersystems.textsecuregcm.configuration.FaultTolerantRedisClusterFactory
 org.whispersystems.textsecuregcm.configuration.FaultTolerantRedisClientFactory

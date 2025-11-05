@@ -10,35 +10,7 @@ logging:
       threshold: ALL
       timeZone: UTC
       target: stdout
-    - type: logstashtcpsocket
-      destination: example.com:10516
-      apiKey: secret://datadog.apiKey
-      environment: staging
-
-metrics:
-  reporters:
-    - type: signal-datadog
-      frequency: 10 seconds
-      tags:
-        - "env:staging"
-        - "service:chat"
-      udpTransport:
-        statsdHost: localhost
-        port: 8125
-      excludesAttributes:
-        - m1_rate
-        - m5_rate
-        - m15_rate
-        - mean_rate
-        - stddev
-      useRegexFilters: true
-      excludes:
-        - ^.+\.total$
-        - ^.+\.request\.filtering$
-        - ^.+\.response\.filtering$
-        - ^executor\..+$
-        - ^lettuce\..+$
-  reportOnStop: true
+    - type: otlp
 
 tlsKeyStore:
   password: secret://tlsKeyStore.password
@@ -293,10 +265,6 @@ cdn3StorageManager:
   sourceSchemes:
     2: gcs
     3: r2
-
-dogstatsd:
-  environment: dev
-  host: 127.0.0.1
 
 openTelemetry:
   enabled: true

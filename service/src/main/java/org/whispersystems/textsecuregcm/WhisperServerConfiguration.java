@@ -26,11 +26,9 @@ import org.whispersystems.textsecuregcm.configuration.Cdn3StorageManagerConfigur
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
-import org.whispersystems.textsecuregcm.configuration.DatadogConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DefaultAwsCredentialsFactory;
 import org.whispersystems.textsecuregcm.configuration.DeviceCheckConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
-import org.whispersystems.textsecuregcm.configuration.DogstatsdConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientFactory;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
 import org.whispersystems.textsecuregcm.configuration.ExternalRequestFilterConfiguration;
@@ -136,11 +134,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private Cdn3StorageManagerConfiguration cdn3StorageManager;
-
-  @NotNull
-  @Valid
-  @JsonProperty
-  private DatadogConfiguration dogstatsd = new DogstatsdConfiguration();
 
   @NotNull
   @Valid
@@ -461,10 +454,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public Cdn3StorageManagerConfiguration getCdn3StorageManagerConfiguration() {
     return cdn3StorageManager;
-  }
-
-  public DatadogConfiguration getDatadogConfiguration() {
-    return dogstatsd;
   }
 
   public OpenTelemetryConfiguration getOpenTelemetryConfiguration() {
