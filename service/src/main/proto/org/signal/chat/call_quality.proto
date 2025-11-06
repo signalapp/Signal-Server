@@ -24,7 +24,7 @@ service CallQuality {
 message SubmitCallQualitySurveyRequest {
   // Indicates whether the caller was generally satisfied with the quality of
   // the call
-  optional bool user_satisfied = 1;
+  bool user_satisfied = 1;
 
   // A list of call quality issues selected by the caller
   repeated string call_quality_issues = 2;
@@ -38,39 +38,55 @@ message SubmitCallQualitySurveyRequest {
 
   // The time at which the call started in microseconds since the epoch (see
   // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#timestamp_type)
-  optional int64 start_timestamp = 5;
+  int64 start_timestamp = 5;
 
   // The time at which the call ended in microseconds since the epoch (see
   // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#timestamp_type)
-  optional int64 end_timestamp = 6;
+  int64 end_timestamp = 6;
 
   // The type of call; note that direct voice calls can become video calls and
   // vice versa, and this field indicates which mode was selected at call
   // initiation time. At the time of writing, expected call types are
   // "direct_voice", "direct_video", "group", and "call_link".
-  optional string call_type = 7;
+  string call_type = 7;
 
   // Indicates whether the call completed without error or if it terminated
   // abnormally
-  optional bool success = 8;
+  bool success = 8;
 
   // A client-defined, but human-readable reason for call termination
-  optional string call_end_reason = 9;
+  string call_end_reason = 9;
 
-  // The median round-trip time, measured in milliseconds, for packets over the
-  // duration of the call
-  optional float rtt_median = 10;
+  // The median round-trip time, measured in milliseconds, for STUN/ICE packets
+  // (i.e. connection maintenance and establishment)
+  optional float rtt_median_connection = 10;
+
+  // The median round-trip time, measured in milliseconds, for RTP/RTCP packets
+  // (i.e. call audio/video)
+  optional float rtt_median_media = 11;
 
   // The median jitter, measured in milliseconds, for the duration of the call
-  optional float jitter_median = 11;
+  // as measured by the client submitting the survey
+  optional float jitter_median_recv = 12;
 
-  // The fraction of all packets lost over the duration of the call
-  optional float packet_loss_fraction = 12;
+  // The median jitter, measured in milliseconds, for the duration of the call
+  // as measured by the remote endpoint in the call (either the peer of the
+  // client submitting the survey in a direct call or the SFU in a group call)
+  optional float jitter_median_send = 13;
+
+  // The fraction of all packets lost over the duration of the call as measured
+  // by the client submitting the survey
+  optional float packet_loss_fraction_recv = 14;
+
+  // The fraction of all packets lost over the duration of the call as measured
+  // by the remote endpoint in the call (either the peer of the client
+  // submitting the survey in a direct call or the SFU in a group call)
+  optional float packet_loss_fraction_send = 15;
 
   // Machine-generated telemetry from the call; this is a serialized protobuf
   // entity generated (and, critically, explained to the user!) by the calling
   // library
-  optional bytes call_telemetry = 13;
+  optional bytes call_telemetry = 16;
 }
 
 message SubmitCallQualitySurveyResponse {

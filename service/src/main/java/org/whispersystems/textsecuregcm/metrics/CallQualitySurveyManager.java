@@ -53,7 +53,13 @@ public class CallQualitySurveyManager {
     final CallQualitySurveyResponsePubSubMessage.Builder pubSubMessageBuilder =
         CallQualitySurveyResponsePubSubMessage.newBuilder()
             .setResponseId(UUID.randomUUID().toString())
-            .setSubmissionTimestamp(clock.millis() * 1000);
+            .setSubmissionTimestamp(clock.millis() * 1000)
+            .setUserSatisfied(submitCallQualitySurveyRequest.getUserSatisfied())
+            .setStartTimestamp(submitCallQualitySurveyRequest.getStartTimestamp())
+            .setEndTimestamp(submitCallQualitySurveyRequest.getEndTimestamp())
+            .setCallType(submitCallQualitySurveyRequest.getCallType())
+            .setSuccess(submitCallQualitySurveyRequest.getSuccess())
+            .setCallEndReason(submitCallQualitySurveyRequest.getCallEndReason());
 
     try {
       final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
@@ -70,10 +76,6 @@ public class CallQualitySurveyManager {
     asnInfoProviderSupplier.get().lookup(remoteAddress)
         .ifPresent(asnInfo -> pubSubMessageBuilder.setAsnRegion(asnInfo.regionCode()));
 
-    if (submitCallQualitySurveyRequest.hasUserSatisfied()) {
-      pubSubMessageBuilder.setUserSatisfied(submitCallQualitySurveyRequest.getUserSatisfied());
-    }
-
     pubSubMessageBuilder.addAllCallQualityIssues(submitCallQualitySurveyRequest.getCallQualityIssuesList());
 
     if (submitCallQualitySurveyRequest.hasAdditionalIssuesDescription()) {
@@ -84,36 +86,28 @@ public class CallQualitySurveyManager {
       pubSubMessageBuilder.setDebugLogUrl(submitCallQualitySurveyRequest.getDebugLogUrl());
     }
 
-    if (submitCallQualitySurveyRequest.hasStartTimestamp()) {
-      pubSubMessageBuilder.setStartTimestamp(submitCallQualitySurveyRequest.getStartTimestamp());
+    if (submitCallQualitySurveyRequest.hasRttMedianConnection()) {
+      pubSubMessageBuilder.setRttMedianConnection(submitCallQualitySurveyRequest.getRttMedianConnection());
     }
 
-    if (submitCallQualitySurveyRequest.hasEndTimestamp()) {
-      pubSubMessageBuilder.setEndTimestamp(submitCallQualitySurveyRequest.getEndTimestamp());
+    if (submitCallQualitySurveyRequest.hasRttMedianMedia()) {
+      pubSubMessageBuilder.setRttMedianMedia(submitCallQualitySurveyRequest.getRttMedianMedia());
     }
 
-    if (submitCallQualitySurveyRequest.hasCallType()) {
-      pubSubMessageBuilder.setCallType(submitCallQualitySurveyRequest.getCallType());
+    if (submitCallQualitySurveyRequest.hasJitterMedianRecv()) {
+      pubSubMessageBuilder.setJitterMedianRecv(submitCallQualitySurveyRequest.getJitterMedianRecv());
     }
 
-    if (submitCallQualitySurveyRequest.hasSuccess()) {
-      pubSubMessageBuilder.setSuccess(submitCallQualitySurveyRequest.getSuccess());
+    if (submitCallQualitySurveyRequest.hasJitterMedianSend()) {
+      pubSubMessageBuilder.setJitterMedianSend(submitCallQualitySurveyRequest.getJitterMedianSend());
     }
 
-    if (submitCallQualitySurveyRequest.hasCallEndReason()) {
-      pubSubMessageBuilder.setCallEndReason(submitCallQualitySurveyRequest.getCallEndReason());
+    if (submitCallQualitySurveyRequest.hasPacketLossFractionRecv()) {
+      pubSubMessageBuilder.setPacketLossFractionRecv(submitCallQualitySurveyRequest.getPacketLossFractionRecv());
     }
 
-    if (submitCallQualitySurveyRequest.hasRttMedian()) {
-      pubSubMessageBuilder.setRttMedian(submitCallQualitySurveyRequest.getRttMedian());
-    }
-
-    if (submitCallQualitySurveyRequest.hasJitterMedian()) {
-      pubSubMessageBuilder.setJitterMedian(submitCallQualitySurveyRequest.getJitterMedian());
-    }
-
-    if (submitCallQualitySurveyRequest.hasPacketLossFraction()) {
-      pubSubMessageBuilder.setPacketLossFraction(submitCallQualitySurveyRequest.getPacketLossFraction());
+    if (submitCallQualitySurveyRequest.hasPacketLossFractionSend()) {
+      pubSubMessageBuilder.setPacketLossFractionSend(submitCallQualitySurveyRequest.getPacketLossFractionSend());
     }
 
     if (submitCallQualitySurveyRequest.hasCallTelemetry()) {
