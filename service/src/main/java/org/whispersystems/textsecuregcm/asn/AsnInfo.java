@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.asn;
 
 import static java.util.Objects.requireNonNull;
 
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import javax.annotation.Nonnull;
 
 public record AsnInfo(long asn, @Nonnull String regionCode) {

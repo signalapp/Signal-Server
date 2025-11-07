@@ -71,24 +71,24 @@ public class AsnInfoProviderImpl implements AsnInfoProvider {
       final Map<Long, AsnInfo> asnInfoCache = new HashMap<>();
 
       try (final CSVParser csvParser = CSVFormat.TDF.parse(tsvReader)) {
-        for (final CSVRecord record : csvParser) {
+        for (final CSVRecord csvRecord : csvParser) {
           // format:
           // range_start_ip_string range_end_ip_string AS_number country_code AS_description
-          final InetAddress startIp = InetAddress.getByName(record.get(0));
-          final InetAddress endIp = InetAddress.getByName(record.get(1));
-          final long asn = Long.parseLong(record.get(2));
-          final String regionCode = record.get(3);
+          final InetAddress startIp = InetAddress.getByName(csvRecord.get(0));
+          final InetAddress endIp = InetAddress.getByName(csvRecord.get(1));
+          final long asn = Long.parseLong(csvRecord.get(2));
+          final String regionCode = csvRecord.get(3);
           // country code should be the same for any ASN, so we're caching AsnInfo objects
           // not to have multiple instances with the same values
-          final AsnInfo asnInfo = asnInfoCache.computeIfAbsent(asn, k -> new AsnInfo(asn, regionCode));
+          final AsnInfo asnInfo = asnInfoCache.computeIfAbsent(asn, _ -> new AsnInfo(asn, regionCode));
           if (!regionCode.equals(asnInfo.regionCode())) {
             log.warn("ASN {} mapped to country codes {} and {}", asn, regionCode, asnInfo.regionCode());
           }
 
           // IPv4
-          if (startIp instanceof Inet4Address) {
+          if (startIp instanceof Inet4Address inet4address) {
             final AsnRange<Long> asnRange = new AsnRange<>(
-                ip4BytesToLong((Inet4Address) startIp),
+                ip4BytesToLong(inet4address),
                 ip4BytesToLong((Inet4Address) endIp),
                 asnInfo
             );
@@ -96,9 +96,9 @@ public class AsnInfoProviderImpl implements AsnInfoProvider {
           }
 
           // IPv6
-          if (startIp instanceof Inet6Address) {
+          if (startIp instanceof Inet6Address inet6address) {
             final AsnRange<BigInteger> asnRange = new AsnRange<>(
-                ip6BytesToBigInteger((Inet6Address) startIp),
+                ip6BytesToBigInteger(inet6address),
                 ip6BytesToBigInteger((Inet6Address) endIp),
                 asnInfo
             );
@@ -134,7 +134,7 @@ public class AsnInfoProviderImpl implements AsnInfoProvider {
       }
       // safety net, should never happen
       log.warn("Unknown InetAddress implementation: {}", address.getClass().getName());
-    } catch (final Exception e) {
+    } catch (final Exception _) {
       log.error("Could not resolve ASN for IP string {}", ipString);
     }
     return Optional.empty();

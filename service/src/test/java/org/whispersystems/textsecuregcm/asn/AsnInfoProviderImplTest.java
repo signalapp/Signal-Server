@@ -19,7 +19,7 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import org.junit.jupiter.api.Test;
 
-public class AsnInfoProviderImplTest {
+class AsnInfoProviderImplTest {
 
   private static final String RESOURCE_NAME = "ip2asn-test.tsv";
 
@@ -53,7 +53,7 @@ public class AsnInfoProviderImplTest {
   }
 
   @Test
-  public void testBytesToLong() throws Exception {
+  void testBytesToLong() throws Exception {
     assertEquals(0x00000000ffffffffL, ip4BytesToLong((Inet4Address) InetAddress.getByName("255.255.255.255")));
     assertEquals(0x0000000000000001L, ip4BytesToLong((Inet4Address) InetAddress.getByName("0.0.0.1")));
     assertEquals(0x00000000ff00ff01L, ip4BytesToLong((Inet4Address) InetAddress.getByName("255.0.255.1")));
