@@ -13,10 +13,8 @@ import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.AndroidPublisherRequest;
 import com.google.api.services.androidpublisher.AndroidPublisherScopes;
 import com.google.api.services.androidpublisher.model.AutoRenewingPlan;
-import com.google.api.services.androidpublisher.model.BasePlan;
+import com.google.api.services.androidpublisher.model.Money;
 import com.google.api.services.androidpublisher.model.OfferDetails;
-import com.google.api.services.androidpublisher.model.RegionalBasePlanConfig;
-import com.google.api.services.androidpublisher.model.Subscription;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseLineItem;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseV2;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchasesAcknowledgeRequest;
@@ -37,7 +35,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
@@ -130,7 +127,6 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
      * Acknowledge the purchase to the play billing server. If a purchase is never acknowledged, it will eventually be
      * refunded.
      *
-     * @return A stage that completes when the purchase has been successfully acknowledged
      */
     public void acknowledgePurchase()
         throws RateLimitExceededException, SubscriptionNotFoundException {
@@ -269,32 +265,16 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
   }
 
   private SubscriptionPrice getSubscriptionPrice(final SubscriptionPurchaseV2 subscriptionPurchase) {
-
     final SubscriptionPurchaseLineItem lineItem = getLineItem(subscriptionPurchase);
-    final OfferDetails offerDetails = lineItem.getOfferDetails();
-    final String basePlanId = offerDetails.getBasePlanId();
 
-    try {
-      final Subscription subscription = this.androidPublisher.monetization().subscriptions()
-          .get(packageName, lineItem.getProductId()).execute();
-
-      final BasePlan basePlan = subscription.getBasePlans().stream()
-          .filter(bp -> bp.getBasePlanId().equals(basePlanId))
-          .findFirst()
-          .orElseThrow(() -> new UncheckedIOException(new IOException("unknown basePlanId " + basePlanId)));
-      final String region = subscriptionPurchase.getRegionCode();
-      final RegionalBasePlanConfig basePlanConfig = basePlan.getRegionalConfigs()
-          .stream()
-          .filter(rbpc -> Objects.equals(region, rbpc.getRegionCode()))
-          .findFirst()
-          .orElseThrow(() -> new UncheckedIOException(new IOException("unknown subscription region " + region)));
-
-      return new SubscriptionPrice(
-          basePlanConfig.getPrice().getCurrencyCode().toUpperCase(Locale.ROOT),
-          SubscriptionCurrencyUtil.convertGoogleMoneyToApiAmount(basePlanConfig.getPrice()));
-    } catch (IOException e) {
-      throw new UncheckedIOException(e);
+    // We don't offer pre-paid plans, so autoRenewingPlan must be nonnull
+    if (lineItem.getAutoRenewingPlan() == null) {
+      throw new UncheckedIOException(new IOException("Subscription purchases must be auto-renewing plans"));
     }
+    final Money price = lineItem.getAutoRenewingPlan().getRecurringPrice();
+    return new SubscriptionPrice(
+        price.getCurrencyCode().toUpperCase(Locale.ROOT),
+        SubscriptionCurrencyUtil.convertGoogleMoneyToApiAmount(price));
   }
 
   @Override

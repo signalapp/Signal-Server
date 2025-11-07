@@ -20,11 +20,8 @@ import static org.mockito.Mockito.when;
 import com.google.api.client.http.HttpResponseException;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.AutoRenewingPlan;
-import com.google.api.services.androidpublisher.model.BasePlan;
 import com.google.api.services.androidpublisher.model.Money;
 import com.google.api.services.androidpublisher.model.OfferDetails;
-import com.google.api.services.androidpublisher.model.RegionalBasePlanConfig;
-import com.google.api.services.androidpublisher.model.Subscription;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseLineItem;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseV2;
 import java.io.IOException;
@@ -63,10 +60,6 @@ class GooglePlayBillingManagerTest {
   private final AndroidPublisher.Purchases.Subscriptions.Cancel cancel =
       mock(AndroidPublisher.Purchases.Subscriptions.Cancel.class);
 
-  // Returned in response to a monetization.subscriptions.get
-  private final AndroidPublisher.Monetization.Subscriptions.Get subscriptionConfig =
-      mock(AndroidPublisher.Monetization.Subscriptions.Get.class);
-
   private final MutableClock clock = MockUtils.mutableClock(0L);
 
   private GooglePlayBillingManager googlePlayBillingManager;
@@ -93,11 +86,6 @@ class GooglePlayBillingManagerTest {
         .thenReturn(acknowledge);
     when(subscriptions.cancel(PACKAGE_NAME, PRODUCT_ID, PURCHASE_TOKEN))
         .thenReturn(cancel);
-
-    AndroidPublisher.Monetization.Subscriptions msubscriptions = mock(
-        AndroidPublisher.Monetization.Subscriptions.class);
-    when(monetization.subscriptions()).thenReturn(msubscriptions);
-    when(msubscriptions.get(PACKAGE_NAME, PRODUCT_ID)).thenReturn(subscriptionConfig);
 
     googlePlayBillingManager = new GooglePlayBillingManager(
         androidPublisher, clock, PACKAGE_NAME, Map.of(PRODUCT_ID, 201L));
@@ -247,17 +235,11 @@ class GooglePlayBillingManagerTest {
         .setRegionCode("US")
         .setLineItems(List.of(new SubscriptionPurchaseLineItem()
             .setExpiryTime(Instant.now().plus(Duration.ofDays(1)).toString())
-            .setAutoRenewingPlan(new AutoRenewingPlan().setAutoRenewEnabled(null))
+            .setAutoRenewingPlan(new AutoRenewingPlan()
+                .setAutoRenewEnabled(null)
+                .setRecurringPrice(new Money().setCurrencyCode("USD").setUnits(1L).setNanos(750_000_000)))
             .setProductId(PRODUCT_ID)
             .setOfferDetails(new OfferDetails().setBasePlanId(basePlanId)))));
-
-    final BasePlan basePlan = new BasePlan()
-        .setBasePlanId(basePlanId)
-        .setRegionalConfigs(List.of(
-            new RegionalBasePlanConfig()
-                .setRegionCode("US")
-                .setPrice(new Money().setCurrencyCode("USD").setUnits(1L).setNanos(750_000_000))));
-    when(subscriptionConfig.execute()).thenReturn(new Subscription().setBasePlans(List.of(basePlan)));
 
     final SubscriptionInformation info = googlePlayBillingManager.getSubscriptionInformation(PURCHASE_TOKEN);
     assertThat(info.active()).isTrue();
