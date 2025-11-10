@@ -250,7 +250,7 @@ public class MessageController {
 
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
-      @Parameter(description="If true, deliver the message only to recipients that are online when it is sent")
+      @Parameter(description="The recipient’s account or phone-number identifier")
       @PathParam("destination") final ServiceIdentifier destinationIdentifier,
 
       @Parameter(description="If true, the message is a story; access tokens are not checked and sending to nonexistent recipients is permitted")
