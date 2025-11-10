@@ -221,7 +221,10 @@ public class MessageController {
           Deliver a message to a single recipient. May be authenticated or unauthenticated; if unauthenticated,
           an unidentifed-access key or group-send endorsement token must be provided, unless the message is a story.
           """)
-  @ApiResponse(responseCode="200", description="Message was successfully sent", useReturnTypeSchema=true)
+  @ApiResponse(
+      responseCode="200", 
+      description="Message was successfully sent",
+      content = @Content(schema = @Schema(implementation = SendMessageResponse.class)))
   @ApiResponse(
       responseCode="401",
       description="The message is not a story and the authorization, unauthorized access key, or group send endorsement token is missing or incorrect")
