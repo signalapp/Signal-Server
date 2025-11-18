@@ -2546,8 +2546,7 @@ paths:
           type: string
       - name: destination
         in: path
-        description: "If true, deliver the message only to recipients that are online\
-          \ when it is sent"
+        description: The recipient’s account or phone-number identifier
         required: true
         schema:
           $ref: "#/components/schemas/ServiceIdentifier"
@@ -2567,6 +2566,10 @@ paths:
       responses:
         "200":
           description: Message was successfully sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendMessageResponse"
         "401":
           description: "The message is not a story and the authorization, unauthorized\
             \ access key, or group send endorsement token is missing or incorrect"
@@ -4130,8 +4133,6 @@ components:
             enum:
             - STORAGE
             - TRANSFER
-            - DELETE_SYNC
-            - STORAGE_SERVICE_RECORD_KEY_ROTATION
             - ATTACHMENT_BACKFILL
             - SPARSE_POST_QUANTUM_RATCHET
         discoverableByPhoneNumber:
@@ -5533,6 +5534,11 @@ components:
         token:
           type: string
           format: byte
+    SendMessageResponse:
+      type: object
+      properties:
+        needsSync:
+          type: boolean
     IncomingMessageList:
       required:
       - messages
