@@ -133,7 +133,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.getIdentityKey(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(identityKey);
     when(account.hasCapability(any())).thenReturn(false);
-    when(account.hasCapability(DeviceCapability.DELETE_SYNC)).thenReturn(true);
     when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(account));
 
     final GetUnversionedProfileAnonymousRequest request = GetUnversionedProfileAnonymousRequest.newBuilder()
@@ -153,7 +152,6 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
         .setUnidentifiedAccess(ByteString.copyFrom(unidentifiedAccessChecksum))
         .setUnrestrictedUnidentifiedAccess(false)
-        .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC)
         .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
         .build();
 

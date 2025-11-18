@@ -466,10 +466,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_TRANSFER);
     }
 
-    if (deleteSync) {
-      requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_DELETE_SYNC);
-    }
-
     if (attachmentBackfill) {
       requestBuilder.addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_ATTACHMENT_BACKFILL);
     }
@@ -490,9 +486,6 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
       expectedCapabilities.add(DeviceCapability.TRANSFER);
     }
 
-    if (deleteSync) {
-      expectedCapabilities.add(DeviceCapability.DELETE_SYNC);
-    }
 
     if (attachmentBackfill) {
       expectedCapabilities.add(DeviceCapability.ATTACHMENT_BACKFILL);

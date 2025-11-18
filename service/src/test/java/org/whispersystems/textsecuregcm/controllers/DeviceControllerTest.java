@@ -830,11 +830,11 @@ class DeviceControllerTest {
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .header(HttpHeaders.USER_AGENT, "Signal-Android/5.42.8675309 Android/30")
-        .put(Entity.json("{\"deleteSync\": true, \"notARealDeviceCapability\": true}"))) {
+        .put(Entity.json("{\"storage\": true, \"notARealDeviceCapability\": true}"))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
       assertThat(response.hasEntity()).isFalse();
-      verify(primaryDevice).setCapabilities(Set.of(DeviceCapability.DELETE_SYNC));
+      verify(primaryDevice).setCapabilities(Set.of(DeviceCapability.STORAGE));
     }
   }
 

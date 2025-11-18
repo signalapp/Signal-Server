@@ -117,14 +117,6 @@ class AccountTest {
     final Device mockDevice = mock(Device.class);
     when(mockDevice.getId()).thenReturn(Device.PRIMARY_ID);
 
-    assertTrue(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(mockDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.DELETE_SYNC));
-
-    assertTrue(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
-        List.of(mockDevice),
-        "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.STORAGE_SERVICE_RECORD_KEY_ROTATION));
-
     assertFalse(AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         List.of(mockDevice),
         "1234".getBytes(StandardCharsets.UTF_8)).hasCapability(DeviceCapability.TRANSFER));

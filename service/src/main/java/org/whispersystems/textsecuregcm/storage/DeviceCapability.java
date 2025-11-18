@@ -10,10 +10,6 @@ import java.util.Optional;
 public enum DeviceCapability {
   STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false),
   TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false),
-  @Deprecated(forRemoval = true) // Can be removed sometime after 11/10/2025
-  DELETE_SYNC("deleteSync", AccountCapabilityMode.ALWAYS_CAPABLE, true, true),
-  @Deprecated(forRemoval = true) // Can be removed sometime after 11/10/2025
-  STORAGE_SERVICE_RECORD_KEY_ROTATION("ssre2", AccountCapabilityMode.ALWAYS_CAPABLE, true, true),
   ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true),
   SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, false, true);
 
