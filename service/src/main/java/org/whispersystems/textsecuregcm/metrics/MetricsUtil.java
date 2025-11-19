@@ -83,7 +83,7 @@ public class MetricsUtil {
     environment.lifecycle().addServerLifecycleListener(
         server -> JettySslHandshakeMetrics.addToAllConnectors(server, Metrics.globalRegistry));
 
-    environment.lifecycle().addEventListener(new ApplicationShutdownMonitor(Metrics.globalRegistry));
+    new ApplicationShutdownMonitor(Metrics.globalRegistry).register();
     environment.lifecycle().addEventListener(
         new MicrometerRegistryManager(Metrics.globalRegistry, shutdownWaitDuration));
 
