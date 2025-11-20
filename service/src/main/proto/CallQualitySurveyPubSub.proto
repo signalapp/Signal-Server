@@ -73,32 +73,56 @@ message CallQualitySurveyResponsePubSubMessage {
 
   // The median round-trip time, measured in milliseconds, for STUN/ICE packets
   // (i.e. connection maintenance and establishment)
-  optional float rtt_median_connection = 16;
+  optional float connection_rtt_median = 16;
 
   // The median round-trip time, measured in milliseconds, for RTP/RTCP packets
-  // (i.e. call audio/video)
-  optional float rtt_median_media = 17;
+  // for audio streams
+  optional float audio_rtt_median = 17;
 
-  // The median jitter, measured in milliseconds, for the duration of the call
-  // as measured by the client submitting the survey
-  optional float jitter_median_recv = 18;
+  // The median round-trip time, measured in milliseconds, for RTP/RTCP packets
+  // for video streams
+  optional float video_rtt_median = 18;
 
-  // The median jitter, measured in milliseconds, for the duration of the call
-  // as measured by the remote endpoint in the call (either the peer of the
-  // client submitting the survey in a direct call or the SFU in a group call)
-  optional float jitter_median_send = 19;
+  // The median jitter for audio streams, measured in milliseconds, for the
+  // duration of the call as measured by the client submitting the survey
+  optional float audio_recv_jitter_median = 19;
 
-  // The fraction of all packets lost over the duration of the call as measured
-  // by the client submitting the survey
-  optional float packet_loss_fraction_recv = 20;
+  // The median jitter for video streams, measured in milliseconds, for the
+  // duration of the call as measured by the client submitting the survey
+  optional float video_recv_jitter_median = 20;
 
-  // The fraction of all packets lost over the duration of the call as measured
-  // by the remote endpoint in the call (either the peer of the client
+  // The median jitter for audio streams, measured in milliseconds, for the
+  // duration of the call as measured by the remote endpoint in the call (either
+  // the peer of the client submitting the survey in a direct call or the SFU in
+  // a group call)
+  optional float audio_send_jitter_median = 21;
+
+  // The median jitter for video streams, measured in milliseconds, for the
+  // duration of the call as measured by the remote endpoint in the call (either
+  // the peer of the client submitting the survey in a direct call or the SFU in
+  // a group call)
+  optional float video_send_jitter_median = 22;
+
+  // The fraction of audio packets lost over the duration of the call as
+  // measured by the client submitting the survey
+  optional float audio_recv_packet_loss_fraction = 23;
+
+  // The fraction of video packets lost over the duration of the call as
+  // measured by the client submitting the survey
+  optional float video_recv_packet_loss_fraction = 24;
+
+  // The fraction of audio packets lost over the duration of the call as
+  // measured by the remote endpoint in the call (either the peer of the client
   // submitting the survey in a direct call or the SFU in a group call)
-  optional float packet_loss_fraction_send = 21;
+  optional float audio_send_packet_loss_fraction = 25;
+
+  // The fraction of video packets lost over the duration of the call as
+  // measured by the remote endpoint in the call (either the peer of the client
+  // submitting the survey in a direct call or the SFU in a group call)
+  optional float video_send_packet_loss_fraction = 26;
 
   // Technical, machine-generated data about the quality and mechanics of a
   // call; this is a serialized protobuf entity generated (and, critically,
   // explained to the user!) by the calling library
-  optional bytes call_telemetry = 22;
+  optional bytes call_telemetry = 27;
 }

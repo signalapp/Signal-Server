@@ -62,12 +62,17 @@ class CallQualitySurveyManagerTest {
 
     final byte[] telemetryBytes = TestRandomUtil.nextBytes(32);
 
-    final float rttMedianConnection = ThreadLocalRandom.current().nextFloat();
-    final float rttMedianMedia = ThreadLocalRandom.current().nextFloat();
-    final float jitterMedianRecv = ThreadLocalRandom.current().nextFloat();
-    final float jitterMedianSend = ThreadLocalRandom.current().nextFloat();
-    final float packetLossFractionRecv = ThreadLocalRandom.current().nextFloat();
-    final float packetLossFractionSend = ThreadLocalRandom.current().nextFloat();
+    final float connectionRttMedian = ThreadLocalRandom.current().nextFloat();
+    final float audioRttMedian = ThreadLocalRandom.current().nextFloat();
+    final float videoRttMedian = ThreadLocalRandom.current().nextFloat();
+    final float audioRecvJitterMedian = ThreadLocalRandom.current().nextFloat();
+    final float videoRecvJitterMedian = ThreadLocalRandom.current().nextFloat();
+    final float audioSendJitterMedian = ThreadLocalRandom.current().nextFloat();
+    final float videoSendJitterMedian = ThreadLocalRandom.current().nextFloat();
+    final float audioRecvPacketLossFraction = ThreadLocalRandom.current().nextFloat();
+    final float videoRecvPacketLossFraction = ThreadLocalRandom.current().nextFloat();
+    final float audioSendPacketLossFraction = ThreadLocalRandom.current().nextFloat();
+    final float videoSendPacketLossFraction = ThreadLocalRandom.current().nextFloat();
 
     when(asnInfoProvider.lookup(REMOTE_ADDRESS)).thenReturn(Optional.of(new AsnInfo(asn, asnRegion)));
 
@@ -82,12 +87,17 @@ class CallQualitySurveyManagerTest {
         .setCallType("direct_video")
         .setSuccess(true)
         .setCallEndReason("caller_hang_up")
-        .setRttMedianConnection(rttMedianConnection)
-        .setRttMedianMedia(rttMedianMedia)
-        .setJitterMedianRecv(jitterMedianRecv)
-        .setJitterMedianSend(jitterMedianSend)
-        .setPacketLossFractionRecv(packetLossFractionRecv)
-        .setPacketLossFractionSend(packetLossFractionSend)
+        .setConnectionRttMedian(connectionRttMedian)
+        .setAudioRttMedian(audioRttMedian)
+        .setVideoRttMedian(videoRttMedian)
+        .setAudioRecvJitterMedian(audioRecvJitterMedian)
+        .setVideoRecvJitterMedian(videoRecvJitterMedian)
+        .setAudioSendJitterMedian(audioSendJitterMedian)
+        .setVideoSendJitterMedian(videoSendJitterMedian)
+        .setAudioRecvPacketLossFraction(audioRecvPacketLossFraction)
+        .setVideoRecvPacketLossFraction(videoRecvPacketLossFraction)
+        .setAudioSendPacketLossFraction(audioSendPacketLossFraction)
+        .setVideoSendPacketLossFraction(videoSendPacketLossFraction)
         .setCallTelemetry(ByteString.copyFrom(telemetryBytes))
         .build();
 
@@ -117,12 +127,17 @@ class CallQualitySurveyManagerTest {
     assertEquals("direct_video", callQualitySurveyResponsePubSubMessage.getCallType());
     assertTrue(callQualitySurveyResponsePubSubMessage.getSuccess());
     assertEquals("caller_hang_up", callQualitySurveyResponsePubSubMessage.getCallEndReason());
-    assertEquals(rttMedianConnection, callQualitySurveyResponsePubSubMessage.getRttMedianConnection());
-    assertEquals(rttMedianMedia, callQualitySurveyResponsePubSubMessage.getRttMedianMedia());
-    assertEquals(jitterMedianRecv, callQualitySurveyResponsePubSubMessage.getJitterMedianRecv());
-    assertEquals(jitterMedianSend, callQualitySurveyResponsePubSubMessage.getJitterMedianSend());
-    assertEquals(packetLossFractionRecv, callQualitySurveyResponsePubSubMessage.getPacketLossFractionRecv());
-    assertEquals(packetLossFractionSend, callQualitySurveyResponsePubSubMessage.getPacketLossFractionSend());
+    assertEquals(connectionRttMedian, callQualitySurveyResponsePubSubMessage.getConnectionRttMedian());
+    assertEquals(audioRttMedian, callQualitySurveyResponsePubSubMessage.getAudioRttMedian());
+    assertEquals(videoRttMedian, callQualitySurveyResponsePubSubMessage.getVideoRttMedian());
+    assertEquals(audioRecvJitterMedian, callQualitySurveyResponsePubSubMessage.getAudioRecvJitterMedian());
+    assertEquals(videoRecvJitterMedian, callQualitySurveyResponsePubSubMessage.getVideoRecvJitterMedian());
+    assertEquals(audioSendJitterMedian, callQualitySurveyResponsePubSubMessage.getAudioSendJitterMedian());
+    assertEquals(videoSendJitterMedian, callQualitySurveyResponsePubSubMessage.getVideoSendJitterMedian());
+    assertEquals(audioRecvPacketLossFraction, callQualitySurveyResponsePubSubMessage.getAudioRecvPacketLossFraction());
+    assertEquals(videoRecvPacketLossFraction, callQualitySurveyResponsePubSubMessage.getVideoRecvPacketLossFraction());
+    assertEquals(audioSendPacketLossFraction, callQualitySurveyResponsePubSubMessage.getAudioSendPacketLossFraction());
+    assertEquals(videoSendPacketLossFraction, callQualitySurveyResponsePubSubMessage.getVideoSendPacketLossFraction());
     assertArrayEquals(telemetryBytes, callQualitySurveyResponsePubSubMessage.getCallTelemetry().toByteArray());
   }
 }

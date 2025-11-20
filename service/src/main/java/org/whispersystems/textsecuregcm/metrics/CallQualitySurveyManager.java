@@ -86,28 +86,48 @@ public class CallQualitySurveyManager {
       pubSubMessageBuilder.setDebugLogUrl(submitCallQualitySurveyRequest.getDebugLogUrl());
     }
 
-    if (submitCallQualitySurveyRequest.hasRttMedianConnection()) {
-      pubSubMessageBuilder.setRttMedianConnection(submitCallQualitySurveyRequest.getRttMedianConnection());
+    if (submitCallQualitySurveyRequest.hasConnectionRttMedian()) {
+      pubSubMessageBuilder.setConnectionRttMedian(submitCallQualitySurveyRequest.getConnectionRttMedian());
     }
 
-    if (submitCallQualitySurveyRequest.hasRttMedianMedia()) {
-      pubSubMessageBuilder.setRttMedianMedia(submitCallQualitySurveyRequest.getRttMedianMedia());
+    if (submitCallQualitySurveyRequest.hasAudioRttMedian()) {
+      pubSubMessageBuilder.setAudioRttMedian(submitCallQualitySurveyRequest.getAudioRttMedian());
     }
 
-    if (submitCallQualitySurveyRequest.hasJitterMedianRecv()) {
-      pubSubMessageBuilder.setJitterMedianRecv(submitCallQualitySurveyRequest.getJitterMedianRecv());
+    if (submitCallQualitySurveyRequest.hasVideoRttMedian()) {
+      pubSubMessageBuilder.setVideoRttMedian(submitCallQualitySurveyRequest.getVideoRttMedian());
     }
 
-    if (submitCallQualitySurveyRequest.hasJitterMedianSend()) {
-      pubSubMessageBuilder.setJitterMedianSend(submitCallQualitySurveyRequest.getJitterMedianSend());
+    if (submitCallQualitySurveyRequest.hasAudioRecvJitterMedian()) {
+      pubSubMessageBuilder.setAudioRecvJitterMedian(submitCallQualitySurveyRequest.getAudioRecvJitterMedian());
     }
 
-    if (submitCallQualitySurveyRequest.hasPacketLossFractionRecv()) {
-      pubSubMessageBuilder.setPacketLossFractionRecv(submitCallQualitySurveyRequest.getPacketLossFractionRecv());
+    if (submitCallQualitySurveyRequest.hasVideoRecvJitterMedian()) {
+      pubSubMessageBuilder.setVideoRecvJitterMedian(submitCallQualitySurveyRequest.getVideoRecvJitterMedian());
     }
 
-    if (submitCallQualitySurveyRequest.hasPacketLossFractionSend()) {
-      pubSubMessageBuilder.setPacketLossFractionSend(submitCallQualitySurveyRequest.getPacketLossFractionSend());
+    if (submitCallQualitySurveyRequest.hasAudioSendJitterMedian()) {
+      pubSubMessageBuilder.setAudioSendJitterMedian(submitCallQualitySurveyRequest.getAudioSendJitterMedian());
+    }
+
+    if (submitCallQualitySurveyRequest.hasVideoSendJitterMedian()) {
+      pubSubMessageBuilder.setVideoSendJitterMedian(submitCallQualitySurveyRequest.getVideoSendJitterMedian());
+    }
+
+    if (submitCallQualitySurveyRequest.hasAudioRecvPacketLossFraction()) {
+      pubSubMessageBuilder.setAudioRecvPacketLossFraction(submitCallQualitySurveyRequest.getAudioRecvPacketLossFraction());
+    }
+
+    if (submitCallQualitySurveyRequest.hasVideoRecvPacketLossFraction()) {
+      pubSubMessageBuilder.setVideoRecvPacketLossFraction(submitCallQualitySurveyRequest.getVideoRecvPacketLossFraction());
+    }
+
+    if (submitCallQualitySurveyRequest.hasAudioSendPacketLossFraction()) {
+      pubSubMessageBuilder.setAudioSendPacketLossFraction(submitCallQualitySurveyRequest.getAudioSendPacketLossFraction());
+    }
+
+    if (submitCallQualitySurveyRequest.hasVideoSendPacketLossFraction()) {
+      pubSubMessageBuilder.setVideoSendPacketLossFraction(submitCallQualitySurveyRequest.getVideoSendPacketLossFraction());
     }
 
     if (submitCallQualitySurveyRequest.hasCallTelemetry()) {
