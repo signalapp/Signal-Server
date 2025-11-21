@@ -6,10 +6,13 @@
 package org.whispersystems.textsecuregcm.spam;
 
 import io.dropwizard.configuration.ConfigurationValidationException;
+import io.dropwizard.core.cli.ConfiguredCommand;
 import io.dropwizard.lifecycle.Managed;
 import jakarta.validation.Validator;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.function.Function;
+import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.captcha.CaptchaClient;
 import org.whispersystems.textsecuregcm.storage.ReportedMessageListener;
 
@@ -34,6 +37,14 @@ public interface SpamFilter extends Managed {
    * @throws ConfigurationValidationException if the configuration failed validation
    */
   void configure(String environmentName, Validator validator) throws IOException, ConfigurationValidationException;
+
+  /**
+   * Returns a collection of commands provided by this spam filter. Note that this method may be called before
+   * {@link #configure(String, Validator)}.
+   *
+   * @return a collection of commands provided by this spam filter
+   */
+  Collection<ConfiguredCommand<WhisperServerConfiguration>> getCommands();
 
   /**
    * Return a reported message listener controlled by the spam filter. Listeners will be registered with the

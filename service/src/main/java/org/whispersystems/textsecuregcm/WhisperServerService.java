@@ -355,6 +355,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new IdleDeviceNotificationSchedulerFactory()));
 
     bootstrap.addCommand(new RegenerateSecondaryDynamoDbTableDataCommand());
+
+    ServiceLoader.load(SpamFilter.class)
+        .stream()
+        .map(ServiceLoader.Provider::get)
+        .flatMap(spamFilter -> spamFilter.getCommands().stream())
+        .forEach(bootstrap::addCommand);
   }
 
   @Override
