@@ -91,7 +91,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClient;
 /**
  * Construct utilities commonly used by worker commands
  */
-record CommandDependencies(
+public record CommandDependencies(
     AccountsManager accountsManager,
     ProfilesManager profilesManager,
     ReportMessageManager reportMessageManager,
