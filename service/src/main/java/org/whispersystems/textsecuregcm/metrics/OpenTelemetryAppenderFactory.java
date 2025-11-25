@@ -33,6 +33,7 @@ public class OpenTelemetryAppenderFactory extends AbstractAppenderFactory<ILoggi
     final OpenTelemetryAppender appender = new OpenTelemetryAppender();
     appender.setCaptureCodeAttributes(true);
     appender.setCaptureLoggerContext(true);
+    appender.setCaptureMarkerAttribute(true);
 
     // The installation of an OpenTelemetry configuration happens in
     // WhisperServerService (or CommandDependencies), in order to let us tie

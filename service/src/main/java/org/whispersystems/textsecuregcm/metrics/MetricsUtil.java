@@ -30,6 +30,8 @@ import io.opentelemetry.sdk.resources.ResourceBuilder;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+
+import org.eclipse.jetty.util.component.LifeCycle;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -120,10 +122,10 @@ public class MetricsUtil {
 
     OpenTelemetryAppender.install(openTelemetry);
 
-    environment.lifecycle().manage(new Managed() {
+    environment.lifecycle().addEventListener(new LifeCycle.Listener() {
       @Override
-      public void stop() {
-        openTelemetry.shutdown();
+      public void lifeCycleStopped(final LifeCycle event) {
+        openTelemetry.close();
       }
     });
   }
