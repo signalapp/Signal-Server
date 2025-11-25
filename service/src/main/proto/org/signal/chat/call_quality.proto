@@ -36,12 +36,10 @@ message SubmitCallQualitySurveyRequest {
   // to submit debug logs
   optional string debug_log_url = 4;
 
-  // The time at which the call started in microseconds since the epoch (see
-  // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#timestamp_type)
+  // The time at which the call started in milliseconds since the epoch
   int64 start_timestamp = 5;
 
-  // The time at which the call ended in microseconds since the epoch (see
-  // https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#timestamp_type)
+  // The time at which the call ended in milliseconds since the epoch
   int64 end_timestamp = 6;
 
   // The type of call; note that direct voice calls can become video calls and

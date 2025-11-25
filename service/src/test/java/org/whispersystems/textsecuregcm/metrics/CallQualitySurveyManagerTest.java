@@ -122,8 +122,8 @@ class CallQualitySurveyManagerTest {
     assertEquals(List.of("too_hot", "too_cold"), callQualitySurveyResponsePubSubMessage.getCallQualityIssuesList());
     assertEquals("But this one is just right", callQualitySurveyResponsePubSubMessage.getAdditionalIssuesDescription());
     assertEquals("https://example.com/", callQualitySurveyResponsePubSubMessage.getDebugLogUrl());
-    assertEquals(123456789, callQualitySurveyResponsePubSubMessage.getStartTimestamp());
-    assertEquals(987654321, callQualitySurveyResponsePubSubMessage.getEndTimestamp());
+    assertEquals(123456789L * 1_000, callQualitySurveyResponsePubSubMessage.getStartTimestamp());
+    assertEquals(987654321L * 1_000, callQualitySurveyResponsePubSubMessage.getEndTimestamp());
     assertEquals("direct_video", callQualitySurveyResponsePubSubMessage.getCallType());
     assertTrue(callQualitySurveyResponsePubSubMessage.getSuccess());
     assertEquals("caller_hang_up", callQualitySurveyResponsePubSubMessage.getCallEndReason());

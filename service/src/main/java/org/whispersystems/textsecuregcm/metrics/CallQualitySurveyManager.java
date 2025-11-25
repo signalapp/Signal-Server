@@ -55,8 +55,9 @@ public class CallQualitySurveyManager {
             .setResponseId(UUID.randomUUID().toString())
             .setSubmissionTimestamp(clock.millis() * 1000)
             .setUserSatisfied(submitCallQualitySurveyRequest.getUserSatisfied())
-            .setStartTimestamp(submitCallQualitySurveyRequest.getStartTimestamp())
-            .setEndTimestamp(submitCallQualitySurveyRequest.getEndTimestamp())
+            // We receive timestamps as milliseconds since the epoch, but the backing data store wants microseconds
+            .setStartTimestamp(submitCallQualitySurveyRequest.getStartTimestamp() * 1_000)
+            .setEndTimestamp(submitCallQualitySurveyRequest.getEndTimestamp() * 1_000)
             .setCallType(submitCallQualitySurveyRequest.getCallType())
             .setSuccess(submitCallQualitySurveyRequest.getSuccess())
             .setCallEndReason(submitCallQualitySurveyRequest.getCallEndReason());
