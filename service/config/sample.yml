@@ -10,18 +10,7 @@ logging:
       threshold: ALL
       timeZone: UTC
       target: stdout
-      layout:
-        type: json
-        timestampFormat: ISO_INSTANT
-        includes:
-          - timestamp
-          - level
-          - threadName
-          - marker
-          - loggerName
-          - message
-          - exception
-          - callerData
+    - type: otlp
 
 tlsKeyStore:
   password: secret://tlsKeyStore.password
