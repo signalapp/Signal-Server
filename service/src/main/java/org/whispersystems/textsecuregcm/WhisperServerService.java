@@ -4,8 +4,8 @@
  */
 package org.whispersystems.textsecuregcm;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import static java.util.Objects.requireNonNull;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.collect.Lists;
 import com.webauthn4j.appattest.DeviceCheckManager;
@@ -1085,7 +1085,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             ReceiptCredentialPresentation::new),
         new KeysController(rateLimiters, keysManager, accountsManager, zkSecretParams, Clock.systemUTC()),
         new KeyTransparencyController(keyTransparencyServiceClient),
-        new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, receiptSender,
+        new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender,
             accountsManager, messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
             reportMessageManager, messageDeliveryScheduler, clientReleaseManager,
             zkSecretParams, spamChecker, messageMetrics, messageDeliveryLoopMonitor,

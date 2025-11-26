@@ -100,7 +100,6 @@ import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
-import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -108,13 +107,11 @@ import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
-import org.whispersystems.textsecuregcm.storage.RemovedMessage;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.MultiRecipientMessageHelper;
 import org.whispersystems.textsecuregcm.tests.util.TestRecipient;
-import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -165,7 +162,6 @@ class MessageControllerTest {
   private static final RedisAdvancedClusterCommands<String, String> redisCommands  = mock(RedisAdvancedClusterCommands.class);
 
   private static final MessageSender messageSender = mock(MessageSender.class);
-  private static final ReceiptSender receiptSender = mock(ReceiptSender.class);
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private static final MessagesManager messagesManager = mock(MessagesManager.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
@@ -192,7 +188,7 @@ class MessageControllerTest {
       .addProvider(MultiRecipientMessageProvider.class)
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
-          new MessageController(rateLimiters, cardinalityEstimator, messageSender, receiptSender, accountsManager,
+          new MessageController(rateLimiters, cardinalityEstimator, messageSender, accountsManager,
               messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
               reportMessageManager, messageDeliveryScheduler, mock(ClientReleaseManager.class),
               serverSecretParams, SpamChecker.noop(), new MessageMetrics(), mock(MessageDeliveryLoopMonitor.class),
@@ -269,7 +265,6 @@ class MessageControllerTest {
     reset(
         redisCommands,
         messageSender,
-        receiptSender,
         accountsManager,
         messagesManager,
         rateLimiters,
@@ -796,80 +791,6 @@ class MessageControllerTest {
             .get();
 
     assertThat("Unauthorized response", response.getStatus(), is(equalTo(401)));
-  }
-
-  @Test
-  void testDeleteMessages() {
-    long clientTimestamp = System.currentTimeMillis();
-
-    UUID sourceUuid = UUID.randomUUID();
-
-    UUID uuid1 = UUID.randomUUID();
-
-    final long serverTimestamp = 0;
-    when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid1, null))
-        .thenReturn(
-            CompletableFutureTestUtil.almostCompletedFuture(Optional.of(
-                new RemovedMessage(Optional.of(new AciServiceIdentifier(sourceUuid)),
-                    new AciServiceIdentifier(AuthHelper.VALID_UUID), uuid1, serverTimestamp, clientTimestamp,
-                    Envelope.Type.CIPHERTEXT))));
-
-    UUID uuid2 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid2, null))
-        .thenReturn(
-            CompletableFutureTestUtil.almostCompletedFuture(Optional.of(
-                new RemovedMessage(Optional.of(new AciServiceIdentifier(sourceUuid)),
-                    new AciServiceIdentifier(AuthHelper.VALID_UUID), uuid2, serverTimestamp, clientTimestamp,
-                    Envelope.Type.SERVER_DELIVERY_RECEIPT))));
-
-    UUID uuid3 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid3, null))
-        .thenReturn(CompletableFutureTestUtil.almostCompletedFuture(Optional.empty()));
-
-    UUID uuid4 = UUID.randomUUID();
-    when(messagesManager.delete(AuthHelper.VALID_UUID, AuthHelper.VALID_DEVICE, uuid4, null))
-        .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Oh No")));
-
-    try (final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/messages/uuid/%s", uuid1))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .delete()) {
-
-      assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
-      verify(receiptSender).sendReceipt(eq(new AciServiceIdentifier(AuthHelper.VALID_UUID)), eq((byte) 1),
-          eq(new AciServiceIdentifier(sourceUuid)), eq(clientTimestamp));
-    }
-
-    try (final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/messages/uuid/%s", uuid2))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .delete()) {
-
-      assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
-      verifyNoMoreInteractions(receiptSender);
-    }
-
-    try (final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/messages/uuid/%s", uuid3))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .delete()) {
-
-      assertThat("Good Response Code", response.getStatus(), is(equalTo(204)));
-      verifyNoMoreInteractions(receiptSender);
-    }
-
-    try (final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/messages/uuid/%s", uuid4))
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .delete()) {
-
-      assertThat("Bad Response Code", response.getStatus(), is(equalTo(500)));
-      verifyNoMoreInteractions(receiptSender);
-    }
   }
 
   @Test

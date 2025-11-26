@@ -253,26 +253,17 @@ public class MessagesManager {
     return messagesCache.clear(destinationUuid, deviceId);
   }
 
-  public CompletableFuture<Optional<RemovedMessage>> delete(UUID destinationUuid, Device destinationDevice, UUID guid,
-      @Nullable Long serverTimestamp) {
+  public CompletableFuture<Optional<RemovedMessage>> delete(final UUID destinationUuid,
+      final Device destinationDevice,
+      final UUID guid,
+      final long serverTimestamp) {
+
     return messagesCache.remove(destinationUuid, destinationDevice.getId(), guid)
-        .thenComposeAsync(removed -> {
-
-          if (removed.isPresent()) {
-            return CompletableFuture.completedFuture(removed);
-          }
-
-          final CompletableFuture<Optional<MessageProtos.Envelope>> maybeDeletedEnvelope;
-          if (serverTimestamp == null) {
-            maybeDeletedEnvelope = messagesDynamoDb.deleteMessageByDestinationAndGuid(destinationUuid,
-                destinationDevice, guid);
-          } else {
-            maybeDeletedEnvelope = messagesDynamoDb.deleteMessage(destinationUuid, destinationDevice, guid,
-                serverTimestamp);
-          }
-
-          return maybeDeletedEnvelope.thenApply(maybeEnvelope -> maybeEnvelope.map(RemovedMessage::fromEnvelope));
-        }, messageDeletionExecutor);
+        .thenComposeAsync(removed -> removed
+            .map(_ -> CompletableFuture.completedFuture(removed))
+            .orElseGet(() -> messagesDynamoDb.deleteMessage(destinationUuid, destinationDevice, guid, serverTimestamp)
+                .thenApply(maybeEnvelope -> maybeEnvelope.map(RemovedMessage::fromEnvelope))
+            ), messageDeletionExecutor);
   }
 
   /**
