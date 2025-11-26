@@ -11,9 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -346,15 +346,16 @@ class MessagePersisterTest {
         .thenReturn(Flux.concat(
             Flux.fromIterable(persistedMessages),
             Flux.fromIterable(cachedMessages)));
-    when(messagesManager.delete(any(), any(), any(), any()))
+    when(messagesManager.delete(any(), any(), any(), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
     assertTimeoutPreemptively(Duration.ofSeconds(10), () ->
         messagePersister.persistNextQueues(Clock.systemUTC().instant()));
 
     verify(messagesManager, times(expectedClearedGuids.size()))
-        .delete(eq(DESTINATION_ACCOUNT_UUID), eq(primary), argThat(expectedClearedGuids::contains), isNotNull());
-    verify(messagesManager, never()).delete(any(), any(), argThat(guid -> !expectedClearedGuids.contains(guid)), any());
+        .delete(eq(DESTINATION_ACCOUNT_UUID), eq(primary), argThat(expectedClearedGuids::contains), anyLong());
+    verify(messagesManager, never())
+        .delete(any(), any(), argThat(guid -> !expectedClearedGuids.contains(guid)), anyLong());
 
     final List<String> queuesToPersist = messagesCache.getQueuesToPersist(SlotHash.getSlot(queueName),
         Clock.systemUTC().instant(), 1);

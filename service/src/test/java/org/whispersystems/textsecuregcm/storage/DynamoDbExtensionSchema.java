@@ -8,8 +8,8 @@ package org.whispersystems.textsecuregcm.storage;
 import java.util.Collections;
 import java.util.List;
 import org.whispersystems.textsecuregcm.backup.BackupsDb;
-import org.whispersystems.textsecuregcm.scheduler.JobScheduler;
 import org.whispersystems.textsecuregcm.experiment.PushNotificationExperimentSamples;
+import org.whispersystems.textsecuregcm.scheduler.JobScheduler;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceChecks;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.GlobalSecondaryIndex;
@@ -246,20 +246,8 @@ public final class DynamoDbExtensionSchema {
         MessagesDynamoDb.KEY_SORT,
         List.of(
             AttributeDefinition.builder().attributeName(MessagesDynamoDb.KEY_PARTITION).attributeType(ScalarAttributeType.B).build(),
-            AttributeDefinition.builder().attributeName(MessagesDynamoDb.KEY_SORT).attributeType(ScalarAttributeType.B).build(),
-            AttributeDefinition.builder().attributeName(MessagesDynamoDb.LOCAL_INDEX_MESSAGE_UUID_KEY_SORT)
-                .attributeType(ScalarAttributeType.B).build()),
-        List.of(),
-        List.of(LocalSecondaryIndex.builder()
-            .indexName(MessagesDynamoDb.LOCAL_INDEX_MESSAGE_UUID_NAME)
-            .keySchema(
-                KeySchemaElement.builder().attributeName(MessagesDynamoDb.KEY_PARTITION).keyType(KeyType.HASH).build(),
-                KeySchemaElement.builder()
-                    .attributeName(MessagesDynamoDb.LOCAL_INDEX_MESSAGE_UUID_KEY_SORT)
-                    .keyType(KeyType.RANGE)
-                    .build())
-            .projection(Projection.builder().projectionType(ProjectionType.KEYS_ONLY).build())
-            .build())),
+            AttributeDefinition.builder().attributeName(MessagesDynamoDb.KEY_SORT).attributeType(ScalarAttributeType.B).build()),
+        List.of(), List.of()),
 
     ONETIME_DONATIONS("onetime_donations_test",
         OneTimeDonationsManager.KEY_PAYMENT_ID,
