@@ -5,6 +5,8 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import org.signal.chat.calling.quality.SimpleCallQualityGrpc;
 import org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest;
 import org.signal.chat.calling.quality.SubmitCallQualitySurveyResponse;
@@ -32,9 +34,13 @@ public class CallQualitySurveyGrpcService extends SimpleCallQualityGrpc.CallQual
 
     rateLimiters.getSubmitCallQualitySurveyLimiter().validate(remoteAddress);
 
-    callQualitySurveyManager.submitCallQualitySurvey(request,
-        remoteAddress,
-        RequestAttributesUtil.getUserAgent().orElse(null));
+    try {
+      callQualitySurveyManager.submitCallQualitySurvey(request,
+          remoteAddress,
+          RequestAttributesUtil.getUserAgent().orElse(null));
+    } catch (final IllegalArgumentException e) {
+      throw Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException();
+    }
 
     return SubmitCallQualitySurveyResponse.getDefaultInstance();
   }

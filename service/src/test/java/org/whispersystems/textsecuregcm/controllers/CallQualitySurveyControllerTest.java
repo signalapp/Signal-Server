@@ -7,10 +7,12 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
@@ -22,6 +24,9 @@ import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -29,6 +34,7 @@ import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
+import java.util.List;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class CallQualitySurveyControllerTest {
@@ -81,6 +87,23 @@ class CallQualitySurveyControllerTest {
 
       assertEquals(403, response.getStatus());
       verify(CALL_QUALITY_SURVEY_MANAGER, never()).submitCallQualitySurvey(any(), any(), any());
+    }
+  }
+
+  @Test
+  void submitCallQualitySurveyInvalidArgument() {
+    final SubmitCallQualitySurveyRequest request = SubmitCallQualitySurveyRequest.getDefaultInstance();
+
+    doThrow(new IllegalArgumentException())
+        .when(CALL_QUALITY_SURVEY_MANAGER).submitCallQualitySurvey(request, REMOTE_ADDRESS, USER_AGENT);
+
+    try (final Response response = RESOURCE_EXTENSION.getJerseyTest()
+        .target("/v1/call_quality_survey")
+        .request()
+        .header("User-Agent", USER_AGENT)
+        .put(Entity.entity(request.toByteArray(), MediaType.APPLICATION_OCTET_STREAM_TYPE))) {
+
+      assertEquals(422, response.getStatus());
     }
   }
 }

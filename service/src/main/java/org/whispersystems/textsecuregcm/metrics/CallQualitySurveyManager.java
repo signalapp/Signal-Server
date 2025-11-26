@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 import com.google.cloud.pubsub.v1.PublisherInterface;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.pubsub.v1.PubsubMessage;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
@@ -146,5 +147,24 @@ public class CallQualitySurveyManager {
           Metrics.counter(PUB_SUB_MESSAGE_COUNTER_NAME, "success", String.valueOf(throwable == null))
               .increment();
         });
+  }
+
+  @VisibleForTesting
+  static void validateRequest(final SubmitCallQualitySurveyRequest request) {
+    if (request.getStartTimestamp() == 0) {
+      throw new IllegalArgumentException("Start timestamp not specified");
+    }
+
+    if (request.getEndTimestamp() == 0) {
+      throw new IllegalArgumentException("End timestamp not specified");
+    }
+
+    if (StringUtils.isBlank(request.getCallType())) {
+      throw new IllegalArgumentException("Call type not specified");
+    }
+
+    if (StringUtils.isBlank(request.getCallEndReason())) {
+      throw new IllegalArgumentException("Call end reason not specified");
+    }
   }
 }

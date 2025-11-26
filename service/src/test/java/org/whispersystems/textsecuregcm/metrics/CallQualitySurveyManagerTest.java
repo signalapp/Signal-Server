@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -27,6 +28,11 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.platform.commons.util.StringUtils;
 import org.mockito.ArgumentCaptor;
 import org.signal.calling.survey.CallQualitySurveyResponsePubSubMessage;
 import org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest;
@@ -139,5 +145,37 @@ class CallQualitySurveyManagerTest {
     assertEquals(audioSendPacketLossFraction, callQualitySurveyResponsePubSubMessage.getAudioSendPacketLossFraction());
     assertEquals(videoSendPacketLossFraction, callQualitySurveyResponsePubSubMessage.getVideoSendPacketLossFraction());
     assertArrayEquals(telemetryBytes, callQualitySurveyResponsePubSubMessage.getCallTelemetry().toByteArray());
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void validateRequest(final SubmitCallQualitySurveyRequest request, final boolean expectValid) {
+    final Executable validateRequest = () -> CallQualitySurveyManager.validateRequest(request);
+
+    if (expectValid) {
+      assertDoesNotThrow(validateRequest);
+    } else {
+      final IllegalArgumentException illegalArgumentException =
+          assertThrows(IllegalArgumentException.class, validateRequest);
+
+      assertTrue(StringUtils.isNotBlank(illegalArgumentException.getMessage()));
+    }
+  }
+
+  private static List<Arguments> validateRequest() {
+    final SubmitCallQualitySurveyRequest validRequest = SubmitCallQualitySurveyRequest.newBuilder()
+        .setStartTimestamp(Instant.now().toEpochMilli())
+        .setEndTimestamp(Instant.now().plusSeconds(60).toEpochMilli())
+        .setCallType("test")
+        .setCallEndReason("test")
+        .build();
+
+    return List.of(
+        Arguments.argumentSet("Valid survey response", validRequest, true),
+        Arguments.argumentSet("No start timestamp", validRequest.toBuilder().clearStartTimestamp().build(), false),
+        Arguments.argumentSet("No end timestamp", validRequest.toBuilder().clearEndTimestamp().build(), false),
+        Arguments.argumentSet("No call type", validRequest.toBuilder().clearCallType().build(), false),
+        Arguments.argumentSet("No call end reason", validRequest.toBuilder().clearCallEndReason().build(), false)
+    );
   }
 }

@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.net.InetAddresses;
 import java.time.Duration;
+import io.grpc.Status;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -66,5 +67,17 @@ class CallQualitySurveyGrpcServiceTest extends SimpleBaseGrpcTest<CallQualitySur
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
         () -> unauthenticatedServiceStub().submitCallQualitySurvey(SubmitCallQualitySurveyRequest.getDefaultInstance()));
+  }
+
+  @Test
+  void submitCallQualitySurveyInvalidArgument() {
+    final SubmitCallQualitySurveyRequest request = SubmitCallQualitySurveyRequest.getDefaultInstance();
+
+    doThrow(new IllegalArgumentException())
+        .when(callQualitySurveyManager).submitCallQualitySurvey(request, REMOTE_ADDRESS, USER_AGENT);
+
+    //noinspection ResultOfMethodCallIgnored
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
+        () -> unauthenticatedServiceStub().submitCallQualitySurvey(request));
   }
 }

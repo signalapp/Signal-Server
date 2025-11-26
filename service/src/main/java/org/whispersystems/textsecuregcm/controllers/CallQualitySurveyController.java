@@ -66,11 +66,15 @@ public class CallQualitySurveyController {
     try {
       submitCallQualitySurveyRequest = SubmitCallQualitySurveyRequest.parseFrom(surveyResponse);
     } catch (final InvalidProtocolBufferException e) {
-      throw new WebApplicationException(422);
+      throw new WebApplicationException("Invalid protobuf entity", 422);
     }
 
     final String remoteAddress = (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
-    callQualitySurveyManager.submitCallQualitySurvey(submitCallQualitySurveyRequest, remoteAddress, userAgentString);
+    try {
+      callQualitySurveyManager.submitCallQualitySurvey(submitCallQualitySurveyRequest, remoteAddress, userAgentString);
+    } catch (final IllegalArgumentException e) {
+      throw new WebApplicationException(e.getMessage(), 422);
+    }
   }
 }
