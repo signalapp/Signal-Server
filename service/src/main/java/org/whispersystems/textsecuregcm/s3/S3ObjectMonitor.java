@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.s3;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.time.Duration;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -21,10 +22,13 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import javax.annotation.Nullable;
 
 /**
  * An S3 object monitor watches a specific object in an S3 bucket and notifies a listener if that object changes.
@@ -57,6 +61,29 @@ public class S3ObjectMonitor {
     this(S3Client.builder()
             .region(Region.of(s3Region))
             .credentialsProvider(awsCredentialsProvider)
+            .build(),
+        s3Bucket,
+        objectKey,
+        maxObjectSize,
+        refreshExecutorService,
+        refreshInterval);
+  }
+
+  // construction with s3Endpoint
+  public S3ObjectMonitor(final AwsCredentialsProvider awsCredentialsProvider,
+      final URI s3Endpoint,
+      final String s3Region,
+      final String s3Bucket,
+      final String objectKey,
+      final long maxObjectSize,
+      final ScheduledExecutorService refreshExecutorService,
+      final Duration refreshInterval) {
+    this(S3Client.builder()
+            .region(Region.of(s3Region))
+            .credentialsProvider(awsCredentialsProvider)
+            .endpointOverride(s3Endpoint)
+            .serviceConfiguration(S3Configuration.builder()
+                .pathStyleAccessEnabled(true).build())
             .build(),
         s3Bucket,
         objectKey,
