@@ -92,7 +92,8 @@ public class RegistrationController {
       2. gets 409 from device available for transfer \n
       3. success \n
       """)
-  @ApiResponse(responseCode = "200", description = "The phone number associated with the authenticated account was changed successfully", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "200", description = "Account creation succeeded", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "401", description = "The session identified in the request is not verified")
   @ApiResponse(responseCode = "403", description = "Verification failed for the provided Registration Recovery Password")
   @ApiResponse(responseCode = "409", description = "The caller has not explicitly elected to skip transferring data from another device, but a device transfer is technically possible")
   @ApiResponse(responseCode = "422", description = "The request did not pass validation")
