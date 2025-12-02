@@ -58,7 +58,7 @@ public abstract class AbstractCommandWithDependencies extends EnvironmentCommand
 
     } finally {
       logger.info("Stopping command dependencies");
-      environment.lifecycle().getManagedObjects().forEach(managedObject -> {
+      environment.lifecycle().getManagedObjects().reversed().forEach(managedObject -> {
         try {
           managedObject.stop();
         } catch (final Exception e) {
