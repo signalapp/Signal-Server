@@ -2456,34 +2456,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
-      security:
-      - authenticatedAccount: []
-  /v1/messages/uuid/{uuid}:
-    delete:
-      tags:
-      - Messages
-      operationId: removePendingMessage
-      parameters:
-      - name: uuid
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        default:
-          description: default response
-          content:
-            '*/*': {}
       security:
       - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
@@ -2704,15 +2685,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2795,15 +2776,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2831,15 +2812,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3088,12 +3069,13 @@ paths:
         required: true
       responses:
         "200":
-          description: The phone number associated with the authenticated account
-            was changed successfully
+          description: Account creation succeeded
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AccountCreationResponse"
+        "401":
+          description: The session identified in the request is not verified
         "403":
           description: Verification failed for the provided Registration Recovery
             Password
@@ -3147,29 +3129,6 @@ paths:
           description: There is no change since the last fetch
         "401":
           description: This request requires authentication
-      security:
-      - authenticatedAccount: []
-  /v1/config:
-    get:
-      tags:
-      - Remote Config
-      summary: Fetch remote configuration (deprecated)
-      description: |
-        Remote configuration is a list of namespaced keys that clients may use for consistent configuration or behavior.
-
-        Configuration values change over time, and the list should be refreshed periodically, typically at client
-        launch and every few hours thereafter.
-
-        This endpoint is deprecated; use GET /v2/config instead
-      operationId: getAll_1
-      responses:
-        "200":
-          description: Remote configuration values for the authenticated user
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserRemoteConfigList"
-      deprecated: true
       security:
       - authenticatedAccount: []
   /v1/storage/auth:
@@ -6099,35 +6058,6 @@ components:
             type: string
             description: Remote configurations applicable to the user and client
           description: Remote configurations applicable to the user and client
-    UserRemoteConfig:
-      type: object
-      properties:
-        name:
-          type: string
-          description: Name of the configuration
-          example: android.exampleFeature
-        enabled:
-          type: boolean
-          description: Whether the configuration is enabled for the user
-        value:
-          type: string
-          description: "The value to be used for the configuration, if it is a non-boolean\
-            \ type"
-      description: List of remote configurations applicable to the user
-    UserRemoteConfigList:
-      type: object
-      properties:
-        config:
-          type: array
-          description: List of remote configurations applicable to the user
-          items:
-            $ref: "#/components/schemas/UserRemoteConfig"
-        serverEpochTime:
-          type: string
-          description: |
-            Timestamp when the configuration was generated. Deprecated in favor of `X-Signal-Timestamp` response header.
-          format: date-time
-          deprecated: true
     AuthCheckResponseV2:
       required:
       - matches
