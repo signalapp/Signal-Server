@@ -193,6 +193,8 @@ public class VerificationController {
 
       registrationServiceSession = registrationServiceClient.createRegistrationSession(phoneNumber, sourceHost,
           accountsManager.getByE164(request.number()).isPresent(),
+          request.updateVerificationSessionRequest().mcc(),
+          request.updateVerificationSessionRequest().mnc(),
           REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CancellationException e) {
 

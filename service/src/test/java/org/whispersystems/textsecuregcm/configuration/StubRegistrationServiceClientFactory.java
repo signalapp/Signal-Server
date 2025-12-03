@@ -61,7 +61,12 @@ public class StubRegistrationServiceClientFactory implements RegistrationService
 
     @Override
     public CompletableFuture<RegistrationServiceSession> createRegistrationSession(
-        final Phonenumber.PhoneNumber phoneNumber, final String sourceHost, final boolean accountExistsWithPhoneNumber, final Duration timeout) {
+        final Phonenumber.PhoneNumber phoneNumber,
+        final String sourceHost,
+        final boolean accountExistsWithPhoneNumber,
+        @javax.annotation.Nullable final String clientMcc,
+        @javax.annotation.Nullable final String clientMnc,
+        final Duration timeout) {
 
       final String e164 = PhoneNumberUtil.getInstance()
           .format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);

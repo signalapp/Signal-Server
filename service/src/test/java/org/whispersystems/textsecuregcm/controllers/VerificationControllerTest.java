@@ -192,7 +192,7 @@ class VerificationControllerTest {
 
   @Test
   void createSessionRateLimited() {
-    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -206,7 +206,7 @@ class VerificationControllerTest {
 
   @Test
   void createSessionRegistrationServiceError() {
-    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("expected service error")));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -221,7 +221,7 @@ class VerificationControllerTest {
   @ParameterizedTest
   @MethodSource
   void createBeninSessionSuccess(final String requestedNumber, final String expectedNumber) {
-    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any(), any(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, requestedNumber, false, null, null, null,
@@ -238,7 +238,7 @@ class VerificationControllerTest {
 
       final ArgumentCaptor<Phonenumber.PhoneNumber> phoneNumberArgumentCaptor = ArgumentCaptor.forClass(
           Phonenumber.PhoneNumber.class);
-      verify(registrationServiceClient).createRegistrationSession(phoneNumberArgumentCaptor.capture(), anyString(), anyBoolean(), any());
+      verify(registrationServiceClient).createRegistrationSession(phoneNumberArgumentCaptor.capture(), anyString(), anyBoolean(), any(), any(), any());
       final Phonenumber.PhoneNumber phoneNumber = phoneNumberArgumentCaptor.getValue();
 
       assertEquals(expectedNumber, PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164));
@@ -262,7 +262,7 @@ class VerificationControllerTest {
         .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
     final String oldFormatBeninE164 = newFormatBeninE164.replaceFirst("01", "");
 
-    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any(), any(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
@@ -283,7 +283,7 @@ class VerificationControllerTest {
   @MethodSource
   void createSessionSuccess(final String pushToken, final String pushTokenType,
       final List<VerificationSession.Information> expectedRequestedInformation) {
-    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any(), any(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
@@ -317,7 +317,7 @@ class VerificationControllerTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void createSessionReregistration(final boolean isReregistration) throws NumberParseException {
-    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any()))
+    when(registrationServiceClient.createRegistrationSession(any(), anyString(), anyBoolean(), any(), any(), any()))
         .thenReturn(
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
@@ -341,6 +341,8 @@ class VerificationControllerTest {
           eq(PhoneNumberUtil.getInstance().parse(NUMBER, null)),
           anyString(),
           eq(isReregistration),
+          any(),
+          any(),
           any()
       );
     }
