@@ -24,7 +24,7 @@ import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
 
-public class DynamicRateLimiter implements RateLimiter {
+public class LeakyBucketRateLimiter implements RateLimiter {
 
   private final String name;
   private final Supplier<RateLimiterConfig> configResolver;
@@ -38,9 +38,20 @@ public class DynamicRateLimiter implements RateLimiter {
 
   private final Clock clock;
 
-  private static final String RETRY_NAME = ResilienceUtil.name(DynamicRateLimiter.class);
+  private static final String RETRY_NAME = ResilienceUtil.name(LeakyBucketRateLimiter.class);
 
-  public DynamicRateLimiter(
+  public LeakyBucketRateLimiter(
+      final String name,
+      final RateLimiterConfig rateLimiterConfig,
+      final ClusterLuaScript validateScript,
+      final FaultTolerantRedisClusterClient cluster,
+      final ScheduledExecutorService retryExecutor,
+      final Clock clock) {
+
+    this(name, () -> rateLimiterConfig, validateScript, cluster, retryExecutor, clock);
+  }
+
+  public LeakyBucketRateLimiter(
       final String name,
       final Supplier<RateLimiterConfig> configResolver,
       final ClusterLuaScript validateScript,

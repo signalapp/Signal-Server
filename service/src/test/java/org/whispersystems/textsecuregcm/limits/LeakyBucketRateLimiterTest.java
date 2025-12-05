@@ -36,7 +36,7 @@ import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.util.TestClock;
 
-class DynamicRateLimiterTest {
+class LeakyBucketRateLimiterTest {
 
   private ClusterLuaScript validateRateLimitScript;
   private ScheduledExecutorService retryExecutor;
@@ -62,7 +62,7 @@ class DynamicRateLimiterTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void validate(final boolean failOpen) {
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(1, Duration.ofHours(1), failOpen),
         validateRateLimitScript,
@@ -79,7 +79,7 @@ class DynamicRateLimiterTest {
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void validateAsync(final boolean failOpen) {
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(1, Duration.ofHours(1), failOpen),
         validateRateLimitScript,
@@ -102,7 +102,7 @@ class DynamicRateLimiterTest {
     final ClusterLuaScript failingScript = mock(ClusterLuaScript.class);
     when(failingScript.execute(any(), any())).thenThrow(new RuntimeException("OH NO"));
 
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(1, Duration.ofHours(1), failOpen),
         failingScript,
@@ -125,7 +125,7 @@ class DynamicRateLimiterTest {
     final ClusterLuaScript failingScript = mock(ClusterLuaScript.class);
     when(failingScript.executeAsync(any(), any())).thenReturn(CompletableFuture.failedFuture(new RuntimeException("OH NO")));
 
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(1, Duration.ofHours(1), failOpen),
         failingScript,
@@ -148,7 +148,7 @@ class DynamicRateLimiterTest {
   @Test
   void configChange_ReduceRefillRate() {
     final AtomicReference<Duration> refillRate = new AtomicReference<>(Duration.ofMinutes(5));
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(1, refillRate.get(), false),
         validateRateLimitScript,
@@ -172,7 +172,7 @@ class DynamicRateLimiterTest {
   @Test
   void configChange_IncreaseRefillRate() {
     final AtomicReference<Duration> refillRate = new AtomicReference<>(Duration.ofMinutes(5));
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(1, refillRate.get(), false),
         validateRateLimitScript,
@@ -199,7 +199,7 @@ class DynamicRateLimiterTest {
   @Test
   void configChange_ReduceBucketSize() {
     final AtomicInteger bucketSize = new AtomicInteger(5);
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(bucketSize.get(), Duration.ofMinutes(1), false),
         validateRateLimitScript,
@@ -224,7 +224,7 @@ class DynamicRateLimiterTest {
   @Test
   void configChange_IncreaseBucketSize() {
     final AtomicInteger bucketSize = new AtomicInteger(5);
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(bucketSize.get(), Duration.ofMinutes(1), false),
         validateRateLimitScript,
@@ -252,7 +252,7 @@ class DynamicRateLimiterTest {
     when(failingScript.execute(any(), any())).thenThrow(new RuntimeException("OH NO"));
 
     final AtomicBoolean failOpen = new AtomicBoolean(false);
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(1, Duration.ofMinutes(1), failOpen.get()),
         failingScript,
@@ -275,7 +275,7 @@ class DynamicRateLimiterTest {
     when(failingScript.execute(any(), any())).thenThrow(new RuntimeException("OH NO"));
 
     final AtomicBoolean failOpen = new AtomicBoolean(true);
-    final DynamicRateLimiter rateLimiter = new DynamicRateLimiter(
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
         "test",
         () -> new RateLimiterConfig(1, Duration.ofMinutes(1), failOpen.get()),
         failingScript,

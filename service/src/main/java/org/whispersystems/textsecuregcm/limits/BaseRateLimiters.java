@@ -62,6 +62,6 @@ public abstract class BaseRateLimiters<T extends RateLimiterDescriptor> {
       final Clock clock) {
     final Supplier<RateLimiterConfig> configResolver =
         () -> dynamicConfigurationManager.getConfiguration().getLimits().getOrDefault(descriptor.id(), descriptor.defaultConfig());
-    return new DynamicRateLimiter(descriptor.id(), configResolver, validateScript, cacheCluster, retryExecutor, clock);
+    return new LeakyBucketRateLimiter(descriptor.id(), configResolver, validateScript, cacheCluster, retryExecutor, clock);
   }
 }
