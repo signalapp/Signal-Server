@@ -56,7 +56,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     RECORD_DEVICE_TRANSFER_REQUEST("recordDeviceTransferRequest", new RateLimiterConfig(10, Duration.ofMillis(100), true)),
     WAIT_FOR_DEVICE_TRANSFER_REQUEST("waitForDeviceTransferRequest", new RateLimiterConfig(10, Duration.ofMillis(100), true)),
     DEVICE_CHECK_CHALLENGE("deviceCheckChallenge", new RateLimiterConfig(10, Duration.ofMinutes(1), false)),
-    SUBMIT_CALL_QUALITY_SURVERY("submitCallQualitySurvey", new RateLimiterConfig(100, Duration.ofMinutes(1), true))
+    SUBMIT_CALL_QUALITY_SURVEY("submitCallQualitySurvey", new RateLimiterConfig(100, Duration.ofMinutes(1), true))
     ;
 
     private final String id;
@@ -224,6 +224,6 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
   }
 
   public RateLimiter getSubmitCallQualitySurveyLimiter() {
-    return forDescriptor(For.SUBMIT_CALL_QUALITY_SURVERY);
+    return forDescriptor(For.SUBMIT_CALL_QUALITY_SURVEY);
   }
 }

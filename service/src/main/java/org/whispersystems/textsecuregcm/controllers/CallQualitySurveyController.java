@@ -50,7 +50,7 @@ public class CallQualitySurveyController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  @RateLimitedByIp(RateLimiters.For.SUBMIT_CALL_QUALITY_SURVERY)
+  @RateLimitedByIp(RateLimiters.For.SUBMIT_CALL_QUALITY_SURVEY)
   public void submitCallQualitySurvey(@Auth final Optional<AuthenticatedDevice> authenticatedDevice,
       @RequestBody(description = "A serialized survey response protobuf entity")
       @NotNull final byte[] surveyResponse,
