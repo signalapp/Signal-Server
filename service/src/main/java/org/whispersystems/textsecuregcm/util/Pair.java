@@ -7,8 +7,8 @@ package org.whispersystems.textsecuregcm.util;
 import java.util.Map;
 
 public record Pair<T1, T2>(T1 first, T2 second) {
-  public Pair(org.signal.libsignal.protocol.util.Pair<T1, T2> p) {
-    this(p.first(), p.second());
+  public Pair(kotlin.Pair<T1, T2> p) {
+    this(p.getFirst(), p.getSecond());
   }
 
   public Pair(Map.Entry<T1, T2> e) {

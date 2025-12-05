@@ -14,6 +14,14 @@
         <enabled>false</enabled>
       </snapshots>
     </repository>
+    <repository>
+      <id>signal-build-artifacts</id>
+      <name>Signal Build Artifacts</name>
+      <url>https://build-artifacts.signal.org/libraries/maven</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
   </repositories>
 
   <pluginRepositories>
@@ -286,7 +294,7 @@
       <dependency>
         <groupId>org.signal</groupId>
         <artifactId>libsignal-server</artifactId>
-        <version>0.80.3</version>
+        <version>0.86.6</version>
       </dependency>
       <dependency>
         <groupId>org.signal</groupId>

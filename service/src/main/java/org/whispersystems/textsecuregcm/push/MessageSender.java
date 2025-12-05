@@ -21,9 +21,9 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import kotlin.Pair;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
-import org.signal.libsignal.protocol.util.Pair;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
@@ -186,7 +186,7 @@ public class MessageSender {
       final ServiceIdentifier serviceIdentifier = ServiceIdentifier.fromLibsignal(serviceId);
 
       final Map<Byte, Integer> registrationIdsByDeviceId = recipient.getDevicesAndRegistrationIds()
-          .collect(Collectors.toMap(Pair::first, pair -> (int) pair.second()));
+          .collect(Collectors.toMap(Pair::getFirst, pair -> (int) pair.getSecond()));
 
       getMismatchedDevices(account, serviceIdentifier, registrationIdsByDeviceId, NO_EXCLUDED_DEVICE_ID)
           .ifPresent(mismatchedDevices ->
