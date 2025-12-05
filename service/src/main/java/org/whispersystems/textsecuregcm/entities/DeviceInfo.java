@@ -21,13 +21,6 @@ public record DeviceInfo(long id,
 
                          long lastSeen,
 
-                         @Deprecated
-                         @Schema(description = """
-                             The time in milliseconds since epoch when the device was linked.
-                             Deprecated in favor of `createdAtCiphertext`.
-                         """, deprecated = true)
-                         long created,
-
                          @Schema(description = "The registration ID of the given device.")
                          int registrationId,
 
@@ -40,7 +33,7 @@ public record DeviceInfo(long id,
                          byte[] createdAtCiphertext) {
 
   public static DeviceInfo forDevice(final Device device) {
-    return new DeviceInfo(device.getId(), device.getName(), device.getLastSeen(), device.getCreated(), device.getRegistrationId(
+    return new DeviceInfo(device.getId(), device.getName(), device.getLastSeen(), device.getRegistrationId(
         IdentityType.ACI), device.getCreatedAtCiphertext());
   }
 }

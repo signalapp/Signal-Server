@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.eq;
@@ -196,7 +197,6 @@ class DeviceControllerTest {
     final Device refreshedDevice = mock(Device.class);
     when(refreshedDevice.getId()).thenReturn(deviceId);
     when(refreshedDevice.getName()).thenReturn(deviceName);
-    when(refreshedDevice.getCreated()).thenReturn(deviceCreated);
     when(refreshedDevice.getLastSeen()).thenReturn(deviceLastSeen);
     when(refreshedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
     when(refreshedDevice.getCreatedAtCiphertext()).thenReturn(createdAtCiphertext);
@@ -215,7 +215,6 @@ class DeviceControllerTest {
     assertEquals(1, deviceInfoList.devices().size());
     assertEquals(deviceId, deviceInfoList.devices().getFirst().id());
     assertArrayEquals(deviceName, deviceInfoList.devices().getFirst().name());
-    assertEquals(deviceCreated, deviceInfoList.devices().getFirst().created());
     assertEquals(deviceLastSeen, deviceInfoList.devices().getFirst().lastSeen());
     assertEquals(registrationId, deviceInfoList.devices().getFirst().registrationId());
     assertArrayEquals(createdAtCiphertext, deviceInfoList.devices().getFirst().createdAtCiphertext());
@@ -962,7 +961,6 @@ class DeviceControllerTest {
     final DeviceInfo deviceInfo = new DeviceInfo(Device.PRIMARY_ID,
         "Device name ciphertext".getBytes(StandardCharsets.UTF_8),
         System.currentTimeMillis(),
-        System.currentTimeMillis(),
         1,
         "timestamp ciphertext".getBytes(StandardCharsets.UTF_8));
 
@@ -985,7 +983,6 @@ class DeviceControllerTest {
       final DeviceInfo retrievedDeviceInfo = response.readEntity(DeviceInfo.class);
       assertEquals(deviceInfo.id(), retrievedDeviceInfo.id());
       assertArrayEquals(deviceInfo.name(), retrievedDeviceInfo.name());
-      assertEquals(deviceInfo.created(), retrievedDeviceInfo.created());
       assertEquals(deviceInfo.lastSeen(), retrievedDeviceInfo.lastSeen());
       assertEquals(deviceInfo.registrationId(), retrievedDeviceInfo.registrationId());
       assertArrayEquals(deviceInfo.createdAtCiphertext(), retrievedDeviceInfo.createdAtCiphertext());
@@ -1083,60 +1080,53 @@ class DeviceControllerTest {
     }
   }
 
-  @ParameterizedTest
-  @MethodSource
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void recordTransferArchiveUploaded(final Optional<Instant> deviceCreated, final Optional<Integer> registrationId) {
+  @Test
+  void recordTransferArchiveUploaded() {
     final byte deviceId = Device.PRIMARY_ID + 1;
+    final int registrationId = 123;
     final RemoteAttachment transferArchive =
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
-    when(accountsManager.recordTransferArchiveUpload(account, deviceId, deviceCreated, registrationId, transferArchive))
+    when(accountsManager.recordTransferArchiveUpload(account, deviceId, registrationId, transferArchive))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/transfer_archive")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(new TransferArchiveUploadedRequest(deviceId, deviceCreated.map(Instant::toEpochMilli), registrationId, transferArchive),
+        .put(Entity.entity(new TransferArchiveUploadedRequest(deviceId, registrationId, transferArchive),
             MediaType.APPLICATION_JSON_TYPE))) {
 
       assertEquals(204, response.getStatus());
 
       verify(accountsManager)
-          .recordTransferArchiveUpload(account, deviceId, deviceCreated, registrationId, transferArchive);
+          .recordTransferArchiveUpload(account, deviceId, registrationId, transferArchive);
     }
-  }
-
-  private static List<Arguments> recordTransferArchiveUploaded() {
-    return List.of(
-        Arguments.of(Optional.empty(), Optional.of(123)),
-        Arguments.of(Optional.of(Instant.now().truncatedTo(ChronoUnit.MILLIS)), Optional.empty())
-    );
   }
 
   @Test
   void recordTransferArchiveFailed() {
     final byte deviceId = Device.PRIMARY_ID + 1;
+    final int registrationId = 123;
     final Instant deviceCreated = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     final RemoteAttachmentError transferFailure = new RemoteAttachmentError(RemoteAttachmentError.ErrorType.CONTINUE_WITHOUT_UPLOAD);
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));
-    when(accountsManager.recordTransferArchiveUpload(account, deviceId, Optional.of(deviceCreated), Optional.empty(), transferFailure))
+    when(accountsManager.recordTransferArchiveUpload(account, deviceId, registrationId, transferFailure))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/devices/transfer_archive")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(new TransferArchiveUploadedRequest(deviceId, Optional.of(deviceCreated.toEpochMilli()), Optional.empty(), transferFailure),
+        .put(Entity.entity(new TransferArchiveUploadedRequest(deviceId, registrationId, transferFailure),
             MediaType.APPLICATION_JSON_TYPE))) {
 
       assertEquals(204, response.getStatus());
 
       verify(accountsManager)
-          .recordTransferArchiveUpload(account, deviceId, Optional.of(deviceCreated), Optional.empty(), transferFailure);
+          .recordTransferArchiveUpload(account, deviceId, registrationId, transferFailure);
     }
   }
 
@@ -1154,7 +1144,7 @@ class DeviceControllerTest {
       assertEquals(422, response.getStatus());
 
       verify(accountsManager, never())
-          .recordTransferArchiveUpload(any(), anyByte(), any(), any(), any());
+          .recordTransferArchiveUpload(any(), anyByte(), anyInt(), any());
     }
   }
 
@@ -1164,22 +1154,16 @@ class DeviceControllerTest {
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("archive".getBytes(StandardCharsets.UTF_8)));
 
     return List.of(
-        Arguments.argumentSet("Invalid device ID", new TransferArchiveUploadedRequest((byte) -1, Optional.of(System.currentTimeMillis()), Optional.empty(), validTransferArchive)),
-        Arguments.argumentSet("Invalid \"created at\" timestamp",
-            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of((long) -1), Optional.empty(), validTransferArchive)),
+        Arguments.argumentSet("Invalid device ID", new TransferArchiveUploadedRequest((byte) -1, 1, validTransferArchive)),
         Arguments.argumentSet("Invalid registration ID - negative",
-            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.empty(), Optional.of(-1), validTransferArchive)),
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, -1, validTransferArchive)),
         Arguments.argumentSet("Invalid registration ID - too large",
-            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.empty(), Optional.of(0x4000), validTransferArchive)),
-        Arguments.argumentSet("Exactly one of \"created at\" timestamp and registration ID must be present - neither provided",
-            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.empty(), Optional.empty(), validTransferArchive)),
-        Arguments.argumentSet("Exactly one of \"created at\" timestamp and registration ID must be present - both provided",
-            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of(System.currentTimeMillis()), Optional.of(123), validTransferArchive)),
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, 0x4000, validTransferArchive)),
         Arguments.argumentSet("Missing CDN number",
-            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of(System.currentTimeMillis()), Optional.empty(),
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, 1,
                 new RemoteAttachment(null, Base64.getUrlEncoder().encodeToString("archive".getBytes(StandardCharsets.UTF_8))))),
         Arguments.argumentSet("Bad attachment key",
-            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of(System.currentTimeMillis()), Optional.empty(),
+            new TransferArchiveUploadedRequest(Device.PRIMARY_ID, 1,
                 new RemoteAttachment(3, "This is not a valid base64 string")))
     );
   }
@@ -1193,14 +1177,14 @@ class DeviceControllerTest {
         .target("/v1/devices/transfer_archive")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(new TransferArchiveUploadedRequest(Device.PRIMARY_ID, Optional.of(System.currentTimeMillis()), Optional.empty(),
+        .put(Entity.entity(new TransferArchiveUploadedRequest(Device.PRIMARY_ID, 1,
             new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)))),
             MediaType.APPLICATION_JSON_TYPE))) {
 
       assertEquals(429, response.getStatus());
 
       verify(accountsManager, never())
-          .recordTransferArchiveUpload(any(), anyByte(), any(), any(), any());
+          .recordTransferArchiveUpload(any(), anyByte(), anyInt(), any());
     }
   }
 

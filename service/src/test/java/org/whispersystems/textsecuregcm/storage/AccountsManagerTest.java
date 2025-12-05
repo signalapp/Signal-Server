@@ -1497,61 +1497,6 @@ class AccountsManagerTest {
     }
   }
 
-  @Test
-  void testFirstSuccessfulTransferArchiveCompletableFutureOneTimeout() {
-    // First future times out, second one completes successfully
-    final RemoteAttachment transferArchive = new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
-
-    final CompletableFuture<Optional<TransferArchiveResult>> timeoutFuture = new CompletableFuture<>();
-    timeoutFuture.completeOnTimeout(Optional.empty(), 50, TimeUnit.MILLISECONDS);
-
-    final CompletableFuture<Optional<TransferArchiveResult>> successfulFuture = new CompletableFuture<>();
-
-    final CompletableFuture<Optional<TransferArchiveResult>> result =
-        AccountsManager.firstSuccessfulTransferArchiveFuture(List.of(timeoutFuture, successfulFuture));
-
-    CompletableFuture.delayedExecutor(100, TimeUnit.MILLISECONDS)
-        .execute(() -> successfulFuture.complete(Optional.of(transferArchive)));
-
-    final Optional<TransferArchiveResult> maybeTransferArchive = result.join();
-    assertTrue(maybeTransferArchive.isPresent());
-    assertEquals(transferArchive, maybeTransferArchive.get());
-  }
-
-  @Test
-  void testFirstSuccessfulTransferArchiveCompletableFutureBothTimeout() {
-    // Both futures time out
-    final CompletableFuture<Optional<TransferArchiveResult>> firstTimeoutFuture = new CompletableFuture<>();
-    firstTimeoutFuture.completeOnTimeout(Optional.empty(), 10, TimeUnit.MILLISECONDS);
-
-    final CompletableFuture<Optional<TransferArchiveResult>> secondTimeoutFuture = new CompletableFuture<>();
-    secondTimeoutFuture.completeOnTimeout(Optional.empty(), 10, TimeUnit.MILLISECONDS);
-
-    final CompletableFuture<Optional<TransferArchiveResult>> result =
-        AccountsManager.firstSuccessfulTransferArchiveFuture(List.of(firstTimeoutFuture, secondTimeoutFuture));
-
-    assertTrue(result.join().isEmpty());
-  }
-
-  @Test
-  void testFirstSuccessfulTransferArchiveCompletableFuture() {
-    // First future completes successfully, second one times out
-    final RemoteAttachment transferArchive = new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("test".getBytes(StandardCharsets.UTF_8)));
-
-    final CompletableFuture<Optional<TransferArchiveResult>> successfulFuture = new CompletableFuture<>();
-
-    final CompletableFuture<Optional<TransferArchiveResult>> timeoutFuture = new CompletableFuture<>();
-    timeoutFuture.completeOnTimeout(Optional.empty(), 50, TimeUnit.MILLISECONDS);
-
-    final CompletableFuture<Optional<TransferArchiveResult>> result =
-        AccountsManager.firstSuccessfulTransferArchiveFuture(List.of(successfulFuture, timeoutFuture));
-    successfulFuture.complete(Optional.of(transferArchive));
-
-    final Optional<TransferArchiveResult> maybeTransferArchive = result.join();
-    assertTrue(maybeTransferArchive.isPresent());
-    assertEquals(transferArchive, maybeTransferArchive.get());
-  }
-
   private static List<Arguments> validateCompleteDeviceList() {
     final byte deviceId = Device.PRIMARY_ID;
     final byte extraDeviceId = deviceId + 1;

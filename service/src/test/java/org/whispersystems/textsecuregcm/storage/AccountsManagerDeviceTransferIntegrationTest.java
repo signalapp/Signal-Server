@@ -29,7 +29,6 @@ import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -91,13 +90,10 @@ public class AccountsManagerDeviceTransferIntegrationTest {
     accountsManager.stop();
   }
 
-  @ParameterizedTest
-  @MethodSource
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void waitForTransferArchive(
-      final Optional<Long> recordUploadDeviceCreated,
-      final Optional<Integer> recordUploadRegistrationId) {
+  @Test
+  void waitForTransferArchive() {
     final UUID accountIdentifier = UUID.randomUUID();
+    final int registrationId = 123;
     final byte deviceId = Device.PRIMARY_ID;
 
     final RemoteAttachment transferArchive =
@@ -105,8 +101,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
-    when(device.getCreated()).thenReturn(recordUploadDeviceCreated.orElse(System.currentTimeMillis()));
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(recordUploadRegistrationId.orElse(1));
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
 
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
@@ -119,122 +114,68 @@ public class AccountsManagerDeviceTransferIntegrationTest {
 
     assertEquals(Optional.empty(), displacedFuture.join());
 
-    accountsManager.recordTransferArchiveUpload(account, deviceId, recordUploadDeviceCreated.map(Instant::ofEpochMilli), recordUploadRegistrationId, transferArchive).join();
+    accountsManager.recordTransferArchiveUpload(account, deviceId, registrationId, transferArchive).join();
 
     assertEquals(Optional.of(transferArchive), activeFuture.join());
   }
 
-  private static List<Arguments> waitForTransferArchive() {
-    final long deviceCreated = System.currentTimeMillis();
-    final int registrationId = 123;
-
-    return List.of(
-        Arguments.of(Optional.empty(), Optional.of(registrationId)),
-        Arguments.of(Optional.of(deviceCreated), Optional.empty())
-    );
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void waitForTransferArchiveAlreadyAdded(
-      final Optional<Long> recordUploadDeviceCreated,
-      final Optional<Integer> recordUploadRegistrationId) {
+  @Test
+  void waitForTransferArchiveAlreadyAdded() {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
-
+    final int registrationId = 123;
 
     final RemoteAttachment transferArchive =
         new RemoteAttachment(3, Base64.getUrlEncoder().encodeToString("transfer-archive".getBytes(StandardCharsets.UTF_8)));
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
-    when(device.getCreated()).thenReturn(recordUploadDeviceCreated.orElse(System.currentTimeMillis()));
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(recordUploadRegistrationId.orElse(1));
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
 
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
 
-    accountsManager.recordTransferArchiveUpload(account, deviceId, recordUploadDeviceCreated.map(Instant::ofEpochMilli), recordUploadRegistrationId, transferArchive).join();
+    accountsManager.recordTransferArchiveUpload(account, deviceId, registrationId, transferArchive).join();
 
     assertEquals(Optional.of(transferArchive),
         accountsManager.waitForTransferArchive(account, device, Duration.ofSeconds(5)).join());
   }
 
-  private static List<Arguments> waitForTransferArchiveAlreadyAdded() {
-    final long deviceCreated = System.currentTimeMillis();
-    final int registrationId = 123;
-
-    return List.of(
-        Arguments.of(Optional.empty(), Optional.of(registrationId)),
-        Arguments.of(Optional.of(deviceCreated), Optional.empty())
-    );
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void waitForErrorTransferArchive(
-      final Optional<Long> recordUploadDeviceCreated,
-      final Optional<Integer> recordUploadRegistrationId) {
+  @Test
+  void waitForErrorTransferArchive() {
     final UUID accountIdentifier = UUID.randomUUID();
     final byte deviceId = Device.PRIMARY_ID;
+    final int registrationId = 123;
 
     final RemoteAttachmentError transferArchiveError =
         new RemoteAttachmentError(RemoteAttachmentError.ErrorType.CONTINUE_WITHOUT_UPLOAD);
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(deviceId);
-    when(device.getCreated()).thenReturn(recordUploadDeviceCreated.orElse(System.currentTimeMillis()));
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(recordUploadRegistrationId.orElse(1));
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
 
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
 
-    accountsManager.recordTransferArchiveUpload(account, deviceId, recordUploadDeviceCreated.map(Instant::ofEpochMilli),
-        recordUploadRegistrationId, transferArchiveError).join();
+    accountsManager.recordTransferArchiveUpload(account, deviceId,
+        registrationId, transferArchiveError).join();
 
     assertEquals(Optional.of(transferArchiveError),
         accountsManager.waitForTransferArchive(account, device, Duration.ofSeconds(5)).join());
   }
 
-  private static List<Arguments> waitForErrorTransferArchive() {
-    final long deviceCreated = System.currentTimeMillis();
-    final int registrationId = 123;
-
-    return List.of(
-        Arguments.of(Optional.empty(), Optional.of(registrationId)),
-        Arguments.of(Optional.of(deviceCreated), Optional.empty())
-    );
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  void waitForTransferArchiveTimeout(
-      final Optional<Long> recordUploadDeviceCreated,
-      final Optional<Integer> recordUploadRegistrationId) {
+  @Test
+  void waitForTransferArchiveTimeout() {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Device device = mock(Device.class);
-    when(device.getCreated()).thenReturn(recordUploadDeviceCreated.orElse(System.currentTimeMillis()));
-    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(recordUploadRegistrationId.orElse(1));
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(123);
 
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
 
     assertEquals(Optional.empty(),
         accountsManager.waitForTransferArchive(account, device, Duration.ofMillis(1)).join());
-  }
-
-  private static List<Arguments> waitForTransferArchiveTimeout() {
-    final long deviceCreated = System.currentTimeMillis();
-    final int registrationId = 123;
-
-    return List.of(
-        Arguments.of(Optional.empty(), Optional.of(registrationId)),
-        Arguments.of(Optional.of(deviceCreated), Optional.empty())
-    );
   }
 
   @Test
