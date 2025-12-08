@@ -9,9 +9,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatException;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatNoException;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -29,7 +28,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.assertj.core.api.Assertions;
@@ -618,12 +616,12 @@ public class BackupAuthManagerTest {
     final RateLimiters limiters = mock(RateLimiters.class);
 
     final RateLimiter allowLimiter = mock(RateLimiter.class);
-    when(allowLimiter.hasAvailablePermitsAsync(eq(aci), anyInt())).thenReturn(CompletableFuture.completedFuture(true));
+    when(allowLimiter.hasAvailablePermitsAsync(eq(aci), anyLong())).thenReturn(CompletableFuture.completedFuture(true));
     when(allowLimiter.validateAsync(aci)).thenReturn(CompletableFuture.completedFuture(null));
     when(allowLimiter.config()).thenReturn(new RateLimiterConfig(1, Duration.ofDays(1), false));
 
     final RateLimiter denyLimiter = mock(RateLimiter.class);
-    when(denyLimiter.hasAvailablePermitsAsync(eq(aci), anyInt())).thenReturn(CompletableFuture.completedFuture(false));
+    when(denyLimiter.hasAvailablePermitsAsync(eq(aci), anyLong())).thenReturn(CompletableFuture.completedFuture(false));
     when(denyLimiter.validateAsync(aci))
         .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
     when(denyLimiter.config()).thenReturn(new RateLimiterConfig(1, Duration.ofDays(1), false));

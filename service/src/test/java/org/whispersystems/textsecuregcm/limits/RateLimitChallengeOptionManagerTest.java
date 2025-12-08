@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.limits;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,12 +52,12 @@ class RateLimitChallengeOptionManagerTest {
     when(rateLimiters.getPushChallengeAttemptLimiter()).thenReturn(pushChallengeAttemptLimiter);
     when(rateLimiters.getPushChallengeSuccessLimiter()).thenReturn(pushChallengeSuccessLimiter);
 
-    when(captchaChallengeAttemptLimiter.hasAvailablePermits(any(UUID.class), anyInt())).thenReturn(
+    when(captchaChallengeAttemptLimiter.hasAvailablePermits(any(UUID.class), anyLong())).thenReturn(
         captchaAttemptPermitted);
-    when(captchaChallengeSuccessLimiter.hasAvailablePermits(any(UUID.class), anyInt())).thenReturn(
+    when(captchaChallengeSuccessLimiter.hasAvailablePermits(any(UUID.class), anyLong())).thenReturn(
         captchaSuccessPermitted);
-    when(pushChallengeAttemptLimiter.hasAvailablePermits(any(UUID.class), anyInt())).thenReturn(pushAttemptPermitted);
-    when(pushChallengeSuccessLimiter.hasAvailablePermits(any(UUID.class), anyInt())).thenReturn(pushSuccessPermitted);
+    when(pushChallengeAttemptLimiter.hasAvailablePermits(any(UUID.class), anyLong())).thenReturn(pushAttemptPermitted);
+    when(pushChallengeSuccessLimiter.hasAvailablePermits(any(UUID.class), anyLong())).thenReturn(pushSuccessPermitted);
 
     final int expectedLength = (expectCaptcha ? 1 : 0) + (expectPushChallenge ? 1 : 0);
 

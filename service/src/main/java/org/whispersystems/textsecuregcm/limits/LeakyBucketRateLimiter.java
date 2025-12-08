@@ -68,7 +68,7 @@ public class LeakyBucketRateLimiter implements RateLimiter {
   }
 
   @Override
-  public void validate(final String key, final int amount) throws RateLimitExceededException {
+  public void validate(final String key, final long amount) throws RateLimitExceededException {
     final RateLimiterConfig config = config();
     try {
       final long deficitPermitsAmount = executeValidateScript(config, key, amount, true);
@@ -90,7 +90,7 @@ public class LeakyBucketRateLimiter implements RateLimiter {
   }
 
   @Override
-  public CompletionStage<Void> validateAsync(final String key, final int amount) {
+  public CompletionStage<Void> validateAsync(final String key, final long amount) {
     final RateLimiterConfig config = config();
 
     return executeValidateScriptAsync(config, key, amount, true)
@@ -117,7 +117,7 @@ public class LeakyBucketRateLimiter implements RateLimiter {
   }
 
   @Override
-  public boolean hasAvailablePermits(final String key, final int permits) {
+  public boolean hasAvailablePermits(final String key, final long permits) {
     final RateLimiterConfig config = config();
     try {
       final long deficitPermitsAmount = executeValidateScript(config, key, permits, false);
@@ -132,7 +132,7 @@ public class LeakyBucketRateLimiter implements RateLimiter {
   }
 
   @Override
-  public CompletionStage<Boolean> hasAvailablePermitsAsync(final String key, final int amount) {
+  public CompletionStage<Boolean> hasAvailablePermitsAsync(final String key, final long amount) {
     final RateLimiterConfig config = config();
     return executeValidateScriptAsync(config, key, amount, false)
         .thenApply(deficitPermitsAmount -> deficitPermitsAmount == 0)
@@ -162,7 +162,7 @@ public class LeakyBucketRateLimiter implements RateLimiter {
     return configResolver.get();
   }
 
-  private long executeValidateScript(final RateLimiterConfig config, final String key, final int amount, final boolean applyChanges) {
+  private long executeValidateScript(final RateLimiterConfig config, final String key, final long amount, final boolean applyChanges) {
     final List<String> keys = List.of(bucketName(name, key));
     final List<String> arguments = List.of(
         String.valueOf(config.bucketSize()),
@@ -174,7 +174,7 @@ public class LeakyBucketRateLimiter implements RateLimiter {
     return (Long) validateScript.execute(keys, arguments);
   }
 
-  private CompletionStage<Long> executeValidateScriptAsync(final RateLimiterConfig config, final String key, final int amount, final boolean applyChanges) {
+  private CompletionStage<Long> executeValidateScriptAsync(final RateLimiterConfig config, final String key, final long amount, final boolean applyChanges) {
     final List<String> keys = List.of(bucketName(name, key));
     final List<String> arguments = List.of(
         String.valueOf(config.bucketSize()),

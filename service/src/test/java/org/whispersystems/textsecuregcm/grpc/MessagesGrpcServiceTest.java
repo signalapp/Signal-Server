@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -293,7 +293,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       final Duration retryDuration = Duration.ofHours(7);
 
       doThrow(new RateLimitExceededException(retryDuration))
-          .when(rateLimiter).validate(eq(serviceIdentifier.uuid()), anyInt());
+          .when(rateLimiter).validate(eq(serviceIdentifier.uuid()), anyLong());
 
       final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
           Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
@@ -555,7 +555,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
     void rateLimited() throws RateLimitExceededException, MessageTooLargeException, MismatchedDevicesException {
       final Duration retryDuration = Duration.ofHours(7);
       doThrow(new RateLimitExceededException(retryDuration))
-          .when(rateLimiter).validate(eq(AUTHENTICATED_ACI), anyInt());
+          .when(rateLimiter).validate(eq(AUTHENTICATED_ACI), anyLong());
 
       final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
           Map.of(AUTHENTICATED_DEVICE_ID, IndividualRecipientMessageBundle.Message.newBuilder()

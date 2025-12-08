@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import java.time.Duration;
 
-public record RateLimiterConfig(int bucketSize, Duration permitRegenerationDuration, boolean failOpen) {
+public record RateLimiterConfig(long bucketSize, Duration permitRegenerationDuration, boolean failOpen) {
 
   public double leakRatePerMillis() {
     return 1.0 / (permitRegenerationDuration.toNanos() / 1e6);

@@ -13,13 +13,13 @@ import reactor.core.publisher.Mono;
 
 public interface RateLimiter {
 
-  void validate(String key, int amount) throws RateLimitExceededException;
+  void validate(String key, long amount) throws RateLimitExceededException;
 
-  CompletionStage<Void> validateAsync(String key, int amount);
+  CompletionStage<Void> validateAsync(String key, long amount);
 
-  boolean hasAvailablePermits(String key, int permits);
+  boolean hasAvailablePermits(String key, long permits);
 
-  CompletionStage<Boolean> hasAvailablePermitsAsync(String key, int amount);
+  CompletionStage<Boolean> hasAvailablePermitsAsync(String key, long amount);
 
   void clear(String key);
 
@@ -35,7 +35,7 @@ public interface RateLimiter {
     validate(accountUuid.toString());
   }
 
-  default void validate(final UUID accountUuid, final int permits) throws RateLimitExceededException {
+  default void validate(final UUID accountUuid, final long permits) throws RateLimitExceededException {
     validate(accountUuid.toString(), permits);
   }
 
@@ -63,11 +63,11 @@ public interface RateLimiter {
     return validateReactive(accountUuid.toString());
   }
 
-  default boolean hasAvailablePermits(final UUID accountUuid, final int permits) {
+  default boolean hasAvailablePermits(final UUID accountUuid, final long permits) {
     return hasAvailablePermits(accountUuid.toString(), permits);
   }
 
-  default CompletionStage<Boolean> hasAvailablePermitsAsync(final UUID accountUuid, final int permits) {
+  default CompletionStage<Boolean> hasAvailablePermitsAsync(final UUID accountUuid, final long permits) {
     return hasAvailablePermitsAsync(accountUuid.toString(), permits);
   }
 
