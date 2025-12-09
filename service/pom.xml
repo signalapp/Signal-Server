@@ -205,7 +205,7 @@
       <groupId>io.opentelemetry.instrumentation</groupId>
       <artifactId>opentelemetry-logback-appender-1.0</artifactId>
       <!-- *all* opentelemetry-logback-appender versions are "alpha" despite the advanced version number -->
-      <version>2.19.0-alpha</version>
+      <version>2.22.0-alpha</version>
       <exclusions>
         <!-- incubator packages aren't included in the opentelemetry BOM, and we don't use them -->
         <exclusion>
