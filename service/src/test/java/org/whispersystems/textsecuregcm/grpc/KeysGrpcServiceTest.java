@@ -483,16 +483,20 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
     final byte deviceId1 = 1;
     final byte deviceId2 = 2;
+    final Map<Byte, Integer> deviceRegistrations = Map.of(
+        deviceId1, 123,
+        deviceId2, 456
+    );
 
-    for (final byte deviceId : List.of(deviceId1, deviceId2)) {
+    for (Map.Entry<Byte, Integer> entry : deviceRegistrations.entrySet()) {
 
       final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(3, identityKeyPair);
       final Optional<ECPreKey> maybeEcPreKey = Optional
           .of(new ECPreKey(1, ECKeyPair.generate().getPublicKey()))
-          .filter(_ -> deviceId == deviceId1);
+          .filter(_ -> entry.getKey() == deviceId1);
       final KEMSignedPreKey kemSignedPreKey = KeysHelper.signedKEMPreKey(2, identityKeyPair);
 
-      devicePreKeysMap.put(deviceId, new KeysManager.DevicePreKeys(ecSignedPreKey, maybeEcPreKey, kemSignedPreKey));
+      devicePreKeysMap.put(entry.getKey(), new KeysManager.DevicePreKeys(ecSignedPreKey, maybeEcPreKey, kemSignedPreKey));
 
       final GetPreKeysResponse.PreKeyBundle.Builder builder = GetPreKeysResponse.PreKeyBundle.newBuilder()
           .setEcSignedPreKey(EcSignedPreKey.newBuilder()
@@ -504,19 +508,21 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
               .setKeyId(kemSignedPreKey.keyId())
               .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
               .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))
-              .build());
+              .build())
+          .setRegistrationId(entry.getValue());
       maybeEcPreKey.ifPresent(ecPreKey -> builder
             .setEcOneTimePreKey(EcPreKey.newBuilder()
                 .setKeyId(ecPreKey.keyId())
                 .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))
                 .build()));
-      expectedPreKeyBundles.put(deviceId, builder.build());
+      expectedPreKeyBundles.put(entry.getKey(), builder.build());
 
       final Device device = mock(Device.class);
-      when(device.getId()).thenReturn(deviceId);
+      when(device.getId()).thenReturn(entry.getKey());
+      when(device.getRegistrationId(any())).thenReturn(entry.getValue());
 
-      devices.put(deviceId, device);
-      when(targetAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
+      devices.put(entry.getKey(), device);
+      when(targetAccount.getDevice(entry.getKey())).thenReturn(Optional.of(device));
     }
 
     when(targetAccount.getDevices()).thenReturn(new ArrayList<>(devices.values()));

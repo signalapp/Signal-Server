@@ -35,28 +35,32 @@ class KeysGrpcHelper {
 
     final String userAgent = RequestAttributesUtil.getUserAgent().orElse(null);
     return devices
-        .flatMap(device -> Mono
-            .fromFuture(keysManager.takeDevicePreKeys(device.getId(), targetServiceIdentifier, userAgent))
-            .flatMap(Mono::justOrEmpty)
-            .map(devicePreKeys -> {
-              final GetPreKeysResponse.PreKeyBundle.Builder builder = GetPreKeysResponse.PreKeyBundle.newBuilder()
-                  .setEcSignedPreKey(EcSignedPreKey.newBuilder()
-                      .setKeyId(devicePreKeys.ecSignedPreKey().keyId())
-                      .setPublicKey(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().serializedPublicKey()))
-                      .setSignature(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().signature()))
-                      .build())
-                  .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
-                      .setKeyId(devicePreKeys.kemSignedPreKey().keyId())
-                      .setPublicKey(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().serializedPublicKey()))
-                      .setSignature(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().signature()))
-                      .build());
-              devicePreKeys.ecPreKey().ifPresent(ecPreKey -> builder.setEcOneTimePreKey(EcPreKey.newBuilder()
-                    .setKeyId(ecPreKey.keyId())
-                    .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))
-                    .build()));
-              // Cast device IDs to `int` to match data types in the response object’s protobuf definition
-              return Tuples.of((int) device.getId(), builder.build());
-            }))
+        .flatMap(device -> {
+          final int registrationId = device.getRegistrationId(targetServiceIdentifier.identityType());
+          return Mono
+              .fromFuture(keysManager.takeDevicePreKeys(device.getId(), targetServiceIdentifier, userAgent))
+              .flatMap(Mono::justOrEmpty)
+              .map(devicePreKeys -> {
+                final GetPreKeysResponse.PreKeyBundle.Builder builder = GetPreKeysResponse.PreKeyBundle.newBuilder()
+                    .setEcSignedPreKey(EcSignedPreKey.newBuilder()
+                        .setKeyId(devicePreKeys.ecSignedPreKey().keyId())
+                        .setPublicKey(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().serializedPublicKey()))
+                        .setSignature(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().signature()))
+                        .build())
+                    .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
+                        .setKeyId(devicePreKeys.kemSignedPreKey().keyId())
+                        .setPublicKey(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().serializedPublicKey()))
+                        .setSignature(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().signature()))
+                        .build())
+                    .setRegistrationId(registrationId);
+                devicePreKeys.ecPreKey().ifPresent(ecPreKey -> builder.setEcOneTimePreKey(EcPreKey.newBuilder()
+                      .setKeyId(ecPreKey.keyId())
+                      .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))
+                      .build()));
+                // Cast device IDs to `int` to match data types in the response object’s protobuf definition
+                return Tuples.of((int) device.getId(), builder.build());
+              });
+        })
         // If there were no devices with valid prekey bundles in the account, the account is gone
         .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()))
         .collectMap(Tuple2::getT1, Tuple2::getT2)

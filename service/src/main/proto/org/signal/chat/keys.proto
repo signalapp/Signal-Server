@@ -198,6 +198,11 @@ message GetPreKeysResponse {
      * account/device/identity.
      */
     common.KemSignedPreKey kem_one_time_pre_key = 3;
+
+    /**
+     * The registration ID for the targeted account/device/identity.
+     */
+    uint32 registration_id = 4;
   }
 
   /**
