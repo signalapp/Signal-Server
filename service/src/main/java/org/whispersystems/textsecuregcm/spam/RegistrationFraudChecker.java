@@ -11,7 +11,9 @@ import org.whispersystems.textsecuregcm.registration.VerificationSession;
 
 public interface RegistrationFraudChecker {
 
-  record VerificationCheck(Optional<VerificationSession> updatedSession, Optional<Float> scoreThreshold) {}
+  record VerificationCheck(Optional<VerificationSession> updatedSession, Optional<Float> scoreThreshold) {
+    public static VerificationCheck DEFAULT = new VerificationCheck(Optional.empty(), Optional.empty());
+  }
 
   /**
    * Determine if a registration attempt is suspicious
@@ -20,8 +22,9 @@ public interface RegistrationFraudChecker {
    * @param verificationSession The target verification session
    * @param e164                The target phone number
    * @param request             The information to add to the verification session
-   * @return A SessionUpdate including updates to the verification session that should be persisted to the caller along
-   * with other constraints to enforce when evaluating the UpdateVerificationSessionRequest.
+   *
+   * @return a VerificationCheck including updates to the verification session that should be sent to the caller
+   * along with other constraints to enforce when evaluating the UpdateVerificationSessionRequest
    */
   VerificationCheck checkVerificationAttempt(
       final ContainerRequestContext requestContext,
@@ -29,9 +32,38 @@ public interface RegistrationFraudChecker {
       final String e164,
       final UpdateVerificationSessionRequest request);
 
+  /**
+   * Determine if an attempt to send a verification code is suspicious
+   *
+   * @param requestContext      The request context for a "send code" attempt
+   * @param verificationSession The target verification session
+   * @param e164                The target phone number
+   *
+   * @return a VerificationCheck including updates to the verification session that should be sent to the caller
+   * along with other constraints to enforce when evaluating the request to send a verification code
+   */
+  VerificationCheck checkSendVerificationCodeAttempt(
+      final ContainerRequestContext requestContext,
+      final VerificationSession verificationSession,
+      final String e164);
+
   static RegistrationFraudChecker noop() {
-    return (ignoredContext, ignoredSession, ignoredE164, ignoredRequest) -> new VerificationCheck(
-        Optional.empty(),
-        Optional.empty());
+    return new RegistrationFraudChecker() {
+
+      @Override
+      public VerificationCheck checkVerificationAttempt(final ContainerRequestContext requestContext,
+          final VerificationSession verificationSession, final String e164,
+          final UpdateVerificationSessionRequest request) {
+
+        return VerificationCheck.DEFAULT;
+      }
+
+      @Override
+      public VerificationCheck checkSendVerificationCodeAttempt(final ContainerRequestContext requestContext,
+          final VerificationSession verificationSession, final String e164) {
+
+        return VerificationCheck.DEFAULT;
+      }
+    };
   }
 }

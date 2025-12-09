@@ -534,10 +534,21 @@ public class VerificationController {
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @Parameter(in = ParameterIn.HEADER, description = "Ordered list of languages in which the client prefers to receive SMS or voice verification messages") @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE)
       final Optional<String> acceptLanguage,
-      @NotNull @Valid final VerificationCodeRequest verificationCodeRequest) throws Throwable {
+      @NotNull @Valid final VerificationCodeRequest verificationCodeRequest,
+      @Context final ContainerRequestContext requestContext) throws Throwable {
 
     final RegistrationServiceSession registrationServiceSession = retrieveRegistrationServiceSession(encodedSessionId);
-    final VerificationSession verificationSession = retrieveVerificationSession(registrationServiceSession);
+
+    final VerificationSession verificationSession;
+    {
+      final VerificationSession storedVerificationSession = retrieveVerificationSession(registrationServiceSession);
+
+      verificationSession =
+          registrationFraudChecker.checkSendVerificationCodeAttempt(requestContext, storedVerificationSession,
+                  registrationServiceSession.number())
+              .updatedSession()
+              .orElse(storedVerificationSession);
+    }
 
     if (registrationServiceSession.verified()) {
       throw new ClientErrorException(
