@@ -62,11 +62,8 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
   @Override
   public Object createWebSocket(final JettyServerUpgradeRequest request, final JettyServerUpgradeResponse response) {
     try {
-      Optional<WebSocketAuthenticator<T>> authenticator = Optional.ofNullable(environment.getAuthenticator());
-
-      final Optional<T> authenticated = authenticator.isPresent()
-          ? authenticator.get().authenticate(request)
-          : Optional.empty();
+      final Optional<T> authenticated = Optional.ofNullable(environment.getAuthenticator())
+          .flatMap(authenticator -> authenticator.authenticate(request));
 
       Optional.ofNullable(environment.getAuthenticatedWebSocketUpgradeFilter())
           .ifPresent(filter -> filter.handleAuthentication(authenticated, request, response));
@@ -98,7 +95,7 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
   }
 
   @Override
-  public void configure(JettyWebSocketServletFactory factory) {
+  public void configure(final JettyWebSocketServletFactory factory) {
     factory.setCreator(this);
     factory.setMaxBinaryMessageSize(configuration.getMaxBinaryMessageSize());
     factory.setMaxTextMessageSize(configuration.getMaxTextMessageSize());

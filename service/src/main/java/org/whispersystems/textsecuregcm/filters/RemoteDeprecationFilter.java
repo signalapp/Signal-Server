@@ -110,37 +110,33 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
     boolean shouldBlock = false;
 
     if (userAgent == null) {
-      if  (configuration.isUnrecognizedUserAgentAllowed()) {
+      if (configuration.isUnrecognizedUserAgentAllowed()) {
         return false;
       }
       recordDeprecation(null, UNRECOGNIZED_UA_REASON);
       return true;
     }
 
-    if (blockedVersionsByPlatform.containsKey(userAgent.platform())) {
-      if (blockedVersionsByPlatform.get(userAgent.platform()).contains(userAgent.version())) {
-        recordDeprecation(userAgent, BLOCKED_CLIENT_REASON);
-        shouldBlock = true;
-      }
+    final Set<Semver> blockedVersions = blockedVersionsByPlatform.get(userAgent.platform());
+    if (blockedVersions != null && blockedVersions.contains(userAgent.version())) {
+      recordDeprecation(userAgent, BLOCKED_CLIENT_REASON);
+      shouldBlock = true;
     }
 
-    if (minimumVersionsByPlatform.containsKey(userAgent.platform())) {
-      if (userAgent.version().isLowerThan(minimumVersionsByPlatform.get(userAgent.platform()))) {
-        recordDeprecation(userAgent, EXPIRED_CLIENT_REASON);
-        shouldBlock = true;
-      }
+    final Semver minimumVersion = minimumVersionsByPlatform.get(userAgent.platform());
+    if (minimumVersion != null && userAgent.version().isLowerThan(minimumVersion)) {
+      recordDeprecation(userAgent, EXPIRED_CLIENT_REASON);
+      shouldBlock = true;
     }
 
-    if (versionsPendingBlockByPlatform.containsKey(userAgent.platform())) {
-      if (versionsPendingBlockByPlatform.get(userAgent.platform()).contains(userAgent.version())) {
-        recordPendingDeprecation(userAgent, BLOCKED_CLIENT_REASON);
-      }
+    final Set<Semver> versionsPendingBlock = versionsPendingBlockByPlatform.get(userAgent.platform());
+    if (versionsPendingBlock != null && versionsPendingBlock.contains(userAgent.version())) {
+      recordPendingDeprecation(userAgent, BLOCKED_CLIENT_REASON);
     }
 
-    if (versionsPendingDeprecationByPlatform.containsKey(userAgent.platform())) {
-      if (userAgent.version().isLowerThan(versionsPendingDeprecationByPlatform.get(userAgent.platform()))) {
-        recordPendingDeprecation(userAgent, EXPIRED_CLIENT_REASON);
-      }
+    final Semver versionPendingDeprecation = versionsPendingDeprecationByPlatform.get(userAgent.platform());
+    if (versionPendingDeprecation != null && userAgent.version().isLowerThan(versionPendingDeprecation)) {
+      recordPendingDeprecation(userAgent, EXPIRED_CLIENT_REASON);
     }
 
     return shouldBlock;
