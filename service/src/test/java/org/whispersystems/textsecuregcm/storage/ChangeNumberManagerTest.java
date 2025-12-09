@@ -51,7 +51,7 @@ public class ChangeNumberManagerTest {
   void setUp() throws Exception {
     accountsManager = mock(AccountsManager.class);
     messageSender = mock(MessageSender.class);
-    changeNumberManager = new ChangeNumberManager(messageSender, accountsManager, CLOCK);
+    changeNumberManager = new ChangeNumberManager(messageSender, accountsManager, mock(ClientReleaseManager.class), CLOCK);
 
     updatedPhoneNumberIdentifiersByAccount = new HashMap<>();
 

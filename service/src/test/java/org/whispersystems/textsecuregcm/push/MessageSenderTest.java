@@ -48,6 +48,7 @@ import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.MultiRecipientMessageHelper;
@@ -65,7 +66,7 @@ class MessageSenderTest {
     messagesManager = mock(MessagesManager.class);
     pushNotificationManager = mock(PushNotificationManager.class);
 
-    messageSender = new MessageSender(messagesManager, pushNotificationManager);
+    messageSender = new MessageSender(messagesManager, pushNotificationManager, mock(ClientReleaseManager.class));
   }
 
 
@@ -275,7 +276,8 @@ class MessageSenderTest {
         messagesByDeviceId,
         registrationIdsByDeviceId,
         syncMessageSenderDeviceId,
-        "Signal/Test");
+        "Signal/Test",
+        mock(ClientReleaseManager.class));
 
     if (expectedExceptionClass != null) {
       assertThrows(expectedExceptionClass, validateIndividualMessageBundle);
@@ -434,10 +436,10 @@ class MessageSenderTest {
   @Test
   void validateContentLength() {
     assertThrows(MessageTooLargeException.class, () ->
-        MessageSender.validateContentLength(MessageSender.MAX_MESSAGE_SIZE + 1, false, false, false, Tag.of(UserAgentTagUtil.PLATFORM_TAG, "test")));
+        MessageSender.validateContentLength(MessageSender.MAX_MESSAGE_SIZE + 1, false, false, false, Tag.of(UserAgentTagUtil.PLATFORM_TAG, "test"), Optional.empty()));
 
     assertDoesNotThrow(() ->
-        MessageSender.validateContentLength(MessageSender.MAX_MESSAGE_SIZE, false, false, false, Tag.of(UserAgentTagUtil.PLATFORM_TAG, "test")));
+        MessageSender.validateContentLength(MessageSender.MAX_MESSAGE_SIZE, false, false, false, Tag.of(UserAgentTagUtil.PLATFORM_TAG, "test"), Optional.empty()));
   }
 
   @ParameterizedTest

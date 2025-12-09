@@ -27,15 +27,18 @@ public class ChangeNumberManager {
   private static final Logger logger = LoggerFactory.getLogger(ChangeNumberManager.class);
   private final MessageSender messageSender;
   private final AccountsManager accountsManager;
+  private final ClientReleaseManager clientReleaseManager;
   private final Clock clock;
 
   public ChangeNumberManager(
       final MessageSender messageSender,
       final AccountsManager accountsManager,
+      final ClientReleaseManager clientReleaseManager,
       final Clock clock) {
 
     this.messageSender = messageSender;
     this.accountsManager = accountsManager;
+    this.clientReleaseManager = clientReleaseManager;
     this.clock = clock;
   }
 
@@ -76,7 +79,8 @@ public class ChangeNumberManager {
           messagesByDeviceId,
           registrationIdsByDeviceId,
           Optional.of(Device.PRIMARY_ID),
-          senderUserAgent);
+          senderUserAgent,
+          clientReleaseManager);
     }
 
     final Account updatedAccount = accountsManager.changeNumber(

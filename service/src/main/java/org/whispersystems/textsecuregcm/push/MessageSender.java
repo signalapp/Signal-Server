@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -51,6 +52,7 @@ public class MessageSender {
 
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
+  private final ClientReleaseManager clientReleaseManager;
 
   // Note that these names deliberately reference `MessageController` for metric continuity
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageSender.class, "rejectOversizeMessage");
@@ -75,9 +77,13 @@ public class MessageSender {
   @VisibleForTesting
   static final byte NO_EXCLUDED_DEVICE_ID = -1;
 
-  public MessageSender(final MessagesManager messagesManager, final PushNotificationManager pushNotificationManager) {
+  public MessageSender(final MessagesManager messagesManager,
+      final PushNotificationManager pushNotificationManager,
+      final ClientReleaseManager clientReleaseManager) {
+
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
+    this.clientReleaseManager = clientReleaseManager;
   }
 
   /**
@@ -106,13 +112,15 @@ public class MessageSender {
       @Nullable final String userAgent) throws MismatchedDevicesException, MessageTooLargeException {
 
     final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+    final Optional<Tag> maybeClientVersionTag = UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager);
 
     validateIndividualMessageBundle(destination,
         destinationIdentifier,
         messagesByDeviceId,
         registrationIdsByDeviceId,
         syncMessageSenderDeviceId,
-        platformTag);
+        platformTag,
+        maybeClientVersionTag);
 
     messagesManager.insert(destination.getIdentifier(IdentityType.ACI), messagesByDeviceId)
         .forEach((deviceId, destinationPresent) -> {
@@ -173,8 +181,9 @@ public class MessageSender {
       @Nullable final String userAgent) throws MultiRecipientMismatchedDevicesException, MessageTooLargeException {
 
     final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+    final Optional<Tag> maybeClientVersionTag = UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager);
 
-    validateMultiRecipientMessageContentLength(multiRecipientMessage, isStory, platformTag);
+    validateMultiRecipientMessageContentLength(multiRecipientMessage, isStory, platformTag, maybeClientVersionTag);
 
     final Map<ServiceIdentifier, MismatchedDevices> mismatchedDevicesByServiceIdentifier = new HashMap<>();
 
@@ -253,14 +262,16 @@ public class MessageSender {
       final Map<Byte, Envelope> messagesByDeviceId,
       final Map<Byte, Integer> registrationIdsByDeviceId,
       @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId,
-      @Nullable final String userAgent) throws MessageTooLargeException, MismatchedDevicesException {
+      @Nullable final String userAgent,
+      final ClientReleaseManager clientReleaseManager) throws MessageTooLargeException, MismatchedDevicesException {
 
     validateIndividualMessageBundle(destination,
         destinationIdentifier,
         messagesByDeviceId,
         registrationIdsByDeviceId,
         syncMessageSenderDeviceId,
-        UserAgentTagUtil.getPlatformTag(userAgent));
+        UserAgentTagUtil.getPlatformTag(userAgent),
+        UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager));
   }
 
   private static void validateIndividualMessageBundle(final Account destination,
@@ -268,7 +279,8 @@ public class MessageSender {
       final Map<Byte, Envelope> messagesByDeviceId,
       final Map<Byte, Integer> registrationIdsByDeviceId,
       @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId,
-      final Tag platformTag) throws MismatchedDevicesException, MessageTooLargeException {
+      final Tag platformTag,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Tag> maybeClientVersionTag) throws MismatchedDevicesException, MessageTooLargeException {
 
     if (!destination.isIdentifiedBy(destinationIdentifier)) {
       throw new IllegalArgumentException("Destination account not identified by destination service identifier");
@@ -305,7 +317,10 @@ public class MessageSender {
       throw new MismatchedDevicesException(maybeMismatchedDevices.get());
     }
 
-    validateIndividualMessageContentLength(messagesByDeviceId.values(), syncMessageSenderDeviceId.isPresent(), platformTag);
+    validateIndividualMessageContentLength(messagesByDeviceId.values(),
+        syncMessageSenderDeviceId.isPresent(),
+        platformTag,
+        maybeClientVersionTag);
   }
 
   @VisibleForTesting
@@ -313,7 +328,8 @@ public class MessageSender {
       final boolean isMultiRecipientMessage,
       final boolean isSyncMessage,
       final boolean isStory,
-      final Tag platformTag) throws MessageTooLargeException {
+      final Tag platformTag,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Tag> maybeClientVersionTag) throws MessageTooLargeException {
 
     final boolean oversize = contentLength > MAX_MESSAGE_SIZE;
 
@@ -328,11 +344,14 @@ public class MessageSender {
         .record(contentLength);
 
     if (contentLength > OVERSIZE_MESSAGE_WARNING_THRESHOLD) {
-      Metrics.counter(OVERSIZE_MESSAGE_WARNING_COUNTER_NAME, Tags.of(platformTag,
-              Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
-              Tag.of("syncMessage", String.valueOf(isSyncMessage)),
-              Tag.of("story", String.valueOf(isStory))))
-          .increment();
+      Tags tags = Tags.of(platformTag,
+          Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
+          Tag.of("syncMessage", String.valueOf(isSyncMessage)),
+          Tag.of("story", String.valueOf(isStory)));
+
+      tags = maybeClientVersionTag.map(tags::and).orElse(tags);
+
+      Metrics.counter(OVERSIZE_MESSAGE_WARNING_COUNTER_NAME, tags).increment();
     }
 
     if (oversize) {
@@ -387,27 +406,31 @@ public class MessageSender {
 
   private static void validateIndividualMessageContentLength(final Iterable<Envelope> messages,
       final boolean isSyncMessage,
-      final Tag platformTag) throws MessageTooLargeException {
+      final Tag platformTag,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Tag> maybeClientVersionTag) throws MessageTooLargeException {
 
     for (final Envelope message : messages) {
       MessageSender.validateContentLength(message.getContent().size(),
           false,
           isSyncMessage,
           message.getStory(),
-          platformTag);
+          platformTag,
+          maybeClientVersionTag);
     }
   }
 
   private static void validateMultiRecipientMessageContentLength(final SealedSenderMultiRecipientMessage multiRecipientMessage,
       final boolean isStory,
-      final Tag platformTag) throws MessageTooLargeException {
+      final Tag platformTag,
+      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Tag> maybeClientVersionTag) throws MessageTooLargeException {
 
     for (final SealedSenderMultiRecipientMessage.Recipient recipient : multiRecipientMessage.getRecipients().values()) {
       MessageSender.validateContentLength(multiRecipientMessage.messageSizeForRecipient(recipient),
           true,
           false,
           isStory,
-          platformTag);
+          platformTag,
+          maybeClientVersionTag);
     }
   }
 }
