@@ -60,7 +60,6 @@ class AccountsManagerChangeNumberIntegrationTest {
       Tables.PNI_ASSIGNMENTS,
       Tables.USERNAMES,
       Tables.EC_KEYS,
-      Tables.PQ_KEYS,
       Tables.PAGED_PQ_KEYS,
       Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
       Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
@@ -90,7 +89,6 @@ class AccountsManagerChangeNumberIntegrationTest {
       final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
       keysManager = new KeysManager(
           new SingleUseECPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.EC_KEYS.tableName()),
-          new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.PQ_KEYS.tableName()),
           new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient,
               S3_EXTENSION.getS3Client(),
               DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS.tableName(),

@@ -243,7 +243,6 @@ import org.whispersystems.textsecuregcm.storage.RepeatedUseKEMSignedPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.SingleUseECPreKeyStore;
-import org.whispersystems.textsecuregcm.storage.SingleUseKEMPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
@@ -469,7 +468,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .build();
     KeysManager keysManager = new KeysManager(
         new SingleUseECPreKeyStore(dynamoDbAsyncClient, config.getDynamoDbTables().getEcKeys().getTableName()),
-        new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, config.getDynamoDbTables().getKemKeys().getTableName()),
         new PagedSingleUseKEMPreKeyStore(
             dynamoDbAsyncClient,
             asyncKeysS3Client,

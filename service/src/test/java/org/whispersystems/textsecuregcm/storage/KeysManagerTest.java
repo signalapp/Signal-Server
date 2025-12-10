@@ -30,12 +30,11 @@ class KeysManagerTest {
 
   private KeysManager keysManager;
 
-  private SingleUseKEMPreKeyStore singleUseKEMPreKeyStore;
   private PagedSingleUseKEMPreKeyStore pagedSingleUseKEMPreKeyStore;
 
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
-      Tables.EC_KEYS, Tables.PQ_KEYS, Tables.PAGED_PQ_KEYS,
+      Tables.EC_KEYS, Tables.PAGED_PQ_KEYS,
       Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS, Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
 
   @RegisterExtension
@@ -50,7 +49,6 @@ class KeysManagerTest {
   @BeforeEach
   void setup() {
     final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
-    singleUseKEMPreKeyStore = new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, Tables.PQ_KEYS.tableName());
     pagedSingleUseKEMPreKeyStore = new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient,
         S3_EXTENSION.getS3Client(),
         DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS.tableName(),
@@ -58,7 +56,6 @@ class KeysManagerTest {
 
     keysManager = new KeysManager(
         new SingleUseECPreKeyStore(dynamoDbAsyncClient, Tables.EC_KEYS.tableName()),
-        singleUseKEMPreKeyStore,
         pagedSingleUseKEMPreKeyStore,
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient, Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS.tableName()),
         new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient, Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
@@ -78,24 +75,6 @@ class KeysManagerTest {
   }
 
   @Test
-  void storeKemOneTimePreKeysClearsOld() {
-    final List<KEMSignedPreKey> oldPreKeys = List.of(generateTestKEMSignedPreKey(1));
-
-    // Leave a key in the 'old' key store
-    singleUseKEMPreKeyStore.store(ACCOUNT_UUID, DEVICE_ID, oldPreKeys).join();
-
-    final List<KEMSignedPreKey> newPreKeys = List.of(generateTestKEMSignedPreKey(2));
-    keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, newPreKeys).join();
-
-    assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(1, pagedSingleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(0, singleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
-
-    final KEMSignedPreKey key = keysManager.takePQ(ACCOUNT_UUID, DEVICE_ID).join().orElseThrow();
-    assertEquals(2, key.keyId());
-  }
-
-  @Test
   void storeKemOneTimePreKeys() {
     assertEquals(0, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join(),
         "Initial pre-key count for an account should be zero");
@@ -103,12 +82,10 @@ class KeysManagerTest {
     keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestKEMSignedPreKey(1))).join();
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
     assertEquals(1, pagedSingleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(0, singleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
 
     keysManager.storeKemOneTimePreKeys(ACCOUNT_UUID, DEVICE_ID, List.of(generateTestKEMSignedPreKey(1))).join();
     assertEquals(1, keysManager.getPqCount(ACCOUNT_UUID, DEVICE_ID).join());
     assertEquals(1, pagedSingleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
-    assertEquals(0, singleUseKEMPreKeyStore.getCount(ACCOUNT_UUID, DEVICE_ID).join());
   }
 
 

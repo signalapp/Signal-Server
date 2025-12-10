@@ -7,12 +7,13 @@ package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -23,14 +24,12 @@ import org.whispersystems.textsecuregcm.util.Futures;
 import org.whispersystems.textsecuregcm.util.Optionals;
 import reactor.core.publisher.Flux;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
-import javax.annotation.Nullable;
 
 public class KeysManager {
   // KeysController for backwards compatibility
   private static final String GET_KEYS_COUNTER_NAME = MetricsUtil.name(KeysManager.class, "getKeys");
 
   private final SingleUseECPreKeyStore ecPreKeys;
-  private final SingleUseKEMPreKeyStore pqPreKeys;
   private final PagedSingleUseKEMPreKeyStore pagedPqPreKeys;
   private final RepeatedUseECSignedPreKeyStore ecSignedPreKeys;
   private final RepeatedUseKEMSignedPreKeyStore pqLastResortKeys;
@@ -39,12 +38,10 @@ public class KeysManager {
 
   public KeysManager(
       final SingleUseECPreKeyStore ecPreKeys,
-      final SingleUseKEMPreKeyStore pqPreKeys,
       final PagedSingleUseKEMPreKeyStore pagedPqPreKeys,
       final RepeatedUseECSignedPreKeyStore ecSignedPreKeys,
       final RepeatedUseKEMSignedPreKeyStore pqLastResortKeys) {
     this.ecPreKeys = ecPreKeys;
-    this.pqPreKeys = pqPreKeys;
     this.pagedPqPreKeys = pagedPqPreKeys;
     this.ecSignedPreKeys = ecSignedPreKeys;
     this.pqLastResortKeys = pqLastResortKeys;
@@ -109,9 +106,7 @@ public class KeysManager {
 
   public CompletableFuture<Void> storeKemOneTimePreKeys(final UUID identifier, final byte deviceId,
       final List<KEMSignedPreKey> preKeys) {
-    // Unconditionally delete keys in old format keystore, then write to the pagedPqPreKeys store
-    return pqPreKeys.delete(identifier, deviceId)
-        .thenCompose(_ -> pagedPqPreKeys.store(identifier, deviceId, preKeys));
+    return pagedPqPreKeys.store(identifier, deviceId, preKeys);
 
   }
 
@@ -124,16 +119,12 @@ public class KeysManager {
   CompletableFuture<Optional<KEMSignedPreKey>> takePQ(final UUID identifier, final byte deviceId) {
     return tagTakePQ(pagedPqPreKeys.take(identifier, deviceId), PQSource.PAGE)
         .thenCompose(maybeSingleUsePreKey -> maybeSingleUsePreKey
-              .map(ignored -> CompletableFuture.completedFuture(maybeSingleUsePreKey))
-              .orElseGet(() -> tagTakePQ(pqPreKeys.take(identifier, deviceId), PQSource.ROW)))
-        .thenCompose(maybeSingleUsePreKey -> maybeSingleUsePreKey
-            .map(singleUsePreKey -> CompletableFuture.completedFuture(maybeSingleUsePreKey))
+            .map(_ -> CompletableFuture.completedFuture(maybeSingleUsePreKey))
             .orElseGet(() -> tagTakePQ(pqLastResortKeys.find(identifier, deviceId), PQSource.LAST_RESORT)));
   }
 
   private enum PQSource {
     PAGE,
-    ROW,
     LAST_RESORT
   }
   private CompletableFuture<Optional<KEMSignedPreKey>> tagTakePQ(CompletableFuture<Optional<KEMSignedPreKey>> prekey, final PQSource source) {
@@ -163,15 +154,12 @@ public class KeysManager {
   }
 
   public CompletableFuture<Integer> getPqCount(final UUID identifier, final byte deviceId) {
-    // We only return the paged prekey count to encourage clients to upload more prekeys if they only have prekeys
-    // stored in the previous key store format
     return pagedPqPreKeys.getCount(identifier, deviceId);
   }
 
   public CompletableFuture<Void> deleteSingleUsePreKeys(final UUID identifier) {
     return CompletableFuture.allOf(
         ecPreKeys.delete(identifier),
-        pqPreKeys.delete(identifier),
         pagedPqPreKeys.delete(identifier)
     );
   }
@@ -179,7 +167,6 @@ public class KeysManager {
   public CompletableFuture<Void> deleteSingleUsePreKeys(final UUID accountUuid, final byte deviceId) {
     return CompletableFuture.allOf(
         ecPreKeys.delete(accountUuid, deviceId),
-        pqPreKeys.delete(accountUuid, deviceId),
         pagedPqPreKeys.delete(accountUuid, deviceId)
     );
   }

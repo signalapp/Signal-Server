@@ -51,11 +51,11 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
- * @implNote This version of a {@link SingleUsePreKeyStore} store bundles prekeys into "pages", which are stored in on
+ * @implNote This an analog of {@link SingleUseECPreKeyStore} store bundles prekeys into "pages", which are stored in on
  * an object store and referenced via dynamodb. Each device may only have a single active page at a time. Crashes or
  * errors may leave orphaned pages which are no longer referenced by the database. A background process must
  * periodically check for orphaned pages and remove them.
- * @see SingleUsePreKeyStore
+ * @see SingleUseECPreKeyStore
  */
 public class PagedSingleUseKEMPreKeyStore {
 

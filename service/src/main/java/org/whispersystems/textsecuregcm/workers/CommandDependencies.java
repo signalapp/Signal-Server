@@ -72,7 +72,6 @@ import org.whispersystems.textsecuregcm.storage.RepeatedUseKEMSignedPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.SingleUseECPreKeyStore;
-import org.whispersystems.textsecuregcm.storage.SingleUseKEMPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreClient;
@@ -238,7 +237,6 @@ public record CommandDependencies(
         configuration.getPagedSingleUseKEMPreKeyStore().bucket());
     KeysManager keys = new KeysManager(
         new SingleUseECPreKeyStore(dynamoDbAsyncClient, configuration.getDynamoDbTables().getEcKeys().getTableName()),
-        new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, configuration.getDynamoDbTables().getKemKeys().getTableName()),
         pagedSingleUseKEMPreKeyStore,
         new RepeatedUseECSignedPreKeyStore(dynamoDbAsyncClient,
             configuration.getDynamoDbTables().getEcSignedPreKeys().getTableName()),

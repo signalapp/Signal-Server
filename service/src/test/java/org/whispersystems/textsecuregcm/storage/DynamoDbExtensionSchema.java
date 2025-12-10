@@ -116,29 +116,15 @@ public final class DynamoDbExtensionSchema {
         List.of(), List.of()),
 
     EC_KEYS("keys_test",
-        SingleUsePreKeyStore.KEY_ACCOUNT_UUID,
-        SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID,
+        SingleUseECPreKeyStore.KEY_ACCOUNT_UUID,
+        SingleUseECPreKeyStore.KEY_DEVICE_ID_KEY_ID,
         List.of(
             AttributeDefinition.builder()
-                .attributeName(SingleUsePreKeyStore.KEY_ACCOUNT_UUID)
+                .attributeName(SingleUseECPreKeyStore.KEY_ACCOUNT_UUID)
                 .attributeType(ScalarAttributeType.B)
                 .build(),
             AttributeDefinition.builder()
-                .attributeName(SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID)
-                .attributeType(ScalarAttributeType.B)
-                .build()),
-        List.of(), List.of()),
-
-    PQ_KEYS("pq_keys_test",
-        SingleUsePreKeyStore.KEY_ACCOUNT_UUID,
-        SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID,
-        List.of(
-            AttributeDefinition.builder()
-                .attributeName(SingleUsePreKeyStore.KEY_ACCOUNT_UUID)
-                .attributeType(ScalarAttributeType.B)
-                .build(),
-            AttributeDefinition.builder()
-                .attributeName(SingleUsePreKeyStore.KEY_DEVICE_ID_KEY_ID)
+                .attributeName(SingleUseECPreKeyStore.KEY_DEVICE_ID_KEY_ID)
                 .attributeType(ScalarAttributeType.B)
                 .build()),
         List.of(), List.of()),

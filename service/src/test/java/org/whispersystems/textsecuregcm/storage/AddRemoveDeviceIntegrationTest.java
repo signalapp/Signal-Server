@@ -62,7 +62,6 @@ public class AddRemoveDeviceIntegrationTest {
       DynamoDbExtensionSchema.Tables.PNI_ASSIGNMENTS,
       DynamoDbExtensionSchema.Tables.USERNAMES,
       DynamoDbExtensionSchema.Tables.EC_KEYS,
-      DynamoDbExtensionSchema.Tables.PQ_KEYS,
       DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
@@ -98,7 +97,6 @@ public class AddRemoveDeviceIntegrationTest {
     final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
     keysManager = new KeysManager(
         new SingleUseECPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.EC_KEYS.tableName()),
-        new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.PQ_KEYS.tableName()),
         new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient,
             S3_EXTENSION.getS3Client(),
             DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS.tableName(),

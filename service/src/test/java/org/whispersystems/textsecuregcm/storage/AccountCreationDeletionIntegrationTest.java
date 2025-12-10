@@ -46,7 +46,6 @@ import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.GcmRegistrationId;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -68,7 +67,6 @@ public class AccountCreationDeletionIntegrationTest {
       DynamoDbExtensionSchema.Tables.PNI_ASSIGNMENTS,
       DynamoDbExtensionSchema.Tables.USERNAMES,
       DynamoDbExtensionSchema.Tables.EC_KEYS,
-      DynamoDbExtensionSchema.Tables.PQ_KEYS,
       DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_EC_SIGNED_PRE_KEYS,
       DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS);
@@ -101,7 +99,6 @@ public class AccountCreationDeletionIntegrationTest {
     final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
     keysManager = new KeysManager(
         new SingleUseECPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.EC_KEYS.tableName()),
-        new SingleUseKEMPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.PQ_KEYS.tableName()),
         new PagedSingleUseKEMPreKeyStore(dynamoDbAsyncClient,
             S3_EXTENSION.getS3Client(),
             DynamoDbExtensionSchema.Tables.PAGED_PQ_KEYS.tableName(),

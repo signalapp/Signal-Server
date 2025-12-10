@@ -108,8 +108,6 @@ dynamoDbTables:
     tableName: keys_test
   ecSignedPreKeys:
     tableName: repeated_use_signed_ec_pre_keys_test
-  pqKeys:
-    tableName: pq_keys_test
   pagedPqKeys:
     tableName: paged_pq_keys_test
   pqLastResortKeys:

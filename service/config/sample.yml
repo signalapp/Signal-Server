@@ -108,8 +108,6 @@ dynamoDbTables:
     tableName: Example_Keys
   ecSignedPreKeys:
     tableName: Example_EC_Signed_Pre_Keys
-  pqKeys:
-    tableName: Example_PQ_Keys
   pagedPqKeys:
     tableName: Example_PQ_Paged_Keys
   pqLastResortKeys:
