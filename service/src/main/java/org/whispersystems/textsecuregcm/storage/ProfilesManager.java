@@ -22,6 +22,7 @@ import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -114,7 +115,11 @@ public class ProfilesManager {
 
     if (profile.isEmpty()) {
       profile = profiles.get(uuid, version);
-      profile.ifPresent(versionedProfile -> redisSet(uuid, versionedProfile));
+      try {
+        profile.ifPresent(versionedProfile -> redisSet(uuid, versionedProfile));
+      } catch (RedisException e) {
+        logger.warn("Failed to cache retrieved profile", e);
+      }
     }
 
     return profile;
@@ -126,7 +131,12 @@ public class ProfilesManager {
             .map(versionedProfile -> CompletableFuture.completedFuture(maybeVersionedProfile))
             .orElseGet(() -> profiles.getAsync(uuid, version)
                 .thenCompose(maybeVersionedProfileFromDynamo -> maybeVersionedProfileFromDynamo
-                    .map(profile -> redisSetAsync(uuid, profile).thenApply(ignored -> maybeVersionedProfileFromDynamo))
+                    .map(profile -> redisSetAsync(uuid, profile)
+                        .exceptionally(ExceptionUtils.exceptionallyHandler(RedisException.class, e -> {
+                          logger.warn("Failed to cache retrieved profile", e);
+                          return null;
+                        }))
+                        .thenApply(ignored -> maybeVersionedProfileFromDynamo))
                     .orElseGet(() -> CompletableFuture.completedFuture(maybeVersionedProfileFromDynamo)))));
   }
 
@@ -161,7 +171,7 @@ public class ProfilesManager {
 
       return parseProfileJson(json);
     } catch (RedisException e) {
-      logger.warn("Redis exception", e);
+      logger.warn("Failed to retrieve profile from cache", e);
       return Optional.empty();
     }
   }

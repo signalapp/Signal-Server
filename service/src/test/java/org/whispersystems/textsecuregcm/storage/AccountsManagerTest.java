@@ -70,6 +70,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.stubbing.Answer;
@@ -508,13 +509,25 @@ class AccountsManagerTest {
     verifyNoMoreInteractions(accounts);
   }
 
-  @Test
-  void testGetAccountByUuidBrokenCache() {
+  enum FailureStep {
+    GET,
+    SET_ACI,
+    SET_PNI
+  }
+
+  @ParameterizedTest
+  @EnumSource(FailureStep.class)
+  void testGetAccountByUuidBrokenCache(final FailureStep step) {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
-    when(clusterCommands.get(eq("Account3::" + uuid))).thenThrow(new RedisException("Connection lost!"));
+    (switch (step) {
+      case GET -> when(clusterCommands.get(eq("Account3::" + uuid)));
+      case SET_ACI -> when(clusterCommands.setex(eq("Account3::" + uuid), anyLong(), anyString()));
+      case SET_PNI -> when(clusterCommands.setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString())));
+    }).thenThrow(new RedisException("Connection lost!"));
+
     when(accounts.getByAccountIdentifier(eq(uuid))).thenReturn(Optional.of(account));
 
     Optional<Account> retrieved = accountsManager.getByAccountIdentifier(uuid);
@@ -524,26 +537,34 @@ class AccountsManagerTest {
 
     verify(clusterCommands, times(1)).get(eq("Account3::" + uuid));
     verify(clusterCommands, times(1)).setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString()));
-    verify(clusterCommands, times(1)).setex(eq("Account3::" + uuid), anyLong(), anyString());
+    // we only try setting the ACI if we successfully set the PNI
+    verify(clusterCommands, times(step == FailureStep.SET_PNI ? 0 : 1))
+        .setex(eq("Account3::" + uuid), anyLong(), anyString());
     verifyNoMoreInteractions(clusterCommands);
 
     verify(accounts, times(1)).getByAccountIdentifier(eq(uuid));
     verifyNoMoreInteractions(accounts);
   }
 
-  @Test
-  void testGetAccountByUuidBrokenCacheAsync() {
+  @ParameterizedTest
+  @EnumSource(FailureStep.class)
+  void testGetAccountByUuidBrokenCacheAsync(final FailureStep step) {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
+
     when(asyncClusterCommands.get(eq("Account3::" + uuid)))
-        .thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost!")));
-
+        .thenReturn(MockRedisFuture.completedFuture(null));
     when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
-
     when(accounts.getByAccountIdentifierAsync(eq(uuid)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+    (switch (step) {
+      case GET -> when(asyncClusterCommands.get(eq("Account3::" + uuid)));
+      case SET_ACI -> when(asyncClusterCommands.setex(eq("Account3::" + uuid), anyLong(), anyString()));
+      case SET_PNI -> when(asyncClusterCommands.setex(eq("AccountMap::" + pni), anyLong(), eq(uuid.toString())));
+    }).thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost!")));
 
     Optional<Account> retrieved = accountsManager.getByAccountIdentifierAsync(uuid).join();
 

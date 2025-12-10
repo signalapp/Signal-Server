@@ -1310,7 +1310,11 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       Optional<Account> account = resolveFromRedis.get();
       if (account.isEmpty()) {
         account = resolveFromAccounts.get();
-        account.ifPresent(this::redisSet);
+        try {
+          account.ifPresent(this::redisSet);
+        } catch (RedisException e) {
+          logger.warn("Failed to cache retrieved account", e);
+        }
       }
       return account;
     });
@@ -1328,7 +1332,12 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             .map(accountFromRedis -> CompletableFuture.completedFuture(maybeAccountFromRedis))
             .orElseGet(() -> resolveFromAccounts.get()
                 .thenCompose(maybeAccountFromAccounts -> maybeAccountFromAccounts
-                    .map(account -> redisSetAsync(account).thenApply(ignored -> maybeAccountFromAccounts))
+                    .map(account -> redisSetAsync(account)
+                        .exceptionally(ExceptionUtils.exceptionallyHandler(RedisException.class, e -> {
+                          logger.warn("Failed to cache retrieved account", e);
+                          return null;
+                        }))
+                        .thenApply(ignored -> maybeAccountFromAccounts))
                     .orElseGet(() -> CompletableFuture.completedFuture(maybeAccountFromAccounts)))))
         .whenComplete((ignored, throwable) -> sample.stop(overallTimer));
   }
@@ -1343,7 +1352,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       logger.warn("Deserialization error", e);
       return Optional.empty();
     } catch (RedisException e) {
-      logger.warn("Redis failure", e);
+      logger.warn("Failed fetching account from cache by secondary key", e);
       return Optional.empty();
     }
     });
@@ -1375,7 +1384,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
         return parseAccountJson(json, uuid);
       } catch (final RedisException e) {
-        logger.warn("Redis failure", e);
+        logger.warn("Failed to retrieve account from cache", e);
         return Optional.empty();
       }
     });

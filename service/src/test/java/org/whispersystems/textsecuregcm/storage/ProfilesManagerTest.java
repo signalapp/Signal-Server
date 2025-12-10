@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -163,14 +164,19 @@ public class ProfilesManagerTest {
     verifyNoMoreInteractions(profiles);
   }
 
-  @Test
-  public void testGetProfileBrokenCache() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testGetProfileBrokenCache(final boolean failUpdateCache) {
     final UUID uuid = UUID.randomUUID();
     final byte[] name = TestRandomUtil.nextBytes(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, null, "somecommitment".getBytes());
 
     when(commands.hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"))).thenThrow(new RedisException("Connection lost"));
+    if (failUpdateCache) {
+      when(commands.hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString()))
+        .thenThrow(new RedisException("Connection lost"));
+    }
     when(profiles.get(eq(uuid), eq("someversion"))).thenReturn(Optional.of(profile));
 
     Optional<VersionedProfile> retrieved = profilesManager.get(uuid, "someversion");
@@ -186,15 +192,19 @@ public class ProfilesManagerTest {
     verifyNoMoreInteractions(profiles);
   }
 
-  @Test
-  public void testGetProfileAsyncBrokenCache() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  public void testGetProfileAsyncBrokenCache(final boolean failUpdateCache) {
     final UUID uuid = UUID.randomUUID();
     final byte[] name = TestRandomUtil.nextBytes(81);
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, null, "somecommitment".getBytes());
 
     when(asyncCommands.hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"))).thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost")));
-    when(asyncCommands.hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString())).thenReturn(MockRedisFuture.completedFuture(null));
+    when(asyncCommands.hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString()))
+        .thenReturn(failUpdateCache
+            ? MockRedisFuture.failedFuture(new RedisException("Connection lost"))
+            : MockRedisFuture.completedFuture(null));
     when(profiles.getAsync(eq(uuid), eq("someversion"))).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
 
     Optional<VersionedProfile> retrieved = profilesManager.getAsync(uuid, "someversion").join();
