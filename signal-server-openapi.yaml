@@ -2451,15 +2451,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
@@ -2680,15 +2680,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2771,15 +2771,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2807,15 +2807,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
