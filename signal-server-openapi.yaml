@@ -1954,11 +1954,6 @@ paths:
 
         If the uploader cannot upload the transfer archive, they must signal an error.
       operationId: recordTransferArchiveUploaded
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       requestBody:
         content:
           application/json:
@@ -5001,13 +4996,6 @@ components:
         lastSeen:
           type: integer
           format: int64
-        created:
-          type: integer
-          description: |2
-                The time in milliseconds since epoch when the device was linked.
-                Deprecated in favor of `createdAtCiphertext`.
-          format: int64
-          deprecated: true
         registrationId:
           type: integer
           description: The registration ID of the given device.
@@ -5148,14 +5136,9 @@ components:
           description: The ID of the device for which the transfer archive has been
             prepared
           format: byte
-        destinationDeviceCreated:
-          type: integer
-          description: |2
-              The timestamp, in milliseconds since the epoch, at which the destination device was created.
-              Deprecated in favor of `destinationDeviceRegistrationId`.
-          format: int64
-          deprecated: true
         destinationDeviceRegistrationId:
+          maximum: 16383
+          minimum: 0
           type: integer
           description: The registration ID of the destination device
           format: int32
