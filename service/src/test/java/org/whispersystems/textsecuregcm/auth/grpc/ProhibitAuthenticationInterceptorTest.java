@@ -53,7 +53,7 @@ class ProhibitAuthenticationInterceptorTest  {
 
     final StatusRuntimeException e = assertThrows(StatusRuntimeException.class,
         () -> client.echo(EchoRequest.getDefaultInstance()));
-    assertEquals(Status.Code.UNAUTHENTICATED, e.getStatus().getCode());
+    assertEquals(Status.Code.INVALID_ARGUMENT, e.getStatus().getCode());
   }
 
   @Test

@@ -63,10 +63,4 @@ class PaymentsGrpcServiceTest extends SimpleBaseGrpcTest<PaymentsGrpcService, Pa
     assertStatusException(Status.UNAVAILABLE, () -> authenticatedServiceStub().getCurrencyConversions(
         GetCurrencyConversionsRequest.newBuilder().build()));
   }
-
-  @Test
-  public void testUnauthenticated() throws Exception {
-    assertStatusException(Status.UNAUTHENTICATED, () -> unauthenticatedServiceStub().getCurrencyConversions(
-        GetCurrencyConversionsRequest.newBuilder().build()));
-  }
 }

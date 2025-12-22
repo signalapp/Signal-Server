@@ -29,8 +29,11 @@ import org.mockito.Mock;
 import org.signal.chat.account.AccountsAnonymousGrpc;
 import org.signal.chat.account.CheckAccountExistenceRequest;
 import org.signal.chat.account.LookupUsernameHashRequest;
+import org.signal.chat.account.LookupUsernameHashResponse;
 import org.signal.chat.account.LookupUsernameLinkRequest;
+import org.signal.chat.account.LookupUsernameLinkResponse;
 import org.signal.chat.common.IdentityType;
+import org.signal.chat.errors.NotFound;
 import org.signal.chat.common.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -151,8 +154,8 @@ class AccountsAnonymousGrpcServiceTest extends
             .getServiceIdentifier());
 
     //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.NOT_FOUND,
-        () -> unauthenticatedServiceStub().lookupUsernameHash(LookupUsernameHashRequest.newBuilder()
+    assertEquals(LookupUsernameHashResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build(),
+        unauthenticatedServiceStub().lookupUsernameHash(LookupUsernameHashRequest.newBuilder()
             .setUsernameHash(ByteString.copyFrom(new byte[AccountController.USERNAME_HASH_LENGTH]))
             .build()));
   }
@@ -217,15 +220,16 @@ class AccountsAnonymousGrpcServiceTest extends
 
     when(account.getEncryptedUsername()).thenReturn(Optional.empty());
 
-    //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.NOT_FOUND,
-        () -> unauthenticatedServiceStub().lookupUsernameLink(LookupUsernameLinkRequest.newBuilder()
+    final LookupUsernameLinkResponse notFoundResponse = LookupUsernameLinkResponse.newBuilder()
+        .setNotFound(NotFound.getDefaultInstance())
+        .build();
+
+    assertEquals(notFoundResponse,
+        unauthenticatedServiceStub().lookupUsernameLink(LookupUsernameLinkRequest.newBuilder()
             .setUsernameLinkHandle(UUIDUtil.toByteString(linkHandle))
             .build()));
-
-    //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.NOT_FOUND,
-        () -> unauthenticatedServiceStub().lookupUsernameLink(LookupUsernameLinkRequest.newBuilder()
+    assertEquals(notFoundResponse,
+        unauthenticatedServiceStub().lookupUsernameLink(LookupUsernameLinkRequest.newBuilder()
             .setUsernameLinkHandle(UUIDUtil.toByteString(UUID.randomUUID()))
             .build()));
   }

@@ -84,7 +84,7 @@
     <reactor-bom.version>2024.0.10</reactor-bom.version> <!-- 3.7.11, see https://github.com/reactor/reactor#bom-versioning-scheme -->
     <resilience4j.version>2.3.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
-    <simple-grpc.version>0.1.0</simple-grpc.version>
+    <simple-grpc.version>0.2.0</simple-grpc.version>
     <slf4j.version>2.0.17</slf4j.version>
     <stripe.version>30.2.0</stripe.version>
     <swagger.version>2.2.36</swagger.version>

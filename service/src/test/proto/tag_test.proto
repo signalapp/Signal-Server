@@ -1,0 +1,32 @@
+/*
+ * Copyright 2025 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.rpc;
+
+import "org/signal/chat/tag.proto";
+import "google/protobuf/empty.proto";
+
+service TagTestService {
+  rpc TagEndpoint(google.protobuf.Empty) returns (TagResponse) {}
+  rpc StreamingTagEndpoint(google.protobuf.Empty) returns (stream TagResponse) {}
+}
+
+message TagResponse {
+  oneof response {
+    bool no_reason = 1;
+    bool reason_1 = 2 [(tag.reason) = "reason_1"];
+  }
+
+  bool conflicting_reason = 4 [(tag.reason) = "duplicate_reason"];
+
+  message NestedReason {
+    bool reason = 1 [(tag.reason) = "nested_reason"];
+  }
+  NestedReason nested_reason = 5;
+}

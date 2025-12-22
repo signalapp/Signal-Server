@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
-import io.grpc.Status;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -26,8 +25,6 @@ import org.signal.chat.account.DeleteUsernameLinkResponse;
 import org.signal.chat.account.GetAccountIdentityRequest;
 import org.signal.chat.account.GetAccountIdentityResponse;
 import org.signal.chat.account.ReactorAccountsGrpc;
-import org.signal.chat.account.ReserveUsernameHashError;
-import org.signal.chat.account.ReserveUsernameHashErrorType;
 import org.signal.chat.account.ReserveUsernameHashRequest;
 import org.signal.chat.account.ReserveUsernameHashResponse;
 import org.signal.chat.account.SetDiscoverableByPhoneNumberRequest;
@@ -38,7 +35,9 @@ import org.signal.chat.account.SetRegistrationRecoveryPasswordRequest;
 import org.signal.chat.account.SetRegistrationRecoveryPasswordResponse;
 import org.signal.chat.account.SetUsernameLinkRequest;
 import org.signal.chat.account.SetUsernameLinkResponse;
+import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
+import org.signal.chat.errors.FailedPrecondition;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
@@ -50,6 +49,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
@@ -78,10 +78,7 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
 
   @Override
   public Mono<GetAccountIdentityResponse> getAccountIdentity(final GetAccountIdentityRequest request) {
-    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAccount()
         .map(account -> {
           final AccountIdentifiers.Builder accountIdentifiersBuilder = AccountIdentifiers.newBuilder()
               .addServiceIdentifiers(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(account.getUuid())))
@@ -99,10 +96,7 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
 
   @Override
   public Mono<DeleteAccountResponse> deleteAccount(final DeleteAccountRequest request) {
-    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedPrimaryDevice();
-
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAccount(AuthenticationUtil.requireAuthenticatedPrimaryDevice())
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.delete(account, AccountsManager.DeletionReason.USER_REQUEST)))
         .thenReturn(DeleteAccountResponse.newBuilder().build());
   }
@@ -112,11 +106,10 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedPrimaryDevice();
 
     if (request.getRegistrationLock().isEmpty()) {
-      throw Status.INVALID_ARGUMENT.withDescription("Registration lock secret must not be empty").asRuntimeException();
+      throw GrpcExceptions.fieldViolation("registration_lock", "Registration lock secret must not be empty");
     }
 
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAccount(authenticatedDevice)
         .flatMap(account -> {
           // In the previous REST-based API, clients would send hex strings directly. For backward compatibility, we
           // convert the registration lock secret to a lowercase hex string before turning it into a salted hash.
@@ -131,10 +124,7 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
 
   @Override
   public Mono<ClearRegistrationLockResponse> clearRegistrationLock(final ClearRegistrationLockRequest request) {
-    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedPrimaryDevice();
-
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAccount(AuthenticationUtil.requireAuthenticatedPrimaryDevice())
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.updateAsync(account,
             a -> a.setRegistrationLock(null, null))))
         .map(ignored -> ClearRegistrationLockResponse.newBuilder().build());
@@ -145,42 +135,34 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     if (request.getUsernameHashesCount() == 0) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("List of username hashes must not be empty")
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("username_hashes", "List of username hashes must not be empty");
     }
 
     if (request.getUsernameHashesCount() > AccountController.MAXIMUM_USERNAME_HASHES_LIST_LENGTH) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription(String.format("List of username hashes may have at most %d elements, but actually had %d",
-              AccountController.MAXIMUM_USERNAME_HASHES_LIST_LENGTH, request.getUsernameHashesCount()))
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("username_hashes",
+          String.format("List of username hashes may have at most %d elements, but actually had %d",
+              AccountController.MAXIMUM_USERNAME_HASHES_LIST_LENGTH, request.getUsernameHashesCount()));
     }
 
     final List<byte[]> usernameHashes = new ArrayList<>(request.getUsernameHashesCount());
 
     for (final ByteString usernameHash : request.getUsernameHashesList()) {
       if (usernameHash.size() != AccountController.USERNAME_HASH_LENGTH) {
-        throw Status.INVALID_ARGUMENT
-            .withDescription(String.format("Username hash length must be %d bytes, but was actually %d",
-                AccountController.USERNAME_HASH_LENGTH, usernameHash.size()))
-            .asRuntimeException();
+        throw GrpcExceptions.fieldViolation("username_hashes",
+          String.format("Username hash length must be %d bytes, but was actually %d",
+                AccountController.USERNAME_HASH_LENGTH, usernameHash.size()));
       }
-
       usernameHashes.add(usernameHash.toByteArray());
     }
 
     return rateLimiters.getUsernameReserveLimiter().validateReactive(authenticatedDevice.accountIdentifier())
-        .then(Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+        .then(getAccount())
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.reserveUsernameHash(account, usernameHashes)))
         .map(reservation -> ReserveUsernameHashResponse.newBuilder()
             .setUsernameHash(ByteString.copyFrom(reservation.reservedUsernameHash()))
             .build())
         .onErrorReturn(UsernameHashNotAvailableException.class, ReserveUsernameHashResponse.newBuilder()
-            .setError(ReserveUsernameHashError.newBuilder()
-                .setErrorType(ReserveUsernameHashErrorType.RESERVE_USERNAME_HASH_ERROR_TYPE_NO_HASHES_AVAILABLE)
-                .build())
+            .setUsernameNotAvailable(UsernameNotAvailable.getDefaultInstance())
             .build());
   }
 
@@ -189,61 +171,57 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     if (request.getUsernameHash().isEmpty()) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("Username hash must not be empty")
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("username_hash", "Username hash must not be empty");
     }
 
     if (request.getUsernameHash().size() != AccountController.USERNAME_HASH_LENGTH) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription(String.format("Username hash length must be %d bytes, but was actually %d",
-              AccountController.USERNAME_HASH_LENGTH, request.getUsernameHash().size()))
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("username_hash",
+          String.format("Username hash length must be %d bytes, but was actually %d",
+              AccountController.USERNAME_HASH_LENGTH, request.getUsernameHash().size()));
     }
 
     if (request.getZkProof().isEmpty()) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("Zero-knowledge proof must not be empty")
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("zk_proof", "Zero-knowledge proof must not be empty");
     }
 
     if (request.getUsernameCiphertext().isEmpty()) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("Username ciphertext must not be empty")
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("username_ciphertext", "Username ciphertext must not be empty");
     }
 
     if (request.getUsernameCiphertext().size() > AccountController.MAXIMUM_USERNAME_CIPHERTEXT_LENGTH) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription(String.format("Username hash length must at most %d bytes, but was actually %d",
-              AccountController.MAXIMUM_USERNAME_CIPHERTEXT_LENGTH, request.getUsernameCiphertext().size()))
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("username_ciphertext",
+          String.format("Username ciphertext length must at most %d bytes, but was actually %d",
+              AccountController.MAXIMUM_USERNAME_CIPHERTEXT_LENGTH, request.getUsernameCiphertext().size()));
     }
 
     try {
       usernameHashZkProofVerifier.verifyProof(request.getZkProof().toByteArray(), request.getUsernameHash().toByteArray());
     } catch (final BaseUsernameException e) {
-      throw Status.INVALID_ARGUMENT.withDescription("Could not verify proof").asRuntimeException();
+      throw GrpcExceptions.constraintViolation("Could not verify proof");
     }
 
     return rateLimiters.getUsernameSetLimiter().validateReactive(authenticatedDevice.accountIdentifier())
-        .then(Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+        .then(getAccount())
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.confirmReservedUsernameHash(account, request.getUsernameHash().toByteArray(), request.getUsernameCiphertext().toByteArray())))
         .map(updatedAccount -> ConfirmUsernameHashResponse.newBuilder()
-            .setUsernameHash(ByteString.copyFrom(updatedAccount.getUsernameHash().orElseThrow()))
-            .setUsernameLinkHandle(UUIDUtil.toByteString(updatedAccount.getUsernameLinkHandle()))
+            .setConfirmedUsernameHash(ConfirmUsernameHashResponse.ConfirmedUsernameHash.newBuilder()
+                .setUsernameHash(ByteString.copyFrom(updatedAccount.getUsernameHash().orElseThrow()))
+                .setUsernameLinkHandle(UUIDUtil.toByteString(updatedAccount.getUsernameLinkHandle()))
+                .build())
             .build())
-        .onErrorMap(UsernameReservationNotFoundException.class, throwable -> Status.FAILED_PRECONDITION.asRuntimeException())
-        .onErrorMap(UsernameHashNotAvailableException.class, throwable -> Status.NOT_FOUND.asRuntimeException());
+        .onErrorResume(UsernameReservationNotFoundException.class, _ -> Mono.just(ConfirmUsernameHashResponse
+            .newBuilder()
+            .setReservationNotFound(FailedPrecondition.getDefaultInstance())
+            .build()))
+        .onErrorResume(UsernameHashNotAvailableException.class, _ -> Mono.just(ConfirmUsernameHashResponse
+            .newBuilder()
+            .setUsernameNotAvailable(UsernameNotAvailable.getDefaultInstance())
+            .build()));
   }
 
   @Override
   public Mono<DeleteUsernameHashResponse> deleteUsernameHash(final DeleteUsernameHashRequest request) {
-    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAccount()
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.clearUsernameHash(account)))
         .thenReturn(DeleteUsernameHashResponse.newBuilder().build());
   }
@@ -253,19 +231,16 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     if (request.getUsernameCiphertext().isEmpty() || request.getUsernameCiphertext().size() > EncryptedUsername.MAX_SIZE) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription(String.format("Username ciphertext must not be empty and must be shorter than %d bytes", EncryptedUsername.MAX_SIZE))
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("username_ciphertext",
+          String.format("Username ciphertext must not be empty and must be shorter than %d bytes", EncryptedUsername.MAX_SIZE));
     }
 
     return rateLimiters.getUsernameLinkOperationLimiter().validateReactive(authenticatedDevice.accountIdentifier())
-        .then(Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+        .then(getAccount())
         .flatMap(account -> {
+          final SetUsernameLinkResponse.Builder responseBuilder = SetUsernameLinkResponse.newBuilder();
           if (account.getUsernameHash().isEmpty()) {
-            return Mono.error(Status.FAILED_PRECONDITION
-                .withDescription("Account does not have a username hash")
-                .asRuntimeException());
+            return Mono.just(responseBuilder.setNoUsernameSet(FailedPrecondition.getDefaultInstance()).build());
           }
 
           final UUID linkHandle;
@@ -276,37 +251,28 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
           }
 
           return Mono.fromFuture(() -> accountsManager.updateAsync(account, a -> a.setUsernameLinkDetails(linkHandle, request.getUsernameCiphertext().toByteArray())))
-              .thenReturn(linkHandle);
-        })
-        .map(linkHandle -> SetUsernameLinkResponse.newBuilder()
-            .setUsernameLinkHandle(UUIDUtil.toByteString(linkHandle))
-            .build());
+              .thenReturn(responseBuilder.setUsernameLinkHandle(UUIDUtil.toByteString(linkHandle)).build());
+        });
   }
 
   @Override
   public Mono<DeleteUsernameLinkResponse> deleteUsernameLink(final DeleteUsernameLinkRequest request) {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-
     return rateLimiters.getUsernameLinkOperationLimiter().validateReactive(authenticatedDevice.accountIdentifier())
-        .then(Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+        .then(getAccount())
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.updateAsync(account, a -> a.setUsernameLinkDetails(null, null))))
         .thenReturn(DeleteUsernameLinkResponse.newBuilder().build());
   }
 
   @Override
   public Mono<ConfigureUnidentifiedAccessResponse> configureUnidentifiedAccess(final ConfigureUnidentifiedAccessRequest request) {
-    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-
     if (!request.getAllowUnrestrictedUnidentifiedAccess() && request.getUnidentifiedAccessKey().size() != UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription(String.format("Unidentified access key must be %d bytes, but was actually %d",
-              UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH, request.getUnidentifiedAccessKey().size()))
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("unidentified_access_key",
+          String.format("Unidentified access key must be %d bytes, but was actually %d",
+              UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH, request.getUnidentifiedAccessKey().size()));
     }
 
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAccount()
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.updateAsync(account, a -> {
           a.setUnrestrictedUnidentifiedAccess(request.getAllowUnrestrictedUnidentifiedAccess());
           a.setUnidentifiedAccessKey(request.getAllowUnrestrictedUnidentifiedAccess() ? null : request.getUnidentifiedAccessKey().toByteArray());
@@ -316,10 +282,7 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
 
   @Override
   public Mono<SetDiscoverableByPhoneNumberResponse> setDiscoverableByPhoneNumber(final SetDiscoverableByPhoneNumberRequest request) {
-    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAccount()
         .flatMap(account -> Mono.fromFuture(() -> accountsManager.updateAsync(account,
             a -> a.setDiscoverableByPhoneNumber(request.getDiscoverableByPhoneNumber()))))
         .thenReturn(SetDiscoverableByPhoneNumberResponse.newBuilder().build());
@@ -327,17 +290,22 @@ public class AccountsGrpcService extends ReactorAccountsGrpc.AccountsImplBase {
 
   @Override
   public Mono<SetRegistrationRecoveryPasswordResponse> setRegistrationRecoveryPassword(final SetRegistrationRecoveryPasswordRequest request) {
-    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-
     if (request.getRegistrationRecoveryPassword().isEmpty()) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("Registration recovery password must not be empty")
-          .asRuntimeException();
+      throw GrpcExceptions.fieldViolation("registration_recovery_password", "Registration recovery password must not be empty");
     }
 
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAccount()
         .flatMap(account -> Mono.fromFuture(() -> registrationRecoveryPasswordsManager.store(account.getIdentifier(IdentityType.PNI), request.getRegistrationRecoveryPassword().toByteArray())))
         .thenReturn(SetRegistrationRecoveryPasswordResponse.newBuilder().build());
+  }
+
+  private Mono<Account> getAccount() {
+    return getAccount(AuthenticationUtil.requireAuthenticatedDevice());
+  }
+
+  private Mono<Account> getAccount(AuthenticatedDevice authenticatedDevice) {
+    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
+        .map(maybeAccount -> maybeAccount
+            .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials")));
   }
 }

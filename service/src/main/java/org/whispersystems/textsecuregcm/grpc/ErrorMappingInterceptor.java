@@ -11,6 +11,11 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 
 /**
  * This interceptor observes responses from the service and if the response status is {@link Status#UNKNOWN}
@@ -20,6 +25,8 @@ import io.grpc.Status;
  * This eliminates the need of having each service to override {@code `onErrorMap()`} method for commonly used exceptions.
  */
 public class ErrorMappingInterceptor implements ServerInterceptor {
+
+  private static final Logger log = LoggerFactory.getLogger(ErrorMappingInterceptor.class);
 
   @Override
   public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
@@ -34,15 +41,33 @@ public class ErrorMappingInterceptor implements ServerInterceptor {
         // I.e. if at this point we see anything but the `UNKNOWN`,
         // that means that some logic in the service made this decision already
         // and automatic conversion may conflict with it.
-        if (status.getCode().equals(Status.Code.UNKNOWN)
-            && status.getCause() instanceof ConvertibleToGrpcStatus convertibleToGrpcStatus) {
-          super.close(
-              convertibleToGrpcStatus.grpcStatus(),
-              convertibleToGrpcStatus.grpcMetadata().orElseGet(Metadata::new)
-          );
-        } else {
+        if (!status.getCode().equals(Status.Code.UNKNOWN)) {
           super.close(status, trailers);
+          return;
         }
+
+        final StatusRuntimeException statusException = switch (status.getCause()) {
+          case ConvertibleToGrpcStatus e -> e.toStatusRuntimeException();
+          case UncheckedIOException e -> {
+            log.warn("RPC {} encountered UncheckedIOException", call.getMethodDescriptor().getFullMethodName(), e.getCause());
+            yield GrpcExceptions.unavailable(e.getCause().getMessage());
+          }
+          case IOException e -> {
+            log.warn("RPC {} encountered IOException", call.getMethodDescriptor().getFullMethodName(), e);
+            yield GrpcExceptions.unavailable(e.getMessage());
+          }
+          case null -> {
+            log.error("RPC {} finished with status UNKNOWN: {}",
+                call.getMethodDescriptor().getFullMethodName(), status.getDescription());
+            yield GrpcExceptions.unavailable(status.getDescription());
+          }
+          default -> {
+            log.error("RPC {} finished with status UNKNOWN",
+                call.getMethodDescriptor().getFullMethodName(), status.getCause());
+            yield GrpcExceptions.unavailable(status.getCause().getMessage());
+          }
+        };
+        super.close(statusException.getStatus(), statusException.getTrailers());
       }
     }, headers);
   }

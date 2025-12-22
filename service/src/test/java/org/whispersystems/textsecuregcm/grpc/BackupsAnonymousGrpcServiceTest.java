@@ -17,6 +17,7 @@ import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Iterator;
@@ -295,12 +296,10 @@ class BackupsAnonymousGrpcServiceTest extends
     assertThat(uploadForm.getSignedUploadLocation()).isEqualTo("example.org");
 
     // rate limit
+    Duration duration = Duration.ofSeconds(10);
     when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(null)));
-    assertThatExceptionOfType(StatusRuntimeException.class)
-        .isThrownBy(() -> unauthenticatedServiceStub().getUploadForm(request))
-        .extracting(StatusRuntimeException::getStatus)
-        .isEqualTo(Status.RESOURCE_EXHAUSTED);
+        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(duration)));
+    GrpcTestUtils.assertRateLimitExceeded(duration, () -> unauthenticatedServiceStub().getUploadForm(request));
   }
 
   static Stream<Arguments> messagesUploadForm() {

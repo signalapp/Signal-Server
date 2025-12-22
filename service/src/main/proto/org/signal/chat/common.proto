@@ -115,3 +115,4 @@ message ZkCredential {
    */
   bytes credential = 2;
 }
+

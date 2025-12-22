@@ -9,6 +9,8 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
+import org.whispersystems.textsecuregcm.grpc.GrpcExceptions;
+import org.whispersystems.textsecuregcm.grpc.ServerInterceptorUtil;
 
 /**
  * A "prohibit authentication" interceptor ensures that requests to endpoints that should be invoked anonymously do not
@@ -22,8 +24,8 @@ public class ProhibitAuthenticationInterceptor implements ServerInterceptor {
       final Metadata headers, final ServerCallHandler<ReqT, RespT> next) {
     final String authHeaderString = headers.get(Metadata.Key.of(RequireAuthenticationInterceptor.AUTHORIZATION_HEADER, Metadata.ASCII_STRING_MARSHALLER));
     if (authHeaderString != null) {
-      call.close(Status.UNAUTHENTICATED.withDescription("authorization header forbidden"), new Metadata());
-      return new ServerCall.Listener<>() {};
+      return ServerInterceptorUtil.closeWithStatusException(call,
+          GrpcExceptions.badAuthentication("The service forbids requests with an authentication header"));
     }
     return next.startCall(call, headers);
   }

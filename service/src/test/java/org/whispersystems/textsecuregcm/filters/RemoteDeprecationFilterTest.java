@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.filters;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,12 +18,14 @@ import static org.mockito.Mockito.when;
 import com.google.common.net.HttpHeaders;
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
+import com.google.rpc.ErrorInfo;
 import com.vdurmont.semver4j.Semver;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.protobuf.StatusProto;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,9 +43,9 @@ import org.signal.chat.rpc.EchoServiceGrpc;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRemoteDeprecationConfiguration;
 import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
+import org.whispersystems.textsecuregcm.grpc.GrpcExceptions;
 import org.whispersystems.textsecuregcm.grpc.MockRequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
-import org.whispersystems.textsecuregcm.grpc.StatusConstants;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
@@ -153,7 +156,14 @@ class RemoteDeprecationFilterTest {
         final StatusRuntimeException e = assertThrows(
             StatusRuntimeException.class,
             () -> client.echo(req));
-        assertEquals(StatusConstants.UPGRADE_NEEDED_STATUS.toString(), e.getStatus().toString());
+        final com.google.rpc.Status status = StatusProto.fromThrowable(e);
+        final ErrorInfo errorInfo = assertDoesNotThrow(() -> status.getDetailsList().stream()
+            .filter(any -> any.is(ErrorInfo.class)).findFirst()
+            .orElseThrow(() -> new AssertionError("No error info found"))
+            .unpack(ErrorInfo.class));
+        assertEquals(GrpcExceptions.DOMAIN, errorInfo.getDomain());
+        assertEquals(io.grpc.Status.Code.INVALID_ARGUMENT.value(), status.getCode());
+        assertEquals("UPGRADE_REQUIRED", errorInfo.getReason());
       } else {
         assertEquals("cluck cluck, i'm a parrot", client.echo(req).getPayload().toStringUtf8());
       }

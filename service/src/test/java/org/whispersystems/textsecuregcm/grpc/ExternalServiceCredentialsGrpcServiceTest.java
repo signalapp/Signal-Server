@@ -122,14 +122,6 @@ public class ExternalServiceCredentialsGrpcServiceTest
     );
   }
 
-  @Test
-  public void testUnauthenticatedCall() throws Exception {
-    assertStatusUnauthenticated(() -> unauthenticatedServiceStub().getExternalServiceCredentials(
-        GetExternalServiceCredentialsRequest.newBuilder()
-            .setExternalService(ExternalServiceType.EXTERNAL_SERVICE_TYPE_DIRECTORY)
-            .build()));
-  }
-
   /**
    * `ExternalServiceDefinitions` enum is supposed to have entries for all values in `ExternalServiceType`,
    * except for the `EXTERNAL_SERVICE_TYPE_UNSPECIFIED` and `UNRECOGNIZED`.

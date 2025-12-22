@@ -5,6 +5,7 @@ option java_multiple_files = true;
 package org.signal.chat.account;
 
 import "org/signal/chat/common.proto";
+import "org/signal/chat/errors.proto";
 
 /**
  * Provides methods for working with Signal accounts.
@@ -34,23 +35,13 @@ service Accounts {
 
   /**
    * Attempts to reserve one of multiple given username hashes. Reserved
-   * usernames may be claimed later via `ConfirmUsernameHash`. This RPC may
-   * fail with a `RESOURCE_EXHAUSTED` status if a rate limit for modifying
-   * usernames has been exceeded, in which case a `retry-after` header
-   * containing an ISO 8601 duration string will be present in the response
-   * trailers.
+   * usernames may be claimed later via `ConfirmUsernameHash`.
    */
   rpc ReserveUsernameHash(ReserveUsernameHashRequest) returns (ReserveUsernameHashResponse) {}
 
   /**
    * Sets the username hash/encrypted username to a previously-reserved value
-   * (see `ReserveUsernameHash`). This RPC may fail with a status of
-   * `FAILED_PRECONDITION` if no reserved username hash was found for the given
-   * account or `NOT_FOUND` if the reservation has lapsed and been claimed by
-   * another caller. It may also  fail with a `RESOURCE_EXHAUSTED` if a rate
-   * limit for modifying usernames has been exceeded, in which case a
-   * `retry-after` header containing an ISO 8601 duration string will be present
-   * in the response trailers.
+   * (see `ReserveUsernameHash`).
    */
   rpc ConfirmUsernameHash(ConfirmUsernameHashRequest) returns (ConfirmUsernameHashResponse) {}
 
@@ -64,21 +55,11 @@ service Accounts {
    * Associates the given username ciphertext with the account, replacing any
    * previously stored ciphertext. A new link handle will optionally be created,
    * and the link handle to use will be returned in any event.
-   *
-   * This RPC may fail with a status of `FAILED_PRECONDITION` if the
-   * authenticated account does not have a username. It may also fail with
-   * `RESOURCE_EXHAUSTED` if a rate limit for modifying username links has been
-   * exceeded, in which case a `retry-after` header containing an ISO 8601
-   * duration string will be present in the response trailers.
    */
   rpc SetUsernameLink(SetUsernameLinkRequest) returns (SetUsernameLinkResponse) {}
 
   /**
-   * Clears any username link associated with the authenticated account. This
-   * RPC may fail with `RESOURCE_EXHAUSTED` if a rate limit for modifying
-   * username links has been exceeded, in which case a `retry-after` header
-   * containing an ISO 8601 duration string will be present in the response
-   * trailers.
+   * Clears any username link associated with the authenticated account.
    */
   rpc DeleteUsernameLink(DeleteUsernameLinkRequest) returns (DeleteUsernameLinkResponse) {}
 
@@ -114,8 +95,7 @@ service AccountsAnonymous {
 
   /**
    * Finds the service identifier of the account associated with the given
-   * username hash. This method will return a `NOT_FOUND` status if no account
-   * was found for the given username hash.
+   * username hash.
    */
   rpc LookupUsernameHash(LookupUsernameHashRequest) returns (LookupUsernameHashResponse) {}
 
@@ -166,6 +146,8 @@ message ReserveUsernameHashRequest {
   repeated bytes username_hashes = 1;
 }
 
+message UsernameNotAvailable {}
+
 message ReserveUsernameHashResponse {
   oneof response {
     /**
@@ -174,24 +156,11 @@ message ReserveUsernameHashResponse {
     bytes username_hash = 1;
 
     /**
-     * An error indicating why a username hash could not be reserved.
+     * Indicates that, of all of the candidate hashes provided, none were
+     * available. Callers may generate a new set of hashes and and retry.
      */
-    ReserveUsernameHashError error = 2;
+    UsernameNotAvailable username_not_available = 2;
   }
-}
-
-message ReserveUsernameHashError {
-  ReserveUsernameHashErrorType error_type = 1;
-}
-
-enum ReserveUsernameHashErrorType {
-  RESERVE_USERNAME_HASH_ERROR_TYPE_UNSPECIFIED = 0;
-
-  /**
-   * Indicates that, of all of the candidate hashes provided, none were
-   * available. Callers may generate a new set of hashes and and retry.
-   */
-  RESERVE_USERNAME_HASH_ERROR_TYPE_NO_HASHES_AVAILABLE = 1;
 }
 
 message ConfirmUsernameHashRequest {
@@ -214,15 +183,35 @@ message ConfirmUsernameHashRequest {
 }
 
 message ConfirmUsernameHashResponse {
-  /**
-   * The newly-confirmed username hash.
-   */
-  bytes username_hash = 1;
+  message ConfirmedUsernameHash {
+    /**
+     * The newly-confirmed username hash.
+     */
+    bytes username_hash = 1;
 
-  /**
-   * The server-generated username link handle for the newly-confirmed username.
-   */
-  bytes username_link_handle = 2;
+    /**
+     * The server-generated username link handle for the newly-confirmed username.
+     */
+    bytes username_link_handle = 2;
+  }
+
+  oneof response {
+    /**
+     * The details of the successfully confirmed username.
+     */
+    ConfirmedUsernameHash confirmed_username_hash = 1;
+
+    /**
+     * The provided hash was not reserved for the account.
+     */
+    errors.FailedPrecondition reservation_not_found = 2;
+
+    /**
+     * The reservation has lapsed and the requested username has been claimed by
+     * another caller.
+     */
+    UsernameNotAvailable username_not_available =  3;
+  }
 }
 
 message DeleteUsernameHashRequest {
@@ -245,11 +234,20 @@ message SetUsernameLinkRequest {
   bool keep_link_handle = 2;
 }
 
+
 message SetUsernameLinkResponse {
-  /**
-   * A new link handle for the given username ciphertext.
-   */
-  bytes username_link_handle = 1;
+  oneof response {
+    /**
+     * A new link handle for the given username ciphertext.
+     */
+    bytes username_link_handle = 1;
+
+    /**
+     * The authenticated account did not have a username set.
+     */
+    errors.FailedPrecondition no_username_set = 2;
+
+  }
 }
 
 message DeleteUsernameLinkRequest {
@@ -323,10 +321,17 @@ message LookupUsernameHashRequest {
 }
 
 message LookupUsernameHashResponse {
-  /**
-   * The service identifier associated with a given username hash.
-   */
-  common.ServiceIdentifier service_identifier = 1;
+  oneof response {
+    /**
+     * The service identifier associated with the provided username hash.
+     */
+    common.ServiceIdentifier service_identifier = 1;
+
+    /**
+     * No account was found for the provided username hash.
+     */
+    errors.NotFound not_found = 2;
+  }
 }
 
 message LookupUsernameLinkRequest {
@@ -338,8 +343,16 @@ message LookupUsernameLinkRequest {
 }
 
 message LookupUsernameLinkResponse {
-  /**
-   * The ciphertext of the username identified by the given link handle.
-   */
-  bytes username_ciphertext = 1;
+  oneof response {
+    /**
+     * The ciphertext of the username identified by the provided link handle.
+     */
+    bytes username_ciphertext = 1;
+
+
+    /**
+     * No username was found for the provided link handle.
+     */
+    errors.NotFound not_found = 2;
+  }
 }

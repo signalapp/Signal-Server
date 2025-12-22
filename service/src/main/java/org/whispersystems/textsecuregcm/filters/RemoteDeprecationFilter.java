@@ -27,8 +27,9 @@ import java.util.Set;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRemoteDeprecationConfiguration;
+import org.whispersystems.textsecuregcm.grpc.GrpcExceptions;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesUtil;
-import org.whispersystems.textsecuregcm.grpc.StatusConstants;
+import org.whispersystems.textsecuregcm.grpc.ServerInterceptorUtil;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -91,8 +92,7 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
         }).orElse(null);
 
     if (shouldBlock(userAgent)) {
-      call.close(StatusConstants.UPGRADE_NEEDED_STATUS, new Metadata());
-      return new ServerCall.Listener<>() {};
+      return ServerInterceptorUtil.closeWithStatusException(call, GrpcExceptions.upgradeRequired());
     } else {
       return next.startCall(call, headers);
     }

@@ -47,8 +47,6 @@ import org.signal.chat.account.DeleteUsernameHashRequest;
 import org.signal.chat.account.DeleteUsernameLinkRequest;
 import org.signal.chat.account.GetAccountIdentityRequest;
 import org.signal.chat.account.GetAccountIdentityResponse;
-import org.signal.chat.account.ReserveUsernameHashError;
-import org.signal.chat.account.ReserveUsernameHashErrorType;
 import org.signal.chat.account.ReserveUsernameHashRequest;
 import org.signal.chat.account.ReserveUsernameHashResponse;
 import org.signal.chat.account.SetDiscoverableByPhoneNumberRequest;
@@ -57,7 +55,9 @@ import org.signal.chat.account.SetRegistrationLockResponse;
 import org.signal.chat.account.SetRegistrationRecoveryPasswordRequest;
 import org.signal.chat.account.SetUsernameLinkRequest;
 import org.signal.chat.account.SetUsernameLinkResponse;
+import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
+import org.signal.chat.errors.FailedPrecondition;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
@@ -173,7 +173,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
 
     //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.PERMISSION_DENIED,
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, "BAD_AUTHENTICATION",
         () -> authenticatedServiceStub().deleteAccount(DeleteAccountRequest.newBuilder().build()));
 
     verify(accountsManager, never()).delete(any(), any());
@@ -217,7 +217,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
 
     //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.PERMISSION_DENIED,
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, "BAD_AUTHENTICATION",
         () -> authenticatedServiceStub().setRegistrationLock(SetRegistrationLockRequest.newBuilder()
             .build()));
 
@@ -242,7 +242,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     getMockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
 
     //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.PERMISSION_DENIED,
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().clearRegistrationLock(ClearRegistrationLockRequest.newBuilder().build()));
 
     verify(accountsManager, never()).updateAsync(any(), any());
@@ -288,9 +288,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
 
     final ReserveUsernameHashResponse expectedResponse = ReserveUsernameHashResponse.newBuilder()
-        .setError(ReserveUsernameHashError.newBuilder()
-            .setErrorType(ReserveUsernameHashErrorType.RESERVE_USERNAME_HASH_ERROR_TYPE_NO_HASHES_AVAILABLE)
-            .build())
+        .setUsernameNotAvailable(UsernameNotAvailable.getDefaultInstance())
         .build();
 
     assertEquals(expectedResponse,
@@ -379,8 +377,10 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         });
 
     final ConfirmUsernameHashResponse expectedResponse = ConfirmUsernameHashResponse.newBuilder()
-        .setUsernameHash(ByteString.copyFrom(usernameHash))
-        .setUsernameLinkHandle(UUIDUtil.toByteString(linkHandle))
+        .setConfirmedUsernameHash(ConfirmUsernameHashResponse.ConfirmedUsernameHash.newBuilder()
+            .setUsernameHash(ByteString.copyFrom(usernameHash))
+            .setUsernameLinkHandle(UUIDUtil.toByteString(linkHandle))
+            .build())
         .build();
 
     assertEquals(expectedResponse,
@@ -393,7 +393,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @ParameterizedTest
   @MethodSource
-  void confirmUsernameHashConfirmationException(final Exception confirmationException, final Status expectedStatus) {
+  void confirmUsernameHashConfirmationException(final Exception confirmationException, final ConfirmUsernameHashResponse expectedResponse) {
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     final byte[] usernameCiphertext = TestRandomUtil.nextBytes(32);
@@ -408,19 +408,26 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.confirmReservedUsernameHash(any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(confirmationException));
 
-    //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(expectedStatus,
-        () -> authenticatedServiceStub().confirmUsernameHash(ConfirmUsernameHashRequest.newBuilder()
+    final ConfirmUsernameHashResponse actualResponse = authenticatedServiceStub()
+        .confirmUsernameHash(ConfirmUsernameHashRequest.newBuilder()
             .setUsernameHash(ByteString.copyFrom(usernameHash))
             .setUsernameCiphertext(ByteString.copyFrom(usernameCiphertext))
             .setZkProof(ByteString.copyFrom(zkProof))
-            .build()));
+            .build());
+
+    assertEquals(expectedResponse, actualResponse);
   }
 
   private static Stream<Arguments> confirmUsernameHashConfirmationException() {
     return Stream.of(
-        Arguments.of(new UsernameHashNotAvailableException(), Status.NOT_FOUND),
-        Arguments.of(new UsernameReservationNotFoundException(), Status.FAILED_PRECONDITION)
+        Arguments.of( new UsernameHashNotAvailableException(),
+            ConfirmUsernameHashResponse.newBuilder()
+                .setUsernameNotAvailable(UsernameNotAvailable.getDefaultInstance())
+                .build()),
+        Arguments.of(new UsernameReservationNotFoundException(),
+            ConfirmUsernameHashResponse.newBuilder()
+                .setReservationNotFound(FailedPrecondition.getDefaultInstance())
+                .build())
     );
   }
 
@@ -546,9 +553,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final byte[] usernameCiphertext = TestRandomUtil.nextBytes(EncryptedUsername.MAX_SIZE);
 
-    //noinspection ResultOfMethodCallIgnored
-    GrpcTestUtils.assertStatusException(Status.FAILED_PRECONDITION,
-        () -> authenticatedServiceStub().setUsernameLink(SetUsernameLinkRequest.newBuilder()
+    assertEquals(
+        SetUsernameLinkResponse.newBuilder()
+            .setNoUsernameSet(FailedPrecondition.getDefaultInstance())
+            .build(),
+        authenticatedServiceStub().setUsernameLink(SetUsernameLinkRequest.newBuilder()
             .setUsernameCiphertext(ByteString.copyFrom(usernameCiphertext))
             .build()));
   }

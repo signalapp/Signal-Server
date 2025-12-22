@@ -14,6 +14,7 @@ import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import java.util.Optional;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.grpc.GrpcExceptions;
 import org.whispersystems.textsecuregcm.grpc.ServerInterceptorUtil;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
@@ -40,21 +41,21 @@ public class RequireAuthenticationInterceptor implements ServerInterceptor {
         Metadata.Key.of(AUTHORIZATION_HEADER, Metadata.ASCII_STRING_MARSHALLER));
 
     if (authHeaderString == null) {
-      return ServerInterceptorUtil.closeWithStatus(call,
-          Status.UNAUTHENTICATED.withDescription("missing authorization header"));
+      return ServerInterceptorUtil.closeWithStatusException(call,
+          GrpcExceptions.invalidCredentials("missing authorization header"));
     }
 
     final Optional<BasicCredentials> basicCredentials = HeaderUtils.basicCredentialsFromAuthHeader(authHeaderString);
     if (basicCredentials.isEmpty()) {
-      return ServerInterceptorUtil.closeWithStatus(call,
-          Status.UNAUTHENTICATED.withDescription("malformed authorization header"));
+      return ServerInterceptorUtil.closeWithStatusException(call,
+          GrpcExceptions.invalidCredentials("malformed authorization header"));
     }
 
     final Optional<org.whispersystems.textsecuregcm.auth.AuthenticatedDevice> authenticated =
         authenticator.authenticate(basicCredentials.get());
     if (authenticated.isEmpty()) {
-      return ServerInterceptorUtil.closeWithStatus(call,
-          Status.UNAUTHENTICATED.withDescription("invalid credentials"));
+      return ServerInterceptorUtil.closeWithStatusException(call,
+          GrpcExceptions.invalidCredentials("invalid credentials"));
     }
 
     final AuthenticatedDevice authenticatedDevice = new AuthenticatedDevice(

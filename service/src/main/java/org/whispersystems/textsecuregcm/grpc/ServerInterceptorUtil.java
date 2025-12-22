@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 
 public class ServerInterceptorUtil {
 
@@ -36,4 +37,23 @@ public class ServerInterceptorUtil {
     //noinspection unchecked
     return NO_OP_LISTENER;
   }
+
+  /**
+   * Closes the given server call with the status and metadata from the provided exception, returning a no-op listener.
+   *
+   * @param call the server call to close
+   * @param exception the {@link StatusRuntimeException} with which to close the call
+   *
+   * @return a no-op server call listener
+   *
+   * @param <ReqT> the type of request object handled by the server call
+   * @param <RespT> the type of response object returned by the server call
+   */
+  public static <ReqT, RespT> ServerCall.Listener<ReqT> closeWithStatusException(final ServerCall<ReqT, RespT> call, final StatusRuntimeException exception) {
+    call.close(exception.getStatus(), exception.getTrailers());
+
+    //noinspection unchecked
+    return NO_OP_LISTENER;
+  }
+
 }

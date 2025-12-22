@@ -6,26 +6,50 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.grpc.*;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
+import com.google.rpc.ErrorInfo;
+import io.grpc.ForwardingServerCall;
+import io.grpc.ForwardingServerCallListener;
+import io.grpc.Metadata;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
+import io.grpc.Status;
+import io.grpc.protobuf.StatusProto;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Stream;
+import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
 
 public class MetricServerInterceptor implements ServerInterceptor {
+
+  private static final Logger log = LoggerFactory.getLogger(MetricServerInterceptor.class);
 
   private static final String TAG_SERVICE_NAME = "grpcService";
   private static final String TAG_METHOD_NAME = "method";
   private static final String TAG_METHOD_TYPE = "methodType";
   private static final String TAG_STATUS_CODE = "statusCode";
+  private static final String TAG_REASON = "reason";
+
+  @VisibleForTesting
+  static final String DEFAULT_SUCCESS_REASON = "success";
+  @VisibleForTesting
+  static final String DEFAULT_ERROR_REASON = "n/a";
 
   @VisibleForTesting
   static final String REQUEST_MESSAGE_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "requestMessage");
@@ -77,6 +101,7 @@ public class MetricServerInterceptor implements ServerInterceptor {
 
     private final Counter responseMessageCounter;
     private final Tags tags;
+    private @Nullable String reason = null;
 
     MetricServerCall(final ServerCall<ReqT, RespT> delegate, final Tags tags) {
       super(delegate);
@@ -86,14 +111,58 @@ public class MetricServerInterceptor implements ServerInterceptor {
 
     @Override
     public void close(final Status status, final Metadata responseHeaders) {
-      meterRegistry.counter(RPC_COUNTER_NAME, tags.and(TAG_STATUS_CODE, status.getCode().name())).increment();
+      if (!status.isOk()) {
+        reason = errorInfo(StatusProto.fromStatusAndTrailers(status, responseHeaders))
+            .map(ErrorInfo::getReason)
+            .orElse(DEFAULT_ERROR_REASON);
+      }
+      Tags responseTags = tags.and(Tag.of(TAG_STATUS_CODE, status.getCode().name()));
+      if (reason != null) {
+        responseTags = responseTags.and(TAG_REASON, reason);
+      }
+      meterRegistry.counter(RPC_COUNTER_NAME, responseTags).increment();
       super.close(status, responseHeaders);
     }
 
     @Override
     public void sendMessage(final RespT responseMessage) {
       this.responseMessageCounter.increment();
+      // Extract the annotated reason (if any) from the message
+      final String messageReason = MetricServerCall.reason(responseMessage);
+
+      // If there are multiple messages sent on this RPC (server-side streaming), just use the most recent reason
+      this.reason = messageReason == null ? DEFAULT_SUCCESS_REASON : messageReason;
+
       super.sendMessage(responseMessage);
+    }
+
+    @Nullable
+    private static String reason(final Object obj) {
+      if (!(obj instanceof Message msg)) {
+        return null;
+      }
+      // iterate through all fields on the message
+      for (Map.Entry<Descriptors.FieldDescriptor, Object> field : msg.getAllFields().entrySet()) {
+        // iterate through all options on the field
+        for (Map.Entry<Descriptors.FieldDescriptor, Object> option : field.getKey().getOptions().getAllFields().entrySet()) {
+          if (option.getKey().getFullName().equals("org.signal.chat.tag.reason")) {
+            if (!(option.getValue() instanceof String s)) {
+              log.error("Invalid value for option tag.reason {}", option.getValue());
+              continue;
+            }
+            // return the first tag we see
+            return s;
+          }
+        }
+
+        // No reason on this field. Recursively check subfields of this field for a reason
+        final String subReason = reason(field.getValue());
+        if (subReason != null) {
+          return subReason;
+        }
+      }
+      // No field or subfield contained an annotated reason
+      return null;
     }
   }
 
@@ -130,5 +199,18 @@ public class MetricServerInterceptor implements ServerInterceptor {
       this.sample.stop(responseTimer);
       super.onCancel();
     }
+  }
+
+  private static Optional<ErrorInfo> errorInfo(final com.google.rpc.Status statusProto) {
+    return statusProto.getDetailsList().stream()
+        .filter(any -> any.is(ErrorInfo.class))
+        .map(errorInfo -> {
+          try {
+            return errorInfo.unpack(ErrorInfo.class);
+          } catch (final InvalidProtocolBufferException e) {
+            throw new UncheckedIOException(e);
+          }
+        })
+        .findFirst();
   }
 }

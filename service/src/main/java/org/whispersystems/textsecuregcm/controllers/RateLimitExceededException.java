@@ -4,27 +4,14 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import io.grpc.Metadata;
-import io.grpc.Status;
 import java.time.Duration;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import io.grpc.StatusRuntimeException;
 import org.whispersystems.textsecuregcm.grpc.ConvertibleToGrpcStatus;
+import org.whispersystems.textsecuregcm.grpc.GrpcExceptions;
 
 public class RateLimitExceededException extends Exception implements ConvertibleToGrpcStatus {
-
-  public static final Metadata.Key<Duration> RETRY_AFTER_DURATION_KEY =
-      Metadata.Key.of("retry-after", new Metadata.AsciiMarshaller<>() {
-        @Override
-        public String toAsciiString(final Duration value) {
-          return value.toString();
-        }
-
-        @Override
-        public Duration parseAsciiString(final String serialized) {
-          return Duration.parse(serialized);
-        }
-      });
 
   @Nullable
   private final Duration retryDuration;
@@ -44,17 +31,7 @@ public class RateLimitExceededException extends Exception implements Convertible
   }
 
   @Override
-  public Status grpcStatus() {
-    return Status.RESOURCE_EXHAUSTED;
-  }
-
-  @Override
-  public Optional<Metadata> grpcMetadata() {
-    return getRetryDuration()
-        .map(duration -> {
-          final Metadata metadata = new Metadata();
-          metadata.put(RETRY_AFTER_DURATION_KEY, duration);
-          return metadata;
-        });
+  public StatusRuntimeException toStatusRuntimeException() {
+    return GrpcExceptions.rateLimitExceeded(retryDuration);
   }
 }
