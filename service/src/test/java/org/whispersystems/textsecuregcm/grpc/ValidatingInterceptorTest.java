@@ -32,9 +32,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.chat.require.Auth;
 import org.signal.chat.rpc.Color;
+import org.signal.chat.rpc.NestedMessage;
 import org.signal.chat.rpc.ReactorAnonymousServiceGrpc;
 import org.signal.chat.rpc.ReactorAuthServiceGrpc;
 import org.signal.chat.rpc.ReactorValidationTestServiceGrpc;
+import org.signal.chat.rpc.RecursiveMessage;
 import org.signal.chat.rpc.ValidationTestServiceGrpc;
 import org.signal.chat.rpc.ValidationsRequest;
 import org.signal.chat.rpc.ValidationsResponse;
@@ -374,6 +376,37 @@ public class ValidatingInterceptorTest {
     stub.validationsEndpoint(builderWithValidDefaults().build());
   }
 
+  @Test
+  public void testFailedValidationOnNestedMessage() {
+    assertStatusException(Status.INVALID_ARGUMENT, () ->
+        stub.validationsEndpoint(builderWithValidDefaults().setNested(NestedMessage.newBuilder().setI32(101)).build()));
+
+    assertStatusException(Status.INVALID_ARGUMENT, () ->
+        stub.validationsEndpoint(builderWithValidDefaults()
+            .clearRepeatedNested()
+            .addRepeatedNested(NestedMessage.newBuilder().setI32(101)).build()));
+
+    assertStatusException(Status.INVALID_ARGUMENT, () ->
+        stub.validationsEndpoint(builderWithValidDefaults()
+            .clearMapNested()
+            .putMapNested("foo", NestedMessage.newBuilder().setI32(101).build()).build()));
+  }
+
+  @Test
+  public void deeplyNestedValidation() throws Exception {
+    // The default proto nesting limit (what we use in gRPC) is 100. Make sure we can handle twice that amount of nesting
+    int numNestedMessages = 100 * 2;
+    RecursiveMessage.Builder curr = RecursiveMessage.newBuilder().setI32(101);
+    for (int i = 0; i < numNestedMessages; i++) {
+      final RecursiveMessage.Builder pred = RecursiveMessage.newBuilder();
+      pred.setNext(curr);
+      curr = pred;
+    }
+    final RecursiveMessage recursiveMessage = curr.build();
+    assertStatusException(Status.INVALID_ARGUMENT, () ->
+        stub.validationsEndpoint(builderWithValidDefaults().setRecursiveMessage(recursiveMessage).build()));
+  }
+
   @Nonnull
   private static ValidationsRequest.Builder builderWithValidDefaults() {
     return ValidationsRequest.newBuilder()
@@ -398,7 +431,10 @@ public class ValidatingInterceptorTest {
         .setRangeSizeBytes(ByteString.copyFrom(new byte[3]))
         .addAllFixedSizeList(List.of("a", "b", "c", "d", "e"))
         .addAllRangeSizeList(List.of("a", "b", "c", "d", "e"))
-        .setI32Range(15);
+        .setI32Range(15)
+        .setNested(NestedMessage.getDefaultInstance())
+        .addRepeatedNested(NestedMessage.getDefaultInstance())
+        .putMapNested("test", NestedMessage.getDefaultInstance());
   }
 
   private static void assertStatusException(final Status expected, final Executable serviceCall) {

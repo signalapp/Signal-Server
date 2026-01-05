@@ -15,6 +15,7 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.StatusException;
+import java.util.List;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.grpc.validators.E164FieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.EnumSpecifiedFieldValidator;
@@ -81,11 +82,27 @@ public class ValidatingInterceptor implements ServerInterceptor {
           for (final Map.Entry<Descriptors.FieldDescriptor, Object> entry: fd.getOptions().getAllFields().entrySet()) {
             final Descriptors.FieldDescriptor extensionFieldDescriptor = entry.getKey();
             final String extensionName = extensionFieldDescriptor.getFullName();
+
+            // first validate the field
             final FieldValidator validator = fieldValidators.get(extensionName);
             // not all extensions are validators, so `validator` value here could legitimately be `null`
             if (validator != null) {
               validator.validate(entry.getValue(), fd, msg);
             }
+          }
+
+          // Recursively validate the field's value(s) if it is a message or a repeated field
+          // gRPC's proto deserialization limits nesting to 100 so this has bounded stack usage
+          if (fd.isRepeated() && msg.getField(fd) instanceof List list) {
+            // Checking for repeated fields also handles maps, because maps are syntax sugar for repeated MapEntries
+            // which themselves are Messages that will be recursively descended.
+            for (final Object o : list) {
+              validateMessage(o);
+            }
+          } else if (fd.hasPresence() && msg.hasField(fd)) {
+            // If the field has presence information and is present, recursively validate it. Not all fields have
+            // presence, but we only validate Message type fields anyway, which always have explicit presence.
+            validateMessage(msg.getField(fd));
           }
         }
       } catch (final StatusException e) {

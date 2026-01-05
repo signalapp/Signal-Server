@@ -408,7 +408,7 @@ message CopyMediaItem {
   /**
    * The attachment cdn of the object to copy into the backup
    */
-  int32 source_attachment_cdn = 1 [(require.present) = true];
+  int32 source_attachment_cdn = 1 [(require.range).min = 1, (require.range).max = 3];
 
   /**
    * The attachment key of the object to copy into the backup

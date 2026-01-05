@@ -66,6 +66,21 @@ message ValidationsRequest {
   message RequirePresentMessage {}
   RequirePresentMessage presentMessage = 25 [(require.present) = true];
   optional RequirePresentMessage optionalPresentMessage = 26 [(require.present) = true];
+
+  NestedMessage nested = 27;
+  repeated NestedMessage repeatedNested = 28;
+  map<string, NestedMessage> mapNested = 29;
+
+  RecursiveMessage recursiveMessage = 30;
+}
+
+message NestedMessage {
+  int32 i32 = 1 [(require.range).max = 100];
+}
+
+message RecursiveMessage {
+  RecursiveMessage next = 1;
+  int32 i32 = 2 [(require.range).max = 100];
 }
 
 message MessageWithInvalidRangeConstraint {
