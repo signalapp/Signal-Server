@@ -67,8 +67,7 @@
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
     <kotlin.version>2.2.20</kotlin.version>
-    <!-- Logback 1.5.14+ has a null pointer bug: https://github.com/qos-ch/logback/issues/929. -->
-    <logback.version>1.5.13</logback.version>
+    <logback.version>1.5.23</logback.version>
     <logback-access-common.version>2.0.6</logback-access-common.version>
     <lettuce.version>6.8.1.RELEASE</lettuce.version>
     <libphonenumber.version>9.0.13</libphonenumber.version>
