@@ -28,6 +28,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import io.micrometer.core.instrument.Tags;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
@@ -122,14 +123,14 @@ public class AppleAppStoreClient {
     }
   }
 
-  public StatusResponse getAllSubscriptions(final String originalTransactionId)
+  public StatusResponse getAllSubscriptions(final String originalTransactionId, final Tags errorTags)
       throws SubscriptionNotFoundException, SubscriptionInvalidArgumentsException, RateLimitExceededException {
     try {
       return retry.executeCallable(() -> {
         try {
           return getAllSubscriptionsHelper(defaultEnvironment, originalTransactionId);
         } catch (final APIException e) {
-          Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, "reason", e.getApiError().name()).increment();
+          Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, errorTags.and("reason", e.getApiError().name())).increment();
           throw switch (e.getApiError()) {
             case TRANSACTION_ID_NOT_FOUND, ORIGINAL_TRANSACTION_ID_NOT_FOUND -> new SubscriptionNotFoundException();
             case RATE_LIMIT_EXCEEDED -> new RateLimitExceededException(null);

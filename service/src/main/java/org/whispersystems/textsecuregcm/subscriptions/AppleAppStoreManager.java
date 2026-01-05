@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -31,6 +32,8 @@ import org.whispersystems.textsecuregcm.storage.PaymentTime;
 public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
 
   private static final Logger logger = LoggerFactory.getLogger(AppleAppStoreManager.class);
+
+  private static final String LOOKUP_TYPE_TAG = "lookup_type";
 
   private final AppleAppStoreClient appleAppStoreClient;
   private final Map<String, Long> productIdToLevel;
@@ -63,7 +66,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
    */
   public Long validateTransaction(final String originalTransactionId)
       throws SubscriptionInvalidArgumentsException, RateLimitExceededException, SubscriptionNotFoundException, SubscriptionPaymentRequiredException {
-    final AppleAppStoreDecodedTransaction tx = lookupAndValidateTransaction(originalTransactionId);
+    final AppleAppStoreDecodedTransaction tx = lookupAndValidateTransaction(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "validate"));
     if (!isSubscriptionActive(tx)) {
       throw new SubscriptionPaymentRequiredException();
     }
@@ -87,7 +90,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
   public void cancelAllActiveSubscriptions(String originalTransactionId)
       throws SubscriptionInvalidArgumentsException, RateLimitExceededException {
     try {
-      final AppleAppStoreDecodedTransaction tx = lookup(originalTransactionId);
+      final AppleAppStoreDecodedTransaction tx = lookup(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "cancel"));
       if (tx.signedTransaction().getStatus() != Status.EXPIRED &&
           tx.signedTransaction().getStatus() != Status.REVOKED &&
           tx.renewalInfo().getAutoRenewStatus() != AutoRenewStatus.OFF) {
@@ -102,7 +105,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
   @Override
   public SubscriptionInformation getSubscriptionInformation(final String originalTransactionId)
       throws RateLimitExceededException, SubscriptionNotFoundException {
-    final AppleAppStoreDecodedTransaction tx = lookup(originalTransactionId);
+    final AppleAppStoreDecodedTransaction tx = lookup(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "info"));
     final SubscriptionStatus status = switch (tx.signedTransaction().getStatus()) {
       case ACTIVE -> SubscriptionStatus.ACTIVE;
       case BILLING_RETRY -> SubscriptionStatus.PAST_DUE;
@@ -128,7 +131,7 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
   @Override
   public ReceiptItem getReceiptItem(String originalTransactionId)
       throws RateLimitExceededException, SubscriptionNotFoundException, SubscriptionPaymentRequiredException {
-    final AppleAppStoreDecodedTransaction tx = lookup(originalTransactionId);
+    final AppleAppStoreDecodedTransaction tx = lookup(originalTransactionId, Tags.of(LOOKUP_TYPE_TAG, "receipt"));
     if (!isSubscriptionActive(tx)) {
       throw new SubscriptionPaymentRequiredException();
     }
@@ -143,19 +146,19 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
 
   }
 
-  private AppleAppStoreDecodedTransaction lookup(final String originalTransactionId)
+  private AppleAppStoreDecodedTransaction lookup(final String originalTransactionId, final Tags tags)
       throws RateLimitExceededException, SubscriptionNotFoundException {
     try {
-      return lookupAndValidateTransaction(originalTransactionId);
+      return lookupAndValidateTransaction(originalTransactionId, tags);
     } catch (SubscriptionInvalidArgumentsException e) {
       // Shouldn't happen because we previously validated this transactionId before storing it
       throw new UncheckedIOException(new IOException(e));
     }
   }
 
-  private AppleAppStoreDecodedTransaction lookupAndValidateTransaction(final String originalTransactionId)
+  private AppleAppStoreDecodedTransaction lookupAndValidateTransaction(final String originalTransactionId, final Tags errorTags)
       throws SubscriptionInvalidArgumentsException, RateLimitExceededException, SubscriptionNotFoundException {
-    final StatusResponse statuses = appleAppStoreClient.getAllSubscriptions(originalTransactionId);
+    final StatusResponse statuses = appleAppStoreClient.getAllSubscriptions(originalTransactionId, errorTags);
     final SubscriptionGroupIdentifierItem item = statuses.getData().stream()
         .filter(s -> subscriptionGroupId.equals(s.getSubscriptionGroupIdentifier())).findFirst()
         .orElseThrow(() -> new SubscriptionInvalidArgumentsException("transaction did not contain a backup subscription", null));

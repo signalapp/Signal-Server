@@ -26,6 +26,7 @@ import com.apple.itunes.storekit.verification.SignedDataVerifier;
 import com.apple.itunes.storekit.verification.VerificationException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import io.micrometer.core.instrument.Tags;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -58,7 +59,7 @@ class AppleAppStoreClientTest {
     when(productionClient.getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{}))
         .thenThrow(new APIException(404, error, "test"));
 
-    assertThatException().isThrownBy(() -> apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID));
+    assertThatException().isThrownBy(() -> apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID, Tags.empty()));
     verifyNoInteractions(sandboxClient);
   }
 
@@ -71,7 +72,7 @@ class AppleAppStoreClientTest {
     when(sandboxClient.getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{}))
         .thenReturn(new StatusResponse().environment(Environment.SANDBOX));
 
-    final StatusResponse allSubscriptions = apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID);
+    final StatusResponse allSubscriptions = apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID, Tags.empty());
 
     assertThat(allSubscriptions.getEnvironment()).isEqualTo(Environment.SANDBOX);
     verify(productionClient).getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{});
@@ -86,7 +87,7 @@ class AppleAppStoreClientTest {
         .thenThrow(new APIException(404, APIError.ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE.errorCode(), "test"))
         .thenThrow(new APIException(404, APIError.ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE.errorCode(), "test"))
         .thenReturn(new StatusResponse().environment(Environment.PRODUCTION));
-    final StatusResponse statusResponse = apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID);
+    final StatusResponse statusResponse = apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID, Tags.empty());
     assertThat(statusResponse.getEnvironment()).isEqualTo(Environment.PRODUCTION);
     verifyNoInteractions(sandboxClient);
   }
@@ -97,7 +98,7 @@ class AppleAppStoreClientTest {
     when(productionClient.getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{}))
         .thenThrow(new APIException(404, APIError.ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE.errorCode(), "test"));
     assertThatException()
-        .isThrownBy(() -> apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID))
+        .isThrownBy(() -> apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID, Tags.empty()))
         .isInstanceOf(UncheckedIOException.class)
         .withRootCauseInstanceOf(APIException.class);
 
@@ -116,7 +117,7 @@ class AppleAppStoreClientTest {
         .thenThrow(new APIException(404, APIError.ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE.errorCode(), "test"))
         .thenReturn(new StatusResponse().environment(Environment.SANDBOX));
 
-    final StatusResponse statusResponse = apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID);
+    final StatusResponse statusResponse = apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID, Tags.empty());
     assertThat(statusResponse.getEnvironment()).isEqualTo(Environment.SANDBOX);
 
     verify(productionClient, times(3))
