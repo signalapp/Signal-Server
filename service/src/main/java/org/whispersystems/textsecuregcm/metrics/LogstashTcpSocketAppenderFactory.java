@@ -27,7 +27,6 @@ import java.time.Duration;
 import java.util.Optional;
 import net.logstash.logback.appender.LogstashTcpSocketAppender;
 import net.logstash.logback.encoder.LogstashEncoder;
-import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 import org.whispersystems.textsecuregcm.util.HostnameUtil;
 
@@ -97,8 +96,6 @@ public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<IL
     final ObjectNode customFieldsNode = new ObjectNode(JsonNodeFactory.instance);
     customFieldsNode.set("host", TextNode.valueOf(HostnameUtil.getLocalHostname()));
     customFieldsNode.set("service", TextNode.valueOf("chat"));
-    customFieldsNode.set("ddsource", TextNode.valueOf("logstash"));
-    customFieldsNode.set("ddtags", TextNode.valueOf("env:" + environment + ",version:" + WhisperServerVersion.getServerVersion()));
 
     encoder.setCustomFields(customFieldsNode.toString());
     final LayoutWrappingEncoder<ILoggingEvent> prefix = new LayoutWrappingEncoder<>();
