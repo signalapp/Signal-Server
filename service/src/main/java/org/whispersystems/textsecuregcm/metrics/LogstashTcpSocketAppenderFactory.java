@@ -101,6 +101,7 @@ public class LogstashTcpSocketAppenderFactory extends AbstractAppenderFactory<IL
     final LayoutWrappingEncoder<ILoggingEvent> prefix = new LayoutWrappingEncoder<>();
     final PatternLayout layout = new PatternLayout();
     layout.setPattern(String.format("%s ", apiKey.value()));
+    layout.setContext(context);
     prefix.setLayout(layout);
     encoder.setPrefix(prefix);
     appender.setEncoder(encoder);
