@@ -135,7 +135,6 @@ public class MetricsUtil {
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     final DistributionStatisticConfig defaultDistributionStatisticConfig = DistributionStatisticConfig.builder()
         .percentilesHistogram(true)
-        .percentiles(.75, .95, .99, .999)
         .build();
 
     final String awsSdkMetricNamePrefix = MetricsUtil.name(MicrometerAwsSdkMetricPublisher.class);
