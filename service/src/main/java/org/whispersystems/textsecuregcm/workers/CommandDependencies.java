@@ -326,7 +326,7 @@ public record CommandDependencies(
     final ServerSecretParams zkSecretParams = new ServerSecretParams(configuration.getZkConfig().serverSecret().value());
     final ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);
     GooglePlayBillingManager googlePlayBillingManager = new GooglePlayBillingManager(
-        new ByteArrayInputStream(configuration.getGooglePlayBilling().credentialsJson().value().getBytes(StandardCharsets.UTF_8)),
+        new ByteArrayInputStream(configuration.getGooglePlayBilling().credentialsJson().getBytes(StandardCharsets.UTF_8)),
         configuration.getGooglePlayBilling().packageName(),
         configuration.getGooglePlayBilling().applicationName(),
         configuration.getGooglePlayBilling().productIdToLevel());

@@ -18,7 +18,7 @@ import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
  *                         signal subscription level
  */
 public record GooglePlayBillingConfiguration(
-    @NotNull SecretString credentialsJson,
+    @NotBlank String credentialsJson,
     @NotNull String packageName,
     @NotBlank String applicationName,
     @NotNull Map<String, Long> productIdToLevel) {}

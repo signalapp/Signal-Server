@@ -768,7 +768,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getBraintree().graphqlUrl(), currencyManager, config.getBraintree().pubSubPublisher().build(),
         config.getBraintree().circuitBreakerConfigurationName(), subscriptionProcessorExecutor);
     GooglePlayBillingManager googlePlayBillingManager = new GooglePlayBillingManager(
-        new ByteArrayInputStream(config.getGooglePlayBilling().credentialsJson().value().getBytes(StandardCharsets.UTF_8)),
+        new ByteArrayInputStream(config.getGooglePlayBilling().credentialsJson().getBytes(StandardCharsets.UTF_8)),
         config.getGooglePlayBilling().packageName(),
         config.getGooglePlayBilling().applicationName(),
         config.getGooglePlayBilling().productIdToLevel());

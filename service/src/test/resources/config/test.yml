@@ -46,7 +46,16 @@ braintree:
     type: stub
 
 googlePlayBilling:
-  credentialsJson: secret://googlePlayBilling.credentialsJson
+  credentialsJson: |
+    {
+      "type": "external_account",
+      "credential_source": {
+        "file": "/tmp/my-token"
+      },
+      "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+      "audience": "//iam.googleapis.com/abc",
+      "token_url": "https://sts.googleapis.com/v1/token"
+    }
   packageName: package.name
   applicationName: test
   productIdToLevel: {}

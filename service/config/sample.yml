@@ -48,7 +48,10 @@ braintree:
       }
 
 googlePlayBilling:
-  credentialsJson: secret://googlePlayBilling.credentialsJson
+  credentialsJson: |
+    {
+      "credential": "configuration"
+    }
   packageName: package.name
   applicationName: test
   productIdToLevel: {}
