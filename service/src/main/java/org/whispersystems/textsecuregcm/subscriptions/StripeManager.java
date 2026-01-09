@@ -551,7 +551,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
     if (subscription.getLatestInvoiceObject() != null) {
       final Invoice invoice = subscription.getLatestInvoiceObject();
-      paymentProcessing = "open".equals(invoice.getStatus());
+      paymentProcessing = "open".equalsIgnoreCase(invoice.getStatus()) || "draft".equalsIgnoreCase(invoice.getStatus());
 
       final Optional<InvoicePayment> latestInvoicePayment = getMostRecentInvoicePayment(invoice);
 
@@ -618,7 +618,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     if (latestSubscriptionInvoice == null) {
       throw new SubscriptionReceiptRequestedForOpenPaymentException();
     }
-    if ("open".equalsIgnoreCase(latestSubscriptionInvoice.getStatus())) {
+    if ("open".equalsIgnoreCase(latestSubscriptionInvoice.getStatus()) || "draft".equalsIgnoreCase(latestSubscriptionInvoice.getStatus())) {
       throw new SubscriptionReceiptRequestedForOpenPaymentException();
     }
     if (!"paid".equalsIgnoreCase(latestSubscriptionInvoice.getStatus())) {

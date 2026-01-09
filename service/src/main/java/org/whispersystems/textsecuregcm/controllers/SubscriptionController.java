@@ -59,7 +59,6 @@ import javax.annotation.Nullable;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationCurrencyConfiguration;
@@ -74,7 +73,6 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
@@ -88,6 +86,7 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidLevelException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiresActionException;
@@ -733,9 +732,9 @@ public class SubscriptionController {
       Clients MUST validate that the generated receipt credential's level and expiration matches their expectations.
       """)
   @ApiResponse(responseCode = "200", description = "Successfully created receipt", useReturnTypeSchema = true)
-  @ApiResponse(responseCode = "204", description = "No invoice has been issued for this subscription OR invoice is in 'open' state")
+  @ApiResponse(responseCode = "204", description = "No invoice has been issued for this subscription OR invoice is in 'draft' or 'open' state")
   @ApiResponse(responseCode = "400", description = "Bad ReceiptCredentialRequest")
-  @ApiResponse(responseCode = "402", description = "Invoice is in any state other than 'open' or 'paid'. May include chargeFailure details in body.",
+  @ApiResponse(responseCode = "402", description = "Invoice is in any state other than 'draft', 'open', or 'paid'. May include chargeFailure details in body.",
       content = @Content(schema = @Schema(
           nullable = true,
           example = """
