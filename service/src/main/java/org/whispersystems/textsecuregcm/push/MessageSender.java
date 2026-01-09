@@ -13,8 +13,10 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -31,6 +33,7 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.spam.MessageDeliveryListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -51,6 +54,8 @@ public class MessageSender {
 
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
+
+  private final List<MessageDeliveryListener> messageDeliveryListeners = new ArrayList<>();
 
   // Note that these names deliberately reference `MessageController` for metric continuity
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageSender.class, "rejectOversizeMessage");
@@ -78,6 +83,10 @@ public class MessageSender {
   public MessageSender(final MessagesManager messagesManager, final PushNotificationManager pushNotificationManager) {
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
+  }
+
+  public void addMessageDeliveryListener(final MessageDeliveryListener messageDeliveryListener) {
+    messageDeliveryListeners.add(messageDeliveryListener);
   }
 
   /**
@@ -136,6 +145,16 @@ public class MessageSender {
               .and(platformTag);
 
           Metrics.counter(SEND_COUNTER_NAME, tags).increment();
+
+          messageDeliveryListeners.forEach(messageDeliveryListener ->
+              messageDeliveryListener.handleMessageDelivered(destination,
+                  deviceId,
+                  message.getEphemeral(),
+                  message.getUrgent(),
+                  message.getStory(),
+                  !message.hasSourceServiceId(),
+                  false,
+                  syncMessageSenderDeviceId.isPresent()));
         });
   }
 
@@ -223,6 +242,16 @@ public class MessageSender {
                       .and(platformTag);
 
                   Metrics.counter(SEND_COUNTER_NAME, tags).increment();
+
+                  messageDeliveryListeners.forEach(messageDeliveryListener ->
+                      messageDeliveryListener.handleMessageDelivered(account,
+                          deviceId,
+                          isEphemeral,
+                          isUrgent,
+                          isStory,
+                          true,
+                          true,
+                          false));
                 })))
         .thenRun(Util.NOOP);
   }

@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -47,6 +48,7 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.spam.MessageDeliveryListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -58,14 +60,18 @@ class MessageSenderTest {
 
   private MessagesManager messagesManager;
   private PushNotificationManager pushNotificationManager;
+  private MessageDeliveryListener messageDeliveryListener;
+
   private MessageSender messageSender;
 
   @BeforeEach
   void setUp() {
     messagesManager = mock(MessagesManager.class);
     pushNotificationManager = mock(PushNotificationManager.class);
+    messageDeliveryListener = mock(MessageDeliveryListener.class);
 
     messageSender = new MessageSender(messagesManager, pushNotificationManager);
+    messageSender.addMessageDeliveryListener(messageDeliveryListener);
   }
 
 
@@ -124,6 +130,15 @@ class MessageSenderTest {
     } else {
       verifyNoInteractions(pushNotificationManager);
     }
+
+    verify(messageDeliveryListener).handleMessageDelivered(account,
+        deviceId,
+        ephemeral,
+        urgent,
+        false,
+        true,
+        false,
+        false);
   }
 
   @Test
@@ -156,6 +171,15 @@ class MessageSenderTest {
 
     assertEquals(new MismatchedDevices(Collections.emptySet(), Collections.emptySet(), Set.of(deviceId)),
         mismatchedDevicesException.getMismatchedDevices());
+
+    verify(messageDeliveryListener, never()).handleMessageDelivered(any(),
+        anyByte(),
+        anyBoolean(),
+        anyBoolean(),
+        anyBoolean(),
+        anyBoolean(),
+        anyBoolean(),
+        anyBoolean());
   }
 
   @CartesianTest
@@ -215,6 +239,15 @@ class MessageSenderTest {
     } else {
       verifyNoInteractions(pushNotificationManager);
     }
+
+    verify(messageDeliveryListener).handleMessageDelivered(account,
+        deviceId,
+        ephemeral,
+        urgent,
+        false,
+        true,
+        true,
+        false);
   }
 
   @Test
@@ -259,6 +292,15 @@ class MessageSenderTest {
 
     assertEquals(Map.of(serviceIdentifier, new MismatchedDevices(Collections.emptySet(), Collections.emptySet(), Set.of(deviceId))),
         mismatchedDevicesException.getMismatchedDevicesByServiceIdentifier());
+
+    verify(messageDeliveryListener, never()).handleMessageDelivered(any(),
+        anyByte(),
+        anyBoolean(),
+        anyBoolean(),
+        anyBoolean(),
+        anyBoolean(),
+        anyBoolean(),
+        anyBoolean());
   }
 
   @ParameterizedTest
