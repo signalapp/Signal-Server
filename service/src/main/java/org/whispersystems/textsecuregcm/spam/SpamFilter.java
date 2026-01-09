@@ -47,6 +47,13 @@ public interface SpamFilter extends Managed {
   Collection<ConfiguredCommand<WhisperServerConfiguration>> getCommands();
 
   /**
+   * Returns a message delivery listener controlled by the spam filter.
+   *
+   * @return a message delivery listener controlled by the spam filter
+   */
+  MessageDeliveryListener getMessageDeliveryListener();
+
+  /**
    * Return a reported message listener controlled by the spam filter. Listeners will be registered with the
    * {@link org.whispersystems.textsecuregcm.storage.ReportMessageManager}.
    *
