@@ -3330,12 +3330,12 @@ paths:
           description: Successfully created receipt
         "204":
           description: No invoice has been issued for this subscription OR invoice
-            is in 'open' state
+            is in 'draft' or 'open' state
         "400":
           description: Bad ReceiptCredentialRequest
         "402":
-          description: Invoice is in any state other than 'open' or 'paid'. May include
-            chargeFailure details in body.
+          description: "Invoice is in any state other than 'draft', 'open', or 'paid'.\
+            \ May include chargeFailure details in body."
           content:
             application/json:
               schema:
