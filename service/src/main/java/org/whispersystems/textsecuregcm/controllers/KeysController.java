@@ -49,8 +49,6 @@ import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
 import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.Anonymous;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.GroupSendTokenHeader;
@@ -83,7 +81,6 @@ import reactor.core.publisher.Mono;
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Keys")
 public class KeysController {
 
-  private static final Logger log = LoggerFactory.getLogger(KeysController.class);
   private final RateLimiters rateLimiters;
   private final KeysManager keysManager;
   private final AccountsManager accounts;
