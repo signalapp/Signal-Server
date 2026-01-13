@@ -88,7 +88,7 @@
     <slf4j.version>2.0.17</slf4j.version>
     <stripe.version>30.2.0</stripe.version>
     <swagger.version>2.2.36</swagger.version>
-    <testcontainers.version>1.21.3</testcontainers.version>
+    <testcontainers.version>2.0.3</testcontainers.version>
 
     <!-- images to use in tests via testcontainers  -->
     <dynamodb.image>amazon/dynamodb-local:3.0.0@sha256:2fed5e3a965a4ba5aa6ac82baec57058b5a3848e959d705518f3fd579a77e76b</dynamodb.image>
