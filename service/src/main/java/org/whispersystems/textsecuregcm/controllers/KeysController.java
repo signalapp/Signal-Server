@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -319,6 +320,7 @@ public class KeysController {
   }
 
   @GET
+  @ManagedAsync
   @Path("/{identifier}/{device_id}")
   @Produces(MediaType.APPLICATION_JSON)
   @Operation(summary = "Fetch public keys for another user",
