@@ -1,7 +1,7 @@
 package org.whispersystems.textsecuregcm.auth.grpc;
 
-import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -18,7 +18,6 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import org.junit.Assert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,7 +71,7 @@ class RequireAuthenticationInterceptorTest {
 
     final GetAuthenticatedDeviceResponse authenticatedDevice = client.getAuthenticatedDevice(
         GetAuthenticatedDeviceRequest.getDefaultInstance());
-    assertEquals(authenticatedDevice.getDeviceId(), deviceId);
+    assertEquals(deviceId, authenticatedDevice.getDeviceId());
     assertEquals(UUIDUtil.fromByteString(authenticatedDevice.getAccountIdentifier()), aci);
   }
 
@@ -86,7 +85,7 @@ class RequireAuthenticationInterceptorTest {
 
     final StatusRuntimeException e = assertThrows(StatusRuntimeException.class,
         () -> client.getRequestAttributes(GetRequestAttributesRequest.getDefaultInstance()));
-    Assert.assertEquals(e.getStatus().getCode(), Status.Code.UNAUTHENTICATED);
+    assertEquals(Status.Code.UNAUTHENTICATED, e.getStatus().getCode());
   }
 
   @Test
@@ -97,6 +96,6 @@ class RequireAuthenticationInterceptorTest {
 
     final StatusRuntimeException e = assertThrows(StatusRuntimeException.class,
         () -> client.getRequestAttributes(GetRequestAttributesRequest.getDefaultInstance()));
-    Assert.assertEquals(e.getStatus().getCode(), Status.Code.UNAUTHENTICATED);
+    assertEquals(Status.Code.UNAUTHENTICATED, e.getStatus().getCode());
   }
 }

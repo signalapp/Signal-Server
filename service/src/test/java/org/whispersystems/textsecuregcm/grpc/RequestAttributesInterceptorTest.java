@@ -4,9 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.grpc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import io.grpc.ManagedChannel;
 import io.grpc.Metadata;
 import io.grpc.Server;
@@ -30,9 +27,12 @@ import org.signal.chat.rpc.GetRequestAttributesRequest;
 import org.signal.chat.rpc.GetRequestAttributesResponse;
 import org.signal.chat.rpc.RequestAttributesGrpc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class RequestAttributesInterceptorTest {
 
-  private static String USER_AGENT = "Signal-Android/4.53.7 (Android 8.1; libsignal)";
+  private static final String USER_AGENT = "Signal-Android/4.53.7 (Android 8.1; libsignal)";
   private Server server;
   private AtomicBoolean removeUserAgent;
 

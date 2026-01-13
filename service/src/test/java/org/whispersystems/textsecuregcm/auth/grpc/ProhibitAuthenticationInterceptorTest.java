@@ -15,9 +15,9 @@ import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
 
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ProhibitAuthenticationInterceptorTest  {
   private Server server;
@@ -53,7 +53,7 @@ class ProhibitAuthenticationInterceptorTest  {
 
     final StatusRuntimeException e = assertThrows(StatusRuntimeException.class,
         () -> client.echo(EchoRequest.getDefaultInstance()));
-    assertEquals(e.getStatus().getCode(), Status.Code.UNAUTHENTICATED);
+    assertEquals(Status.Code.UNAUTHENTICATED, e.getStatus().getCode());
   }
 
   @Test

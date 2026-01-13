@@ -4,9 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
-
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
@@ -16,6 +13,9 @@ import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class KEMPreKeyPageTest {
 
@@ -27,7 +27,7 @@ class KEMPreKeyPageTest {
     final int actualMagic = page.getInt();
     assertEquals(KEMPreKeyPage.HEADER_MAGIC, actualMagic);
     final int version = page.getInt();
-    assertEquals(version, 1);
+    assertEquals(1, version);
     assertEquals(KEMPreKeyPage.SERIALIZED_PREKEY_LENGTH, page.remaining());
   }
 
