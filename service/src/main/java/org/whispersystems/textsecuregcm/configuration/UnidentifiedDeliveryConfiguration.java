@@ -14,7 +14,8 @@ import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public record UnidentifiedDeliveryConfiguration(@NotNull @NotEmpty  byte[] certificate,
                                                 @ExactlySize(32) SecretBytes privateKey,
-                                                int expiresDays) {
+                                                int expiresDays,
+                                                boolean embedSigner) {
   public ECPrivateKey ecPrivateKey() throws InvalidKeyException {
     return new ECPrivateKey(privateKey.value());
   }

@@ -285,6 +285,7 @@ unidentifiedDelivery:
   certificate: CikI14bfmgcSIQWEfA0sN1I082XmYJVRh6NzWg92E9FgnTpqTYxTrqpaIhJA4LnrrN/Dqign95JLaXeE0cJeRMoF3UM+GjjcY4LrJzDUGcqaJQsb6dWpRj5h79Z4F3epG4PJe4RNAUIG4oKXhQ==
   privateKey: secret://unidentifiedDelivery.privateKey
   expiresDays: 7
+  embedSigner: true
 
 shortCode:
   baseUrl: https://example.com/shortcodes/

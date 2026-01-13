@@ -276,6 +276,7 @@ unidentifiedDelivery:
   certificate: CgIIAQ==
   privateKey: secret://unidentifiedDelivery.privateKey
   expiresDays: 7
+  embedSigner: true
 
 shortCode:
   baseUrl: https://example.com/shortcodes/

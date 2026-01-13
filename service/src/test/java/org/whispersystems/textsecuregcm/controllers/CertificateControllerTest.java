@@ -23,8 +23,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,57 +54,60 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class CertificateControllerTest {
 
-  private static final ECPublicKey caPublicKey;
+  private static final ECPublicKey CA_PUBLIC_KEY;
+  private static final byte[] SIGNING_CERTIFICATE_DATA;
+  private static final CertificateGenerator CERTIFICATE_GENERATOR;
+  private static final ServerCertificate.Certificate SIGNING_CERTIFICATE;
 
-  static {
-    try {
-      caPublicKey = new ECPublicKey(Base64.getDecoder().decode("BWh+UOhT1hD8bkb+MFRvb6tVqhoG8YYGCzOd7mgjo8cV"));
-    } catch (InvalidKeyException e) {
-      throw new AssertionError("Statically-defined key was invalid", e);
-    }
-  }
-
-  @SuppressWarnings("unused")
-  private static final String caPrivateKey = "EO3Mnf0kfVlVnwSaqPoQnAxhnnGL1JTdXqktCKEe9Eo=";
-
-  private static final String signingCertificate = "CiUIDBIhBbTz4h1My+tt+vw+TVscgUe/DeHS0W02tPWAWbTO2xc3EkD+go4bJnU0AcnFfbOLKoiBfCzouZtDYMOVi69rE7r4U9cXREEqOkUmU2WJBjykAxWPCcSTmVTYHDw7hkSp/puG";
-  private static final String signingKey = "ABOxG29xrfq4E7IrW11Eg7+HBbtba9iiS0500YoBjn4=";
-
-  private static final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
+  private static final ServerSecretParams SERVER_SECRET_PARAMS = ServerSecretParams.generate();
 
   private static final GenericServerSecretParams genericServerSecretParams = GenericServerSecretParams.generate();
-  private static final CertificateGenerator certificateGenerator;
-  private static final ServerZkAuthOperations serverZkAuthOperations;
+
+  private static final ServerZkAuthOperations SERVER_ZK_AUTH_OPERATIONS;
   private static final Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
-  private static final AccountsManager accountsManager = mock(AccountsManager.class);
+  private static final AccountsManager ACCOUNTS_MANAGER = mock(AccountsManager.class);
 
   static {
     try {
-      certificateGenerator = new CertificateGenerator(Base64.getDecoder().decode(signingCertificate),
-          new ECPrivateKey(Base64.getDecoder().decode(signingKey)), 1);
-      serverZkAuthOperations = new ServerZkAuthOperations(serverSecretParams);
+      CA_PUBLIC_KEY = new ECPrivateKey(Base64.getDecoder().decode("EO3Mnf0kfVlVnwSaqPoQnAxhnnGL1JTdXqktCKEe9Eo="))
+          .publicKey();
+      SIGNING_CERTIFICATE_DATA = Base64.getDecoder().decode(
+          "CiUIDBIhBbTz4h1My+tt+vw+TVscgUe/DeHS0W02tPWAWbTO2xc3EkD+go4bJnU0AcnFfbOLKoiBfCzouZtDYMOVi69rE7r4U9cXREEqOkUmU2WJBjykAxWPCcSTmVTYHDw7hkSp/puG");
+      final ECPrivateKey signingKey = new ECPrivateKey(Base64.getDecoder().decode("ABOxG29xrfq4E7IrW11Eg7+HBbtba9iiS0500YoBjn4="));
+
+      CERTIFICATE_GENERATOR = new CertificateGenerator(SIGNING_CERTIFICATE_DATA, signingKey, 1, false);
+      SIGNING_CERTIFICATE = ServerCertificate.Certificate.parseFrom(
+          ServerCertificate.parseFrom(SIGNING_CERTIFICATE_DATA).getCertificate());
+      SERVER_ZK_AUTH_OPERATIONS = new ServerZkAuthOperations(SERVER_SECRET_PARAMS);
     } catch (IOException | InvalidKeyException e) {
       throw new AssertionError(e);
     }
   }
-
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new CertificateController(accountsManager, certificateGenerator, serverZkAuthOperations, genericServerSecretParams, clock))
+      .addResource(new CertificateController(ACCOUNTS_MANAGER, CERTIFICATE_GENERATOR, SERVER_ZK_AUTH_OPERATIONS, genericServerSecretParams, clock))
       .build();
 
   @BeforeEach
   void setUp() {
-    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+    when(ACCOUNTS_MANAGER.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
+  }
+
+  @Test
+  void testSigningCertificate() throws Exception {
+    final ServerCertificate fullCertificate = ServerCertificate.parseFrom(SIGNING_CERTIFICATE_DATA);
+    assertTrue(CA_PUBLIC_KEY.verifySignature(fullCertificate.getCertificate().toByteArray(),
+        fullCertificate.getSignature().toByteArray()));
   }
 
   @Test
@@ -118,20 +122,16 @@ class CertificateControllerTest {
     SenderCertificate.Certificate certificate = SenderCertificate.Certificate.parseFrom(
         certificateHolder.getCertificate());
 
-    ServerCertificate serverCertificateHolder = certificate.getSigner();
-    ServerCertificate.Certificate serverCertificate = ServerCertificate.Certificate.parseFrom(
-        serverCertificateHolder.getCertificate());
-    ECPublicKey serverPublicKey = new ECPublicKey(serverCertificate.getKey().toByteArray());
+    assertEquals(SIGNING_CERTIFICATE.getId(), certificate.getSignerId());
+    ECPublicKey serverPublicKey = new ECPublicKey(SIGNING_CERTIFICATE.getKey().toByteArray());
 
     assertTrue(serverPublicKey.verifySignature(
         certificateHolder.getCertificate().toByteArray(), certificateHolder.getSignature().toByteArray()));
-    assertTrue(caPublicKey.verifySignature(serverCertificateHolder.getCertificate().toByteArray(),
-        serverCertificateHolder.getSignature().toByteArray()));
 
-    assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
-    assertEquals(certificate.getSenderDevice(), 1L);
+    assertEquals(AuthHelper.VALID_NUMBER, certificate.getSenderE164());
+    assertEquals(1L, certificate.getSenderDevice());
     assertTrue(certificate.hasSenderUuid());
-    assertEquals(AuthHelper.VALID_UUID.toString(), certificate.getSenderUuid());
+    assertEquals(UUIDUtil.toByteString(AuthHelper.VALID_UUID), certificate.getSenderUuid());
     assertArrayEquals(certificate.getIdentityKey().toByteArray(), AuthHelper.VALID_IDENTITY.serialize());
   }
 
@@ -148,19 +148,15 @@ class CertificateControllerTest {
     SenderCertificate.Certificate certificate = SenderCertificate.Certificate.parseFrom(
         certificateHolder.getCertificate());
 
-    ServerCertificate serverCertificateHolder = certificate.getSigner();
-    ServerCertificate.Certificate serverCertificate = ServerCertificate.Certificate.parseFrom(
-        serverCertificateHolder.getCertificate());
-    ECPublicKey serverPublicKey = new ECPublicKey(serverCertificate.getKey().toByteArray());
+    assertEquals(SIGNING_CERTIFICATE.getId(), certificate.getSignerId());
+    ECPublicKey serverPublicKey = new ECPublicKey(SIGNING_CERTIFICATE.getKey().toByteArray());
 
     assertTrue(serverPublicKey.verifySignature(certificateHolder.getCertificate().toByteArray(),
         certificateHolder.getSignature().toByteArray()));
-    assertTrue(caPublicKey.verifySignature(serverCertificateHolder.getCertificate().toByteArray(),
-        serverCertificateHolder.getSignature().toByteArray()));
 
-    assertEquals(certificate.getSender(), AuthHelper.VALID_NUMBER);
-    assertEquals(certificate.getSenderDevice(), 1L);
-    assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
+    assertEquals(AuthHelper.VALID_NUMBER, certificate.getSenderE164());
+    assertEquals(1L, certificate.getSenderDevice());
+    assertEquals(certificate.getSenderUuid(), UUIDUtil.toByteString(AuthHelper.VALID_UUID));
     assertArrayEquals(certificate.getIdentityKey().toByteArray(), AuthHelper.VALID_IDENTITY.serialize());
   }
 
@@ -178,19 +174,15 @@ class CertificateControllerTest {
     SenderCertificate.Certificate certificate = SenderCertificate.Certificate.parseFrom(
         certificateHolder.getCertificate());
 
-    ServerCertificate serverCertificateHolder = certificate.getSigner();
-    ServerCertificate.Certificate serverCertificate = ServerCertificate.Certificate.parseFrom(
-        serverCertificateHolder.getCertificate());
-    ECPublicKey serverPublicKey = new ECPublicKey(serverCertificate.getKey().toByteArray());
+    assertEquals(SIGNING_CERTIFICATE.getId(), certificate.getSignerId());
+    ECPublicKey serverPublicKey = new ECPublicKey(SIGNING_CERTIFICATE.getKey().toByteArray());
 
     assertTrue(serverPublicKey.verifySignature(certificateHolder.getCertificate().toByteArray(),
         certificateHolder.getSignature().toByteArray()));
-    assertTrue(caPublicKey.verifySignature(serverCertificateHolder.getCertificate().toByteArray(),
-        serverCertificateHolder.getSignature().toByteArray()));
 
-    assertTrue(StringUtils.isBlank(certificate.getSender()));
-    assertEquals(certificate.getSenderDevice(), 1L);
-    assertEquals(certificate.getSenderUuid(), AuthHelper.VALID_UUID.toString());
+    assertTrue(StringUtils.isBlank(certificate.getSenderE164()));
+    assertEquals(1L, certificate.getSenderDevice());
+    assertEquals(certificate.getSenderUuid(), UUIDUtil.toByteString(AuthHelper.VALID_UUID));
     assertArrayEquals(certificate.getIdentityKey().toByteArray(), AuthHelper.VALID_IDENTITY.serialize());
   }
 
@@ -202,7 +194,7 @@ class CertificateControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
         .get();
 
-    assertEquals(response.getStatus(), 401);
+    assertEquals(401, response.getStatus());
   }
 
 
@@ -213,7 +205,7 @@ class CertificateControllerTest {
         .request()
         .get();
 
-    assertEquals(response.getStatus(), 401);
+    assertEquals(401, response.getStatus());
   }
 
 
@@ -225,7 +217,7 @@ class CertificateControllerTest {
         .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("1234".getBytes()))
         .get();
 
-    assertEquals(response.getStatus(), 401);
+    assertEquals(401, response.getStatus());
   }
 
   @Test
@@ -245,35 +237,34 @@ class CertificateControllerTest {
     assertEquals(1, credentials.callLinkAuthCredentials().size());
 
     assertEquals(AuthHelper.VALID_PNI, credentials.pni());
-    assertEquals(startOfDay.getEpochSecond(), credentials.credentials().get(0).redemptionTime());
-    assertEquals(startOfDay.getEpochSecond(), credentials.callLinkAuthCredentials().get(0).redemptionTime());
+    assertEquals(startOfDay.getEpochSecond(), credentials.credentials().getFirst().redemptionTime());
+    assertEquals(startOfDay.getEpochSecond(), credentials.callLinkAuthCredentials().getFirst().redemptionTime());
 
     final ClientZkAuthOperations clientZkAuthOperations =
-        new ClientZkAuthOperations(serverSecretParams.getPublicParams());
+        new ClientZkAuthOperations(SERVER_SECRET_PARAMS.getPublicParams());
 
     assertDoesNotThrow(() -> {
       clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
           new ServiceId.Aci(AuthHelper.VALID_UUID),
           new ServiceId.Pni(AuthHelper.VALID_PNI),
           (int) startOfDay.getEpochSecond(),
-          new AuthCredentialWithPniResponse(credentials.credentials().get(0).credential()));
+          new AuthCredentialWithPniResponse(credentials.credentials().getFirst().credential()));
     });
 
     assertDoesNotThrow(() -> {
-      new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().get(0).credential())
+      new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().getFirst().credential())
           .receive(new ServiceId.Aci(AuthHelper.VALID_UUID), startOfDay, genericServerSecretParams.getPublicParams());
     });
   }
 
   @Test
-  void testGetSingleGroupCredentialZkc() {
+  void testGetSingleGroupCredential() {
     final Instant startOfDay = clock.instant().truncatedTo(ChronoUnit.DAYS);
 
     final GroupCredentials credentials = resources.getJerseyTest()
         .target("/v1/certificate/auth/group")
         .queryParam("redemptionStartSeconds", startOfDay.getEpochSecond())
         .queryParam("redemptionEndSeconds", startOfDay.getEpochSecond())
-        .queryParam("zkcCredential", true)
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .get(GroupCredentials.class);
@@ -282,22 +273,22 @@ class CertificateControllerTest {
     assertEquals(1, credentials.callLinkAuthCredentials().size());
 
     assertEquals(AuthHelper.VALID_PNI, credentials.pni());
-    assertEquals(startOfDay.getEpochSecond(), credentials.credentials().get(0).redemptionTime());
-    assertEquals(startOfDay.getEpochSecond(), credentials.callLinkAuthCredentials().get(0).redemptionTime());
+    assertEquals(startOfDay.getEpochSecond(), credentials.credentials().getFirst().redemptionTime());
+    assertEquals(startOfDay.getEpochSecond(), credentials.callLinkAuthCredentials().getFirst().redemptionTime());
 
     final ClientZkAuthOperations clientZkAuthOperations =
-        new ClientZkAuthOperations(serverSecretParams.getPublicParams());
+        new ClientZkAuthOperations(SERVER_SECRET_PARAMS.getPublicParams());
 
     assertDoesNotThrow(() -> {
       clientZkAuthOperations.receiveAuthCredentialWithPniAsServiceId(
           new ServiceId.Aci(AuthHelper.VALID_UUID),
           new ServiceId.Pni(AuthHelper.VALID_PNI),
           (int) startOfDay.getEpochSecond(),
-          new AuthCredentialWithPniResponse(credentials.credentials().get(0).credential()));
+          new AuthCredentialWithPniResponse(credentials.credentials().getFirst().credential()));
     });
 
     assertDoesNotThrow(() -> {
-      new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().get(0).credential())
+      new CallLinkAuthCredentialResponse(credentials.callLinkAuthCredentials().getFirst().credential())
           .receive(new ServiceId.Aci(AuthHelper.VALID_UUID), startOfDay, genericServerSecretParams.getPublicParams());
     });
   }
@@ -320,7 +311,7 @@ class CertificateControllerTest {
     assertEquals(8, credentials.callLinkAuthCredentials().size());
 
     final ClientZkAuthOperations clientZkAuthOperations =
-        new ClientZkAuthOperations(serverSecretParams.getPublicParams());
+        new ClientZkAuthOperations(SERVER_SECRET_PARAMS.getPublicParams());
 
     for (int i = 0; i < 8; i++) {
       final Instant redemptionTime = startOfDay.plus(Duration.ofDays(i));
@@ -358,23 +349,15 @@ class CertificateControllerTest {
     assertEquals(400, response.getStatus());
   }
 
-  private static Stream<Arguments> testBadRedemptionTimes() {
-    return Stream.of(
-        // Start is after end
-        Arguments.of(clock.instant().plus(Duration.ofDays(1)), clock.instant()),
-
-        // Start is in the past
-        Arguments.of(clock.instant().minus(Duration.ofDays(1)), clock.instant()),
-
-        // End is too far in the future
-        Arguments.of(clock.instant(),
+  private static Collection<Arguments> testBadRedemptionTimes() {
+    return List.of(
+        Arguments.argumentSet("Start is after end", clock.instant().plus(Duration.ofDays(1)), clock.instant()),
+        Arguments.argumentSet("Start is in the past", clock.instant().minus(Duration.ofDays(1)), clock.instant()),
+        Arguments.argumentSet("End is too far in the future", clock.instant(),
             clock.instant().plus(CertificateController.MAX_REDEMPTION_DURATION).plus(Duration.ofDays(1))),
-
-        // Start is not at a day boundary
-        Arguments.of(clock.instant().plusSeconds(17), clock.instant().plus(Duration.ofDays(1))),
-
-        // End is not at a day boundary
-        Arguments.of(clock.instant(), clock.instant().plusSeconds(17))
+        Arguments.argumentSet("Start is not at a day boundary", clock.instant().plusSeconds(17),
+            clock.instant().plus(Duration.ofDays(1))),
+        Arguments.argumentSet("End is not at a day boundary", clock.instant(), clock.instant().plusSeconds(17))
     );
   }
 }

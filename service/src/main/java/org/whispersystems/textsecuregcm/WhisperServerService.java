@@ -1072,7 +1072,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CallQualitySurveyController(callQualitySurveyManager),
         new CertificateController(accountsManager, new CertificateGenerator(config.getDeliveryCertificate().certificate(),
-            config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays()),
+            config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays(), config.getDeliveryCertificate().embedSigner()),
             zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
         new DeviceController(accountsManager, clientPublicKeysManager, rateLimiters, persistentTimer, config.getMaxDevices()),

@@ -58,12 +58,18 @@ message ServerCertificate {
 
 message SenderCertificate {
   message Certificate {
-    optional string sender = 1;
-    optional string sender_uuid = 6;
+    reserved 6;
+
+    optional string sender_e164 = 1;
+    optional bytes sender_uuid_= 7;
     optional uint32 sender_device = 2;
     optional fixed64 expires = 3;
     optional bytes identity_key = 4;
-    optional ServerCertificate signer = 5;
+    oneof signer {
+      ServerCertificate signer_certificate = 5;
+      uint32 signer_id = 8;
+    }
+    // next: 9
   }
 
   optional bytes certificate = 1;
