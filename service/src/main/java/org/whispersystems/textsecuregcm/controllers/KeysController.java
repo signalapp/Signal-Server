@@ -38,6 +38,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -384,7 +385,8 @@ public class KeysController {
                 devicePreKeys.ecPreKey().orElse(null),
                 devicePreKeys.kemSignedPreKey())))
         .collectList()
-        .block();
+        .blockOptional()
+        .orElseGet(Collections::emptyList);
 
     final IdentityKey identityKey = target.getIdentityKey(targetIdentifier.identityType());
 
