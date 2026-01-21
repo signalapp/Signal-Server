@@ -45,7 +45,7 @@
   </modules>
 
   <properties>
-    <aws.sdk2.version>2.33.8</aws.sdk2.version>
+    <aws.sdk2.version>2.41.11</aws.sdk2.version>
     <braintree.version>3.44.0</braintree.version>
     <commons-csv.version>1.14.1</commons-csv.version>
     <commons-io.version>2.20.0</commons-io.version>
