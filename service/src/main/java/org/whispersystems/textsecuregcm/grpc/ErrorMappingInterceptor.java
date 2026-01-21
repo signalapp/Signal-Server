@@ -14,6 +14,7 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
@@ -46,7 +47,9 @@ public class ErrorMappingInterceptor implements ServerInterceptor {
           return;
         }
 
-        final StatusRuntimeException statusException = switch (status.getCause()) {
+        final Throwable cause = ExceptionUtils.unwrap(status.getCause());
+
+        final StatusRuntimeException statusException = switch (cause) {
           case ConvertibleToGrpcStatus e -> e.toStatusRuntimeException();
           case UncheckedIOException e -> {
             log.warn("RPC {} encountered UncheckedIOException", call.getMethodDescriptor().getFullMethodName(), e.getCause());

@@ -90,14 +90,13 @@ class BackupsAnonymousGrpcServiceTest extends
 
   @BeforeEach
   void setup() {
-    when(backupManager.authenticateBackupUser(any(), any(), any()))
+    when(backupManager.authenticateBackupUserAsync(any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(
             backupUser(presentation.getBackupId(), BackupCredentialType.MESSAGES, BackupLevel.PAID)));
   }
 
   @Test
   void setPublicKey() {
-    when(backupManager.setPublicKey(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     assertThatNoException().isThrownBy(() -> unauthenticatedServiceStub().setPublicKey(SetPublicKeyRequest.newBuilder()
         .setPublicKey(ByteString.copyFrom(ECKeyPair.generate().getPublicKey().serialize()))
         .setSignedPresentation(signedPresentation(presentation))
@@ -106,7 +105,6 @@ class BackupsAnonymousGrpcServiceTest extends
 
   @Test
   void setBadPublicKey() {
-    when(backupManager.setPublicKey(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     assertThatExceptionOfType(StatusRuntimeException.class).isThrownBy(() ->
             unauthenticatedServiceStub().setPublicKey(SetPublicKeyRequest.newBuilder()
                 .setPublicKey(ByteString.copyFromUtf8("aaaaa")) // Invalid public key
@@ -214,8 +212,8 @@ class BackupsAnonymousGrpcServiceTest extends
 
   @Test
   void getBackupInfo() {
-    when(backupManager.backupInfo(any())).thenReturn(CompletableFuture.completedFuture(new BackupManager.BackupInfo(
-        1, "myBackupDir", "myMediaDir", "filename", Optional.empty())));
+    when(backupManager.backupInfo(any()))
+        .thenReturn(new BackupManager.BackupInfo(1, "myBackupDir", "myMediaDir", "filename", Optional.empty()));
 
     final GetBackupInfoResponse response = unauthenticatedServiceStub().getBackupInfo(GetBackupInfoRequest.newBuilder()
         .setSignedPresentation(signedPresentation(presentation))
@@ -240,9 +238,9 @@ class BackupsAnonymousGrpcServiceTest extends
     final int limit = 17;
 
     when(backupManager.list(any(), eq(expectedCursor), eq(limit)))
-        .thenReturn(CompletableFuture.completedFuture(new BackupManager.ListMediaResult(
+        .thenReturn(new BackupManager.ListMediaResult(
             List.of(new BackupManager.StorageDescriptorWithLength(1, mediaId, 100)),
-            returnedCursor)));
+            returnedCursor));
 
     final ListMediaRequest.Builder request = ListMediaRequest.newBuilder()
         .setSignedPresentation(signedPresentation(presentation))
@@ -280,10 +278,9 @@ class BackupsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  void mediaUploadForm() {
+  void mediaUploadForm() throws RateLimitExceededException {
     when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org")));
+        .thenReturn(new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org"));
     final GetUploadFormRequest request = GetUploadFormRequest.newBuilder()
         .setMedia(GetUploadFormRequest.MediaUploadType.getDefaultInstance())
         .setSignedPresentation(signedPresentation(presentation))
@@ -298,7 +295,7 @@ class BackupsAnonymousGrpcServiceTest extends
     // rate limit
     Duration duration = Duration.ofSeconds(10);
     when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
-        .thenReturn(CompletableFuture.failedFuture(new RateLimitExceededException(duration)));
+        .thenThrow(new RateLimitExceededException(duration));
     GrpcTestUtils.assertRateLimitExceeded(duration, () -> unauthenticatedServiceStub().getUploadForm(request));
   }
 
@@ -314,8 +311,7 @@ class BackupsAnonymousGrpcServiceTest extends
   @MethodSource
   public void messagesUploadForm(Optional<Long> uploadLength, boolean expectSuccess) {
     when(backupManager.createMessageBackupUploadDescriptor(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org")));
+        .thenReturn(new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org"));
     final GetUploadFormRequest.MessagesUploadType.Builder builder = GetUploadFormRequest.MessagesUploadType.newBuilder();
     uploadLength.ifPresent(builder::setUploadLength);
     final GetUploadFormRequest request = GetUploadFormRequest.newBuilder()

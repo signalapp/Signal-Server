@@ -76,6 +76,6 @@ public class BackupAuthTestUtil {
     });
     final RedemptionRange redemptionRange;
     redemptionRange = RedemptionRange.inclusive(clock, redemptionStart, redemptionEnd);
-    return issuer.getBackupAuthCredentials(account, credentialType, redemptionRange).join();
+    return issuer.getBackupAuthCredentials(account, credentialType, redemptionRange);
   }
 }

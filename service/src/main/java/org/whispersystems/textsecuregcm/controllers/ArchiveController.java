@@ -47,28 +47,28 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
+import org.whispersystems.textsecuregcm.backup.BackupUploadDescriptor;
 import org.whispersystems.textsecuregcm.backup.CopyParameters;
 import org.whispersystems.textsecuregcm.backup.CopyResult;
 import org.whispersystems.textsecuregcm.backup.MediaEncryptionParameters;
@@ -83,8 +83,6 @@ import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.ECPublicKeyAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
-import org.whispersystems.textsecuregcm.util.Util;
-import reactor.core.publisher.Mono;
 
 @Path("/v1/archives")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Archive")
@@ -149,24 +147,20 @@ public class ArchiveController {
   @ApiResponse(responseCode = "400", description = "The provided backup auth credential request was invalid")
   @ApiResponse(responseCode = "403", description = "The device did not have permission to set the backup-id. Only the primary device can set the backup-id for an account")
   @ApiResponse(responseCode = "429", description = "Rate limited. Too many attempts to change the backup-id have been made")
-  public CompletionStage<Response> setBackupId(
+  @ManagedAsync
+  public void setBackupId(
       @Auth final AuthenticatedDevice authenticatedDevice,
       @Valid @NotNull final SetBackupIdRequest setBackupIdRequest) throws RateLimitExceededException {
 
-    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())
-        .thenCompose(maybeAccount -> {
-          final Account account = maybeAccount
-              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+    final Device device = account.getDevice(authenticatedDevice.deviceId())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-          final Device device = account.getDevice(authenticatedDevice.deviceId())
-              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
-
-          return backupAuthManager
-              .commitBackupId(account, device,
-                  Optional.ofNullable(setBackupIdRequest.messagesBackupAuthCredentialRequest),
-                  Optional.ofNullable(setBackupIdRequest.mediaBackupAuthCredentialRequest))
-              .thenApply(Util.ASYNC_EMPTY_RESPONSE);
-        });
+    backupAuthManager
+        .commitBackupId(account, device,
+            Optional.ofNullable(setBackupIdRequest.messagesBackupAuthCredentialRequest),
+            Optional.ofNullable(setBackupIdRequest.mediaBackupAuthCredentialRequest));
   }
 
 
@@ -186,15 +180,13 @@ public class ArchiveController {
           """)
   @ApiResponse(responseCode = "200", description = "Successfully retrieved backup-id rotation limits", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "403", description = "Invalid account authentication")
-  public CompletionStage<BackupIdLimitResponse> checkLimits(@Auth final AuthenticatedDevice authenticatedDevice) {
-    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())
-        .thenCompose(maybeAccount -> {
-          final Account account = maybeAccount
-              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+  @ManagedAsync
+  public BackupIdLimitResponse checkLimits(@Auth final AuthenticatedDevice authenticatedDevice) {
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-          return backupAuthManager.checkBackupIdRotationLimit(account).thenApply(limit ->
-              new BackupIdLimitResponse(limit.hasPermitsRemaining(), limit.nextPermitAvailable().getSeconds()));
-        });
+    final BackupAuthManager.BackupIdRotationLimit limit = backupAuthManager.checkBackupIdRotationLimit(account);
+    return new BackupIdLimitResponse(limit.hasPermitsRemaining(), limit.nextPermitAvailable().getSeconds());
   }
 
   public record RedeemBackupReceiptRequest(
@@ -237,18 +229,15 @@ public class ArchiveController {
   @ApiResponse(responseCode = "400", description = "The provided presentation or receipt was invalid")
   @ApiResponse(responseCode = "409", description = "The target account does not have a backup-id commitment")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
-  public CompletionStage<Response> redeemReceipt(
+  @ManagedAsync
+  public void redeemReceipt(
       @Auth final AuthenticatedDevice authenticatedDevice,
       @Valid @NotNull final RedeemBackupReceiptRequest redeemBackupReceiptRequest) {
 
-    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())
-        .thenCompose(maybeAccount -> {
-          final Account account = maybeAccount
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
               .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-          return backupAuthManager.redeemReceipt(account, redeemBackupReceiptRequest.receiptCredentialPresentation())
-              .thenApply(Util.ASYNC_EMPTY_RESPONSE);
-        });
+    backupAuthManager.redeemReceipt(account, redeemBackupReceiptRequest.receiptCredentialPresentation());
   }
 
   public record BackupAuthCredentialsResponse(
@@ -306,14 +295,15 @@ public class ArchiveController {
   @ApiResponse(responseCode = "400", description = "The start/end did not meet alignment/duration requirements")
   @ApiResponse(responseCode = "404", description = "Could not find an existing blinded backup id")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
-  public CompletionStage<BackupAuthCredentialsResponse> getBackupZKCredentials(
+  @ManagedAsync
+  public BackupAuthCredentialsResponse getBackupZKCredentials(
       @Auth AuthenticatedDevice authenticatedDevice,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @QueryParam("redemptionStartSeconds") Long startSeconds,
       @NotNull @QueryParam("redemptionEndSeconds") Long endSeconds) {
 
     final Map<BackupCredentialType, List<BackupAuthCredentialsResponse.BackupAuthCredential>> credentialsByType =
-        new ConcurrentHashMap<>();
+        new HashMap<>();
 
     final RedemptionRange redemptionRange;
     try {
@@ -322,33 +312,26 @@ public class ArchiveController {
       throw new BadRequestException(e.getMessage());
     }
 
-    return accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier())
-        .thenCompose(maybeAccount -> {
-          final Account account = maybeAccount
-              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-          return CompletableFuture.allOf(Arrays.stream(BackupCredentialType.values())
-                  .map(credentialType -> this.backupAuthManager.getBackupAuthCredentials(
-                          account,
-                          credentialType,
-                          redemptionRange)
-                      .thenAccept(credentials -> {
-                        backupMetrics.updateGetCredentialCounter(
-                            UserAgentTagUtil.getPlatformTag(userAgent),
-                            credentialType,
-                            credentials.size());
-                        credentialsByType.put(credentialType, credentials.stream()
-                            .map(credential -> new BackupAuthCredentialsResponse.BackupAuthCredential(
-                                credential.credential().serialize(),
-                                credential.redemptionTime().getEpochSecond()))
-                            .toList());
-                      }))
-                  .toArray(CompletableFuture[]::new))
-              .thenApply(ignored -> new BackupAuthCredentialsResponse(credentialsByType.entrySet().stream()
-                  .collect(Collectors.toMap(
-                      e -> BackupAuthCredentialsResponse.CredentialType.fromLibsignalType(e.getKey()),
-                      Map.Entry::getValue))));
-        });
+    for (BackupCredentialType credentialType : BackupCredentialType.values()) {
+      final List<BackupAuthManager.Credential> credentials =
+          backupAuthManager.getBackupAuthCredentials(account, credentialType, redemptionRange);
+      backupMetrics.updateGetCredentialCounter(
+          UserAgentTagUtil.getPlatformTag(userAgent),
+          credentialType,
+          credentials.size());
+      credentialsByType.put(credentialType, credentials.stream()
+          .map(credential -> new BackupAuthCredentialsResponse.BackupAuthCredential(
+              credential.credential().serialize(),
+              credential.redemptionTime().getEpochSecond()))
+          .toList());
+    }
+    return new BackupAuthCredentialsResponse(credentialsByType.entrySet().stream()
+        .collect(Collectors.toMap(
+            e -> BackupAuthCredentialsResponse.CredentialType.fromLibsignalType(e.getKey()),
+            Map.Entry::getValue)));
   }
 
 
@@ -410,7 +393,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = ReadAuthResponse.class)))
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<ReadAuthResponse> readAuth(
+  @ManagedAsync
+  public ReadAuthResponse readAuth(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -426,9 +410,9 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
-        .thenApply(user -> backupManager.generateReadAuth(user, cdn))
-        .thenApply(ReadAuthResponse::new);
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+    return new ReadAuthResponse(backupManager.generateReadAuth(backupUser, cdn));
   }
 
   @GET
@@ -441,7 +425,8 @@ public class ArchiveController {
           """)
   @ApiResponse(responseCode = "200", description = "`JSON` with generated credentials.", useReturnTypeSchema = true)
   @ApiResponseZkAuth
-  public CompletionStage<ExternalServiceCredentials> svrbAuth(
+  @ManagedAsync
+  public ExternalServiceCredentials svrbAuth(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -455,9 +440,9 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager
-        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
-        .thenApply(backupManager::generateSvrbAuth);
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+    return backupManager.generateSvrbAuth(backupUser);
   }
 
   public record BackupInfoResponse(
@@ -491,7 +476,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "404", description = "No existing backups found")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<BackupInfoResponse> backupInfo(
+  @ManagedAsync
+  public BackupInfoResponse backupInfo(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -506,14 +492,15 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
 
-    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
-        .thenCompose(backupManager::backupInfo)
-        .thenApply(backupInfo -> new BackupInfoResponse(
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+    final BackupManager.BackupInfo backupInfo = backupManager.backupInfo(backupUser);
+    return new BackupInfoResponse(
             backupInfo.cdn(),
             backupInfo.backupSubdir(),
             backupInfo.mediaSubdir(),
             backupInfo.messageBackupKey(),
-            backupInfo.mediaUsedSpace().orElse(0L)));
+            backupInfo.mediaUsedSpace().orElse(0L));
   }
 
   public record SetPublicKeyRequest(
@@ -531,13 +518,14 @@ public class ArchiveController {
       summary = "Set public key",
       description = """
           Permanently set the public key of an ED25519 key-pair for the backup-id. All requests that provide a anonymous
-          BackupAuthCredentialPresentation (including this one!) must also sign the presentation with the private key 
+          BackupAuthCredentialPresentation (including this one!) must also sign the presentation with the private key
           corresponding to the provided public key.
           """)
   @ApiResponseZkAuth
   @ApiResponse(responseCode = "204", description = "The public key was set")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
-  public CompletionStage<Response> setPublicKey(
+  @ManagedAsync
+  public void setPublicKey(
       @Auth final Optional<AuthenticatedDevice> account,
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
@@ -552,9 +540,7 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager
-        .setPublicKey(presentation.presentation, signature.signature, setPublicKeyRequest.backupIdPublicKey)
-        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+    backupManager.setPublicKey(presentation.presentation, signature.signature, setPublicKeyRequest.backupIdPublicKey);
   }
 
 
@@ -578,7 +564,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponse(responseCode = "413", description = "The provided uploadLength is larger than the maximum supported upload size. The maximum upload size is subject to change.")
   @ApiResponseZkAuth
-  public CompletionStage<UploadDescriptorResponse> backup(
+  @ManagedAsync
+  public UploadDescriptorResponse backup(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -595,22 +582,25 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
-        .thenCompose(backupUser -> {
-          final boolean oversize = uploadLength
-              .map(length -> length > BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE)
-              .orElse(false);
-          backupMetrics.updateMessageBackupSizeDistribution(backupUser, oversize, uploadLength);
-          if (oversize) {
-            throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
-          }
-          return backupManager.createMessageBackupUploadDescriptor(backupUser);
-        })
-        .thenApply(result -> new UploadDescriptorResponse(
-            result.cdn(),
-            result.key(),
-            result.headers(),
-            result.signedUploadLocation()));
+
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+
+    final boolean oversize = uploadLength
+        .map(length -> length > BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE)
+        .orElse(false);
+
+    backupMetrics.updateMessageBackupSizeDistribution(backupUser, oversize, uploadLength);
+    if (oversize) {
+      throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
+    }
+    final BackupUploadDescriptor uploadDescriptor =
+        backupManager.createMessageBackupUploadDescriptor(backupUser);
+    return new UploadDescriptorResponse(
+        uploadDescriptor.cdn(),
+        uploadDescriptor.key(),
+        uploadDescriptor.headers(),
+        uploadDescriptor.signedUploadLocation());
   }
 
   @GET
@@ -627,7 +617,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = UploadDescriptorResponse.class)))
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<UploadDescriptorResponse> uploadTemporaryAttachment(
+  @ManagedAsync
+  public UploadDescriptorResponse uploadTemporaryAttachment(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -638,17 +629,20 @@ public class ArchiveController {
 
       @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
-      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature) {
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature)
+      throws RateLimitExceededException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
-        .thenCompose(backupManager::createTemporaryAttachmentUploadDescriptor)
-        .thenApply(result -> new UploadDescriptorResponse(
-            result.cdn(),
-            result.key(),
-            result.headers(),
-            result.signedUploadLocation()));
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+    final BackupUploadDescriptor uploadDescriptor =
+        backupManager.createTemporaryAttachmentUploadDescriptor(backupUser);
+    return new UploadDescriptorResponse(
+        uploadDescriptor.cdn(),
+        uploadDescriptor.key(),
+        uploadDescriptor.headers(),
+        uploadDescriptor.signedUploadLocation());
   }
 
   public record CopyMediaRequest(
@@ -715,7 +709,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "410", description = "The source object was not found.")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<CopyMediaResponse> copyMedia(
+  @ManagedAsync
+  public CopyMediaResponse copyMedia(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -733,19 +728,20 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
 
-    return Mono
-        .fromFuture(backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent))
-        .flatMap(backupUser -> backupManager.copyToBackup(backupUser, List.of(copyMediaRequest.toCopyParameters()))
-            .next()
-            .doOnNext(result -> backupMetrics.updateCopyCounter(result, UserAgentTagUtil.getPlatformTag(userAgent)))
-            .map(copyResult -> switch (copyResult.outcome()) {
-              case SUCCESS -> new CopyMediaResponse(copyResult.cdn());
-              case SOURCE_WRONG_LENGTH -> throw new BadRequestException("Invalid length");
-              case SOURCE_NOT_FOUND -> throw new ClientErrorException("Source object not found", Response.Status.GONE);
-              case OUT_OF_QUOTA ->
-                  throw new ClientErrorException("Media quota exhausted", Response.Status.REQUEST_ENTITY_TOO_LARGE);
-            }))
-        .toFuture();
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+    final CopyResult copyResult =
+        backupManager.copyToBackup(backupUser, List.of(copyMediaRequest.toCopyParameters())).next()
+            .blockOptional()
+            .orElseThrow(() -> new IllegalStateException("Non empty copy request must return result"));
+    backupMetrics.updateCopyCounter(copyResult, UserAgentTagUtil.getPlatformTag(userAgent));
+    return switch (copyResult.outcome()) {
+      case SUCCESS -> new CopyMediaResponse(copyResult.cdn());
+      case SOURCE_WRONG_LENGTH -> throw new BadRequestException("Invalid length");
+      case SOURCE_NOT_FOUND -> throw new ClientErrorException("Source object not found", Response.Status.GONE);
+      case OUT_OF_QUOTA ->
+          throw new ClientErrorException("Media quota exhausted", Response.Status.REQUEST_ENTITY_TOO_LARGE);
+    };
   }
 
   public record CopyMediaBatchRequest(
@@ -808,13 +804,14 @@ public class ArchiveController {
           be provided as a separate entry in the response.
           """)
   @ApiResponse(responseCode = "207", description = """
-      The request was processed and each operation's outcome must be inspected individually. This does NOT necessarily 
+      The request was processed and each operation's outcome must be inspected individually. This does NOT necessarily
       indicate the operation was a success.
       """, content = @Content(schema = @Schema(implementation = CopyMediaBatchResponse.class)))
   @ApiResponse(responseCode = "413", description = "All media capacity has been consumed. Free some space to continue.")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<Response> copyMedia(
+  @ManagedAsync
+  public Response copyMedia(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -833,13 +830,13 @@ public class ArchiveController {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
     final Stream<CopyParameters> copyParams = copyMediaRequest.items().stream().map(CopyMediaRequest::toCopyParameters);
-    return Mono.fromFuture(backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent))
-        .flatMapMany(backupUser -> backupManager.copyToBackup(backupUser, copyParams.toList()))
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+    final List<CopyMediaBatchResponse.Entry> copyResults = backupManager.copyToBackup(backupUser, copyParams.toList())
         .doOnNext(result -> backupMetrics.updateCopyCounter(result, UserAgentTagUtil.getPlatformTag(userAgent)))
         .map(CopyMediaBatchResponse.Entry::fromCopyResult)
-        .collectList()
-        .map(list -> Response.status(207).entity(new CopyMediaBatchResponse(list)).build())
-        .toFuture();
+        .collectList().block();
+    return Response.status(207).entity(new CopyMediaBatchResponse(copyResults)).build();
   }
 
   @POST
@@ -853,7 +850,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "204", description = "The backup was successfully refreshed")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<Response> refresh(
+  @ManagedAsync
+  public void refresh(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -867,10 +865,9 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager
-        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
-        .thenCompose(backupManager::ttlRefresh)
-        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+    backupManager.ttlRefresh(backupUser);
   }
 
   record StoredMediaObject(
@@ -920,7 +917,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "400", description = "Invalid cursor or limit")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<ListResponse> listMedia(
+  @ManagedAsync
+  public ListResponse listMedia(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -940,16 +938,16 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager
-        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
-        .thenCompose(backupUser -> backupManager.list(backupUser, cursor, limit.orElse(1000))
-            .thenApply(result -> new ListResponse(
-                result.media()
-                    .stream().map(entry -> new StoredMediaObject(entry.cdn(), entry.key(), entry.length()))
-                    .toList(),
-                backupUser.backupDir(),
-                backupUser.mediaDir(),
-                result.cursor().orElse(null))));
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+    final BackupManager.ListMediaResult listResult =
+        backupManager.list(backupUser, cursor, limit.orElse(1000));
+    return new ListResponse(listResult.media()
+            .stream().map(entry -> new StoredMediaObject(entry.cdn(), entry.key(), entry.length()))
+            .toList(),
+        backupUser.backupDir(),
+        backupUser.mediaDir(),
+        listResult.cursor().orElse(null));
   }
 
   public record DeleteMedia(@Size(min = 1, max = 1000) List<@Valid MediaToDelete> mediaToDelete) {
@@ -976,7 +974,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "204", description = "The provided objects were successfully deleted or they do not exist")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<Response> deleteMedia(
+  @ManagedAsync
+  public void deleteMedia(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -997,12 +996,9 @@ public class ArchiveController {
         .map(media -> new BackupManager.StorageDescriptor(media.cdn(), media.mediaId))
         .toList();
 
-    return backupManager
-        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
-        .thenCompose(authenticatedBackupUser -> backupManager
-            .deleteMedia(authenticatedBackupUser, toDelete)
-            .then().toFuture())
-        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+    backupManager.deleteMedia(backupUser, toDelete).then().block();
   }
 
   @DELETE
@@ -1013,7 +1009,8 @@ public class ArchiveController {
   @ApiResponse(responseCode = "204", description = "The backup has been successfully removed")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
-  public CompletionStage<Response> deleteBackup(
+  @ManagedAsync
+  public void deleteBackup(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
 
@@ -1027,10 +1024,10 @@ public class ArchiveController {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
-    return backupManager
-        .authenticateBackupUser(presentation.presentation, signature.signature, userAgent)
-        .thenCompose(backupManager::deleteEntireBackup)
-        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+    final AuthenticatedBackupUser backupUser =
+        backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+
+    backupManager.deleteEntireBackup(backupUser);
   }
 
 }

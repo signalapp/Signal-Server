@@ -29,7 +29,6 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,7 +44,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
 import org.whispersystems.textsecuregcm.storage.devicecheck.ChallengeNotFoundException;
@@ -205,11 +203,6 @@ class DeviceCheckControllerTest {
     final String request = """
         {"action": "backup", "challenge": "embeddedChallenge"}
         """;
-
-    when(backupAuthManager.extendBackupVoucher(any(), eq(new Account.BackupVoucher(
-        REDEMPTION_LEVEL,
-        clock.instant().plus(REDEMPTION_DURATION)))))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Response response = resources.getJerseyTest()
         .target("v1/devicecheck/assert")

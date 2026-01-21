@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.util;
 
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public final class ExceptionUtils {
 
@@ -80,5 +81,50 @@ public final class ExceptionUtils {
     return exceptionallyHandler(exceptionType, e -> {
       throw wrap(fn.apply(e));
     });
+  }
+
+  /**
+   * Runs the supplier, throwing a checked exception if the supplier throws an exception that unwraps to the provided type
+   *
+   * @param exType The exception type to check for
+   * @param supplier A supplier that produces a T
+   * @return The result of the supplier
+   * @param <T> The supplier type
+   * @param <E> The checked exception type
+   * @throws E If the supplier throws E or a type that {@link #unwrap}s to E
+   */
+  public static <T, E extends Throwable> T unwrapSupply(Class<E> exType, Supplier<T> supplier) throws E {
+    try {
+      return supplier.get();
+    } catch (RuntimeException e) {
+      final Throwable ex = unwrap(e);
+      if (exType.isInstance(ex)) {
+        throw exType.cast(ex);
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * Runs the supplier, throwing a checked exception if the supplier throws an exception that unwraps to the provided type
+   *
+   * @param exType The exception type to check for
+   * @param supplier A supplier that produces a T
+   * @param marshal A function that maps from the thrown type to another exception type
+   * @return The result of the supplier
+   * @param <T> The supplier type
+   * @param <E> The checked exception type that may be thrown from supplier
+   * @throws F If the supplier throws E or a type that {@link #unwrap}s to E
+   */
+  public static <T, E extends Throwable, F extends Throwable> T unwrapSupply(Class<E> exType, Supplier<T> supplier, Function<E, F> marshal) throws F {
+    try {
+      return supplier.get();
+    } catch (RuntimeException e) {
+      final Throwable ex = unwrap(e);
+      if (exType.isInstance(ex)) {
+        throw marshal.apply(exType.cast(ex));
+      }
+      throw e;
+    }
   }
 }

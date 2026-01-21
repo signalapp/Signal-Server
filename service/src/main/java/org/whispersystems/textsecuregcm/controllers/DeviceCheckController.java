@@ -252,8 +252,7 @@ public class DeviceCheckController {
     switch (request.assertionRequest().action()) {
       case BACKUP -> backupAuthManager.extendBackupVoucher(
               account,
-              new Account.BackupVoucher(backupRedemptionLevel, clock.instant().plus(backupRedemptionDuration)))
-          .join();
+              new Account.BackupVoucher(backupRedemptionLevel, clock.instant().plus(backupRedemptionDuration)));
     }
   }
 

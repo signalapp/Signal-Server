@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.backup;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.util.DataSize;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -42,12 +43,12 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicBackupConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.util.AsyncTimerUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
@@ -128,7 +129,7 @@ public class BackupManager {
    * @param signature    the signature of the presentation
    * @param publicKey    the public key of a key-pair that the presentation must be signed with
    */
-  public CompletableFuture<Void> setPublicKey(
+  public void setPublicKey(
       final BackupAuthCredentialPresentation presentation,
       final byte[] signature,
       final ECPublicKey publicKey) {
@@ -139,8 +140,10 @@ public class BackupManager {
     final Pair<BackupCredentialType, BackupLevel> credentialTypeAndBackupLevel =
         verifyPresentation(presentation).verifySignature(signature, publicKey);
 
-    return backupsDb.setPublicKey(presentation.getBackupId(), credentialTypeAndBackupLevel.second(), publicKey)
-        .exceptionally(ExceptionUtils.exceptionallyHandler(PublicKeyConflictException.class, ex -> {
+    ExceptionUtils.unwrapSupply(
+        PublicKeyConflictException.class,
+        () -> backupsDb.setPublicKey(presentation.getBackupId(), credentialTypeAndBackupLevel.second(), publicKey).join(),
+        _ -> {
           Metrics.counter(ZK_AUTHN_COUNTER_NAME,
                   SUCCESS_TAG_NAME, String.valueOf(false),
                   FAILURE_REASON_TAG_NAME, "public_key_conflict")
@@ -148,7 +151,7 @@ public class BackupManager {
           throw Status.UNAUTHENTICATED
               .withDescription("public key does not match existing public key for the backup-id")
               .asRuntimeException();
-        }));
+        });
   }
 
   /**
@@ -159,31 +162,27 @@ public class BackupManager {
    * @param backupUser an already ZK authenticated backup user
    * @return the upload form
    */
-  public CompletableFuture<BackupUploadDescriptor> createMessageBackupUploadDescriptor(
+  public BackupUploadDescriptor createMessageBackupUploadDescriptor(
       final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.FREE);
     checkBackupCredentialType(backupUser, BackupCredentialType.MESSAGES);
 
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
-    return backupsDb
-        .addMessageBackup(backupUser)
-        .thenApply(_ ->
-            cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser)));
+    backupsDb.addMessageBackup(backupUser).join();
+    return cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser));
   }
 
-  public CompletableFuture<BackupUploadDescriptor> createTemporaryAttachmentUploadDescriptor(
-      final AuthenticatedBackupUser backupUser) {
+  public BackupUploadDescriptor createTemporaryAttachmentUploadDescriptor(final AuthenticatedBackupUser backupUser)
+      throws RateLimitExceededException {
     checkBackupLevel(backupUser, BackupLevel.PAID);
     checkBackupCredentialType(backupUser, BackupCredentialType.MEDIA);
 
-    return rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT)
-        .validateAsync(rateLimitKey(backupUser)).thenApply(ignored -> {
-      final byte[] bytes = new byte[15];
-      secureRandom.nextBytes(bytes);
-      final String attachmentKey = Base64.getUrlEncoder().encodeToString(bytes);
-      final AttachmentGenerator.Descriptor descriptor = tusAttachmentGenerator.generateAttachment(attachmentKey);
-      return new BackupUploadDescriptor(3, attachmentKey, descriptor.headers(), descriptor.signedUploadLocation());
-    }).toCompletableFuture();
+    rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT).validate(rateLimitKey(backupUser));
+    final byte[] bytes = new byte[15];
+    secureRandom.nextBytes(bytes);
+    final String attachmentKey = Base64.getUrlEncoder().encodeToString(bytes);
+    final AttachmentGenerator.Descriptor descriptor = tusAttachmentGenerator.generateAttachment(attachmentKey);
+    return new BackupUploadDescriptor(3, attachmentKey, descriptor.headers(), descriptor.signedUploadLocation());
   }
 
   /**
@@ -191,36 +190,35 @@ public class BackupManager {
    *
    * @param backupUser an already ZK authenticated backup user
    */
-  public CompletableFuture<Void> ttlRefresh(final AuthenticatedBackupUser backupUser) {
+  public void ttlRefresh(final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.FREE);
     // update message backup TTL
-    return backupsDb.ttlRefresh(backupUser).thenAccept(storedBackupAttributes -> {
-          if (backupUser.credentialType() == BackupCredentialType.MEDIA) {
-            final long maxTotalMediaSize =
-                dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
+    final StoredBackupAttributes storedBackupAttributes = backupsDb.ttlRefresh(backupUser).join();
+    if (backupUser.credentialType() == BackupCredentialType.MEDIA) {
+      final long maxTotalMediaSize =
+          dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
 
-            // Report that the backup is out of quota if it cannot store a max size media object
-            final boolean quotaExhausted = storedBackupAttributes.bytesUsed() >=
-                (maxTotalMediaSize - BackupManager.MAX_MEDIA_OBJECT_SIZE);
+      // Report that the backup is out of quota if it cannot store a max size media object
+      final boolean quotaExhausted = storedBackupAttributes.bytesUsed() >=
+          (maxTotalMediaSize - BackupManager.MAX_MEDIA_OBJECT_SIZE);
 
-            final Tags tags = Tags.of(
-                UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
-                Tag.of("type", backupUser.credentialType().name()),
-                Tag.of("tier", backupUser.backupLevel().name()),
-                Tag.of("quotaExhausted", String.valueOf(quotaExhausted)));
+      final Tags tags = Tags.of(
+          UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
+          Tag.of("type", backupUser.credentialType().name()),
+          Tag.of("tier", backupUser.backupLevel().name()),
+          Tag.of("quotaExhausted", String.valueOf(quotaExhausted)));
 
-            DistributionSummary.builder(NUM_OBJECTS_SUMMARY_NAME)
-                .tags(tags)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry)
-                .record(storedBackupAttributes.numObjects());
-            DistributionSummary.builder(BYTES_USED_SUMMARY_NAME)
-                .tags(tags)
-                .publishPercentileHistogram()
-                .register(Metrics.globalRegistry)
-                .record(storedBackupAttributes.bytesUsed());
-          }
-    });
+      DistributionSummary.builder(NUM_OBJECTS_SUMMARY_NAME)
+          .tags(tags)
+          .publishPercentileHistogram()
+          .register(Metrics.globalRegistry)
+          .record(storedBackupAttributes.numObjects());
+      DistributionSummary.builder(BYTES_USED_SUMMARY_NAME)
+          .tags(tags)
+          .publishPercentileHistogram()
+          .register(Metrics.globalRegistry)
+          .record(storedBackupAttributes.bytesUsed());
+    }
   }
 
   public record BackupInfo(int cdn, String backupSubdir, String mediaSubdir, String messageBackupKey,
@@ -232,15 +230,15 @@ public class BackupManager {
    * @param backupUser an already ZK authenticated backup user
    * @return Information about the existing backup
    */
-  public CompletableFuture<BackupInfo> backupInfo(final AuthenticatedBackupUser backupUser) {
+  public BackupInfo backupInfo(final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.FREE);
-    return backupsDb.describeBackup(backupUser)
-        .thenApply(backupDescription -> new BackupInfo(
-            backupDescription.cdn(),
-            backupUser.backupDir(),
-            backupUser.mediaDir(),
-            MESSAGE_BACKUP_NAME,
-            backupDescription.mediaUsedSpace()));
+    final BackupsDb.BackupDescription backupDescription = backupsDb.describeBackup(backupUser).join();
+    return new BackupInfo(
+        backupDescription.cdn(),
+        backupUser.backupDir(),
+        backupUser.mediaDir(),
+        MESSAGE_BACKUP_NAME,
+        backupDescription.mediaUsedSpace());
   }
 
   /**
@@ -461,45 +459,47 @@ public class BackupManager {
    * @param limit      The maximum number of list results to return
    * @return A {@link ListMediaResult}
    */
-  public CompletionStage<ListMediaResult> list(
+  public ListMediaResult list(
       final AuthenticatedBackupUser backupUser,
       final Optional<String> cursor,
       final int limit) {
     checkBackupLevel(backupUser, BackupLevel.FREE);
-    return remoteStorageManager.list(cdnMediaDirectory(backupUser), cursor, limit)
-        .thenApply(result ->
-            new ListMediaResult(
-                result
-                    .objects()
-                    .stream()
-                    .map(entry -> new StorageDescriptorWithLength(
-                        remoteStorageManager.cdnNumber(),
-                        decodeMediaIdFromCdn(entry.key()),
-                        entry.length()
-                    ))
-                    .toList(),
-                result.cursor()
-            ));
+    final RemoteStorageManager.ListResult result =
+        remoteStorageManager.list(cdnMediaDirectory(backupUser), cursor, limit).toCompletableFuture().join();
+    return new ListMediaResult(result
+        .objects()
+        .stream()
+        .map(entry -> new StorageDescriptorWithLength(
+            remoteStorageManager.cdnNumber(),
+            decodeMediaIdFromCdn(entry.key()),
+            entry.length()
+        ))
+        .toList(),
+        result.cursor());
   }
 
-  public CompletableFuture<Void> deleteEntireBackup(final AuthenticatedBackupUser backupUser) {
+  public void deleteEntireBackup(final AuthenticatedBackupUser backupUser) {
     checkBackupLevel(backupUser, BackupLevel.FREE);
 
     final int deletionConcurrency =
         dynamicConfigurationManager.getConfiguration().getBackupConfiguration().deletionConcurrency();
 
     // Clients only include SVRB data with their messages backup-id
-    final CompletableFuture<Void> svrbRemoval = switch(backupUser.credentialType()) {
-      case BackupCredentialType.MESSAGES -> secureValueRecoveryBClient.removeData(svrbIdentifier(backupUser));
-      case BackupCredentialType.MEDIA ->  CompletableFuture.completedFuture(null);
-    };
-    return svrbRemoval.thenCompose(_ -> backupsDb
-        // Try to swap out the backupDir for the user
-        .scheduleBackupDeletion(backupUser)
+    if (backupUser.credentialType() == BackupCredentialType.MESSAGES) {
+      secureValueRecoveryBClient.removeData(svrbIdentifier(backupUser)).join();
+    }
+    try {
+      // Try to swap out the backupDir for the user
+      backupsDb.scheduleBackupDeletion(backupUser).join();
+    } catch (Exception e) {
+      final Throwable unwrapped = ExceptionUtils.unwrap(e);
+      if (unwrapped instanceof BackupsDb.PendingDeletionException) {
         // If there was already a pending swap, try to delete the cdn objects directly
-        .exceptionallyCompose(ExceptionUtils.exceptionallyHandler(BackupsDb.PendingDeletionException.class, e ->
-            AsyncTimerUtil.record(SYNCHRONOUS_DELETE_TIMER, () ->
-                deletePrefix(backupUser.backupDir(), deletionConcurrency)))));
+        SYNCHRONOUS_DELETE_TIMER.record(() -> deletePrefix(backupUser.backupDir(), deletionConcurrency).join());
+      } else {
+        throw e;
+      }
+    }
   }
 
 
@@ -615,11 +615,34 @@ public class BackupManager {
    * @param signature    An XEd25519 signature of the presentation bytes
    * @return On authentication success, the authenticated backup-id and backup-tier encoded in the presentation
    */
-  public CompletableFuture<AuthenticatedBackupUser> authenticateBackupUser(
+  public AuthenticatedBackupUser authenticateBackupUser(
+      final BackupAuthCredentialPresentation presentation,
+      final byte[] signature,
+      final String userAgentString) {
+    return ExceptionUtils.unwrapSupply(
+        StatusRuntimeException.class,
+        () -> authenticateBackupUserAsync(presentation, signature, userAgentString).join());
+  }
+
+  /**
+   * Authenticate the ZK anonymous backup credential's presentation
+   * <p>
+   * This validates:
+   * <li> The presentation was for a credential issued by the server </li>
+   * <li> The credential is in its redemption window </li>
+   * <li> The backup-id matches a previously committed blinded backup-id and server issued receipt level </li>
+   * <li> The signature of the credential matches an existing publicKey associated with this backup-id </li>
+   *
+   * @param presentation A {@link BackupAuthCredentialPresentation}
+   * @param signature    An XEd25519 signature of the presentation bytes
+   * @return A future that completes with the authenticated backup-id and backup-tier encoded in the presentation
+   */
+  public CompletableFuture<AuthenticatedBackupUser> authenticateBackupUserAsync(
       final BackupAuthCredentialPresentation presentation,
       final byte[] signature,
       final String userAgentString) {
     final PresentationSignatureVerifier signatureVerifier = verifyPresentation(presentation);
+
     return backupsDb
         .retrieveAuthenticationData(presentation.getBackupId())
         .thenApply(optionalAuthenticationData -> {
@@ -701,7 +724,6 @@ public class BackupManager {
    * List and delete all files associated with a prefix
    *
    * @param prefixToDelete The prefix to expire.
-   * @return A stage that completes when all objects with the given prefix have been deleted
    */
   private CompletableFuture<Void> deletePrefix(final String prefixToDelete, int concurrentDeletes) {
     if (prefixToDelete.length() != BackupsDb.BACKUP_DIRECTORY_PATH_LENGTH

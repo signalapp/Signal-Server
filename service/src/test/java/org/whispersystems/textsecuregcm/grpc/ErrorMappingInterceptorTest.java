@@ -15,6 +15,7 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.protobuf.StatusProto;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -111,6 +112,20 @@ class ErrorMappingInterceptorTest {
     server = InProcessServerBuilder.forName("ErrorMappingInterceptorTest")
         .directExecutor()
         .addService(new SimpleEchoServiceErrorImpl(new UncheckedIOException(new IOException("test"))))
+        .intercept(new ErrorMappingInterceptor())
+        .build()
+        .start();
+
+    final EchoServiceGrpc.EchoServiceBlockingStub client = EchoServiceGrpc.newBlockingStub(channel);
+    GrpcTestUtils.assertStatusException(Status.UNAVAILABLE, "UNAVAILABLE", () ->
+        client.echo(EchoRequest.getDefaultInstance()));
+  }
+
+  @Test
+  public void mapWrappedIOExceptionsSimple() throws Exception {
+    server = InProcessServerBuilder.forName("ErrorMappingInterceptorTest")
+        .directExecutor()
+        .addService(new SimpleEchoServiceErrorImpl(new CompletionException(new UncheckedIOException(new IOException("test")))))
         .intercept(new ErrorMappingInterceptor())
         .build()
         .start();
