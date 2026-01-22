@@ -23,10 +23,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.lang3.StringUtils;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.signal.registration.rpc.CheckVerificationCodeRequest;
 import org.signal.registration.rpc.CreateRegistrationSessionRequest;
 import org.signal.registration.rpc.GetRegistrationSessionMetadataRequest;
@@ -97,8 +97,8 @@ public class RegistrationServiceClient implements Managed {
       final Phonenumber.PhoneNumber phoneNumber,
       final String sourceHost,
       final boolean accountExistsWithPhoneNumber,
-      @javax.annotation.Nullable final String clientMcc,
-      @javax.annotation.Nullable final String clientMnc,
+      @Nullable final String clientMcc,
+      @Nullable final String clientMnc,
       final Duration timeout) {
 
     final long e164 = Long.parseLong(
