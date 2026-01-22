@@ -58,6 +58,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicCarrierDataLookupConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRegistrationConfiguration;
 import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
@@ -83,6 +84,7 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
+import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
 
@@ -106,6 +108,7 @@ class VerificationControllerTest {
   private final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final AccountsManager accountsManager = mock(AccountsManager.class);
+  private final CarrierDataProvider carrierDataProvider = mock(CarrierDataProvider.class);
   private final Clock clock = Clock.systemUTC();
 
   private final RateLimiter captchaLimiter = mock(RateLimiter.class);
@@ -127,7 +130,7 @@ class VerificationControllerTest {
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,
               registrationCaptchaManager, registrationRecoveryPasswordsManager, phoneNumberIdentifiers, rateLimiters, accountsManager,
-              RegistrationFraudChecker.noop(), dynamicConfigurationManager, clock))
+              carrierDataProvider, RegistrationFraudChecker.noop(), dynamicConfigurationManager, clock))
       .build();
 
   @BeforeEach
@@ -140,6 +143,8 @@ class VerificationControllerTest {
         .thenReturn(Optional.empty());
     when(dynamicConfiguration.getRegistrationConfiguration())
         .thenReturn(new DynamicRegistrationConfiguration(false));
+    when(dynamicConfiguration.getCarrierDataLookupConfiguration())
+        .thenReturn(new DynamicCarrierDataLookupConfiguration());
     when(dynamicConfigurationManager.getConfiguration())
         .thenReturn(dynamicConfiguration);
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(NUMBER))

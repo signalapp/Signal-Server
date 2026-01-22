@@ -47,12 +47,12 @@ message CreateRegistrationSessionRequest {
   string rate_limit_collation_key = 3;
 
   /**
-   * The MCC for the given `e164` as reported by the client.
+   * The MCC for the given `e164` as reported by a number lookup service.
    */
   string mcc = 4;
 
   /**
-   * The MNC for the given `e164` as reported by the client.
+   * The MNC for the given `e164` as reported by a number lookup service.
    */
   string mnc = 5;
 }

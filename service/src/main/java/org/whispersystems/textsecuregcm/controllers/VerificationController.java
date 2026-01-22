@@ -94,6 +94,9 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
+import org.whispersystems.textsecuregcm.telephony.CarrierData;
+import org.whispersystems.textsecuregcm.telephony.CarrierDataException;
+import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ObsoletePhoneNumberFormatException;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -129,6 +132,7 @@ public class VerificationController {
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
   private final RateLimiters rateLimiters;
   private final AccountsManager accountsManager;
+  private final CarrierDataProvider carrierDataProvider;
   private final RegistrationFraudChecker registrationFraudChecker;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Clock clock;
@@ -141,6 +145,7 @@ public class VerificationController {
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final RateLimiters rateLimiters,
       final AccountsManager accountsManager,
+      final CarrierDataProvider carrierDataProvider,
       final RegistrationFraudChecker registrationFraudChecker,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Clock clock) {
@@ -152,6 +157,7 @@ public class VerificationController {
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.rateLimiters = rateLimiters;
     this.accountsManager = accountsManager;
+    this.carrierDataProvider = carrierDataProvider;
     this.registrationFraudChecker = registrationFraudChecker;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.clock = clock;
@@ -187,14 +193,29 @@ public class VerificationController {
       throw new ServerErrorException("could not parse already validated number", Response.Status.INTERNAL_SERVER_ERROR);
     }
 
+    Optional<CarrierData> maybeCarrierData;
+
+    if (dynamicConfigurationManager.getConfiguration().getCarrierDataLookupConfiguration().enabled()) {
+      try {
+        maybeCarrierData = carrierDataProvider.lookupCarrierData(phoneNumber,
+            dynamicConfigurationManager.getConfiguration().getCarrierDataLookupConfiguration().maxCacheAge());
+      } catch (final IOException | CarrierDataException e) {
+        logger.warn("Failed to retrieve carrier data", e);
+        maybeCarrierData = Optional.empty();
+      }
+    } else {
+      maybeCarrierData = Optional.empty();
+    }
+
     final RegistrationServiceSession registrationServiceSession;
     try {
       final String sourceHost = (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
-      registrationServiceSession = registrationServiceClient.createRegistrationSession(phoneNumber, sourceHost,
+      registrationServiceSession = registrationServiceClient.createRegistrationSession(phoneNumber,
+          sourceHost,
           accountsManager.getByE164(request.number()).isPresent(),
-          request.updateVerificationSessionRequest().mcc(),
-          request.updateVerificationSessionRequest().mnc(),
+          maybeCarrierData.flatMap(CarrierData::mcc).orElse(null),
+          maybeCarrierData.flatMap(CarrierData::mnc).orElse(null),
           REGISTRATION_RPC_TIMEOUT).join();
     } catch (final CancellationException e) {
 

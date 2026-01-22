@@ -68,6 +68,10 @@ public class DynamicConfiguration {
   @Valid
   private DynamicBackupConfiguration backup = new DynamicBackupConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicCarrierDataLookupConfiguration carrierDataLookup = new DynamicCarrierDataLookupConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -120,5 +124,9 @@ public class DynamicConfiguration {
 
   public DynamicBackupConfiguration getBackupConfiguration() {
     return backup;
+  }
+
+  public DynamicCarrierDataLookupConfiguration getCarrierDataLookupConfiguration() {
+    return carrierDataLookup;
   }
 }
