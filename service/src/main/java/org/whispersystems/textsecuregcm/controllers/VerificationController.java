@@ -229,9 +229,16 @@ public class VerificationController {
       throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, e);
     }
 
-    VerificationSession verificationSession = new VerificationSession(null, new ArrayList<>(),
-        Collections.emptyList(), null, null, false,
-        clock.millis(), clock.millis(), registrationServiceSession.expiration());
+    VerificationSession verificationSession = new VerificationSession(null,
+        maybeCarrierData.orElse(null),
+        new ArrayList<>(),
+        Collections.emptyList(),
+        null,
+        null,
+        false,
+        clock.millis(),
+        clock.millis(),
+        registrationServiceSession.expiration());
 
     verificationSession = handlePushToken(pushTokenAndType, verificationSession);
     // unconditionally request a captcha -- it will either be the only requested information, or a fallback
@@ -347,10 +354,16 @@ public class VerificationController {
         requestedInformation.add(VerificationSession.Information.PUSH_CHALLENGE);
         requestedInformation.addAll(verificationSession.requestedInformation());
 
-        verificationSession = new VerificationSession(generatePushChallenge(), requestedInformation,
-            verificationSession.submittedInformation(), verificationSession.smsSenderOverride(),
-            verificationSession.voiceSenderOverride(), verificationSession.allowedToRequestCode(),
-            verificationSession.createdTimestamp(), clock.millis(), verificationSession.remoteExpirationSeconds()
+        verificationSession = new VerificationSession(generatePushChallenge(),
+            verificationSession.carrierData(),
+            requestedInformation,
+            verificationSession.submittedInformation(),
+            verificationSession.smsSenderOverride(),
+            verificationSession.voiceSenderOverride(),
+            verificationSession.allowedToRequestCode(),
+            verificationSession.createdTimestamp(),
+            clock.millis(),
+            verificationSession.remoteExpirationSeconds()
         );
       }
 
@@ -415,9 +428,15 @@ public class VerificationController {
           || requestedInformation.remove(VerificationSession.Information.PUSH_CHALLENGE))
           && requestedInformation.isEmpty();
 
-      verificationSession = new VerificationSession(verificationSession.pushChallenge(), requestedInformation,
-          submittedInformation, verificationSession.smsSenderOverride(), verificationSession.voiceSenderOverride(),
-          allowedToRequestCode, verificationSession.createdTimestamp(), clock.millis(),
+      verificationSession = new VerificationSession(verificationSession.pushChallenge(),
+          verificationSession.carrierData(),
+          requestedInformation,
+          submittedInformation,
+          verificationSession.smsSenderOverride(),
+          verificationSession.voiceSenderOverride(),
+          allowedToRequestCode,
+          verificationSession.createdTimestamp(),
+          clock.millis(),
           verificationSession.remoteExpirationSeconds());
 
     } else if (pushChallengePresent) {
@@ -482,9 +501,15 @@ public class VerificationController {
           || requestedInformation.remove(VerificationSession.Information.CAPTCHA))
           && requestedInformation.isEmpty();
 
-      verificationSession = new VerificationSession(verificationSession.pushChallenge(), requestedInformation,
-          submittedInformation, verificationSession.smsSenderOverride(), verificationSession.voiceSenderOverride(),
-          allowedToRequestCode, verificationSession.createdTimestamp(), clock.millis(),
+      verificationSession = new VerificationSession(verificationSession.pushChallenge(),
+          verificationSession.carrierData(),
+          requestedInformation,
+          submittedInformation,
+          verificationSession.smsSenderOverride(),
+          verificationSession.voiceSenderOverride(),
+          allowedToRequestCode,
+          verificationSession.createdTimestamp(),
+          clock.millis(),
           verificationSession.remoteExpirationSeconds());
     } else {
       throw new ForbiddenException();

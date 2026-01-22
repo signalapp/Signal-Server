@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.telephony.CarrierData;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 
@@ -46,7 +48,7 @@ class VerificationSessionsTest {
     final Instant updates = Instant.now();
     final Duration remoteExpiration = Duration.ofMinutes(2);
 
-    final VerificationSession verificationSession = new VerificationSession(null,
+    final VerificationSession verificationSession = new VerificationSession(null, null,
         List.of(VerificationSession.Information.PUSH_CHALLENGE), Collections.emptyList(), null, null, true,
         created.toEpochMilli(), updates.toEpochMilli(), remoteExpiration.toSeconds());
 
@@ -63,7 +65,7 @@ class VerificationSessionsTest {
       final Optional<VerificationSession> absentSession = verificationSessions.findForKey(sessionId).join();
       assertTrue(absentSession.isEmpty());
 
-      final VerificationSession session = new VerificationSession(null,
+      final VerificationSession session = new VerificationSession(null, new CarrierData("Test", CarrierData.LineType.MOBILE, Optional.of("123"), Optional.empty()),
           List.of(VerificationSession.Information.PUSH_CHALLENGE), Collections.emptyList(), null, null, true,
           clock.millis(), clock.millis(), Duration.ofMinutes(1).toSeconds());
 
@@ -75,10 +77,10 @@ class VerificationSessionsTest {
           () -> verificationSessions.insert(sessionId, session).join());
 
       final Throwable t = ExceptionUtils.unwrap(ce);
-      assertTrue(t instanceof ConditionalCheckFailedException,
+      assertInstanceOf(ConditionalCheckFailedException.class, t,
           "inserting with the same key should fail conditional checks");
 
-      final VerificationSession updatedSession = new VerificationSession(null, Collections.emptyList(),
+      final VerificationSession updatedSession = new VerificationSession(null, new CarrierData("Test", CarrierData.LineType.MOBILE, Optional.of("123"), Optional.empty()), Collections.emptyList(),
           List.of(VerificationSession.Information.PUSH_CHALLENGE), null, null, true, clock.millis(), clock.millis(),
           Duration.ofMinutes(2).toSeconds());
       verificationSessions.update(sessionId, updatedSession).join();
