@@ -60,7 +60,7 @@ import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -164,7 +164,7 @@ public class VerificationController {
   @Operation(
       summary = "Creates a new verification session for a specific phone number",
       description = """
-          Initiates a session to be able to verify the phone number for account registration. Check the response and 
+          Initiates a session to be able to verify the phone number for account registration. Check the response and
           submit requested information at PATCH /session/{sessionId}
           """)
   @ApiResponse(responseCode = "200", description = "The verification session was created successfully", useReturnTypeSchema = true)
@@ -229,9 +229,9 @@ public class VerificationController {
   @Operation(
       summary = "Update a registration verification session",
       description = """
-          Updates the session with requested information like an answer to a push challenge or captcha. 
-          If `requestedInformation` in the response is empty, and `allowedToRequestCode` is `true`, proceed to call 
-          `POST /session/{sessionId}/code`. If `requestedInformation` is empty and `allowedToRequestCode` is `false`, 
+          Updates the session with requested information like an answer to a push challenge or captcha.
+          If `requestedInformation` in the response is empty, and `allowedToRequestCode` is `true`, proceed to call
+          `POST /session/{sessionId}/code`. If `requestedInformation` is empty and `allowedToRequestCode` is `false`,
           then the caller must create a new verification session.
           """)
   @ApiResponse(responseCode = "200", description = "Session was updated successfully with the information provided", useReturnTypeSchema = true)
@@ -511,9 +511,9 @@ public class VerificationController {
       content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)))
   @ApiResponse(responseCode = "422", description = "Request did not pass validation")
   @ApiResponse(responseCode = "429", description = """
-      Too may attempts; the caller is not permitted to send a verification code via the requested channel at this time 
-      and may need to wait before trying again; if the session metadata does not specify a time at which the caller may 
-      try again, then the caller has exhausted their permitted attempts and must either try a different transport or 
+      Too may attempts; the caller is not permitted to send a verification code via the requested channel at this time
+      and may need to wait before trying again; if the session metadata does not specify a time at which the caller may
+      try again, then the caller has exhausted their permitted attempts and must either try a different transport or
       create a new verification session.
       """,
       content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)),
@@ -523,10 +523,10 @@ public class VerificationController {
           schema = @Schema(implementation = Integer.class)
       ))
   @ApiResponse(responseCode = "440", description = """
-      The attempt to send a verification code failed because an external service (e.g. the SMS provider) refused to 
-      deliver the code. This may be a temporary or permanent failure, as indicated in the response body. If temporary, 
-      clients may try again after a reasonable delay. If permanent, clients should not retry the request and should 
-      communicate the permanent failure to the end user. Permanent failures may result in the server disallowing all 
+      The attempt to send a verification code failed because an external service (e.g. the SMS provider) refused to
+      deliver the code. This may be a temporary or permanent failure, as indicated in the response body. If temporary,
+      clients may try again after a reasonable delay. If permanent, clients should not retry the request and should
+      communicate the permanent failure to the end user. Permanent failures may result in the server disallowing all
       future attempts to request or submit verification codes (since those attempts would be all but guaranteed to fail).
       """,
       content = @Content(schema = @Schema(implementation = RegistrationServiceSenderExceptionMapper.SendVerificationCodeFailureResponse.class)))
@@ -574,7 +574,7 @@ public class VerificationController {
       case "ios" -> ClientType.IOS;
       case "android-2021-03" -> ClientType.ANDROID_WITH_FCM;
       default -> {
-        if (StringUtils.startsWithIgnoreCase(verificationCodeRequest.client(), "android")) {
+        if (Strings.CI.startsWith(verificationCodeRequest.client(), "android")) {
           yield ClientType.ANDROID_WITHOUT_FCM;
         }
         yield ClientType.UNKNOWN;
@@ -598,38 +598,41 @@ public class VerificationController {
       throw new ServerErrorException("registration service unavailable", Response.Status.SERVICE_UNAVAILABLE);
     } catch (final CompletionException e) {
       final Throwable unwrappedException = ExceptionUtils.unwrap(e);
-      if (unwrappedException instanceof RateLimitExceededException rateLimitExceededException) {
-        if (rateLimitExceededException instanceof VerificationSessionRateLimitExceededException ve) {
-          final Response response = buildResponseForRateLimitExceeded(verificationSession, ve.getRegistrationSession(),
-              ve.getRetryDuration());
-          throw new ClientErrorException(response);
+      switch (unwrappedException) {
+        case RateLimitExceededException rateLimitExceededException -> {
+          if (rateLimitExceededException instanceof VerificationSessionRateLimitExceededException ve) {
+            final Response response = buildResponseForRateLimitExceeded(verificationSession,
+                ve.getRegistrationSession(),
+                ve.getRetryDuration());
+            throw new ClientErrorException(response);
+          }
+
+          throw new RateLimitExceededException(rateLimitExceededException.getRetryDuration().orElse(null));
         }
+        case RegistrationServiceException registrationServiceException ->
+            throw registrationServiceException.getRegistrationSession()
+                .map(s -> buildResponse(s, verificationSession))
+                .map(verificationSessionResponse -> {
+                  final Response response = registrationServiceException instanceof TransportNotAllowedException
+                      ? Response.status(418).entity(verificationSessionResponse).build()
+                      : Response.status(Response.Status.CONFLICT).entity(verificationSessionResponse).build();
 
-        throw new RateLimitExceededException(rateLimitExceededException.getRetryDuration().orElse(null));
-      } else if (unwrappedException instanceof RegistrationServiceException registrationServiceException) {
-
-        throw registrationServiceException.getRegistrationSession()
-            .map(s -> buildResponse(s, verificationSession))
-            .map(verificationSessionResponse -> {
-              final Response response = registrationServiceException instanceof TransportNotAllowedException
-                  ? Response.status(418).entity(verificationSessionResponse).build()
-                  : Response.status(Response.Status.CONFLICT).entity(verificationSessionResponse).build();
-
-              return new ClientErrorException(response);
-            })
-            .orElseGet(NotFoundException::new);
-
-      } else if (unwrappedException instanceof RegistrationFraudException) {
-        if (dynamicConfigurationManager.getConfiguration().getRegistrationConfiguration().squashDeclinedAttemptErrors()) {
-          return buildResponse(registrationServiceSession, verificationSession);
-        } else {
-          throw unwrappedException.getCause();
+                  return new ClientErrorException(response);
+                })
+                .orElseGet(NotFoundException::new);
+        case RegistrationFraudException _ -> {
+          if (dynamicConfigurationManager.getConfiguration().getRegistrationConfiguration()
+              .squashDeclinedAttemptErrors()) {
+            return buildResponse(registrationServiceSession, verificationSession);
+          } else {
+            throw unwrappedException.getCause();
+          }
         }
-      } else if (unwrappedException instanceof RegistrationServiceSenderException) {
-        throw unwrappedException;
-      } else {
-        logger.error("Registration service failure", unwrappedException);
-        throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR);
+        case RegistrationServiceSenderException _ -> throw unwrappedException;
+        case null, default -> {
+          logger.error("Registration service failure", unwrappedException);
+          throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR);
+        }
       }
     }
 
@@ -661,8 +664,8 @@ public class VerificationController {
   @ApiResponse(responseCode = "409", description = "The session is already verified or no code has been requested yet for this session",
       content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)))
   @ApiResponse(responseCode = "429", description = """
-      Too many attempts; the caller is not permitted to submit a verification code at this time and may need to wait 
-      before trying again; if the session metadata does not specify a time at which the caller may try again, then the 
+      Too many attempts; the caller is not permitted to submit a verification code at this time and may need to wait
+      before trying again; if the session metadata does not specify a time at which the caller may try again, then the
       caller has exhausted their permitted attempts and must create a new verification session.
       """,
       content = @Content(schema = @Schema(implementation = VerificationSessionResponse.class)),
