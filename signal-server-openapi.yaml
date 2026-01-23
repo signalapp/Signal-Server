@@ -1092,6 +1092,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadAuthResponse"
+        "400":
+          description: Bad arguments. The request may have been made on an authenticated
+            channel
         "429":
           description: Rate limited.
         "403":
@@ -1103,9 +1106,6 @@ paths:
             The public key signature was invalid or
             There is no backup associated with the backup-id in the presentation or
             The credential was of the wrong type (messages/media)
-        "400":
-          description: Bad arguments. The request may have been made on an authenticated
-            channel
       security:
       - authenticatedAccount: []
       - {}
@@ -2451,15 +2451,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
@@ -2680,15 +2680,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2771,15 +2771,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2807,15 +2807,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
