@@ -11,11 +11,11 @@
   <artifactId>service</artifactId>
 
   <properties>
-    <firebase-admin.version>9.6.0</firebase-admin.version>
-    <java-uuid-generator.version>5.1.0</java-uuid-generator.version>
+    <firebase-admin.version>9.7.0</firebase-admin.version>
+    <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
     <google-androidpublisher.version>v3-rev20250904-2.0.0</google-androidpublisher.version>
-    <storekit.version>3.6.0</storekit.version>
-    <webauthn4j.version>0.29.6.RELEASE</webauthn4j.version>
+    <storekit.version>4.0.0</storekit.version>
+    <webauthn4j.version>0.30.2.RELEASE</webauthn4j.version>
     <java-jwt.version>4.5.0</java-jwt.version>
   </properties>
 
@@ -266,26 +266,12 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <exclusions>
-        <!-- our direct import of guava brings in a more recent version of failureaccess, so excluding it here -->
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>failureaccess</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
       <groupId>com.google.firebase</groupId>
       <artifactId>firebase-admin</artifactId>
       <version>${firebase-admin.version}</version>
-      <exclusions>
-        <!-- our direct import of guava brings in a more recent version of failureaccess, so excluding it here -->
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>failureaccess</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -296,11 +282,6 @@
         <exclusion>
           <groupId>io.opentelemetry.instrumentation</groupId>
           <artifactId>opentelemetry-instrumentation-api-incubator</artifactId>
-        </exclusion>
-        <!-- our direct import of guava brings in a more recent version of failureaccess, so excluding it here -->
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>failureaccess</artifactId>
         </exclusion>
       </exclusions>
     </dependency>

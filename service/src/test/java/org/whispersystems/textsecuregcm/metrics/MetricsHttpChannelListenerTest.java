@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import io.micrometer.core.instrument.Tags;
 import org.eclipse.jetty.http.HttpURI;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
@@ -55,7 +56,7 @@ class MetricsHttpChannelListenerTest {
     when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(requestCounter);
 
-    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUESTS_BY_VERSION_COUNTER_NAME), any(Iterable.class)))
+    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUESTS_BY_VERSION_COUNTER_NAME), any(Tags.class)))
         .thenReturn(requestsByVersionCounter);
 
     when(meterRegistry.counter(eq(MetricsHttpChannelListener.RESPONSE_BYTES_COUNTER_NAME), any(Iterable.class)))
@@ -152,7 +153,7 @@ class MetricsHttpChannelListenerTest {
     listener.onComplete(request);
 
     if (versionActive) {
-      final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
+      final ArgumentCaptor<Tags> tagCaptor = ArgumentCaptor.forClass(Tags.class);
       verify(meterRegistry).counter(eq(MetricsHttpChannelListener.REQUESTS_BY_VERSION_COUNTER_NAME),
           tagCaptor.capture());
       final Set<Tag> tags = new HashSet<>();

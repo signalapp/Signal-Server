@@ -46,9 +46,9 @@
 
   <properties>
     <aws.sdk2.version>2.41.11</aws.sdk2.version>
-    <braintree.version>3.44.0</braintree.version>
+    <braintree.version>3.47.0</braintree.version>
     <commons-csv.version>1.14.1</commons-csv.version>
-    <commons-io.version>2.20.0</commons-io.version>
+    <commons-io.version>2.21.0</commons-io.version>
     <dropwizard.version>4.0.16</dropwizard.version>
     <!-- Note: when updating FoundationDB, also include a copy of `libfdb_c.so` from the FoundationDB release at
     src/main/jib/usr/lib/libfdb_c.so. We use x86_64 builds without AVX instructions enabled (i.e. FoundationDB versions
@@ -57,37 +57,38 @@
     <foundationdb.version>7.3.62</foundationdb.version>
     <foundationdb.api-version>730</foundationdb.api-version>
     <foundationdb.client-library-sha256>bfed237b787fae3cde1222676e6bfbb0d218fc27bf9e903397a7a7aa96fb2d33</foundationdb.client-library-sha256>
-    <google-cloud-libraries.version>26.67.0</google-cloud-libraries.version>
+    <google-cloud-libraries.version>26.74.0</google-cloud-libraries.version>
     <grpc.version>1.73.0</grpc.version> <!-- should be kept in sync with the value from Google libraries-bom -->
     <gson.version>2.13.2</gson.version>
+    <guava.version>33.5.0-jre</guava.version>
     <!-- several libraries (AWS, Google Cloud) use Apache http components transitively, and we need to align them -->
     <httpcore.version>4.4.16</httpcore.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <jackson.version>2.20.0</jackson.version>
+    <jackson.version>2.21.0</jackson.version>
     <junit-pioneer.version>2.3.0</junit-pioneer.version>
     <jsr305.version>3.0.2</jsr305.version>
-    <kotlin.version>2.2.20</kotlin.version>
-    <logback.version>1.5.23</logback.version>
+    <kotlin.version>2.3.0</kotlin.version>
+    <logback.version>1.5.25</logback.version>
     <logback-access-common.version>2.0.6</logback-access-common.version>
     <lettuce.version>6.8.1.RELEASE</lettuce.version>
     <libphonenumber.version>9.0.13</libphonenumber.version>
     <logstash.logback.version>8.1</logstash.logback.version>
-    <log4j-bom.version>2.25.1</log4j-bom.version>
+    <log4j-bom.version>2.25.3</log4j-bom.version>
     <luajava.version>3.5.0</luajava.version>
-    <micrometer.version>1.15.4</micrometer.version>
+    <micrometer.version>1.16.2</micrometer.version>
     <netty.version>4.1.127.Final</netty.version>
     <!-- Must be less than or equal to the value from Google libraries-bom which controls the protobuf runtime version.
     See https://protobuf.dev/support/cross-version-runtime-guarantee/. -->
     <protoc.version>4.29.4</protoc.version>
     <pushy.version>0.15.4</pushy.version>
     <reactive.grpc.version>1.2.4</reactive.grpc.version>
-    <reactor-bom.version>2024.0.10</reactor-bom.version> <!-- 3.7.11, see https://github.com/reactor/reactor#bom-versioning-scheme -->
+    <reactor-bom.version>2025.0.2</reactor-bom.version> <!-- 3.8.2, see https://github.com/reactor/reactor#bom-versioning-scheme -->
     <resilience4j.version>2.3.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
     <simple-grpc.version>0.2.0</simple-grpc.version>
     <slf4j.version>2.0.17</slf4j.version>
-    <stripe.version>30.2.0</stripe.version>
-    <swagger.version>2.2.36</swagger.version>
+    <stripe.version>31.2.0</stripe.version>
+    <swagger.version>2.2.42</swagger.version>
     <testcontainers.version>2.0.3</testcontainers.version>
 
     <!-- images to use in tests via testcontainers  -->
@@ -283,6 +284,11 @@
         <groupId>com.google.code.gson</groupId>
         <artifactId>gson</artifactId>
         <version>${gson.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${guava.version}</version>
       </dependency>
       <dependency>
         <groupId>com.redis</groupId>

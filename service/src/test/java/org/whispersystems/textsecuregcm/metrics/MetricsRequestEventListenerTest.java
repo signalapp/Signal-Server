@@ -24,6 +24,7 @@ import io.dropwizard.jersey.jackson.JacksonMessageBodyProvider;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import java.io.IOException;
@@ -122,7 +123,7 @@ class MetricsRequestEventListenerTest {
         .thenReturn(responseBytesCounter);
     when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUEST_BYTES_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(requestBytesCounter);
-    when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUESTS_BY_VERSION_COUNTER_NAME), any(Iterable.class)))
+    when(meterRegistry.counter(eq(MetricsRequestEventListener.REQUESTS_BY_VERSION_COUNTER_NAME), any(Tags.class)))
         .thenReturn(requestsByVersionCounter);
 
     listener.onEvent(event);
