@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -18,6 +19,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
@@ -29,8 +31,8 @@ import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.glassfish.jersey.SslConfigurator;
 import org.whispersystems.textsecuregcm.util.CertificateUtil;
-import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 
 public class FaultTolerantHttpClient {
 
@@ -65,17 +67,31 @@ public class FaultTolerantHttpClient {
     return this.httpClients.get(ThreadLocalRandom.current().nextInt(this.httpClients.size()));
   }
 
-  public <T> CompletableFuture<HttpResponse<T>> sendAsync(HttpRequest request,
+  public <T> HttpResponse<T> send(final HttpRequest request, final HttpResponse.BodyHandler<T> bodyHandler)
+      throws IOException {
+    final Callable<HttpResponse<T>> requestCallable =
+        () -> httpClient().send(requestWithTimeout(request, defaultRequestTimeout), bodyHandler);
+
+    try {
+      return retry != null
+          ? breaker.executeCallable(retry.decorateCallable(requestCallable))
+          : breaker.executeCallable(requestCallable);
+    } catch (final IOException e) {
+      throw e;
+    } catch (final Exception e) {
+      if (e instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+
+      throw new RuntimeException(e);
+    }
+  }
+
+  public <T> CompletableFuture<HttpResponse<T>> sendAsync(final HttpRequest request,
       final HttpResponse.BodyHandler<T> bodyHandler) {
 
-    if (request.timeout().isEmpty()) {
-      request = HttpRequest.newBuilder(request, (_, _) -> true)
-          .timeout(defaultRequestTimeout)
-          .build();
-    }
-
     final Supplier<CompletionStage<HttpResponse<T>>> asyncRequestSupplier =
-        sendAsync(httpClient(), request, bodyHandler);
+        () -> httpClient().sendAsync(requestWithTimeout(request, defaultRequestTimeout), bodyHandler);
 
     if (retry != null) {
       assert retryExecutor != null;
@@ -87,10 +103,12 @@ public class FaultTolerantHttpClient {
     }
   }
 
-  private <T> Supplier<CompletionStage<HttpResponse<T>>> sendAsync(HttpClient client, HttpRequest request,
-      HttpResponse.BodyHandler<T> bodyHandler) {
-
-    return () -> client.sendAsync(request, bodyHandler);
+  private static HttpRequest requestWithTimeout(final HttpRequest request, final Duration defaultRequestTimeout) {
+    return request.timeout().isPresent()
+        ? request
+        : HttpRequest.newBuilder(request, (_, _) -> true)
+            .timeout(defaultRequestTimeout)
+            .build();
   }
 
   public static class Builder {
@@ -102,7 +120,7 @@ public class FaultTolerantHttpClient {
     private int numClients = 1;
 
     private final String name;
-    private Executor executor;
+    private final Executor executor;
     private KeyStore trustStore;
     private String securityProtocol = SECURITY_PROTOCOL_TLS_1_2;
     private String retryConfigurationName;

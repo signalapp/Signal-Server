@@ -527,3 +527,7 @@ asnTable:
 callQualitySurvey:
   pubSubPublisher:
     type: stub
+
+hlrLookup:
+  apiKey: secret://hlrLookup.apiKey
+  apiSecret: secret://hlrLookup.apiSecret

@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguratio
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
 import org.whispersystems.textsecuregcm.configuration.GooglePlayBillingConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GrpcConfiguration;
+import org.whispersystems.textsecuregcm.configuration.HlrLookupConfiguration;
 import org.whispersystems.textsecuregcm.configuration.IdlePrimaryDeviceReminderConfiguration;
 import org.whispersystems.textsecuregcm.configuration.KeyTransparencyServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
@@ -332,6 +333,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private Map<String, @Valid RetryConfiguration> retries = Collections.emptyMap();
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private HlrLookupConfiguration hlrLookup;
+
   @JsonProperty
   @Valid
   @NotNull
@@ -589,5 +595,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public CallQualitySurveyConfiguration getCallQualitySurveyConfiguration() {
     return callQualitySurvey;
+  }
+
+  public HlrLookupConfiguration getHlrLookupConfiguration() {
+    return hlrLookup;
   }
 }

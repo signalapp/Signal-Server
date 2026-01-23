@@ -257,6 +257,8 @@ import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
+import org.whispersystems.textsecuregcm.telephony.hlrlookup.HlrLookupCarrierDataProvider;
 import org.whispersystems.textsecuregcm.util.BufferingInterceptor;
 import org.whispersystems.textsecuregcm.util.ManagedAwsCrt;
 import org.whispersystems.textsecuregcm.util.ManagedExecutors;
@@ -580,6 +582,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .maxThreads(2)
         .minThreads(2)
         .build();
+    ExecutorService hlrLookupHttpExecutor = ExecutorServiceBuilder.of(environment, "hlrLookup")
+        .maxThreads(2)
+        .minThreads(2)
+        .build();
 
     ExecutorService subscriptionProcessorExecutor = ManagedExecutors.newVirtualThreadPerTaskExecutor(
         "subscriptionProcessor",
@@ -633,6 +639,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
     UsernameHashZkProofVerifier usernameHashZkProofVerifier = new UsernameHashZkProofVerifier();
+
+    final CarrierDataProvider carrierDataProvider =
+        new HlrLookupCarrierDataProvider(config.getHlrLookupConfiguration().apiKey().value(),
+            config.getHlrLookupConfiguration().apiSecret().value(),
+            hlrLookupHttpExecutor,
+            config.getHlrLookupConfiguration().circuitBreakerConfigurationName(),
+            config.getHlrLookupConfiguration().retryConfigurationName(),
+            retryExecutor);
 
     RegistrationServiceClient registrationServiceClient = config.getRegistrationServiceConfiguration()
         .build(environment, registrationCallbackExecutor, registrationIdentityTokenRefreshExecutor);

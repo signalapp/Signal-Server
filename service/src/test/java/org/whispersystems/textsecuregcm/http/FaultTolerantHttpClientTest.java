@@ -47,7 +47,7 @@ import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 class FaultTolerantHttpClientTest {
 
   @RegisterExtension
-  private final WireMockExtension wireMock = WireMockExtension.newInstance()
+  private static final WireMockExtension wireMock = WireMockExtension.newInstance()
       .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
       .build();
 
@@ -60,32 +60,34 @@ class FaultTolerantHttpClientTest {
     retryExecutor = Executors.newSingleThreadScheduledExecutor();
   }
 
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   @AfterEach
   void tearDown() throws InterruptedException {
     httpExecutor.shutdown();
     httpExecutor.awaitTermination(1, TimeUnit.SECONDS);
+
     retryExecutor.shutdown();
     retryExecutor.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @Test
-  void testSimpleGet() {
+  void testSimpleGetAsync() {
     wireMock.stubFor(get(urlEqualTo("/ping"))
         .willReturn(aResponse()
             .withHeader("Content-Type", "text/plain")
             .withBody("Pong!")));
 
-    FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testSimpleGet", httpExecutor)
+    final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testSimpleGet", httpExecutor)
         .withRetry(null, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
-    HttpRequest request = HttpRequest.newBuilder()
-                                     .uri(URI.create("http://localhost:" + wireMock.getPort() + "/ping"))
-                                     .GET()
-                                     .build();
+    final HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("http://localhost:" + wireMock.getPort() + "/ping"))
+        .GET()
+        .build();
 
-    HttpResponse<String> response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+    final HttpResponse<String> response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
 
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(response.body()).isEqualTo("Pong!");
@@ -94,24 +96,49 @@ class FaultTolerantHttpClientTest {
   }
 
   @Test
-  void testRetryGet() {
-    wireMock.stubFor(get(urlEqualTo("/failure"))
-                             .willReturn(aResponse()
-                                             .withStatus(500)
-                                             .withHeader("Content-Type", "text/plain")
-                                             .withBody("Pong!")));
+  void testSimpleGetSync() throws IOException, InterruptedException {
+    wireMock.stubFor(get(urlEqualTo("/ping"))
+        .willReturn(aResponse()
+            .withHeader("Content-Type", "text/plain")
+            .withBody("Pong!")));
 
-    FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testRetryGet", httpExecutor)
+    final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testSimpleGet", httpExecutor)
         .withRetry(null, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)
         .build();
 
-    HttpRequest request = HttpRequest.newBuilder()
-                                     .uri(URI.create("http://localhost:" + wireMock.getPort() + "/failure"))
-                                     .GET()
-                                     .build();
+    final HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("http://localhost:" + wireMock.getPort() + "/ping"))
+        .GET()
+        .build();
 
-    HttpResponse<String> response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+    final HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.body()).isEqualTo("Pong!");
+
+    wireMock.verify(1, getRequestedFor(urlEqualTo("/ping")));
+  }
+
+  @Test
+  void testRetryGetAsync() {
+    wireMock.stubFor(get(urlEqualTo("/failure"))
+        .willReturn(aResponse()
+            .withStatus(500)
+            .withHeader("Content-Type", "text/plain")
+            .withBody("Pong!")));
+
+    final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testRetryGet", httpExecutor)
+        .withRetry(null, retryExecutor)
+        .withVersion(HttpClient.Version.HTTP_2)
+        .build();
+
+    final HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("http://localhost:" + wireMock.getPort() + "/failure"))
+        .GET()
+        .build();
+
+    final HttpResponse<String> response = client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
 
     assertThat(response.statusCode()).isEqualTo(500);
     assertThat(response.body()).isEqualTo("Pong!");
@@ -120,7 +147,33 @@ class FaultTolerantHttpClientTest {
   }
 
   @Test
-  void testRetryGetOnException() {
+  void testRetryGetSync() throws IOException, InterruptedException {
+    wireMock.stubFor(get(urlEqualTo("/failure"))
+        .willReturn(aResponse()
+            .withStatus(500)
+            .withHeader("Content-Type", "text/plain")
+            .withBody("Pong!")));
+
+    final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testRetryGet", httpExecutor)
+        .withRetry(null, retryExecutor)
+        .withVersion(HttpClient.Version.HTTP_2)
+        .build();
+
+    final HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("http://localhost:" + wireMock.getPort() + "/failure"))
+        .GET()
+        .build();
+
+    final HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+    assertThat(response.statusCode()).isEqualTo(500);
+    assertThat(response.body()).isEqualTo("Pong!");
+
+    wireMock.verify(3, getRequestedFor(urlEqualTo("/failure")));
+  }
+
+  @Test
+  void testRetryGetAsyncOnException() {
     final HttpClient mockHttpClient = mock(HttpClient.class);
 
     final Retry retry = Retry.of("test", new RetryConfiguration().toRetryConfigBuilder()
@@ -137,18 +190,45 @@ class FaultTolerantHttpClientTest {
     when(mockHttpClient.sendAsync(any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new IOException("test exception")));
 
-    HttpRequest request = HttpRequest.newBuilder()
+    final HttpRequest request = HttpRequest.newBuilder()
         .uri(URI.create("http://localhost:1234/failure"))
         .GET()
         .build();
 
-    try {
-      client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
-      throw new AssertionError("Should have failed!");
-    } catch (CompletionException e) {
-      assertThat(e.getCause()).isInstanceOf(IOException.class);
-    }
+    assertThatThrownBy(() -> client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join())
+        .isInstanceOf(CompletionException.class)
+        .hasCauseInstanceOf(IOException.class);
+
     verify(mockHttpClient, times(3)).sendAsync(any(), any());
+  }
+
+  @Test
+  void testRetryGetSyncOnException() throws IOException, InterruptedException {
+    final HttpClient mockHttpClient = mock(HttpClient.class);
+
+    final Retry retry = Retry.of("test", new RetryConfiguration().toRetryConfigBuilder()
+        .retryOnException(throwable -> throwable instanceof IOException)
+        .build());
+
+    final FaultTolerantHttpClient client = new FaultTolerantHttpClient(
+        List.of(mockHttpClient),
+        Duration.ofSeconds(1),
+        retryExecutor,
+        retry,
+        CircuitBreaker.ofDefaults("test"));
+
+    when(mockHttpClient.send(any(), any()))
+        .thenThrow(IOException.class);
+
+    final HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create("http://localhost:1234/failure"))
+        .GET()
+        .build();
+
+    assertThatThrownBy(() -> client.send(request, HttpResponse.BodyHandlers.ofString()))
+        .isInstanceOf(IOException.class);
+
+    verify(mockHttpClient, times(3)).send(any(), any());
   }
 
   @Test
@@ -177,28 +257,31 @@ class FaultTolerantHttpClientTest {
         .uri(URI.create("http://localhost:" + wireMock.getPort() + "/ping"))
         .GET()
         .build();
-    final HttpResponse response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
 
-    final AtomicInteger client1Calls = new AtomicInteger(0);
-    final AtomicInteger client2Calls = new AtomicInteger(0);
-    when(mockHttpClient1.sendAsync(any(), any()))
-        .thenAnswer(args -> {
-          client1Calls.incrementAndGet();
-          return CompletableFuture.completedFuture(response);
-        });
-    when(mockHttpClient2.sendAsync(any(), any()))
-        .thenAnswer(args -> {
-          client2Calls.incrementAndGet();
-          return CompletableFuture.completedFuture(response);
-        });
+    try (final HttpClient httpClient = HttpClient.newHttpClient()) {
+      final HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
 
-    final int numCalls = 100;
-    for (int i = 0; i < numCalls; i++) {
-      client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+      final AtomicInteger client1Calls = new AtomicInteger(0);
+      final AtomicInteger client2Calls = new AtomicInteger(0);
+      when(mockHttpClient1.sendAsync(any(), any()))
+          .thenAnswer(_ -> {
+            client1Calls.incrementAndGet();
+            return CompletableFuture.completedFuture(response);
+          });
+      when(mockHttpClient2.sendAsync(any(), any()))
+          .thenAnswer(_ -> {
+            client2Calls.incrementAndGet();
+            return CompletableFuture.completedFuture(response);
+          });
+
+      final int numCalls = 100;
+      for (int i = 0; i < numCalls; i++) {
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).join();
+      }
+      assertThat(client2Calls.get()).isGreaterThan(0);
+      assertThat(client1Calls.get()).isGreaterThan(0);
+      assertThat(client1Calls.get() + client2Calls.get()).isEqualTo(numCalls);
     }
-    assertThat(client2Calls.get()).isGreaterThan(0);
-    assertThat(client1Calls.get()).isGreaterThan(0);
-    assertThat(client1Calls.get() + client2Calls.get()).isEqualTo(numCalls);
   }
 
   @Test
@@ -215,7 +298,8 @@ class FaultTolerantHttpClientTest {
     ResilienceUtil.getCircuitBreakerRegistry()
         .addConfiguration(circuitBreakerConfigurationName, circuitBreakerConfiguration.toCircuitBreakerConfig());
 
-    final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testNetworkFailureCircuitBreaker", httpExecutor)
+    final FaultTolerantHttpClient client = FaultTolerantHttpClient.newBuilder("testNetworkFailureCircuitBreaker",
+            httpExecutor)
         .withCircuitBreaker(circuitBreakerConfigurationName)
         .withRetry(null, retryExecutor)
         .withVersion(HttpClient.Version.HTTP_2)

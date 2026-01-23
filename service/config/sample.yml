@@ -528,3 +528,7 @@ callQualitySurvey:
       {
         "credential": "configuration"
       }
+
+hlrLookup:
+  apiKey: secret://hlrLookup.apiKey
+  apiSecret: secret://hlrLookup.apiSecret
