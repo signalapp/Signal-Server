@@ -14,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
@@ -76,6 +77,10 @@ public class BackupAuthTestUtil {
     });
     final RedemptionRange redemptionRange;
     redemptionRange = RedemptionRange.inclusive(clock, redemptionStart, redemptionEnd);
-    return issuer.getBackupAuthCredentials(account, credentialType, redemptionRange);
+    try {
+      return issuer.getBackupAuthCredentials(account, credentialType, redemptionRange);
+    } catch (BackupNotFoundException e) {
+      return Assertions.fail("Backup credential request not found even though we set one");
+    }
   }
 }

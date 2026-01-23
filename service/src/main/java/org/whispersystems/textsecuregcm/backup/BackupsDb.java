@@ -4,8 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.backup;
 
-import io.grpc.Status;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -22,18 +22,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
-import io.micrometer.core.instrument.DistributionSummary;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.backups.BackupLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -133,7 +127,7 @@ public class BackupsDb {
    * @param authenticatedBackupLevel The backup level
    * @param publicKey                The public key to associate with the backup id
    * @return A stage that completes when the public key has been set. If the backup-id already has a set public key that
-   * does not match, the stage will be completed exceptionally with a {@link PublicKeyConflictException}
+   * does not match, the stage will be completed exceptionally with a {@link BackupPublicKeyConflictException}
    */
   CompletableFuture<Void> setPublicKey(
       final byte[] authenticatedBackupId,
@@ -152,7 +146,7 @@ public class BackupsDb {
             .build())
         .exceptionally(ExceptionUtils.marshal(ConditionalCheckFailedException.class, e ->
             // There was already a row for this backup-id and it contained a different publicKey
-            new PublicKeyConflictException()))
+            new BackupPublicKeyConflictException()))
         .thenRun(Util.NOOP);
   }
 
@@ -190,9 +184,7 @@ public class BackupsDb {
   private static String getDirName(final Map<String, AttributeValue> item, final String attr) {
     return AttributeValues.get(item, attr).map(AttributeValue::s).orElseThrow(() -> {
       logger.error("Backups with public keys should have directory names");
-      return Status.INTERNAL
-          .withDescription("Backups with public keys must have directory names")
-          .asRuntimeException();
+      throw new UncheckedIOException(new IOException("Backups with public keys must have directory names"));
     });
   }
 
@@ -208,10 +200,7 @@ public class BackupsDb {
       return new ECPublicKey(publicKeyBytes);
     } catch (InvalidKeyException e) {
       logger.error("Invalid publicKey {}", HexFormat.of().formatHex(publicKeyBytes), e);
-      throw Status.INTERNAL
-          .withCause(e)
-          .withDescription("Could not deserialize stored public key")
-          .asRuntimeException();
+      throw new UncheckedIOException(new IOException("Could not deserialize stored public key"));
     }
   }
 
@@ -330,6 +319,7 @@ public class BackupsDb {
    * @param backupUser an already authorized backup user
    * @return A {@link BackupDescription} containing the cdn of the message backup and the total number of media space
    * bytes used by the backup user.
+   * @throws BackupNotFoundException If the provided backupUser's backup-id does not exist
    */
   CompletableFuture<BackupDescription> describeBackup(final AuthenticatedBackupUser backupUser) {
     return dynamoClient.getItem(GetItemRequest.builder()
@@ -341,7 +331,7 @@ public class BackupsDb {
             .build())
         .thenApply(response -> {
           if (!response.hasItem()) {
-            throw Status.NOT_FOUND.withDescription("Backup ID not found").asRuntimeException();
+            throw ExceptionUtils.wrap(new BackupNotFoundException("Backup ID not found"));
           }
           // If the client hasn't already uploaded a backup, return the cdn we would return if they did create one
           final int cdn = AttributeValues.getInt(response.item(), ATTR_CDN, BACKUP_CDN);

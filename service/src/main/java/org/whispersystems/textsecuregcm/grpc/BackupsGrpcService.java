@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import io.grpc.Status;
 import io.micrometer.core.instrument.Tag;
 import java.time.Clock;
@@ -20,6 +21,7 @@ import org.signal.chat.backup.SetBackupIdRequest;
 import org.signal.chat.backup.SetBackupIdResponse;
 import org.signal.chat.backup.SimpleBackupsGrpc;
 import org.signal.chat.common.ZkCredential;
+import org.signal.chat.errors.FailedPrecondition;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialRequest;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
@@ -28,6 +30,12 @@ import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
+import org.whispersystems.textsecuregcm.backup.BackupBadReceiptException;
+import org.whispersystems.textsecuregcm.backup.BackupInvalidArgumentException;
+import org.whispersystems.textsecuregcm.backup.BackupMissingIdCommitmentException;
+import org.whispersystems.textsecuregcm.backup.BackupNotFoundException;
+import org.whispersystems.textsecuregcm.backup.BackupPermissionException;
+import org.whispersystems.textsecuregcm.backup.BackupWrongCredentialTypeException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -48,7 +56,8 @@ public class BackupsGrpcService extends SimpleBackupsGrpc.BackupsImplBase {
   }
 
   @Override
-  public SetBackupIdResponse setBackupId(SetBackupIdRequest request) throws RateLimitExceededException {
+  public SetBackupIdResponse setBackupId(SetBackupIdRequest request)
+      throws RateLimitExceededException, BackupInvalidArgumentException, BackupPermissionException {
 
     final Optional<BackupAuthCredentialRequest> messagesCredentialRequest = deserializeWithEmptyPresenceCheck(
         BackupAuthCredentialRequest::new,
@@ -67,13 +76,21 @@ public class BackupsGrpcService extends SimpleBackupsGrpc.BackupsImplBase {
     return SetBackupIdResponse.getDefaultInstance();
   }
 
-  public RedeemReceiptResponse redeemReceipt(RedeemReceiptRequest request) {
+  public RedeemReceiptResponse redeemReceipt(RedeemReceiptRequest request) throws BackupInvalidArgumentException {
     final ReceiptCredentialPresentation receiptCredentialPresentation = deserialize(
         ReceiptCredentialPresentation::new,
         request.getPresentation().toByteArray());
     final Account account = authenticatedAccount();
-    backupAuthManager.redeemReceipt(account, receiptCredentialPresentation);
-    return RedeemReceiptResponse.getDefaultInstance();
+    final RedeemReceiptResponse.Builder builder = RedeemReceiptResponse.newBuilder();
+    try {
+      backupAuthManager.redeemReceipt(account, receiptCredentialPresentation);
+      builder.setSuccess(Empty.getDefaultInstance());
+    } catch (BackupBadReceiptException e) {
+      builder.setInvalidReceipt(FailedPrecondition.newBuilder().setDescription(e.getMessage()).build());
+    } catch (BackupMissingIdCommitmentException e) {
+      builder.setAccountMissingCommitment(FailedPrecondition.newBuilder().build());
+    }
+    return builder.build();
   }
 
   @Override
@@ -88,34 +105,51 @@ public class BackupsGrpcService extends SimpleBackupsGrpc.BackupsImplBase {
       throw Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException();
     }
     final Account account = authenticatedAccount();
-    final List<BackupAuthManager.Credential> messageCredentials =
-        backupAuthManager.getBackupAuthCredentials(
-            account,
-            BackupCredentialType.MESSAGES,
-            redemptionRange);
-    backupMetrics.updateGetCredentialCounter(platformTag, BackupCredentialType.MESSAGES, messageCredentials.size());
+    try {
+      final List<BackupAuthManager.Credential> messageCredentials =
+          backupAuthManager.getBackupAuthCredentials(
+              account,
+              BackupCredentialType.MESSAGES,
+              redemptionRange);
+      backupMetrics.updateGetCredentialCounter(platformTag, BackupCredentialType.MESSAGES, messageCredentials.size());
 
-    final List<BackupAuthManager.Credential> mediaCredentials =
-        backupAuthManager.getBackupAuthCredentials(
-            account,
-            BackupCredentialType.MEDIA,
-            redemptionRange);
-    backupMetrics.updateGetCredentialCounter(platformTag, BackupCredentialType.MEDIA, mediaCredentials.size());
+      final List<BackupAuthManager.Credential> mediaCredentials =
+          backupAuthManager.getBackupAuthCredentials(
+              account,
+              BackupCredentialType.MEDIA,
+              redemptionRange);
+      backupMetrics.updateGetCredentialCounter(platformTag, BackupCredentialType.MEDIA, mediaCredentials.size());
 
-    return GetBackupAuthCredentialsResponse.newBuilder()
-        .putAllMessageCredentials(messageCredentials.stream().collect(Collectors.toMap(
-            c -> c.redemptionTime().getEpochSecond(),
-            c -> ZkCredential.newBuilder()
-                .setCredential(ByteString.copyFrom(c.credential().serialize()))
-                .setRedemptionTime(c.redemptionTime().getEpochSecond())
-                .build())))
-        .putAllMediaCredentials(mediaCredentials.stream().collect(Collectors.toMap(
-            c -> c.redemptionTime().getEpochSecond(),
-            c -> ZkCredential.newBuilder()
-                .setCredential(ByteString.copyFrom(c.credential().serialize()))
-                .setRedemptionTime(c.redemptionTime().getEpochSecond())
-                .build())))
-        .build();
+      return GetBackupAuthCredentialsResponse.newBuilder()
+          .setCredentials(GetBackupAuthCredentialsResponse.Credentials.newBuilder()
+              .putAllMessageCredentials(messageCredentials.stream().collect(Collectors.toMap(
+                  c -> c.redemptionTime().getEpochSecond(),
+                  c -> ZkCredential.newBuilder()
+                      .setCredential(ByteString.copyFrom(c.credential().serialize()))
+                      .setRedemptionTime(c.redemptionTime().getEpochSecond())
+                      .build())))
+              .putAllMediaCredentials(mediaCredentials.stream().collect(Collectors.toMap(
+                  c -> c.redemptionTime().getEpochSecond(),
+                  c -> ZkCredential.newBuilder()
+                      .setCredential(ByteString.copyFrom(c.credential().serialize()))
+                      .setRedemptionTime(c.redemptionTime().getEpochSecond())
+                      .build())))
+              .build())
+          .build();
+    } catch (BackupNotFoundException _) {
+      // Return an empty response to indicate that the authenticated account had no associated blinded backup-id
+      return GetBackupAuthCredentialsResponse.getDefaultInstance();
+    }
+  }
+
+  @Override
+  public Throwable mapException(final Throwable throwable) {
+    return switch (throwable) {
+      case BackupInvalidArgumentException e -> GrpcExceptions.invalidArguments(e.getMessage());
+      case BackupPermissionException e -> GrpcExceptions.badAuthentication(e.getMessage());
+      case BackupWrongCredentialTypeException e -> GrpcExceptions.badAuthentication(e.getMessage());
+      default -> throwable;
+    };
   }
 
   private Account authenticatedAccount() {

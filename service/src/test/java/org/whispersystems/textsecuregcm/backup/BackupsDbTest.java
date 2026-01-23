@@ -8,8 +8,6 @@ package org.whispersystems.textsecuregcm.backup;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -212,10 +210,9 @@ public class BackupsDbTest {
       backupsDb.finishExpiration(opt.get()).join();
 
       // The backup entry should be gone
-      assertThat(CompletableFutureTestUtil.assertFailsWithCause(StatusRuntimeException.class,
-              backupsDb.describeBackup(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)))
-          .getStatus().getCode())
-          .isEqualTo(Status.Code.NOT_FOUND);
+      CompletableFutureTestUtil.assertFailsWithCause(
+          BackupNotFoundException.class,
+          backupsDb.describeBackup(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)));
       assertThat(expiredBackups.apply(Instant.ofEpochSecond(10))).isEmpty();
     }
   }

@@ -5,7 +5,8 @@
 
 package org.whispersystems.textsecuregcm.backup;
 
-import io.grpc.Status;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
@@ -98,15 +99,14 @@ public class BackupAuthManager {
       final Account account,
       final Device device,
       final Optional<BackupAuthCredentialRequest> messagesBackupCredentialRequest,
-      final Optional<BackupAuthCredentialRequest> mediaBackupCredentialRequest) throws RateLimitExceededException {
+      final Optional<BackupAuthCredentialRequest> mediaBackupCredentialRequest)
+      throws RateLimitExceededException, BackupPermissionException, BackupInvalidArgumentException {
     if (!device.isPrimary()) {
-      throw Status.PERMISSION_DENIED.withDescription("Only primary device can set backup-id").asRuntimeException();
+      throw new BackupPermissionException("Only primary device can set backup-id");
     }
 
     if (messagesBackupCredentialRequest.isEmpty() && mediaBackupCredentialRequest.isEmpty()) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("Must set at least one of message/media credential requests")
-          .asRuntimeException();
+      throw new BackupInvalidArgumentException("Must set at least one of message/media credential requests");
     }
 
     final byte[] storedMessageCredentialRequest = account.getBackupCredentialRequest(BackupCredentialType.MESSAGES)
@@ -191,7 +191,7 @@ public class BackupAuthManager {
   public List<Credential> getBackupAuthCredentials(
       final Account account,
       final BackupCredentialType credentialType,
-      final RedemptionRange redemptionRange) {
+      final RedemptionRange redemptionRange) throws BackupNotFoundException {
 
     // If the account has an expired payment, clear it before continuing
     if (hasExpiredVoucher(account)) {
@@ -206,7 +206,7 @@ public class BackupAuthManager {
 
     // fetch the blinded backup-id the account should have previously committed to
     final byte[] committedBytes = account.getBackupCredentialRequest(credentialType)
-        .orElseThrow(() -> Status.NOT_FOUND.withDescription("No blinded backup-id has been added to the account").asRuntimeException());
+        .orElseThrow(() -> new BackupNotFoundException("No blinded backup-id has been added to the account"));
 
     try {
       final BackupLevel defaultBackupLevel = configuredBackupLevel(account);
@@ -224,10 +224,7 @@ public class BackupAuthManager {
           })
           .toList();
     } catch (InvalidInputException e) {
-      throw Status.INTERNAL
-          .withDescription("Could not deserialize stored request credential")
-          .withCause(e)
-          .asRuntimeException();
+      throw new UncheckedIOException(new IOException("Could not deserialize stored request credential", e));
     }
   }
 
@@ -239,41 +236,34 @@ public class BackupAuthManager {
    */
   public void redeemReceipt(
       final Account account,
-      final ReceiptCredentialPresentation receiptCredentialPresentation) {
+      final ReceiptCredentialPresentation receiptCredentialPresentation)
+      throws BackupBadReceiptException, BackupInvalidArgumentException, BackupMissingIdCommitmentException {
     try {
       serverZkReceiptOperations.verifyReceiptCredentialPresentation(receiptCredentialPresentation);
     } catch (VerificationFailedException e) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("receipt credential presentation verification failed")
-          .asRuntimeException();
+      throw new BackupBadReceiptException("receipt credential presentation verification failed");
     }
     final ReceiptSerial receiptSerial = receiptCredentialPresentation.getReceiptSerial();
     final Instant receiptExpiration = Instant.ofEpochSecond(receiptCredentialPresentation.getReceiptExpirationTime());
     if (clock.instant().isAfter(receiptExpiration)) {
-      throw Status.INVALID_ARGUMENT.withDescription("receipt is already expired").asRuntimeException();
+      throw new BackupBadReceiptException("receipt is already expired");
     }
 
     final long receiptLevel = receiptCredentialPresentation.getReceiptLevel();
 
     if (BackupLevelUtil.fromReceiptLevel(receiptLevel) != BackupLevel.PAID) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("server does not recognize the requested receipt level")
-          .asRuntimeException();
+      throw new BackupInvalidArgumentException("server does not recognize the requested receipt level");
     }
 
     if (account.getBackupCredentialRequest(BackupCredentialType.MEDIA).isEmpty()) {
-      throw Status.ABORTED
-          .withDescription("account must have a backup-id commitment")
-          .asRuntimeException();
+      throw new BackupMissingIdCommitmentException();
     }
 
     boolean receiptAllowed = redeemedReceiptsManager
         .put(receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, account.getUuid())
         .join();
     if (!receiptAllowed) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("receipt serial is already redeemed")
-          .asRuntimeException();
+      throw new BackupBadReceiptException("receipt serial is already redeemed");
     }
     extendBackupVoucher(account, new Account.BackupVoucher(receiptLevel, receiptExpiration));
   }

@@ -67,8 +67,15 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.backup.BackupAuthManager;
+import org.whispersystems.textsecuregcm.backup.BackupBadReceiptException;
+import org.whispersystems.textsecuregcm.backup.BackupFailedZkAuthenticationException;
+import org.whispersystems.textsecuregcm.backup.BackupInvalidArgumentException;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
+import org.whispersystems.textsecuregcm.backup.BackupMissingIdCommitmentException;
+import org.whispersystems.textsecuregcm.backup.BackupNotFoundException;
+import org.whispersystems.textsecuregcm.backup.BackupPermissionException;
 import org.whispersystems.textsecuregcm.backup.BackupUploadDescriptor;
+import org.whispersystems.textsecuregcm.backup.BackupWrongCredentialTypeException;
 import org.whispersystems.textsecuregcm.backup.CopyParameters;
 import org.whispersystems.textsecuregcm.backup.CopyResult;
 import org.whispersystems.textsecuregcm.backup.MediaEncryptionParameters;
@@ -150,7 +157,8 @@ public class ArchiveController {
   @ManagedAsync
   public void setBackupId(
       @Auth final AuthenticatedDevice authenticatedDevice,
-      @Valid @NotNull final SetBackupIdRequest setBackupIdRequest) throws RateLimitExceededException {
+      @Valid @NotNull final SetBackupIdRequest setBackupIdRequest)
+      throws RateLimitExceededException, BackupInvalidArgumentException, BackupPermissionException {
 
     final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
@@ -230,14 +238,16 @@ public class ArchiveController {
   @ApiResponse(responseCode = "409", description = "The target account does not have a backup-id commitment")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ManagedAsync
-  public void redeemReceipt(
+  public Response redeemReceipt(
       @Auth final AuthenticatedDevice authenticatedDevice,
-      @Valid @NotNull final RedeemBackupReceiptRequest redeemBackupReceiptRequest) {
+      @Valid @NotNull final RedeemBackupReceiptRequest redeemBackupReceiptRequest)
+      throws BackupInvalidArgumentException, BackupMissingIdCommitmentException, BackupBadReceiptException {
 
     final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
-              .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
+        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
     backupAuthManager.redeemReceipt(account, redeemBackupReceiptRequest.receiptCredentialPresentation());
+    return Response.noContent().build();
   }
 
   public record BackupAuthCredentialsResponse(
@@ -300,7 +310,7 @@ public class ArchiveController {
       @Auth AuthenticatedDevice authenticatedDevice,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @NotNull @QueryParam("redemptionStartSeconds") Long startSeconds,
-      @NotNull @QueryParam("redemptionEndSeconds") Long endSeconds) {
+      @NotNull @QueryParam("redemptionEndSeconds") Long endSeconds) throws BackupNotFoundException {
 
     final Map<BackupCredentialType, List<BackupAuthCredentialsResponse.BackupAuthCredential>> credentialsByType =
         new HashMap<>();
@@ -391,6 +401,7 @@ public class ArchiveController {
       summary = "Get CDN read credentials",
       description = "Retrieve credentials used to read objects stored on the backup cdn")
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = ReadAuthResponse.class)))
+  @ApiResponse(responseCode = "400", description = "Bad arguments. The request may have been made on an authenticated channel, or an invalid cdn number was provided")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   @ManagedAsync
@@ -406,7 +417,8 @@ public class ArchiveController {
       @NotNull
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
 
-      @NotNull @Parameter(description = "The number of the CDN to get credentials for") @QueryParam("cdn") final Integer cdn) {
+      @NotNull @Parameter(description = "The number of the CDN to get credentials for") @QueryParam("cdn") final Integer cdn)
+      throws BackupFailedZkAuthenticationException, BackupInvalidArgumentException, BackupPermissionException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
@@ -436,7 +448,8 @@ public class ArchiveController {
 
       @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
-      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature) {
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature)
+      throws BackupFailedZkAuthenticationException, BackupWrongCredentialTypeException, BackupPermissionException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
@@ -487,7 +500,8 @@ public class ArchiveController {
 
       @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
-      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature) {
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature)
+      throws BackupFailedZkAuthenticationException, BackupNotFoundException, BackupPermissionException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
@@ -536,7 +550,8 @@ public class ArchiveController {
       @NotNull
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
 
-      @Valid @NotNull SetPublicKeyRequest setPublicKeyRequest) {
+      @Valid @NotNull SetPublicKeyRequest setPublicKeyRequest)
+      throws BackupFailedZkAuthenticationException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
@@ -578,7 +593,8 @@ public class ArchiveController {
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
 
       @Parameter(description = "The size of the message backup to upload in bytes")
-      @QueryParam("uploadLength") final Optional<Long> uploadLength) {
+      @QueryParam("uploadLength") final Optional<Long> uploadLength)
+      throws BackupFailedZkAuthenticationException, BackupWrongCredentialTypeException, BackupPermissionException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
@@ -630,7 +646,7 @@ public class ArchiveController {
       @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature)
-      throws RateLimitExceededException {
+      throws RateLimitExceededException, BackupFailedZkAuthenticationException, BackupWrongCredentialTypeException, BackupPermissionException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
@@ -723,15 +739,17 @@ public class ArchiveController {
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
 
       @NotNull
-      @Valid final ArchiveController.CopyMediaRequest copyMediaRequest) {
+      @Valid final ArchiveController.CopyMediaRequest copyMediaRequest)
+      throws BackupFailedZkAuthenticationException, BackupWrongCredentialTypeException, BackupPermissionException, BackupInvalidArgumentException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
 
     final AuthenticatedBackupUser backupUser =
         backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
-    final CopyResult copyResult =
-        backupManager.copyToBackup(backupUser, List.of(copyMediaRequest.toCopyParameters())).next()
+    final BackupManager.CopyQuota copyQuota =
+        backupManager.getCopyQuota(backupUser, List.of(copyMediaRequest.toCopyParameters()));
+    final CopyResult copyResult = backupManager.copyToBackup(copyQuota).next()
             .blockOptional()
             .orElseThrow(() -> new IllegalStateException("Non empty copy request must return result"));
     backupMetrics.updateCopyCounter(copyResult, UserAgentTagUtil.getPlatformTag(userAgent));
@@ -824,7 +842,8 @@ public class ArchiveController {
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
 
       @NotNull
-      @Valid final ArchiveController.CopyMediaBatchRequest copyMediaRequest) {
+      @Valid final ArchiveController.CopyMediaBatchRequest copyMediaRequest)
+      throws BackupFailedZkAuthenticationException, BackupWrongCredentialTypeException, BackupPermissionException, BackupInvalidArgumentException {
 
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
@@ -832,7 +851,8 @@ public class ArchiveController {
     final Stream<CopyParameters> copyParams = copyMediaRequest.items().stream().map(CopyMediaRequest::toCopyParameters);
     final AuthenticatedBackupUser backupUser =
         backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
-    final List<CopyMediaBatchResponse.Entry> copyResults = backupManager.copyToBackup(backupUser, copyParams.toList())
+    final BackupManager.CopyQuota copyQuota = backupManager.getCopyQuota(backupUser, copyParams.toList());
+    final List<CopyMediaBatchResponse.Entry> copyResults = backupManager.copyToBackup(copyQuota)
         .doOnNext(result -> backupMetrics.updateCopyCounter(result, UserAgentTagUtil.getPlatformTag(userAgent)))
         .map(CopyMediaBatchResponse.Entry::fromCopyResult)
         .collectList().block();
@@ -861,7 +881,8 @@ public class ArchiveController {
 
       @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
-      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature) {
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature)
+      throws BackupFailedZkAuthenticationException, BackupPermissionException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
@@ -934,7 +955,8 @@ public class ArchiveController {
       @QueryParam("cursor") final Optional<String> cursor,
 
       @Parameter(description = "The number of entries to return per call")
-      @QueryParam("limit") final Optional<@Min(1) @Max(10_000) Integer> limit) {
+      @QueryParam("limit") final Optional<@Min(1) @Max(10_000) Integer> limit)
+      throws BackupPermissionException, BackupFailedZkAuthenticationException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
@@ -987,7 +1009,8 @@ public class ArchiveController {
       @NotNull
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
 
-      @Valid @NotNull DeleteMedia deleteMedia) {
+      @Valid @NotNull DeleteMedia deleteMedia)
+      throws BackupFailedZkAuthenticationException, BackupWrongCredentialTypeException, BackupPermissionException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
@@ -1020,7 +1043,8 @@ public class ArchiveController {
 
       @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
-      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature) {
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature)
+      throws BackupPermissionException, BackupFailedZkAuthenticationException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }

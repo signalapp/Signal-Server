@@ -85,6 +85,20 @@ public class GrpcExceptions {
   ///
   /// @param message   Additional context about the constraint violation
   /// @return A [StatusRuntimeException] encoding the error
+  public static StatusRuntimeException invalidArguments(@Nullable final String message) {
+    return StatusProto.toStatusRuntimeException(com.google.rpc.Status.newBuilder()
+        .setCode(Status.Code.INVALID_ARGUMENT.value())
+        .setMessage(messageOrDefault(message, Status.Code.INVALID_ARGUMENT))
+        .addDetails(ERROR_INFO_CONSTRAINT_VIOLATED)
+        .build());
+  }
+
+  /// The RPC argument violated a constraint that was annotated or documented in the service definition. It is always
+  /// possible to check this constraint without communicating with the chat server. This always represents a client bug
+  /// or out of date client.
+  ///
+  /// @param message   Additional context about the constraint violation
+  /// @return A [StatusRuntimeException] encoding the error
   public static StatusRuntimeException constraintViolation(@Nullable final String message) {
     return StatusProto.toStatusRuntimeException(com.google.rpc.Status.newBuilder()
         .setCode(Status.Code.INVALID_ARGUMENT.value())

@@ -166,6 +166,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimitByIpFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.limits.RedisMessageDeliveryLoopMonitor;
+import org.whispersystems.textsecuregcm.mappers.BackupExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.GrpcStatusRuntimeExceptionMapper;
@@ -1200,6 +1201,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new ObsoletePhoneNumberFormatExceptionMapper(),
         new RegistrationServiceSenderExceptionMapper(),
         new SubscriptionExceptionMapper(),
+        new BackupExceptionMapper(),
         new JsonMappingExceptionMapper()
     ).forEach(exceptionMapper -> {
       environment.jersey().register(exceptionMapper);
