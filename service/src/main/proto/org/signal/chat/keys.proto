@@ -11,106 +11,86 @@ package org.signal.chat.keys;
 
 import "org/signal/chat/common.proto";
 
-/**
- * Provides methods for working with pre-keys.
- */
+// Provides methods for working with pre-keys.
 service Keys {
 
-  /**
-   * Retrieves an approximate count of the number of the various kinds of
-   * pre-keys stored for the authenticated device.
-   */
+  // Retrieves an approximate count of the number of the various kinds of
+  // pre-keys stored for the authenticated device.
   rpc GetPreKeyCount (GetPreKeyCountRequest) returns (GetPreKeyCountResponse) {}
 
-  /**
-   * Retrieves a set of pre-keys for establishing a session with the targeted
-   * device or devices. Note that callers with an unidentified access key for
-   * the targeted account should use the version of this method in
-   * `KeysAnonymous` instead.
-   *
-   * This RPC may fail with a `NOT_FOUND` status if the target account was not
-   * found, if no active device with the given ID (if specified) was found on
-   * the target account, or if the account has no active devices. It may also
-   * fail with a `RESOURCE_EXHAUSTED` if a rate limit for fetching keys has been
-   * exceeded, in which case a `retry-after` header containing an ISO 8601
-   * duration string will be present in the response trailers.
-   */
+  // Retrieves a set of pre-keys for establishing a session with the targeted
+  // device or devices. Note that callers with an unidentified access key for
+  // the targeted account should use the version of this method in
+  // `KeysAnonymous` instead.
+  //
+  // This RPC may fail with a `NOT_FOUND` status if the target account was not
+  // found, if no active device with the given ID (if specified) was found on
+  // the target account, or if the account has no active devices. It may also
+  // fail with a `RESOURCE_EXHAUSTED` if a rate limit for fetching keys has been
+  // exceeded, in which case a `retry-after` header containing an ISO 8601
+  // duration string will be present in the response trailers.
   rpc GetPreKeys(GetPreKeysRequest) returns (GetPreKeysResponse) {}
 
-  /**
-   * Uploads a new set of one-time EC pre-keys for the authenticated device,
-   * clearing any previously-stored pre-keys. Note that all keys submitted via
-   * a single call to this method _must_ have the same identity type (i.e. if
-   * the first key has an ACI identity type, then all other keys in the same
-   * stream must also have an ACI identity type).
-   *
-   * This RPC may fail with an `INVALID_ARGUMENT` status if one or more of the
-   * given pre-keys was structurally invalid or if the list of pre-keys was
-   * empty.
-   */
+  // Uploads a new set of one-time EC pre-keys for the authenticated device,
+  // clearing any previously-stored pre-keys. Note that all keys submitted via
+  // a single call to this method _must_ have the same identity type (i.e. if
+  // the first key has an ACI identity type, then all other keys in the same
+  // stream must also have an ACI identity type).
+  //
+  // This RPC may fail with an `INVALID_ARGUMENT` status if one or more of the
+  // given pre-keys was structurally invalid or if the list of pre-keys was
+  // empty.
   rpc SetOneTimeEcPreKeys (SetOneTimeEcPreKeysRequest) returns (SetPreKeyResponse) {}
 
-  /**
-   * Uploads a new set of one-time KEM pre-keys for the authenticated device,
-   * clearing any previously-stored pre-keys. Note that all keys submitted via
-   * a single call to this method _must_ have the same identity type (i.e. if
-   * the first key has an ACI identity type, then all other keys in the same
-   * stream must also have an ACI identity type).
-   *
-   * This RPC may fail with an `INVALID_ARGUMENT` status if one or more of the
-   * given pre-keys was structurally invalid, had an invalid signature, or if
-   * the list of pre-keys was empty.
-   */
+  // Uploads a new set of one-time KEM pre-keys for the authenticated device,
+  // clearing any previously-stored pre-keys. Note that all keys submitted via
+  // a single call to this method _must_ have the same identity type (i.e. if
+  // the first key has an ACI identity type, then all other keys in the same
+  // stream must also have an ACI identity type).
+  //
+  // This RPC may fail with an `INVALID_ARGUMENT` status if one or more of the
+  // given pre-keys was structurally invalid, had an invalid signature, or if
+  // the list of pre-keys was empty.
   rpc SetOneTimeKemSignedPreKeys (SetOneTimeKemSignedPreKeysRequest) returns (SetPreKeyResponse) {}
 
-  /**
-   * Sets the signed EC pre-key for one identity (i.e. ACI or PNI) associated
-   * with the authenticated device.
-   *
-   * This RPC may fail with an `INVALID_ARGUMENT` status if the given pre-key
-   * was structurally invalid, had a bad signature, or was missing entirely.
-   */
+  // Sets the signed EC pre-key for one identity (i.e. ACI or PNI) associated
+  // with the authenticated device.
+  //
+  // This RPC may fail with an `INVALID_ARGUMENT` status if the given pre-key
+  // was structurally invalid, had a bad signature, or was missing entirely.
   rpc SetEcSignedPreKey (SetEcSignedPreKeyRequest) returns (SetPreKeyResponse) {}
 
-  /**
-   * Sets the last-resort KEM pre-key for one identity (i.e. ACI or PNI)
-   * associated with the authenticated device.
-   *
-   * This RPC may fail with an `INVALID_ARGUMENT` status if the given pre-key
-   * was structurally invalid, had a bad signature, or was missing entirely.
-   */
+  // Sets the last-resort KEM pre-key for one identity (i.e. ACI or PNI)
+  // associated with the authenticated device.
+  //
+  // This RPC may fail with an `INVALID_ARGUMENT` status if the given pre-key
+  // was structurally invalid, had a bad signature, or was missing entirely.
   rpc SetKemLastResortPreKey (SetKemLastResortPreKeyRequest) returns (SetPreKeyResponse) {}
 }
 
-/**
- * Provides methods for working with pre-keys using "unidentified access"
- * credentials.
- */
+// Provides methods for working with pre-keys using "unidentified access"
+// credentials.
 service KeysAnonymous {
 
-  /**
-   * Retrieves a set of pre-keys for establishing a session with the targeted
-   * device or devices. Callers must not submit any self-identifying credentials
-   * when calling this method and must instead present the targeted account's
-   * unidentified access key as an anonymous authentication mechanism. Callers
-   * without an unidentified access key should use the equivalent, authenticated
-   * method in `Keys` instead.
-   *
-   * This RPC may fail with an `UNAUTHENTICATED` status if the given
-   * unidentified access key did not match the target account's unidentified
-   * access key or if the target account was not found. It may also fail with a
-   * `NOT_FOUND` status if no active device with the given ID (if specified) was
-   * found on the target account, or if the target account has no active
-   * devices.
-   */
+  // Retrieves a set of pre-keys for establishing a session with the targeted
+  // device or devices. Callers must not submit any self-identifying credentials
+  // when calling this method and must instead present the targeted account's
+  // unidentified access key as an anonymous authentication mechanism. Callers
+  // without an unidentified access key should use the equivalent, authenticated
+  // method in `Keys` instead.
+  //
+  // This RPC may fail with an `UNAUTHENTICATED` status if the given
+  // unidentified access key did not match the target account's unidentified
+  // access key or if the target account was not found. It may also fail with a
+  // `NOT_FOUND` status if no active device with the given ID (if specified) was
+  // found on the target account, or if the target account has no active
+  // devices.
   rpc GetPreKeys(GetPreKeysAnonymousRequest) returns (GetPreKeysResponse) {}
 
-  /**
-   * Checks identity key fingerprints of the target accounts.
-   *
-   * Returns a stream of elements, each one representing an account that had a mismatched
-   * identity key fingerprint with the server and the corresponding identity key stored by the server.
-   */
+  // Checks identity key fingerprints of the target accounts.
+  //
+  // Returns a stream of elements, each one representing an account that had a mismatched
+  // identity key fingerprint with the server and the corresponding identity key stored by the server.
   rpc CheckIdentityKeys(stream CheckIdentityKeyRequest) returns (stream CheckIdentityKeyResponse) {}
 }
 
@@ -118,151 +98,103 @@ message GetPreKeyCountRequest {
 }
 
 message GetPreKeyCountResponse {
-  /**
-   * The approximate number of one-time EC pre-keys stored for the
-   * authenticated device and associated with the caller's ACI.
-   */
+  // The approximate number of one-time EC pre-keys stored for the
+  // authenticated device and associated with the caller's ACI.
   uint32 aci_ec_pre_key_count = 1;
 
-  /**
-   * The approximate number of one-time Kyber pre-keys stored for the
-   * authenticated device and associated with the caller's ACI.
-   */
+  // The approximate number of one-time Kyber pre-keys stored for the
+  // authenticated device and associated with the caller's ACI.
   uint32 aci_kem_pre_key_count = 2;
 
-  /**
-   * The approximate number of one-time EC pre-keys stored for the
-   * authenticated device and associated with the caller's PNI.
-   */
+  // The approximate number of one-time EC pre-keys stored for the
+  // authenticated device and associated with the caller's PNI.
   uint32 pni_ec_pre_key_count = 3;
 
-  /**
-   * The approximate number of one-time KEM pre-keys stored for the
-   * authenticated device and associated with the caller's PNI.
-   */
+  // The approximate number of one-time KEM pre-keys stored for the
+  // authenticated device and associated with the caller's PNI.
   uint32 pni_kem_pre_key_count = 4;
 }
 
 message GetPreKeysRequest {
-  /**
-   * The service identifier of the account for which to retrieve pre-keys.
-   */
+  // The service identifier of the account for which to retrieve pre-keys.
   common.ServiceIdentifier target_identifier = 1;
 
-  /**
-   * The ID of the device associated with the targeted account for which to
-   * retrieve pre-keys. If not set, pre-keys are returned for all devices
-   * associated with the targeted account.
-   */
+  // The ID of the device associated with the targeted account for which to
+  // retrieve pre-keys. If not set, pre-keys are returned for all devices
+  // associated with the targeted account.
   optional uint32 device_id = 2;
 }
 
 message GetPreKeysAnonymousRequest {
-  /**
-   * The request to retrieve pre-keys for a specific account/device(s).
-   */
+  // The request to retrieve pre-keys for a specific account/device(s).
   GetPreKeysRequest request = 1;
 
-  /**
-   * A means to authorize the request.
-   */
+  // A means to authorize the request.
   oneof authorization {
-    /**
-     * The unidentified access key (UAK) for the targeted account.
-     */
+    // The unidentified access key (UAK) for the targeted account.
     bytes unidentified_access_key = 2;
 
-    /**
-     * A group send endorsement token for the targeted account.
-     */
+    // A group send endorsement token for the targeted account.
     bytes group_send_token = 3;
   }
 }
 
 message GetPreKeysResponse {
   message PreKeyBundle {
-    /**
-     * The EC signed pre-key associated with the targeted
-     * account/device/identity.
-     */
+    // The EC signed pre-key associated with the targeted
+    // account/device/identity.
     common.EcSignedPreKey ec_signed_pre_key = 1;
 
-    /**
-     * A one-time EC pre-key for the targeted account/device/identity. May not
-     * be set if no one-time EC pre-keys are available.
-     */
+    // A one-time EC pre-key for the targeted account/device/identity. May not
+    // be set if no one-time EC pre-keys are available.
     common.EcPreKey ec_one_time_pre_key = 2;
 
-    /**
-     * A one-time KEM pre-key (or a last-resort KEM pre-key) for the targeted
-     * account/device/identity.
-     */
+    // A one-time KEM pre-key (or a last-resort KEM pre-key) for the targeted
+    // account/device/identity.
     common.KemSignedPreKey kem_one_time_pre_key = 3;
 
-    /**
-     * The registration ID for the targeted account/device/identity.
-     */
+    // The registration ID for the targeted account/device/identity.
     uint32 registration_id = 4;
   }
 
-  /**
-   * The identity key associated with the targeted account/identity.
-   */
+  // The identity key associated with the targeted account/identity.
   bytes identity_key = 1;
 
-  /**
-   * A map of device IDs to pre-key "bundles" for the targeted account.
-   */
+  // A map of device IDs to pre-key "bundles" for the targeted account.
   map<uint32, PreKeyBundle> pre_keys = 2;
 }
 
 message SetOneTimeEcPreKeysRequest {
-  /**
-   * The identity type (i.e. ACI/PNI) with which the keys in this request are
-   * associated.
-   */
+  // The identity type (i.e. ACI/PNI) with which the keys in this request are
+  // associated.
   common.IdentityType identity_type = 1;
 
-  /**
-   * The unsigned EC pre-keys to be stored.
-   */
+  // The unsigned EC pre-keys to be stored.
   repeated common.EcPreKey pre_keys = 2;
 }
 
 message SetOneTimeKemSignedPreKeysRequest {
-  /**
-   * The identity type (i.e. ACI/PNI) with which the keys in this request are
-   * associated.
-   */
+  // The identity type (i.e. ACI/PNI) with which the keys in this request are
+  // associated.
   common.IdentityType identity_type = 1;
 
-  /**
-   * The KEM pre-keys to be stored.
-   */
+  // The KEM pre-keys to be stored.
   repeated common.KemSignedPreKey pre_keys = 2;
 }
 
 message SetEcSignedPreKeyRequest {
-  /**
-   * The identity type (i.e. ACI/PNI) with which this key is associated.
-   */
+  // The identity type (i.e. ACI/PNI) with which this key is associated.
   common.IdentityType identity_type = 1;
 
-  /**
-   * The signed EC pre-key itself.
-   */
+  // The signed EC pre-key itself.
   common.EcSignedPreKey signed_pre_key = 2;
 }
 
 message SetKemLastResortPreKeyRequest {
-  /**
-   * The identity type (i.e. ACI/PNI) with which this key is associated.
-   */
+  // The identity type (i.e. ACI/PNI) with which this key is associated.
   common.IdentityType identity_type = 1;
 
-  /**
-   * The signed KEM pre-key itself.
-   */
+  // The signed KEM pre-key itself.
   common.KemSignedPreKey signed_pre_key = 2;
 }
 
@@ -270,23 +202,15 @@ message SetPreKeyResponse {
 }
 
 message CheckIdentityKeyRequest {
-  /**
-   * The service identifier of the account for which we want to check the associated identity key fingerprint.
-   */
+  // The service identifier of the account for which we want to check the associated identity key fingerprint.
   common.ServiceIdentifier target_identifier = 1;
-  /**
-   * The most significant 4 bytes of the SHA-256 hash of the identity key associated with the target account/identity type.
-   */
+  // The most significant 4 bytes of the SHA-256 hash of the identity key associated with the target account/identity type.
   bytes fingerprint = 2;
 }
 
 message CheckIdentityKeyResponse {
-  /**
-   * The service identifier of the account for which there is a mismatch between the client and server identity key fingerprints.
-   */
+  // The service identifier of the account for which there is a mismatch between the client and server identity key fingerprints.
   common.ServiceIdentifier target_identifier = 1;
-  /**
-   * The identity key that is stored by the server for the target account/identity type.
-   */
+  // The identity key that is stored by the server for the target account/identity type.
   bytes identity_key = 2;
 }

@@ -9,12 +9,9 @@ option java_multiple_files = true;
 
 package org.signal.chat.payments;
 
-/**
- * Provides methods for working with payments.
- */
+// Provides methods for working with payments.
 service Payments {
-  /**
-   */
+  
   rpc GetCurrencyConversions(GetCurrencyConversionsRequest) returns (GetCurrencyConversionsResponse) {}
 }
 

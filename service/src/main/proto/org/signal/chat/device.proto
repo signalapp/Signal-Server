@@ -12,50 +12,36 @@ package org.signal.chat.device;
 import "org/signal/chat/common.proto";
 import "org/signal/chat/require.proto";
 
-/**
- * Provides methods for working with devices attached to a Signal account.
- */
+// Provides methods for working with devices attached to a Signal account.
 service Devices {
-  /**
-   * Returns a list of devices associated with the caller's account.
-   */
+  // Returns a list of devices associated with the caller's account.
   rpc GetDevices(GetDevicesRequest) returns (GetDevicesResponse) {}
 
-  /**
-   * Removes a linked device from the caller's account. This call will fail with
-   * a status of `PERMISSION_DENIED` if not called from the primary device
-   * associated with an account. It will also fail with a status of
-   * `INVALID_ARGUMENT` if the targeted device is the primary device associated
-   * with the account.
-   */
+  // Removes a linked device from the caller's account. This call will fail with
+  // a status of `PERMISSION_DENIED` if not called from the primary device
+  // associated with an account. It will also fail with a status of
+  // `INVALID_ARGUMENT` if the targeted device is the primary device associated
+  // with the account.
   rpc RemoveDevice(RemoveDeviceRequest) returns (RemoveDeviceResponse) {}
 
-  /**
-   * Sets the encrypted human-readable name for a specific devices. Primary
-   * devices may change the name of any device associated with their account,
-   * but linked devices may only change their own name. This call will fail with
-   * a status of `NOT_FOUND` if no device was found with the given identifier.
-   * It will also fail with a status of `PERMISSION_DENIED` if a linked device
-   * tries to change the name of any device other than itself.
-   */
+  // Sets the encrypted human-readable name for a specific devices. Primary
+  // devices may change the name of any device associated with their account,
+  // but linked devices may only change their own name. This call will fail with
+  // a status of `NOT_FOUND` if no device was found with the given identifier.
+  // It will also fail with a status of `PERMISSION_DENIED` if a linked device
+  // tries to change the name of any device other than itself.
   rpc SetDeviceName(SetDeviceNameRequest) returns (SetDeviceNameResponse) {}
 
-  /**
-   * Sets the token(s) the server should use to send new message notifications
-   * to the authenticated device.
-   */
+  // Sets the token(s) the server should use to send new message notifications
+  // to the authenticated device.
   rpc SetPushToken(SetPushTokenRequest) returns (SetPushTokenResponse) {}
 
-  /**
-   * Removes any push tokens associated with the authenticated device. After
-   * calling this method, the server will assume that the authenticated device
-   * will periodically poll for new messages.
-   */
+  // Removes any push tokens associated with the authenticated device. After
+  // calling this method, the server will assume that the authenticated device
+  // will periodically poll for new messages.
   rpc ClearPushToken(ClearPushTokenRequest) returns (ClearPushTokenResponse) {}
 
-  /**
-   * Declares that the authenticated device supports certain features.
-   */
+  // Declares that the authenticated device supports certain features.
   rpc SetCapabilities(SetCapabilitiesRequest) returns (SetCapabilitiesResponse) {}
 }
 
@@ -63,65 +49,45 @@ message GetDevicesRequest {}
 
 message GetDevicesResponse {
   message LinkedDevice {
-    /**
-     * The identifier for the device within an account.
-     */
+    // The identifier for the device within an account.
     uint32 id = 1;
 
-    /**
-     * A sequence of bytes that encodes an encrypted human-readable name for
-     * this device.
-     */
+    // A sequence of bytes that encodes an encrypted human-readable name for
+    // this device.
     bytes name = 2;
 
-    /**
-     * The time, in milliseconds since the epoch, at which this device was
-     * attached to its parent account.
-     */
+    // The time, in milliseconds since the epoch, at which this device was
+    // attached to its parent account.
     uint64 created = 3;
 
-    /**
-     * The approximate time, in milliseconds since the epoch, at which this
-     * device last connected to the server.
-     */
+    // The approximate time, in milliseconds since the epoch, at which this
+    // device last connected to the server.
     uint64 last_seen = 4;
 
-    /**
-     * The registration ID of the given device.
-     */
+    // The registration ID of the given device.
     uint32 registration_id = 5 [(require.range).max = 0x3fff];
 
-    /**
-     * A sequence of bytes that encodes the time,
-     * in milliseconds since the epoch, at which this device was
-     * attached to its parent account.
-     */
+    // A sequence of bytes that encodes the time,
+    // in milliseconds since the epoch, at which this device was
+    // attached to its parent account.
     bytes created_at_ciphertext = 6;
   }
 
-  /**
-   * A list of devices linked to the authenticated account.
-   */
+  // A list of devices linked to the authenticated account.
   repeated LinkedDevice devices = 1;
 }
 
 message RemoveDeviceRequest {
-  /**
-   * The identifier for the device to remove from the authenticated account.
-   */
+  // The identifier for the device to remove from the authenticated account.
   uint32 id = 1;
 }
 
 message SetDeviceNameRequest {
-  /**
-   * A sequence of bytes that encodes an encrypted human-readable name for this
-   * device.
-   */
+  // A sequence of bytes that encodes an encrypted human-readable name for this
+  // device.
   bytes name = 1;
 
-  /**
-   * The identifier for the device for which to set a name.
-   */
+  // The identifier for the device for which to set a name.
   uint32 id = 2;
 }
 
@@ -131,30 +97,22 @@ message RemoveDeviceResponse {}
 
 message SetPushTokenRequest {
   message ApnsTokenRequest {
-    /**
-     * A "standard" APNs device token.
-     */
+    // A "standard" APNs device token.
     string apns_token = 1;
   }
 
   message FcmTokenRequest {
-    /**
-     * An FCM push token.
-     */
+    // An FCM push token.
     string fcm_token = 1;
   }
 
   oneof token_request {
-    /**
-     * If present, specifies the APNs device token(s) the server will use to
-     * send new message notifications to the authenticated device.
-     */
+    // If present, specifies the APNs device token(s) the server will use to
+    // send new message notifications to the authenticated device.
     ApnsTokenRequest apns_token_request = 1;
 
-    /**
-     * If present, specifies the FCM push token the server will use to send new
-     * message notifications to the authenticated device.
-     */
+    // If present, specifies the FCM push token the server will use to send new
+    // message notifications to the authenticated device.
     FcmTokenRequest fcm_token_request = 2;
   }
 }

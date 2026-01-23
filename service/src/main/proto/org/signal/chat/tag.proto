@@ -12,29 +12,27 @@ package org.signal.chat.tag;
 import "google/protobuf/descriptor.proto";
 
 extend google.protobuf.FieldOptions {
-  /**
-   * Indicate that a message which includes this field (directly or indirectly)
-   * was generated for a particular reason.
-   *
-   * ```
-   * import "org/signal/chat/tag.proto"
-   *
-   * message LookupThingResponse {
-   *   oneof response {
-   *     string thing = 1;
-   *     Error not_found = 2 [(tag.reason) = "not_found"];
-   *     Error forbidden = 3 [(tag.reason) = "forbidden"];
-   *   }
-   * }
-   * ```
-   *
-   * Metrics middleware may then inspect `LookupThingResponse` and tag responses
-   * with the provided reason. This is useful when multiple outcomes are
-   * potentially represented with a status = "OK" RPC response.
-   *
-   * Valid messages should only have a single reason set. If a message has
-   * multiple fields present that have a reason option set, no guarantees are
-   * made about the reason that is selected.
-   */
+  // Indicate that a message which includes this field (directly or indirectly)
+  // was generated for a particular reason.
+  //
+  // ```
+  // import "org/signal/chat/tag.proto"
+  //
+  // message LookupThingResponse {
+  //   oneof response {
+  //     string thing = 1;
+  //     Error not_found = 2 [(tag.reason) = "not_found"];
+  //     Error forbidden = 3 [(tag.reason) = "forbidden"];
+  //   }
+  // }
+  // ```
+  //
+  // Metrics middleware may then inspect `LookupThingResponse` and tag responses
+  // with the provided reason. This is useful when multiple outcomes are
+  // potentially represented with a status = "OK" RPC response.
+  //
+  // Valid messages should only have a single reason set. If a message has
+  // multiple fields present that have a reason option set, no guarantees are
+  // made about the reason that is selected.
   optional string reason = 71000;
 }

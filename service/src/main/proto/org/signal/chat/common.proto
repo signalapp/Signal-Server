@@ -16,80 +16,54 @@ enum IdentityType {
 }
 
 message ServiceIdentifier {
-  /**
-   * The type of identity represented by this service identifier.
-   */
+  // The type of identity represented by this service identifier.
   IdentityType identity_type = 1;
 
-  /**
-   * The UUID of the identity represented by this service identifier.
-   */
+  // The UUID of the identity represented by this service identifier.
   bytes uuid = 2;
 }
 
 message AccountIdentifiers {
-  /**
-   * A list of service identifiers for the identified account.
-   */
+  // A list of service identifiers for the identified account.
   repeated ServiceIdentifier service_identifiers = 1;
 
-  /**
-   * The phone number associated with the identified account.
-   */
+  // The phone number associated with the identified account.
   string e164 = 2;
 
-  /**
-   * The username hash (if any) associated with the identified account. May be
-   * empty if no username is associated with the identified account.
-   */
+  // The username hash (if any) associated with the identified account. May be
+  // empty if no username is associated with the identified account.
   bytes username_hash = 3;
 }
 
 message EcPreKey {
-  /**
-   * A locally-unique identifier for this key.
-   */
+  // A locally-unique identifier for this key.
   uint64 key_id = 1;
 
-  /**
-   * The serialized form of the public key.
-   */
+  // The serialized form of the public key.
   bytes public_key = 2;
 }
 
 message EcSignedPreKey {
-  /**
-   * A locally-unique identifier for this key.
-   */
+  // A locally-unique identifier for this key.
   uint64 key_id = 1;
 
-  /**
-   * The serialized form of the public key.
-   */
+  // The serialized form of the public key.
   bytes public_key = 2;
 
-  /**
-   * A signature of the public key, verifiable with the identity key for the
-   * account/identity associated with this pre-key.
-   */
+  // A signature of the public key, verifiable with the identity key for the
+  // account/identity associated with this pre-key.
   bytes signature = 3;
 }
 
 message KemSignedPreKey {
-  /**
-   * A locally-unique identifier for this key.
-   */
+  // A locally-unique identifier for this key.
   uint64 key_id = 1;
 
-  /**
-   * The serialized form of the public key.
-   */
+  // The serialized form of the public key.
   bytes public_key = 2;
 
-  /**
-   * A signature of the public key, verifiable with the identity key for the
-   * account/identity associated with this pre-key.
-   */
+  // A signature of the public key, verifiable with the identity key for the
+  // account/identity associated with this pre-key.
   bytes signature = 3;
 }
 

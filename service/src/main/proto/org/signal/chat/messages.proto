@@ -12,454 +12,346 @@ package org.signal.chat.messages;
 import "org/signal/chat/common.proto";
 import "org/signal/chat/require.proto";
 
-/**
- * Provides methods for sending "unsealed sender" messages.
- */
+// Provides methods for sending "unsealed sender" messages.
 service Messages {
 
   option (require.auth) = AUTH_ONLY_AUTHENTICATED;
 
-  /**
-   * Sends an "unsealed sender" message to all devices linked to a single
-   * destination account.
-   *
-   * This RPC may fail with a `NOT_FOUND` status if the destination account was
-   * not found. It may also fail with an `INVALID_ARGUMENT` status if the
-   * destination account is the same as the authenticated caller (callers should
-   * use `SendSyncMessage` to send messages to themselves). It may also fail
-   * with a `RESOURCE_EXHAUSTED` status if a rate limit for sending messages has
-   * been exceeded, in which case a `retry-after` header containing an ISO 8601
-   * duration string may be present in the response trailers.
-   *
-   * Note that message delivery may not succeed even if this RPC returns an `OK`
-   * status; callers must check the response object to verify that the message
-   * was actually accepted and sent.
-   */
+  // Sends an "unsealed sender" message to all devices linked to a single
+  // destination account.
+  //
+  // This RPC may fail with a `NOT_FOUND` status if the destination account was
+  // not found. It may also fail with an `INVALID_ARGUMENT` status if the
+  // destination account is the same as the authenticated caller (callers should
+  // use `SendSyncMessage` to send messages to themselves). It may also fail
+  // with a `RESOURCE_EXHAUSTED` status if a rate limit for sending messages has
+  // been exceeded, in which case a `retry-after` header containing an ISO 8601
+  // duration string may be present in the response trailers.
+  //
+  // Note that message delivery may not succeed even if this RPC returns an `OK`
+  // status; callers must check the response object to verify that the message
+  // was actually accepted and sent.
   rpc SendMessage(SendAuthenticatedSenderMessageRequest) returns (SendMessageResponse) {}
 
-  /**
-   * Sends a "sync" message to all other devices linked to the authenticated
-   * sender's account. This RPC may fail with a `RESOURCE_EXHAUSTED` status if a
-   * rate limit for sending messages has been exceeded, in which case a
-   * `retry-after` header containing an ISO 8601 duration string may be present
-   * in the response trailers.
-   *
-   * Note that message delivery may not succeed even if this RPC returns an `OK`
-   * status; callers must check the response object to verify that the message
-   * was actually accepted and sent.
-   */
+  // Sends a "sync" message to all other devices linked to the authenticated
+  // sender's account. This RPC may fail with a `RESOURCE_EXHAUSTED` status if a
+  // rate limit for sending messages has been exceeded, in which case a
+  // `retry-after` header containing an ISO 8601 duration string may be present
+  // in the response trailers.
+  //
+  // Note that message delivery may not succeed even if this RPC returns an `OK`
+  // status; callers must check the response object to verify that the message
+  // was actually accepted and sent.
   rpc SendSyncMessage(SendSyncMessageRequest) returns (SendMessageResponse) {}
 }
 
-/**
- * Provides methods for sending "sealed sender" messages.
- */
+// Provides methods for sending "sealed sender" messages.
 service MessagesAnonymous {
 
   option (require.auth) = AUTH_ONLY_ANONYMOUS;
 
-  /**
-   * Sends a "sealed sender" message to all devices linked to a single
-   * destination account.
-   *
-   * This RPC may fail with an `UNAUTHENTICATED` status if the given credentials
-   * were not accepted for any reason or if the destination account was not
-   * found while using an unidentified access key (UAK) for authorization. It
-   * may also fail with a `NOT_FOUND` status if the destination account was not
-   * found while using a group send token for authorization. It may also fail
-   * with a `RESOURCE_EXHAUSTED` status if a rate limit for sending messages has
-   * been exceeded, in which case a `retry-after` header containing an ISO 8601
-   * duration string may be present in the response trailers.
-   *
-   * Note that message delivery may not succeed even if this RPC returns an `OK`
-   * status; callers must check the response object to verify that the message
-   * was actually accepted and sent.
-   */
+  // Sends a "sealed sender" message to all devices linked to a single
+  // destination account.
+  //
+  // This RPC may fail with an `UNAUTHENTICATED` status if the given credentials
+  // were not accepted for any reason or if the destination account was not
+  // found while using an unidentified access key (UAK) for authorization. It
+  // may also fail with a `NOT_FOUND` status if the destination account was not
+  // found while using a group send token for authorization. It may also fail
+  // with a `RESOURCE_EXHAUSTED` status if a rate limit for sending messages has
+  // been exceeded, in which case a `retry-after` header containing an ISO 8601
+  // duration string may be present in the response trailers.
+  //
+  // Note that message delivery may not succeed even if this RPC returns an `OK`
+  // status; callers must check the response object to verify that the message
+  // was actually accepted and sent.
   rpc SendSingleRecipientMessage(SendSealedSenderMessageRequest) returns (SendMessageResponse) {}
 
-  /**
-   * Sends a "sealed sender" message with a common payload to all devices linked
-   * to multiple destination accounts.
-   *
-   * This RPC may fail with a `NOT_FOUND` status if one or more destination
-   * accounts were not found. It may also fail with an `UNAUTHENTICATED` status
-   * if the given credentials were not accepted for any reason. It may also fail
-   * with a `RESOURCE_EXHAUSTED` status if a rate limit for sending messages has
-   * been exceeded, in which case a `retry-after` header containing an ISO 8601
-   * duration string may be present in the response trailers.
-   *
-   * Note that message delivery may not succeed even if this RPC returns an `OK`
-   * status; callers must check the response object to verify that the message
-   * was actually accepted and sent.
-   */
+  // Sends a "sealed sender" message with a common payload to all devices linked
+  // to multiple destination accounts.
+  //
+  // This RPC may fail with a `NOT_FOUND` status if one or more destination
+  // accounts were not found. It may also fail with an `UNAUTHENTICATED` status
+  // if the given credentials were not accepted for any reason. It may also fail
+  // with a `RESOURCE_EXHAUSTED` status if a rate limit for sending messages has
+  // been exceeded, in which case a `retry-after` header containing an ISO 8601
+  // duration string may be present in the response trailers.
+  //
+  // Note that message delivery may not succeed even if this RPC returns an `OK`
+  // status; callers must check the response object to verify that the message
+  // was actually accepted and sent.
   rpc SendMultiRecipientMessage(SendMultiRecipientMessageRequest) returns (SendMultiRecipientMessageResponse) {}
 
-  /**
-   * Sends a story message to devices linked to a single destination account.
-   *
-   * This RPC may fail with a `RESOURCE_EXHAUSTED` status if a rate limit for
-   * sending stories has been exceeded, in which case a `retry-after` header
-   * containing an ISO 8601 duration string may be present in the response
-   * trailers.
-   *
-   * Note that message delivery may not succeed even if this RPC returns an `OK`
-   * status; callers must check the response object to verify that the message
-   * was actually accepted and sent.
-   */
+  // Sends a story message to devices linked to a single destination account.
+  //
+  // This RPC may fail with a `RESOURCE_EXHAUSTED` status if a rate limit for
+  // sending stories has been exceeded, in which case a `retry-after` header
+  // containing an ISO 8601 duration string may be present in the response
+  // trailers.
+  //
+  // Note that message delivery may not succeed even if this RPC returns an `OK`
+  // status; callers must check the response object to verify that the message
+  // was actually accepted and sent.
   rpc SendStory(SendStoryMessageRequest) returns (SendMessageResponse) {}
 
-  /**
-   * Sends a story message with a common payload to devices linked to devices
-   * linked to multiple destination accounts.
-   *
-   * This RPC may fail with a `RESOURCE_EXHAUSTED` status if a rate limit for
-   * sending stories has been exceeded, in which case a `retry-after` header
-   * containing an ISO 8601 duration string may be present in the response
-   * trailers.
-   *
-   * Note that message delivery may not succeed even if this RPC returns an `OK`
-   * status; callers must check the response object to verify that the message
-   * was actually accepted and sent.
-   */
+  // Sends a story message with a common payload to devices linked to devices
+  // linked to multiple destination accounts.
+  //
+  // This RPC may fail with a `RESOURCE_EXHAUSTED` status if a rate limit for
+  // sending stories has been exceeded, in which case a `retry-after` header
+  // containing an ISO 8601 duration string may be present in the response
+  // trailers.
+  //
+  // Note that message delivery may not succeed even if this RPC returns an `OK`
+  // status; callers must check the response object to verify that the message
+  // was actually accepted and sent.
   rpc SendMultiRecipientStory(SendMultiRecipientStoryRequest) returns (SendMultiRecipientMessageResponse) {}
 }
 
 message IndividualRecipientMessageBundle {
 
-  /**
-   * A message for an individual device linked to a destination account.
-   */
+  // A message for an individual device linked to a destination account.
   message Message {
 
-    /**
-     * The registration ID for the destination device.
-     */
+    // The registration ID for the destination device.
     uint32 registration_id = 1 [(require.range).max = 0x3fff];
 
-    /**
-     * The content of the message to deliver to the destination device.
-     */
+    // The content of the message to deliver to the destination device.
     bytes payload = 2 [(require.size).max = 262144]; // 256 KiB
   }
 
-  /**
-   * The time, in milliseconds since the epoch, at which this message was
-   * originally sent from the perspective of the sender. Note that the maximum
-   * allowable timestamp for JavaScript clients is less than Long.MAX_VALUE; see
-   * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
-   * for additional details and discussion.
-   */
+  // The time, in milliseconds since the epoch, at which this message was
+  // originally sent from the perspective of the sender. Note that the maximum
+  // allowable timestamp for JavaScript clients is less than Long.MAX_VALUE; see
+  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
+  // for additional details and discussion.
   uint64 timestamp = 1 [(require.range).min = 1, (require.range).max = 8640000000000000];
 
-  /**
-   * A map of device IDs to individual messages. Generally, callers must include
-   * one message for each device linked to the destination account. In cases of
-   * "sync messages" where a sender is distributing information to other devices
-   * linked to the sender's account, senders may omit a message for the sending
-   * device.
-   */
+  // A map of device IDs to individual messages. Generally, callers must include
+  // one message for each device linked to the destination account. In cases of
+  // "sync messages" where a sender is distributing information to other devices
+  // linked to the sender's account, senders may omit a message for the sending
+  // device.
   map<uint32, Message> messages = 2 [(require.nonEmpty) = true];
 }
 
 enum AuthenticatedSenderMessageType {
   UNSPECIFIED = 0;
 
-  /**
-   * A double-ratchet message represents a "normal," "unsealed-sender" message
-   * encrypted using the Double Ratchet within an established Signal session.
-   */
+  // A double-ratchet message represents a "normal," "unsealed-sender" message
+  // encrypted using the Double Ratchet within an established Signal session.
   DOUBLE_RATCHET = 1;
 
-  /**
-   * A prekey message begins a new Signal session. The `content` of a prekey
-   * message is a superset of a double-ratchet message's `content` and
-   * contains the sender's identity public key and information identifying the
-   * pre-keys used in the message's ciphertext.
-   */
+  // A prekey message begins a new Signal session. The `content` of a prekey
+  // message is a superset of a double-ratchet message's `content` and
+  // contains the sender's identity public key and information identifying the
+  // pre-keys used in the message's ciphertext.
   PREKEY_MESSAGE = 2;
 
-  /**
-   * A plaintext message is used solely to convey encryption error receipts
-   * and never contains encrypted message content. Encryption error receipts
-   * must be delivered in plaintext because, encryption/decryption of a prior
-   * message failed and there is no reason to believe that
-   * encryption/decryption of subsequent messages with the same key material
-   * would succeed.
-   *
-   * Critically, plaintext messages never have "real" message content
-   * generated by users. Plaintext messages include sender information.
-   */
+  // A plaintext message is used solely to convey encryption error receipts
+  // and never contains encrypted message content. Encryption error receipts
+  // must be delivered in plaintext because, encryption/decryption of a prior
+  // message failed and there is no reason to believe that
+  // encryption/decryption of subsequent messages with the same key material
+  // would succeed.
+  //
+  // Critically, plaintext messages never have "real" message content
+  // generated by users. Plaintext messages include sender information.
   PLAINTEXT_CONTENT = 3;
 }
 
 message SendAuthenticatedSenderMessageRequest {
 
-  /**
-   * The service identifier of the account to which to deliver the message.
-   */
+  // The service identifier of the account to which to deliver the message.
   common.ServiceIdentifier destination = 1;
 
-  /**
-   * The type identifier for this message.
-   */
+  // The type identifier for this message.
   AuthenticatedSenderMessageType type = 2 [(require.specified) = true];
 
-  /**
-   * If true, this message will only be delivered to destination devices that
-   * have an active message delivery channel with a Signal server.
-   */
+  // If true, this message will only be delivered to destination devices that
+  // have an active message delivery channel with a Signal server.
   bool ephemeral = 3;
 
-  /**
-   * Indicates whether this message is urgent and should trigger a high-priority
-   * notification if the destination device does not have an active message
-   * delivery channel with a Signal server
-   */
+  // Indicates whether this message is urgent and should trigger a high-priority
+  // notification if the destination device does not have an active message
+  // delivery channel with a Signal server
   bool urgent = 4;
 
-  /**
-   * The messages to send to the destination account.
-   */
+  // The messages to send to the destination account.
   IndividualRecipientMessageBundle messages = 5;
 }
 
 message SendSyncMessageRequest {
 
-  /**
-   * The type identifier for this message.
-   */
+  // The type identifier for this message.
   AuthenticatedSenderMessageType type = 1 [(require.specified) = true];
 
-  /**
-   * Indicates whether this message is urgent and should trigger a high-priority
-   * notification if the destination device does not have an active message
-   * delivery channel with a Signal server
-   */
+  // Indicates whether this message is urgent and should trigger a high-priority
+  // notification if the destination device does not have an active message
+  // delivery channel with a Signal server
   bool urgent = 2;
 
-  /**
-   * The messages to send to the destination account.
-   */
+  // The messages to send to the destination account.
   IndividualRecipientMessageBundle messages = 3;
 }
 
 message SendSealedSenderMessageRequest {
 
-  /**
-   * The service identifier of the account to which to deliver the message.
-   */
+  // The service identifier of the account to which to deliver the message.
   common.ServiceIdentifier destination = 1;
 
-  /**
-   * If true, this message will only be delivered to destination devices that
-   * have an active message delivery channel with a Signal server.
-   */
+  // If true, this message will only be delivered to destination devices that
+  // have an active message delivery channel with a Signal server.
   bool ephemeral = 2;
 
-  /**
-   * Indicates whether this message is urgent and should trigger a high-priority
-   * notification if the destination device does not have an active message
-   * delivery channel with a Signal server
-   */
+  // Indicates whether this message is urgent and should trigger a high-priority
+  // notification if the destination device does not have an active message
+  // delivery channel with a Signal server
   bool urgent = 3;
 
-  /**
-   * The messages to send to the destination account.
-   */
+  // The messages to send to the destination account.
   IndividualRecipientMessageBundle messages = 4;
 
-  /**
-   * A means to authorize the request.
-   */
+  // A means to authorize the request.
   oneof authorization {
 
-    /**
-     * The unidentified access key (UAK) for the destination account.
-     */
+    // The unidentified access key (UAK) for the destination account.
     bytes unidentified_access_key = 5;
 
-    /**
-     * A group send endorsement token for the destination account.
-     */
+    // A group send endorsement token for the destination account.
     bytes group_send_token = 6;
   }
 }
 
 message SendStoryMessageRequest {
 
-  /**
-   * The service identifier of the account to which to deliver the message.
-   */
+  // The service identifier of the account to which to deliver the message.
   common.ServiceIdentifier destination = 1;
 
-  /**
-   * Indicates whether this message is urgent and should trigger a high-priority
-   * notification if the destination device does not have an active message
-   * delivery channel with a Signal server
-   */
+  // Indicates whether this message is urgent and should trigger a high-priority
+  // notification if the destination device does not have an active message
+  // delivery channel with a Signal server
   bool urgent = 2;
 
-  /**
-   * The messages to send to the destination account.
-   */
+  // The messages to send to the destination account.
   IndividualRecipientMessageBundle messages = 3;
 }
 
 message SendMessageResponse {
 
-  /**
-   * An error preventing message delivery. If not set, then the message(s) in
-   * the original request were sent to all destination devices.
-   */
+  // An error preventing message delivery. If not set, then the message(s) in
+  // the original request were sent to all destination devices.
   oneof error {
 
-    /**
-     * A list of discrepancies between the destination devices identified in a
-     * request to send a message and the devices that are actually linked to an
-     * account.
-     */
+    // A list of discrepancies between the destination devices identified in a
+    // request to send a message and the devices that are actually linked to an
+    // account.
     MismatchedDevices mismatched_devices = 1;
 
-    /**
-     * A description of a challenge callers must complete before sending
-     * additional messages.
-     */
+    // A description of a challenge callers must complete before sending
+    // additional messages.
     ChallengeRequired challenge_required = 2;
   }
 }
 
 message MultiRecipientMessage {
 
-  /**
-   * The time, in milliseconds since the epoch, at which this message was
-   * originally sent from the perspective of the sender. Note that the maximum
-   * allowable timestamp for JavaScript clients is less than Long.MAX_VALUE; see
-   * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
-   * for additional details and discussion.
-   */
+  // The time, in milliseconds since the epoch, at which this message was
+  // originally sent from the perspective of the sender. Note that the maximum
+  // allowable timestamp for JavaScript clients is less than Long.MAX_VALUE; see
+  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
+  // for additional details and discussion.
   uint64 timestamp = 1 [(require.range).min = 1, (require.range).max = 8640000000000000];
 
-  /**
-   * The serialized multi-recipient message payload.
-   */
+  // The serialized multi-recipient message payload.
   bytes payload = 2 [(require.size).max = 762144]; // 256 KiB payload + (5000 * 100) of overhead
 }
 
 message SendMultiRecipientMessageRequest {
 
-  /**
-   * If true, this message will only be delivered to destination devices that
-   * have an active message delivery channel with a Signal server.
-   */
+  // If true, this message will only be delivered to destination devices that
+  // have an active message delivery channel with a Signal server.
   bool ephemeral = 1;
 
-  /**
-   * Indicates whether this message is urgent and should trigger a high-priority
-   * notification if the destination device does not have an active message
-   * delivery channel with a Signal server
-   */
+  // Indicates whether this message is urgent and should trigger a high-priority
+  // notification if the destination device does not have an active message
+  // delivery channel with a Signal server
   bool urgent = 2;
 
-  /**
-   * The multi-recipient message to send to all destination accounts and
-   * devices.
-   */
+  // The multi-recipient message to send to all destination accounts and
+  // devices.
   MultiRecipientMessage message = 3;
 
-  /**
-   * A group send endorsement token for the destination account.
-   */
+  // A group send endorsement token for the destination account.
   bytes group_send_token = 4;
 }
 
 message SendMultiRecipientStoryRequest {
 
-  /**
-   * Indicates whether this message is urgent and should trigger a high-priority
-   * notification if the destination device does not have an active message
-   * delivery channel with a Signal server
-   */
+  // Indicates whether this message is urgent and should trigger a high-priority
+  // notification if the destination device does not have an active message
+  // delivery channel with a Signal server
   bool urgent = 1;
 
-  /**
-   * The multi-recipient story message to send to all destination accounts and
-   * devices.
-   */
+  // The multi-recipient story message to send to all destination accounts and
+  // devices.
   MultiRecipientMessage message = 2;
 }
 
 message SendMultiRecipientMessageResponse {
 
-  /**
-   * A list of destination service identifiers that could not be resolved to
-   * registered Signal accounts. If `mismatched_devices` is empty, then the
-   * message in the original request was sent to all service identifiers/devices
-   * in the original request except for the destination devices associated with
-   * the service identifiers in this list.
-   */
+  // A list of destination service identifiers that could not be resolved to
+  // registered Signal accounts. If `mismatched_devices` is empty, then the
+  // message in the original request was sent to all service identifiers/devices
+  // in the original request except for the destination devices associated with
+  // the service identifiers in this list.
   repeated common.ServiceIdentifier unresolved_recipients = 1;
 
-  /**
-   * An error preventing message delivery. If not set, then the message was sent
-   * to some or all destination accounts/devices identified in the original
-   * request.
-   */
+  // An error preventing message delivery. If not set, then the message was sent
+  // to some or all destination accounts/devices identified in the original
+  // request.
   oneof error {
 
-    /**
-     * A list of sets of discrepancies between the destination devices
-     * identified in a request to send a message and the devices that are
-     * actually linked to a destination account.
-     */
+    // A list of sets of discrepancies between the destination devices
+    // identified in a request to send a message and the devices that are
+    // actually linked to a destination account.
     MultiRecipientMismatchedDevices mismatched_devices = 2;
 
-    /**
-     * A description of a challenge callers must complete before sending
-     * additional messages.
-     */
+    // A description of a challenge callers must complete before sending
+    // additional messages.
     ChallengeRequired challenge_required = 3;
   }
 }
 
 message MismatchedDevices {
 
-  /**
-   * The service identifier to which the devices named in this object are
-   * linked.
-   */
+  // The service identifier to which the devices named in this object are
+  // linked.
   common.ServiceIdentifier service_identifier = 1;
 
-  /**
-   * A list of device IDs that are linked to the destination account, but were
-   * not included in the collection of messages bound for the destination
-   * account.
-   */
+  // A list of device IDs that are linked to the destination account, but were
+  // not included in the collection of messages bound for the destination
+  // account.
   repeated uint32 missing_devices = 2 [(require.range).max = 0x7f];
 
-  /**
-   * A list of device IDs that were included in the collection of messages bound
-   * for the destination account, but are not currently linked to the
-   * destination account.
-   */
+  // A list of device IDs that were included in the collection of messages bound
+  // for the destination account, but are not currently linked to the
+  // destination account.
   repeated uint32 extra_devices = 3 [(require.range).max = 0x7f];
 
-  /**
-   * A list of device IDs that present in the collection of messages bound for
-   * the destination account and are linked to the destination account, but have
-   * a different registration ID than the registration ID presented by the
-   * sender (indicating that the destination device has likely been replaced by
-   * another device).
-   */
+  // A list of device IDs that present in the collection of messages bound for
+  // the destination account and are linked to the destination account, but have
+  // a different registration ID than the registration ID presented by the
+  // sender (indicating that the destination device has likely been replaced by
+  // another device).
   repeated uint32 stale_devices = 4 [(require.range).max = 0x7f];
 }
 
 message MultiRecipientMismatchedDevices {
 
-  /**
-   * A list of sets of discrepancies between the destination devices identified
-   * in a request to send a message and the devices that are actually linked to
-   * a destination account.
-   */
+  // A list of sets of discrepancies between the destination devices identified
+  // in a request to send a message and the devices that are actually linked to
+  // a destination account.
   repeated MismatchedDevices mismatched_devices = 1;
 }
 
@@ -468,35 +360,25 @@ message ChallengeRequired {
   enum ChallengeType {
     UNSPECIFIED = 0;
 
-    /**
-     * A challenge that callers can fulfill by completing a captcha.
-     */
+    // A challenge that callers can fulfill by completing a captcha.
     CAPTCHA = 1;
 
-    /**
-     * A challenge that callers can fulfill by supplying a token delivered via
-     * push notification.
-     */
+    // A challenge that callers can fulfill by supplying a token delivered via
+    // push notification.
     PUSH_CHALLENGE = 2;
   };
 
-  /**
-   * An opaque token identifying this challenge request. Clients must generally
-   * submit this token when submitting a challenge response.
-   */
+  // An opaque token identifying this challenge request. Clients must generally
+  // submit this token when submitting a challenge response.
   bytes token = 1;
 
-  /**
-   * A list of challenge types callers may choose to complete to resolve the
-   * challenge requirement. May be empty, in which case callers cannot resolve
-   * the challenge by any means other than waiting.
-   */
+  // A list of challenge types callers may choose to complete to resolve the
+  // challenge requirement. May be empty, in which case callers cannot resolve
+  // the challenge by any means other than waiting.
   repeated ChallengeType challenge_options = 2;
 
-  /**
-   * A duration (in seconds) after which the challenge requirement may be
-   * resolved by simply waiting. May not be set if the challenge cannot be
-   * resolved by waiting.
-   */
+  // A duration (in seconds) after which the challenge requirement may be
+  // resolved by simply waiting. May not be set if the challenge cannot be
+  // resolved by waiting.
   optional uint64 retry_after_seconds = 3;
 }

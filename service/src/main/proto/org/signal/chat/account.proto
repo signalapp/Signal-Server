@@ -7,103 +7,69 @@ package org.signal.chat.account;
 import "org/signal/chat/common.proto";
 import "org/signal/chat/errors.proto";
 
-/**
- * Provides methods for working with Signal accounts.
- */
+// Provides methods for working with Signal accounts.
 service Accounts {
-  /**
-   * Returns basic identifiers for the authenticated account.
-   */
+  // Returns basic identifiers for the authenticated account.
   rpc GetAccountIdentity(GetAccountIdentityRequest) returns (GetAccountIdentityResponse) {}
 
-  /**
-   * Deletes the authenticated account, purging all associated data in the
-   * process.
-   */
+  // Deletes the authenticated account, purging all associated data in the
+  // process.
   rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse) {}
 
-  /**
-   * Sets the registration lock secret for the authenticated account. To remove
-   * a registration lock, please use `ClearRegistrationLock`.
-   */
+  // Sets the registration lock secret for the authenticated account. To remove
+  // a registration lock, please use `ClearRegistrationLock`.
   rpc SetRegistrationLock(SetRegistrationLockRequest) returns (SetRegistrationLockResponse) {}
 
-  /**
-   * Removes any registration lock credentials from the authenticated account.
-   */
+  // Removes any registration lock credentials from the authenticated account.
   rpc ClearRegistrationLock(ClearRegistrationLockRequest) returns (ClearRegistrationLockResponse) {}
 
-  /**
-   * Attempts to reserve one of multiple given username hashes. Reserved
-   * usernames may be claimed later via `ConfirmUsernameHash`.
-   */
+  // Attempts to reserve one of multiple given username hashes. Reserved
+  // usernames may be claimed later via `ConfirmUsernameHash`.
   rpc ReserveUsernameHash(ReserveUsernameHashRequest) returns (ReserveUsernameHashResponse) {}
 
-  /**
-   * Sets the username hash/encrypted username to a previously-reserved value
-   * (see `ReserveUsernameHash`).
-   */
+  // Sets the username hash/encrypted username to a previously-reserved value
+  // (see `ReserveUsernameHash`).
   rpc ConfirmUsernameHash(ConfirmUsernameHashRequest) returns (ConfirmUsernameHashResponse) {}
 
-  /**
-   * Clears the current username hash, ciphertext, and link for the
-   * authenticated user.
-   */
+  // Clears the current username hash, ciphertext, and link for the
+  // authenticated user.
   rpc DeleteUsernameHash(DeleteUsernameHashRequest) returns (DeleteUsernameHashResponse) {}
 
-  /**
-   * Associates the given username ciphertext with the account, replacing any
-   * previously stored ciphertext. A new link handle will optionally be created,
-   * and the link handle to use will be returned in any event.
-   */
+  // Associates the given username ciphertext with the account, replacing any
+  // previously stored ciphertext. A new link handle will optionally be created,
+  // and the link handle to use will be returned in any event.
   rpc SetUsernameLink(SetUsernameLinkRequest) returns (SetUsernameLinkResponse) {}
 
-  /**
-   * Clears any username link associated with the authenticated account.
-   */
+  // Clears any username link associated with the authenticated account.
   rpc DeleteUsernameLink(DeleteUsernameLinkRequest) returns (DeleteUsernameLinkResponse) {}
 
-  /**
-   * Configures "unidentified access" keys and preferences for the authenticated
-   * account. Other users permitted to interact with this account anonymously
-   * may take actions like fetching pre-keys and profiles for this account or
-   * sending sealed-sender messages without providing identifying credentials.
-   */
+  // Configures "unidentified access" keys and preferences for the authenticated
+  // account. Other users permitted to interact with this account anonymously
+  // may take actions like fetching pre-keys and profiles for this account or
+  // sending sealed-sender messages without providing identifying credentials.
   rpc ConfigureUnidentifiedAccess(ConfigureUnidentifiedAccessRequest) returns (ConfigureUnidentifiedAccessResponse) {}
 
-  /**
-   * Sets whether the authenticated account may be discovered by phone number
-   * via the Contact Discovery Service (CDS).
-   */
+  // Sets whether the authenticated account may be discovered by phone number
+  // via the Contact Discovery Service (CDS).
   rpc SetDiscoverableByPhoneNumber(SetDiscoverableByPhoneNumberRequest) returns (SetDiscoverableByPhoneNumberResponse) {}
 
-  /**
-   * Sets the registration recovery password for the authenticated account.
-   */
+  // Sets the registration recovery password for the authenticated account.
   rpc SetRegistrationRecoveryPassword(SetRegistrationRecoveryPasswordRequest) returns (SetRegistrationRecoveryPasswordResponse) {}
 }
 
-/**
- * Provides methods for looking up Signal accounts. Callers must not provide
- * identifying credentials when calling methods in this service.
- */
+// Provides methods for looking up Signal accounts. Callers must not provide
+// identifying credentials when calling methods in this service.
 service AccountsAnonymous {
-  /**
-   * Checks whether an account with the given service identifier exists.
-   */
+  // Checks whether an account with the given service identifier exists.
   rpc CheckAccountExistence(CheckAccountExistenceRequest) returns (CheckAccountExistenceResponse) {}
 
-  /**
-   * Finds the service identifier of the account associated with the given
-   * username hash.
-   */
+  // Finds the service identifier of the account associated with the given
+  // username hash.
   rpc LookupUsernameHash(LookupUsernameHashRequest) returns (LookupUsernameHashResponse) {}
 
-  /**
-   * Finds the encrypted username identified by a given username link handle.
-   * This method will return a `NOT_FOUND` status if no username was found for
-   * the given link handle.
-   */
+  // Finds the encrypted username identified by a given username link handle.
+  // This method will return a `NOT_FOUND` status if no username was found for
+  // the given link handle.
   rpc LookupUsernameLink(LookupUsernameLinkRequest) returns (LookupUsernameLinkResponse) {}
 }
 
@@ -111,9 +77,7 @@ message GetAccountIdentityRequest {
 }
 
 message GetAccountIdentityResponse {
-  /**
-   * A set of account identifiers for the authenticated account.
-   */
+  // A set of account identifiers for the authenticated account.
   common.AccountIdentifiers account_identifiers = 1;
 }
 
@@ -124,9 +88,7 @@ message DeleteAccountResponse {
 }
 
 message SetRegistrationLockRequest {
-  /**
-   * The new registration lock secret for the authenticated account.
-   */
+  // The new registration lock secret for the authenticated account.
   bytes registration_lock = 1;
 }
 
@@ -140,9 +102,7 @@ message ClearRegistrationLockResponse {
 }
 
 message ReserveUsernameHashRequest {
-  /**
-   * A prioritized list of username hashes to attempt to reserve.
-   */
+  // A prioritized list of username hashes to attempt to reserve.
   repeated bytes username_hashes = 1;
 }
 
@@ -150,66 +110,46 @@ message UsernameNotAvailable {}
 
 message ReserveUsernameHashResponse {
   oneof response {
-    /**
-     * The first username hash that was available (and actually reserved).
-     */
+    // The first username hash that was available (and actually reserved).
     bytes username_hash = 1;
 
-    /**
-     * Indicates that, of all of the candidate hashes provided, none were
-     * available. Callers may generate a new set of hashes and and retry.
-     */
+    // Indicates that, of all of the candidate hashes provided, none were
+    // available. Callers may generate a new set of hashes and and retry.
     UsernameNotAvailable username_not_available = 2;
   }
 }
 
 message ConfirmUsernameHashRequest {
-  /**
-   * The username hash to claim for the authenticated account.
-   */
+  // The username hash to claim for the authenticated account.
   bytes username_hash = 1;
 
-  /**
-   * A zero-knowledge proof that the given username hash was generated by the
-   * Signal username algorithm.
-   */
+  // A zero-knowledge proof that the given username hash was generated by the
+  // Signal username algorithm.
   bytes zk_proof = 2;
 
-  /**
-   * The ciphertext of the chosen username for use in public-facing contexts
-   * (e.g. links and QR codes).
-   */
+  // The ciphertext of the chosen username for use in public-facing contexts
+  // (e.g. links and QR codes).
   bytes username_ciphertext = 3;
 }
 
 message ConfirmUsernameHashResponse {
   message ConfirmedUsernameHash {
-    /**
-     * The newly-confirmed username hash.
-     */
+    // The newly-confirmed username hash.
     bytes username_hash = 1;
 
-    /**
-     * The server-generated username link handle for the newly-confirmed username.
-     */
+    // The server-generated username link handle for the newly-confirmed username.
     bytes username_link_handle = 2;
   }
 
   oneof response {
-    /**
-     * The details of the successfully confirmed username.
-     */
+    // The details of the successfully confirmed username.
     ConfirmedUsernameHash confirmed_username_hash = 1;
 
-    /**
-     * The provided hash was not reserved for the account.
-     */
+    // The provided hash was not reserved for the account.
     errors.FailedPrecondition reservation_not_found = 2;
 
-    /**
-     * The reservation has lapsed and the requested username has been claimed by
-     * another caller.
-     */
+    // The reservation has lapsed and the requested username has been claimed by
+    // another caller.
     UsernameNotAvailable username_not_available =  3;
   }
 }
@@ -221,30 +161,22 @@ message DeleteUsernameHashResponse {
 }
 
 message SetUsernameLinkRequest {
-  /**
-   * The username ciphertext for which to generate a new link handle.
-   */
+  // The username ciphertext for which to generate a new link handle.
   bytes username_ciphertext = 1;
 
-  /**
-   * If true and the account already had an encrypted username stored, the
-   * existing link handle will be reused. Otherwise a new link handle will be
-   * created.
-   */
+  // If true and the account already had an encrypted username stored, the
+  // existing link handle will be reused. Otherwise a new link handle will be
+  // created.
   bool keep_link_handle = 2;
 }
 
 
 message SetUsernameLinkResponse {
   oneof response {
-    /**
-     * A new link handle for the given username ciphertext.
-     */
+    // A new link handle for the given username ciphertext.
     bytes username_link_handle = 1;
 
-    /**
-     * The authenticated account did not have a username set.
-     */
+    // The authenticated account did not have a username set.
     errors.FailedPrecondition no_username_set = 2;
 
   }
@@ -257,19 +189,15 @@ message DeleteUsernameLinkResponse {
 }
 
 message ConfigureUnidentifiedAccessRequest {
-  /**
-   * The key that other users must provide to interact with this account
-   * anonymously (i.e. to retrieve keys or profiles or to send messages) unless
-   * unrestricted unidentified access is permitted. Must be present if
-   * unrestricted unidentified access is not allowed.
-   */
+  // The key that other users must provide to interact with this account
+  // anonymously (i.e. to retrieve keys or profiles or to send messages) unless
+  // unrestricted unidentified access is permitted. Must be present if
+  // unrestricted unidentified access is not allowed.
   bytes unidentified_access_key = 1;
 
-  /**
-   * If `true`, any user may interact with this account anonymously without
-   * providing an unidentified access key. Otherwise, users must provide the
-   * given unidentified access key to interact with this account anonymously.
-   */
+  // If `true`, any user may interact with this account anonymously without
+  // providing an unidentified access key. Otherwise, users must provide the
+  // given unidentified access key to interact with this account anonymously.
   bool allow_unrestricted_unidentified_access = 2;
 }
 
@@ -277,11 +205,9 @@ message ConfigureUnidentifiedAccessResponse {
 }
 
 message SetDiscoverableByPhoneNumberRequest {
-  /**
-   * If true, the authenticated account may be discovered by phone number via
-   * the Contact Discovery Service (CDS). Otherwise, other users must discover
-   * this account by other means (i.e. by username).
-   */
+  // If true, the authenticated account may be discovered by phone number via
+  // the Contact Discovery Service (CDS). Otherwise, other users must discover
+  // this account by other means (i.e. by username).
   bool discoverable_by_phone_number = 1;
 }
 
@@ -289,9 +215,7 @@ message SetDiscoverableByPhoneNumberResponse {
 }
 
 message SetRegistrationRecoveryPasswordRequest {
-  /**
-   * The new registration recovery password for the authenticated account.
-   */
+  // The new registration recovery password for the authenticated account.
   bytes registration_recovery_password = 1;
 }
 
@@ -299,60 +223,44 @@ message SetRegistrationRecoveryPasswordResponse {
 }
 
 message CheckAccountExistenceRequest {
-  /**
-   * The service identifier of an account that may or may not exist.
-   */
+  // The service identifier of an account that may or may not exist.
   common.ServiceIdentifier service_identifier = 1;
 }
 
 message CheckAccountExistenceResponse {
-  /**
-   * True if an account exists with the given service identifier or false if no
-   * account was found.
-   */
+  // True if an account exists with the given service identifier or false if no
+  // account was found.
   bool account_exists = 1;
 }
 
 message LookupUsernameHashRequest {
-  /**
-   * A 32-byte username hash for which to find an account.
-   */
+  // A 32-byte username hash for which to find an account.
   bytes username_hash = 1;
 }
 
 message LookupUsernameHashResponse {
   oneof response {
-    /**
-     * The service identifier associated with the provided username hash.
-     */
+    // The service identifier associated with the provided username hash.
     common.ServiceIdentifier service_identifier = 1;
 
-    /**
-     * No account was found for the provided username hash.
-     */
+    // No account was found for the provided username hash.
     errors.NotFound not_found = 2;
   }
 }
 
 message LookupUsernameLinkRequest {
-  /**
-   * The link handle for which to find an encrypted username. Link handles are
-   * 16-byte representations of UUIDs.
-   */
+  // The link handle for which to find an encrypted username. Link handles are
+  // 16-byte representations of UUIDs.
   bytes username_link_handle = 1;
 }
 
 message LookupUsernameLinkResponse {
   oneof response {
-    /**
-     * The ciphertext of the username identified by the provided link handle.
-     */
+    // The ciphertext of the username identified by the provided link handle.
     bytes username_ciphertext = 1;
 
 
-    /**
-     * No username was found for the provided link handle.
-     */
+    // No username was found for the provided link handle.
     errors.NotFound not_found = 2;
   }
 }

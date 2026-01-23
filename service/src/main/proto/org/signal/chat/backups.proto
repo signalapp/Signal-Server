@@ -15,76 +15,63 @@ import "org/signal/chat/errors.proto";
 import "org/signal/chat/require.proto";
 import "org/signal/chat/tag.proto";
 
-/**
- * Service for backup operations that require account authentication.
- *
- * Most actual backup operations operate on the backup-id and cannot be linked
- * to the caller's account, but setting up anonymous credentials and changing
- * backup tier requires account authentication.
- */
+// Service for backup operations that require account authentication.
+//
+// Most actual backup operations operate on the backup-id and cannot be linked
+// to the caller's account, but setting up anonymous credentials and changing
+// backup tier requires account authentication.
 service Backups {
   option (require.auth) = AUTH_ONLY_AUTHENTICATED;
 
-  /**
-   * Set (blinded) backup-id(s) for the account.
-   *
-   * Each account may have a single active backup-id for each credential type
-   * that can be used to store and retrieve backups. Once the backup-id is set,
-   * BackupAuthCredentials can be generated using GetBackupAuthCredentials.
-   *
-   * The blinded backup-id and the key-pair used to blind it must be derived
-   * from a recoverable secret.
-   *
-   * At least one of the credential types must be set on the request.
-   * Only the primary device can set a blinded backup-id.
-   */
+  // Set (blinded) backup-id(s) for the account.
+  //
+  // Each account may have a single active backup-id for each credential type
+  // that can be used to store and retrieve backups. Once the backup-id is set,
+  // BackupAuthCredentials can be generated using GetBackupAuthCredentials.
+  //
+  // The blinded backup-id and the key-pair used to blind it must be derived
+  // from a recoverable secret.
+  //
+  // At least one of the credential types must be set on the request.
+  // Only the primary device can set a blinded backup-id.
   rpc SetBackupId(SetBackupIdRequest) returns (SetBackupIdResponse) {}
 
-  /**
-   * Redeem a receipt acquired from /v1/subscription/{subscriberId}/receipt_credentials
-   * to mark the account as eligible for the paid backup tier.
-   *
-   * After successful redemption, subsequent requests to
-   * GetBackupAuthCredentials will return credentials with the level on the
-   * provided receipt until the expiration time on the receipt.
-   */
+  // Redeem a receipt acquired from /v1/subscription/{subscriberId}/receipt_credentials
+  // to mark the account as eligible for the paid backup tier.
+  //
+  // After successful redemption, subsequent requests to
+  // GetBackupAuthCredentials will return credentials with the level on the
+  // provided receipt until the expiration time on the receipt.
   rpc RedeemReceipt(RedeemReceiptRequest) returns (RedeemReceiptResponse) {}
 
-  /**
-   * After setting a blinded backup-id with PUT /v1/archives/, this fetches
-   * credentials that can be used to perform operations against that backup-id.
-   * Clients may (and should) request up to 7 days of credentials at a time.
-   *
-   * The redemption_start and redemption_end seconds must be UTC day aligned, and
-   * must not span more than 7 days.
-   *
-   * Each credential contains a receipt level which indicates the backup level
-   * the credential is good for. If the account has paid backup access that
-   * expires at some point in the provided redemption window, credentials with
-   * redemption times after the expiration may be on a lower backup level.
-   *
-   * Clients must validate the receipt level on the credential matches a known
-   * receipt level before using it.
-   *
-   */
+  // After setting a blinded backup-id with PUT /v1/archives/, this fetches
+  // credentials that can be used to perform operations against that backup-id.
+  // Clients may (and should) request up to 7 days of credentials at a time.
+  //
+  // The redemption_start and redemption_end seconds must be UTC day aligned, and
+  // must not span more than 7 days.
+  //
+  // Each credential contains a receipt level which indicates the backup level
+  // the credential is good for. If the account has paid backup access that
+  // expires at some point in the provided redemption window, credentials with
+  // redemption times after the expiration may be on a lower backup level.
+  //
+  // Clients must validate the receipt level on the credential matches a known
+  // receipt level before using it.
   rpc GetBackupAuthCredentials(GetBackupAuthCredentialsRequest) returns (GetBackupAuthCredentialsResponse) {}
 }
 
 message SetBackupIdRequest {
-  /**
-   * A BackupAuthCredentialRequest containing a blinded encrypted backup-id,
-   * encoded in standard padded base64. This backup-id should be used for
-   * message backups only, and must have the message backup type set on the
-   * credential. If absent, the message credential request will not be updated.
-   */
+  // A BackupAuthCredentialRequest containing a blinded encrypted backup-id,
+  // encoded in standard padded base64. This backup-id should be used for
+  // message backups only, and must have the message backup type set on the
+  // credential. If absent, the message credential request will not be updated.
   bytes messages_backup_auth_credential_request = 1;
 
-  /**
-   * A BackupAuthCredentialRequest containing a blinded encrypted backup-id,
-   * encoded in standard padded base64. This backup-id should be used for
-   * media only, and must have the media type set on the credential. If absent,
-   * the media credential request will not be updated.
-   */
+  // A BackupAuthCredentialRequest containing a blinded encrypted backup-id,
+  // encoded in standard padded base64. This backup-id should be used for
+  // media only, and must have the media type set on the credential. If absent,
+  // the media credential request will not be updated.
   bytes media_backup_auth_credential_request = 2;
 }
 
@@ -92,196 +79,147 @@ message SetBackupIdResponse {}
 
 
 message RedeemReceiptRequest {
-  /**
-   * Presentation for a previously acquired receipt, serialized with libsignal
-   */
+  // Presentation for a previously acquired receipt, serialized with libsignal
   bytes presentation = 1;
 }
 
 message RedeemReceiptResponse {
   oneof outcome {
-    /**
-     * The receipt was successfully redeemed
-     */
+    // The receipt was successfully redeemed
     google.protobuf.Empty success = 1;
 
-    /**
-     * The target account does not have a backup-id commitment
-     */
+    // The target account does not have a backup-id commitment
     errors.FailedPrecondition account_missing_commitment = 2 [(tag.reason) = "account_missing_commitment"];
 
-    /**
-     * The provided receipt presentation was malformed or expired
-     */
+    // The provided receipt presentation was malformed or expired
     errors.FailedPrecondition invalid_receipt = 3 [(tag.reason) = "invalid_receipt"];
   }
 }
 
 message GetBackupAuthCredentialsRequest {
-  /**
-   * The redemption time for the first credential. This must be a day-aligned
-   * seconds since epoch in UTC.
-   */
+  // The redemption time for the first credential. This must be a day-aligned
+  // seconds since epoch in UTC.
   int64 redemption_start = 1 [(require.range).min = 1];
 
-  /**
-   * The redemption time for the last credential. This must be a day-aligned
-   * seconds since epoch in UTC. The span between redemptionStart and
-   * redemptionEnd must not exceed 7 days.
-   */
+  // The redemption time for the last credential. This must be a day-aligned
+  // seconds since epoch in UTC. The span between redemptionStart and
+  // redemptionEnd must not exceed 7 days.
   int64 redemption_stop = 2 [(require.range).min = 1];
 }
 
 message GetBackupAuthCredentialsResponse {
   message Credentials {
-    /**
-     * The requested message backup ZkCredentials indexed by the start of their
-     * validity period. The smallest key should be for the requested
-     * redemption_start, the largest for the requested redemption_end.
-     */
+    // The requested message backup ZkCredentials indexed by the start of their
+    // validity period. The smallest key should be for the requested
+    // redemption_start, the largest for the requested redemption_end.
     map<int64, common.ZkCredential> message_credentials = 1;
 
-    /**
-     * The requested media backup ZkCredentials indexed by the start of their
-     * validity period. The smallest key should be for the requested
-     * redemption_start, the largest for the requested redemption_end.
-     */
+    // The requested media backup ZkCredentials indexed by the start of their
+    // validity period. The smallest key should be for the requested
+    // redemption_start, the largest for the requested redemption_end.
     map<int64, common.ZkCredential> media_credentials = 2;
   }
 
-  /**
-   * The requested credentials. If absent, there was no existing blinded
-   * backup id associated with the provided account.
-   */
+  // The requested credentials. If absent, there was no existing blinded
+  // backup id associated with the provided account.
   Credentials credentials = 1;
 }
 
-/**
- * Service for backup operations with anonymous credentials
- *
- * This service never requires account authentication. It instead requires a
- * backup-id authenticated with an anonymous credential that cannot be linked
- * to the account.
- *
- * To register an anonymous credential:
- *   1. Set a backup-id on the authenticated channel via Backups::SetBackupId
- *   2. Retrieve BackupAuthCredentials via Backups::GetBackupAuthCredentials
- *   3. Generate a key pair and set the public key via
- *      BackupsAnonymous::SetPublicKey
- *
- * Unless otherwise noted, requests for this service require a
- * SignedPresentation, which includes:
- *   - a presentation generated from a BackupAuthCredential issued by
- *     GetBackupAuthCredentials
- *   - a signature of that presentation using the private key of a key pair
- *     previously set with SetPublicKey.
- *
- */
+// Service for backup operations with anonymous credentials
+//
+// This service never requires account authentication. It instead requires a
+// backup-id authenticated with an anonymous credential that cannot be linked
+// to the account.
+//
+// To register an anonymous credential:
+//   1. Set a backup-id on the authenticated channel via Backups::SetBackupId
+//   2. Retrieve BackupAuthCredentials via Backups::GetBackupAuthCredentials
+//   3. Generate a key pair and set the public key via
+//      BackupsAnonymous::SetPublicKey
+//
+// Unless otherwise noted, requests for this service require a
+// SignedPresentation, which includes:
+//   - a presentation generated from a BackupAuthCredential issued by
+//     GetBackupAuthCredentials
+//   - a signature of that presentation using the private key of a key pair
+//     previously set with SetPublicKey.
 service BackupsAnonymous {
   option (require.auth) = AUTH_ONLY_ANONYMOUS;
 
-  /**
-   * Retrieve credentials used to read objects stored on the backup cdn
-   */
+  // Retrieve credentials used to read objects stored on the backup cdn
   rpc GetCdnCredentials(GetCdnCredentialsRequest) returns (GetCdnCredentialsResponse) {}
 
-  /**
-   * Retrieve credentials used to interact with the SecureValueRecoveryB service
-   */
+  // Retrieve credentials used to interact with the SecureValueRecoveryB service
   rpc GetSvrBCredentials(GetSvrBCredentialsRequest) returns (GetSvrBCredentialsResponse) {}
 
-  /**
-   * Retrieve information about the currently stored backup
-   */
+  // Retrieve information about the currently stored backup
   rpc GetBackupInfo(GetBackupInfoRequest) returns (GetBackupInfoResponse) {}
 
-  /**
-   * Permanently set the public key of an ED25519 key-pair for the backup-id.
-   * All requests (including this one!) must sign their BackupAuthCredential
-   * presentations with the private key corresponding to the provided public key.
-   */
+  // Permanently set the public key of an ED25519 key-pair for the backup-id.
+  // All requests (including this one!) must sign their BackupAuthCredential
+  // presentations with the private key corresponding to the provided public key.
   rpc SetPublicKey(SetPublicKeyRequest) returns (SetPublicKeyResponse) {}
 
-  /**
-   * Refresh the backup, indicating that the backup is still active. Clients
-   * must periodically upload new backups or perform a refresh. If a backup has
-   * not been active for 30 days, it may deleted
-   */
+  // Refresh the backup, indicating that the backup is still active. Clients
+  // must periodically upload new backups or perform a refresh. If a backup has
+  // not been active for 30 days, it may deleted
   rpc Refresh(RefreshRequest) returns (RefreshResponse) {}
 
-  /**
-   * Retrieve an upload form that can be used to perform a resumable upload
-   */
+  // Retrieve an upload form that can be used to perform a resumable upload
   rpc GetUploadForm(GetUploadFormRequest) returns (GetUploadFormResponse) {}
 
-  /**
-   * Copy and re-encrypt media from the attachments cdn into the backup cdn.
-   * The original, already encrypted, attachments will be encrypted with the
-   * provided key material before being copied.
-   *
-   * The copy operation is not atomic and responses will be returned as copy
-   * operations complete with detailed information about the outcome. If an
-   * error is encountered, not all requests may be reflected in the responses.
-   *
-   * On retries, a particular destination media id must not be reused with a
-   * different source media id or different encryption parameters.
-   */
+  // Copy and re-encrypt media from the attachments cdn into the backup cdn.
+  // The original, already encrypted, attachments will be encrypted with the
+  // provided key material before being copied.
+  //
+  // The copy operation is not atomic and responses will be returned as copy
+  // operations complete with detailed information about the outcome. If an
+  // error is encountered, not all requests may be reflected in the responses.
+  //
+  // On retries, a particular destination media id must not be reused with a
+  // different source media id or different encryption parameters.
   rpc CopyMedia(CopyMediaRequest) returns (stream CopyMediaResponse) {}
 
-  /**
-   * Retrieve a page of media objects stored for this backup-id. A client may
-   * have previously stored media objects that are no longer referenced in their
-   * current backup. To reclaim storage space used by these orphaned objects,
-   * perform a list operation and remove any unreferenced media objects
-   * via DeleteMedia.
-   */
+  // Retrieve a page of media objects stored for this backup-id. A client may
+  // have previously stored media objects that are no longer referenced in their
+  // current backup. To reclaim storage space used by these orphaned objects,
+  // perform a list operation and remove any unreferenced media objects
+  // via DeleteMedia.
   rpc ListMedia(ListMediaRequest) returns (ListMediaResponse) {}
 
-  /**
-   * Delete media objects stored with this backup-id. Streams the locations of
-   * media items back when the item has successfully been removed.
-   */
+  // Delete media objects stored with this backup-id. Streams the locations of
+  // media items back when the item has successfully been removed.
   rpc DeleteMedia(DeleteMediaRequest) returns (stream DeleteMediaResponse) {}
 
-  /**
-   * Delete all backup metadata, objects, and stored public key. To use
-   * backups again, a public key must be resupplied.
-   */
+  // Delete all backup metadata, objects, and stored public key. To use
+  // backups again, a public key must be resupplied.
   rpc DeleteAll(DeleteAllRequest) returns (DeleteAllResponse) {}
 }
 
 message SignedPresentation {
-  /**
-   * Presentation of a BackupAuthCredential previously retrieved from
-   * GetBackupAuthCredentials on the authenticated channel
-   */
+  // Presentation of a BackupAuthCredential previously retrieved from
+  // GetBackupAuthCredentials on the authenticated channel
   bytes presentation = 1;
 
-  /**
-   * The presentation signed with the private key corresponding to the public
-   * key set with SetPublicKey
-   */
+  // The presentation signed with the private key corresponding to the public
+  // key set with SetPublicKey
   bytes presentation_signature = 2;
 }
 
 message SetPublicKeyRequest {
   SignedPresentation signed_presentation = 1;
 
-  /**
-   * The public key, serialized in libsignal's elliptic-curve public key format.
-   */
+  // The public key, serialized in libsignal's elliptic-curve public key format.
   bytes public_key = 2;
 }
 message SetPublicKeyResponse {
-  /**
-   * The provided backup auth credential presentation could not be
-   * authenticated. Either, the presentation could not be verified, or
-   * the public key signature was invalid, or there is no backup associated
-   * with the backup-id in the presentation.
-   *
-   * This may also be returned if there was an existing public key and the
-   * provided public key did not match.
-   */
+  // The provided backup auth credential presentation could not be
+  // authenticated. Either, the presentation could not be verified, or
+  // the public key signature was invalid, or there is no backup associated
+  // with the backup-id in the presentation.
+  //
+  // This may also be returned if there was an existing public key and the
+  // provided public key did not match.
   errors.FailedZkAuthentication failed_authentication = 1 [(tag.reason) = "failed_authentication"];
 }
 
@@ -294,18 +232,14 @@ message GetCdnCredentialsResponse {
     map<string, string> headers = 1;
   }
   oneof outcome {
-    /**
-     * Headers to include with requests to the read from the backup CDN. Includes
-     * time limited read-only credentials.
-     */
+    // Headers to include with requests to the read from the backup CDN. Includes
+    // time limited read-only credentials.
     CdnCredentials cdn_credentials = 1;
 
-    /**
-     * The provided backup auth credential presentation could not be
-     * authenticated. Either, the presentation could not be verified, or
-     * the public key signature was invalid, or there is no backup associated
-     * with the backup-id in the presentation.
-     */
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
     errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
   }
 }
@@ -316,26 +250,20 @@ message GetSvrBCredentialsRequest {
 
 message GetSvrBCredentialsResponse {
   message SvrBCredentials {
-    /**
-     * A username that can be presented to authenticate with SVRB
-     */
+    // A username that can be presented to authenticate with SVRB
     string username = 1;
 
-    /**
-     * A password that can be presented to authenticate with SVRB
-     */
+    // A password that can be presented to authenticate with SVRB
     string password = 2;
   }
 
   oneof outcome {
     SvrBCredentials svrb_credentials = 1;
 
-    /**
-     * The provided backup auth credential presentation could not be
-     * authenticated. Either, the presentation could not be verified, or
-     * the public key signature was invalid, or there is no backup associated
-     * with the backup-id in the presentation.
-     */
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
     errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
   }
 }
@@ -345,47 +273,35 @@ message GetBackupInfoRequest {
 }
 message GetBackupInfoResponse {
   message BackupInfo {
-    /**
-     * The base directory of your backup data on the cdn. The message backup can
-     * be found in the returned cdn at /backup_dir/backup_name and stored media can
-     * be found at /backup_dir/media_dir/media_id
-     */
+    // The base directory of your backup data on the cdn. The message backup can
+    // be found in the returned cdn at /backup_dir/backup_name and stored media can
+    // be found at /backup_dir/media_dir/media_id
     string backup_dir = 1;
 
-    /**
-     * The prefix path component for media objects on a cdn. Stored media for a
-     * media_id can be found at /backup_dir/media_dir/media_id, where the media_id
-     * is encoded in unpadded url-safe base64.
-     */
+    // The prefix path component for media objects on a cdn. Stored media for a
+    // media_id can be found at /backup_dir/media_dir/media_id, where the media_id
+    // is encoded in unpadded url-safe base64.
     string media_dir = 2;
 
-    /**
-     * The CDN type where the message backup is stored. Media may be stored
-     * elsewhere. If absent, no message backup currently exists.
-     */
+    // The CDN type where the message backup is stored. Media may be stored
+    // elsewhere. If absent, no message backup currently exists.
     optional int32 cdn = 3;
 
-    /**
-     * The name of the most recent message backup on the cdn. The backup is at
-     * /backup_dir/backup_name. If absent, no message backup currently exists.
-     */
+    // The name of the most recent message backup on the cdn. The backup is at
+    // /backup_dir/backup_name. If absent, no message backup currently exists.
     optional string backup_name = 4;
 
-    /**
-     * The amount of space used to store media
-     */
+    // The amount of space used to store media
     uint64 used_space = 5;
   }
 
   oneof outcome {
     BackupInfo backup_info = 1;
 
-    /**
-     * The provided backup auth credential presentation could not be
-     * authenticated. Either, the presentation could not be verified, or
-     * the public key signature was invalid, or there is no backup associated
-     * with the backup-id in the presentation.
-     */
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
     errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
   }
 }
@@ -395,12 +311,10 @@ message RefreshRequest {
 }
 message RefreshResponse {
   oneof outcome {
-    /**
-     * The provided backup auth credential presentation could not be
-     * authenticated. Either, the presentation could not be verified, or
-     * the public key signature was invalid, or there is no backup associated
-     * with the backup-id in the presentation.
-     */
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
     errors.FailedZkAuthentication failed_authentication = 1 [(tag.reason) = "failed_authentication"];
   }
 }
@@ -413,104 +327,74 @@ message GetUploadFormRequest {
   }
   message MediaUploadType {}
   oneof upload_type {
-    /**
-     * Retrieve an upload form that can be used to perform a resumable upload of
-     * a message backup. The finished upload will be available on the backup cdn.
-     */
+    // Retrieve an upload form that can be used to perform a resumable upload of
+    // a message backup. The finished upload will be available on the backup cdn.
     MessagesUploadType messages = 2;
 
-    /**
-     * Retrieve an upload form for a temporary location that can be used to
-     * perform a resumable upload of an attachment. After uploading, the
-     * attachment can be copied into the backup via CopyMedia.
-     *
-     * Behaves identically to the account authenticated version at /attachments.
-     */
+    // Retrieve an upload form for a temporary location that can be used to
+    // perform a resumable upload of an attachment. After uploading, the
+    // attachment can be copied into the backup via CopyMedia.
+    //
+    // Behaves identically to the account authenticated version at /attachments.
     MediaUploadType media = 3;
   }
 }
 message GetUploadFormResponse {
   message UploadForm {
-    /**
-     * Indicates the CDN type. 3 indicates resumable uploads using TUS
-     */
+    // Indicates the CDN type. 3 indicates resumable uploads using TUS
     int32 cdn = 1;
 
-    /**
-     * The location within the specified cdn where the finished upload can be found
-     */
+    // The location within the specified cdn where the finished upload can be found
     string key = 2;
 
-    /**
-     * A map of headers to include with all upload requests. Potentially contains
-     * time-limited upload credentials
-     */
+    // A map of headers to include with all upload requests. Potentially contains
+    // time-limited upload credentials
     map<string, string> headers = 3;
 
-    /**
-     * The URL to upload to with the appropriate protocol
-     */
+    // The URL to upload to with the appropriate protocol
     string signed_upload_location = 4;
   }
 
   oneof outcome {
     UploadForm upload_form = 1;
 
-    /**
-     * The provided backup auth credential presentation could not be
-     * authenticated. Either, the presentation could not be verified, or
-     * the public key signature was invalid, or there is no backup associated
-     * with the backup-id in the presentation.
-     */
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
     errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
 
-    /**
-    * The request size was larger than the maximum supported upload size. The
-    * maximum upload size is subject to change.
-    */
+    // The request size was larger than the maximum supported upload size. The
+    // maximum upload size is subject to change.
     errors.FailedPrecondition exceeds_max_upload_length = 3 [(tag.reason) = "oversize_upload"];
   }
 }
 
 message CopyMediaItem {
-  /**
-   * The attachment cdn of the object to copy into the backup
-   */
+  // The attachment cdn of the object to copy into the backup
   int32 source_attachment_cdn = 1 [(require.range).min = 1, (require.range).max = 3];
 
-  /**
-   * The attachment key of the object to copy into the backup
-   */
+  // The attachment key of the object to copy into the backup
   string source_key = 2 [(require.nonEmpty) = true];
 
-  /**
-   * The length of the source attachment before the encryption applied by the
-   * copy operation
-   */
+  // The length of the source attachment before the encryption applied by the
+  // copy operation
   uint32 object_length = 3;
 
-  /**
-   * media_id to copy on to the backup CDN
-   */
+  // media_id to copy on to the backup CDN
   bytes media_id = 4 [(require.exactlySize) = 15];
 
-  /**
-   * A 32-byte key for the MAC
-   */
+  // A 32-byte key for the MAC
   bytes hmac_key = 5 [(require.exactlySize) = 32];
 
-  /**
-   * A 32-byte encryption key for AES
-   */
+  // A 32-byte encryption key for AES
   bytes encryption_key = 6 [(require.exactlySize) = 32];
 }
 
 message CopyMediaRequest {
   SignedPresentation signed_presentation = 1;
 
-  /**
-   * Items to copy
-   */
+  // Items to copy
   repeated CopyMediaItem  items = 2;
 }
 
@@ -519,44 +403,30 @@ message CopyMediaResponse {
   message WrongSourceLength {}
   message OutOfSpace {}
   message CopySuccess {
-    /**
-     * The backup cdn where this media object is stored
-     */
+    // The backup cdn where this media object is stored
     int32 cdn = 1;
   }
 
-  /**
-   * The 15-byte media_id from the corresponding CopyMediaItem in the request
-   */
+  // The 15-byte media_id from the corresponding CopyMediaItem in the request
   bytes media_id = 1;
 
   oneof outcome {
-    /**
-     * The media item was successfully copied into the backup
-     */
+    // The media item was successfully copied into the backup
     CopySuccess success = 2;
 
-    /**
-     * The provided backup auth credential presentation could not be
-     * authenticated. Either, the presentation could not be verified, or
-     * the public key signature was invalid, or there is no backup associated
-     * with the backup-id in the presentation.
-     */
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
      errors.FailedZkAuthentication failed_authentication = 3 [(tag.reason) = "failed_authentication"];
 
-    /**
-     * The source object was not found
-     */
+    // The source object was not found
     SourceNotFound source_not_found = 4;
 
-    /**
-     * The provided object length was incorrect
-     */
+    // The provided object length was incorrect
     WrongSourceLength wrong_source_length = 5;
 
-    /**
-     * All media capacity has been consumed. Free some space to continue.
-     */
+    // All media capacity has been consumed. Free some space to continue.
     OutOfSpace out_of_space = 6;
   }
 }
@@ -564,69 +434,49 @@ message CopyMediaResponse {
 message ListMediaRequest {
   SignedPresentation signed_presentation = 1;
 
-  /**
-   * A cursor returned by a previous call to ListMedia, absent on the first call
-   */
+  // A cursor returned by a previous call to ListMedia, absent on the first call
   optional string cursor = 2;
 
-  /**
-   * If provided, the maximum number of entries to return in a page
-   */
+  // If provided, the maximum number of entries to return in a page
   uint32 limit = 3 [(require.range) = {min: 0, max: 10000}];
 }
 message ListMediaResponse {
   message ListEntry {
-    /**
-     * The backup cdn where this media object is stored
-     */
+    // The backup cdn where this media object is stored
     int32 cdn = 1;
-    /**
-     * The media_id of the object
-     */
+    // The media_id of the object
     bytes media_id = 2;
-    /**
-     * The length of the object in bytes
-     */
+    // The length of the object in bytes
     uint64 length = 3;
   }
 
   message ListResult {
 
-    /**
-     * A page of media objects stored for this backup ID
-     */
+    // A page of media objects stored for this backup ID
     repeated ListEntry page = 1;
 
-    /**
-     * The base directory of the backup data on the cdn. The stored media can be
-     * found at /backup_dir/media_dir/media_id, where the media_id is encoded with
-     * unpadded url-safe base64.
-     */
+    // The base directory of the backup data on the cdn. The stored media can be
+    // found at /backup_dir/media_dir/media_id, where the media_id is encoded with
+    // unpadded url-safe base64.
     string backup_dir = 2;
 
-    /**
-     * The prefix path component for the media objects. The stored media for
-     * media_id can be found at /backup_dir/media_dir/media_id, where the media_id
-     * is encoded with unpadded url-safe base64.
-     */
+    // The prefix path component for the media objects. The stored media for
+    // media_id can be found at /backup_dir/media_dir/media_id, where the media_id
+    // is encoded with unpadded url-safe base64.
     string media_dir = 3;
 
-    /**
-     * If set, the cursor value to pass to the next list request to continue
-     * listing. If absent, all objects have been listed
-     */
+    // If set, the cursor value to pass to the next list request to continue
+    // listing. If absent, all objects have been listed
     optional string cursor = 4;
   }
 
   oneof outcome {
     ListResult list_result = 1;
 
-    /**
-     * The provided backup auth credential presentation could not be
-     * authenticated. Either, the presentation could not be verified, or
-     * the public key signature was invalid, or there is no backup associated
-     * with the backup-id in the presentation.
-     */
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
     errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
   }
 }
@@ -636,25 +486,19 @@ message DeleteAllRequest {
 }
 message DeleteAllResponse {
   oneof outcome {
-    /**
-     * The provided backup auth credential presentation could not be
-     * authenticated. Either, the presentation could not be verified, or
-     * the public key signature was invalid, or there is no backup associated
-     * with the backup-id in the presentation.
-     */
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
     errors.FailedZkAuthentication failed_authentication = 1 [(tag.reason) = "failed_authentication"];
   }
 }
 
 message DeleteMediaItem {
-  /**
-   * The backup cdn where this media object is stored
-   */
+  // The backup cdn where this media object is stored
   int32 cdn = 1;
 
-  /**
-   * The media_id of the object to delete
-   */
+  // The media_id of the object to delete
   bytes media_id = 2;
 }
 
@@ -668,12 +512,10 @@ message DeleteMediaResponse {
   oneof outcome {
     DeleteMediaItem deleted_item = 1;
 
-    /**
-     * The provided backup auth credential presentation could not be
-     * authenticated. Either, the presentation could not be verified, or
-     * the public key signature was invalid, or there is no backup associated
-     * with the backup-id in the presentation.
-     */
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
     errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
   }
 }
