@@ -7,23 +7,29 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
@@ -34,13 +40,18 @@ import org.whispersystems.textsecuregcm.entities.AuthCheckRequest;
 import org.whispersystems.textsecuregcm.entities.AuthCheckResponseV2;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
 @Path("/v2/{name: backup|svr}")
-@Tag(name = "Secure Value Recovery")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Secure Value Recovery")
 @Schema(description = "Note: /v2/backup is deprecated. Use /v2/svr instead.")
 public class SecureValueRecovery2Controller {
+  private static final String CREDENTIAL_AGE_DISTRIBUTION_NAME =
+      MetricsUtil.name(SecureValueRecovery2Controller.class, "credentialAge");
+
 
   public static final Duration MAX_AGE = Duration.ofDays(30);
 
@@ -102,7 +113,9 @@ public class SecureValueRecovery2Controller {
   @ApiResponse(responseCode = "200", description = "`JSON` with the check results.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "422", description = "Provided list of SVR2 credentials could not be parsed")
   @ApiResponse(responseCode = "400", description = "`POST` request body is not a valid `JSON`")
-  public AuthCheckResponseV2 authCheck(@NotNull @Valid final AuthCheckRequest request) {
+  public AuthCheckResponseV2 authCheck(
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
+      @NotNull @Valid final AuthCheckRequest request) {
     final List<ExternalServiceCredentialsSelector.CredentialInfo> credentials = ExternalServiceCredentialsSelector.check(
         request.tokens(),
         backupServiceCredentialGenerator,
@@ -114,6 +127,22 @@ public class SecureValueRecovery2Controller {
         .map(Account::getUuid)
         .map(backupServiceCredentialGenerator::generateForUuid)
         .map(ExternalServiceCredentials::username);
+
+    // Instrument how expired or not the best credential is
+    credentials.stream()
+        .filter(info -> switch (info.status()) {
+          case VALID, EXPIRED -> true;
+          default -> false;
+        })
+        // Look only at credentials that match the current account for the e164
+        .filter(info -> matchingUsername.filter(info.credentials().username()::equals).isPresent())
+        // Instrument the matching credential with the most recent timestamp
+        .max(Comparator.comparing(ExternalServiceCredentialsSelector.CredentialInfo::timestamp))
+        .ifPresent(info -> DistributionSummary.builder(CREDENTIAL_AGE_DISTRIBUTION_NAME)
+            .baseUnit("days")
+            .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("valid", Boolean.toString(info.valid()))))
+            .register(Metrics.globalRegistry)
+            .record(Duration.between(Instant.ofEpochMilli(info.timestamp()), Instant.now()).toDays()));
 
     return new AuthCheckResponseV2(credentials.stream().collect(Collectors.toMap(
         ExternalServiceCredentialsSelector.CredentialInfo::token,

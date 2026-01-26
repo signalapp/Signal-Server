@@ -192,17 +192,9 @@ public class ExternalServiceCredentialsGenerator {
         : Optional.empty();
   }
 
-  /**
-   * Given an instance of {@link ExternalServiceCredentials} object and the max allowed age for those credentials,
-   * checks if credentials are valid and not expired.
-   * @param credentials an instance of {@link ExternalServiceCredentials}
-   * @param maxAgeSeconds age in seconds
-   * @return An optional with a timestamp (seconds) of when the credentials were generated,
-   *         or an empty optional if the password doesn't match the username for any reason (including malformed data)
-   */
-  public Optional<Long> validateAndGetTimestamp(final ExternalServiceCredentials credentials, final long maxAgeSeconds) {
-    return validateAndGetTimestamp(credentials)
-        .filter(ts -> currentTimeSeconds() - ts <= maxAgeSeconds);
+  @VisibleForTesting
+  boolean isCredentialExpired(final long credentialTimestamp, final long maxAgeSeconds) {
+    return currentTimeSeconds() - credentialTimestamp > maxAgeSeconds;
   }
 
   private boolean shouldDeriveUsername() {

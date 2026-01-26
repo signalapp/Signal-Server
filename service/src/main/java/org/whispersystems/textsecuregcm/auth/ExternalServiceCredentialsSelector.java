@@ -15,12 +15,27 @@ public class ExternalServiceCredentialsSelector {
 
   private ExternalServiceCredentialsSelector() {}
 
-  public record CredentialInfo(String token, boolean valid, ExternalServiceCredentials credentials, long timestamp) {
+  public enum CredentialStatus {
+    // The token passes verification, is not expired, and is the most recent token available
+    VALID,
+    // The token was malformed or the signature was invalid
+    FAILED_VERIFICATION,
+    // The credential was correctly signed, but exceeded the maximum credential age
+    EXPIRED,
+    // There was a more recent credential available with the same username
+    REPLACED
+  }
+
+  public record CredentialInfo(String token, ExternalServiceCredentials credentials, long timestamp, CredentialStatus status) {
     /**
-     * @return a copy of this record with valid=false
+     * @return a copy of this record that indicates it has been replaced with a more up-to-date token
      */
-    private CredentialInfo invalidate() {
-      return new CredentialInfo(token, false, credentials, timestamp);
+    private CredentialInfo replaced() {
+      return new CredentialInfo(token, credentials, timestamp, CredentialStatus.REPLACED);
+    }
+
+    public boolean valid() {
+      return status == CredentialStatus.VALID;
     }
   }
 
@@ -47,13 +62,18 @@ public class ExternalServiceCredentialsSelector {
       // (note that password part may also contain ':' characters)
       final String[] parts = token.split(":", 2);
       if (parts.length != 2) {
-        results.add(new CredentialInfo(token, false, null, 0L));
+        results.add(new CredentialInfo(token,  null, 0L, CredentialStatus.FAILED_VERIFICATION));
         continue;
       }
       final ExternalServiceCredentials credentials = new ExternalServiceCredentials(parts[0], parts[1]);
-      final Optional<Long> maybeTimestamp = credentialsGenerator.validateAndGetTimestamp(credentials, maxAgeSeconds);
+      final Optional<Long> maybeTimestamp = credentialsGenerator.validateAndGetTimestamp(credentials);
       if (maybeTimestamp.isEmpty()) {
-        results.add(new CredentialInfo(token, false, null, 0L));
+        results.add(new CredentialInfo(token, credentials, 0L, CredentialStatus.FAILED_VERIFICATION));
+        continue;
+      }
+      final long credentialTs = maybeTimestamp.get();
+      if (credentialsGenerator.isCredentialExpired(credentialTs, maxAgeSeconds)) {
+        results.add(new CredentialInfo(token, credentials, credentialTs, CredentialStatus.EXPIRED));
         continue;
       }
 
@@ -62,17 +82,17 @@ public class ExternalServiceCredentialsSelector {
       final long timestamp = maybeTimestamp.get();
       final CredentialInfo best = bestForUsername.get(credentials.username());
       if (best == null) {
-        bestForUsername.put(credentials.username(), new CredentialInfo(token, true, credentials, timestamp));
+        bestForUsername.put(credentials.username(), new CredentialInfo(token, credentials, timestamp, CredentialStatus.VALID));
         continue;
       }
       if (best.timestamp() < timestamp) {
         // we found a better credential for the username
-        bestForUsername.put(credentials.username(), new CredentialInfo(token, true, credentials, timestamp));
+        bestForUsername.put(credentials.username(), new CredentialInfo(token, credentials, timestamp, CredentialStatus.VALID));
         // mark the previous best as an invalid credential, since we have a better credential now
-        results.add(best.invalidate());
+        results.add(best.replaced());
       } else {
         // the credential we already had was more recent, this one can be marked invalid
-        results.add(new CredentialInfo(token, false, null, 0L));
+        results.add(new CredentialInfo(token, null, 0L, CredentialStatus.REPLACED));
       }
     }
 

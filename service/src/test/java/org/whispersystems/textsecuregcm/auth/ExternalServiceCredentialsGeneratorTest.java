@@ -148,8 +148,10 @@ class ExternalServiceCredentialsGeneratorTest {
     final long elapsedSeconds = 10000;
     clock.incrementSeconds(elapsedSeconds);
 
-    assertEquals(standardGenerator.validateAndGetTimestamp(standardCredentials, elapsedSeconds + 1).orElseThrow(), TIME_SECONDS);
-    assertTrue(standardGenerator.validateAndGetTimestamp(standardCredentials, elapsedSeconds - 1).isEmpty());
+    final Long timestamp = standardGenerator.validateAndGetTimestamp(standardCredentials).orElseThrow();
+
+    assertFalse(standardGenerator.isCredentialExpired(timestamp, elapsedSeconds + 1));
+    assertTrue(standardGenerator.isCredentialExpired(timestamp, elapsedSeconds - 1));
   }
 
   @Test
