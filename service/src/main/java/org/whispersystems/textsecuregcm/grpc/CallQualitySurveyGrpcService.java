@@ -12,6 +12,7 @@ import org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest;
 import org.signal.chat.calling.quality.SubmitCallQualitySurveyResponse;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.CallQualityInvalidArgumentsException;
 import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 
 public class CallQualitySurveyGrpcService extends SimpleCallQualityGrpc.CallQualityImplBase {
@@ -38,8 +39,10 @@ public class CallQualitySurveyGrpcService extends SimpleCallQualityGrpc.CallQual
       callQualitySurveyManager.submitCallQualitySurvey(request,
           remoteAddress,
           RequestAttributesUtil.getUserAgent().orElse(null));
-    } catch (final IllegalArgumentException e) {
-      throw Status.INVALID_ARGUMENT.withDescription(e.getMessage()).asRuntimeException();
+    } catch (final CallQualityInvalidArgumentsException e) {
+      throw e.getField()
+          .map(fieldName -> GrpcExceptions.fieldViolation(fieldName, e.getMessage()))
+          .orElseGet(() -> GrpcExceptions.invalidArguments(e.getMessage()));
     }
 
     return SubmitCallQualitySurveyResponse.getDefaultInstance();

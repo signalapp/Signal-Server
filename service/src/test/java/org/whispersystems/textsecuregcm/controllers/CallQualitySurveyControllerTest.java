@@ -30,6 +30,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.CallQualityInvalidArgumentsException;
 import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -60,7 +61,7 @@ class CallQualitySurveyControllerTest {
   }
 
   @Test
-  void submitCallQualitySurvey() {
+  void submitCallQualitySurvey() throws CallQualityInvalidArgumentsException {
     final SubmitCallQualitySurveyRequest request = SubmitCallQualitySurveyRequest.getDefaultInstance();
 
     try (final Response response = RESOURCE_EXTENSION.getJerseyTest()
@@ -75,7 +76,7 @@ class CallQualitySurveyControllerTest {
   }
 
   @Test
-  void submitCallQualitySurveyAuthenticated() {
+  void submitCallQualitySurveyAuthenticated() throws CallQualityInvalidArgumentsException {
     final SubmitCallQualitySurveyRequest request = SubmitCallQualitySurveyRequest.getDefaultInstance();
 
     try (final Response response = RESOURCE_EXTENSION.getJerseyTest()
@@ -91,10 +92,10 @@ class CallQualitySurveyControllerTest {
   }
 
   @Test
-  void submitCallQualitySurveyInvalidArgument() {
+  void submitCallQualitySurveyInvalidArgument() throws CallQualityInvalidArgumentsException {
     final SubmitCallQualitySurveyRequest request = SubmitCallQualitySurveyRequest.getDefaultInstance();
 
-    doThrow(new IllegalArgumentException())
+    doThrow(new CallQualityInvalidArgumentsException("test"))
         .when(CALL_QUALITY_SURVEY_MANAGER).submitCallQualitySurvey(request, REMOTE_ADDRESS, USER_AGENT);
 
     try (final Response response = RESOURCE_EXTENSION.getJerseyTest()

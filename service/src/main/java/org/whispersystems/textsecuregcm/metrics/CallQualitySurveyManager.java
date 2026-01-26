@@ -49,7 +49,7 @@ public class CallQualitySurveyManager {
 
   public void submitCallQualitySurvey(final SubmitCallQualitySurveyRequest submitCallQualitySurveyRequest,
       final String remoteAddress,
-      final String userAgentString) {
+      final String userAgentString) throws CallQualityInvalidArgumentsException {
 
     validateRequest(submitCallQualitySurveyRequest);
 
@@ -152,21 +152,21 @@ public class CallQualitySurveyManager {
   }
 
   @VisibleForTesting
-  static void validateRequest(final SubmitCallQualitySurveyRequest request) {
+  static void validateRequest(final SubmitCallQualitySurveyRequest request) throws CallQualityInvalidArgumentsException {
     if (request.getStartTimestamp() == 0) {
-      throw new IllegalArgumentException("Start timestamp not specified");
+      throw new CallQualityInvalidArgumentsException("Start timestamp not specified", "startTimestamp");
     }
 
     if (request.getEndTimestamp() == 0) {
-      throw new IllegalArgumentException("End timestamp not specified");
+      throw new CallQualityInvalidArgumentsException("End timestamp not specified", "endTimestamp");
     }
 
     if (StringUtils.isBlank(request.getCallType())) {
-      throw new IllegalArgumentException("Call type not specified");
+      throw new CallQualityInvalidArgumentsException("Call type not specified", "callType");
     }
 
     if (StringUtils.isBlank(request.getCallEndReason())) {
-      throw new IllegalArgumentException("Call end reason not specified");
+      throw new CallQualityInvalidArgumentsException("Call end reason not specified", "callEndReason");
     }
   }
 }

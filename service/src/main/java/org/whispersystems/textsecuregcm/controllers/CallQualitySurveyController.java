@@ -29,6 +29,7 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.CallQualityInvalidArgumentsException;
 import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 
 @Path("/v1/call_quality_survey")
@@ -73,7 +74,7 @@ public class CallQualitySurveyController {
 
     try {
       callQualitySurveyManager.submitCallQualitySurvey(submitCallQualitySurveyRequest, remoteAddress, userAgentString);
-    } catch (final IllegalArgumentException e) {
+    } catch (final CallQualityInvalidArgumentsException e) {
       throw new WebApplicationException(e.getMessage(), 422);
     }
   }

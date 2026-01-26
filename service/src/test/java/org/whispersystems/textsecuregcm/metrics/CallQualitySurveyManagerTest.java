@@ -155,10 +155,10 @@ class CallQualitySurveyManagerTest {
     if (expectValid) {
       assertDoesNotThrow(validateRequest);
     } else {
-      final IllegalArgumentException illegalArgumentException =
-          assertThrows(IllegalArgumentException.class, validateRequest);
+      final CallQualityInvalidArgumentsException invalidArgumentsException =
+          assertThrows(CallQualityInvalidArgumentsException.class, validateRequest);
 
-      assertTrue(StringUtils.isNotBlank(illegalArgumentException.getMessage()));
+      assertTrue(StringUtils.isNotBlank(invalidArgumentsException.getMessage()));
     }
   }
 

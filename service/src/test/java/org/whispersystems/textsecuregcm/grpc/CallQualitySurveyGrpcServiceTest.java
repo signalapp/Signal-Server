@@ -22,6 +22,7 @@ import org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.CallQualityInvalidArgumentsException;
 import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 
 class CallQualitySurveyGrpcServiceTest extends SimpleBaseGrpcTest<CallQualitySurveyGrpcService, CallQualityGrpc.CallQualityBlockingStub> {
@@ -50,7 +51,7 @@ class CallQualitySurveyGrpcServiceTest extends SimpleBaseGrpcTest<CallQualitySur
   }
 
   @Test
-  void submitCallQualitySurvey() {
+  void submitCallQualitySurvey() throws CallQualityInvalidArgumentsException {
     final SubmitCallQualitySurveyRequest request = SubmitCallQualitySurveyRequest.getDefaultInstance();
     assertDoesNotThrow(() -> unauthenticatedServiceStub().submitCallQualitySurvey(request));
 
@@ -70,10 +71,10 @@ class CallQualitySurveyGrpcServiceTest extends SimpleBaseGrpcTest<CallQualitySur
   }
 
   @Test
-  void submitCallQualitySurveyInvalidArgument() {
+  void submitCallQualitySurveyInvalidArgument() throws CallQualityInvalidArgumentsException {
     final SubmitCallQualitySurveyRequest request = SubmitCallQualitySurveyRequest.getDefaultInstance();
 
-    doThrow(new IllegalArgumentException())
+    doThrow(new CallQualityInvalidArgumentsException("test"))
         .when(callQualitySurveyManager).submitCallQualitySurvey(request, REMOTE_ADDRESS, USER_AGENT);
 
     //noinspection ResultOfMethodCallIgnored
