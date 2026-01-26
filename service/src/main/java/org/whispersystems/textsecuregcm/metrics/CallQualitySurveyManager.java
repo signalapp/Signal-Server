@@ -51,6 +51,8 @@ public class CallQualitySurveyManager {
       final String remoteAddress,
       final String userAgentString) {
 
+    validateRequest(submitCallQualitySurveyRequest);
+
     final CallQualitySurveyResponsePubSubMessage.Builder pubSubMessageBuilder =
         CallQualitySurveyResponsePubSubMessage.newBuilder()
             .setResponseId(UUID.randomUUID().toString())
