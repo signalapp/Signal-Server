@@ -24,7 +24,7 @@ jobs:
           distribution: 'temurin'
           java-version-file: .java-version
           cache: 'maven'
-      - uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v5.0.0
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.0.0
         name: Configure AWS credentials from Test account
         with:
           role-to-assume: ${{ vars.AWS_ROLE }}
