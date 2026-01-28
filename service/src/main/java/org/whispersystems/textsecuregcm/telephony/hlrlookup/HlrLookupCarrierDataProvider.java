@@ -20,6 +20,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -42,6 +44,9 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
   private static final ObjectMapper OBJECT_MAPPER = SystemMapper.jsonMapper();
 
   private static final String REQUEST_COUNTER_NAME = MetricsUtil.name(HlrLookupCarrierDataProvider.class, "request");
+  private static final String RESULT_COUNTER_NAME = MetricsUtil.name(HlrLookupCarrierDataProvider.class, "result");
+
+  private static final String CREDITS_SPENT_TAG_NAME = "creditsSpent";
 
   public HlrLookupCarrierDataProvider(final String apiKey,
       final String apiSecret,
@@ -126,8 +131,16 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
     final HlrLookupResult result = response.results().getFirst();
 
     if (!result.error().equals("NONE")) {
+      Metrics.counter(RESULT_COUNTER_NAME, Tags.of(
+              Tag.of("error", result.error()),
+              getCreditsSpentTag(result)))
+          .increment();
+
       throw new CarrierDataException("Received a per-number error: " + result.error());
     }
+
+    Metrics.counter(RESULT_COUNTER_NAME, Tags.of(getCreditsSpentTag(result)))
+        .increment();
 
     return getNetworkDetails(result)
         .map(networkDetails -> new CarrierData(
@@ -135,6 +148,14 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
             lineType(result.telephoneNumberType()),
             mccFromMccMnc(networkDetails.mccmnc()),
             mncFromMccMnc(networkDetails.mccmnc())));
+  }
+
+  private static Tag getCreditsSpentTag(final HlrLookupResult hlrLookupResult) {
+    // HLR Lookup's docs at https://www.hlrlookup.com/knowledge/full-api-result suggest:
+    //
+    // > Please parse the full float to 1 decimal place to allow for future changes (e.g. service which consumes 1.5 or
+    // > 0.5 credits).
+    return Tag.of(CREDITS_SPENT_TAG_NAME, "%.1f".formatted(hlrLookupResult.creditsSpent()));
   }
 
   @VisibleForTesting

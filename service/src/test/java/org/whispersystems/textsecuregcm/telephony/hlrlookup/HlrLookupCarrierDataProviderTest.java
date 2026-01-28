@@ -266,6 +266,7 @@ class HlrLookupCarrierDataProviderTest {
       @Nullable final NetworkDetails currentNetwork) {
 
     return new HlrLookupResult(null,
+        1.0f,
         originalNetwork == null ? "NOT_AVAILABLE" : "AVAILABLE",
         originalNetwork,
         currentNetwork == null ? "NOT_AVAILABLE" : "AVAILABLE",
