@@ -802,6 +802,8 @@ class AccountControllerTest {
   void testAccountsAttributesUpdateRecoveryPassword() {
     final byte[] recoveryPassword = TestRandomUtil.nextBytes(32);
 
+    when(registrationRecoveryPasswordsManager.store(any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(true));
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/attributes/")
         .request()

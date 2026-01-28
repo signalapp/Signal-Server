@@ -22,6 +22,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 
 public class RegistrationRecoveryPasswords {
 
@@ -62,26 +63,36 @@ public class RegistrationRecoveryPasswords {
             .map(RegistrationRecoveryPasswords::saltedTokenHashFromItem));
   }
 
-  public CompletableFuture<Void> addOrReplace(final UUID phoneNumberIdentifier, final SaltedTokenHash data) {
+  ///  Add a PNI -> RRP mapping, or replace the current one if it already exists
+  ///
+  /// @param phoneNumberIdentifier The PNI to associate the salted RRP with
+  /// @param data The salted registration recovery password
+  /// @return true if a new mapping was added, false if an existing mapping was updated
+  public CompletableFuture<Boolean> addOrReplace(final UUID phoneNumberIdentifier, final SaltedTokenHash data) {
     final long expirationSeconds = expirationSeconds();
 
     return asyncClient.putItem(PutItemRequest.builder()
             .tableName(tableName)
+            .returnValues(ReturnValue.ALL_OLD)
             .item(Map.of(
                 KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString()),
                 ATTR_EXP, AttributeValues.fromLong(expirationSeconds),
                 ATTR_SALT, AttributeValues.fromString(data.salt()),
                 ATTR_HASH, AttributeValues.fromString(data.hash())))
             .build())
-        .thenRun(Util.NOOP);
+        .thenApply(response -> response.attributes() == null || response.attributes().isEmpty());
   }
 
-  public CompletableFuture<Void> removeEntry(final UUID phoneNumberIdentifier) {
+  ///  Remove the entry associated with the provided PNI
+  ///
+  /// @return true if an entry was removed, false if no entry existed
+  public CompletableFuture<Boolean> removeEntry(final UUID phoneNumberIdentifier) {
     return asyncClient.deleteItem(DeleteItemRequest.builder()
             .tableName(tableName)
+            .returnValues(ReturnValue.ALL_OLD)
             .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
             .build())
-        .thenRun(Util.NOOP);
+        .thenApply(response -> response.attributes() != null && !response.attributes().isEmpty());
   }
 
   @VisibleForTesting

@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 import jakarta.ws.rs.WebApplicationException;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -93,6 +94,8 @@ class RegistrationLockVerificationManagerTest {
     when(existingRegistrationLock.getStatus()).thenReturn(StoredRegistrationLock.Status.REQUIRED);
     when(account.hasLockedCredentials()).thenReturn(alreadyLocked);
     doThrow(new NotPushRegisteredException()).when(pushNotificationManager).sendAttemptLoginNotification(any(), any());
+
+    when(registrationRecoveryPasswordsManager.remove(any())).thenReturn(CompletableFuture.completedFuture(true));
 
     final Pair<Class<? extends Exception>, Consumer<Exception>> exceptionType = switch (error) {
       case MISMATCH -> {

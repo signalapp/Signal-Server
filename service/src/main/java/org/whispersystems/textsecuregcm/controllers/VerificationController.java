@@ -50,16 +50,19 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
@@ -76,6 +79,7 @@ import org.whispersystems.textsecuregcm.entities.VerificationSessionResponse;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
@@ -89,7 +93,9 @@ import org.whispersystems.textsecuregcm.registration.TransportNotAllowedExceptio
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker.VerificationCheck;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
@@ -101,6 +107,7 @@ import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ObsoletePhoneNumberFormatException;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
+import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 @Path("/v1/verification")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Verification")
@@ -123,6 +130,10 @@ public class VerificationController {
   private static final String VERIFICATION_TRANSPORT_TAG_NAME = "transport";
   private static final String VERIFIED_COUNTER_NAME = name(VerificationController.class, "verified");
   private static final String SUCCESS_TAG_NAME = "success";
+  private static final String RECOVERY_PASSWORD_REMOVED_TAG_NAME = "recoveryPasswordRemoved";
+  private static final String REREGISTRATION_TAG_NAME = "reregistration";
+  private static final String EXISTING_ACCOUNT_PLATFORM = "existingAccountPlatform";
+  private static final String EXISTING_ACCOUNT_RECENTLY_SEEN_TAG_NAME = "existingAccountRecentlySeen";
 
   private final RegistrationServiceClient registrationServiceClient;
   private final VerificationSessionManager verificationSessionManager;
@@ -770,16 +781,43 @@ public class VerificationController {
       }
     }
 
+    boolean existingRRP = false;
     if (resultSession.verified()) {
-      registrationRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join());
+      existingRRP = registrationRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join()).join();
     }
 
-    Metrics.counter(VERIFIED_COUNTER_NAME, Tags.of(
-            UserAgentTagUtil.getPlatformTag(userAgent),
-            Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(registrationServiceSession.number())),
-            Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(registrationServiceSession.number())),
-            Tag.of(SUCCESS_TAG_NAME, Boolean.toString(resultSession.verified()))))
-        .increment();
+    Optional<Account> maybeExistingAccount;
+    try {
+      maybeExistingAccount = accountsManager.getByE164(registrationServiceSession.number());
+    } catch (RuntimeException e) {
+      // Only for metrics, so it's ok if we fail to lookup the account
+      maybeExistingAccount = Optional.empty();
+    }
+
+    Tags tags = Tags.of(
+        UserAgentTagUtil.getPlatformTag(userAgent),
+        Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(registrationServiceSession.number())),
+        Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(registrationServiceSession.number())),
+        Tag.of(SUCCESS_TAG_NAME, Boolean.toString(resultSession.verified())),
+        Tag.of(RECOVERY_PASSWORD_REMOVED_TAG_NAME, Boolean.toString(existingRRP)),
+        Tag.of(REREGISTRATION_TAG_NAME, Boolean.toString(maybeExistingAccount.isPresent())));
+
+    if (maybeExistingAccount.isPresent()) {
+      final Account existingAccount = maybeExistingAccount.get();
+      final Duration timeSinceLastSeen =
+          Duration.between(Instant.ofEpochMilli(existingAccount.getLastSeen()), clock.instant());
+      // Clients may reuse recent SVR2 credentials to authenticate via recovery password instead of SMS verification.
+      // If this is a re-registering account, check if the client could possibly have an unexpired SVR2 credential.
+      final boolean recentlySeen = timeSinceLastSeen.compareTo(SecureValueRecovery2Controller.MAX_AGE) < 0;
+      final String existingPlatform = DevicePlatformUtil
+          .getDevicePlatform(existingAccount.getPrimaryDevice())
+          .map(ClientPlatform::name).orElse("unknown");
+      tags = tags
+          .and(EXISTING_ACCOUNT_PLATFORM, existingPlatform)
+          .and(EXISTING_ACCOUNT_RECENTLY_SEEN_TAG_NAME, Boolean.toString(recentlySeen));
+    }
+
+    Metrics.counter(VERIFIED_COUNTER_NAME, tags).increment();
 
     return buildResponse(resultSession, verificationSession);
   }

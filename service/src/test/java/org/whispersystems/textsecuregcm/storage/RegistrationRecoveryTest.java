@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -61,7 +60,7 @@ public class RegistrationRecoveryTest {
 
   @Test
   public void testLookupAfterWrite() throws Exception {
-    registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get();
+    assertTrue(registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get());
     final long initialExp = fetchTimestamp(PNI);
     final long expectedExpiration = CLOCK.instant().getEpochSecond() + EXPIRATION.getSeconds();
     assertEquals(expectedExpiration, initialExp);
@@ -90,8 +89,8 @@ public class RegistrationRecoveryTest {
 
   @Test
   public void testReplace() throws Exception {
-    registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get();
-    registrationRecoveryPasswords.addOrReplace(PNI, ANOTHER_HASH).get();
+    assertTrue(registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get());
+    assertFalse(registrationRecoveryPasswords.addOrReplace(PNI, ANOTHER_HASH).get());
 
     final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI).get();
     assertTrue(saltedTokenHashByPni.isPresent());
@@ -101,12 +100,12 @@ public class RegistrationRecoveryTest {
 
   @Test
   public void testRemove() throws Exception {
-    assertDoesNotThrow(() -> registrationRecoveryPasswords.removeEntry(PNI).join());
+    assertFalse(registrationRecoveryPasswords.removeEntry(PNI).join());
 
     registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get();
     assertTrue(registrationRecoveryPasswords.lookup(PNI).get().isPresent());
 
-    registrationRecoveryPasswords.removeEntry(PNI).get();
+    assertTrue(registrationRecoveryPasswords.removeEntry(PNI).get());
     assertTrue(registrationRecoveryPasswords.lookup(PNI).get().isEmpty());
   }
 

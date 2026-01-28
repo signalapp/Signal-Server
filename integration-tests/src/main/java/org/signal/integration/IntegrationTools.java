@@ -18,6 +18,7 @@ import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
+import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -62,7 +63,8 @@ public class IntegrationTools {
   public CompletableFuture<Void> populateRecoveryPassword(final String phoneNumber, final byte[] password) {
     return phoneNumberIdentifiers
         .getPhoneNumberIdentifier(phoneNumber)
-        .thenCompose(pni -> registrationRecoveryPasswordsManager.store(pni, password));
+        .thenCompose(pni -> registrationRecoveryPasswordsManager.store(pni, password))
+        .thenRun(Util.NOOP);
   }
 
   public CompletableFuture<Optional<String>> peekVerificationSessionPushChallenge(final String sessionId) {

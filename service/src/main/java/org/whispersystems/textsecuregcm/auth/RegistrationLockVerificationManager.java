@@ -153,7 +153,7 @@ public class RegistrationLockVerificationManager {
       // This allows users to re-register via registration recovery password
       // instead of always being forced to fall back to SMS verification.
       if (!phoneVerificationType.equals(PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD) || clientRegistrationLock != null) {
-        registrationRecoveryPasswordsManager.remove(updatedAccount.getIdentifier(IdentityType.PNI));
+        registrationRecoveryPasswordsManager.remove(updatedAccount.getIdentifier(IdentityType.PNI)).join();
       }
 
       final List<Byte> deviceIds = updatedAccount.getDevices().stream().map(Device::getId).toList();

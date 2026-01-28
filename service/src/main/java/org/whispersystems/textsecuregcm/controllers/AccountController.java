@@ -5,6 +5,9 @@
 package org.whispersystems.textsecuregcm.controllers;
 
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -56,6 +59,7 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -67,6 +71,8 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.Util;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Account")
@@ -74,6 +80,10 @@ public class AccountController {
   public static final int MAXIMUM_USERNAME_HASHES_LIST_LENGTH = 20;
   public static final int USERNAME_HASH_LENGTH = 32;
   public static final int MAXIMUM_USERNAME_CIPHERTEXT_LENGTH = 128;
+
+  private static final String RECOVERY_PASSWORD_SET_COUNTER_NAME =
+      name(AccountController.class, "recoveryPasswordSet");
+
 
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;
@@ -262,8 +272,15 @@ public class AccountController {
     });
 
     // if registration recovery password was sent to us, store it (or refresh its expiration)
-    attributes.recoveryPassword().ifPresent(registrationRecoveryPassword ->
-        registrationRecoveryPasswordsManager.store(updatedAccount.getIdentifier(IdentityType.PNI), registrationRecoveryPassword));
+    attributes.recoveryPassword().ifPresent(registrationRecoveryPassword -> {
+      final boolean rrpCreated = registrationRecoveryPasswordsManager
+          .store(updatedAccount.getIdentifier(IdentityType.PNI), registrationRecoveryPassword)
+          .join();
+      Metrics.counter(RECOVERY_PASSWORD_SET_COUNTER_NAME, Tags.of(
+              UserAgentTagUtil.getPlatformTag(userAgent),
+              Tag.of("outcome", rrpCreated ? "created" : "updated")))
+          .increment();
+    });
   }
 
   @GET

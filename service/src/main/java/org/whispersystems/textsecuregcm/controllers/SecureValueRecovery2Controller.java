@@ -20,6 +20,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -41,7 +42,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 @Schema(description = "Note: /v2/backup is deprecated. Use /v2/svr instead.")
 public class SecureValueRecovery2Controller {
 
-  private static final long MAX_AGE_SECONDS = TimeUnit.DAYS.toSeconds(30);
+  public static final Duration MAX_AGE = Duration.ofDays(30);
 
   public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureValueRecoveryConfiguration cfg) {
     return credentialsGenerator(cfg, Clock.systemUTC());
@@ -105,7 +106,7 @@ public class SecureValueRecovery2Controller {
     final List<ExternalServiceCredentialsSelector.CredentialInfo> credentials = ExternalServiceCredentialsSelector.check(
         request.tokens(),
         backupServiceCredentialGenerator,
-        MAX_AGE_SECONDS);
+        MAX_AGE.getSeconds());
 
     // the username associated with the provided number
     final Optional<String> matchingUsername = accountsManager

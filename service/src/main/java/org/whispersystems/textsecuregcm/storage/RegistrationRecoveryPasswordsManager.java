@@ -30,7 +30,7 @@ public class RegistrationRecoveryPasswordsManager {
   public CompletableFuture<Boolean> verify(final UUID phoneNumberIdentifier, final byte[] password) {
     return registrationRecoveryPasswords.lookup(phoneNumberIdentifier)
         .thenApply(maybeHash -> maybeHash.filter(hash -> hash.verify(bytesToString(password))))
-        .whenComplete((result, error) -> {
+        .whenComplete((_, error) -> {
           if (error != null) {
             logger.warn("Failed to lookup Registration Recovery Password", error);
           }
@@ -38,25 +38,22 @@ public class RegistrationRecoveryPasswordsManager {
         .thenApply(Optional::isPresent);
   }
 
-  public CompletableFuture<Void> store(final UUID phoneNumberIdentifier, final byte[] password) {
+  public CompletableFuture<Boolean> store(final UUID phoneNumberIdentifier, final byte[] password) {
     final String token = bytesToString(password);
     final SaltedTokenHash tokenHash = SaltedTokenHash.generateFor(token);
 
     return registrationRecoveryPasswords.addOrReplace(phoneNumberIdentifier, tokenHash)
-        .whenComplete((result, error) -> {
+        .whenComplete((_, error) -> {
           if (error != null) {
             logger.warn("Failed to store Registration Recovery Password", error);
           }
         });
   }
 
-  public CompletableFuture<Void> remove(final UUID phoneNumberIdentifier) {
+  public CompletableFuture<Boolean> remove(final UUID phoneNumberIdentifier) {
     return registrationRecoveryPasswords.removeEntry(phoneNumberIdentifier)
-        .whenComplete((ignored, error) -> {
-          if (error instanceof ResourceNotFoundException) {
-            // These will naturally happen if a recovery password is already deleted. Since we can remove
-            // the recovery password through many flows, we avoid creating log messages for these exceptions
-          } else if (error != null) {
+        .whenComplete((_, error) -> {
+          if (error != null) {
             logger.warn("Failed to remove Registration Recovery Password", error);
           }
         });
