@@ -110,7 +110,8 @@ class HlrLookupCarrierDataProviderTest {
     final Optional<CarrierData> maybeCarrierData =
         hlrLookupCarrierDataProvider.lookupCarrierData(PhoneNumberUtil.getInstance().getExampleNumber("US"), Duration.ZERO);
 
-    assertEquals(Optional.of(new CarrierData("Virgin Mobile", CarrierData.LineType.MOBILE, Optional.of("234"), Optional.of("38"))),
+    assertEquals(Optional.of(new CarrierData("Virgin Mobile", CarrierData.LineType.MOBILE, Optional.of("234"), Optional.of("38"),
+            Optional.empty())),
         maybeCarrierData);
   }
 

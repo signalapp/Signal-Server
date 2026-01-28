@@ -65,7 +65,7 @@ class VerificationSessionsTest {
       final Optional<VerificationSession> absentSession = verificationSessions.findForKey(sessionId).join();
       assertTrue(absentSession.isEmpty());
 
-      final VerificationSession session = new VerificationSession(null, new CarrierData("Test", CarrierData.LineType.MOBILE, Optional.of("123"), Optional.empty()),
+      final VerificationSession session = new VerificationSession(null, new CarrierData("Test", CarrierData.LineType.MOBILE, Optional.of("123"), Optional.empty(), Optional.empty()),
           List.of(VerificationSession.Information.PUSH_CHALLENGE), Collections.emptyList(), null, null, true,
           clock.millis(), clock.millis(), Duration.ofMinutes(1).toSeconds());
 
@@ -80,7 +80,7 @@ class VerificationSessionsTest {
       assertInstanceOf(ConditionalCheckFailedException.class, t,
           "inserting with the same key should fail conditional checks");
 
-      final VerificationSession updatedSession = new VerificationSession(null, new CarrierData("Test", CarrierData.LineType.MOBILE, Optional.of("123"), Optional.empty()), Collections.emptyList(),
+      final VerificationSession updatedSession = new VerificationSession(null, new CarrierData("Test", CarrierData.LineType.MOBILE, Optional.of("123"), Optional.empty(), Optional.empty()), Collections.emptyList(),
           List.of(VerificationSession.Information.PUSH_CHALLENGE), null, null, true, clock.millis(), clock.millis(),
           Duration.ofMinutes(2).toSeconds());
       verificationSessions.update(sessionId, updatedSession).join();

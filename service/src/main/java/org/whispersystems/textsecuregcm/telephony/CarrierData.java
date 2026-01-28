@@ -10,12 +10,18 @@ import java.util.Optional;
 /// Line type and home network information for a specific phone number.
 ///
 /// @param carrierName the name of the network operator for the specified phone number
-/// @param lineType the line type for the specified phone number
-/// @param mcc the mobile country code (MCC) of the phone number's home network if known; may be empty if the phone
-/// number is not a mobile number
-/// @param mnc the mobile network code (MNC) of the phone number's home network if known; may be empty if the phone
-/// number is not a mobile number
-public record CarrierData(String carrierName, LineType lineType, Optional<String> mcc, Optional<String> mnc) {
+/// @param lineType    the line type for the specified phone number
+/// @param mcc         the mobile country code (MCC) of the phone number's home network if known; may be empty if the
+///                    phone number is not a mobile number
+/// @param mnc         the mobile network code (MNC) of the phone number's home network if known; may be empty if the
+///                    phone number is not a mobile number
+/// @param isPorted    indicates whether the number has been ported from its original network to another network; may be
+///                    empty if not known
+public record CarrierData(String carrierName,
+                          LineType lineType,
+                          Optional<String> mcc,
+                          Optional<String> mnc,
+                          Optional<Boolean> isPorted) {
 
   public enum LineType {
     MOBILE,

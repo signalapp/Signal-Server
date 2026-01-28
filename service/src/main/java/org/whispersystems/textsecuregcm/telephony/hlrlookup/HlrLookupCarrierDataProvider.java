@@ -147,7 +147,7 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
             networkDetails.name(),
             lineType(result.telephoneNumberType()),
             mccFromMccMnc(networkDetails.mccmnc()),
-            mncFromMccMnc(networkDetails.mccmnc())));
+            mncFromMccMnc(networkDetails.mccmnc()), Optional.empty()));
   }
 
   private static Tag getCreditsSpentTag(final HlrLookupResult hlrLookupResult) {
