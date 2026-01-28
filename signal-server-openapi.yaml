@@ -2451,15 +2451,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
@@ -2680,15 +2680,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2771,15 +2771,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2807,15 +2807,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -3155,6 +3155,11 @@ paths:
         (from which a registration recovery password can be derived), clients should call this endpoint
         with a list of stored credentials. The response will identify which (if any) set of credentials are appropriate for communicating with SVR2.
       operationId: authCheck
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
