@@ -767,7 +767,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return updateWithRetries(
         account,
         a -> {
-          setPniKeys(account, pniIdentityKey, pniRegistrationIds);
+          setPniKeys(a, pniIdentityKey, pniRegistrationIds);
           return true;
         },
         a -> accounts.changeNumber(a, targetNumber, targetPhoneNumberIdentifier, maybeDisplacedUuid, keyWriteItems),
