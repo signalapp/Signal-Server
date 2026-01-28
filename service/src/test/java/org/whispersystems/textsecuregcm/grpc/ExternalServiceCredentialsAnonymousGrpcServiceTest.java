@@ -6,13 +6,16 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -59,8 +62,7 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
 
   @BeforeEach
   public void setup() {
-    Mockito.when(accountsManager.getByE164Async(USER_E164))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account(USER_UUID))));
+    Mockito.when(accountsManager.getByE164(USER_E164)).thenReturn(Optional.of(account(USER_UUID)));
   }
 
   @Test
@@ -123,6 +125,17 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
         token(user3, day(20)), AuthCheckResult.AUTH_CHECK_RESULT_NO_MATCH,
         token(user3, day(10)), AuthCheckResult.AUTH_CHECK_RESULT_INVALID
     ), day(25));
+  }
+
+  @Test
+  public void testTooManyPasswords() {
+    final CheckSvrCredentialsRequest request = CheckSvrCredentialsRequest.newBuilder()
+        .setNumber(USER_E164)
+        .addAllPasswords(IntStream.range(0, 12).mapToObj(i -> token(UUID.randomUUID(), day(10))).toList())
+        .build();
+    final StatusRuntimeException status = assertThrows(StatusRuntimeException.class,
+        () -> unauthenticatedServiceStub().checkSvrCredentials(request));
+    assertEquals(Status.INVALID_ARGUMENT.getCode(), status.getStatus().getCode());
   }
 
   private void assertExpectedCredentialCheckResponse(

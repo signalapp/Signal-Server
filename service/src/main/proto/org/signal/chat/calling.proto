@@ -13,11 +13,6 @@ package org.signal.chat.calling;
 service Calling {
 
   // Generates and returns TURN credentials for the caller.
-  //
-  // This RPC may fail with a `RESOURCE_EXHAUSTED` status if a rate limit for
-  // generating TURN credentials has been exceeded, in which case a
-  // `retry-after` header containing an ISO 8601 duration string will be present
-  // in the response trailers.
   rpc GetTurnCredentials(GetTurnCredentialsRequest) returns (GetTurnCredentialsResponse) {}
 }
 
