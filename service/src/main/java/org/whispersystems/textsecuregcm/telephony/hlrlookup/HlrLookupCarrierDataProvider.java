@@ -147,7 +147,8 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
             networkDetails.name(),
             lineType(result.telephoneNumberType()),
             mccFromMccMnc(networkDetails.mccmnc()),
-            mncFromMccMnc(networkDetails.mccmnc()), Optional.empty()));
+            mncFromMccMnc(networkDetails.mccmnc()),
+            isPorted(result.isPorted())));
   }
 
   private static Tag getCreditsSpentTag(final HlrLookupResult hlrLookupResult) {
@@ -174,15 +175,12 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
 
   @VisibleForTesting
   static CarrierData.LineType lineType(@Nullable final String telephoneNumberType) {
-    if (telephoneNumberType == null) {
-      return CarrierData.LineType.UNKNOWN;
-    }
-
     return switch (telephoneNumberType) {
       case "MOBILE" -> CarrierData.LineType.MOBILE;
       case "LANDLINE", "MOBILE_OR_LANDLINE" -> CarrierData.LineType.LANDLINE;
       case "VOIP" -> CarrierData.LineType.NON_FIXED_VOIP;
       case "UNKNOWN" -> CarrierData.LineType.UNKNOWN;
+      case null -> CarrierData.LineType.UNKNOWN;
       default -> CarrierData.LineType.OTHER;
     };
   }
@@ -196,6 +194,15 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
     }
 
     return Optional.empty();
+  }
+
+  @VisibleForTesting
+  static Optional<Boolean> isPorted(@Nullable final String isPorted) {
+    return switch (isPorted) {
+      case "YES" -> Optional.of(true);
+      case "NO" -> Optional.of(false);
+      case null, default -> Optional.empty();
+    };
   }
 
   @VisibleForTesting

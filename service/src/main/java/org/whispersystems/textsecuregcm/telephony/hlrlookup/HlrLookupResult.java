@@ -15,5 +15,6 @@ record HlrLookupResult(String error,
                        NetworkDetails originalNetworkDetails,
                        String currentNetwork,
                        NetworkDetails currentNetworkDetails,
-                       String telephoneNumberType) {
+                       String telephoneNumberType,
+                       String isPorted) {
 }

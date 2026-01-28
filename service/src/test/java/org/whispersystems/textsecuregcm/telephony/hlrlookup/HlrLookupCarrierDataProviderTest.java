@@ -110,8 +110,7 @@ class HlrLookupCarrierDataProviderTest {
     final Optional<CarrierData> maybeCarrierData =
         hlrLookupCarrierDataProvider.lookupCarrierData(PhoneNumberUtil.getInstance().getExampleNumber("US"), Duration.ZERO);
 
-    assertEquals(Optional.of(new CarrierData("Virgin Mobile", CarrierData.LineType.MOBILE, Optional.of("234"), Optional.of("38"),
-            Optional.empty())),
+    assertEquals(Optional.of(new CarrierData("Virgin Mobile", CarrierData.LineType.MOBILE, Optional.of("234"), Optional.of("38"), Optional.of(true))),
         maybeCarrierData);
   }
 
@@ -223,6 +222,25 @@ class HlrLookupCarrierDataProviderTest {
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   @ParameterizedTest
   @MethodSource
+  void isPorted(final String isPortedString, final Optional<Boolean> expectedIsPortedValue) {
+    final HlrLookupResult hlrLookupResult =
+        new HlrLookupResult("NONE", "NOT_AVAILABLE", null, "NOT_AVAILABLE", null, "MOBILE", isPortedString);
+
+    assertEquals(expectedIsPortedValue, HlrLookupCarrierDataProvider.isPorted(hlrLookupResult.isPorted()));
+  }
+
+  private static List<Arguments> isPorted() {
+    return List.of(
+        Arguments.argumentSet("Null isPorted string", null, Optional.empty()),
+        Arguments.argumentSet("Is ported", "YES", Optional.of(true)),
+        Arguments.argumentSet("Is not ported", "NO", Optional.of(false)),
+        Arguments.argumentSet("Unrecognized isPorted string", "UNKNOWN", Optional.empty())
+    );
+  }
+
+  @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+  @ParameterizedTest
+  @MethodSource
   void getNetworkDetails(final HlrLookupResult hlrLookupResult, final Optional<NetworkDetails> expectedNetworkDetails) {
     assertEquals(expectedNetworkDetails, HlrLookupCarrierDataProvider.getNetworkDetails(hlrLookupResult));
   }
@@ -272,7 +290,8 @@ class HlrLookupCarrierDataProviderTest {
         originalNetwork,
         currentNetwork == null ? "NOT_AVAILABLE" : "AVAILABLE",
         currentNetwork,
-        "MOBILE");
+        "MOBILE",
+        "NO");
   }
 
   @Test
