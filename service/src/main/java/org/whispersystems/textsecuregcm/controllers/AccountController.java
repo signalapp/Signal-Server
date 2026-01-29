@@ -28,6 +28,7 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
@@ -249,7 +250,8 @@ public class AccountController {
   @Produces(MediaType.APPLICATION_JSON)
   public void setAccountAttributes(
       @Auth AuthenticatedDevice auth,
-      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String userAgent,
+      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
+      @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String signalAgent,
       @NotNull @Valid AccountAttributes attributes) {
     final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
@@ -260,8 +262,8 @@ public class AccountController {
         d.setName(attributes.getName());
         d.setLastSeen(Util.todayInMillis());
         d.setCapabilities(attributes.getCapabilities());
-        if (StringUtils.isNotBlank(userAgent)) {
-          d.setUserAgent(userAgent);
+        if (StringUtils.isNotBlank(signalAgent)) {
+          d.setUserAgent(signalAgent);
         }
       });
 
