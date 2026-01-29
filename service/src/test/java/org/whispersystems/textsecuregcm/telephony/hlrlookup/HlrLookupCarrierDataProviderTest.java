@@ -224,7 +224,7 @@ class HlrLookupCarrierDataProviderTest {
   @MethodSource
   void isPorted(final String isPortedString, final Optional<Boolean> expectedIsPortedValue) {
     final HlrLookupResult hlrLookupResult =
-        new HlrLookupResult("NONE", "NOT_AVAILABLE", null, "NOT_AVAILABLE", null, "MOBILE", isPortedString);
+        new HlrLookupResult("NONE", 1.0f, "NOT_AVAILABLE", null, "NOT_AVAILABLE", null, "MOBILE", isPortedString);
 
     assertEquals(expectedIsPortedValue, HlrLookupCarrierDataProvider.isPorted(hlrLookupResult.isPorted()));
   }
