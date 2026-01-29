@@ -142,7 +142,7 @@ public class SecureValueRecovery2Controller {
             .baseUnit("days")
             .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("valid", Boolean.toString(info.valid()))))
             .register(Metrics.globalRegistry)
-            .record(Duration.between(Instant.ofEpochMilli(info.timestamp()), Instant.now()).toDays()));
+            .record(Duration.between(Instant.ofEpochSecond(info.timestamp()), Instant.now()).toDays()));
 
     return new AuthCheckResponseV2(credentials.stream().collect(Collectors.toMap(
         ExternalServiceCredentialsSelector.CredentialInfo::token,
