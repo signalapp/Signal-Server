@@ -791,6 +791,44 @@ class DeviceControllerTest {
     );
   }
 
+  @Test
+  void linkDeviceNullAccountAttributes() {
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+
+    final Device existingDevice = mock(Device.class);
+    when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    when(account.getDevices()).thenReturn(List.of(existingDevice));
+
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
+
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+
+    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+
+    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+
+    final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
+        null,
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(422, response.getStatus());
+    }
+  }
+
   private static ECSignedPreKey ecSignedPreKeyWithBadSignature(final ECSignedPreKey signedPreKey) {
     return new ECSignedPreKey(signedPreKey.keyId(),
         signedPreKey.publicKey(),
