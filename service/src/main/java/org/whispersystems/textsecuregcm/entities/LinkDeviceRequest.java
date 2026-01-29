@@ -17,6 +17,7 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
                                 @NotBlank
                                 String verificationCode,
 
+                                @NotNull
                                 @Valid
                                 AccountAttributes accountAttributes,
 
@@ -44,7 +45,7 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
   @AssertTrue
   @Schema(hidden = true)
   public boolean isExactlyOneMessageDeliveryChannel() {
-    if (accountAttributes.getFetchesMessages()) {
+    if (accountAttributes != null && accountAttributes.getFetchesMessages()) {
       return deviceActivationRequest().apnToken().isEmpty() && deviceActivationRequest().gcmToken().isEmpty();
     } else {
       return deviceActivationRequest().apnToken().isPresent() ^ deviceActivationRequest().gcmToken().isPresent();
