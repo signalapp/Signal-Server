@@ -143,6 +143,7 @@ import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CallQualitySurveyGrpcService;
+import org.whispersystems.textsecuregcm.grpc.GrpcAllowListInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsGrpcService;
@@ -209,7 +210,6 @@ import org.whispersystems.textsecuregcm.s3.S3MonitoringSupplier;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
-import org.whispersystems.textsecuregcm.spam.MessageDeliveryListener;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
@@ -877,6 +877,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final MetricServerInterceptor metricServerInterceptor = new MetricServerInterceptor(Metrics.globalRegistry, clientReleaseManager);
 
     final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
+    final GrpcAllowListInterceptor grpcAllowListInterceptor =
+        new GrpcAllowListInterceptor(config.getGrpcAllowList().enableAll(), config.getGrpcAllowList().enabledServices(), config.getGrpcAllowList().enabledMethods());
     final RequestAttributesInterceptor requestAttributesInterceptor = new RequestAttributesInterceptor();
 
     final ValidatingInterceptor validatingInterceptor = new ValidatingInterceptor();
@@ -897,6 +899,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
             validatingInterceptor,
+            grpcAllowListInterceptor,
             metricServerInterceptor,
             errorMappingInterceptor,
             remoteDeprecationFilter,
@@ -916,6 +919,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             // depends on the user-agent context so it has to come first here!
             grpcExternalRequestFilter,
             validatingInterceptor,
+            grpcAllowListInterceptor,
             metricServerInterceptor,
             errorMappingInterceptor,
             remoteDeprecationFilter,

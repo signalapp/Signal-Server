@@ -517,6 +517,9 @@ idlePrimaryDeviceReminder:
 grpc:
   port: 50051
 
+grpcAllowList:
+  enableAll: true
+
 asnTable:
   s3Region: a-region
   s3Bucket: a-bucket
