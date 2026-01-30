@@ -187,7 +187,8 @@ class HlrLookupCarrierDataProviderTest {
         Arguments.argumentSet("Empty mccMnc string", "", Optional.empty()),
         Arguments.argumentSet("Blank mccMnc string", " ", Optional.empty()),
         Arguments.argumentSet("Two-digit MNC", "12345", Optional.of("123")),
-        Arguments.argumentSet("Three-digit MNC", "123456", Optional.of("123"))
+        Arguments.argumentSet("Three-digit MNC", "123456", Optional.of("123")),
+        Arguments.argumentSet("MCC-only", "123", Optional.of("123"))
     );
   }
 
@@ -204,7 +205,8 @@ class HlrLookupCarrierDataProviderTest {
         Arguments.argumentSet("Empty mccMnc string", "", Optional.empty()),
         Arguments.argumentSet("Blank mccMnc string", " ", Optional.empty()),
         Arguments.argumentSet("Two-digit MNC", "12345", Optional.of("45")),
-        Arguments.argumentSet("Three-digit MNC", "123456", Optional.of("456"))
+        Arguments.argumentSet("Three-digit MNC", "123456", Optional.of("456")),
+        Arguments.argumentSet("MCC-only", "123", Optional.empty())
     );
   }
 

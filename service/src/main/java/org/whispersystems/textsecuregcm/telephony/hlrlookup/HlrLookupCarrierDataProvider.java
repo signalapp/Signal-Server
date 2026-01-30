@@ -171,7 +171,7 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
   static Optional<String> mncFromMccMnc(@Nullable final String mccMnc) {
     // MNCs may be 2 or 3 digits, but always come after a 3-digit MCC
     return Optional.ofNullable(StringUtils.stripToNull(mccMnc))
-        .map(trimmedMccMnc -> trimmedMccMnc.substring(3));
+        .map(trimmedMccMnc -> StringUtils.stripToNull(trimmedMccMnc.substring(3)));
   }
 
   @VisibleForTesting
