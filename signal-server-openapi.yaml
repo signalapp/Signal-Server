@@ -338,6 +338,10 @@ paths:
       - Account
       operationId: setAccountAttributes
       parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       - name: X-Signal-Agent
         in: header
         schema:
@@ -463,43 +467,6 @@ paths:
               description: "If present, an positive integer indicating the number\
                 \ of seconds before a subsequent attempt could succeed"
               style: simple
-      security:
-      - authenticatedAccount: []
-  /v2/accounts/phone_number_identity_key_distribution:
-    put:
-      tags:
-      - Account
-      summary: Set phone-number identity keys
-      description: Updates key material for the phone-number identity for all devices
-        and sends a synchronization message to companion devices
-      operationId: distributePhoneNumberIdentityKeys
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PhoneNumberIdentityKeyDistributionRequest"
-        required: true
-      responses:
-        "200":
-          description: Indicates the transaction was successful and returns basic
-            information about this account.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AccountIdentityResponse"
-        "401":
-          description: Account authentication check failed.
-        "403":
-          description: This endpoint can only be invoked from the account's primary
-            device.
-        "422":
-          description: The request body failed validation.
-      deprecated: true
       security:
       - authenticatedAccount: []
   /v2/accounts/data_report:
@@ -4412,51 +4379,6 @@ components:
             The signature of the serialized `publicKey` with the account (or phone-number identity)'s identity key, base64-encoded.
       description: |
         A signed Kyber-1024 "last resort" pre-key to be associated with this account's PNI.
-    PhoneNumberIdentityKeyDistributionRequest:
-      required:
-      - deviceMessages
-      - devicePniPqLastResortPrekeys
-      - devicePniSignedPrekeys
-      - pniIdentityKey
-      - pniRegistrationIds
-      type: object
-      properties:
-        pniIdentityKey:
-          $ref: "#/components/schemas/IdentityKey"
-        deviceMessages:
-          type: array
-          description: |
-            A list of synchronization messages to send to companion devices to supply the private keys
-            associated with the new identity key and their new prekeys.
-            Exactly one message must be supplied for each device other than the sending (primary) device.
-          items:
-            $ref: "#/components/schemas/IncomingMessage"
-        devicePniSignedPrekeys:
-          minProperties: 1
-          type: object
-          additionalProperties:
-            $ref: "#/components/schemas/ECSignedPreKey"
-          description: |-
-            A new signed elliptic-curve prekey for each device on the account, including this one.
-            Each must be accompanied by a valid signature from the new identity key in this request.
-        devicePniPqLastResortPrekeys:
-          minProperties: 1
-          type: object
-          additionalProperties:
-            $ref: "#/components/schemas/KEMSignedPreKey"
-          description: |-
-            A new signed post-quantum last-resort prekey for each device on the account, including this one.
-            Each must be accompanied by a valid signature from the new identity key in this request.
-        pniRegistrationIds:
-          minProperties: 1
-          type: object
-          additionalProperties:
-            type: integer
-            description: "The new registration ID to use for the phone-number identity\
-              \ of each device, including this one."
-            format: int32
-          description: "The new registration ID to use for the phone-number identity\
-            \ of each device, including this one."
     AccountAndDevicesDataReport:
       type: object
       properties:
@@ -5062,6 +4984,7 @@ components:
           $ref: "#/components/schemas/GcmRegistrationId"
     LinkDeviceRequest:
       required:
+      - accountAttributes
       - aciPqLastResortPreKey
       - aciSignedPreKey
       - pniPqLastResortPreKey
