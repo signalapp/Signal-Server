@@ -1253,11 +1253,7 @@ public class Accounts {
               .totalSegments(segments)
               .build());
 
-          // Subscribe to the publisher of responses (i.e. `scanPublisher`) rather than the publisher of items
-          // (i.e. `scanPublisher.items()`) to work around https://github.com/aws/aws-sdk-java-v2/issues/6411
-          return Flux.from(scanPublisher)
-              .flatMap(scanResponse -> Flux.fromIterable(scanResponse.items()))
-              .map(Accounts::fromItem);
+          return Flux.from(scanPublisher.items()).map(Accounts::fromItem);
         })
         .sequential();
   }
