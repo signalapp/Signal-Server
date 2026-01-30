@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
-import io.grpc.Status;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 
 public class DeviceCapabilityUtil {
@@ -19,7 +18,8 @@ public class DeviceCapabilityUtil {
       case DEVICE_CAPABILITY_TRANSFER -> DeviceCapability.TRANSFER;
       case DEVICE_CAPABILITY_ATTACHMENT_BACKFILL -> DeviceCapability.ATTACHMENT_BACKFILL;
       case DEVICE_CAPABILITY_SPARSE_POST_QUANTUM_RATCHET -> DeviceCapability.SPARSE_POST_QUANTUM_RATCHET;
-      case DEVICE_CAPABILITY_UNSPECIFIED, UNRECOGNIZED -> throw Status.INVALID_ARGUMENT.withDescription("Unrecognized device capability").asRuntimeException();
+      case DEVICE_CAPABILITY_UNSPECIFIED, UNRECOGNIZED ->
+          throw GrpcExceptions.invalidArguments("unrecognized device capability");
     };
   }
 

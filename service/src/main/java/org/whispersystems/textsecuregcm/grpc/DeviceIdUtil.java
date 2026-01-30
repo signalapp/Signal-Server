@@ -16,7 +16,7 @@ public class DeviceIdUtil {
 
   static byte validate(int deviceId) {
     if (!isValid(deviceId)) {
-      throw Status.INVALID_ARGUMENT.withDescription("Device ID is out of range").asRuntimeException();
+      throw GrpcExceptions.invalidArguments("device ID is out of range");
     }
 
     return (byte) deviceId;

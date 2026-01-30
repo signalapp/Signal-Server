@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.Mockito.mock;
@@ -184,7 +185,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   @Test
   void removeDeviceNonPrimaryMismatchAuthenticated() {
     mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, (byte) (Device.PRIMARY_ID + 1));
-    assertStatusException(Status.PERMISSION_DENIED, () -> authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
+    assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().removeDevice(RemoveDeviceRequest.newBuilder()
         .setId(17)
         .build()));
 
@@ -201,10 +202,10 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     final byte[] deviceName = TestRandomUtil.nextBytes(128);
 
-    final SetDeviceNameResponse ignored = authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
+    assertTrue(authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
         .setId(deviceId)
         .setName(ByteString.copyFrom(deviceName))
-        .build());
+        .build()).hasSuccess());
 
     verify(device).setName(deviceName);
   }
@@ -239,7 +240,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     final byte[] deviceName = TestRandomUtil.nextBytes(128);
 
-    assertStatusException(Status.PERMISSION_DENIED,
+    assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
             .setId(deviceId)
             .setName(ByteString.copyFrom(deviceName))
@@ -255,11 +256,10 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
     final byte[] deviceName = TestRandomUtil.nextBytes(128);
 
-    assertStatusException(Status.NOT_FOUND,
-        () -> authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
-            .setId(Device.PRIMARY_ID + 1)
-            .setName(ByteString.copyFrom(deviceName))
-            .build()));
+    assertTrue(authenticatedServiceStub().setDeviceName(SetDeviceNameRequest.newBuilder()
+        .setId(Device.PRIMARY_ID + 1)
+        .setName(ByteString.copyFrom(deviceName))
+        .build()).hasTargetDeviceNotFound());
   }
 
   @ParameterizedTest
