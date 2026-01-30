@@ -35,7 +35,6 @@ import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ChangesPhoneNumber;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
@@ -45,7 +44,6 @@ import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
 import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevicesResponse;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
-import org.whispersystems.textsecuregcm.entities.PhoneNumberIdentityKeyDistributionRequest;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.StaleDevicesResponse;
@@ -169,35 +167,6 @@ public class AccountControllerV2 {
     } catch (MessageTooLargeException e) {
       throw new WebApplicationException(Response.Status.REQUEST_ENTITY_TOO_LARGE);
     }
-  }
-
-  // TODO Remove entirely on or after 2025-10-08
-  @Deprecated(forRemoval = true)
-  @PUT
-  @Path("/phone_number_identity_key_distribution")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Set phone-number identity keys",
-      description = "Updates key material for the phone-number identity for all devices and sends a synchronization message to companion devices")
-  @ApiResponse(responseCode = "200", description = "Indicates the transaction was successful and returns basic information about this account.", useReturnTypeSchema = true)
-  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  @ApiResponse(responseCode = "403", description = "This endpoint can only be invoked from the account's primary device.")
-  @ApiResponse(responseCode = "422", description = "The request body failed validation.")
-  public AccountIdentityResponse distributePhoneNumberIdentityKeys(
-      @Auth final AuthenticatedDevice authenticatedDevice,
-      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString,
-      @NotNull @Valid final PhoneNumberIdentityKeyDistributionRequest request) {
-
-    if (authenticatedDevice.deviceId() != Device.PRIMARY_ID) {
-      throw new ForbiddenException();
-    }
-
-    if (!request.isSignatureValidOnEachSignedPreKey(userAgentString)) {
-      throw new WebApplicationException("Invalid signature", 422);
-    }
-
-    return AccountIdentityResponseBuilder.fromAccount(accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED)));
   }
 
   @PUT
