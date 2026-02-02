@@ -24,7 +24,7 @@ public class ServiceIdentifierUtil {
     try {
       uuid = UUIDUtil.fromByteString(serviceIdentifier.getUuid());
     } catch (final IllegalArgumentException e) {
-      throw Status.INVALID_ARGUMENT.asRuntimeException();
+      throw GrpcExceptions.invalidArguments("invalid service identifier");
     }
 
     return switch (IdentityTypeUtil.fromGrpcIdentityType(serviceIdentifier.getIdentityType())) {

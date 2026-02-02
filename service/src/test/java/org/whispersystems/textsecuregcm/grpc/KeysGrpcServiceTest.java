@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -42,6 +43,8 @@ import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.common.ServiceIdentifier;
+import org.signal.chat.keys.AccountPreKeyBundles;
+import org.signal.chat.keys.DevicePreKeyBundle;
 import org.signal.chat.keys.GetPreKeyCountRequest;
 import org.signal.chat.keys.GetPreKeyCountResponse;
 import org.signal.chat.keys.GetPreKeysRequest;
@@ -479,7 +482,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     final Map<Byte, KeysManager.DevicePreKeys> devicePreKeysMap = new HashMap<>();
 
     final Map<Byte, Device> devices = new HashMap<>();
-    final Map<Byte, GetPreKeysResponse.PreKeyBundle> expectedPreKeyBundles = new HashMap<>();
+    final Map<Byte, DevicePreKeyBundle> expectedPreKeyBundles = new HashMap<>();
 
     final byte deviceId1 = 1;
     final byte deviceId2 = 2;
@@ -498,7 +501,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
       devicePreKeysMap.put(entry.getKey(), new KeysManager.DevicePreKeys(ecSignedPreKey, maybeEcPreKey, kemSignedPreKey));
 
-      final GetPreKeysResponse.PreKeyBundle.Builder builder = GetPreKeysResponse.PreKeyBundle.newBuilder()
+      final DevicePreKeyBundle.Builder builder = DevicePreKeyBundle.newBuilder()
           .setEcSignedPreKey(EcSignedPreKey.newBuilder()
               .setKeyId(ecSignedPreKey.keyId())
               .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
@@ -541,8 +544,9 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
           .build());
 
       final GetPreKeysResponse expectedResponse = GetPreKeysResponse.newBuilder()
-          .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
-          .putPreKeys(1, expectedPreKeyBundles.get(deviceId1))
+          .setPreKeys(AccountPreKeyBundles.newBuilder()
+              .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+              .putDevicePreKeys(1, expectedPreKeyBundles.get(deviceId1)))
           .build();
 
       assertEquals(expectedResponse, response);
@@ -557,9 +561,10 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
           .build());
 
       final GetPreKeysResponse expectedResponse = GetPreKeysResponse.newBuilder()
-          .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
-          .putPreKeys(1, expectedPreKeyBundles.get(deviceId1))
-          .putPreKeys(2, expectedPreKeyBundles.get(deviceId2))
+          .setPreKeys(AccountPreKeyBundles.newBuilder()
+              .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+              .putDevicePreKeys(1, expectedPreKeyBundles.get(deviceId1))
+              .putDevicePreKeys(2, expectedPreKeyBundles.get(deviceId2)))
           .build();
 
       assertEquals(expectedResponse, response);
@@ -571,12 +576,13 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     when(accountsManager.getByServiceIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    assertStatusException(Status.NOT_FOUND, () -> authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
+    final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
         .setTargetIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(UUIDUtil.toByteString(UUID.randomUUID()))
             .build())
-        .build()));
+        .build());
+    assertTrue(response.hasTargetNotFound());
   }
 
   @Test
@@ -592,13 +598,14 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    assertStatusException(Status.NOT_FOUND, () -> authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
+    final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
         .setTargetIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
             .setUuid(UUIDUtil.toByteString(accountIdentifier))
             .build())
         .setDeviceId(Device.PRIMARY_ID)
-        .build()));
+        .build());
+    assertTrue(response.hasTargetNotFound());
   }
 
   @Test

@@ -25,3 +25,10 @@ message FailedZkAuthentication {
   // An optional description with additional information about the failure.
   string description = 1;
 }
+
+// Response message that indicates authorization to perform an unidentified
+// operation via an endorsement or access key failed
+message FailedUnidentifiedAuthorization {
+  // An optional description with additional information about the failure.
+  string description = 1;
+}

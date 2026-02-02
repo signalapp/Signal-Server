@@ -5,16 +5,15 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
-import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
+import org.signal.chat.errors.NotFound;
 import org.signal.chat.keys.GetPreKeyCountRequest;
 import org.signal.chat.keys.GetPreKeyCountResponse;
 import org.signal.chat.keys.GetPreKeysRequest;
@@ -50,13 +49,11 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
   private final KeysManager keysManager;
   private final RateLimiters rateLimiters;
 
-  private static final StatusRuntimeException INVALID_PUBLIC_KEY_EXCEPTION = Status.fromCode(Status.Code.INVALID_ARGUMENT)
-      .withDescription("Invalid public key")
-      .asRuntimeException();
+  private static final StatusRuntimeException INVALID_PUBLIC_KEY_EXCEPTION =
+      GrpcExceptions.fieldViolation("pre_keys", "invalid public key");
 
-  private static final StatusRuntimeException INVALID_SIGNATURE_EXCEPTION = Status.fromCode(Status.Code.INVALID_ARGUMENT)
-      .withDescription("Invalid signature")
-      .asRuntimeException();
+  private static final StatusRuntimeException INVALID_SIGNATURE_EXCEPTION =
+      GrpcExceptions.fieldViolation("pre_keys", "pre-key signature did not match account identity key");
 
   private enum PreKeyType {
     EC,
@@ -75,10 +72,8 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
   @Override
   public Mono<GetPreKeyCountResponse> getPreKeyCount(final GetPreKeyCountRequest request) {
     return Mono.fromSupplier(AuthenticationUtil::requireAuthenticatedDevice)
-        .flatMap(authenticatedDevice -> Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedDevice.accountIdentifier()))
-            .map(maybeAccount -> maybeAccount
-                .map(account -> Tuples.of(account, authenticatedDevice.deviceId()))
-                .orElseThrow(Status.UNAUTHENTICATED::asRuntimeException)))
+        .flatMap(authenticatedDevice -> getAuthenticatedAccount(authenticatedDevice.accountIdentifier())
+            .zipWith(Mono.just(authenticatedDevice.deviceId())))
         .flatMapMany(accountAndDeviceId -> Flux.just(
             Tuples.of(IdentityType.ACI, accountAndDeviceId.getT1().getUuid(), accountAndDeviceId.getT2()),
             Tuples.of(IdentityType.PNI, accountAndDeviceId.getT1().getPhoneNumberIdentifier(), accountAndDeviceId.getT2())
@@ -132,15 +127,22 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
         deviceId;
 
     return rateLimiters.getPreKeysLimiter().validateReactive(rateLimitKey)
-        .then(Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier))
-            .flatMap(Mono::justOrEmpty))
-        .switchIfEmpty(Mono.error(Status.NOT_FOUND.asException()))
-        .flatMap(targetAccount ->
-            KeysGrpcHelper.getPreKeys(targetAccount, targetIdentifier, deviceId, keysManager));
+        .then(Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(targetIdentifier)))
+        .flatMap(Mono::justOrEmpty)
+        .flatMap(targetAccount -> KeysGrpcHelper.getPreKeys(targetAccount, targetIdentifier, deviceId, keysManager))
+        .map(bundles -> GetPreKeysResponse.newBuilder()
+            .setPreKeys(bundles)
+            .build())
+        .switchIfEmpty(Mono.fromSupplier(() -> GetPreKeysResponse.newBuilder()
+            .setTargetNotFound(NotFound.getDefaultInstance())
+            .build()));
   }
 
   @Override
   public Mono<SetPreKeyResponse> setOneTimeEcPreKeys(final SetOneTimeEcPreKeysRequest request) {
+    if (request.getPreKeysList().isEmpty()) {
+      throw GrpcExceptions.fieldViolation("pre_keys", "pre_keys must be non-empty");
+    }
     return Mono.fromSupplier(AuthenticationUtil::requireAuthenticatedDevice)
         .flatMap(authenticatedDevice -> storeOneTimePreKeys(authenticatedDevice.accountIdentifier(),
             request.getPreKeysList(),
@@ -151,6 +153,9 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
 
   @Override
   public Mono<SetPreKeyResponse> setOneTimeKemSignedPreKeys(final SetOneTimeKemSignedPreKeysRequest request) {
+    if (request.getPreKeysList().isEmpty()) {
+      throw GrpcExceptions.fieldViolation("pre_keys", "pre_keys must be non-empty");
+    }
     return Mono.fromSupplier(AuthenticationUtil::requireAuthenticatedDevice)
         .flatMap(authenticatedDevice -> storeOneTimePreKeys(authenticatedDevice.accountIdentifier(),
             request.getPreKeysList(),
@@ -165,16 +170,11 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
       final BiFunction<R, IdentityKey, K> extractPreKeyFunction,
       final BiFunction<UUID, List<K>, CompletableFuture<Void>> storeKeysFunction) {
 
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedAccountUuid))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAuthenticatedAccount(authenticatedAccountUuid)
         .map(account -> {
           final List<K> preKeys = requestPreKeys.stream()
               .map(requestPreKey -> extractPreKeyFunction.apply(requestPreKey, account.getIdentityKey(identityType)))
               .toList();
-
-          if (preKeys.isEmpty()) {
-            throw Status.INVALID_ARGUMENT.asRuntimeException();
-          }
 
           return Tuples.of(account.getIdentifier(identityType), preKeys);
         })
@@ -218,8 +218,7 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
       final BiFunction<R, IdentityKey, K> extractKeyFunction,
       final BiFunction<Account, K, Mono<?>> storeKeyFunction) {
 
-    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedAccountUuid))
-        .map(maybeAccount -> maybeAccount.orElseThrow(Status.UNAUTHENTICATED::asRuntimeException))
+    return getAuthenticatedAccount(authenticatedAccountUuid)
         .map(account -> {
           final IdentityKey identityKey = account.getIdentityKey(IdentityTypeUtil.fromGrpcIdentityType(identityType));
           final K key = extractKeyFunction.apply(storeKeyRequest, identityKey);
@@ -268,5 +267,10 @@ public class KeysGrpcService extends ReactorKeysGrpc.KeysImplBase {
     } catch (final InvalidKeyException e) {
       throw INVALID_PUBLIC_KEY_EXCEPTION;
     }
+  }
+
+  private Mono<Account> getAuthenticatedAccount(final UUID authenticatedAccountId) {
+    return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(authenticatedAccountId))
+        .map(maybeAccount -> maybeAccount.orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials")));
   }
 }

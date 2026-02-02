@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.eq;
@@ -33,10 +34,12 @@ import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
 import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.common.ServiceIdentifier;
+import org.signal.chat.keys.AccountPreKeyBundles;
 import org.signal.chat.keys.CheckIdentityKeyRequest;
+import org.signal.chat.keys.DevicePreKeyBundle;
 import org.signal.chat.keys.GetPreKeysAnonymousRequest;
+import org.signal.chat.keys.GetPreKeysAnonymousResponse;
 import org.signal.chat.keys.GetPreKeysRequest;
-import org.signal.chat.keys.GetPreKeysResponse;
 import org.signal.chat.keys.KeysAnonymousGrpc;
 import org.signal.chat.keys.ReactorKeysAnonymousGrpc;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -107,20 +110,21 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(keysManager.takeDevicePreKeys(eq(Device.PRIMARY_ID), eq(identifier), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(devicePreKeys)));
 
-    final GetPreKeysResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+    final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
         .setRequest(GetPreKeysRequest.newBuilder()
             .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
             .setDeviceId(Device.PRIMARY_ID))
         .build());
 
-    final GetPreKeysResponse expectedResponse = GetPreKeysResponse.newBuilder()
-        .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
-        .putPreKeys(Device.PRIMARY_ID, GetPreKeysResponse.PreKeyBundle.newBuilder()
-            .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
-            .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))
-            .setKemOneTimePreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
-            .build())
+    final GetPreKeysAnonymousResponse expectedResponse = GetPreKeysAnonymousResponse.newBuilder()
+        .setPreKeys(AccountPreKeyBundles.newBuilder()
+            .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+            .putDevicePreKeys(Device.PRIMARY_ID, DevicePreKeyBundle.newBuilder()
+                .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
+                .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))
+                .setKemOneTimePreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
+                .build()))
         .build();
 
     assertEquals(expectedResponse, response);
@@ -159,20 +163,21 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     CLOCK.pin(expiration.minus(Duration.ofHours(1))); // set time so the credential isn't expired yet
     final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(identifier), expiration);
 
-    final GetPreKeysResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+    final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
         .setGroupSendToken(ByteString.copyFrom(token))
         .setRequest(GetPreKeysRequest.newBuilder()
             .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
             .setDeviceId(Device.PRIMARY_ID))
         .build());
 
-    final GetPreKeysResponse expectedResponse = GetPreKeysResponse.newBuilder()
-        .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
-        .putPreKeys(Device.PRIMARY_ID, GetPreKeysResponse.PreKeyBundle.newBuilder()
-            .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
-            .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))
-            .setKemOneTimePreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
-            .build())
+    final GetPreKeysAnonymousResponse expectedResponse = GetPreKeysAnonymousResponse.newBuilder()
+        .setPreKeys(AccountPreKeyBundles.newBuilder()
+            .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
+            .putDevicePreKeys(Device.PRIMARY_ID, DevicePreKeyBundle.newBuilder()
+                .setEcOneTimePreKey(toGrpcEcPreKey(ecPreKey))
+                .setEcSignedPreKey(toGrpcEcSignedPreKey(ecSignedPreKey))
+                .setKemOneTimePreKey(toGrpcKemSignedPreKey(kemSignedPreKey))
+                .build()))
         .build();
 
     assertEquals(expectedResponse, response);
@@ -202,13 +207,15 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(accountsManager.getByServiceIdentifierAsync(identifier))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    assertGetKeysFailure(Status.UNAUTHENTICATED, GetPreKeysAnonymousRequest.newBuilder()
-        .setUnidentifiedAccessKey(UUIDUtil.toByteString(UUID.randomUUID()))
-        .setRequest(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
-            .setDeviceId(Device.PRIMARY_ID))
-        .build());
+    final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(
+        GetPreKeysAnonymousRequest.newBuilder()
+            .setUnidentifiedAccessKey(UUIDUtil.toByteString(UUID.randomUUID()))
+            .setRequest(GetPreKeysRequest.newBuilder()
+                .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
+                .setDeviceId(Device.PRIMARY_ID))
+            .build());
 
+    assertTrue(response.hasFailedUnidentifiedAuthorization());
     verifyNoInteractions(keysManager);
   }
 
@@ -223,12 +230,14 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
 
     final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(identifier), expiration);
 
-    assertGetKeysFailure(Status.UNAUTHENTICATED, GetPreKeysAnonymousRequest.newBuilder()
-        .setGroupSendToken(ByteString.copyFrom(token))
-        .setRequest(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
-            .setDeviceId(Device.PRIMARY_ID))
-        .build());
+    final GetPreKeysAnonymousResponse preKeysResponse =
+        unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
+            .setGroupSendToken(ByteString.copyFrom(token))
+            .setRequest(GetPreKeysRequest.newBuilder()
+                .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
+                .setDeviceId(Device.PRIMARY_ID))
+            .build());
+    assertTrue(preKeysResponse.hasFailedUnidentifiedAuthorization());
 
     verifyNoInteractions(accountsManager);
     verifyNoInteractions(keysManager);
@@ -246,13 +255,14 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final AciServiceIdentifier wrongAci = new AciServiceIdentifier(UUID.randomUUID());
     final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(authorizedIdentifier), expiration);
 
-    assertGetKeysFailure(Status.UNAUTHENTICATED, GetPreKeysAnonymousRequest.newBuilder()
-        .setGroupSendToken(ByteString.copyFrom(token))
-        .setRequest(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(targetIdentifier))
-            .setDeviceId(Device.PRIMARY_ID))
-        .build());
-
+    final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(
+        GetPreKeysAnonymousRequest.newBuilder()
+            .setGroupSendToken(ByteString.copyFrom(token))
+            .setRequest(GetPreKeysRequest.newBuilder()
+                .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(targetIdentifier))
+                .setDeviceId(Device.PRIMARY_ID))
+            .build());
+    assertTrue(response.hasFailedUnidentifiedAuthorization());
     verifyNoInteractions(accountsManager);
     verifyNoInteractions(keysManager);
   }
@@ -263,13 +273,13 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(accountsManager.getByServiceIdentifierAsync(nonexistentAci))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    assertGetKeysFailure(Status.UNAUTHENTICATED,
-        GetPreKeysAnonymousRequest.newBuilder()
+    final GetPreKeysAnonymousResponse preKeysResponse =
+        unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
             .setUnidentifiedAccessKey(UUIDUtil.toByteString(UUID.randomUUID()))
             .setRequest(GetPreKeysRequest.newBuilder()
                 .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(nonexistentAci)))
-        .build());
-
+            .build());
+    assertTrue(preKeysResponse.hasFailedUnidentifiedAuthorization());
     verifyNoInteractions(keysManager);
   }
 
@@ -286,13 +296,13 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(accountsManager.getByServiceIdentifierAsync(nonexistentAci))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    assertGetKeysFailure(Status.NOT_FOUND,
-        GetPreKeysAnonymousRequest.newBuilder()
+    final GetPreKeysAnonymousResponse preKeysResponse =
+        unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
             .setGroupSendToken(ByteString.copyFrom(token))
             .setRequest(GetPreKeysRequest.newBuilder()
                 .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(nonexistentAci)))
         .build());
-
+    assertTrue(preKeysResponse.hasTargetNotFound());
     verifyNoInteractions(keysManager);
   }
 
@@ -312,14 +322,17 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
 
-    assertGetKeysFailure(Status.NOT_FOUND, GetPreKeysAnonymousRequest.newBuilder()
-        .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
-        .setRequest(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifier.newBuilder()
-                .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-                .setUuid(UUIDUtil.toByteString(accountIdentifier)))
-            .setDeviceId(Device.PRIMARY_ID))
-        .build());
+    final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(
+        GetPreKeysAnonymousRequest.newBuilder()
+            .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
+            .setRequest(GetPreKeysRequest.newBuilder()
+                .setTargetIdentifier(ServiceIdentifier.newBuilder()
+                    .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
+                    .setUuid(UUIDUtil.toByteString(accountIdentifier)))
+                .setDeviceId(Device.PRIMARY_ID))
+            .build());
+
+    assertTrue(response.hasFailedUnidentifiedAuthorization());
   }
 
   @Test

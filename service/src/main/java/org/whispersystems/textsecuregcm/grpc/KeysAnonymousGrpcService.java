@@ -6,19 +6,24 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
-import io.grpc.Status;
-import io.grpc.StatusException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.List;
+import org.signal.chat.errors.FailedUnidentifiedAuthorization;
+import org.signal.chat.errors.NotFound;
 import org.signal.chat.keys.CheckIdentityKeyRequest;
 import org.signal.chat.keys.CheckIdentityKeyResponse;
 import org.signal.chat.keys.GetPreKeysAnonymousRequest;
-import org.signal.chat.keys.GetPreKeysResponse;
+import org.signal.chat.keys.GetPreKeysAnonymousResponse;
 import org.signal.chat.keys.ReactorKeysAnonymousGrpc;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
+import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -32,17 +37,19 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
 
   private final AccountsManager accountsManager;
   private final KeysManager keysManager;
-  private final GroupSendTokenUtil groupSendTokenUtil;
+  private final ServerSecretParams serverSecretParams;
+  private final Clock clock;
 
   public KeysAnonymousGrpcService(
       final AccountsManager accountsManager, final KeysManager keysManager, final ServerSecretParams serverSecretParams, final Clock clock) {
     this.accountsManager = accountsManager;
     this.keysManager = keysManager;
-    this.groupSendTokenUtil = new GroupSendTokenUtil(serverSecretParams, clock);
-}
+    this.serverSecretParams = serverSecretParams;
+    this.clock = clock;
+  }
 
   @Override
-  public Mono<GetPreKeysResponse> getPreKeys(final GetPreKeysAnonymousRequest request) {
+  public Mono<GetPreKeysAnonymousResponse> getPreKeys(final GetPreKeysAnonymousRequest request) {
     final ServiceIdentifier serviceIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getTargetIdentifier());
 
@@ -53,23 +60,35 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
     return switch (request.getAuthorizationCase()) {
       case GROUP_SEND_TOKEN -> {
         try {
-          groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), serviceIdentifier);
+          final GroupSendFullToken token = new GroupSendFullToken(request.getGroupSendToken().toByteArray());
+          token.verify(List.of(serviceIdentifier.toLibsignal()), clock.instant(),
+              GroupSendDerivedKeyPair.forExpiration(token.getExpiration(), serverSecretParams));
 
-          yield lookUpAccount(serviceIdentifier, Status.NOT_FOUND)
-              .flatMap(targetAccount -> KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier, deviceId, keysManager));
-        } catch (final StatusException e) {
-          yield Mono.error(e);
+          yield lookUpAccount(serviceIdentifier)
+              .flatMap(targetAccount -> KeysGrpcHelper
+                  .getPreKeys(targetAccount, serviceIdentifier, deviceId, keysManager))
+              .map(preKeys -> GetPreKeysAnonymousResponse.newBuilder().setPreKeys(preKeys).build())
+              .switchIfEmpty(Mono.fromSupplier(() -> GetPreKeysAnonymousResponse.newBuilder()
+                  .setTargetNotFound(NotFound.getDefaultInstance())
+                  .build()));
+        } catch (InvalidInputException e) {
+          throw GrpcExceptions.fieldViolation("group_send_token", "malformed group send token");
+        } catch (VerificationFailedException e) {
+          yield Mono.fromSupplier(() -> GetPreKeysAnonymousResponse.newBuilder()
+              .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+              .build());
         }
       }
+      case UNIDENTIFIED_ACCESS_KEY -> lookUpAccount(serviceIdentifier)
+          .filter(targetAccount ->
+              UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, request.getUnidentifiedAccessKey().toByteArray()))
+          .flatMap(targetAccount -> KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier, deviceId, keysManager))
+          .map(preKeys -> GetPreKeysAnonymousResponse.newBuilder().setPreKeys(preKeys).build())
+          .switchIfEmpty(Mono.fromSupplier(() -> GetPreKeysAnonymousResponse.newBuilder()
+              .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+              .build()));
 
-      case UNIDENTIFIED_ACCESS_KEY ->
-          lookUpAccount(serviceIdentifier, Status.UNAUTHENTICATED)
-              .flatMap(targetAccount ->
-                  UnidentifiedAccessUtil.checkUnidentifiedAccess(targetAccount, request.getUnidentifiedAccessKey().toByteArray())
-                  ? KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier, deviceId, keysManager)
-                  : Mono.error(Status.UNAUTHENTICATED.asException()));
-
-      default -> Mono.error(Status.INVALID_ARGUMENT.asException());
+      default -> Mono.error(GrpcExceptions.fieldViolation("authorization", "invalid authorization type"));
     };
   }
 
@@ -92,10 +111,9 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
         );
   }
 
-  private Mono<Account> lookUpAccount(final ServiceIdentifier serviceIdentifier, final Status onNotFound) {
+  private Mono<Account> lookUpAccount(final ServiceIdentifier serviceIdentifier) {
     return Mono.fromFuture(() -> accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
-      .flatMap(Mono::justOrEmpty)
-      .switchIfEmpty(Mono.error(onNotFound.asException()));
+        .flatMap(Mono::justOrEmpty);
   }
 
   private static boolean fingerprintMatches(final IdentityKey identityKey, final byte[] fingerprint) {
