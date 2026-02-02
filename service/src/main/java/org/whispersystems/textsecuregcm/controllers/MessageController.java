@@ -159,6 +159,9 @@ public class MessageController {
   private static final String INCORRECT_SYNC_MESSAGE_REGISTRATION_IDS_COUNTER_NAME =
       MetricsUtil.name(MessageController.class, "incorrectSyncMessageRegistrationIds");
 
+  private static final String LEGACY_COMBINED_UAK_COUNTER_NAME =
+      MetricsUtil.name(MessageController.class, "legacyCombinedUak");
+
   // The Signal desktop client (really, JavaScript in general) can handle message timestamps at most 100,000,000 days
   // past the epoch; please see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
   // for additional details.
@@ -584,6 +587,8 @@ public class MessageController {
       // Group send endorsements are checked before we even attempt to resolve any accounts, since
       // the lists of service IDs in the envelope are all that we need to check against
       checkGroupSendToken(multiRecipientMessage.getRecipients().keySet(), groupSendTokenHeader);
+    } else {
+      Metrics.counter(LEGACY_COMBINED_UAK_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(context))).increment();
     }
 
     // At this point, the caller has at least superficially provided the information needed to send a multi-recipient
