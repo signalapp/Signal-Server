@@ -9,6 +9,8 @@ import io.micrometer.core.instrument.Tag;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.WhisperServerVersion;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -30,6 +32,10 @@ public class UserAgentTagUtil {
       String.format("Signal-Server/%s (%s)", WhisperServerVersion.getServerVersion(), UUID.randomUUID());
 
   private UserAgentTagUtil() {
+  }
+
+  public static Tag getPlatformTag(final ContainerRequestContext containerRequestContext) {
+    return getPlatformTag(containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT));
   }
 
   public static Tag getPlatformTag(final String userAgentString) {
