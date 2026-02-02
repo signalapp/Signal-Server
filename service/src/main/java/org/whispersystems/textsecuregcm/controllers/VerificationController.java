@@ -56,13 +56,11 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
@@ -95,7 +93,6 @@ import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker.VerificationCheck;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
@@ -240,7 +237,8 @@ public class VerificationController {
       throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, e);
     }
 
-    VerificationSession verificationSession = new VerificationSession(null,
+    VerificationSession verificationSession = new VerificationSession(registrationServiceSession.encodedSessionId(),
+        null,
         maybeCarrierData.orElse(null),
         new ArrayList<>(),
         Collections.emptyList(),
@@ -365,7 +363,8 @@ public class VerificationController {
         requestedInformation.add(VerificationSession.Information.PUSH_CHALLENGE);
         requestedInformation.addAll(verificationSession.requestedInformation());
 
-        verificationSession = new VerificationSession(generatePushChallenge(),
+        verificationSession = new VerificationSession(verificationSession.sessionId(),
+            generatePushChallenge(),
             verificationSession.carrierData(),
             requestedInformation,
             verificationSession.submittedInformation(),
@@ -439,7 +438,8 @@ public class VerificationController {
           || requestedInformation.remove(VerificationSession.Information.PUSH_CHALLENGE))
           && requestedInformation.isEmpty();
 
-      verificationSession = new VerificationSession(verificationSession.pushChallenge(),
+      verificationSession = new VerificationSession(verificationSession.sessionId(),
+          verificationSession.pushChallenge(),
           verificationSession.carrierData(),
           requestedInformation,
           submittedInformation,
@@ -512,7 +512,8 @@ public class VerificationController {
           || requestedInformation.remove(VerificationSession.Information.CAPTCHA))
           && requestedInformation.isEmpty();
 
-      verificationSession = new VerificationSession(verificationSession.pushChallenge(),
+      verificationSession = new VerificationSession(verificationSession.sessionId(),
+          verificationSession.pushChallenge(),
           verificationSession.carrierData(),
           requestedInformation,
           submittedInformation,
@@ -874,7 +875,7 @@ public class VerificationController {
   }
 
   /**
-   * @throws NotFoundException if the session is has no record
+   * @throws NotFoundException if the session has no record
    */
   private VerificationSession retrieveVerificationSession(final RegistrationServiceSession registrationServiceSession) {
 

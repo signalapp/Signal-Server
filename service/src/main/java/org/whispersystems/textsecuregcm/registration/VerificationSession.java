@@ -36,6 +36,7 @@ import org.whispersystems.textsecuregcm.telephony.CarrierData;
  * @see org.whispersystems.textsecuregcm.entities.VerificationSessionResponse
  */
 public record VerificationSession(
+    @Nullable String sessionId,
     @Nullable String pushChallenge,
     @Nullable CarrierData carrierData,
     List<Information> requestedInformation,
