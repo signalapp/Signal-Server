@@ -18,6 +18,7 @@ import org.whispersystems.textsecuregcm.telephony.CarrierData;
  * requesting codes from Registration Service, in order to get a verified session to be provided to
  * {@link org.whispersystems.textsecuregcm.controllers.RegistrationController}.
  *
+ * @param sessionId               the session ID returned by Registration Service
  * @param pushChallenge           the value of a push challenge sent to a client, after it submitted a push token
  * @param carrierData             information about the phone number's carrier if available
  * @param requestedInformation    information requested that a client send to the server
@@ -36,7 +37,7 @@ import org.whispersystems.textsecuregcm.telephony.CarrierData;
  * @see org.whispersystems.textsecuregcm.entities.VerificationSessionResponse
  */
 public record VerificationSession(
-    @Nullable String sessionId,
+    String sessionId,
     @Nullable String pushChallenge,
     @Nullable CarrierData carrierData,
     List<Information> requestedInformation,

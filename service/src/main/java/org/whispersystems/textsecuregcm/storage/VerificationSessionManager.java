@@ -17,12 +17,12 @@ public class VerificationSessionManager {
     this.verificationSessions = verificationSessions;
   }
 
-  public CompletableFuture<Void> insert(final String encodedSessionId, final VerificationSession verificationSession) {
-    return verificationSessions.insert(encodedSessionId, verificationSession);
+  public CompletableFuture<Void> insert(final VerificationSession verificationSession) {
+    return verificationSessions.insert(verificationSession.sessionId(), verificationSession);
   }
 
-  public CompletableFuture<Void> update(final String encodedSessionId, final VerificationSession verificationSession) {
-    return verificationSessions.update(encodedSessionId, verificationSession);
+  public CompletableFuture<Void> update(final VerificationSession verificationSession) {
+    return verificationSessions.update(verificationSession.sessionId(), verificationSession);
   }
 
   public CompletableFuture<Optional<VerificationSession>> findForId(final String encodedSessionId) {

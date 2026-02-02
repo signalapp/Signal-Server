@@ -254,7 +254,7 @@ public class VerificationController {
     // if a push challenge sent in `handlePushToken` doesn't arrive in time
     verificationSession.requestedInformation().add(VerificationSession.Information.CAPTCHA);
 
-    storeVerificationSession(registrationServiceSession, verificationSession);
+    storeVerificationSession(verificationSession);
 
     return buildResponse(registrationServiceSession, verificationSession);
   }
@@ -327,22 +327,20 @@ public class VerificationController {
     } finally {
       // Each of the handle* methods may update requestedInformation, submittedInformation, and allowedToRequestCode,
       // and we want to be sure to store a changes, even if a later method throws
-      updateStoredVerificationSession(registrationServiceSession, verificationSession);
+      updateStoredVerificationSession(verificationSession);
     }
 
     return buildResponse(registrationServiceSession, verificationSession);
   }
 
-  private void storeVerificationSession(final RegistrationServiceSession registrationServiceSession,
-      final VerificationSession verificationSession) {
-    verificationSessionManager.insert(registrationServiceSession.encodedSessionId(), verificationSession)
+  private void storeVerificationSession(final VerificationSession verificationSession) {
+    verificationSessionManager.insert(verificationSession)
         .orTimeout(DYNAMODB_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
         .join();
   }
 
-  private void updateStoredVerificationSession(final RegistrationServiceSession registrationServiceSession,
-      final VerificationSession verificationSession) {
-    verificationSessionManager.update(registrationServiceSession.encodedSessionId(), verificationSession)
+  private void updateStoredVerificationSession(final VerificationSession verificationSession) {
+    verificationSessionManager.update(verificationSession)
         .orTimeout(DYNAMODB_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
         .join();
   }
