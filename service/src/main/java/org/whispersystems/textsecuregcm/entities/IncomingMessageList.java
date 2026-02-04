@@ -49,6 +49,9 @@ public record IncomingMessageList(@NotNull
   @AssertTrue
   @Schema(hidden = true)
   public boolean isNotDuplicateRecipients() {
+    if (messages == null) {
+      return false;
+    }
     final boolean valid = messages.stream()
         .filter(Objects::nonNull)
         .map(IncomingMessage::destinationDeviceId).distinct().count() == messages.size();
