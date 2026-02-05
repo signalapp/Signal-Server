@@ -431,7 +431,7 @@
     <dependency>
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>geocoder</artifactId>
-      <version>3.14</version>
+      <version>3.23</version>
     </dependency>
 
     <dependency>
