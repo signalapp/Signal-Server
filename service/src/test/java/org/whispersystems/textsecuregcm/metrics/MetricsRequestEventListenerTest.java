@@ -74,6 +74,7 @@ class MetricsRequestEventListenerTest {
   private MetricsRequestEventListener listener;
 
   private static final TrafficSource TRAFFIC_SOURCE = TrafficSource.HTTP;
+  private static final int LISTEN_PORT = 1234;
 
   @BeforeEach
   void setup() {
@@ -167,7 +168,7 @@ class MetricsRequestEventListenerTest {
     final ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, TestPrincipal.authenticatedTestPrincipal("foo"),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, LISTEN_PORT, applicationHandler, requestLog, TestPrincipal.authenticatedTestPrincipal("foo"),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
@@ -210,12 +211,13 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(7, tags.size());
+    assertEquals(8, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, "true")));
+    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.LISTEN_PORT_TAG, Integer.toString(LISTEN_PORT))));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
   }
@@ -235,7 +237,7 @@ class MetricsRequestEventListenerTest {
     final ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, TestPrincipal.authenticatedTestPrincipal("foo"),
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, LISTEN_PORT, applicationHandler, requestLog, TestPrincipal.authenticatedTestPrincipal("foo"),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
@@ -276,12 +278,13 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(7, tags.size());
+    assertEquals(8, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, "true")));
+    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.LISTEN_PORT_TAG, Integer.toString(LISTEN_PORT))));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
   }
@@ -304,7 +307,7 @@ class MetricsRequestEventListenerTest {
     final WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     final Optional<TestPrincipal> maybePrincipal = authenticated ? TestPrincipal.authenticatedTestPrincipal("foo") : Optional.empty();
     final WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog, maybePrincipal,
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, LISTEN_PORT, applicationHandler, requestLog, maybePrincipal,
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     final Session session = mock(Session.class);
@@ -345,12 +348,13 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(7, tags.size());
+    assertEquals(8, tags.size());
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
     assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, String.valueOf(authenticated))));
+    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.LISTEN_PORT_TAG, Integer.toString(LISTEN_PORT))));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")));
     assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
   }

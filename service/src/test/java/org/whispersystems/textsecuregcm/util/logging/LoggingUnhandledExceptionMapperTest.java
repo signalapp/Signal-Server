@@ -175,7 +175,7 @@ class LoggingUnhandledExceptionMapperTest {
     ApplicationHandler applicationHandler = new ApplicationHandler(resourceConfig);
     WebsocketRequestLog requestLog = mock(WebsocketRequestLog.class);
     WebSocketResourceProvider<TestPrincipal> provider = new WebSocketResourceProvider<>("127.0.0.1",
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, applicationHandler, requestLog,
+        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME, 1234, applicationHandler, requestLog,
         TestPrincipal.authenticatedTestPrincipal("foo"),
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 

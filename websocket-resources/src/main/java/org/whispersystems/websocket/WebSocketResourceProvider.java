@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
@@ -66,6 +67,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
   private final Duration idleTimeout;
   private final String remoteAddress;
   private final String remoteAddressPropertyName;
+  private final int localPort;
 
   private Session session;
   private RemoteEndpoint remoteEndpoint;
@@ -75,6 +77,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
 
   public WebSocketResourceProvider(String remoteAddress,
       String remoteAddressPropertyName,
+      int localPort,
       ApplicationHandler jerseyHandler,
       WebsocketRequestLog requestLog,
       Optional<T> authenticated,
@@ -83,6 +86,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       Duration idleTimeout) {
     this.remoteAddress = remoteAddress;
     this.remoteAddressPropertyName = remoteAddressPropertyName;
+    this.localPort = localPort;
     this.jerseyHandler = jerseyHandler;
     this.requestLog = requestLog;
     this.reusableAuth = authenticated;
@@ -178,6 +182,11 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
    */
   public static final String RESPONSE_LENGTH_PROPERTY = WebSocketResourceProvider.class.getName() + ".responseBytes";
 
+  /**
+   * The property name where the listening port number is stored for metrics collection.
+   */
+  public static final String LISTEN_PORT_PROPERTY = WebSocketResourceProvider.class.getName() + ".listenPort";
+
   private void handleRequest(WebSocketRequestMessage requestMessage) {
     ContainerRequest containerRequest = new ContainerRequest(null, URI.create(requestMessage.getPath()),
         requestMessage.getVerb(), new WebSocketSecurityContext(new ContextPrincipal(context)),
@@ -190,9 +199,11 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
       containerRequest.setEntityStream(new ByteArrayInputStream(requestMessage.getBody().get()));
     }
 
+
     containerRequest.setProperty(remoteAddressPropertyName, remoteAddress);
     containerRequest.setProperty(REUSABLE_AUTH_PROPERTY, reusableAuth);
     containerRequest.setProperty(REQUEST_LENGTH_PROPERTY, requestBytes);
+    containerRequest.setProperty(LISTEN_PORT_PROPERTY, this.localPort);
 
     ByteArrayOutputStream responseBody = new ByteArrayOutputStream();
     CompletableFuture<ContainerResponse> responseFuture = (CompletableFuture<ContainerResponse>) jerseyHandler.apply(

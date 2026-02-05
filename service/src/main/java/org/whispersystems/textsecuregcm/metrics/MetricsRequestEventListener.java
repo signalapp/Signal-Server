@@ -57,6 +57,9 @@ public class MetricsRequestEventListener implements RequestEventListener {
   @VisibleForTesting
   static final String AUTHENTICATED_TAG = "authenticated";
 
+  @VisibleForTesting
+  static final String LISTEN_PORT_TAG = "listenPort";
+
   private final TrafficSource trafficSource;
   private final MeterRegistry meterRegistry;
 
@@ -82,7 +85,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
   public void onEvent(final RequestEvent event) {
     if (event.getType() == RequestEvent.Type.FINISHED) {
       if (!event.getUriInfo().getMatchedTemplates().isEmpty()) {
-        final List<Tag> tags = new ArrayList<>(5);
+        final List<Tag> tags = new ArrayList<>();
         tags.add(Tag.of(PATH_TAG, UriInfoUtil.getPathTemplate(event.getUriInfo())));
         tags.add(Tag.of(METHOD_TAG, event.getContainerRequest().getMethod()));
         tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(Optional
@@ -109,6 +112,11 @@ public class MetricsRequestEventListener implements RequestEventListener {
             UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager);
 
         maybeClientVersionTag.ifPresent(tags::add);
+
+        Optional.ofNullable(event.getContainerRequest().getProperty(WebSocketResourceProvider.LISTEN_PORT_PROPERTY))
+            .filter(Integer.class::isInstance)
+            .map(Integer.class::cast)
+            .ifPresent(port -> tags.add(Tag.of(LISTEN_PORT_TAG, Integer.toString(port))));
 
         meterRegistry.counter(REQUEST_COUNTER_NAME, tags).increment();
 

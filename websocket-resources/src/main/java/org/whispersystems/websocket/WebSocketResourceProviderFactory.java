@@ -71,8 +71,10 @@ public class WebSocketResourceProviderFactory<T extends Principal> extends Jetty
       Optional.ofNullable(environment.getAuthenticatedWebSocketUpgradeFilter())
           .ifPresent(filter -> filter.handleAuthentication(authenticated, request, response));
 
+
       return new WebSocketResourceProvider<>(getRemoteAddress(request),
           remoteAddressPropertyName,
+          request.getHttpServletRequest().getLocalPort(),
           this.jerseyApplicationHandler,
           this.environment.getRequestLog(),
           authenticated,
