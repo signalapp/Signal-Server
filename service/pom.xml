@@ -11,12 +11,18 @@
   <artifactId>service</artifactId>
 
   <properties>
+    <apollo-api-jvm.version>3.8.5</apollo-api-jvm.version>
+    <commons-compress.version>1.28.0</commons-compress.version>
+    <dynamodb-lock-client.version>1.4.0</dynamodb-lock-client.version>
     <firebase-admin.version>9.7.0</firebase-admin.version>
-    <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
+    <libphonenumber-geocoder.version>3.23</libphonenumber-geocoder.version>
     <google-androidpublisher.version>v3-rev20250904-2.0.0</google-androidpublisher.version>
+    <java-jwt.version>4.5.0</java-jwt.version>
+    <java-uuid-generator.version>5.2.0</java-uuid-generator.version>
+    <!-- *all* opentelemetry-logback-appender versions are "alpha" despite the advanced version number -->
+    <opentelemetry-logback-appender-1.0.version>2.22.0-alpha</opentelemetry-logback-appender-1.0.version>
     <storekit.version>4.0.0</storekit.version>
     <webauthn4j.version>0.30.2.RELEASE</webauthn4j.version>
-    <java-jwt.version>4.5.0</java-jwt.version>
   </properties>
 
   <dependencies>
@@ -204,8 +210,7 @@
     <dependency>
       <groupId>io.opentelemetry.instrumentation</groupId>
       <artifactId>opentelemetry-logback-appender-1.0</artifactId>
-      <!-- *all* opentelemetry-logback-appender versions are "alpha" despite the advanced version number -->
-      <version>2.22.0-alpha</version>
+      <version>${opentelemetry-logback-appender-1.0.version}</version>
       <exclusions>
         <!-- incubator packages aren't included in the opentelemetry BOM, and we don't use them -->
         <exclusion>
@@ -260,7 +265,7 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>1.28.0</version>
+      <version>${commons-compress.version}</version>
     </dependency>
 
     <dependency>
@@ -389,7 +394,7 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>dynamodb-lock-client</artifactId>
-      <version>1.4.0</version>
+      <version>${dynamodb-lock-client.version}</version>
     </dependency>
 
     <dependency>
@@ -431,7 +436,7 @@
     <dependency>
       <groupId>com.googlecode.libphonenumber</groupId>
       <artifactId>geocoder</artifactId>
-      <version>3.23</version>
+      <version>${libphonenumber-geocoder.version}</version>
     </dependency>
 
     <dependency>
@@ -536,7 +541,7 @@
     <dependency>
       <groupId>com.apollographql.apollo3</groupId>
       <artifactId>apollo-api-jvm</artifactId>
-      <version>3.8.5</version>
+      <version>${apollo-api-jvm.version}</version>
 
       <exclusions>
         <exclusion>
