@@ -68,8 +68,6 @@ service AccountsAnonymous {
   rpc LookupUsernameHash(LookupUsernameHashRequest) returns (LookupUsernameHashResponse) {}
 
   // Finds the encrypted username identified by a given username link handle.
-  // This method will return a `NOT_FOUND` status if no username was found for
-  // the given link handle.
   rpc LookupUsernameLink(LookupUsernameLinkRequest) returns (LookupUsernameLinkResponse) {}
 }
 
