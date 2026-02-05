@@ -91,33 +91,42 @@ class SchedulingUtilTest {
 
   @Test
   void zoneIdSelectionSingleOffset() {
-    final Account account = mock(Account.class);
     final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("DE");
-
-    when(account.getNumber())
-        .thenReturn(PhoneNumberUtil.getInstance().format(phoneNumber , PhoneNumberUtil.PhoneNumberFormat.E164));
+    final String e164 = PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
 
     final Instant now = Instant.now();
 
     assertEquals(
         ZoneId.of("Europe/Berlin").getRules().getOffset(now),
-        SchedulingUtil.getZoneId(account, TestClock.pinned(now)).orElseThrow().getRules().getOffset(now));
+        SchedulingUtil.getZoneId(e164, TestClock.pinned(now)).orElseThrow().getRules().getOffset(now));
   }
 
   @Test
   void zoneIdSelectionMultipleOffsets() {
-    final Account account = mock(Account.class);
-
     // A US VOIP number spans multiple time zones, we should pick a 'middle' one
     final Phonenumber.PhoneNumber phoneNumber =
         PhoneNumberUtil.getInstance().getExampleNumberForType("US", PhoneNumberUtil.PhoneNumberType.VOIP);
-    when(account.getNumber())
-        .thenReturn(PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164));
+    final String e164 = PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
 
     final Instant now = Instant.now();
 
     assertEquals(
         ZoneId.of("America/Chicago").getRules().getOffset(now),
-        SchedulingUtil.getZoneId(account, TestClock.pinned(now)).orElseThrow().getRules().getOffset(now));
+        SchedulingUtil.getZoneId(e164, TestClock.pinned(now)).orElseThrow().getRules().getOffset(now));
+  }
+
+  @Test
+  void zoneIdSelectionUnknownNumber() {
+    // An invalid number will fall back to a geographical lookup. Even if that is not technically correct for the number,
+    // it will give a time zone for the region, rather than an Optional.empty() result
+    final Phonenumber.PhoneNumber phoneNumber =
+        PhoneNumberUtil.getInstance().getInvalidExampleNumber("US");
+    final String e164 = PhoneNumberUtil.getInstance().format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final Instant now = Instant.now();
+
+    assertEquals(
+        ZoneId.of("America/New_York").getRules().getOffset(now),
+        SchedulingUtil.getZoneId(e164, TestClock.pinned(now)).orElseThrow().getRules().getOffset(now));
   }
 }

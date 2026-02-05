@@ -44,7 +44,7 @@ public class SchedulingUtil {
       final LocalTime preferredTime,
       final Clock clock) {
 
-    final ZonedDateTime candidateNotificationTime = getZoneId(account, clock)
+    final ZonedDateTime candidateNotificationTime = getZoneId(account.getNumber(), clock)
         .map(zoneId -> {
           Metrics.counter(PARSED_TIMEZONE_COUNTER_NAME, HAS_TIMEZONE_TAG_NAME, String.valueOf(true)).increment();
           return ZonedDateTime.now(clock.withZone(zoneId)).with(preferredTime);
@@ -64,15 +64,23 @@ public class SchedulingUtil {
   }
 
   @VisibleForTesting
-  static Optional<ZoneId> getZoneId(final Account account, final Clock clock) {
+  public static Optional<ZoneId> getZoneId(final String e164, final Clock clock) {
     try {
-      final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(account.getNumber(), null);
+      final Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(e164, null);
 
-      final List<String> timeZonesForNumber =
+      List<String> timeZonesForNumber =
           PhoneNumberToTimeZonesMapper.getInstance().getTimeZonesForNumber(phoneNumber);
 
-      if (timeZonesForNumber.equals(List.of(PhoneNumberToTimeZonesMapper.getUnknownTimeZone()))) {
-        return Optional.empty();
+      if (isUnknownTimeZone(timeZonesForNumber)) {
+        // The more general getTimeZonesForNumber has a guard on PhoneNumberType.UNKONWN, returning the “unknown”
+        // time zone for these numbers. In these cases, we'll first fall back to the geographical lookup, which looks up
+        // a result based on the country code and national significant number.
+        timeZonesForNumber  =
+            PhoneNumberToTimeZonesMapper.getInstance().getTimeZonesForGeographicalNumber(phoneNumber);
+
+        if (isUnknownTimeZone(timeZonesForNumber)) {
+          return Optional.empty();
+        }
       }
 
       final Instant now = clock.instant();
@@ -91,7 +99,7 @@ public class SchedulingUtil {
           .collect(Collectors.toMap(
               ZoneId::getRules,
               Function.identity(),
-              (v1, v2) -> v2));
+              (_, v2) -> v2));
 
       // Sort the ZoneRules by the offsets they produce
       final List<ZoneRules> zoneRulesSortedByOffset = byOffset.keySet()
@@ -104,5 +112,9 @@ public class SchedulingUtil {
     } catch (final NumberParseException e) {
       return Optional.empty();
     }
+  }
+
+  static boolean isUnknownTimeZone(final List<String> timeZonesForNumber) {
+    return timeZonesForNumber.equals(List.of(PhoneNumberToTimeZonesMapper.getUnknownTimeZone()));
   }
 }
