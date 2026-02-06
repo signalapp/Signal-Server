@@ -21,12 +21,14 @@ import com.braintree.graphql.client.type.PayPalBillingAgreementInput;
 import com.braintree.graphql.client.type.PayPalExperienceProfileInput;
 import com.braintree.graphql.client.type.PayPalIntent;
 import com.braintree.graphql.client.type.PayPalLandingPageType;
+import com.braintree.graphql.client.type.PayPalLineItemInput;
 import com.braintree.graphql.client.type.PayPalOneTimePaymentInput;
 import com.braintree.graphql.client.type.PayPalProductAttributesInput;
 import com.braintree.graphql.client.type.PayPalUserAction;
 import com.braintree.graphql.client.type.TokenizePayPalBillingAgreementInput;
 import com.braintree.graphql.client.type.TokenizePayPalOneTimePaymentInput;
 import com.braintree.graphql.client.type.TransactionInput;
+import com.braintree.graphql.client.type.TransactionLineItemType;
 import com.braintree.graphql.client.type.VaultPaymentMethodInput;
 import com.braintree.graphql.clientoperation.ChargePayPalOneTimePaymentMutation;
 import com.braintree.graphql.clientoperation.CreatePayPalBillingAgreementMutation;
@@ -77,10 +79,10 @@ class BraintreeGraphqlClient {
 
   CompletableFuture<CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment> createPayPalOneTimePayment(
       final BigDecimal amount, final String currency, final String returnUrl,
-      final String cancelUrl, final String locale) {
+      final String cancelUrl, final String locale, final String localizedLineItemName) {
 
     final CreatePayPalOneTimePaymentInput input = buildCreatePayPalOneTimePaymentInput(amount, currency, returnUrl,
-        cancelUrl, locale);
+        cancelUrl, locale, localizedLineItemName);
     final CreatePayPalOneTimePaymentMutation mutation = new CreatePayPalOneTimePaymentMutation(input);
     final HttpRequest request = buildRequest(mutation);
 
@@ -104,7 +106,12 @@ class BraintreeGraphqlClient {
   }
 
   private static CreatePayPalOneTimePaymentInput buildCreatePayPalOneTimePaymentInput(BigDecimal amount,
-      String currency, String returnUrl, String cancelUrl, String locale) {
+      String currency, String returnUrl, String cancelUrl, String locale, String localizedLineItemName) {
+
+    // Note locale and localizedLineItemName are a best-effort, and it's possible that they will not match.
+    // We could try to align with the locales PayPal documents <https://developer.paypal.com/reference/locale-codes/#supported-locale-codes>
+    // but that's a moving target, and we can hopefully have one of them be better for the user by selecting
+    // independently.
 
     return new CreatePayPalOneTimePaymentInput(
         Optional.absent(),
@@ -113,7 +120,17 @@ class BraintreeGraphqlClient {
         cancelUrl,
         Optional.absent(),
         PayPalIntent.SALE,
-        Optional.absent(),
+        Optional.present(List.of(
+            new PayPalLineItemInput(
+                localizedLineItemName,
+                1, // quantity, always 1
+                amount.toString(),
+                TransactionLineItemType.DEBIT,
+                Optional.absent(),
+                Optional.absent(),
+                0, // unitTaxAmount, always zero
+                Optional.absent()
+            ))),
         Optional.present(false), // offerPayLater,
         Optional.absent(),
         Optional.present(

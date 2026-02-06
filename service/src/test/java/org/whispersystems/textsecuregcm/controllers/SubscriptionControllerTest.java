@@ -94,6 +94,7 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
+import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
@@ -132,6 +133,8 @@ class SubscriptionControllerTest {
   private static final OneTimeDonationsManager ONE_TIME_DONATIONS_MANAGER = mock(OneTimeDonationsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
+  private static final PayPalDonationsTranslator PAYPAL_ONE_TIME_DONATION_LINE_ITEM_TRANSLATOR = mock(
+      PayPalDonationsTranslator.class);
   private static final DynamicConfigurationManager<DynamicConfiguration> DYNAMIC_CONFIGURATION_MANAGER = mock(DynamicConfigurationManager.class);
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK,
       SUBSCRIPTION_CONFIG, ONETIME_CONFIG,
@@ -139,7 +142,8 @@ class SubscriptionControllerTest {
           ZK_OPS, ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER,
       BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR, DYNAMIC_CONFIGURATION_MANAGER);
   private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK,
-      ONETIME_CONFIG, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
+      ONETIME_CONFIG, STRIPE_MANAGER, BRAINTREE_MANAGER, PAYPAL_ONE_TIME_DONATION_LINE_ITEM_TRANSLATOR,
+      ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -154,10 +158,12 @@ class SubscriptionControllerTest {
 
   @BeforeEach
   void setUp() {
-    reset(CLOCK, SUBSCRIPTIONS, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR);
+    reset(CLOCK, SUBSCRIPTIONS, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR,
+        PAYPAL_ONE_TIME_DONATION_LINE_ITEM_TRANSLATOR);
 
     when(STRIPE_MANAGER.getProvider()).thenReturn(PaymentProvider.STRIPE);
     when(BRAINTREE_MANAGER.getProvider()).thenReturn(PaymentProvider.BRAINTREE);
+    when(PAYPAL_ONE_TIME_DONATION_LINE_ITEM_TRANSLATOR.translate(any(), any())).thenReturn("Donation to Signal Technology Foundation");
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfiguration.getBackupConfiguration())
         .thenReturn(new DynamicBackupConfiguration(null, null, null, null, MAX_TOTAL_BACKUP_MEDIA_BYTES));
@@ -277,7 +283,7 @@ class SubscriptionControllerTest {
     final PayPalOneTimePaymentApprovalDetails payPalOneTimePaymentApprovalDetails = mock(PayPalOneTimePaymentApprovalDetails.class);
     when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
-    when(BRAINTREE_MANAGER.createOneTimePayment(anyString(), anyLong(), anyString(), anyString(), anyString()))
+    when(BRAINTREE_MANAGER.createOneTimePayment(anyString(), anyLong(), anyString(), anyString(), anyString(), anyString()))
         .thenReturn(CompletableFuture.completedFuture(payPalOneTimePaymentApprovalDetails));
     when(payPalOneTimePaymentApprovalDetails.approvalUrl()).thenReturn("approvalUrl");
     when(payPalOneTimePaymentApprovalDetails.paymentId()).thenReturn("someId");

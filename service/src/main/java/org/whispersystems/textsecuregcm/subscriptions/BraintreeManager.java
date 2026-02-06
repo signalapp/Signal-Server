@@ -149,10 +149,10 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
   }
 
   public CompletableFuture<PayPalOneTimePaymentApprovalDetails> createOneTimePayment(String currency, long amount,
-      String locale, String returnUrl, String cancelUrl) {
+      String locale, String returnUrl, String cancelUrl, String localizedLineItemname) {
     return braintreeGraphqlClient.createPayPalOneTimePayment(convertApiAmountToBraintreeAmount(currency, amount),
             currency.toUpperCase(Locale.ROOT), returnUrl,
-            cancelUrl, locale)
+            cancelUrl, locale, localizedLineItemname)
         .thenApply(result -> new PayPalOneTimePaymentApprovalDetails((String) result.approvalUrl, result.paymentId));
   }
 

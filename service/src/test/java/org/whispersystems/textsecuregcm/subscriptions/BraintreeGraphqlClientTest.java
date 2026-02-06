@@ -34,6 +34,7 @@ class BraintreeGraphqlClientTest {
   private static final String RETURN_URL = "https://example.com/return";
   private static final String CANCEL_URL = "https://example.com/cancel";
   private static final String LOCALE = "xx";
+  private static final String LOCALIZED_LINE_ITEM_NAME = "Donation to Signal Technology Foundation";
 
   private FaultTolerantHttpClient httpClient;
   private BraintreeGraphqlClient braintreeGraphqlClient;
@@ -61,7 +62,7 @@ class BraintreeGraphqlClientTest {
 
     final CompletableFuture<CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment> future = braintreeGraphqlClient.createPayPalOneTimePayment(
         BigDecimal.ONE, CURRENCY,
-        RETURN_URL, CANCEL_URL, LOCALE);
+        RETURN_URL, CANCEL_URL, LOCALE, LOCALIZED_LINE_ITEM_NAME);
 
     assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
       final CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment result = future.get();
@@ -87,7 +88,7 @@ class BraintreeGraphqlClientTest {
 
     final CompletableFuture<CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment> future = braintreeGraphqlClient.createPayPalOneTimePayment(
         BigDecimal.ONE, CURRENCY,
-        RETURN_URL, CANCEL_URL, LOCALE);
+        RETURN_URL, CANCEL_URL, LOCALE, LOCALIZED_LINE_ITEM_NAME);
 
     assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
 
@@ -111,7 +112,7 @@ class BraintreeGraphqlClientTest {
 
     final CompletableFuture<CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment> future = braintreeGraphqlClient.createPayPalOneTimePayment(
         BigDecimal.ONE, CURRENCY,
-        RETURN_URL, CANCEL_URL, LOCALE);
+        RETURN_URL, CANCEL_URL, LOCALE, LOCALIZED_LINE_ITEM_NAME);
 
     assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
 

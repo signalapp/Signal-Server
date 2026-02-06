@@ -36,6 +36,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -57,6 +58,7 @@ import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
+import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
@@ -90,6 +92,7 @@ public class OneTimeDonationController {
   private final OneTimeDonationConfiguration oneTimeDonationConfiguration;
   private final StripeManager stripeManager;
   private final BraintreeManager braintreeManager;
+  private final PayPalDonationsTranslator payPalDonationsTranslator;
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final IssuedReceiptsManager issuedReceiptsManager;
   private final OneTimeDonationsManager oneTimeDonationsManager;
@@ -99,6 +102,7 @@ public class OneTimeDonationController {
       @Nonnull OneTimeDonationConfiguration oneTimeDonationConfiguration,
       @Nonnull StripeManager stripeManager,
       @Nonnull BraintreeManager braintreeManager,
+      @Nonnull PayPalDonationsTranslator payPalDonationsTranslator,
       @Nonnull ServerZkReceiptOperations zkReceiptOperations,
       @Nonnull IssuedReceiptsManager issuedReceiptsManager,
       @Nonnull OneTimeDonationsManager oneTimeDonationsManager) {
@@ -106,6 +110,7 @@ public class OneTimeDonationController {
     this.oneTimeDonationConfiguration = Objects.requireNonNull(oneTimeDonationConfiguration);
     this.stripeManager = Objects.requireNonNull(stripeManager);
     this.braintreeManager = Objects.requireNonNull(braintreeManager);
+    this.payPalDonationsTranslator = Objects.requireNonNull(payPalDonationsTranslator);
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
     this.oneTimeDonationsManager = Objects.requireNonNull(oneTimeDonationsManager);
@@ -265,14 +270,23 @@ public class OneTimeDonationController {
           validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager);
         })
         .thenCompose(unused -> {
-          final Locale locale = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext).stream()
+          final List<Locale> acceptableLanguages =
+              HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
+
+          // These two localizations are a best-effort, and it's possible that the first `locale` and the localized line
+          // item name will not match. We could try to align with the locales PayPal documents <https://developer.paypal.com/reference/locale-codes/#supported-locale-codes>
+          // but that's a moving target, and we can hopefully have one of them be better for the user by selecting
+          // independently.
+          final Locale locale = acceptableLanguages.stream()
               .filter(l -> !"*".equals(l.getLanguage()))
               .findFirst()
               .orElse(Locale.US);
+          final String localizedLineItemName = payPalDonationsTranslator.translate(acceptableLanguages,
+              PayPalDonationsTranslator.ONE_TIME_DONATION_LINE_ITEM_KEY);
 
           return braintreeManager.createOneTimePayment(request.currency.toUpperCase(Locale.ROOT), request.amount,
               locale.toLanguageTag(),
-              request.returnUrl, request.cancelUrl);
+              request.returnUrl, request.cancelUrl, localizedLineItemName);
         })
         .thenApply(approvalDetails -> Response.ok(
             new CreatePayPalBoostResponse(approvalDetails.approvalUrl(), approvalDetails.paymentId())).build());

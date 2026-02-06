@@ -257,6 +257,7 @@ import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreClient;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
+import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
@@ -419,6 +420,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ConfiguredProfileBadgeConverter profileBadgeConverter = new ConfiguredProfileBadgeConverter(
         clock, config.getBadges(), headerControlledResourceBundleLookup);
     BankMandateTranslator bankMandateTranslator = new BankMandateTranslator(headerControlledResourceBundleLookup);
+    PayPalDonationsTranslator payPalDonationsTranslator =
+        new PayPalDonationsTranslator(headerControlledResourceBundleLookup);
 
     environment.lifecycle().manage(new ManagedAwsCrt());
 
@@ -1135,7 +1138,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
           subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
           profileBadgeConverter, bankMandateTranslator, dynamicConfigurationManager));
       commonControllers.add(new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
-          zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager));
+          payPalDonationsTranslator, zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager));
     }
 
     for (Object controller : commonControllers) {
