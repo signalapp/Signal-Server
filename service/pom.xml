@@ -833,7 +833,7 @@
       <plugin>
         <groupId>com.github.aoudiamoncef</groupId>
         <artifactId>apollo-client-maven-plugin</artifactId>
-        <version>5.0.0</version>
+        <version>7.1.0</version>
         <executions>
           <execution>
             <goals>
@@ -846,6 +846,8 @@
                     <name>braintree</name>
                     <compilerParams>
                       <schemaPackageName>com.braintree.graphql.client</schemaPackageName>
+                      <!-- override the default in 7.1.0, see https://github.com/aoudiamoncef/apollo-client-maven-plugin/issues/84 -->
+                      <operationManifestFormat>none</operationManifestFormat>
                     </compilerParams>
                   </compilationUnit>
                 </braintree>
