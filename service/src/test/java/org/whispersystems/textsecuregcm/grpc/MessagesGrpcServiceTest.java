@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -17,6 +18,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import io.grpc.Status;
 import java.time.Duration;
 import java.time.Instant;
@@ -185,7 +187,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       final SendMessageResponse response = authenticatedServiceStub().sendMessage(
           generateRequest(serviceIdentifier, messageType, ephemeral, urgent, messages));
 
-      assertEquals(SendMessageResponse.newBuilder().build(), response);
+      assertEquals(SendMessageResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build(), response);
 
       final MessageProtos.Envelope.Type expectedEnvelopeType = switch (messageType) {
         case DOUBLE_RATCHET -> MessageProtos.Envelope.Type.CIPHERTEXT;
@@ -268,10 +270,9 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
               .build());
 
-      //noinspection ResultOfMethodCallIgnored
-      GrpcTestUtils.assertStatusException(Status.NOT_FOUND,
-          () -> authenticatedServiceStub().sendMessage(
-              generateRequest(serviceIdentifier, AuthenticatedSenderMessageType.DOUBLE_RATCHET, false, true, messages)));
+      final SendMessageResponse response = authenticatedServiceStub().sendMessage(
+          generateRequest(serviceIdentifier, AuthenticatedSenderMessageType.DOUBLE_RATCHET, false, true, messages));
+      assertTrue(response.hasDestinationNotFound());
 
       verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
@@ -357,7 +358,9 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .build());
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withStatus(Status.RESOURCE_EXHAUSTED)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(
+              Optional.of(GrpcResponse.withStatusException(Status.RESOURCE_EXHAUSTED.asRuntimeException())),
+              Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
@@ -466,7 +469,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       final SendMessageResponse response =
           authenticatedServiceStub().sendSyncMessage(generateRequest(messageType, urgent, messages));
 
-      assertEquals(SendMessageResponse.newBuilder().build(), response);
+      assertEquals(SendMessageResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build(), response);
 
       final MessageProtos.Envelope.Type expectedEnvelopeType = switch (messageType) {
         case DOUBLE_RATCHET -> MessageProtos.Envelope.Type.CIPHERTEXT;

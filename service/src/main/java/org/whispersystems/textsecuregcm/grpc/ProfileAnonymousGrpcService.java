@@ -57,8 +57,9 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
 
     final Account account = switch (request.getAuthenticationCase()) {
       case GROUP_SEND_TOKEN -> {
-        groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), targetIdentifier);
-
+        if (!groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), targetIdentifier)) {
+          throw Status.UNAUTHENTICATED.asException();
+        }
         yield accountsManager.getByServiceIdentifier(targetIdentifier)
             .orElseThrow(Status.NOT_FOUND::asException);
       }

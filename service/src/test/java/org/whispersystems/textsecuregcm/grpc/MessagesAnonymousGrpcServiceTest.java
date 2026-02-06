@@ -12,7 +12,6 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -20,8 +19,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import io.grpc.Status;
-import io.grpc.StatusException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -38,12 +37,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
+import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.messages.ChallengeRequired;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
 import org.signal.chat.messages.MessagesAnonymousGrpc;
 import org.signal.chat.messages.MismatchedDevices;
 import org.signal.chat.messages.MultiRecipientMessage;
 import org.signal.chat.messages.MultiRecipientMismatchedDevices;
+import org.signal.chat.messages.MultiRecipientSuccess;
 import org.signal.chat.messages.SendMessageResponse;
 import org.signal.chat.messages.SendMultiRecipientMessageRequest;
 import org.signal.chat.messages.SendMultiRecipientMessageResponse;
@@ -57,6 +58,7 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -119,7 +121,7 @@ class MessagesAnonymousGrpcServiceTest extends
   }
 
   @BeforeEach
-  void setUp() throws StatusException {
+  void setUp() {
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.empty());
     when(accountsManager.getByServiceIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -127,17 +129,15 @@ class MessagesAnonymousGrpcServiceTest extends
     when(rateLimiters.getInboundMessageBytes()).thenReturn(rateLimiter);
     when(rateLimiters.getStoriesLimiter()).thenReturn(rateLimiter);
 
-    doThrow(Status.UNAUTHENTICATED.asException()).when(groupSendTokenUtil)
-        .checkGroupSendToken(any(), any(ServiceIdentifier.class));
+    when(groupSendTokenUtil.checkGroupSendToken(any(), any(ServiceIdentifier.class))).thenReturn(false);
 
-    doThrow(Status.UNAUTHENTICATED.asException()).when(groupSendTokenUtil)
-        .checkGroupSendToken(any(), anyCollection());
+    when(groupSendTokenUtil.checkGroupSendToken(any(), anyCollection())).thenReturn(false);
 
-    doAnswer(invocation -> null).when(groupSendTokenUtil)
-        .checkGroupSendToken(eq(ByteString.copyFrom(GROUP_SEND_TOKEN)), any(ServiceIdentifier.class));
+    when(groupSendTokenUtil.checkGroupSendToken(eq(ByteString.copyFrom(GROUP_SEND_TOKEN)), any(ServiceIdentifier.class)))
+        .thenReturn(true);
 
-    doAnswer(invocation -> null).when(groupSendTokenUtil)
-        .checkGroupSendToken(eq(ByteString.copyFrom(GROUP_SEND_TOKEN)), anyCollection());
+    when(groupSendTokenUtil.checkGroupSendToken(eq(ByteString.copyFrom(GROUP_SEND_TOKEN)), anyCollection()))
+        .thenReturn(true);
 
     when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
         .thenReturn(new SpamCheckResult<>(Optional.empty(), Optional.empty()));
@@ -189,7 +189,7 @@ class MessagesAnonymousGrpcServiceTest extends
               useUak ? UNIDENTIFIED_ACCESS_KEY : null,
               useUak ? null : GROUP_SEND_TOKEN));
 
-      assertEquals(SendMessageResponse.newBuilder().build(), response);
+      assertEquals(SendMessageResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build(), response);
 
       final MessageProtos.Envelope.Builder expectedEnvelopeBuilder = MessageProtos.Envelope.newBuilder()
           .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
@@ -282,9 +282,11 @@ class MessagesAnonymousGrpcServiceTest extends
       final byte[] incorrectGroupSendToken = GROUP_SEND_TOKEN.clone();
       incorrectGroupSendToken[0] += 1;
 
-      //noinspection ResultOfMethodCallIgnored
-      GrpcTestUtils.assertStatusException(Status.UNAUTHENTICATED,
-          () -> unauthenticatedServiceStub().sendSingleRecipientMessage(
+      assertEquals(
+          SendMessageResponse.newBuilder()
+              .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+              .build(),
+          unauthenticatedServiceStub().sendSingleRecipientMessage(
               generateRequest(serviceIdentifier, false, true, messages,
                   useUak ? incorrectUnidentifiedAccessKey : null,
                   useUak ? null : incorrectGroupSendToken)));
@@ -302,12 +304,43 @@ class MessagesAnonymousGrpcServiceTest extends
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
               .build());
 
-      //noinspection ResultOfMethodCallIgnored
-      GrpcTestUtils.assertStatusException(Status.UNAUTHENTICATED,
-          () -> unauthenticatedServiceStub().sendSingleRecipientMessage(
-              generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null)));
+      final SendMessageResponse response = unauthenticatedServiceStub().sendSingleRecipientMessage(
+          generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null));
+      assertEquals(
+          SendMessageResponse.newBuilder()
+              .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+              .build(),
+          response);
 
       verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void pniIdentifierWithUak() throws MessageTooLargeException, MismatchedDevicesException {
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+      when(destinationAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+
+      final PniServiceIdentifier pniIdentifier = new PniServiceIdentifier(UUID.randomUUID());
+      when(accountsManager.getByServiceIdentifier(pniIdentifier)).thenReturn(Optional.of(destinationAccount));
+
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
+          Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(registrationId)
+              .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .build());
+
+      final SendSealedSenderMessageRequest request =
+          generateRequest(pniIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null);
+
+      GrpcTestUtils.assertStatusException(
+          Status.INVALID_ARGUMENT,
+          () -> unauthenticatedServiceStub().sendSingleRecipientMessage(request));
     }
 
     @Test
@@ -393,7 +426,9 @@ class MessagesAnonymousGrpcServiceTest extends
               .build());
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withStatus(Status.RESOURCE_EXHAUSTED)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(
+              Optional.of(GrpcResponse.withStatusException(Status.RESOURCE_EXHAUSTED.asRuntimeException())),
+              Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
@@ -510,6 +545,10 @@ class MessagesAnonymousGrpcServiceTest extends
       final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(
           resolvedRecipient, unresolvedRecipient));
 
+      when(messageSender
+          .sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+          .thenReturn(CompletableFuture.completedFuture(null));
+
       final SendMultiRecipientMessageRequest request = SendMultiRecipientMessageRequest.newBuilder()
           .setGroupSendToken(ByteString.copyFrom(GROUP_SEND_TOKEN))
           .setMessage(MultiRecipientMessage.newBuilder()
@@ -524,7 +563,9 @@ class MessagesAnonymousGrpcServiceTest extends
           unauthenticatedServiceStub().sendMultiRecipientMessage(request);
 
       final SendMultiRecipientMessageResponse expectedResponse = SendMultiRecipientMessageResponse.newBuilder()
-          .addUnresolvedRecipients(ServiceIdentifierUtil.toGrpcServiceIdentifier(unresolvedServiceIdentifier))
+          .setSuccess(MultiRecipientSuccess.newBuilder()
+              .addUnresolvedRecipients(ServiceIdentifierUtil.toGrpcServiceIdentifier(unresolvedServiceIdentifier))
+              .build())
           .build();
 
       assertEquals(expectedResponse, response);
@@ -608,8 +649,10 @@ class MessagesAnonymousGrpcServiceTest extends
       final byte[] incorrectGroupSendToken = GROUP_SEND_TOKEN.clone();
       incorrectGroupSendToken[0] += 1;
 
-      //noinspection ResultOfMethodCallIgnored
-      GrpcTestUtils.assertStatusException(Status.UNAUTHENTICATED, () ->
+      assertEquals(
+          SendMultiRecipientMessageResponse.newBuilder()
+              .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+              .build(),
           unauthenticatedServiceStub().sendMultiRecipientMessage(SendMultiRecipientMessageRequest.newBuilder()
               .setGroupSendToken(ByteString.copyFrom(incorrectGroupSendToken))
               .setMessage(MultiRecipientMessage.newBuilder()
@@ -621,7 +664,7 @@ class MessagesAnonymousGrpcServiceTest extends
               .build()));
 
       //noinspection ResultOfMethodCallIgnored
-      GrpcTestUtils.assertStatusException(Status.UNAUTHENTICATED, () ->
+      GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, () ->
           unauthenticatedServiceStub().sendMultiRecipientMessage(SendMultiRecipientMessageRequest.newBuilder()
               .setMessage(MultiRecipientMessage.newBuilder()
                   .setTimestamp(CLOCK.millis())
@@ -749,7 +792,9 @@ class MessagesAnonymousGrpcServiceTest extends
           .build();
 
       when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withStatus(Status.RESOURCE_EXHAUSTED)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(
+              Optional.of(GrpcResponse.withStatusException(Status.RESOURCE_EXHAUSTED.asRuntimeException())),
+              Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
@@ -847,7 +892,7 @@ class MessagesAnonymousGrpcServiceTest extends
       final SendMessageResponse response =
           unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, urgent, messages));
 
-      assertEquals(SendMessageResponse.newBuilder().build(), response);
+      assertEquals(SendMessageResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build(), response);
 
       final MessageProtos.Envelope.Builder expectedEnvelopeBuilder = MessageProtos.Envelope.newBuilder()
           .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
@@ -924,7 +969,7 @@ class MessagesAnonymousGrpcServiceTest extends
       final SendMessageResponse response = unauthenticatedServiceStub().sendStory(
           generateRequest(new AciServiceIdentifier(UUID.randomUUID()), true, messages));
 
-      assertEquals(SendMessageResponse.newBuilder().build(), response);
+      assertEquals(SendMessageResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build(), response);
 
       verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
     }
@@ -1006,7 +1051,9 @@ class MessagesAnonymousGrpcServiceTest extends
               .build());
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withStatus(Status.RESOURCE_EXHAUSTED)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(
+              Optional.of(GrpcResponse.withStatusException(Status.RESOURCE_EXHAUSTED.asRuntimeException())),
+              Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
@@ -1106,6 +1153,10 @@ class MessagesAnonymousGrpcServiceTest extends
       final byte[] payload = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(
           resolvedRecipient, unresolvedRecipient));
 
+      when(messageSender
+          .sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+          .thenReturn(CompletableFuture.completedFuture(null));
+
       final SendMultiRecipientStoryRequest request = SendMultiRecipientStoryRequest.newBuilder()
           .setMessage(MultiRecipientMessage.newBuilder()
               .setTimestamp(CLOCK.millis())
@@ -1114,7 +1165,10 @@ class MessagesAnonymousGrpcServiceTest extends
           .setUrgent(urgent)
           .build();
 
-      assertEquals(SendMultiRecipientMessageResponse.newBuilder().build(),
+      assertEquals(
+          SendMultiRecipientMessageResponse.newBuilder()
+              .setSuccess(MultiRecipientSuccess.getDefaultInstance())
+              .build(),
           unauthenticatedServiceStub().sendMultiRecipientStory(request));
 
       verify(messageSender).sendMultiRecipientMessage(any(),
@@ -1280,7 +1334,9 @@ class MessagesAnonymousGrpcServiceTest extends
           .build();
 
       when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withStatus(Status.RESOURCE_EXHAUSTED)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(Optional.of(
+              GrpcResponse.withStatusException(Status.RESOURCE_EXHAUSTED.asRuntimeException())),
+              Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
       GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,

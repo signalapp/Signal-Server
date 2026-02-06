@@ -159,7 +159,7 @@ message GetPreKeysAnonymousResponse {
     // ID (if specified) was found on the target account.
     errors.NotFound target_not_found = 2;
 
-    // The provided anonymous authorization credential was invalid
+    // The provided unidentified authorization credential was invalid
     errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3;
   }
 }

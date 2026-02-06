@@ -6,12 +6,11 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
-import io.grpc.Status;
-import io.grpc.StatusException;
 import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.signal.chat.errors.NotFound;
 import org.signal.chat.messages.AuthenticatedSenderMessageType;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
 import org.signal.chat.messages.SendAuthenticatedSenderMessageRequest;
@@ -60,24 +59,25 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
 
   @Override
   public SendMessageResponse sendMessage(final SendAuthenticatedSenderMessageRequest request)
-      throws StatusException, RateLimitExceededException {
+      throws RateLimitExceededException {
 
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
     final AciServiceIdentifier senderServiceIdentifier = new AciServiceIdentifier(authenticatedDevice.accountIdentifier());
-    final Account sender =
-        accountsManager.getByServiceIdentifier(senderServiceIdentifier).orElseThrow(Status.UNAUTHENTICATED::asException);
+    final Account sender = accountsManager.getByServiceIdentifier(senderServiceIdentifier)
+        .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
     final ServiceIdentifier destinationServiceIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getDestination());
 
     if (sender.isIdentifiedBy(destinationServiceIdentifier)) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("Use `sendSyncMessage` to send messages to own account")
-          .asException();
+      throw GrpcExceptions.invalidArguments("use `sendSyncMessage` to send messages to own account");
     }
 
-    final Account destination = accountsManager.getByServiceIdentifier(destinationServiceIdentifier)
-        .orElseThrow(Status.NOT_FOUND::asException);
+    final Optional<Account> maybeDestination = accountsManager.getByServiceIdentifier(destinationServiceIdentifier);
+    if (maybeDestination.isEmpty()) {
+      return SendMessageResponse.newBuilder().setDestinationNotFound(NotFound.getDefaultInstance()).build();
+    }
+    final Account destination = maybeDestination.get();
 
     rateLimiters.getMessagesLimiter().validate(authenticatedDevice.accountIdentifier(), destination.getUuid());
 
@@ -93,12 +93,12 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
 
   @Override
   public SendMessageResponse sendSyncMessage(final SendSyncMessageRequest request)
-      throws StatusException, RateLimitExceededException {
+      throws RateLimitExceededException {
 
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
     final AciServiceIdentifier senderServiceIdentifier = new AciServiceIdentifier(authenticatedDevice.accountIdentifier());
-    final Account sender =
-        accountsManager.getByServiceIdentifier(senderServiceIdentifier).orElseThrow(Status.UNAUTHENTICATED::asException);
+    final Account sender = accountsManager.getByServiceIdentifier(senderServiceIdentifier)
+        .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
     return sendMessage(sender,
         senderServiceIdentifier,
@@ -117,7 +117,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
       final MessageType messageType,
       final IndividualRecipientMessageBundle messages,
       final boolean ephemeral,
-      final boolean urgent) throws StatusException, RateLimitExceededException {
+      final boolean urgent) throws RateLimitExceededException {
 
     try {
       final int totalPayloadLength = messages.getMessagesMap().values().stream()
@@ -182,7 +182,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
       case PREKEY_MESSAGE -> MessageProtos.Envelope.Type.PREKEY_BUNDLE;
       case PLAINTEXT_CONTENT -> MessageProtos.Envelope.Type.PLAINTEXT_CONTENT;
       case UNSPECIFIED, UNRECOGNIZED ->
-          throw Status.INVALID_ARGUMENT.withDescription("Unrecognized envelope type").asRuntimeException();
+          throw GrpcExceptions.invalidArguments("unrecognized envelope type");
     };
   }
 }

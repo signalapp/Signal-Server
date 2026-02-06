@@ -10,7 +10,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.Arrays;
-import java.util.List;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.keys.CheckIdentityKeyRequest;
@@ -19,11 +18,7 @@ import org.signal.chat.keys.GetPreKeysAnonymousRequest;
 import org.signal.chat.keys.GetPreKeysAnonymousResponse;
 import org.signal.chat.keys.ReactorKeysAnonymousGrpc;
 import org.signal.libsignal.protocol.IdentityKey;
-import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
-import org.signal.libsignal.zkgroup.VerificationFailedException;
-import org.signal.libsignal.zkgroup.groupsend.GroupSendDerivedKeyPair;
-import org.signal.libsignal.zkgroup.groupsend.GroupSendFullToken;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -37,15 +32,13 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
 
   private final AccountsManager accountsManager;
   private final KeysManager keysManager;
-  private final ServerSecretParams serverSecretParams;
-  private final Clock clock;
+  private final GroupSendTokenUtil groupSendTokenUtil;
 
   public KeysAnonymousGrpcService(
       final AccountsManager accountsManager, final KeysManager keysManager, final ServerSecretParams serverSecretParams, final Clock clock) {
     this.accountsManager = accountsManager;
     this.keysManager = keysManager;
-    this.serverSecretParams = serverSecretParams;
-    this.clock = clock;
+    groupSendTokenUtil = new GroupSendTokenUtil(serverSecretParams, clock);
   }
 
   @Override
@@ -59,25 +52,18 @@ public class KeysAnonymousGrpcService extends ReactorKeysAnonymousGrpc.KeysAnony
 
     return switch (request.getAuthorizationCase()) {
       case GROUP_SEND_TOKEN -> {
-        try {
-          final GroupSendFullToken token = new GroupSendFullToken(request.getGroupSendToken().toByteArray());
-          token.verify(List.of(serviceIdentifier.toLibsignal()), clock.instant(),
-              GroupSendDerivedKeyPair.forExpiration(token.getExpiration(), serverSecretParams));
-
-          yield lookUpAccount(serviceIdentifier)
-              .flatMap(targetAccount -> KeysGrpcHelper
-                  .getPreKeys(targetAccount, serviceIdentifier, deviceId, keysManager))
-              .map(preKeys -> GetPreKeysAnonymousResponse.newBuilder().setPreKeys(preKeys).build())
-              .switchIfEmpty(Mono.fromSupplier(() -> GetPreKeysAnonymousResponse.newBuilder()
-                  .setTargetNotFound(NotFound.getDefaultInstance())
-                  .build()));
-        } catch (InvalidInputException e) {
-          throw GrpcExceptions.fieldViolation("group_send_token", "malformed group send token");
-        } catch (VerificationFailedException e) {
+        if (!groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), serviceIdentifier)) {
           yield Mono.fromSupplier(() -> GetPreKeysAnonymousResponse.newBuilder()
               .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
               .build());
         }
+        yield lookUpAccount(serviceIdentifier)
+            .flatMap(targetAccount -> KeysGrpcHelper
+                .getPreKeys(targetAccount, serviceIdentifier, deviceId, keysManager))
+            .map(preKeys -> GetPreKeysAnonymousResponse.newBuilder().setPreKeys(preKeys).build())
+            .switchIfEmpty(Mono.fromSupplier(() -> GetPreKeysAnonymousResponse.newBuilder()
+                .setTargetNotFound(NotFound.getDefaultInstance())
+                .build()));
       }
       case UNIDENTIFIED_ACCESS_KEY -> lookUpAccount(serviceIdentifier)
           .filter(targetAccount ->

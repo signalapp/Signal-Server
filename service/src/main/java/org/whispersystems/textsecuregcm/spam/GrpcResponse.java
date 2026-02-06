@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.spam;
 
 import io.grpc.Status;
 import io.grpc.StatusException;
+import io.grpc.StatusRuntimeException;
 import javax.annotation.Nullable;
 import java.util.Optional;
 
@@ -18,14 +19,18 @@ import java.util.Optional;
  */
 public class GrpcResponse<R> {
 
-  private final Status status;
+  @Nullable
+  private final StatusRuntimeException statusException;
 
   @Nullable
   private final R response;
 
-  private GrpcResponse(final Status status, @Nullable final R response) {
-    this.status = status;
+  private GrpcResponse(final @Nullable StatusRuntimeException statusException, @Nullable final R response) {
+    this.statusException = statusException;
     this.response = response;
+    if (!((statusException == null) ^ (response == null))) {
+      throw new IllegalArgumentException("exactly one of statusException and response must be non-null");
+    }
   }
 
   /**
@@ -37,7 +42,7 @@ public class GrpcResponse<R> {
    *
    * @param <R> the type of response object
    */
-  public static <R> GrpcResponse<R> withStatus(final Status status) {
+  public static <R> GrpcResponse<R> withStatusException(final StatusRuntimeException status) {
     return new GrpcResponse<>(status, null);
   }
 
@@ -51,7 +56,7 @@ public class GrpcResponse<R> {
    * @param <R> the type of response object
    */
   public static <R> GrpcResponse<R> withResponse(final R response) {
-    return new GrpcResponse<>(Status.OK, response);
+    return new GrpcResponse<>(null, response);
   }
 
   /**
@@ -62,11 +67,10 @@ public class GrpcResponse<R> {
    *
    * @throws StatusException if no message body is specified
    */
-  public R getResponseOrThrowStatus() throws StatusException {
-    if (response != null) {
-      return response;
+  public R getResponseOrThrowStatus() throws StatusRuntimeException {
+    if (statusException != null) {
+      throw statusException;
     }
-
-    throw status.asException();
+    return response;
   }
 }

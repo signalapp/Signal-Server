@@ -6,14 +6,16 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
-import io.grpc.Status;
-import io.grpc.StatusException;
 import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import com.google.protobuf.Empty;
+import org.signal.chat.errors.FailedUnidentifiedAuthorization;
+import org.signal.chat.errors.NotFound;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
 import org.signal.chat.messages.MultiRecipientMismatchedDevices;
+import org.signal.chat.messages.MultiRecipientSuccess;
 import org.signal.chat.messages.SendMessageResponse;
 import org.signal.chat.messages.SendMultiRecipientMessageRequest;
 import org.signal.chat.messages.SendMultiRecipientMessageResponse;
@@ -52,7 +54,10 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
   private final SpamChecker spamChecker;
   private final Clock clock;
 
-  private static final SendMessageResponse SEND_MESSAGE_SUCCESS_RESPONSE = SendMessageResponse.newBuilder().build();
+  private static final SendMessageResponse SEND_MESSAGE_SUCCESS_RESPONSE = SendMessageResponse
+      .newBuilder()
+      .setSuccess(Empty.getDefaultInstance())
+      .build();
 
   public MessagesAnonymousGrpcService(final AccountsManager accountsManager,
       final RateLimiters rateLimiters,
@@ -65,35 +70,51 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
     this.accountsManager = accountsManager;
     this.rateLimiters = rateLimiters;
     this.messageSender = messageSender;
+    this.groupSendTokenUtil = groupSendTokenUtil;
     this.messageByteLimitEstimator = messageByteLimitEstimator;
     this.spamChecker = spamChecker;
     this.clock = clock;
-    this.groupSendTokenUtil = groupSendTokenUtil;
   }
 
   @Override
   public SendMessageResponse sendSingleRecipientMessage(final SendSealedSenderMessageRequest request)
-      throws StatusException, RateLimitExceededException {
+      throws RateLimitExceededException {
 
     final ServiceIdentifier destinationServiceIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getDestination());
 
-    final Account destination = accountsManager.getByServiceIdentifier(destinationServiceIdentifier)
-        .orElseThrow(Status.UNAUTHENTICATED::asException);
+    final Optional<Account> maybeDestination = accountsManager.getByServiceIdentifier(destinationServiceIdentifier);
 
-    switch (request.getAuthorizationCase()) {
+    final boolean authorized = switch (request.getAuthorizationCase()) {
       case UNIDENTIFIED_ACCESS_KEY -> {
-        if (!UnidentifiedAccessUtil.checkUnidentifiedAccess(destination, request.getUnidentifiedAccessKey().toByteArray())) {
-          throw Status.UNAUTHENTICATED.asException();
+        if (destinationServiceIdentifier.identityType() == IdentityType.PNI) {
+          throw GrpcExceptions.fieldViolation("authorization",
+              "message for PNI cannot be authenticated with an unidentified access token");
         }
+        final byte[] uak = request.getUnidentifiedAccessKey().toByteArray();
+        yield maybeDestination
+            .map(account -> UnidentifiedAccessUtil.checkUnidentifiedAccess(account, uak))
+            // If the destination is not found, return an authorization error instead of not-found. Otherwise,
+            // this would provide an unauthenticated existence check.
+            .orElse(false);
       }
       case GROUP_SEND_TOKEN ->
           groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), destinationServiceIdentifier);
+      case AUTHORIZATION_NOT_SET ->
+          throw GrpcExceptions.fieldViolation("authorization", "expected authorization token not provided");
+    };
 
-      case AUTHORIZATION_NOT_SET -> throw Status.UNAUTHENTICATED.asException();
+    if (!authorized) {
+      return SendMessageResponse.newBuilder()
+          .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+          .build();
     }
 
-    return sendIndividualMessage(destination,
+    if (maybeDestination.isEmpty()) {
+      return SendMessageResponse.newBuilder().setDestinationNotFound(NotFound.getDefaultInstance()).build();
+    }
+    
+    return sendIndividualMessage(maybeDestination.get(),
         destinationServiceIdentifier,
         request.getMessages(),
         request.getEphemeral(),
@@ -103,7 +124,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
 
   @Override
   public SendMessageResponse sendStory(final SendStoryMessageRequest request)
-      throws StatusException, RateLimitExceededException {
+      throws RateLimitExceededException {
 
     final ServiceIdentifier destinationServiceIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getDestination());
@@ -132,7 +153,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
       final IndividualRecipientMessageBundle messages,
       final boolean ephemeral,
       final boolean urgent,
-      final boolean story) throws StatusException, RateLimitExceededException {
+      final boolean story) throws RateLimitExceededException {
 
     final SpamCheckResult<GrpcResponse<SendMessageResponse>> spamCheckResult =
         spamChecker.checkForIndividualRecipientSpamGrpc(
@@ -196,13 +217,16 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
   }
 
   @Override
-  public SendMultiRecipientMessageResponse sendMultiRecipientMessage(final SendMultiRecipientMessageRequest request)
-      throws StatusException {
+  public SendMultiRecipientMessageResponse sendMultiRecipientMessage(final SendMultiRecipientMessageRequest request) {
 
     final SealedSenderMultiRecipientMessage multiRecipientMessage =
         parseAndValidateMultiRecipientMessage(request.getMessage().getPayload().toByteArray());
 
-    groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), multiRecipientMessage.getRecipients().keySet());
+    if (!groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), multiRecipientMessage.getRecipients().keySet())) {
+      return SendMultiRecipientMessageResponse.newBuilder()
+          .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+          .build();
+    }
 
     return sendMultiRecipientMessage(multiRecipientMessage,
         request.getMessage().getTimestamp(),
@@ -212,21 +236,26 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
   }
 
   @Override
-  public SendMultiRecipientMessageResponse sendMultiRecipientStory(final SendMultiRecipientStoryRequest request)
-      throws StatusException {
+  public SendMultiRecipientMessageResponse sendMultiRecipientStory(final SendMultiRecipientStoryRequest request) {
 
     final SealedSenderMultiRecipientMessage multiRecipientMessage =
         parseAndValidateMultiRecipientMessage(request.getMessage().getPayload().toByteArray());
 
-    return sendMultiRecipientMessage(multiRecipientMessage,
+    final SendMultiRecipientMessageResponse sendMultiRecipientMessageResponse = sendMultiRecipientMessage(
+        multiRecipientMessage,
         request.getMessage().getTimestamp(),
         false,
         request.getUrgent(),
-        true)
-        .toBuilder()
-        // Don't identify unresolved recipients for stories
-        .clearUnresolvedRecipients()
-        .build();
+        true);
+    if (sendMultiRecipientMessageResponse.hasSuccess()) {
+      // Clear the unresolved recipients for stories
+      return sendMultiRecipientMessageResponse.toBuilder()
+          .setSuccess(MultiRecipientSuccess.getDefaultInstance())
+          .build();
+    } else {
+      return sendMultiRecipientMessageResponse;
+    }
+
   }
 
   private SendMultiRecipientMessageResponse sendMultiRecipientMessage(
@@ -234,7 +263,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
       final long timestamp,
       final boolean ephemeral,
       final boolean urgent,
-      final boolean story) throws StatusException {
+      final boolean story) {
 
     final SpamCheckResult<GrpcResponse<SendMultiRecipientMessageResponse>> spamCheckResult =
         spamChecker.checkForMultiRecipientSpamGrpc(story
@@ -257,20 +286,18 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
           story,
           ephemeral,
           urgent,
-          RequestAttributesUtil.getUserAgent().orElse(null));
+          RequestAttributesUtil.getUserAgent().orElse(null))
+          .join();
 
-      final SendMultiRecipientMessageResponse.Builder responseBuilder = SendMultiRecipientMessageResponse.newBuilder();
+      final MultiRecipientSuccess.Builder responseBuilder = MultiRecipientSuccess.newBuilder();
 
       MessageUtil.getUnresolvedRecipients(multiRecipientMessage, resolvedRecipients).stream()
           .map(ServiceIdentifierUtil::toGrpcServiceIdentifier)
           .forEach(responseBuilder::addUnresolvedRecipients);
 
-      return responseBuilder.build();
+      return SendMultiRecipientMessageResponse.newBuilder().setSuccess(responseBuilder).build();
     } catch (final MessageTooLargeException e) {
-      throw Status.INVALID_ARGUMENT
-          .withDescription("Message for an individual recipient was too large")
-          .withCause(e)
-          .asRuntimeException();
+      throw GrpcExceptions.invalidArguments("message for an individual recipient was too large");
     } catch (final MultiRecipientMismatchedDevicesException e) {
       final MultiRecipientMismatchedDevices.Builder mismatchedDevicesBuilder =
           MultiRecipientMismatchedDevices.newBuilder();
@@ -285,22 +312,29 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
   }
 
   private SealedSenderMultiRecipientMessage parseAndValidateMultiRecipientMessage(
-      final byte[] serializedMultiRecipientMessage) throws StatusException {
+      final byte[] serializedMultiRecipientMessage) {
 
     final SealedSenderMultiRecipientMessage multiRecipientMessage;
 
     try {
       multiRecipientMessage = SealedSenderMultiRecipientMessage.parse(serializedMultiRecipientMessage);
-    } catch (final InvalidMessageException | InvalidVersionException e) {
-      throw Status.INVALID_ARGUMENT.withCause(e).asException();
+    } catch (final InvalidMessageException _) {
+      throw GrpcExceptions.fieldViolation("payload", "invalid multi-recipient message");
+    } catch (final InvalidVersionException e) {
+      throw GrpcExceptions.fieldViolation("payload", "unrecognized sealed sender major version");
+    }
+
+    if (multiRecipientMessage.getRecipients().isEmpty()) {
+      throw GrpcExceptions.fieldViolation("payload", "recipient list is empty");
     }
 
     // Check that the request is well-formed and doesn't contain repeated entries for the same device for the same
     // recipient
     if (MessageUtil.hasDuplicateDevices(multiRecipientMessage)) {
-      throw Status.INVALID_ARGUMENT.withDescription("Multi-recipient message contains duplicate recipient").asException();
+      throw GrpcExceptions.fieldViolation("payload", "multi-recipient message contains duplicate recipient");
     }
 
     return multiRecipientMessage;
   }
+
 }

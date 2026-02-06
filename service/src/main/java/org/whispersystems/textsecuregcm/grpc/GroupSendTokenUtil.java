@@ -29,22 +29,22 @@ public class GroupSendTokenUtil {
     this.clock = clock;
   }
 
-  public void checkGroupSendToken(final ByteString serializedGroupSendToken,
-      final ServiceIdentifier serviceIdentifier) throws StatusException {
 
-    checkGroupSendToken(serializedGroupSendToken, List.of(serviceIdentifier.toLibsignal()));
+  public boolean checkGroupSendToken(final ByteString groupSendToken, final ServiceIdentifier serviceIdentifier) {
+    return checkGroupSendToken(groupSendToken, List.of(serviceIdentifier.toLibsignal()));
   }
 
-  public void checkGroupSendToken(final ByteString serializedGroupSendToken,
-      final Collection<ServiceId> serviceIds) throws StatusException {
-
+  public boolean checkGroupSendToken(final ByteString groupSendToken, final Collection<ServiceId> serviceIds) {
     try {
-      final GroupSendFullToken token = new GroupSendFullToken(serializedGroupSendToken.toByteArray());
-      token.verify(serviceIds, clock.instant(), GroupSendDerivedKeyPair.forExpiration(token.getExpiration(), serverSecretParams));
+      final GroupSendFullToken token = new GroupSendFullToken(groupSendToken.toByteArray());
+      final GroupSendDerivedKeyPair groupSendKeyPair =
+          GroupSendDerivedKeyPair.forExpiration(token.getExpiration(), serverSecretParams);
+      token.verify(serviceIds, clock.instant(), groupSendKeyPair);
+      return true;
     } catch (final InvalidInputException e) {
-      throw Status.INVALID_ARGUMENT.asException();
+      throw GrpcExceptions.fieldViolation("group_send_token", "malformed group send token");
     } catch (VerificationFailedException e) {
-      throw Status.UNAUTHENTICATED.asException();
+      return false;
     }
   }
 }

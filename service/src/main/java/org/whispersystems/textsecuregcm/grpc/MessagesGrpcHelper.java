@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import com.google.protobuf.Empty;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import java.util.Map;
@@ -21,7 +22,10 @@ import org.whispersystems.textsecuregcm.storage.Account;
 
 public class MessagesGrpcHelper {
 
-  private static final SendMessageResponse SEND_MESSAGE_SUCCESS_RESPONSE = SendMessageResponse.newBuilder().build();
+  private static final SendMessageResponse SEND_MESSAGE_SUCCESS_RESPONSE = SendMessageResponse
+      .newBuilder()
+      .setSuccess(Empty.getDefaultInstance())
+      .build();
 
   /**
    * Sends a "bundle" of messages to an individual destination account, mapping common exceptions to appropriate gRPC
@@ -37,9 +41,8 @@ public class MessagesGrpcHelper {
    *
    * @return a response object to send to callers
    *
-   * @throws StatusException if the message bundle could not be sent due to an out-of-date device set or an invalid
-   * message payload
    * @throws RateLimitExceededException if the message bundle could not be sent due to a violated rated limit
+   * @throws io.grpc.StatusRuntimeException for invalid arguments if the message is too large to send
    */
   public static SendMessageResponse sendMessage(final MessageSender messageSender,
       final Account destination,
@@ -47,7 +50,7 @@ public class MessagesGrpcHelper {
       final Map<Byte, MessageProtos.Envelope> messagesByDeviceId,
       final Map<Byte, Integer> registrationIdsByDeviceId,
       @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId)
-      throws StatusException, RateLimitExceededException {
+      throws RateLimitExceededException {
 
     try {
       messageSender.sendMessages(destination,
@@ -63,7 +66,7 @@ public class MessagesGrpcHelper {
           .setMismatchedDevices(buildMismatchedDevices(destinationServiceIdentifier, e.getMismatchedDevices()))
           .build();
     } catch (final MessageTooLargeException e) {
-      throw Status.INVALID_ARGUMENT.withDescription("Message too large").withCause(e).asException();
+      throw GrpcExceptions.invalidArguments("message too large");
     }
   }
 
