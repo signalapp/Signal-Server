@@ -20,8 +20,6 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.b;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.stripe.model.PaymentIntent;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -29,12 +27,10 @@ import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.Response;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +60,6 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
-import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicBackupConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -75,27 +70,19 @@ import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
-import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
-import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
-import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager.PayPalOneTimePaymentApprovalDetails;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
-import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
-import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
@@ -109,41 +96,24 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
-class SubscriptionControllerTest {
-
-  private static final Clock CLOCK = mock(Clock.class);
-
-  private static final ObjectMapper YAML_MAPPER = SystemMapper.yamlMapper();
+class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
   private static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = 1234L;
   private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = ConfigHelper.getSubscriptionConfig();
-  private static final OneTimeDonationConfiguration ONETIME_CONFIG = ConfigHelper.getOneTimeConfig();
   private static final Subscriptions SUBSCRIPTIONS = mock(Subscriptions.class);
-  private static final StripeManager STRIPE_MANAGER = MockUtils.buildMock(StripeManager.class, mgr ->
-      when(mgr.getProvider()).thenReturn(PaymentProvider.STRIPE));
-  private static final BraintreeManager BRAINTREE_MANAGER = MockUtils.buildMock(BraintreeManager.class, mgr ->
-      when(mgr.getProvider()).thenReturn(PaymentProvider.BRAINTREE));
   private static final GooglePlayBillingManager PLAY_MANAGER = MockUtils.buildMock(GooglePlayBillingManager.class,
       mgr -> when(mgr.getProvider()).thenReturn(PaymentProvider.GOOGLE_PLAY_BILLING));
   private static final AppleAppStoreManager APPSTORE_MANAGER = MockUtils.buildMock(AppleAppStoreManager.class,
       mgr -> when(mgr.getProvider()).thenReturn(PaymentProvider.APPLE_APP_STORE));
-  private static final PaymentIntent PAYMENT_INTENT = mock(PaymentIntent.class);
   private static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
-  private static final IssuedReceiptsManager ISSUED_RECEIPTS_MANAGER = mock(IssuedReceiptsManager.class);
-  private static final OneTimeDonationsManager ONE_TIME_DONATIONS_MANAGER = mock(OneTimeDonationsManager.class);
   private static final BadgeTranslator BADGE_TRANSLATOR = mock(BadgeTranslator.class);
   private static final BankMandateTranslator BANK_MANDATE_TRANSLATOR = mock(BankMandateTranslator.class);
-  private static final PayPalDonationsTranslator PAYPAL_ONE_TIME_DONATION_LINE_ITEM_TRANSLATOR = mock(
-      PayPalDonationsTranslator.class);
   private static final DynamicConfigurationManager<DynamicConfiguration> DYNAMIC_CONFIGURATION_MANAGER = mock(DynamicConfigurationManager.class);
   private final static SubscriptionController SUBSCRIPTION_CONTROLLER = new SubscriptionController(CLOCK,
       SUBSCRIPTION_CONFIG, ONETIME_CONFIG,
       new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
           ZK_OPS, ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER,
       BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR, DYNAMIC_CONFIGURATION_MANAGER);
-  private static final OneTimeDonationController ONE_TIME_CONTROLLER = new OneTimeDonationController(CLOCK,
-      ONETIME_CONFIG, STRIPE_MANAGER, BRAINTREE_MANAGER, PAYPAL_ONE_TIME_DONATION_LINE_ITEM_TRANSLATOR,
-      ZK_OPS, ISSUED_RECEIPTS_MANAGER, ONE_TIME_DONATIONS_MANAGER);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -153,17 +123,14 @@ class SubscriptionControllerTest {
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(SUBSCRIPTION_CONTROLLER)
-      .addResource(ONE_TIME_CONTROLLER)
       .build();
 
   @BeforeEach
   void setUp() {
-    reset(CLOCK, SUBSCRIPTIONS, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR,
-        PAYPAL_ONE_TIME_DONATION_LINE_ITEM_TRANSLATOR);
+    reset(CLOCK, SUBSCRIPTIONS, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR);
 
     when(STRIPE_MANAGER.getProvider()).thenReturn(PaymentProvider.STRIPE);
     when(BRAINTREE_MANAGER.getProvider()).thenReturn(PaymentProvider.BRAINTREE);
-    when(PAYPAL_ONE_TIME_DONATION_LINE_ITEM_TRANSLATOR.translate(any(), any())).thenReturn("Donation to Signal Technology Foundation");
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfiguration.getBackupConfiguration())
         .thenReturn(new DynamicBackupConfiguration(null, null, null, null, MAX_TOTAL_BACKUP_MEDIA_BYTES));
@@ -180,210 +147,6 @@ class SubscriptionControllerTest {
         .thenReturn(Set.of("eur"));
     when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
         .thenReturn(Set.of("usd", "jpy"));
-  }
-
-  @Test
-  void testCreateBoostPaymentIntentAmountBelowCurrencyMinimum() {
-    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
-        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
-        .request()
-        .post(Entity.json("""
-              {
-                "currency": "USD",
-                "amount": 249,
-                "level": null
-              }
-            """));
-    assertThat(response.getStatus()).isEqualTo(400);
-    assertThat(response.hasEntity()).isTrue();
-    final Map responseMap = response.readEntity(Map.class);
-    assertThat(responseMap.get("error")).isEqualTo("amount_below_currency_minimum");
-    assertThat(responseMap.get("minimum")).isEqualTo("2.50");
-  }
-
-  @Test
-  void testCreateBoostPaymentIntentAmountAboveSepaLimit() {
-    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.SEPA_DEBIT))
-        .thenReturn(Set.of("eur"));
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
-        .request()
-        .post(Entity.json("""
-              {
-                "currency": "EUR",
-                "amount": 1000001,
-                "level": null,
-                "paymentMethod": "SEPA_DEBIT"
-              }
-            """));
-    assertThat(response.getStatus()).isEqualTo(400);
-    assertThat(response.hasEntity()).isTrue();
-
-    final Map responseMap = response.readEntity(Map.class);
-    assertThat(responseMap.get("error")).isEqualTo("amount_above_sepa_limit");
-    assertThat(responseMap.get("maximum")).isEqualTo("10000");
-  }
-
-  @Test
-  void testCreateBoostPaymentIntentUnsupportedCurrency() {
-    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.SEPA_DEBIT))
-        .thenReturn(Set.of("eur"));
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
-        .request()
-        .post(Entity.json("""
-              {
-                "currency": "USD",
-                "amount": 3000,
-                "level": null,
-                "paymentMethod": "SEPA_DEBIT"
-              }
-            """));
-    assertThat(response.getStatus()).isEqualTo(400);
-    assertThat(response.hasEntity()).isTrue();
-
-    final Map responseMap = response.readEntity(Map.class);
-    assertThat(responseMap.get("error")).isEqualTo("unsupported_currency");
-  }
-
-  @Test
-  void testCreateBoostPaymentIntentLevelAmountMismatch() {
-    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
-        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
-        .request()
-        .post(Entity.json("""
-              {
-                "currency": "USD",
-                "amount": 25,
-                "level": 100
-              }
-            """
-        ));
-    assertThat(response.getStatus()).isEqualTo(409);
-  }
-
-  @Test
-  void testCreateBoostPaymentIntent() {
-    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
-        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
-    when(STRIPE_MANAGER.createPaymentIntent(anyString(), anyLong(), anyLong(), any()))
-        .thenReturn(CompletableFuture.completedFuture(PAYMENT_INTENT));
-
-    String clientSecret = "some_client_secret";
-    when(PAYMENT_INTENT.getClientSecret()).thenReturn(clientSecret);
-
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
-        .request()
-        .post(Entity.json("{\"currency\": \"USD\", \"amount\": 300, \"level\": null}"));
-    assertThat(response.getStatus()).isEqualTo(200);
-  }
-
-  @Test
-  void testCreateBoostPayPal() {
-    final PayPalOneTimePaymentApprovalDetails payPalOneTimePaymentApprovalDetails = mock(PayPalOneTimePaymentApprovalDetails.class);
-    when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
-        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
-    when(BRAINTREE_MANAGER.createOneTimePayment(anyString(), anyLong(), anyString(), anyString(), anyString(), anyString()))
-        .thenReturn(CompletableFuture.completedFuture(payPalOneTimePaymentApprovalDetails));
-    when(payPalOneTimePaymentApprovalDetails.approvalUrl()).thenReturn("approvalUrl");
-    when(payPalOneTimePaymentApprovalDetails.paymentId()).thenReturn("someId");
-
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/paypal/create")
-        .request()
-        .post(Entity.json("""
-              {
-                "currency": "USD",
-                "amount": 300,
-                "cancelUrl": "cancelUrl",
-                "returnUrl": "returnUrl"
-              }
-            """
-        ));
-    assertThat(response.getStatus()).isEqualTo(200);
-  }
-
-  @Test
-  void createBoostReceiptInvalid() {
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
-        .request()
-        // invalid, request body should have receiptCredentialRequest
-        .post(Entity.json("{\"paymentIntentId\": \"foo\"}"));
-    assertThat(response.getStatus()).isEqualTo(422);
-  }
-
-  @ParameterizedTest
-  @MethodSource
-  void createBoostReceiptPaymentRequired(final ChargeFailure chargeFailure, boolean expectChargeFailure) {
-    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(new PaymentDetails(
-        "id",
-        Collections.emptyMap(),
-        PaymentStatus.FAILED,
-        Instant.now(),
-        chargeFailure)
-    ));
-    Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
-        .request()
-        .post(Entity.json("""
-            {
-              "paymentIntentId": "foo",
-              "receiptCredentialRequest": "abcd",
-              "processor": "STRIPE"
-            }
-          """));
-    assertThat(response.getStatus()).isEqualTo(402);
-
-    if (expectChargeFailure) {
-      assertThat(response.readEntity(OneTimeDonationController.CreateBoostReceiptCredentialsErrorResponse.class).chargeFailure()).isEqualTo(chargeFailure);
-    } else {
-      assertThat(response.readEntity(String.class)).isEqualTo("{}");
-    }
-  }
-
-  private static Stream<Arguments> createBoostReceiptPaymentRequired() {
-    return Stream.of(
-        Arguments.of(new ChargeFailure(
-            "generic_decline",
-            "some failure message",
-            null,
-            null,
-            null
-        ), true),
-        Arguments.of(null, false)
-    );
-  }
-
-  @Test
-  void confirmPaypalBoostProcessorError() {
-
-    when(BRAINTREE_MANAGER.captureOneTimePayment(anyString(), anyString(), anyString(), anyString(), anyLong(),
-        anyLong(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(PaymentProvider.BRAINTREE,
-            new ChargeFailure("2046", "Declined", null, null, null))));
-
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/paypal/confirm")
-        .request()
-        .post(Entity.json(Map.of("payerId", "payer123",
-            "paymentId", "PAYID-456",
-            "paymentToken", "EC-789",
-            "currency", "usd",
-            "amount", 123)));
-
-    assertThat(response.getStatus()).isEqualTo(SubscriptionExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
-
-    final Map responseMap = response.readEntity(Map.class);
-    assertThat(responseMap.get("processor")).isEqualTo("BRAINTREE");
-    assertThat(responseMap.get("chargeFailure")).asInstanceOf(
-            InstanceOfAssertFactories.map(String.class, Object.class))
-        .extracting("code")
-        .isEqualTo("2046");
-  }
-
-  @Test
-  void createBoostReceiptNoRequest() {
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
-        .request()
-        .post(Entity.json(""));
-    assertThat(response.getStatus()).isEqualTo(422);
   }
 
   @Nested
@@ -1265,184 +1028,6 @@ class SubscriptionControllerTest {
     });
   }
 
-  /**
-   * Encapsulates {@code static} configuration, to keep the class header simpler and avoid illegal forward references
-   */
-  private record ConfigHelper() {
-
-    private static SubscriptionConfiguration getSubscriptionConfig() {
-      return readValue(SUBSCRIPTION_CONFIG_YAML, SubscriptionConfiguration.class);
-    }
-
-    private static OneTimeDonationConfiguration getOneTimeConfig() {
-      return readValue(ONETIME_CONFIG_YAML, OneTimeDonationConfiguration.class);
-    }
-
-    private static <T> T readValue(String yaml, Class<T> type) {
-      try {
-        return YAML_MAPPER.readValue(yaml, type);
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    private static final String SUBSCRIPTION_CONFIG_YAML = """
-        badgeExpiration: P30D
-        badgeGracePeriod: P15D
-        backupExpiration: P3D
-        backupGracePeriod: P10D
-        backupFreeTierMediaDuration: P30D
-        backupLevels:
-          201:
-            playProductId: testPlayProductId
-            mediaTtl: P40D
-            prices:
-              usd:
-                amount: '5'
-                processorIds:
-                  STRIPE: R4
-                  BRAINTREE: M4
-              jpy:
-                amount: '500'
-                processorIds:
-                  STRIPE: Q4
-                  BRAINTREE: N4
-              bif:
-                amount: '5000'
-                processorIds:
-                  STRIPE: S4
-                  BRAINTREE: O4
-              eur:
-                amount: '5'
-                processorIds:
-                  STRIPE: A4
-                  BRAINTREE: B4
-        levels:
-          5:
-            badge: B1
-            prices:
-              usd:
-                amount: '5'
-                processorIds:
-                  STRIPE: R1
-                  BRAINTREE: M1
-              jpy:
-                amount: '500'
-                processorIds:
-                  STRIPE: Q1
-                  BRAINTREE: N1
-              bif:
-                amount: '5000'
-                processorIds:
-                  STRIPE: S1
-                  BRAINTREE: O1
-              eur:
-                amount: '5'
-                processorIds:
-                  STRIPE: A1
-                  BRAINTREE: B1
-          15:
-            badge: B2
-            prices:
-              usd:
-                amount: '15'
-                processorIds:
-                  STRIPE: R2
-                  BRAINTREE: M2
-              jpy:
-                amount: '1500'
-                processorIds:
-                  STRIPE: Q2
-                  BRAINTREE: N2
-              bif:
-                amount: '15000'
-                processorIds:
-                  STRIPE: S2
-                  BRAINTREE: O2
-              eur:
-                amount: '15'
-                processorIds:
-                  STRIPE: A2
-                  BRAINTREE: B2
-          35:
-            badge: B3
-            prices:
-              usd:
-                amount: '35'
-                processorIds:
-                  STRIPE: R3
-                  BRAINTREE: M3
-              jpy:
-                amount: '3500'
-                processorIds:
-                  STRIPE: Q3
-                  BRAINTREE: N3
-              bif:
-                amount: '35000'
-                processorIds:
-                  STRIPE: S3
-                  BRAINTREE: O3
-              eur:
-                amount: '35'
-                processorIds:
-                  STRIPE: A3
-                  BRAINTREE: B3
-        """;
-
-    private static final String ONETIME_CONFIG_YAML = """
-        boost:
-          level: 1
-          expiration: P45D
-          badge: BOOST
-        gift:
-          level: 100
-          expiration: P60D
-          badge: GIFT
-        currencies:
-          usd:
-            minimum: '2.50' # fractional to test BigDecimal conversion
-            gift: '20'
-            boosts:
-              - '5.50'
-              - '6'
-              - '7'
-              - '8'
-              - '9'
-              - '10'
-          eur:
-            minimum: '3'
-            gift: '5'
-            boosts:
-              - '5'
-              - '10'
-              - '20'
-              - '30'
-              - '50'
-              - '100'
-          jpy:
-            minimum: '250'
-            gift: '2000'
-            boosts:
-              - '550'
-              - '600'
-              - '700'
-              - '800'
-              - '900'
-              - '1000'
-          bif:
-            minimum: '2500'
-            gift: '20000'
-            boosts:
-              - '5500'
-              - '6000'
-              - '7000'
-              - '8000'
-              - '9000'
-              - '10000'
-        sepaMaximumEuros: '10000'
-        """;
-
-  }
 
 
 }
