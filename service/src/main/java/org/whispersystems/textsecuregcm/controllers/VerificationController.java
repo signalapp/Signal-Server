@@ -493,7 +493,7 @@ public class VerificationController {
           .increment();
 
     } catch (final IOException e) {
-      logger.error("error assessing captcha", e);
+      logger.error("error assessing captcha during registration verification", e);
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, e);
     }
 
