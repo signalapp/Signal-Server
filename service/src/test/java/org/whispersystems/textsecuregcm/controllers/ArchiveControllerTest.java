@@ -339,12 +339,8 @@ public class ArchiveControllerTest {
         EnumMapUtil.toEnumMap(BackupCredentialType.class, credentialType -> backupAuthTestUtil.getCredentials(
             BackupLevel.PAID, backupAuthTestUtil.getRequest(messagesBackupKey, aci), credentialType, start, end));
 
-    for (Map.Entry<BackupCredentialType, List<BackupAuthManager.Credential>> entry : expectedCredentialsByType.entrySet()) {
-      final BackupCredentialType credentialType = entry.getKey();
-      final List<BackupAuthManager.Credential> expectedCredentials = entry.getValue();
-        when(backupAuthManager.getBackupAuthCredentials(any(), eq(credentialType), eq(expectedRange)))
-            .thenReturn(expectedCredentials);
-    }
+    when(backupAuthManager.getBackupAuthCredentials(any(), eq(expectedRange)))
+        .thenReturn(expectedCredentialsByType);
 
     final ArchiveController.BackupAuthCredentialsResponse credentialResponse = resources.getJerseyTest()
         .target("v1/archives/auth")

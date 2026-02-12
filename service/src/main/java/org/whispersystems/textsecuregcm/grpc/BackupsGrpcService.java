@@ -11,6 +11,7 @@ import io.micrometer.core.instrument.Tag;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.signal.chat.backup.GetBackupAuthCredentialsRequest;
@@ -106,19 +107,14 @@ public class BackupsGrpcService extends SimpleBackupsGrpc.BackupsImplBase {
     }
     final Account account = authenticatedAccount();
     try {
-      final List<BackupAuthManager.Credential> messageCredentials =
-          backupAuthManager.getBackupAuthCredentials(
-              account,
-              BackupCredentialType.MESSAGES,
-              redemptionRange);
-      backupMetrics.updateGetCredentialCounter(platformTag, BackupCredentialType.MESSAGES, messageCredentials.size());
 
-      final List<BackupAuthManager.Credential> mediaCredentials =
-          backupAuthManager.getBackupAuthCredentials(
-              account,
-              BackupCredentialType.MEDIA,
-              redemptionRange);
-      backupMetrics.updateGetCredentialCounter(platformTag, BackupCredentialType.MEDIA, mediaCredentials.size());
+      final Map<BackupCredentialType, List<BackupAuthManager.Credential>> credentials =
+          backupAuthManager.getBackupAuthCredentials(account, redemptionRange);
+
+      credentials.forEach((type, credentialList) ->
+          backupMetrics.updateGetCredentialCounter(platformTag, type, credentialList.size()));
+      final List<BackupAuthManager.Credential> messageCredentials = credentials.get(BackupCredentialType.MESSAGES);
+      final List<BackupAuthManager.Credential> mediaCredentials = credentials.get(BackupCredentialType.MEDIA);
 
       return GetBackupAuthCredentialsResponse.newBuilder()
           .setCredentials(GetBackupAuthCredentialsResponse.Credentials.newBuilder()

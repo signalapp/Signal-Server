@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.backup;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -70,7 +71,7 @@ public class BackupAuthTestUtil {
         mock(ExperimentEnrollmentManager.class), null, null, null, null, params, clock);
     Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(aci);
-    when(account.getBackupCredentialRequest(credentialType)).thenReturn(Optional.of(request.serialize()));
+    when(account.getBackupCredentialRequest(any())).thenReturn(Optional.of(request.serialize()));
     when(account.getBackupVoucher()).thenReturn(switch (backupLevel) {
       case FREE -> null;
       case PAID -> new Account.BackupVoucher(201L, redemptionEnd.plus(1, ChronoUnit.SECONDS));
@@ -78,7 +79,7 @@ public class BackupAuthTestUtil {
     final RedemptionRange redemptionRange;
     redemptionRange = RedemptionRange.inclusive(clock, redemptionStart, redemptionEnd);
     try {
-      return issuer.getBackupAuthCredentials(account, credentialType, redemptionRange);
+      return issuer.getBackupAuthCredentials(account, redemptionRange).get(credentialType);
     } catch (BackupNotFoundException e) {
       return Assertions.fail("Backup credential request not found even though we set one");
     }

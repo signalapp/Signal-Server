@@ -214,12 +214,8 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
             BackupLevel.PAID, backupAuthTestUtil.getRequest(messagesBackupKey, AUTHENTICATED_ACI), credentialType,
             start, end));
 
-    for (Map.Entry<BackupCredentialType, List<BackupAuthManager.Credential>> entry : expectedCredentialsByType.entrySet()) {
-      final BackupCredentialType credentialType = entry.getKey();
-      final List<BackupAuthManager.Credential> expectedCredentials = entry.getValue();
-      when(backupAuthManager.getBackupAuthCredentials(any(), eq(credentialType), eq(expectedRange)))
-          .thenReturn(expectedCredentials);
-    }
+    when(backupAuthManager.getBackupAuthCredentials(any(), eq(expectedRange)))
+        .thenReturn(expectedCredentialsByType);
 
     final GetBackupAuthCredentialsResponse credentialResponse = authenticatedServiceStub().getBackupAuthCredentials(
         GetBackupAuthCredentialsRequest.newBuilder()

@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -179,8 +180,9 @@ public class BackupAuthManagerTest {
         BackupAuthCredentialRequestContext.create(backupKey, aci);
 
     final RedemptionRange range = range(Duration.ofDays(1));
-    final List<BackupAuthManager.Credential> creds =
-        authManager.getBackupAuthCredentials(account, credentialType, range(Duration.ofDays(1)));
+    final Map<BackupCredentialType, List<BackupAuthManager.Credential>> credsByType =
+        authManager.getBackupAuthCredentials(account, range(Duration.ofDays(1)));
+    final List<BackupAuthManager.Credential> creds = credsByType.get(credentialType);
 
     assertThat(creds).hasSize(2);
     assertThat(requestContext
@@ -201,7 +203,7 @@ public class BackupAuthManagerTest {
         .mediaCredential(backupAuthTestUtil.getRequest(mediaBackupKey, aci))
         .build();
 
-    assertThat(authManager.getBackupAuthCredentials(account, credentialType, range(Duration.ofDays(1))))
+    assertThat(authManager.getBackupAuthCredentials(account, range(Duration.ofDays(1))).get(credentialType))
         .hasSize(2);
   }
 
@@ -213,7 +215,7 @@ public class BackupAuthManagerTest {
     final Account account = new MockAccountBuilder().build();
 
     assertThatExceptionOfType(BackupNotFoundException.class)
-        .isThrownBy(() -> authManager.getBackupAuthCredentials(account, credentialType, range(Duration.ofDays(1))));
+        .isThrownBy(() -> authManager.getBackupAuthCredentials(account, range(Duration.ofDays(1))));
   }
 
   @CartesianTest
@@ -236,8 +238,9 @@ public class BackupAuthManagerTest {
         .messagesCredential(backupAuthTestUtil.getRequest(messagesBackupKey, aci))
         .build();
 
-    final List<BackupAuthManager.Credential> creds = authManager.getBackupAuthCredentials(account,
-        credentialType, range(Duration.ofDays(7)));
+    final List<BackupAuthManager.Credential> creds = authManager
+        .getBackupAuthCredentials(account, range(Duration.ofDays(7)))
+        .get(credentialType);
 
     assertThat(creds).hasSize(8);
     Instant redemptionTime = clock.instant().truncatedTo(ChronoUnit.DAYS);
@@ -266,8 +269,8 @@ public class BackupAuthManagerTest {
 
     final List<BackupAuthManager.Credential> creds = authManager.getBackupAuthCredentials(
             account,
-            BackupCredentialType.MESSAGES,
-            range(RedemptionRange.MAX_REDEMPTION_DURATION));
+            range(RedemptionRange.MAX_REDEMPTION_DURATION))
+        .get(BackupCredentialType.MESSAGES);
     Instant redemptionTime = Instant.EPOCH;
     final BackupAuthCredentialRequestContext requestContext = BackupAuthCredentialRequestContext.create(
         messagesBackupKey, aci);
@@ -306,7 +309,9 @@ public class BackupAuthManagerTest {
     when(accountsManager.update(any(), any())).thenReturn(updated);
 
     clock.pin(day2.plus(Duration.ofSeconds(1)));
-    assertThat(authManager.getBackupAuthCredentials(account, BackupCredentialType.MESSAGES, range(Duration.ofDays(7))))
+    assertThat(authManager
+        .getBackupAuthCredentials(account, range(Duration.ofDays(7)))
+        .get(BackupCredentialType.MESSAGES))
         .hasSize(8);
 
     @SuppressWarnings("unchecked") final ArgumentCaptor<Consumer<Account>> accountUpdater = ArgumentCaptor.forClass(

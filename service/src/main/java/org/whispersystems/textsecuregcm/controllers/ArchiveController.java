@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -48,7 +49,6 @@ import java.lang.annotation.Target;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -312,9 +312,6 @@ public class ArchiveController {
       @NotNull @QueryParam("redemptionStartSeconds") Long startSeconds,
       @NotNull @QueryParam("redemptionEndSeconds") Long endSeconds) throws BackupNotFoundException {
 
-    final Map<BackupCredentialType, List<BackupAuthCredentialsResponse.BackupAuthCredential>> credentialsByType =
-        new HashMap<>();
-
     final RedemptionRange redemptionRange;
     try {
       redemptionRange = RedemptionRange.inclusive(Clock.systemUTC(), Instant.ofEpochSecond(startSeconds), Instant.ofEpochSecond(endSeconds));
@@ -325,23 +322,20 @@ public class ArchiveController {
     final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    for (BackupCredentialType credentialType : BackupCredentialType.values()) {
-      final List<BackupAuthManager.Credential> credentials =
-          backupAuthManager.getBackupAuthCredentials(account, credentialType, redemptionRange);
-      backupMetrics.updateGetCredentialCounter(
-          UserAgentTagUtil.getPlatformTag(userAgent),
-          credentialType,
-          credentials.size());
-      credentialsByType.put(credentialType, credentials.stream()
-          .map(credential -> new BackupAuthCredentialsResponse.BackupAuthCredential(
-              credential.credential().serialize(),
-              credential.redemptionTime().getEpochSecond()))
-          .toList());
-    }
-    return new BackupAuthCredentialsResponse(credentialsByType.entrySet().stream()
-        .collect(Collectors.toMap(
+    final Map<BackupCredentialType, List<BackupAuthManager.Credential>> credentials =
+        backupAuthManager.getBackupAuthCredentials(account, redemptionRange);
+
+    final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+    credentials.forEach((type, credentialList) ->
+        backupMetrics.updateGetCredentialCounter(platformTag, type, credentialList.size()));
+
+    return new BackupAuthCredentialsResponse(credentials.entrySet().stream().collect(Collectors.toMap(
             e -> BackupAuthCredentialsResponse.CredentialType.fromLibsignalType(e.getKey()),
-            Map.Entry::getValue)));
+            e -> e.getValue().stream()
+                .map(credential -> new BackupAuthCredentialsResponse.BackupAuthCredential(
+                    credential.credential().serialize(),
+                    credential.redemptionTime().getEpochSecond()))
+                .toList())));
   }
 
 

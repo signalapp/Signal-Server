@@ -14,7 +14,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -184,13 +186,11 @@ public class BackupAuthManager {
    * method will also remove the expired voucher from the account.
    *
    * @param account         The account to create the credentials for
-   * @param credentialType  The type of backup credentials to create
    * @param redemptionRange The time range to return credentials for
    * @return Credentials and the day on which they may be redeemed
    */
-  public List<Credential> getBackupAuthCredentials(
+  public Map<BackupCredentialType, List<Credential>> getBackupAuthCredentials(
       final Account account,
-      final BackupCredentialType credentialType,
       final RedemptionRange redemptionRange) throws BackupNotFoundException {
 
     // If the account has an expired payment, clear it before continuing
@@ -201,31 +201,35 @@ public class BackupAuthManager {
           a.setBackupVoucher(null);
         }
       });
-      return getBackupAuthCredentials(updated, credentialType, redemptionRange);
     }
 
-    // fetch the blinded backup-id the account should have previously committed to
-    final byte[] committedBytes = account.getBackupCredentialRequest(credentialType)
-        .orElseThrow(() -> new BackupNotFoundException("No blinded backup-id has been added to the account"));
+    final Map<BackupCredentialType, List<Credential>> credentials = new HashMap<>();
+    for (BackupCredentialType credentialType : BackupCredentialType.values()) {
+      // fetch the blinded backup-id the account should have previously committed to
+      final byte[] committedBytes = account.getBackupCredentialRequest(credentialType)
+          .orElseThrow(() -> new BackupNotFoundException("No blinded backup-id has been added to the account"));
 
-    try {
-      final BackupLevel defaultBackupLevel = configuredBackupLevel(account);
+      try {
+        final BackupLevel defaultBackupLevel = configuredBackupLevel(account);
 
-      // create a credential for every day in the requested period
-      final BackupAuthCredentialRequest credentialReq = new BackupAuthCredentialRequest(committedBytes);
-      return StreamSupport.stream(redemptionRange.spliterator(), false)
-          .map(redemptionTime -> {
-            // Check if the account has a voucher that's good for a certain receiptLevel at redemption time, otherwise
-            // use the default receipt level
-            final BackupLevel backupLevel = storedBackupLevel(account, redemptionTime).orElse(defaultBackupLevel);
-            return new Credential(
-                credentialReq.issueCredential(redemptionTime, backupLevel, credentialType, serverSecretParams),
-                redemptionTime);
-          })
-          .toList();
-    } catch (InvalidInputException e) {
-      throw new UncheckedIOException(new IOException("Could not deserialize stored request credential", e));
+        // create a credential for every day in the requested period
+        final BackupAuthCredentialRequest credentialReq = new BackupAuthCredentialRequest(committedBytes);
+        final List<Credential> credentialList = StreamSupport.stream(redemptionRange.spliterator(), false)
+            .map(redemptionTime -> {
+              // Check if the account has a voucher that's good for a certain receiptLevel at redemption time, otherwise
+              // use the default receipt level
+              final BackupLevel backupLevel = storedBackupLevel(account, redemptionTime).orElse(defaultBackupLevel);
+              return new Credential(
+                  credentialReq.issueCredential(redemptionTime, backupLevel, credentialType, serverSecretParams),
+                  redemptionTime);
+            })
+            .toList();
+        credentials.put(credentialType, credentialList);
+      } catch (InvalidInputException e) {
+        throw new UncheckedIOException(new IOException("Could not deserialize stored request credential", e));
+      }
     }
+    return credentials;
   }
 
   /**
