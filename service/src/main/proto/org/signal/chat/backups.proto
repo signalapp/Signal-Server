@@ -225,7 +225,7 @@ message SetPublicKeyResponse {
 
 message GetCdnCredentialsRequest {
   SignedPresentation signed_presentation = 1;
-  int32 cdn = 2;
+  uint32 cdn = 2;
 }
 message GetCdnCredentialsResponse {
   message CdnCredentials {
@@ -285,7 +285,7 @@ message GetBackupInfoResponse {
 
     // The CDN type where the message backup is stored. Media may be stored
     // elsewhere. If absent, no message backup currently exists.
-    optional int32 cdn = 3;
+    optional uint32 cdn = 3;
 
     // The name of the most recent message backup on the cdn. The backup is at
     // /backup_dir/backup_name. If absent, no message backup currently exists.
@@ -342,7 +342,7 @@ message GetUploadFormRequest {
 message GetUploadFormResponse {
   message UploadForm {
     // Indicates the CDN type. 3 indicates resumable uploads using TUS
-    int32 cdn = 1;
+    uint32 cdn = 1;
 
     // The location within the specified cdn where the finished upload can be found
     string key = 2;
@@ -404,7 +404,7 @@ message CopyMediaResponse {
   message OutOfSpace {}
   message CopySuccess {
     // The backup cdn where this media object is stored
-    int32 cdn = 1;
+    uint32 cdn = 1;
   }
 
   // The 15-byte media_id from the corresponding CopyMediaItem in the request
@@ -443,7 +443,7 @@ message ListMediaRequest {
 message ListMediaResponse {
   message ListEntry {
     // The backup cdn where this media object is stored
-    int32 cdn = 1;
+    uint32 cdn = 1;
     // The media_id of the object
     bytes media_id = 2;
     // The length of the object in bytes
@@ -496,7 +496,7 @@ message DeleteAllResponse {
 
 message DeleteMediaItem {
   // The backup cdn where this media object is stored
-  int32 cdn = 1;
+  uint32 cdn = 1;
 
   // The media_id of the object to delete
   bytes media_id = 2;
