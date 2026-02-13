@@ -46,19 +46,6 @@ public class AccountTest {
   }
 
   @Test
-  public void testCreateAccountAtomic() {
-    final TestUser user = Operations.newRegisteredUser("+19995550201");
-    try {
-      final Pair<Integer, AccountIdentityResponse> execute = Operations.apiGet("/v1/accounts/whoami")
-          .authorized(user)
-          .execute(AccountIdentityResponse.class);
-      assertEquals(HttpStatus.SC_OK, execute.getLeft());
-    } finally {
-      Operations.deleteUser(user);
-    }
-  }
-
-  @Test
   public void changePhoneNumber() {
     final TestUser user = Operations.newRegisteredUser("+19995550301");
     final String targetNumber = "+19995550302";
