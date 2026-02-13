@@ -230,13 +230,12 @@ public class BackupManager {
    * @param backupUser an already ZK authenticated backup user
    * @return Information about the existing backup
    * @throws BackupPermissionException if the credential does not have the correct level
-   * @throws BackupNotFoundException if the provided backupuser does not exist
+   * @throws BackupFailedZkAuthenticationException if the provided backupuser does not exist
    */
-  public BackupInfo backupInfo(final AuthenticatedBackupUser backupUser)
-      throws BackupNotFoundException, BackupPermissionException {
+  public BackupInfo backupInfo(final AuthenticatedBackupUser backupUser) throws BackupPermissionException, BackupFailedZkAuthenticationException {
     checkBackupLevel(backupUser, BackupLevel.FREE);
     final BackupsDb.BackupDescription backupDescription = ExceptionUtils.unwrapSupply(
-        BackupNotFoundException.class,
+        BackupFailedZkAuthenticationException.class,
         () -> backupsDb.describeBackup(backupUser).join());
     return new BackupInfo(
         backupDescription.cdn(),

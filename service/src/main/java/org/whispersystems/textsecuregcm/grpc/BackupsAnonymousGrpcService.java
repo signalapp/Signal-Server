@@ -99,8 +99,7 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
   }
 
   @Override
-  public GetBackupInfoResponse getBackupInfo(final GetBackupInfoRequest request)
-      throws BackupNotFoundException, BackupPermissionException {
+  public GetBackupInfoResponse getBackupInfo(final GetBackupInfoRequest request) throws BackupPermissionException {
     try {
       final AuthenticatedBackupUser backupUser = authenticateBackupUser(request.getSignedPresentation());
       final BackupManager.BackupInfo info = backupManager.backupInfo(backupUser);

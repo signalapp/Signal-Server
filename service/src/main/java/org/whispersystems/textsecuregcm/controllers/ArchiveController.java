@@ -486,7 +486,6 @@ public class ArchiveController {
       summary = "Fetch backup info",
       description = "Retrieve information about the currently stored backup")
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = BackupInfoResponse.class)))
-  @ApiResponse(responseCode = "404", description = "No existing backups found")
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponseZkAuth
   @ManagedAsync
@@ -501,7 +500,7 @@ public class ArchiveController {
       @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
       @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature)
-      throws BackupFailedZkAuthenticationException, BackupNotFoundException, BackupPermissionException {
+      throws BackupFailedZkAuthenticationException, BackupPermissionException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }

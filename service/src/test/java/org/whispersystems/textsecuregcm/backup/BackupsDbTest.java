@@ -211,7 +211,7 @@ public class BackupsDbTest {
 
       // The backup entry should be gone
       CompletableFutureTestUtil.assertFailsWithCause(
-          BackupNotFoundException.class,
+          BackupFailedZkAuthenticationException.class,
           backupsDb.describeBackup(backupUser(backupId, BackupCredentialType.MEDIA, BackupLevel.PAID)));
       assertThat(expiredBackups.apply(Instant.ofEpochSecond(10))).isEmpty();
     }

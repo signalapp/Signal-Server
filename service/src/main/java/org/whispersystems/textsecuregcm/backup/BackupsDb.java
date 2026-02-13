@@ -331,7 +331,9 @@ public class BackupsDb {
             .build())
         .thenApply(response -> {
           if (!response.hasItem()) {
-            throw ExceptionUtils.wrap(new BackupNotFoundException("Backup ID not found"));
+            // At this point, the user has already authenticated against this backup record, so we must have raced
+            // with a deletion. Just throw the same error we would have thrown if authentication had failed
+            throw ExceptionUtils.wrap(new BackupFailedZkAuthenticationException("Backup ID not found"));
           }
           // If the client hasn't already uploaded a backup, return the cdn we would return if they did create one
           final int cdn = AttributeValues.getInt(response.item(), ATTR_CDN, BACKUP_CDN);

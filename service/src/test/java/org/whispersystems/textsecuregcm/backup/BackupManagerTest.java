@@ -961,7 +961,7 @@ public class BackupManagerTest {
     if (expirationType == ExpiredBackup.ExpirationType.ALL) {
       // should have deleted the db row for the backup
       CompletableFutureTestUtil.assertFailsWithCause(
-          BackupNotFoundException.class,
+          BackupFailedZkAuthenticationException.class,
           backupsDb.describeBackup(backupUser));
     } else {
       // should have deleted all the media, but left the backup descriptor in place
