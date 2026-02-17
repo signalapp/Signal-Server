@@ -594,8 +594,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BackupInfoResponse"
-        "404":
-          description: No existing backups found
         "429":
           description: Rate limited.
         "403":
