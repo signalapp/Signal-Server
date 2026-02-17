@@ -44,6 +44,7 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.workers.RemoveExpiredAccountsCommand;
 
 @Path("/v2/{name: backup|svr}")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Secure Value Recovery")
@@ -53,7 +54,7 @@ public class SecureValueRecovery2Controller {
       MetricsUtil.name(SecureValueRecovery2Controller.class, "credentialAge");
 
 
-  public static final Duration MAX_AGE = Duration.ofDays(30);
+  public static final Duration MAX_AGE = RemoveExpiredAccountsCommand.MAX_IDLE_DURATION;
 
   public static ExternalServiceCredentialsGenerator credentialsGenerator(final SecureValueRecoveryConfiguration cfg) {
     return credentialsGenerator(cfg, Clock.systemUTC());

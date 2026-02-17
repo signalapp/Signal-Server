@@ -120,53 +120,55 @@ public class SecureValueRecovery2ControllerTest {
     @Test
     public void testOneMatch() {
       validate(Map.of(
-          token(USER_1, day(1)), CheckStatus.MATCH,
-          token(USER_2, day(1)), CheckStatus.NO_MATCH,
-          token(USER_3, day(1)), CheckStatus.NO_MATCH
-      ), day(2));
+          token(USER_1, dayToMillis(1)), CheckStatus.MATCH,
+          token(USER_2, dayToMillis(1)), CheckStatus.NO_MATCH,
+          token(USER_3, dayToMillis(1)), CheckStatus.NO_MATCH
+      ), dayToMillis(2));
     }
 
     @Test
     public void testNoMatch() {
       validate(Map.of(
-          token(USER_2, day(1)), CheckStatus.NO_MATCH,
-          token(USER_3, day(1)), CheckStatus.NO_MATCH
-      ), day(2));
+          token(USER_2, dayToMillis(1)), CheckStatus.NO_MATCH,
+          token(USER_3, dayToMillis(1)), CheckStatus.NO_MATCH
+      ), dayToMillis(2));
     }
 
     @Test
     public void testSomeInvalid() {
-      final ExternalServiceCredentials user1Cred = credentials(USER_1, day(1));
-      final ExternalServiceCredentials user2Cred = credentials(USER_2, day(1));
-      final ExternalServiceCredentials user3Cred = credentials(USER_3, day(1));
+      final ExternalServiceCredentials user1Cred = credentials(USER_1, dayToMillis(1));
+      final ExternalServiceCredentials user2Cred = credentials(USER_2, dayToMillis(1));
+      final ExternalServiceCredentials user3Cred = credentials(USER_3, dayToMillis(1));
 
       final String fakeToken = token(new ExternalServiceCredentials(user2Cred.username(), user3Cred.password()));
       validate(Map.of(
           token(user1Cred), CheckStatus.MATCH,
           token(user2Cred), CheckStatus.NO_MATCH,
           fakeToken, CheckStatus.INVALID
-      ), day(2));
+      ), dayToMillis(2));
     }
 
     @Test
     public void testSomeExpired() {
+      final long nowDay = 200;
+      final long maxAgeDays = SecureValueRecovery2Controller.MAX_AGE.toDays();
       validate(Map.of(
-          token(USER_1, day(100)), CheckStatus.MATCH,
-          token(USER_2, day(100)), CheckStatus.NO_MATCH,
-          token(USER_3, day(10)), CheckStatus.INVALID,
-          token(USER_3, day(20)), CheckStatus.INVALID
-      ), day(110));
+          token(USER_1, dayToMillis(nowDay - maxAgeDays)), CheckStatus.MATCH,
+          token(USER_2, dayToMillis(nowDay - maxAgeDays)), CheckStatus.NO_MATCH,
+          token(USER_3, dayToMillis(nowDay - maxAgeDays - 2)), CheckStatus.INVALID,
+          token(USER_3, dayToMillis(nowDay - maxAgeDays - 1)), CheckStatus.INVALID
+      ), dayToMillis(nowDay));
     }
 
     @Test
     public void testSomeHaveNewerVersions() {
       validate(Map.of(
-          token(USER_1, day(10)), CheckStatus.INVALID,
-          token(USER_1, day(20)), CheckStatus.MATCH,
-          token(USER_2, day(10)), CheckStatus.NO_MATCH,
-          token(USER_3, day(20)), CheckStatus.NO_MATCH,
-          token(USER_3, day(10)), CheckStatus.INVALID
-      ), day(25));
+          token(USER_1, dayToMillis(10)), CheckStatus.INVALID,
+          token(USER_1, dayToMillis(20)), CheckStatus.MATCH,
+          token(USER_2, dayToMillis(10)), CheckStatus.NO_MATCH,
+          token(USER_3, dayToMillis(20)), CheckStatus.NO_MATCH,
+          token(USER_3, dayToMillis(10)), CheckStatus.INVALID
+      ), dayToMillis(25));
     }
 
     private void validate(
@@ -187,14 +189,14 @@ public class SecureValueRecovery2ControllerTest {
     @Test
     public void testHttpResponseCodeSuccess() {
       final Map<String, CheckStatus> expected = Map.of(
-          token(USER_1, day(10)), CheckStatus.INVALID,
-          token(USER_1, day(20)), CheckStatus.MATCH,
-          token(USER_2, day(10)), CheckStatus.NO_MATCH,
-          token(USER_3, day(20)), CheckStatus.NO_MATCH,
-          token(USER_3, day(10)), CheckStatus.INVALID
+          token(USER_1, dayToMillis(10)), CheckStatus.INVALID,
+          token(USER_1, dayToMillis(20)), CheckStatus.MATCH,
+          token(USER_2, dayToMillis(10)), CheckStatus.NO_MATCH,
+          token(USER_3, dayToMillis(20)), CheckStatus.NO_MATCH,
+          token(USER_3, dayToMillis(10)), CheckStatus.INVALID
       );
 
-      CLOCK.setTimeMillis(day(25));
+      CLOCK.setTimeMillis(dayToMillis(25));
 
       final AuthCheckRequest in = new AuthCheckRequest(E164_VALID, List.copyOf(expected.keySet()));
 
@@ -358,7 +360,7 @@ public class SecureValueRecovery2ControllerTest {
       return CREDENTIAL_GENERATOR.generateForUuid(uuid);
     }
 
-    private static long day(final int n) {
+    private static long dayToMillis(final long n) {
       return TimeUnit.DAYS.toMillis(n);
     }
 
