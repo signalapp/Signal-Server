@@ -10,19 +10,17 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.vdurmont.semver4j.Semver;
 import io.micrometer.core.instrument.Tag;
-import java.util.Collections;
-import java.util.Map;
+import io.micrometer.core.instrument.Tags;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 class UserAgentTagUtilTest {
 
@@ -72,6 +70,26 @@ class UserAgentTagUtilTest {
         Arguments.of("Signal-Android/1.2.3 (Android 9)",
             false,
             Optional.empty())
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void getAdditionalSpecifierTags(@Nullable final String userAgent, final Tags expectedTags) {
+    assertEquals(expectedTags, UserAgentTagUtil.getAdditionalSpecifierTags(userAgent));
+  }
+
+  private static List<Arguments> getAdditionalSpecifierTags() {
+    return List.of(
+        Arguments.argumentSet("null UA", null, Tags.empty()),
+        Arguments.argumentSet("nonsense UA", "This is not a valid User-Agent string", Tags.empty()),
+        Arguments.argumentSet("no additional specifiers", "Signal-Desktop/7.84.0", Tags.empty()),
+        Arguments.argumentSet("nonstandard additional specifiers", "Signal-Desktop/7.84.0 superfluous information", Tags.empty()),
+        Arguments.argumentSet("standard additional specifiers", "Signal-Desktop/7.84.0 macOS 21.6.0 libsignal/0.86.3",
+            Tags.of(
+                UserAgentTagUtil.OPERATING_SYSTEM_TAG, "macOS",
+                UserAgentTagUtil.OPERATING_SYSTEM_VERSION_TAG, "21.6.0",
+                UserAgentTagUtil.LIBSIGNAL_VERSION_TAG, "0.86.3"))
     );
   }
 }
