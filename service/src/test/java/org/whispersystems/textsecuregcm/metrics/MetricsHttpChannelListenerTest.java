@@ -18,18 +18,17 @@ import com.google.common.net.HttpHeaders;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import io.micrometer.core.instrument.Tags;
 import org.eclipse.jetty.http.HttpURI;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
 import org.glassfish.jersey.server.ExtendedUriInfo;
 import org.glassfish.jersey.uri.UriTemplate;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -113,15 +112,18 @@ class MetricsHttpChannelListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(versionActive ? 7 : 6, tags.size());
-    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.PATH_TAG, path)));
-    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.METHOD_TAG, method)));
-    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
-    assertTrue(
-        tags.contains(Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TrafficSource.HTTP.name().toLowerCase())));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
-    assertEquals(versionActive, tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "6.53.7")));
+    final Set<Tag> expectedTags = new HashSet<>(Set.of(
+        Tag.of(MetricsHttpChannelListener.PATH_TAG, path),
+        Tag.of(MetricsHttpChannelListener.METHOD_TAG, method),
+        Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(statusCode)),
+        Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TrafficSource.HTTP.name().toLowerCase()),
+        Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
+
+    if (versionActive) {
+      expectedTags.add(Tag.of(UserAgentTagUtil.VERSION_TAG, "6.53.7"));
+    }
+
+    assertEquals(expectedTags, tags);
   }
 
   @ParameterizedTest

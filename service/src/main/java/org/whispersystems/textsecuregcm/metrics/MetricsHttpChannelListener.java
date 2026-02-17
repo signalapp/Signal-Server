@@ -141,7 +141,7 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
     tags.add(Tag.of(METHOD_TAG, requestInfo.method()));
     tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(requestInfo.statusCode())));
     tags.add(Tag.of(TRAFFIC_SOURCE_TAG, TrafficSource.HTTP.name().toLowerCase()));
-    tags.addAll(UserAgentTagUtil.getLibsignalAndPlatformTags(requestInfo.userAgent()));
+    tags.add(UserAgentTagUtil.getPlatformTag(requestInfo.userAgent()));
 
     final Optional<Tag> maybeClientVersionTag =
         UserAgentTagUtil.getClientVersionTag(requestInfo.userAgent, clientReleaseManager);

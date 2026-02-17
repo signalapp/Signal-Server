@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,8 +80,8 @@ public class MetricServerInterceptor implements ServerInterceptor {
     tagList.add(Tag.of(TAG_METHOD_TYPE, call.getMethodDescriptor().getType().name()));
 
     RequestAttributesUtil.getUserAgent()
-        .map(UserAgentTagUtil::getLibsignalAndPlatformTags)
-        .ifPresent(tagList::addAll);
+        .map(UserAgentTagUtil::getPlatformTag)
+        .ifPresent(tagList::add);
     userAgentString
         .flatMap(ua -> UserAgentTagUtil.getClientVersionTag(ua, clientReleaseManager))
         .ifPresent(tagList::add);

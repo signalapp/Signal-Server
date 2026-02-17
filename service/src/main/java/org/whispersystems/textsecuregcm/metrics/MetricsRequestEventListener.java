@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
-import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.monitoring.RequestEvent;
 import org.glassfish.jersey.server.monitoring.RequestEventListener;
@@ -106,7 +105,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
           userAgent = userAgentValues != null && !userAgentValues.isEmpty() ? userAgentValues.getFirst() : null;
         }
 
-        tags.addAll(UserAgentTagUtil.getLibsignalAndPlatformTags(userAgent));
+        tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
 
         final Optional<Tag> maybeClientVersionTag =
             UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager);

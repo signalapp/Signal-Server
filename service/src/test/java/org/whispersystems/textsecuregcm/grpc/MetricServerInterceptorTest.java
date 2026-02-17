@@ -104,7 +104,6 @@ public class MetricServerInterceptorTest {
 
     final Tags commonTags = Tags.of(
         "platform", "android",
-        "libsignal", "true",
         "grpcService", "org.signal.chat.rpc.EchoService",
         "method", "echo");
 

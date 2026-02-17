@@ -157,14 +157,13 @@ class MetricsHttpChannelListenerIntegrationTest {
       tags.add(tag);
     }
 
-    assertEquals(6, tags.size());
-    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.PATH_TAG, expectedTagPath)));
-    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.METHOD_TAG, "GET")));
-    assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(expectedStatus))));
-    assertTrue(
-        tags.contains(Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
+    assertEquals(Set.of(
+            Tag.of(MetricsHttpChannelListener.PATH_TAG, expectedTagPath),
+            Tag.of(MetricsHttpChannelListener.METHOD_TAG, "GET"),
+            Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(expectedStatus)),
+            Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase()),
+            Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
+        tags);
   }
 
 
@@ -221,14 +220,13 @@ class MetricsHttpChannelListenerIntegrationTest {
         tags.add(tag);
       }
 
-      assertEquals(6, tags.size());
-      assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.PATH_TAG, "/v1/websocket")));
-      assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.METHOD_TAG, "GET")));
-      assertTrue(tags.contains(Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(101))));
-      assertTrue(
-          tags.contains(Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
-      assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
-      assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
+      assertEquals(Set.of(
+              Tag.of(MetricsHttpChannelListener.PATH_TAG, "/v1/websocket"),
+              Tag.of(MetricsHttpChannelListener.METHOD_TAG, "GET"),
+              Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(101)),
+              Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase()),
+              Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
+          tags);
     }
   }
 

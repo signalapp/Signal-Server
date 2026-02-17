@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.metrics;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -142,15 +141,19 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(versionActive ? 8 : 7, tags.size());
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, path)));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, method)));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(statusCode))));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, "false")));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "true")));
-    assertEquals(versionActive, tags.contains(Tag.of(UserAgentTagUtil.VERSION_TAG, "7.6.2")));
+    final Set<Tag> expectedTags = new HashSet<>(Set.of(
+        Tag.of(MetricsRequestEventListener.PATH_TAG, path),
+        Tag.of(MetricsRequestEventListener.METHOD_TAG, method),
+        Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(statusCode)),
+        Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase()),
+        Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, "false"),
+        Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
+
+    if (versionActive) {
+      expectedTags.add(Tag.of(UserAgentTagUtil.VERSION_TAG, "7.6.2"));
+    }
+
+    assertEquals(expectedTags, tags);
   }
 
   @Test
@@ -211,15 +214,15 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(8, tags.size());
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, "true")));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.LISTEN_PORT_TAG, Integer.toString(LISTEN_PORT))));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
+    assertEquals(Set.of(
+            Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello"),
+            Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET"),
+            Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200)),
+            Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase()),
+            Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, "true"),
+            Tag.of(MetricsRequestEventListener.LISTEN_PORT_TAG, Integer.toString(LISTEN_PORT)),
+            Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")),
+        tags);
   }
 
   @Test
@@ -278,15 +281,15 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(8, tags.size());
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, "true")));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.LISTEN_PORT_TAG, Integer.toString(LISTEN_PORT))));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
+    assertEquals(Set.of(
+            Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello"),
+            Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET"),
+            Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200)),
+            Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase()),
+            Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, "true"),
+            Tag.of(MetricsRequestEventListener.LISTEN_PORT_TAG, Integer.toString(LISTEN_PORT)),
+            Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")),
+        tags);
   }
 
 
@@ -348,15 +351,15 @@ class MetricsRequestEventListenerTest {
       tags.add(tag);
     }
 
-    assertEquals(8, tags.size());
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello")));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET")));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200))));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase())));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, String.valueOf(authenticated))));
-    assertTrue(tags.contains(Tag.of(MetricsRequestEventListener.LISTEN_PORT_TAG, Integer.toString(LISTEN_PORT))));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")));
-    assertTrue(tags.contains(Tag.of(UserAgentTagUtil.LIBSIGNAL_TAG, "false")));
+    assertEquals(Set.of(
+            Tag.of(MetricsRequestEventListener.PATH_TAG, "/v1/test/hello"),
+            Tag.of(MetricsRequestEventListener.METHOD_TAG, "GET"),
+            Tag.of(MetricsRequestEventListener.STATUS_CODE_TAG, String.valueOf(200)),
+            Tag.of(MetricsRequestEventListener.TRAFFIC_SOURCE_TAG, TRAFFIC_SOURCE.name().toLowerCase()),
+            Tag.of(MetricsRequestEventListener.AUTHENTICATED_TAG, String.valueOf(authenticated)),
+            Tag.of(MetricsRequestEventListener.LISTEN_PORT_TAG, Integer.toString(LISTEN_PORT)),
+            Tag.of(UserAgentTagUtil.PLATFORM_TAG, "unrecognized")),
+        tags);
   }
 
   private static SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor)
