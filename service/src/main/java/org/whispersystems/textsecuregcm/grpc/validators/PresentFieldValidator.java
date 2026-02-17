@@ -5,11 +5,8 @@
 
 package org.whispersystems.textsecuregcm.grpc.validators;
 
-import static org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils.invalidArgument;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import io.grpc.StatusException;
 import java.util.Set;
 
 public class PresentFieldValidator extends BaseFieldValidator<Boolean> {
@@ -22,14 +19,14 @@ public class PresentFieldValidator extends BaseFieldValidator<Boolean> {
   }
 
   @Override
-  protected Boolean resolveExtensionValue(final Object extensionValue) throws StatusException {
+  protected Boolean resolveExtensionValue(final Object extensionValue) throws FieldValidationException {
     return requireFlagExtension(extensionValue);
   }
 
   @Override
-  protected void validateMessageValue(final Boolean extensionValue, final Message msg) throws StatusException {
+  protected void validateMessageValue(final Boolean extensionValue, final Message msg) throws FieldValidationException {
     if (msg == null) {
-      throw invalidArgument("message expected to be present");
+      throw new FieldValidationException("message expected to be present");
     }
   }
 }

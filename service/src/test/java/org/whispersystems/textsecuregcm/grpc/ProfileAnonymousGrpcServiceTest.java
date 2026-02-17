@@ -17,6 +17,7 @@ import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusEx
 
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
+import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -592,5 +593,14 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         // Artificially fails zero knowledge verification
         Arguments.of(IdentityType.IDENTITY_TYPE_ACI, CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY, true)
     );
+  }
+
+  @Override
+  protected List<ServerInterceptor> customizeInterceptors(List<ServerInterceptor> serverInterceptors) {
+    return serverInterceptors.stream()
+        // For now, don't validate error conformance because the profiles gRPC service has not been converted to the
+        // updated error model
+        .filter(interceptor -> !(interceptor instanceof ErrorConformanceInterceptor))
+        .toList();
   }
 }

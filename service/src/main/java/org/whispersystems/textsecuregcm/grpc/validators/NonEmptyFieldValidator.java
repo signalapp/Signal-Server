@@ -5,12 +5,9 @@
 
 package org.whispersystems.textsecuregcm.grpc.validators;
 
-import static org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils.invalidArgument;
-
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
-import io.grpc.StatusException;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 
@@ -24,38 +21,38 @@ public class NonEmptyFieldValidator extends BaseFieldValidator<Boolean> {
   }
 
   @Override
-  protected Boolean resolveExtensionValue(final Object extensionValue) throws StatusException {
+  protected Boolean resolveExtensionValue(final Object extensionValue) throws FieldValidationException {
     return requireFlagExtension(extensionValue);
   }
 
   @Override
   protected void validateBytesValue(
       final Boolean extensionValue,
-      final ByteString fieldValue) throws StatusException {
+      final ByteString fieldValue) throws FieldValidationException {
     if (!fieldValue.isEmpty()) {
       return;
     }
-    throw invalidArgument("byte array expected to be non-empty");
+    throw new FieldValidationException("byte array expected to be non-empty");
   }
 
   @Override
   protected void validateStringValue(
       final Boolean extensionValue,
-      final String fieldValue) throws StatusException {
+      final String fieldValue) throws FieldValidationException {
     if (StringUtils.isNotEmpty(fieldValue)) {
       return;
     }
-    throw invalidArgument("string expected to be non-empty");
+    throw new FieldValidationException("string expected to be non-empty");
   }
 
   @Override
   protected void validateRepeatedField(
       final Boolean extensionValue,
       final Descriptors.FieldDescriptor fd,
-      final Message msg) throws StatusException {
+      final Message msg) throws FieldValidationException {
     if (msg.getRepeatedFieldCount(fd) > 0) {
       return;
     }
-    throw invalidArgument("repeated field is expected to be non-empty");
+    throw new FieldValidationException("repeated field is expected to be non-empty");
   }
 }

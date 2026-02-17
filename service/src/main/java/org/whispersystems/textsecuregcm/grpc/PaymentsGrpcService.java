@@ -37,7 +37,7 @@ public class PaymentsGrpcService extends ReactorPaymentsGrpc.PaymentsImplBase {
 
     final CurrencyConversionEntityList currencyConversionEntityList = currencyManager
         .getCurrencyConversions()
-        .orElseThrow(Status.UNAVAILABLE::asRuntimeException);
+        .orElseThrow(() -> GrpcExceptions.unavailable("currency conversions not available"));
 
     final List<GetCurrencyConversionsResponse.CurrencyConversionEntity> currencyConversionEntities = currencyConversionEntityList
         .getCurrencies()

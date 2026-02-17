@@ -5,8 +5,6 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
-import static org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils.internalError;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import io.grpc.ForwardingServerCallListener;
@@ -14,12 +12,15 @@ import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
-import io.grpc.StatusException;
+import io.grpc.StatusRuntimeException;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.grpc.validators.E164FieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.EnumSpecifiedFieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.ExactlySizeFieldValidator;
+import org.whispersystems.textsecuregcm.grpc.validators.FieldValidationException;
 import org.whispersystems.textsecuregcm.grpc.validators.FieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.NonEmptyFieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.PresentFieldValidator;
@@ -28,6 +29,7 @@ import org.whispersystems.textsecuregcm.grpc.validators.SizeFieldValidator;
 
 public class ValidatingInterceptor implements ServerInterceptor {
 
+  private static final Logger log = LoggerFactory.getLogger(ValidatingInterceptor.class);
   private final Map<String, FieldValidator> fieldValidators = Map.of(
       "org.signal.chat.require.nonEmpty", new NonEmptyFieldValidator(),
       "org.signal.chat.require.present", new PresentFieldValidator(),
@@ -60,8 +62,18 @@ public class ValidatingInterceptor implements ServerInterceptor {
         try {
           validateMessage(message);
           super.onMessage(message);
-        } catch (final StatusException e) {
-          call.close(e.getStatus(), new Metadata());
+        } catch (final StatusRuntimeException e) {
+          call.close(e.getStatus(), e.getTrailers());
+          forwardCalls = false;
+        } catch (RuntimeException runtimeException) {
+          final StatusRuntimeException grpcException = switch (runtimeException) {
+            case StatusRuntimeException e -> e;
+            default -> {
+              log.error("Failure applying request validation to message {}", call.getMethodDescriptor().getFullMethodName(), runtimeException);
+              yield GrpcExceptions.unavailable("failure applying request validation");
+            }
+          };
+          call.close(grpcException.getStatus(), grpcException.getTrailers());
           forwardCalls = false;
         }
       }
@@ -75,40 +87,39 @@ public class ValidatingInterceptor implements ServerInterceptor {
     };
   }
 
-  private void validateMessage(final Object message) throws StatusException {
+  private void validateMessage(final Object message) {
     if (message instanceof Message msg) {
-      try {
-        for (final Descriptors.FieldDescriptor fd: msg.getDescriptorForType().getFields()) {
-          for (final Map.Entry<Descriptors.FieldDescriptor, Object> entry: fd.getOptions().getAllFields().entrySet()) {
-            final Descriptors.FieldDescriptor extensionFieldDescriptor = entry.getKey();
-            final String extensionName = extensionFieldDescriptor.getFullName();
+      for (final Descriptors.FieldDescriptor fd : msg.getDescriptorForType().getFields()) {
+        for (final Map.Entry<Descriptors.FieldDescriptor, Object> entry : fd.getOptions().getAllFields().entrySet()) {
+          final Descriptors.FieldDescriptor extensionFieldDescriptor = entry.getKey();
+          final String extensionName = extensionFieldDescriptor.getFullName();
 
-            // first validate the field
-            final FieldValidator validator = fieldValidators.get(extensionName);
-            // not all extensions are validators, so `validator` value here could legitimately be `null`
-            if (validator != null) {
+          // first validate the field
+          final FieldValidator validator = fieldValidators.get(extensionName);
+          // not all extensions are validators, so `validator` value here could legitimately be `null`
+          if (validator != null) {
+            try {
               validator.validate(entry.getValue(), fd, msg);
+            } catch (FieldValidationException e) {
+              throw GrpcExceptions.fieldViolation(fd.getName(),
+                  "extension %s: %s".formatted(extensionName, e.getMessage()));
             }
-          }
-
-          // Recursively validate the field's value(s) if it is a message or a repeated field
-          // gRPC's proto deserialization limits nesting to 100 so this has bounded stack usage
-          if (fd.isRepeated() && msg.getField(fd) instanceof List list) {
-            // Checking for repeated fields also handles maps, because maps are syntax sugar for repeated MapEntries
-            // which themselves are Messages that will be recursively descended.
-            for (final Object o : list) {
-              validateMessage(o);
-            }
-          } else if (fd.hasPresence() && msg.hasField(fd)) {
-            // If the field has presence information and is present, recursively validate it. Not all fields have
-            // presence, but we only validate Message type fields anyway, which always have explicit presence.
-            validateMessage(msg.getField(fd));
           }
         }
-      } catch (final StatusException e) {
-        throw e;
-      } catch (final Exception e) {
-        throw internalError(e);
+
+        // Recursively validate the field's value(s) if it is a message or a repeated field
+        // gRPC's proto deserialization limits nesting to 100 so this has bounded stack usage
+        if (fd.isRepeated() && msg.getField(fd) instanceof List list) {
+          // Checking for repeated fields also handles maps, because maps are syntax sugar for repeated MapEntries
+          // which themselves are Messages that will be recursively descended.
+          for (final Object o : list) {
+            validateMessage(o);
+          }
+        } else if (fd.hasPresence() && msg.hasField(fd)) {
+          // If the field has presence information and is present, recursively validate it. Not all fields have
+          // presence, but we only validate Message type fields anyway, which always have explicit presence.
+          validateMessage(msg.getField(fd));
+        }
       }
     }
   }

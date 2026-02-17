@@ -23,18 +23,6 @@ public final class ValidatorUtils {
     // noop
   }
 
-  public static StatusException invalidArgument(final String description) {
-    return Status.INVALID_ARGUMENT.withDescription(description).asException();
-  }
-
-  public static StatusException internalError(final String description) {
-    return Status.INTERNAL.withDescription(description).asException();
-  }
-
-  public static StatusException internalError(final Exception cause) {
-    return Status.INTERNAL.withCause(cause).asException();
-  }
-
   public static Optional<Auth> serviceAuthExtensionValue(final ServerServiceDefinition serviceDefinition) {
     return serviceExtensionValueByName(serviceDefinition, REQUIRE_AUTH_EXTENSION_NAME)
         .map(val -> Auth.valueOf((Descriptors.EnumValueDescriptor) val));

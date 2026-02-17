@@ -143,6 +143,7 @@ import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CallQualitySurveyGrpcService;
+import org.whispersystems.textsecuregcm.grpc.ErrorConformanceInterceptor;
 import org.whispersystems.textsecuregcm.grpc.GrpcAllowListInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsAnonymousGrpcService;
@@ -877,6 +878,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final MetricServerInterceptor metricServerInterceptor = new MetricServerInterceptor(Metrics.globalRegistry, clientReleaseManager);
 
     final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
+    final ErrorConformanceInterceptor errorConformanceInterceptor = new ErrorConformanceInterceptor();
     final GrpcAllowListInterceptor grpcAllowListInterceptor =
         new GrpcAllowListInterceptor(config.getGrpcAllowList().enableAll(), config.getGrpcAllowList().enabledServices(), config.getGrpcAllowList().enabledMethods());
     final RequestAttributesInterceptor requestAttributesInterceptor = new RequestAttributesInterceptor();
@@ -892,9 +894,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final List<ServerServiceDefinition> authenticatedServices = Stream.of(
         new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager),
         ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters),
-        new KeysGrpcService(accountsManager, keysManager, rateLimiters),
-        new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager,
-            config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters, zkProfileOperations))
+        new KeysGrpcService(accountsManager, keysManager, rateLimiters))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
@@ -902,6 +902,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             grpcAllowListInterceptor,
             metricServerInterceptor,
             errorMappingInterceptor,
+            errorConformanceInterceptor,
             remoteDeprecationFilter,
             requestAttributesInterceptor,
             requireAuthenticationInterceptor))
@@ -912,8 +913,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new CallQualitySurveyGrpcService(callQualitySurveyManager, rateLimiters),
             new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()),
             new PaymentsGrpcService(currencyManager),
-            ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config),
-            new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkSecretParams))
+            ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
@@ -922,6 +922,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             grpcAllowListInterceptor,
             metricServerInterceptor,
             errorMappingInterceptor,
+            errorConformanceInterceptor,
             remoteDeprecationFilter,
             requestAttributesInterceptor,
             prohibitAuthenticationInterceptor))

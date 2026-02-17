@@ -9,9 +9,12 @@ import static java.util.Objects.requireNonNull;
 
 import io.grpc.BindableService;
 import io.grpc.Channel;
+import io.grpc.ServerInterceptor;
+import io.grpc.ServerInterceptors;
 import io.grpc.stub.AbstractBlockingStub;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,9 +116,18 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
   protected void baseSetup() {
     mocksCloseable = MockitoAnnotations.openMocks(this);
     service = requireNonNull(createServiceBeforeEachTest(), "created service must not be `null`");
-    GrpcTestUtils.setupAuthenticatedExtension(
-        GRPC_SERVER_EXTENSION_AUTHENTICATED, mockAuthenticationInterceptor, mockRequestAttributesInterceptor, AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID, service);
-    GrpcTestUtils.setupUnauthenticatedExtension(GRPC_SERVER_EXTENSION_UNAUTHENTICATED, mockRequestAttributesInterceptor, service);
+
+    mockAuthenticationInterceptor.setAuthenticatedDevice(AUTHENTICATED_ACI, AUTHENTICATED_DEVICE_ID);
+    final List<ServerInterceptor> authenticatedInterceptors =
+        List.of(new ValidatingInterceptor(), mockRequestAttributesInterceptor, mockAuthenticationInterceptor, new ErrorMappingInterceptor(), new ErrorConformanceInterceptor());
+    GRPC_SERVER_EXTENSION_AUTHENTICATED
+        .getServiceRegistry()
+        .addService(ServerInterceptors.intercept(service, customizeInterceptors(authenticatedInterceptors)));
+
+    final List<ServerInterceptor> unauthenticatedInterceptors =
+        List.of(new ValidatingInterceptor(), mockRequestAttributesInterceptor, new ErrorMappingInterceptor(), new ErrorConformanceInterceptor());
+    GRPC_SERVER_EXTENSION_UNAUTHENTICATED.getServiceRegistry()
+        .addService(ServerInterceptors.intercept(service, customizeInterceptors(unauthenticatedInterceptors)));
     try {
       authenticatedServiceStub = createStub(GRPC_SERVER_EXTENSION_AUTHENTICATED.getChannel());
       unauthenticatedServiceStub = createStub(GRPC_SERVER_EXTENSION_UNAUTHENTICATED.getChannel());
@@ -151,5 +163,9 @@ public abstract class SimpleBaseGrpcTest<SERVICE extends BindableService, STUB e
 
   protected MockAuthenticationInterceptor getMockAuthenticationInterceptor() {
     return mockAuthenticationInterceptor;
+  }
+
+  protected List<ServerInterceptor> customizeInterceptors(List<ServerInterceptor> serverInterceptors) {
+    return serverInterceptors;
   }
 }

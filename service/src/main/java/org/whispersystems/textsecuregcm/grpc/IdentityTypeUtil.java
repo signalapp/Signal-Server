@@ -17,7 +17,7 @@ public class IdentityTypeUtil {
     return switch (grpcIdentityType) {
       case IDENTITY_TYPE_ACI -> IdentityType.ACI;
       case IDENTITY_TYPE_PNI -> IdentityType.PNI;
-      case IDENTITY_TYPE_UNSPECIFIED, UNRECOGNIZED -> throw Status.INVALID_ARGUMENT.asRuntimeException();
+      case IDENTITY_TYPE_UNSPECIFIED, UNRECOGNIZED -> throw GrpcExceptions.invalidArguments("invalid identity type");
     };
   }
 

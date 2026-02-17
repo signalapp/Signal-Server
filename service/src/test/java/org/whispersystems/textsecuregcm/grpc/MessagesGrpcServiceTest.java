@@ -359,7 +359,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
           .thenReturn(new SpamCheckResult<>(
-              Optional.of(GrpcResponse.withStatusException(Status.RESOURCE_EXHAUSTED.asRuntimeException())),
+              Optional.of(GrpcResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored

@@ -174,7 +174,7 @@ public class BackupsGrpcService extends SimpleBackupsGrpc.BackupsImplBase {
     try {
       return deserializer.deserialize(bytes);
     } catch (InvalidInputException e) {
-      throw Status.INVALID_ARGUMENT.withDescription("Invalid serialization").asRuntimeException();
+      throw GrpcExceptions.invalidArguments("invalid serialization");
     }
   }
 

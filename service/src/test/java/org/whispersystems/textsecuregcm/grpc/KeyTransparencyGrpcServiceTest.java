@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
+import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,6 +35,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -301,5 +303,14 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
         .setCommitmentIndex(ByteString.copyFrom(commitmentIndex))
         .setEntryPosition(entryPosition)
         .build();
+  }
+
+  @Override
+  protected List<ServerInterceptor> customizeInterceptors(List<ServerInterceptor> serverInterceptors) {
+    return serverInterceptors.stream()
+        // For now, don't validate conformance of KeyTransparency errors since they are forwarded directly from a
+        // backing service
+        .filter(interceptor -> !(interceptor instanceof ErrorConformanceInterceptor))
+        .toList();
   }
 }

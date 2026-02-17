@@ -5,10 +5,7 @@
 
 package org.whispersystems.textsecuregcm.grpc.validators;
 
-import static org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils.invalidArgument;
-
 import com.google.protobuf.Descriptors;
-import io.grpc.StatusException;
 import java.util.Set;
 
 public class EnumSpecifiedFieldValidator extends BaseFieldValidator<Boolean> {
@@ -18,16 +15,16 @@ public class EnumSpecifiedFieldValidator extends BaseFieldValidator<Boolean> {
   }
 
   @Override
-  protected Boolean resolveExtensionValue(final Object extensionValue) throws StatusException {
+  protected Boolean resolveExtensionValue(final Object extensionValue) throws FieldValidationException {
     return requireFlagExtension(extensionValue);
   }
 
   @Override
   protected void validateEnumValue(
       final Boolean extensionValue,
-      final Descriptors.EnumValueDescriptor enumValueDescriptor) throws StatusException {
+      final Descriptors.EnumValueDescriptor enumValueDescriptor) throws FieldValidationException {
     if (enumValueDescriptor.getIndex() <= 0) {
-      throw invalidArgument("enum field must be specified");
+      throw new FieldValidationException("enum field must be specified");
     }
   }
 }
