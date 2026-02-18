@@ -171,7 +171,7 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
     meterRegistry.counter(REQUEST_BYTES_COUNTER_NAME, tags).increment(request.getContentRead());
 
     maybeClientVersionTag.ifPresent(clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,
-            Tags.of(clientVersionTag, platformTag).and(UserAgentTagUtil.getAdditionalSpecifierTags(userAgent)))
+            Tags.of(clientVersionTag, platformTag))
         .increment());
   }
 
