@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,9 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.metrics.OpenWebSocketCounter;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
@@ -54,8 +55,8 @@ class AuthenticatedConnectListenerTest {
 
     authenticatedConnectListener = new AuthenticatedConnectListener(accountsManager,
         disconnectionRequestManager,
-        (_, _, _) -> authenticatedWebSocketConnection,
-        _ -> mock(OpenWebSocketCounter.class));
+        mock(ClientReleaseManager.class),
+        (_, _, _) -> authenticatedWebSocketConnection);
 
     final Device device = mock(Device.class);
     when(device.getId()).thenReturn(DEVICE_ID);
@@ -81,7 +82,8 @@ class AuthenticatedConnectListenerTest {
     authenticatedConnectListener.onWebSocketConnect(webSocketSessionContext);
 
     verify(disconnectionRequestManager).addListener(ACCOUNT_IDENTIFIER, DEVICE_ID, authenticatedWebSocketConnection);
-    verify(webSocketSessionContext).addWebsocketClosedListener(any());
+    // We expect one call from AuthenticatedConnectListener itself and one from OpenWebSocketCounter
+    verify(webSocketSessionContext, times(2)).addWebsocketClosedListener(any());
     verify(authenticatedWebSocketConnection).start();
   }
 
@@ -98,7 +100,8 @@ class AuthenticatedConnectListenerTest {
     verify(webSocketClient).close(eq(1011), anyString());
 
     verify(disconnectionRequestManager, never()).addListener(any(), anyByte(), any());
-    verify(webSocketSessionContext, never()).addWebsocketClosedListener(any());
+    // We expect one call from OpenWebSocketCounter, but none from AuthenticatedConnectListener itself
+    verify(webSocketSessionContext, times(1)).addWebsocketClosedListener(any());
     verify(authenticatedWebSocketConnection, never()).start();
   }
 
@@ -114,7 +117,8 @@ class AuthenticatedConnectListenerTest {
     authenticatedConnectListener.onWebSocketConnect(webSocketSessionContext);
 
     verify(disconnectionRequestManager).addListener(ACCOUNT_IDENTIFIER, DEVICE_ID, authenticatedWebSocketConnection);
-    verify(webSocketSessionContext).addWebsocketClosedListener(any());
+    // We expect one call from AuthenticatedConnectListener itself and one from OpenWebSocketCounter
+    verify(webSocketSessionContext, times(2)).addWebsocketClosedListener(any());
     verify(authenticatedWebSocketConnection).start();
 
     verify(webSocketClient).close(eq(1011), anyString());
@@ -125,7 +129,8 @@ class AuthenticatedConnectListenerTest {
     authenticatedConnectListener.onWebSocketConnect(webSocketSessionContext);
 
     verify(disconnectionRequestManager, never()).addListener(any(), anyByte(), any());
-    verify(webSocketSessionContext, never()).addWebsocketClosedListener(any());
+    // We expect one call from OpenWebSocketCounter, but none from AuthenticatedConnectListener itself
+    verify(webSocketSessionContext, times(1)).addWebsocketClosedListener(any());
     verify(authenticatedWebSocketConnection, never()).start();
   }
 }

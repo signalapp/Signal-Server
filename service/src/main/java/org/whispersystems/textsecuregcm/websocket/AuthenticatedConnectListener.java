@@ -5,12 +5,8 @@
 
 package org.whispersystems.textsecuregcm.websocket;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.Tags;
 import java.util.Optional;
-import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -34,13 +30,6 @@ import org.whispersystems.websocket.setup.WebSocketConnectListener;
 import reactor.core.scheduler.Scheduler;
 
 public class AuthenticatedConnectListener implements WebSocketConnectListener {
-
-  private static final String OPEN_WEBSOCKET_GAUGE_NAME = name(AuthenticatedConnectListener.class, "openWebsockets");
-  private static final String NEW_CONNECTION_COUNTER_NAME = name(AuthenticatedConnectListener.class, "newConnections");
-  private static final String CONNECTED_DURATION_TIMER_NAME =
-      name(AuthenticatedConnectListener.class, "connectedDuration");
-
-  private static final String AUTHENTICATED_TAG_NAME = "authenticated";
 
   private static final Logger log = LoggerFactory.getLogger(AuthenticatedConnectListener.class);
 
@@ -72,6 +61,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
 
     this(accountsManager,
         disconnectionRequestManager,
+        clientReleaseManager,
         (account, device, client) -> new WebSocketConnection(receiptSender,
             messagesManager,
             messageMetrics,
@@ -83,26 +73,22 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
             messageDeliveryScheduler,
             clientReleaseManager,
             messageDeliveryLoopMonitor,
-            experimentEnrollmentManager),
-        authenticated -> new OpenWebSocketCounter(OPEN_WEBSOCKET_GAUGE_NAME,
-            NEW_CONNECTION_COUNTER_NAME,
-            CONNECTED_DURATION_TIMER_NAME,
-            Tags.of(AUTHENTICATED_TAG_NAME, String.valueOf(authenticated)))
+            experimentEnrollmentManager)
     );
   }
 
   @VisibleForTesting AuthenticatedConnectListener(
       final AccountsManager accountsManager,
       final DisconnectionRequestManager disconnectionRequestManager,
-      final WebSocketConnectionBuilder webSocketConnectionBuilder,
-      final Function<Boolean, OpenWebSocketCounter> openWebSocketCounterBuilder) {
+      final ClientReleaseManager clientReleaseManager,
+      final WebSocketConnectionBuilder webSocketConnectionBuilder) {
 
     this.accountsManager = accountsManager;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.webSocketConnectionBuilder = webSocketConnectionBuilder;
 
-    openAuthenticatedWebSocketCounter = openWebSocketCounterBuilder.apply(true);
-    openUnauthenticatedWebSocketCounter = openWebSocketCounterBuilder.apply(false);
+    this.openAuthenticatedWebSocketCounter = new OpenWebSocketCounter("rpc-authenticated", clientReleaseManager);
+    this.openUnauthenticatedWebSocketCounter = new OpenWebSocketCounter("rpc-unauthenticated", clientReleaseManager);
   }
 
   @Override

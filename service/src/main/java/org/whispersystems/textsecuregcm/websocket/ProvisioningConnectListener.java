@@ -18,9 +18,9 @@ import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.OpenWebSocketCounter;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
+import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.PubSubProtos;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.websocket.session.WebSocketSessionContext;
@@ -48,14 +48,13 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
   private final Duration timeout;
 
   public ProvisioningConnectListener(final ProvisioningManager provisioningManager,
+      final ClientReleaseManager clientReleaseManager,
       final ScheduledExecutorService timeoutExecutor,
       final Duration timeout) {
     this.provisioningManager = provisioningManager;
     this.timeoutExecutor = timeoutExecutor;
     this.timeout = timeout;
-    this.openWebSocketCounter = new OpenWebSocketCounter(MetricsUtil.name(getClass(), "openWebsockets"),
-        MetricsUtil.name(getClass(), "newConnections"),
-        MetricsUtil.name(getClass(), "sessionDuration"));
+    this.openWebSocketCounter = new OpenWebSocketCounter("provisioning", clientReleaseManager);
   }
 
   @Override
@@ -67,7 +66,7 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
 
     final String provisioningAddress = generateProvisioningAddress();
 
-    context.addWebsocketClosedListener((context1, statusCode, reason) -> {
+    context.addWebsocketClosedListener((_, _, _) -> {
       provisioningManager.removeListener(provisioningAddress);
       timeoutFuture.cancel(false);
     });
@@ -78,7 +77,7 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
       final Optional<byte[]> body = Optional.of(message.getContent().toByteArray());
 
       context.getClient().sendRequest("PUT", "/v1/message", List.of(HeaderUtils.getTimestampHeader()), body)
-          .whenComplete((ignored, throwable) -> context.getClient().close(1000, "Closed"));
+          .whenComplete((_, _) -> context.getClient().close(1000, "Closed"));
     });
 
     context.getClient().sendRequest("PUT", "/v1/address", List.of(HeaderUtils.getTimestampHeader()),
