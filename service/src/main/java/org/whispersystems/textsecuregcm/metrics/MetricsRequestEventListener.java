@@ -146,7 +146,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
             .ifPresent(bytes -> meterRegistry.counter(RESPONSE_BYTES_COUNTER_NAME, tags).increment(bytes));
 
         maybeClientVersionTag.ifPresent(clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,
-                Tags.of(clientVersionTag, platformTag))
+                Tags.of(clientVersionTag, platformTag).and(UserAgentTagUtil.getAdditionalSpecifierTags(userAgent)))
             .increment());
       }
     }
