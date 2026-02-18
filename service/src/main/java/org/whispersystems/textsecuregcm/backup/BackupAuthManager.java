@@ -185,22 +185,24 @@ public class BackupAuthManager {
    * voucher's expiration will include paid backup access. If the BackupVoucher exists but is already expired, this
    * method will also remove the expired voucher from the account.
    *
-   * @param account         The account to create the credentials for
+   * @param originalAccount The account to create the credentials for
    * @param redemptionRange The time range to return credentials for
    * @return Credentials and the day on which they may be redeemed
    */
   public Map<BackupCredentialType, List<Credential>> getBackupAuthCredentials(
-      final Account account,
+      final Account originalAccount,
       final RedemptionRange redemptionRange) throws BackupNotFoundException {
-
     // If the account has an expired payment, clear it before continuing
-    if (hasExpiredVoucher(account)) {
-      final Account updated = accountsManager.update(account, a -> {
+    final Account account;
+    if (hasExpiredVoucher(originalAccount)) {
+      account = accountsManager.update(originalAccount, a -> {
         // Re-check in case we raced with an update
         if (hasExpiredVoucher(a)) {
           a.setBackupVoucher(null);
         }
       });
+    } else {
+      account = originalAccount;
     }
 
     final Map<BackupCredentialType, List<Credential>> credentials = new HashMap<>();
