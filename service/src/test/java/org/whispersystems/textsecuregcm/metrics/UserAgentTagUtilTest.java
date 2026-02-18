@@ -85,11 +85,21 @@ class UserAgentTagUtilTest {
         Arguments.argumentSet("nonsense UA", "This is not a valid User-Agent string", Tags.empty()),
         Arguments.argumentSet("no additional specifiers", "Signal-Desktop/7.84.0", Tags.empty()),
         Arguments.argumentSet("nonstandard additional specifiers", "Signal-Desktop/7.84.0 superfluous information", Tags.empty()),
-        Arguments.argumentSet("standard additional specifiers", "Signal-Desktop/7.84.0 macOS 21.6.0 libsignal/0.86.3",
+        Arguments.argumentSet("desktop standard additional specifiers", "Signal-Desktop/7.84.0 macOS 21.6.0 libsignal/0.86.3",
             Tags.of(
                 UserAgentTagUtil.OPERATING_SYSTEM_TAG, "macOS",
                 UserAgentTagUtil.OPERATING_SYSTEM_VERSION_TAG, "21.6.0",
-                UserAgentTagUtil.LIBSIGNAL_VERSION_TAG, "0.86.3"))
+                UserAgentTagUtil.LIBSIGNAL_VERSION_TAG, "0.86.3")),
+        Arguments.argumentSet("android standard additional specifiers", "Signal-Android/7.63.3 Android/34 libsignal/0.85.1",
+            Tags.of(
+                UserAgentTagUtil.OPERATING_SYSTEM_TAG, "Android",
+                UserAgentTagUtil.OPERATING_SYSTEM_VERSION_TAG, "34",
+                UserAgentTagUtil.LIBSIGNAL_VERSION_TAG, "0.85.1")),
+        Arguments.argumentSet("ios standard additional specifiers", "Signal-iOS/7.89.0.1253 iOS/26.1 libsignal/0.86.7",
+            Tags.of(
+                UserAgentTagUtil.OPERATING_SYSTEM_TAG, "iOS",
+                UserAgentTagUtil.OPERATING_SYSTEM_VERSION_TAG, "26.1",
+                UserAgentTagUtil.LIBSIGNAL_VERSION_TAG, "0.86.7"))
     );
   }
 }
