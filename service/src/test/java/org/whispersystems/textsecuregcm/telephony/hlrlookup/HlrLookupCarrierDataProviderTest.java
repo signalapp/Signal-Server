@@ -93,6 +93,7 @@ class HlrLookupCarrierDataProviderTest {
                         "country_prefix": "44"
                     },
                     "is_ported": "YES",
+                    "disposable_number": "NO",
                     "timestamp": "2022-09-08T10:56:03Z",
                     "telephone_number_type": "MOBILE",
                     "sms_email": "",
@@ -110,7 +111,7 @@ class HlrLookupCarrierDataProviderTest {
     final Optional<CarrierData> maybeCarrierData =
         hlrLookupCarrierDataProvider.lookupCarrierData(PhoneNumberUtil.getInstance().getExampleNumber("US"), Duration.ZERO);
 
-    assertEquals(Optional.of(new CarrierData("Virgin Mobile", CarrierData.LineType.MOBILE, Optional.of("234"), Optional.of("38"), Optional.of(true))),
+    assertEquals(Optional.of(new CarrierData("Virgin Mobile", CarrierData.LineType.MOBILE, Optional.of("234"), Optional.of("38"), Optional.of(true), Optional.of(false))),
         maybeCarrierData);
   }
 
@@ -224,7 +225,7 @@ class HlrLookupCarrierDataProviderTest {
   @MethodSource
   void isPorted(final String isPortedString, final Optional<Boolean> expectedIsPortedValue) {
     final HlrLookupResult hlrLookupResult =
-        new HlrLookupResult("NONE", 1.0f, "NOT_AVAILABLE", null, "NOT_AVAILABLE", null, "MOBILE", isPortedString);
+        new HlrLookupResult("NONE", 1.0f, "NOT_AVAILABLE", null, "NOT_AVAILABLE", null, "MOBILE", isPortedString, null);
 
     assertEquals(expectedIsPortedValue, HlrLookupCarrierDataProvider.isPorted(hlrLookupResult.isPorted()));
   }
@@ -291,7 +292,8 @@ class HlrLookupCarrierDataProviderTest {
         currentNetwork == null ? "NOT_AVAILABLE" : "AVAILABLE",
         currentNetwork,
         "MOBILE",
-        "NO");
+        "NO",
+        "UNKNOWN");
   }
 
   @Test

@@ -148,7 +148,8 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
             lineType(result.telephoneNumberType()),
             mccFromMccMnc(networkDetails.mccmnc()),
             mncFromMccMnc(networkDetails.mccmnc()),
-            isPorted(result.isPorted())));
+            isPorted(result.isPorted()),
+            isDisposableNumber(result.disposableNumber())));
   }
 
   private static Tag getCreditsSpentTag(final HlrLookupResult hlrLookupResult) {
@@ -199,6 +200,15 @@ public class HlrLookupCarrierDataProvider implements CarrierDataProvider {
   @VisibleForTesting
   static Optional<Boolean> isPorted(@Nullable final String isPorted) {
     return switch (isPorted) {
+      case "YES" -> Optional.of(true);
+      case "NO" -> Optional.of(false);
+      case null, default -> Optional.empty();
+    };
+  }
+
+  @VisibleForTesting
+  static Optional<Boolean> isDisposableNumber(@Nullable final String disposableNumber) {
+    return switch (disposableNumber) {
       case "YES" -> Optional.of(true);
       case "NO" -> Optional.of(false);
       case null, default -> Optional.empty();
