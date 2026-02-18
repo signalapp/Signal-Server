@@ -36,7 +36,7 @@ public class UserAgentTagUtil {
       String.format("Signal-Server/%s (%s)", WhisperServerVersion.getServerVersion(), UUID.randomUUID());
 
   private static final Pattern STANDARD_ADDITIONAL_SPECIFIERS_PATTERN =
-      Pattern.compile("^(Windows|macOS|Linux) (\\S+) libsignal/([\\d.]+).*$", Pattern.CASE_INSENSITIVE);
+      Pattern.compile("^(Android|iOS|Windows|macOS|Linux)[ /](\\S+) libsignal/([\\d.]+).*$", Pattern.CASE_INSENSITIVE);
 
   private UserAgentTagUtil() {
   }
