@@ -24,6 +24,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgent;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.WebSocketResourceProvider;
 
 /**
@@ -84,6 +87,24 @@ public class MetricsRequestEventListener implements RequestEventListener {
   public void onEvent(final RequestEvent event) {
     if (event.getType() == RequestEvent.Type.FINISHED) {
       if (!event.getUriInfo().getMatchedTemplates().isEmpty()) {
+        @Nullable final UserAgent userAgent;
+        {
+          final List<String> userAgentValues = event.getContainerRequest().getRequestHeader(HttpHeaders.USER_AGENT);
+          final String userAgentString = userAgentValues != null && !userAgentValues.isEmpty() ? userAgentValues.getFirst() : null;
+
+          UserAgent parsedUserAgent;
+
+          try {
+            parsedUserAgent = UserAgentUtil.parseUserAgentString(userAgentString);
+          } catch (final UnrecognizedUserAgentException e) {
+            parsedUserAgent = null;
+          }
+
+          userAgent = parsedUserAgent;
+        }
+
+        final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+
         final List<Tag> tags = new ArrayList<>();
         tags.add(Tag.of(PATH_TAG, UriInfoUtil.getPathTemplate(event.getUriInfo())));
         tags.add(Tag.of(METHOD_TAG, event.getContainerRequest().getMethod()));
@@ -98,14 +119,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
             .map(Optional::isPresent)
             .orElse(false)
             .toString()));
-
-        @Nullable final String userAgent;
-        {
-          final List<String> userAgentValues = event.getContainerRequest().getRequestHeader(HttpHeaders.USER_AGENT);
-          userAgent = userAgentValues != null && !userAgentValues.isEmpty() ? userAgentValues.getFirst() : null;
-        }
-
-        tags.add(UserAgentTagUtil.getPlatformTag(userAgent));
+        tags.add(platformTag);
 
         final Optional<Tag> maybeClientVersionTag =
             UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager);
@@ -132,7 +146,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
             .ifPresent(bytes -> meterRegistry.counter(RESPONSE_BYTES_COUNTER_NAME, tags).increment(bytes));
 
         maybeClientVersionTag.ifPresent(clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,
-                Tags.of(clientVersionTag, UserAgentTagUtil.getPlatformTag(userAgent)))
+                Tags.of(clientVersionTag, platformTag))
             .increment());
       }
     }

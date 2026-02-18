@@ -31,6 +31,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.util.logging.UriInfoUtil;
+import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
+import org.whispersystems.textsecuregcm.util.ua.UserAgent;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 /**
  * Gathers and reports HTTP request metrics at the Jetty container level, which sits above Jersey. In order to get
@@ -49,7 +52,6 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
   private static final Logger logger = LoggerFactory.getLogger(MetricsHttpChannelListener.class);
 
   private record RequestInfo(String path, String method, int statusCode, @Nullable String userAgent) {
-
   }
 
   private final ClientReleaseManager clientReleaseManager;
@@ -136,15 +138,30 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
 
     final RequestInfo requestInfo = getRequestInfo(request);
 
+    @Nullable final UserAgent userAgent;
+    {
+      UserAgent parsedUserAgent;
+
+      try {
+        parsedUserAgent = UserAgentUtil.parseUserAgentString(requestInfo.userAgent());
+      } catch (final UnrecognizedUserAgentException e) {
+        parsedUserAgent = null;
+      }
+
+      userAgent = parsedUserAgent;
+    }
+
+    final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
+
     final List<Tag> tags = new ArrayList<>(5);
     tags.add(Tag.of(PATH_TAG, requestInfo.path()));
     tags.add(Tag.of(METHOD_TAG, requestInfo.method()));
     tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(requestInfo.statusCode())));
     tags.add(Tag.of(TRAFFIC_SOURCE_TAG, TrafficSource.HTTP.name().toLowerCase()));
-    tags.add(UserAgentTagUtil.getPlatformTag(requestInfo.userAgent()));
+    tags.add(platformTag);
 
     final Optional<Tag> maybeClientVersionTag =
-        UserAgentTagUtil.getClientVersionTag(requestInfo.userAgent, clientReleaseManager);
+        UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager);
 
     maybeClientVersionTag.ifPresent(tags::add);
 
@@ -154,7 +171,7 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
     meterRegistry.counter(REQUEST_BYTES_COUNTER_NAME, tags).increment(request.getContentRead());
 
     maybeClientVersionTag.ifPresent(clientVersionTag -> meterRegistry.counter(REQUESTS_BY_VERSION_COUNTER_NAME,
-            Tags.of(clientVersionTag, UserAgentTagUtil.getPlatformTag(requestInfo.userAgent)))
+            Tags.of(clientVersionTag, platformTag))
         .increment());
   }
 

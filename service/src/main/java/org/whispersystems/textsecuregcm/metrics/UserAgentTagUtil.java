@@ -35,7 +35,7 @@ public class UserAgentTagUtil {
     return getPlatformTag(containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT));
   }
 
-  public static Tag getPlatformTag(final String userAgentString) {
+  public static Tag getPlatformTag(@Nullable final String userAgentString) {
 
     if (SERVER_UA.equals(userAgentString)) {
       return Tag.of(PLATFORM_TAG, "server");
@@ -55,16 +55,25 @@ public class UserAgentTagUtil {
     return Tag.of(PLATFORM_TAG, userAgent != null ? userAgent.platform().name().toLowerCase() : "unrecognized");
   }
 
-  public static Optional<Tag> getClientVersionTag(final String userAgentString, final ClientReleaseManager clientReleaseManager) {
-    try {
-      final UserAgent userAgent = UserAgentUtil.parseUserAgentString(userAgentString);
+  public static Optional<Tag> getClientVersionTag(@Nullable final String userAgentString,
+      final ClientReleaseManager clientReleaseManager) {
 
-      if (clientReleaseManager.isVersionActive(userAgent.platform(), userAgent.version())) {
-        return Optional.of(Tag.of(VERSION_TAG, userAgent.version().toString()));
-      }
-    } catch (final UnrecognizedUserAgentException ignored) {
+    try {
+      return getClientVersionTag(UserAgentUtil.parseUserAgentString(userAgentString), clientReleaseManager);
+    } catch (final UnrecognizedUserAgentException e) {
+      return Optional.empty();
+    }
+  }
+
+  public static Optional<Tag> getClientVersionTag(@Nullable final UserAgent userAgent,
+      final ClientReleaseManager clientReleaseManager) {
+
+    if (userAgent == null) {
+      return Optional.empty();
     }
 
-    return Optional.empty();
+    return clientReleaseManager.isVersionActive(userAgent.platform(), userAgent.version())
+        ? Optional.of(Tag.of(VERSION_TAG, userAgent.version().toString()))
+        : Optional.empty();
   }
 }
