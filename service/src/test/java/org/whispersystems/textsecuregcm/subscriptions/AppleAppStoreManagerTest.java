@@ -148,6 +148,28 @@ class AppleAppStoreManagerTest {
   }
 
   @Test
+  public void multipleLastTransactionsItems()
+      throws VerificationException, APIException, IOException, SubscriptionPaymentRequiredException, SubscriptionInvalidArgumentsException, SubscriptionNotFoundException, RateLimitExceededException {
+    when(apiClient.getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{}))
+        .thenReturn(new StatusResponse()
+            .data(List.of(new SubscriptionGroupIdentifierItem()
+                .subscriptionGroupIdentifier(SUBSCRIPTION_GROUP_ID)
+                .addLastTransactionsItem(new LastTransactionsItem()
+                    .originalTransactionId(ORIGINAL_TX_ID + "-different")
+                    .status(Status.ACTIVE)
+                    .signedRenewalInfo(SIGNED_RENEWAL_INFO)
+                    .signedTransactionInfo(SIGNED_TX_INFO))
+                .addLastTransactionsItem(new LastTransactionsItem()
+                    .originalTransactionId(ORIGINAL_TX_ID)
+                    .status(Status.ACTIVE)
+                    .signedRenewalInfo(SIGNED_RENEWAL_INFO)
+                    .signedTransactionInfo(SIGNED_TX_INFO))))
+            .environment(Environment.PRODUCTION));
+    mockDecode(AutoRenewStatus.ON);
+    assertThat(appleAppStoreManager.validateTransaction(ORIGINAL_TX_ID)).isEqualTo(LEVEL);
+  }
+
+  @Test
   public void cancelRenewalDisabled() throws APIException, VerificationException, IOException {
     mockSubscription(Status.ACTIVE, AutoRenewStatus.OFF);
     assertDoesNotThrow(() -> appleAppStoreManager.cancelAllActiveSubscriptions(ORIGINAL_TX_ID));

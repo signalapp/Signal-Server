@@ -9,14 +9,18 @@ import com.apple.itunes.storekit.model.AutoRenewStatus;
 import com.apple.itunes.storekit.model.Status;
 import com.apple.itunes.storekit.model.StatusResponse;
 import com.apple.itunes.storekit.model.SubscriptionGroupIdentifierItem;
+import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import io.micrometer.core.instrument.Tags;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -165,23 +169,20 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
 
     final List<AppleAppStoreDecodedTransaction> txs = item.getLastTransactions().stream()
         .map(txItem -> appleAppStoreClient.verify(statuses.getEnvironment(), txItem))
+        .filter(tx -> tx.signedTransaction().getOriginalTransactionId().equals(originalTransactionId))
         .filter(decoded -> productIdToLevel.containsKey(decoded.transaction().getProductId()))
         .toList();
 
     if (txs.isEmpty()) {
-      throw new SubscriptionInvalidArgumentsException("transactionId did not include a paid subscription", null);
-    }
-
-    if (txs.size() > 1) {
-      logger.warn("Multiple matching product transactions found for transactionId {}, only considering first",
-          originalTransactionId);
-    }
-
-    if (!originalTransactionId.equals(txs.getFirst().signedTransaction().getOriginalTransactionId())) {
       // Get All Subscriptions only requires that the transaction be some transaction associated with the
       // subscription. This is too flexible, since we'd like to key on the originalTransactionId in the
       // SubscriptionManager.
-      throw new SubscriptionInvalidArgumentsException("transactionId was not the transaction's originalTransactionId", null);
+      throw new SubscriptionInvalidArgumentsException("transactionId did not include a paid subscription or the provided transactionId was not an originalTransactionId", null);
+    }
+
+    if (txs.size() > 1) {
+      logger.warn("Multiple matching product transactions found with a sha256(originalTransactionId)={}, only considering first",
+          sha256(originalTransactionId));
     }
     return txs.getFirst();
   }
@@ -208,6 +209,16 @@ public class AppleAppStoreManager implements SubscriptionPaymentProcessor {
   private boolean isSubscriptionActive(final AppleAppStoreDecodedTransaction tx) {
     return tx.signedTransaction().getStatus() == Status.ACTIVE
         || tx.signedTransaction().getStatus() == Status.BILLING_GRACE_PERIOD;
+  }
+
+  private static String sha256(final String input) {
+    final MessageDigest sha256;
+    try {
+      sha256 = MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+      throw new AssertionError("Every implementation of the Java platform is required to support SHA-256", e);
+    }
+    return Base64.getEncoder().encodeToString(sha256.digest(input.getBytes(StandardCharsets.UTF_8)));
   }
 
 }
