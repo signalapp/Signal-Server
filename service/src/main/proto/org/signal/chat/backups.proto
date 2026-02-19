@@ -162,7 +162,7 @@ service BackupsAnonymous {
 
   // Refresh the backup, indicating that the backup is still active. Clients
   // must periodically upload new backups or perform a refresh. If a backup has
-  // not been active for 30 days, it may deleted
+  // not been active for 30 days, it may be deleted.
   rpc Refresh(RefreshRequest) returns (RefreshResponse) {}
 
   // Retrieve an upload form that can be used to perform a resumable upload
@@ -212,15 +212,21 @@ message SetPublicKeyRequest {
   // The public key, serialized in libsignal's elliptic-curve public key format.
   bytes public_key = 2;
 }
+
 message SetPublicKeyResponse {
-  // The provided backup auth credential presentation could not be
-  // authenticated. Either, the presentation could not be verified, or
-  // the public key signature was invalid, or there is no backup associated
-  // with the backup-id in the presentation.
-  //
-  // This may also be returned if there was an existing public key and the
-  // provided public key did not match.
-  errors.FailedZkAuthentication failed_authentication = 1 [(tag.reason) = "failed_authentication"];
+  oneof outcome {
+    // The public key was successfully set
+    google.protobuf.Empty success = 1;
+
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
+    //
+    // This may also be returned if there was an existing public key and the
+    // provided public key did not match.
+    errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
+  }
 }
 
 message GetCdnCredentialsRequest {
@@ -311,11 +317,14 @@ message RefreshRequest {
 }
 message RefreshResponse {
   oneof outcome {
+    // The backup was successfully refreshed
+    google.protobuf.Empty success = 1;
+
     // The provided backup auth credential presentation could not be
     // authenticated. Either, the presentation could not be verified, or
     // the public key signature was invalid, or there is no backup associated
     // with the backup-id in the presentation.
-    errors.FailedZkAuthentication failed_authentication = 1 [(tag.reason) = "failed_authentication"];
+    errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
   }
 }
 
@@ -323,7 +332,7 @@ message GetUploadFormRequest {
   SignedPresentation signed_presentation = 1;
 
   message MessagesUploadType {
-    uint64 uploadLength = 1;
+    uint64 upload_length = 1;
   }
   message MediaUploadType {}
   oneof upload_type {
@@ -395,7 +404,7 @@ message CopyMediaRequest {
   SignedPresentation signed_presentation = 1;
 
   // Items to copy
-  repeated CopyMediaItem  items = 2;
+  repeated CopyMediaItem items = 2;
 }
 
 message CopyMediaResponse {
@@ -418,7 +427,7 @@ message CopyMediaResponse {
     // authenticated. Either, the presentation could not be verified, or
     // the public key signature was invalid, or there is no backup associated
     // with the backup-id in the presentation.
-     errors.FailedZkAuthentication failed_authentication = 3 [(tag.reason) = "failed_authentication"];
+    errors.FailedZkAuthentication failed_authentication = 3 [(tag.reason) = "failed_authentication"];
 
     // The source object was not found
     SourceNotFound source_not_found = 4;
@@ -486,11 +495,14 @@ message DeleteAllRequest {
 }
 message DeleteAllResponse {
   oneof outcome {
+    // The backup was successfully scheduled for deletion
+    google.protobuf.Empty success = 1;
+
     // The provided backup auth credential presentation could not be
     // authenticated. Either, the presentation could not be verified, or
     // the public key signature was invalid, or there is no backup associated
     // with the backup-id in the presentation.
-    errors.FailedZkAuthentication failed_authentication = 1 [(tag.reason) = "failed_authentication"];
+    errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
   }
 }
 

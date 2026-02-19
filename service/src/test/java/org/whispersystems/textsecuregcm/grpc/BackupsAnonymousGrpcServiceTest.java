@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -50,6 +49,7 @@ import org.signal.chat.backup.GetUploadFormResponse;
 import org.signal.chat.backup.ListMediaRequest;
 import org.signal.chat.backup.ListMediaResponse;
 import org.signal.chat.backup.SetPublicKeyRequest;
+import org.signal.chat.backup.SetPublicKeyResponse;
 import org.signal.chat.backup.SignedPresentation;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
@@ -97,10 +97,11 @@ class BackupsAnonymousGrpcServiceTest extends
 
   @Test
   void setPublicKey() {
-    assertThatNoException().isThrownBy(() -> unauthenticatedServiceStub().setPublicKey(SetPublicKeyRequest.newBuilder()
+    assertThat(unauthenticatedServiceStub().setPublicKey(SetPublicKeyRequest.newBuilder()
         .setPublicKey(ByteString.copyFrom(ECKeyPair.generate().getPublicKey().serialize()))
         .setSignedPresentation(signedPresentation(presentation))
-        .build()));
+        .build())
+        .getOutcomeCase()).isEqualTo(SetPublicKeyResponse.OutcomeCase.SUCCESS);
   }
 
   @Test

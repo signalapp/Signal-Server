@@ -5,6 +5,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import java.util.Optional;
 import java.util.concurrent.Flow;
 import org.signal.chat.backup.CopyMediaRequest;
@@ -41,7 +42,6 @@ import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.backup.BackupFailedZkAuthenticationException;
 import org.whispersystems.textsecuregcm.backup.BackupInvalidArgumentException;
 import org.whispersystems.textsecuregcm.backup.BackupManager;
-import org.whispersystems.textsecuregcm.backup.BackupNotFoundException;
 import org.whispersystems.textsecuregcm.backup.BackupPermissionException;
 import org.whispersystems.textsecuregcm.backup.BackupUploadDescriptor;
 import org.whispersystems.textsecuregcm.backup.BackupWrongCredentialTypeException;
@@ -122,7 +122,7 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
     try {
       final AuthenticatedBackupUser backupUser = authenticateBackupUser(request.getSignedPresentation());
       backupManager.ttlRefresh(backupUser);
-      return RefreshResponse.getDefaultInstance();
+      return RefreshResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build();
     } catch (BackupFailedZkAuthenticationException e) {
       return RefreshResponse.newBuilder()
           .setFailedAuthentication(FailedZkAuthentication.newBuilder().setDescription(e.getMessage()).build())
@@ -140,7 +140,7 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
     final byte[] signature = request.getSignedPresentation().getPresentationSignature().toByteArray();
 
     backupManager.setPublicKey(presentation, signature, publicKey);
-    return SetPublicKeyResponse.getDefaultInstance();
+    return SetPublicKeyResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build();
   }
 
 
@@ -260,7 +260,7 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
     try {
       final AuthenticatedBackupUser backupUser = authenticateBackupUser(request.getSignedPresentation());
       backupManager.deleteEntireBackup(backupUser);
-      return DeleteAllResponse.getDefaultInstance();
+      return DeleteAllResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build();
     } catch (BackupFailedZkAuthenticationException e) {
       return DeleteAllResponse.newBuilder()
           .setFailedAuthentication(FailedZkAuthentication.newBuilder().setDescription(e.getMessage()))
