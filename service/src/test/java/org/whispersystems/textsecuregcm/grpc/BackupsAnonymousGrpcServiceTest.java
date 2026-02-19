@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
@@ -41,9 +42,10 @@ import org.signal.chat.backup.CopyMediaResponse;
 import org.signal.chat.backup.DeleteMediaItem;
 import org.signal.chat.backup.DeleteMediaRequest;
 import org.signal.chat.backup.GetBackupInfoRequest;
-import org.signal.chat.backup.GetBackupInfoResponse;
 import org.signal.chat.backup.GetCdnCredentialsRequest;
 import org.signal.chat.backup.GetCdnCredentialsResponse;
+import org.signal.chat.backup.GetMediaBackupInfoResponse;
+import org.signal.chat.backup.GetMessageBackupInfoResponse;
 import org.signal.chat.backup.GetUploadFormRequest;
 import org.signal.chat.backup.GetUploadFormResponse;
 import org.signal.chat.backup.ListMediaRequest;
@@ -212,17 +214,51 @@ class BackupsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  void getBackupInfo() throws BackupException {
+  void getMessageBackupInfo() throws BackupException {
     when(backupManager.backupInfo(any()))
         .thenReturn(new BackupManager.BackupInfo(1, "myBackupDir", "myMediaDir", "filename", Optional.empty()));
 
-    final GetBackupInfoResponse response = unauthenticatedServiceStub().getBackupInfo(GetBackupInfoRequest.newBuilder()
+    final GetMessageBackupInfoResponse response = unauthenticatedServiceStub().getMessageBackupInfo(GetBackupInfoRequest.newBuilder()
         .setSignedPresentation(signedPresentation(presentation))
         .build());
     assertThat(response.getBackupInfo().getBackupDir()).isEqualTo("myBackupDir");
     assertThat(response.getBackupInfo().getBackupName()).isEqualTo("filename");
     assertThat(response.getBackupInfo().getCdn()).isEqualTo(1);
-    assertThat(response.getBackupInfo().getUsedSpace()).isEqualTo(0L);
+  }
+
+  @Test
+  void getMediaBackupInfo() throws BackupException {
+    when(backupManager.authenticateBackupUser(any(), any(), any()))
+        .thenReturn(backupUser(presentation.getBackupId(), BackupCredentialType.MEDIA, BackupLevel.PAID));
+    when(backupManager.backupInfo(any()))
+        .thenReturn(new BackupManager.BackupInfo(1, "myBackupDir", "myMediaDir", "filename", Optional.of(123L)));
+
+    final GetMediaBackupInfoResponse response = unauthenticatedServiceStub().getMediaBackupInfo(GetBackupInfoRequest.newBuilder()
+        .setSignedPresentation(signedPresentation(presentation))
+        .build());
+    assertThat(response.getBackupInfo().getBackupDir()).isEqualTo("myBackupDir");
+    assertThat(response.getBackupInfo().getMediaDir()).isEqualTo("myMediaDir");
+    assertThat(response.getBackupInfo().getUsedSpace()).isEqualTo(123);
+  }
+
+  @ParameterizedTest
+  @EnumSource(BackupCredentialType.class)
+  void getBackupInfoWrongCredentialType(BackupCredentialType credentialType)
+      throws BackupFailedZkAuthenticationException {
+    when(backupManager.authenticateBackupUser(any(), any(), any()))
+        .thenReturn(backupUser(presentation.getBackupId(), credentialType, BackupLevel.PAID));
+    assertThatExceptionOfType(StatusRuntimeException.class).isThrownBy(() -> {
+          switch (credentialType) {
+            case MEDIA -> unauthenticatedServiceStub().getMessageBackupInfo(GetBackupInfoRequest.newBuilder()
+                .setSignedPresentation(signedPresentation(presentation))
+                .build());
+            case MESSAGES -> unauthenticatedServiceStub().getMediaBackupInfo(GetBackupInfoRequest.newBuilder()
+                .setSignedPresentation(signedPresentation(presentation))
+                .build());
+          }
+        })
+        .matches(ex -> ex.getStatus().getCode() == Status.Code.INVALID_ARGUMENT)
+        .matches(ex -> GrpcTestUtils.extractErrorInfo(ex).getReason().equals("BAD_AUTHENTICATION"));
   }
 
 

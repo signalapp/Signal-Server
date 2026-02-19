@@ -16,9 +16,10 @@ import org.signal.chat.backup.DeleteMediaItem;
 import org.signal.chat.backup.DeleteMediaRequest;
 import org.signal.chat.backup.DeleteMediaResponse;
 import org.signal.chat.backup.GetBackupInfoRequest;
-import org.signal.chat.backup.GetBackupInfoResponse;
 import org.signal.chat.backup.GetCdnCredentialsRequest;
 import org.signal.chat.backup.GetCdnCredentialsResponse;
+import org.signal.chat.backup.GetMediaBackupInfoResponse;
+import org.signal.chat.backup.GetMessageBackupInfoResponse;
 import org.signal.chat.backup.GetSvrBCredentialsRequest;
 import org.signal.chat.backup.GetSvrBCredentialsResponse;
 import org.signal.chat.backup.GetUploadFormRequest;
@@ -37,6 +38,7 @@ import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.backups.BackupAuthCredentialPresentation;
+import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedBackupUser;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.backup.BackupFailedZkAuthenticationException;
@@ -99,19 +101,40 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
   }
 
   @Override
-  public GetBackupInfoResponse getBackupInfo(final GetBackupInfoRequest request) throws BackupPermissionException {
+  public GetMessageBackupInfoResponse getMessageBackupInfo(final GetBackupInfoRequest request) throws BackupPermissionException {
     try {
       final AuthenticatedBackupUser backupUser = authenticateBackupUser(request.getSignedPresentation());
+      if (backupUser.credentialType() != BackupCredentialType.MESSAGES) {
+        throw GrpcExceptions.badAuthentication("credential type for message backup info must be 'messages'");
+      }
       final BackupManager.BackupInfo info = backupManager.backupInfo(backupUser);
-      return GetBackupInfoResponse.newBuilder().setBackupInfo(GetBackupInfoResponse.BackupInfo.newBuilder()
+      return GetMessageBackupInfoResponse.newBuilder().setBackupInfo(GetMessageBackupInfoResponse.MessageBackupInfo.newBuilder()
               .setBackupName(info.messageBackupKey())
               .setCdn(info.cdn())
               .setBackupDir(info.backupSubdir())
-              .setMediaDir(info.mediaSubdir())
-              .setUsedSpace(info.mediaUsedSpace().orElse(0L)))
-          .build();
+          .build()).build();
     } catch (BackupFailedZkAuthenticationException e) {
-      return GetBackupInfoResponse.newBuilder()
+      return GetMessageBackupInfoResponse.newBuilder()
+          .setFailedAuthentication(FailedZkAuthentication.newBuilder().setDescription(e.getMessage()).build())
+          .build();
+    }
+  }
+
+  @Override
+  public GetMediaBackupInfoResponse getMediaBackupInfo(final GetBackupInfoRequest request) throws BackupPermissionException {
+    try {
+      final AuthenticatedBackupUser backupUser = authenticateBackupUser(request.getSignedPresentation());
+      if (backupUser.credentialType() != BackupCredentialType.MEDIA) {
+        throw GrpcExceptions.badAuthentication("credential type for media backup info must be 'media'");
+      }
+      final BackupManager.BackupInfo info = backupManager.backupInfo(backupUser);
+      return GetMediaBackupInfoResponse.newBuilder().setBackupInfo(GetMediaBackupInfoResponse.MediaBackupInfo.newBuilder()
+              .setBackupDir(info.backupSubdir())
+              .setMediaDir(info.mediaSubdir())
+              .setUsedSpace(info.mediaUsedSpace().orElse(0L))
+          .build()).build();
+    } catch (BackupFailedZkAuthenticationException e) {
+      return GetMediaBackupInfoResponse.newBuilder()
           .setFailedAuthentication(FailedZkAuthentication.newBuilder().setDescription(e.getMessage()).build())
           .build();
     }

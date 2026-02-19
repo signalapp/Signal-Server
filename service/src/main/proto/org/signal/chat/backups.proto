@@ -152,8 +152,11 @@ service BackupsAnonymous {
   // Retrieve credentials used to interact with the SecureValueRecoveryB service
   rpc GetSvrBCredentials(GetSvrBCredentialsRequest) returns (GetSvrBCredentialsResponse) {}
 
-  // Retrieve information about the currently stored backup
-  rpc GetBackupInfo(GetBackupInfoRequest) returns (GetBackupInfoResponse) {}
+  // Retrieve information about the currently stored message backup
+  rpc GetMessageBackupInfo(GetBackupInfoRequest) returns (GetMessageBackupInfoResponse) {}
+
+  // Retrieve information about the currently stored media backup
+  rpc GetMediaBackupInfo(GetBackupInfoRequest) returns (GetMediaBackupInfoResponse) {}
 
   // Permanently set the public key of an ED25519 key-pair for the backup-id.
   // All requests (including this one!) must sign their BackupAuthCredential
@@ -277,11 +280,34 @@ message GetSvrBCredentialsResponse {
 message GetBackupInfoRequest {
   SignedPresentation signed_presentation = 1;
 }
-message GetBackupInfoResponse {
-  message BackupInfo {
+message GetMessageBackupInfoResponse {
+  message MessageBackupInfo {
     // The base directory of your backup data on the cdn. The message backup can
-    // be found in the returned cdn at /backup_dir/backup_name and stored media can
-    // be found at /backup_dir/media_dir/media_id
+    // be found in the returned cdn at /backup_dir/backup_name
+    string backup_dir = 1;
+
+    // The CDN type where the message backup is stored. Media may be stored
+    // elsewhere.
+    uint32 cdn = 2;
+
+    // The location of the message backup on the cdn. If a backup was previously
+    // uploaded and unexpired, it can be found at /backup_dir/backup_name.
+    string backup_name = 3;
+  }
+
+  oneof outcome {
+    MessageBackupInfo backup_info = 1;
+
+    // The provided backup auth credential presentation could not be
+    // authenticated. Either, the presentation could not be verified, or
+    // the public key signature was invalid, or there is no backup associated
+    // with the backup-id in the presentation.
+    errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
+  }
+}
+message GetMediaBackupInfoResponse {
+  message MediaBackupInfo {
+    // The base directory of your backup data on the cdn.
     string backup_dir = 1;
 
     // The prefix path component for media objects on a cdn. Stored media for a
@@ -289,20 +315,12 @@ message GetBackupInfoResponse {
     // is encoded in unpadded url-safe base64.
     string media_dir = 2;
 
-    // The CDN type where the message backup is stored. Media may be stored
-    // elsewhere. If absent, no message backup currently exists.
-    optional uint32 cdn = 3;
-
-    // The name of the most recent message backup on the cdn. The backup is at
-    // /backup_dir/backup_name. If absent, no message backup currently exists.
-    optional string backup_name = 4;
-
     // The amount of space used to store media
-    uint64 used_space = 5;
+    uint64 used_space = 3;
   }
 
   oneof outcome {
-    BackupInfo backup_info = 1;
+    MediaBackupInfo backup_info = 1;
 
     // The provided backup auth credential presentation could not be
     // authenticated. Either, the presentation could not be verified, or
