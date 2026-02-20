@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.metrics;
 import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.core.setup.Environment;
-import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
@@ -30,7 +29,6 @@ import io.opentelemetry.sdk.resources.ResourceBuilder;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
-
 import org.eclipse.jetty.util.component.LifeCycle;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -142,7 +140,7 @@ public class MetricsUtil {
     config.meterFilter(new MeterFilter() {
           @Override
           public DistributionStatisticConfig configure(final Meter.Id id, final DistributionStatisticConfig config) {
-            return defaultDistributionStatisticConfig.merge(config);
+            return config.merge(defaultDistributionStatisticConfig);
           }
         })
         // Remove high-cardinality `command` tags from Lettuce metrics and prepend "chat." to meter names
