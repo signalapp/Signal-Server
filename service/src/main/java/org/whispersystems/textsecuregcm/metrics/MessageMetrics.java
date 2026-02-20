@@ -86,7 +86,6 @@ public final class MessageMetrics {
     UserAgentTagUtil.getClientVersionTag(userAgent, clientReleaseManager).ifPresent(tags::add);
 
     Timer.builder(DELIVERY_LATENCY_TIMER_NAME)
-        .publishPercentileHistogram(true)
         .tags(tags)
         .register(metricRegistry)
         .record(Duration.between(Instant.ofEpochMilli(serverTimestamp), Instant.now()));

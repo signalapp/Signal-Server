@@ -85,7 +85,6 @@ public class OpenWebSocketCounter {
 
     context.addWebsocketClosedListener((_, statusCode, _) -> {
       sample.stop(Timer.builder(durationTimerName)
-          .publishPercentileHistogram(true)
           .tags(tagsWithClientPlatform)
           .register(Metrics.globalRegistry));
 

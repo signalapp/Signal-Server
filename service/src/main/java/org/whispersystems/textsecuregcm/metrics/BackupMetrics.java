@@ -57,7 +57,6 @@ public class BackupMetrics {
       final boolean oversize,
       final Optional<Long> backupLength) {
     DistributionSummary.builder(MESSAGE_BACKUP_SIZE_NAME)
-        .publishPercentileHistogram(true)
         .tags(Tags.of(
             UserAgentTagUtil.getPlatformTag(authenticatedBackupUser.userAgent()),
             Tag.of("tier", authenticatedBackupUser.backupLevel().name().toLowerCase()),

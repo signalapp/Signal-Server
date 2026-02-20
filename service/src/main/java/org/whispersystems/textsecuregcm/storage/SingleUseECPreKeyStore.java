@@ -61,13 +61,11 @@ public class SingleUseECPreKeyStore {
 
   final DistributionSummary keysConsideredForTakeDistributionSummary = DistributionSummary
       .builder(name(getClass(), "keysConsideredForTake"))
-      .publishPercentiles(0.5, 0.75, 0.95, 0.99, 0.999)
       .distributionStatisticExpiry(Duration.ofMinutes(10))
       .register(Metrics.globalRegistry);
 
   final DistributionSummary availableKeyCountDistributionSummary = DistributionSummary
       .builder(name(getClass(), "availableKeyCount"))
-      .publishPercentiles(0.5, 0.75, 0.95, 0.99, 0.999)
       .distributionStatisticExpiry(Duration.ofMinutes(10))
       .register(Metrics.globalRegistry);
 

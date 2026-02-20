@@ -352,7 +352,6 @@ public class MessageSender {
             Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
             Tag.of("syncMessage", String.valueOf(isSyncMessage)),
             Tag.of("story", String.valueOf(isStory))))
-        .publishPercentileHistogram(true)
         .register(Metrics.globalRegistry)
         .record(contentLength);
 

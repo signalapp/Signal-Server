@@ -149,7 +149,6 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher {
 
       DistributionSummary.builder(API_CALL_RETRY_COUNT_DISTRIBUTION_NAME)
           .tags(tags)
-          .publishPercentileHistogram(true)
           .register(Metrics.globalRegistry)
           .record(retryCount);
 
@@ -179,21 +178,18 @@ public class MicrometerAwsSdkMetricPublisher implements MetricPublisher {
       Optional.ofNullable(httpMetricsByName.get("ConcurrencyAcquireDuration"))
           .ifPresent(channelAcquisitionDurationMetricRecord -> Timer.builder(CHANNEL_ACQUISITION_TIMER_NAME)
               .tags(attemptTags)
-              .publishPercentileHistogram(true)
               .register(Metrics.globalRegistry)
               .record((Duration) channelAcquisitionDurationMetricRecord.value()));
 
       Optional.ofNullable(httpMetricsByName.get("LeasedConcurrency"))
           .ifPresent(concurrentRequestsMetricRecord -> DistributionSummary.builder(CONCURRENT_REQUESTS_DISTRIBUTION_NAME)
               .tags(attemptTags)
-              .publishPercentileHistogram(true)
               .register(Metrics.globalRegistry)
               .record((int) concurrentRequestsMetricRecord.value()));
 
       Optional.ofNullable(httpMetricsByName.get("PendingConcurrencyAcquires"))
           .ifPresent(pendingChannelAcquisitionsMetricRecord -> DistributionSummary.builder(PENDING_CHANNEL_ACQUISITIONS_DISTRIBUTION_NAME)
               .tags(attemptTags)
-              .publishPercentileHistogram(true)
               .register(Metrics.globalRegistry)
               .record((int) pendingChannelAcquisitionsMetricRecord.value()));
     });

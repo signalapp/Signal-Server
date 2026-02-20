@@ -236,7 +236,6 @@ public class MessagePersister implements Managed {
 
       DistributionSummary.builder(QUEUE_SIZE_DISTRIBUTION_SUMMARY_NAME)
           .tags(Tags.of(platformTag))
-          .publishPercentileHistogram(true)
           .register(Metrics.globalRegistry)
           .record(messageCount);
     } catch (ItemCollectionSizeLimitExceededException e) {

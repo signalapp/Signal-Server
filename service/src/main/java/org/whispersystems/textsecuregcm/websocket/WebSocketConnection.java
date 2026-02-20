@@ -287,7 +287,6 @@ public class WebSocketConnection implements DisconnectionRequestListener {
           return result;
         })
         .thenRun(() -> sample.stop(Timer.builder(SEND_MESSAGE_DURATION_TIMER_NAME)
-            .publishPercentileHistogram(true)
             .tags(platformTag)
             .register(Metrics.globalRegistry)));
   }

@@ -73,7 +73,6 @@ public class PagedSingleUseKEMPreKeyStore {
 
   final DistributionSummary availableKeyCountDistributionSummary = DistributionSummary
       .builder(name(getClass(), "availableKeyCount"))
-      .publishPercentileHistogram()
       .register(Metrics.globalRegistry);
 
   private final String takeKeyTimerName = name(getClass(), "takeKey");

@@ -147,12 +147,10 @@ public class MessageController {
 
     INDIVIDUAL_MESSAGE_LATENCY_TIMER = Timer.builder(timerName)
         .tags(multiRecipientTagName, "false")
-        .publishPercentileHistogram(true)
         .register(Metrics.globalRegistry);
 
     MULTI_RECIPIENT_MESSAGE_LATENCY_TIMER = Timer.builder(timerName)
         .tags(multiRecipientTagName, "true")
-        .publishPercentileHistogram(true)
         .register(Metrics.globalRegistry);
   }
 

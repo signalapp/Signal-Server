@@ -30,7 +30,6 @@ public class ReportMessageDynamoDb {
   private static final String REMOVED_MESSAGE_COUNTER_NAME = name(ReportMessageDynamoDb.class, "removed");
   private static final Timer REMOVED_MESSAGE_AGE_TIMER = Timer
       .builder(name(ReportMessageDynamoDb.class, "removedMessageAge"))
-      .publishPercentiles(0.5, 0.75, 0.95, 0.99)
       .distributionStatisticExpiry(Duration.ofDays(1))
       .register(Metrics.globalRegistry);
 

@@ -56,7 +56,6 @@ public class RegistrationController {
 
   private static final DistributionSummary REREGISTRATION_IDLE_DAYS_DISTRIBUTION = DistributionSummary
       .builder(name(RegistrationController.class, "reregistrationIdleDays"))
-      .publishPercentiles(0.75, 0.95, 0.99, 0.999)
       .distributionStatisticExpiry(Duration.ofHours(2))
       .register(Metrics.globalRegistry);
 

@@ -125,7 +125,6 @@ public class RegistrationLockVerificationManager {
     final DistributionSummary registrationLockIdleDays = DistributionSummary
         .builder(name(RegistrationLockVerificationManager.class, "registrationLockIdleDays"))
         .tags(additionalTags)
-        .publishPercentiles(0.75, 0.95, 0.99, 0.999)
         .distributionStatisticExpiry(Duration.ofHours(2))
         .register(Metrics.globalRegistry);
 

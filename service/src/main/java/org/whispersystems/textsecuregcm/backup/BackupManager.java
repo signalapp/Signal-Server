@@ -210,12 +210,10 @@ public class BackupManager {
 
       DistributionSummary.builder(NUM_OBJECTS_SUMMARY_NAME)
           .tags(tags)
-          .publishPercentileHistogram()
           .register(Metrics.globalRegistry)
           .record(storedBackupAttributes.numObjects());
       DistributionSummary.builder(BYTES_USED_SUMMARY_NAME)
           .tags(tags)
-          .publishPercentileHistogram()
           .register(Metrics.globalRegistry)
           .record(storedBackupAttributes.bytesUsed());
     }
@@ -729,7 +727,6 @@ public class BackupManager {
             concurrentDeletes)
         .count()
         .doOnSuccess(itemsRemoved -> DistributionSummary.builder(DELETE_COUNT_DISTRIBUTION_NAME)
-            .publishPercentileHistogram(true)
             .register(Metrics.globalRegistry)
             .record(itemsRemoved))
         .then()
