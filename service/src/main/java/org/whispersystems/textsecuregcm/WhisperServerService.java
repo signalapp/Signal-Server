@@ -902,11 +902,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
             validatingInterceptor,
-            grpcAllowListInterceptor,
-            metricServerInterceptor,
             errorMappingInterceptor,
             errorConformanceInterceptor,
+            grpcAllowListInterceptor,
             remoteDeprecationFilter,
+            metricServerInterceptor,
             requestAttributesInterceptor,
             requireAuthenticationInterceptor))
         .toList();
@@ -922,11 +922,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             // depends on the user-agent context so it has to come first here!
             grpcExternalRequestFilter,
             validatingInterceptor,
-            grpcAllowListInterceptor,
-            metricServerInterceptor,
             errorMappingInterceptor,
             errorConformanceInterceptor,
+            grpcAllowListInterceptor,
             remoteDeprecationFilter,
+            metricServerInterceptor,
             requestAttributesInterceptor,
             prohibitAuthenticationInterceptor))
         .toList();
