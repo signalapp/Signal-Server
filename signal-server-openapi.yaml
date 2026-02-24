@@ -5245,18 +5245,6 @@ components:
           type: integer
           description: The distinguished tree head size to prove consistency against.
           format: int64
-        aciVersion:
-          type: integer
-          description: The version of the ACI to look up.
-          format: int64
-        e164Version:
-          type: integer
-          description: The version of the E164 to look up.
-          format: int64
-        usernameHashVersion:
-          type: integer
-          description: The version of the username hash to look up.
-          format: int64
     CheckKeysRequest:
       required:
       - digest
