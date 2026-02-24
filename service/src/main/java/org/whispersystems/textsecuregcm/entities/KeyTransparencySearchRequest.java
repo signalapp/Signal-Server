@@ -9,8 +9,6 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.util.Optional;
@@ -53,16 +51,7 @@ public record KeyTransparencySearchRequest(
     Optional<@Positive Long> lastTreeHeadSize,
 
     @Schema(description = "The distinguished tree head size to prove consistency against.")
-    @Positive long distinguishedTreeHeadSize,
-
-    @Schema(description = "The version of the ACI to look up.")
-    Optional<@Max(MAX_UINT32) @Min(0) Long> aciVersion,
-
-    @Schema(description = "The version of the E164 to look up.")
-    Optional<@Max(MAX_UINT32) @Min(0) Long> e164Version,
-
-    @Schema(description = "The version of the username hash to look up.")
-    Optional<@Max(MAX_UINT32) @Min(0) Long> usernameHashVersion
+    @Positive long distinguishedTreeHeadSize
 ) {
     // This is the max value for a protobuf uint32 field
     private static final long MAX_UINT32 = 0xFFFFFFFFL;

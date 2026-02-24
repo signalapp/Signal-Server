@@ -35,8 +35,6 @@ import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.Response;
 import java.io.UncheckedIOException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -127,10 +125,7 @@ public class KeyTransparencyControllerTest {
   @MethodSource
   void searchSuccess(
       final Optional<String> e164,
-      final Optional<byte[]> usernameHash,
-      final Optional<Long> aciVersion,
-      final Optional<Long> e164Version,
-      final Optional<Long> usernameHashVersion
+      final Optional<byte[]> usernameHash
   ) {
     final CondensedTreeSearchResponse aciSearchResponse = CondensedTreeSearchResponse.newBuilder()
         .setOpening(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))
@@ -147,7 +142,7 @@ public class KeyTransparencyControllerTest {
     e164.ifPresent(ignored -> searchResponseBuilder.setE164(CondensedTreeSearchResponse.getDefaultInstance()));
     usernameHash.ifPresent(ignored -> searchResponseBuilder.setUsernameHash(CondensedTreeSearchResponse.getDefaultInstance()));
 
-    when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), anyLong(), any(), any(), any()))
+    when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), anyLong()))
         .thenReturn(searchResponseBuilder.build());
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -157,7 +152,7 @@ public class KeyTransparencyControllerTest {
     final Optional<byte[]> unidentifiedAccessKey = e164.isPresent() ? Optional.of(UNIDENTIFIED_ACCESS_KEY) : Optional.empty();
     final String searchJson = createRequestJson(
         new KeyTransparencySearchRequest(ACI, e164, usernameHash, ACI_IDENTITY_KEY,
-            unidentifiedAccessKey, Optional.of(3L), 4L, aciVersion, e164Version, usernameHashVersion));
+            unidentifiedAccessKey, Optional.of(3L), 4L));
 
     try (Response response = request.post(Entity.json(searchJson))) {
       assertEquals(200, response.getStatus());
@@ -171,13 +166,10 @@ public class KeyTransparencyControllerTest {
       ArgumentCaptor<ByteString> aciIdentityKeyArgument = ArgumentCaptor.forClass(ByteString.class);
       ArgumentCaptor<Optional<ByteString>> usernameHashArgument = ArgumentCaptor.forClass(Optional.class);
       ArgumentCaptor<Optional<E164SearchRequest>> e164Argument = ArgumentCaptor.forClass(Optional.class);
-      ArgumentCaptor<Optional<Long>> aciVersionArgument = ArgumentCaptor.forClass(Optional.class);
-      ArgumentCaptor<Optional<Long>> e164VersionArgument = ArgumentCaptor.forClass(Optional.class);
-      ArgumentCaptor<Optional<Long>> usernameHashVersionArgument = ArgumentCaptor.forClass(Optional.class);
 
 
       verify(keyTransparencyServiceClient).search(aciArgument.capture(), aciIdentityKeyArgument.capture(),
-          usernameHashArgument.capture(), e164Argument.capture(), eq(Optional.of(3L)), eq(4L), aciVersionArgument.capture(), e164VersionArgument.capture(), usernameHashVersionArgument.capture());
+          usernameHashArgument.capture(), e164Argument.capture(), eq(Optional.of(3L)), eq(4L));
 
       assertArrayEquals(ACI.toCompactByteArray(), aciArgument.getValue().toByteArray());
       assertArrayEquals(ACI_IDENTITY_KEY.serialize(), aciIdentityKeyArgument.getValue().toByteArray());
@@ -198,17 +190,6 @@ public class KeyTransparencyControllerTest {
         assertTrue(e164Argument.getValue().isEmpty());
       }
 
-      final List<ArgumentCaptor<Optional<Long>>> versionArgumentCaptors = List.of(aciVersionArgument, e164VersionArgument,  usernameHashVersionArgument);
-      final List<Optional<Long>> providedVersions = List.of(aciVersion, e164Version, usernameHashVersion);
-
-      for (int i = 0; i < versionArgumentCaptors.size(); i++) {
-        if (providedVersions.get(i).isPresent()) {
-          assertEquals(providedVersions.get(i), versionArgumentCaptors.get(i).getValue());
-        } else {
-          assertTrue(versionArgumentCaptors.get(i).getValue().isEmpty());
-        }
-      }
-
     } catch (InvalidProtocolBufferException e) {
       throw new RuntimeException(e);
     }
@@ -216,11 +197,9 @@ public class KeyTransparencyControllerTest {
 
   private static Stream<Arguments> searchSuccess() {
     return Stream.of(
-        Arguments.argumentSet("Search for ACI and E164", Optional.of(NUMBER), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("Search for ACI and username hash", Optional.empty(), Optional.of(USERNAME_HASH), Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("Search for ACI, E164, and username hash", Optional.of(NUMBER), Optional.of(USERNAME_HASH), Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("Search for version 0 of the ACI", Optional.of(NUMBER), Optional.of(USERNAME_HASH), Optional.of(0L), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("Search for multiple versioned identifiers", Optional.of(NUMBER), Optional.of(USERNAME_HASH), Optional.empty(), Optional.of(0L), Optional.of(1L))
+        Arguments.argumentSet("Search for ACI and E164", Optional.of(NUMBER), Optional.empty()),
+        Arguments.argumentSet("Search for ACI and username hash", Optional.empty(), Optional.of(USERNAME_HASH)),
+        Arguments.argumentSet("Search for ACI, E164, and username hash", Optional.of(NUMBER), Optional.of(USERNAME_HASH))
       );
   }
 
@@ -232,8 +211,7 @@ public class KeyTransparencyControllerTest {
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
     try (Response response = request.post(
         Entity.json(createRequestJson(new KeyTransparencySearchRequest(ACI, Optional.empty(), Optional.empty(),
-            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), 4L, Optional.empty(), Optional.empty(),
-            Optional.empty()))))) {
+            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), 4L))))) {
       assertEquals(400, response.getStatus());
     }
     verifyNoInteractions(keyTransparencyServiceClient);
@@ -242,7 +220,7 @@ public class KeyTransparencyControllerTest {
   @ParameterizedTest
   @MethodSource
   void searchGrpcErrors(final Status grpcStatus, final int httpStatus) {
-    when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), anyLong(), any(), any(), any()))
+    when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), anyLong()))
         .thenThrow(new StatusRuntimeException(grpcStatus));
 
     final Invocation.Builder request = resources.getJerseyTest()
@@ -250,9 +228,9 @@ public class KeyTransparencyControllerTest {
         .request();
     try (Response response = request.post(
         Entity.json(createRequestJson(new KeyTransparencySearchRequest(ACI, Optional.empty(), Optional.empty(),
-            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), 4L, Optional.empty(), Optional.empty(), Optional.empty()))))) {
+            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), 4L))))) {
       assertEquals(httpStatus, response.getStatus());
-      verify(keyTransparencyServiceClient, times(1)).search(any(), any(), any(), any(), any(), anyLong(), any(), any(), any());
+      verify(keyTransparencyServiceClient, times(1)).search(any(), any(), any(), any(), any(), anyLong());
     }
   }
 
@@ -272,16 +250,13 @@ public class KeyTransparencyControllerTest {
       final Optional<String> e164,
       final Optional<byte[]> unidentifiedAccessKey,
       final Optional<Long> lastTreeHeadSize,
-      final long distinguishedTreeHeadSize,
-      final Optional<Long> aciVersion,
-      final Optional<Long> e164Version,
-      final Optional<Long> usernameHashVersion) {
+      final long distinguishedTreeHeadSize) {
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/search")
         .request();
     try (Response response = request.post(Entity.json(
         createRequestJson(new KeyTransparencySearchRequest(aci, e164, Optional.empty(),
-            aciIdentityKey, unidentifiedAccessKey, lastTreeHeadSize, distinguishedTreeHeadSize, aciVersion, e164Version, usernameHashVersion))))) {
+            aciIdentityKey, unidentifiedAccessKey, lastTreeHeadSize, distinguishedTreeHeadSize))))) {
       assertEquals(422, response.getStatus());
       verifyNoInteractions(keyTransparencyServiceClient);
     }
@@ -289,19 +264,13 @@ public class KeyTransparencyControllerTest {
 
   private static Stream<Arguments> searchInvalidRequest() {
     return Stream.of(
-        Arguments.argumentSet("ACI can't be null", null, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty(), 4L, Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("ACI identity key can't be null", ACI, null, Optional.empty(), Optional.empty(), Optional.empty(), 4L, Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("lastNonDistinguishedTreeHeadSize must be positive", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.of(0L), 4L, Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("lastDistinguishedTreeHeadSize must be positive", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty(), 0L, Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("E164 can't be provided without an unidentified access key", ACI, ACI_IDENTITY_KEY, Optional.of(NUMBER), Optional.empty(), Optional.empty(), 4L, Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("An unidentified access key can't be provided without an E164", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), 4L, Optional.empty(), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("ACI version cannot be negative", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), 4L, Optional.of(-1L), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("ACI version cannot be greater than max uint32 protobuf value", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), 4L, Optional.of(0xFFFFFFFFL), Optional.empty(), Optional.empty()),
-        Arguments.argumentSet("E164 version cannot be negative", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), 4L, Optional.empty(), Optional.of(-1L), Optional.empty()),
-        Arguments.argumentSet("E164 version cannot be greater than max uint32 protobuf value", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), 4L, Optional.empty(), Optional.of(0xFFFFFFFFL), Optional.empty()),
-        Arguments.argumentSet("Username hash version cannot be negative", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), 4L, Optional.empty(), Optional.empty(), Optional.of(-1L)),
-        Arguments.argumentSet("Username hash cannot be greater than max uint32 protobuf value", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), 4L, Optional.empty(), Optional.empty(), Optional.of(0xFFFFFFFFL))
-        );
+        Arguments.argumentSet("ACI can't be null", null, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty(), 4L),
+        Arguments.argumentSet("ACI identity key can't be null", ACI, null, Optional.empty(), Optional.empty(), Optional.empty(), 4L),
+        Arguments.argumentSet("lastNonDistinguishedTreeHeadSize must be positive", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.of(0L), 4L),
+        Arguments.argumentSet("lastDistinguishedTreeHeadSize must be positive", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), Optional.empty(), 0L),
+        Arguments.argumentSet("E164 can't be provided without an unidentified access key", ACI, ACI_IDENTITY_KEY, Optional.of(NUMBER), Optional.empty(), Optional.empty(), 4L),
+        Arguments.argumentSet("An unidentified access key can't be provided without an E164", ACI, ACI_IDENTITY_KEY, Optional.empty(), Optional.of(UNIDENTIFIED_ACCESS_KEY), Optional.empty(), 4L)
+      );
   }
 
   @Test
@@ -313,7 +282,7 @@ public class KeyTransparencyControllerTest {
         .request();
     try (Response response = request.post(
         Entity.json(createRequestJson(new KeyTransparencySearchRequest(ACI, Optional.empty(), Optional.empty(),
-            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), 4L, Optional.empty(), Optional.empty(), Optional.empty()))))) {
+            ACI_IDENTITY_KEY, Optional.empty(), Optional.empty(), 4L))))) {
       assertEquals(429, response.getStatus());
       verifyNoInteractions(keyTransparencyServiceClient);
     }

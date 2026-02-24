@@ -116,20 +116,13 @@ public class KeyTransparencyServiceClient implements Managed {
       final Optional<ByteString> usernameHash,
       final Optional<E164SearchRequest> e164SearchRequest,
       final Optional<Long> lastTreeHeadSize,
-      final long distinguishedTreeHeadSize,
-      final Optional<Long> aciVersion,
-      final Optional<Long> e164Version,
-      final Optional<Long> usernameHashVersion) {
+      final long distinguishedTreeHeadSize) {
     final SearchRequest.Builder searchRequestBuilder = SearchRequest.newBuilder()
         .setAci(aci)
         .setAciIdentityKey(aciIdentityKey);
 
     usernameHash.ifPresent(searchRequestBuilder::setUsernameHash);
     e164SearchRequest.ifPresent(searchRequestBuilder::setE164SearchRequest);
-
-    aciVersion.ifPresent(version -> searchRequestBuilder.setAciVersion(version.intValue()));
-    e164Version.ifPresent(version -> searchRequestBuilder.setE164Version(version.intValue()));
-    usernameHashVersion.ifPresent(version -> searchRequestBuilder.setUsernameHashVersion(version.intValue()));
 
     final ConsistencyParameters.Builder consistency = ConsistencyParameters.newBuilder()
         .setDistinguished(distinguishedTreeHeadSize);

@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.dropwizard.auth.Auth;
 import io.grpc.Status;
@@ -29,7 +28,6 @@ import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.time.Duration;
 import java.util.Optional;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.keytransparency.client.AciMonitorRequest;
@@ -110,10 +108,7 @@ public class KeyTransparencyController {
               request.usernameHash().map(ByteString::copyFrom),
               maybeE164SearchRequest,
               request.lastTreeHeadSize(),
-              request.distinguishedTreeHeadSize(),
-              request.aciVersion(),
-              request.e164Version(),
-              request.usernameHashVersion())
+              request.distinguishedTreeHeadSize())
           .toByteArray());
     } catch (final StatusRuntimeException exception) {
       handleKeyTransparencyServiceError(exception);
