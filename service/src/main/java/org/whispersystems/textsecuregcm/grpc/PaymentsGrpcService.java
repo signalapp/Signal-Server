@@ -7,7 +7,6 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import static java.util.Objects.requireNonNull;
 
-import io.grpc.Status;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -16,13 +15,12 @@ import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.Pair;
 import org.signal.chat.payments.GetCurrencyConversionsRequest;
 import org.signal.chat.payments.GetCurrencyConversionsResponse;
-import org.signal.chat.payments.ReactorPaymentsGrpc;
+import org.signal.chat.payments.SimplePaymentsGrpc;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.entities.CurrencyConversionEntityList;
-import reactor.core.publisher.Mono;
 
-public class PaymentsGrpcService extends ReactorPaymentsGrpc.PaymentsImplBase {
+public class PaymentsGrpcService extends SimplePaymentsGrpc.PaymentsImplBase {
 
   private final CurrencyConversionManager currencyManager;
 
@@ -32,7 +30,7 @@ public class PaymentsGrpcService extends ReactorPaymentsGrpc.PaymentsImplBase {
   }
 
   @Override
-  public Mono<GetCurrencyConversionsResponse> getCurrencyConversions(final GetCurrencyConversionsRequest request) {
+  public GetCurrencyConversionsResponse getCurrencyConversions(final GetCurrencyConversionsRequest request) {
     AuthenticationUtil.requireAuthenticatedDevice();
 
     final CurrencyConversionEntityList currencyConversionEntityList = currencyManager
@@ -48,9 +46,9 @@ public class PaymentsGrpcService extends ReactorPaymentsGrpc.PaymentsImplBase {
             .build())
         .toList();
 
-    return Mono.just(GetCurrencyConversionsResponse.newBuilder()
+    return GetCurrencyConversionsResponse.newBuilder()
         .addAllCurrencies(currencyConversionEntities).setTimestamp(currencyConversionEntityList.getTimestamp())
-        .build());
+        .build();
   }
 
   @Nonnull
