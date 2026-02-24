@@ -10,31 +10,28 @@ import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicGrpcAllowListConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 
 public class GrpcAllowListInterceptor implements ServerInterceptor {
 
-  private final boolean enableAll;
-  private final Set<String> enabledServices;
-  private final Set<String> enabledMethods;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
 
   public GrpcAllowListInterceptor(
-      final boolean enableAll,
-      final List<String> enabledServices,
-      final List<String> enabledMethods) {
-    this.enableAll = enableAll;
-    this.enabledServices = new HashSet<>(enabledServices);
-    this.enabledMethods = new HashSet<>(enabledMethods);
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   @Override
   public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(final ServerCall<ReqT, RespT> serverCall,
       final Metadata metadata, final ServerCallHandler<ReqT, RespT> next) {
+    final DynamicGrpcAllowListConfiguration allowList = this.dynamicConfigurationManager.getConfiguration().getGrpcAllowList();
     final MethodDescriptor<ReqT, RespT> methodDescriptor = serverCall.getMethodDescriptor();
-    if (!enableAll && !enabledServices.contains(methodDescriptor.getServiceName()) && !enabledMethods.contains(methodDescriptor.getFullMethodName())) {
+    if (!allowList.enableAll() &&
+        !allowList.enabledServices().contains(methodDescriptor.getServiceName()) &&
+        !allowList.enabledMethods().contains(methodDescriptor.getFullMethodName())) {
       return ServerInterceptorUtil.closeWithStatus(serverCall, Status.UNIMPLEMENTED);
     }
     return next.startCall(serverCall, metadata);

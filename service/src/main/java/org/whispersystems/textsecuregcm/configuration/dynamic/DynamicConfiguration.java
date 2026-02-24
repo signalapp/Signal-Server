@@ -72,6 +72,10 @@ public class DynamicConfiguration {
   @Valid
   private DynamicCarrierDataLookupConfiguration carrierDataLookup = new DynamicCarrierDataLookupConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicGrpcAllowListConfiguration grpcAllowList = new DynamicGrpcAllowListConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -128,5 +132,9 @@ public class DynamicConfiguration {
 
   public DynamicCarrierDataLookupConfiguration getCarrierDataLookupConfiguration() {
     return carrierDataLookup;
+  }
+
+  public DynamicGrpcAllowListConfiguration getGrpcAllowList() {
+    return grpcAllowList;
   }
 }

@@ -882,8 +882,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
     final ErrorConformanceInterceptor errorConformanceInterceptor = new ErrorConformanceInterceptor();
-    final GrpcAllowListInterceptor grpcAllowListInterceptor =
-        new GrpcAllowListInterceptor(config.getGrpcAllowList().enableAll(), config.getGrpcAllowList().enabledServices(), config.getGrpcAllowList().enabledMethods());
+    final GrpcAllowListInterceptor grpcAllowListInterceptor = new GrpcAllowListInterceptor(dynamicConfigurationManager);
     final RequestAttributesInterceptor requestAttributesInterceptor = new RequestAttributesInterceptor();
 
     final ValidatingInterceptor validatingInterceptor = new ValidatingInterceptor();

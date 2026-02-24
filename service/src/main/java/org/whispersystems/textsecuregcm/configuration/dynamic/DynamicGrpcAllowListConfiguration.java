@@ -2,10 +2,11 @@
  * Copyright 2026 Signal Messenger, LLC
  * SPDX-License-Identifier: AGPL-3.0-only
  */
-package org.whispersystems.textsecuregcm.configuration;
+package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /// Configure which gRPC methods are enabled
 ///
@@ -16,22 +17,22 @@ import java.util.List;
 /// @param enabledMethods  A list of fully qualified method names of RPCs that should be enabled. For example,
 ///                        `org.signal.chat.account.AccountsAnonymous/LookupUsernameHash` would enable the
 ///                        `LookupUsernameHash` RPC method
-public record GrpcAllowListConfiguration(
+public record DynamicGrpcAllowListConfiguration(
     boolean enableAll,
-    List<String> enabledServices,
-    List<String> enabledMethods) {
+    Set<String> enabledServices,
+    Set<String> enabledMethods) {
 
-  public GrpcAllowListConfiguration {
+  public DynamicGrpcAllowListConfiguration {
     if (enabledServices == null) {
-      enabledServices = Collections.emptyList();
+      enabledServices = Collections.emptySet();
     }
     if (enabledMethods == null) {
-      enabledMethods = Collections.emptyList();
+      enabledMethods = Collections.emptySet();
     }
   }
 
-  public GrpcAllowListConfiguration() {
+  public DynamicGrpcAllowListConfiguration() {
     // By default, no GRPC methods are accessible
-    this(false, Collections.emptyList(), Collections.emptyList());
+    this(false, Collections.emptySet(), Collections.emptySet());
   }
 }

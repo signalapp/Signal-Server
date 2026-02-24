@@ -31,7 +31,7 @@ import org.whispersystems.textsecuregcm.configuration.DeviceCheckConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientFactory;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
-import org.whispersystems.textsecuregcm.configuration.GrpcAllowListConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicGrpcAllowListConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ExternalRequestFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FaultTolerantRedisClientFactory;
 import org.whispersystems.textsecuregcm.configuration.FaultTolerantRedisClusterFactory;
@@ -352,7 +352,7 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @Valid
   @JsonProperty
-  private GrpcAllowListConfiguration grpcAllowList = new GrpcAllowListConfiguration();
+  private DynamicGrpcAllowListConfiguration grpcAllowList = new DynamicGrpcAllowListConfiguration();
 
   @Valid
   @NotNull
@@ -595,7 +595,7 @@ public class WhisperServerConfiguration extends Configuration {
     return grpc;
   }
 
-  public GrpcAllowListConfiguration getGrpcAllowList() {
+  public DynamicGrpcAllowListConfiguration getGrpcAllowList() {
     return grpcAllowList;
   }
 

@@ -5,6 +5,8 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;
@@ -14,7 +16,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import java.io.IOException;
 import java.util.Collections;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +24,10 @@ import org.junit.jupiter.api.Test;
 import org.signal.chat.rpc.EchoRequest;
 import org.signal.chat.rpc.EchoResponse;
 import org.signal.chat.rpc.EchoServiceGrpc;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicGrpcAllowListConfiguration;
+import org.whispersystems.textsecuregcm.tests.util.FakeDynamicConfigurationManager;
+
 
 class GrpcAllowListInterceptorTest {
   private Server server;
@@ -45,7 +51,7 @@ class GrpcAllowListInterceptorTest {
   @Test
   public void disableAll() throws Exception {
     final EchoServiceGrpc.EchoServiceBlockingStub client =
-        setup(false, Collections.emptyList(), Collections.emptyList());
+        setup(false, Collections.emptySet(), Collections.emptySet());
     GrpcTestUtils.assertStatusException(Status.UNIMPLEMENTED, () ->
         client.echo(EchoRequest.newBuilder().setPayload(ByteString.empty()).build()));
   }
@@ -53,7 +59,7 @@ class GrpcAllowListInterceptorTest {
   @Test
   public void enableAll() throws Exception {
     final EchoServiceGrpc.EchoServiceBlockingStub client =
-        setup(true, Collections.emptyList(), Collections.emptyList());
+        setup(true, Collections.emptySet(), Collections.emptySet());
     final EchoResponse echo = client.echo(EchoRequest.newBuilder().setPayload(ByteString.empty()).build());
     assertThat(echo.getPayload()).isEqualTo(ByteString.empty());
   }
@@ -61,7 +67,7 @@ class GrpcAllowListInterceptorTest {
   @Test
   public void enableByMethod() throws Exception {
     final EchoServiceGrpc.EchoServiceBlockingStub client =
-        setup(false, Collections.emptyList(), List.of("org.signal.chat.rpc.EchoService/echo"));
+        setup(false, Collections.emptySet(), Set.of("org.signal.chat.rpc.EchoService/echo"));
 
     final EchoResponse echo = client.echo(EchoRequest.newBuilder().setPayload(ByteString.empty()).build());
     assertThat(echo.getPayload()).isEqualTo(ByteString.empty());
@@ -73,7 +79,7 @@ class GrpcAllowListInterceptorTest {
   @Test
   public void enableByService() throws Exception {
     final EchoServiceGrpc.EchoServiceBlockingStub client =
-        setup(false, List.of("org.signal.chat.rpc.EchoService"), Collections.emptyList());
+        setup(false, Set.of("org.signal.chat.rpc.EchoService"), Collections.emptySet());
 
     final EchoResponse echo = client.echo(EchoRequest.newBuilder().setPayload(ByteString.empty()).build());
     assertThat(echo.getPayload()).isEqualTo(ByteString.empty());
@@ -85,7 +91,7 @@ class GrpcAllowListInterceptorTest {
   @Test
   public void enableByServiceWrongService() throws Exception {
     final EchoServiceGrpc.EchoServiceBlockingStub client =
-        setup(false, List.of("org.signal.chat.rpc.NotEchoService"), Collections.emptyList());
+        setup(false, Set.of("org.signal.chat.rpc.NotEchoService"), Collections.emptySet());
 
     GrpcTestUtils.assertStatusException(Status.UNIMPLEMENTED, () ->
         client.echo(EchoRequest.newBuilder().setPayload(ByteString.empty()).build()));
@@ -93,16 +99,19 @@ class GrpcAllowListInterceptorTest {
 
   private EchoServiceGrpc.EchoServiceBlockingStub setup(
       boolean enableAll,
-      List<String> enabledServices,
-      List<String> enabledMethods)
+      Set<String> enabledServices,
+      Set<String> enabledMethods)
       throws IOException {
     if (server != null) {
       server.shutdownNow();
     }
+    final DynamicConfiguration configuration = mock(DynamicConfiguration.class);
+    when(configuration.getGrpcAllowList())
+        .thenReturn(new DynamicGrpcAllowListConfiguration(enableAll, enabledServices, enabledMethods));
     server = InProcessServerBuilder.forName("GrpcAllowListInterceptorTest")
         .directExecutor()
         .addService(new EchoServiceImpl())
-        .intercept(new GrpcAllowListInterceptor(enableAll, enabledServices, enabledMethods))
+        .intercept(new GrpcAllowListInterceptor(new FakeDynamicConfigurationManager<>(configuration)))
         .build()
         .start();
 
