@@ -15,8 +15,6 @@ public class ServerInterceptorUtil {
   @SuppressWarnings("rawtypes")
   private static final ServerCall.Listener NO_OP_LISTENER = new ServerCall.Listener<>() {};
 
-  private static final Metadata EMPTY_TRAILERS = new Metadata();
-
   private ServerInterceptorUtil() {
   }
 
@@ -32,7 +30,7 @@ public class ServerInterceptorUtil {
    * @param <RespT> the type of response object returned by the server call
    */
   public static <ReqT, RespT> ServerCall.Listener<ReqT> closeWithStatus(final ServerCall<ReqT, RespT> call, final Status status) {
-    call.close(status, EMPTY_TRAILERS);
+    call.close(status, new Metadata());
 
     //noinspection unchecked
     return NO_OP_LISTENER;
