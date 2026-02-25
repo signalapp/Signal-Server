@@ -362,11 +362,6 @@
     </dependency>
 
     <dependency>
-      <groupId>com.salesforce.servicelibs</groupId>
-      <artifactId>reactor-grpc-stub</artifactId>
-    </dependency>
-
-    <dependency>
       <groupId>org.foundationdb</groupId>
       <artifactId>fdb-java</artifactId>
     </dependency>

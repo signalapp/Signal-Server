@@ -23,9 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.signal.chat.rpc.EchoRequest;
 import org.signal.chat.rpc.EchoResponse;
 import org.signal.chat.rpc.EchoServiceGrpc;
-import org.signal.chat.rpc.ReactorEchoServiceGrpc;
 import org.signal.chat.rpc.SimpleEchoServiceGrpc;
-import reactor.core.publisher.Mono;
 
 class ErrorMappingInterceptorTest {
 
@@ -34,7 +32,7 @@ class ErrorMappingInterceptorTest {
 
 
   @BeforeEach
-  void setUp() throws Exception {
+  void setUp() {
     channel = InProcessChannelBuilder.forName("ErrorMappingInterceptorTest")
         .directExecutor()
         .build();
@@ -71,43 +69,6 @@ class ErrorMappingInterceptorTest {
   }
 
   @Test
-  public void includeDetailsReactiveGrpc() throws Exception {
-    final StatusRuntimeException e = StatusProto.toStatusRuntimeException(com.google.rpc.Status.newBuilder()
-        .setCode(Status.Code.INVALID_ARGUMENT.value())
-        .addDetails(Any.pack(ErrorInfo.newBuilder()
-            .setDomain("test")
-            .setReason("TEST")
-            .build()))
-        .build());
-
-    server = InProcessServerBuilder.forName("ErrorMappingInterceptorTest")
-        .directExecutor()
-        .addService(new ReactorEchoServiceErrorImpl(e))
-        .intercept(new ErrorMappingInterceptor())
-        .build()
-        .start();
-
-    final EchoServiceGrpc.EchoServiceBlockingStub client = EchoServiceGrpc.newBlockingStub(channel);
-    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, "TEST", () ->
-        client.echo(EchoRequest.getDefaultInstance()));
-  }
-
-
-  @Test
-  public void mapIOExceptionsReactive() throws Exception {
-    server = InProcessServerBuilder.forName("ErrorMappingInterceptorTest")
-        .directExecutor()
-        .addService(new ReactorEchoServiceErrorImpl(new IOException("test")))
-        .intercept(new ErrorMappingInterceptor())
-        .build()
-        .start();
-
-    final EchoServiceGrpc.EchoServiceBlockingStub client = EchoServiceGrpc.newBlockingStub(channel);
-    GrpcTestUtils.assertStatusException(Status.UNAVAILABLE, "UNAVAILABLE", () ->
-        client.echo(EchoRequest.getDefaultInstance()));
-  }
-
-  @Test
   public void mapIOExceptionsSimple() throws Exception {
     server = InProcessServerBuilder.forName("ErrorMappingInterceptorTest")
         .directExecutor()
@@ -133,26 +94,6 @@ class ErrorMappingInterceptorTest {
     final EchoServiceGrpc.EchoServiceBlockingStub client = EchoServiceGrpc.newBlockingStub(channel);
     GrpcTestUtils.assertStatusException(Status.UNAVAILABLE, "UNAVAILABLE", () ->
         client.echo(EchoRequest.getDefaultInstance()));
-  }
-
-
-  static class ReactorEchoServiceErrorImpl extends ReactorEchoServiceGrpc.EchoServiceImplBase {
-
-    private final Exception exception;
-
-    ReactorEchoServiceErrorImpl(final Exception exception) {
-      this.exception = exception;
-    }
-
-    @Override
-    public Mono<EchoResponse> echo(final EchoRequest echoRequest) {
-      return Mono.error(exception);
-    }
-
-    @Override
-    public Throwable onErrorMap(Throwable throwable) {
-      return new IllegalArgumentException(throwable);
-    }
   }
 
   static class SimpleEchoServiceErrorImpl extends SimpleEchoServiceGrpc.EchoServiceImplBase {

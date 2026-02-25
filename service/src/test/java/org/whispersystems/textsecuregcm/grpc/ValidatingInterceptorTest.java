@@ -33,16 +33,15 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.signal.chat.require.Auth;
 import org.signal.chat.rpc.Color;
 import org.signal.chat.rpc.NestedMessage;
-import org.signal.chat.rpc.ReactorAnonymousServiceGrpc;
-import org.signal.chat.rpc.ReactorAuthServiceGrpc;
-import org.signal.chat.rpc.ReactorValidationTestServiceGrpc;
 import org.signal.chat.rpc.RecursiveMessage;
+import org.signal.chat.rpc.SimpleAnonymousServiceGrpc;
+import org.signal.chat.rpc.SimpleAuthServiceGrpc;
+import org.signal.chat.rpc.SimpleValidationTestServiceGrpc;
 import org.signal.chat.rpc.ValidationTestServiceGrpc;
 import org.signal.chat.rpc.ValidationsRequest;
 import org.signal.chat.rpc.ValidationsResponse;
 import org.whispersystems.textsecuregcm.grpc.validators.ValidatorUtils;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
-import reactor.core.publisher.Mono;
 
 public class ValidatingInterceptorTest {
 
@@ -50,27 +49,27 @@ public class ValidatingInterceptorTest {
   static final GrpcServerExtension GRPC_SERVER_EXTENSION = new GrpcServerExtension();
 
   private static final class ValidationTestGrpcServiceImpl extends
-      ReactorValidationTestServiceGrpc.ValidationTestServiceImplBase {
+      SimpleValidationTestServiceGrpc.ValidationTestServiceImplBase {
 
     @Override
-    public Mono<ValidationsResponse> validationsEndpoint(final ValidationsRequest request) {
-      return Mono.just(ValidationsResponse.newBuilder().build());
+    public ValidationsResponse validationsEndpoint(final ValidationsRequest request) {
+      return ValidationsResponse.getDefaultInstance();
     }
   }
 
-  private static final class AuthGrpcServiceImpl extends ReactorAuthServiceGrpc.AuthServiceImplBase {
+  private static final class AuthGrpcServiceImpl extends SimpleAuthServiceGrpc.AuthServiceImplBase {
 
     @Override
-    public Mono<Empty> authenticatedMethod(final Empty request) {
-      return Mono.just(Empty.getDefaultInstance());
+    public Empty authenticatedMethod(final Empty request) {
+      return Empty.getDefaultInstance();
     }
   }
 
-  private static final class AnonymousGrpcServiceImpl extends ReactorAnonymousServiceGrpc.AnonymousServiceImplBase {
+  private static final class AnonymousGrpcServiceImpl extends SimpleAnonymousServiceGrpc.AnonymousServiceImplBase {
 
     @Override
-    public Mono<Empty> anonymousMethod(final Empty request) {
-      return Mono.just(Empty.getDefaultInstance());
+    public Empty anonymousMethod(final Empty request) {
+      return Empty.getDefaultInstance();
     }
   }
 

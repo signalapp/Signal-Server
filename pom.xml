@@ -81,7 +81,6 @@
     See https://protobuf.dev/support/cross-version-runtime-guarantee/. -->
     <protoc.version>4.29.4</protoc.version>
     <pushy.version>0.15.4</pushy.version>
-    <reactive.grpc.version>1.2.4</reactive.grpc.version>
     <reactor-bom.version>2025.0.2</reactor-bom.version> <!-- 3.8.2, see https://github.com/reactor/reactor#bom-versioning-scheme -->
     <resilience4j.version>2.3.0</resilience4j.version>
     <semver4j.version>3.1.0</semver4j.version>
@@ -150,11 +149,6 @@
         <version>${google-cloud-libraries.version}</version>
         <type>pom</type>
         <scope>import</scope>
-      </dependency>
-      <dependency>
-        <groupId>com.salesforce.servicelibs</groupId>
-        <artifactId>reactor-grpc-stub</artifactId>
-        <version>${reactive.grpc.version}</version>
       </dependency>
       <dependency>
         <groupId>io.github.resilience4j</groupId>
@@ -483,14 +477,6 @@
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
 
           <protocPlugins>
-            <protocPlugin>
-              <id>reactor-grpc</id>
-              <groupId>com.salesforce.servicelibs</groupId>
-              <artifactId>reactor-grpc</artifactId>
-              <version>${reactive.grpc.version}</version>
-              <mainClass>com.salesforce.reactorgrpc.ReactorGrpcGenerator</mainClass>
-            </protocPlugin>
-
             <protocPlugin>
               <id>simple</id>
               <groupId>org.signal</groupId>

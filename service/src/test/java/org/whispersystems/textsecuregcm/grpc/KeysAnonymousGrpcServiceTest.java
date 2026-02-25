@@ -6,7 +6,9 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.eq;
@@ -17,6 +19,7 @@ import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusEx
 
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
+import io.grpc.stub.StreamObserver;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -28,6 +31,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.signal.chat.common.EcPreKey;
@@ -36,12 +43,12 @@ import org.signal.chat.common.KemSignedPreKey;
 import org.signal.chat.common.ServiceIdentifier;
 import org.signal.chat.keys.AccountPreKeyBundles;
 import org.signal.chat.keys.CheckIdentityKeyRequest;
+import org.signal.chat.keys.CheckIdentityKeyResponse;
 import org.signal.chat.keys.DevicePreKeyBundle;
 import org.signal.chat.keys.GetPreKeysAnonymousRequest;
 import org.signal.chat.keys.GetPreKeysAnonymousResponse;
 import org.signal.chat.keys.GetPreKeysRequest;
 import org.signal.chat.keys.KeysAnonymousGrpc;
-import org.signal.chat.keys.ReactorKeysAnonymousGrpc;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.InvalidKeyException;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -64,7 +71,6 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
-import reactor.core.publisher.Flux;
 
 class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcService, KeysAnonymousGrpc.KeysAnonymousBlockingStub> {
 
@@ -335,8 +341,10 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
   }
 
   @Test
-  void checkIdentityKeys() {
-    final ReactorKeysAnonymousGrpc.ReactorKeysAnonymousStub reactiveKeysAnonymousStub = ReactorKeysAnonymousGrpc.newReactorStub(SimpleBaseGrpcTest.GRPC_SERVER_EXTENSION_UNAUTHENTICATED.getChannel());
+  void checkIdentityKeys() throws InterruptedException {
+    final KeysAnonymousGrpc.KeysAnonymousStub keysAnonymousStub =
+        KeysAnonymousGrpc.newStub(SimpleBaseGrpcTest.GRPC_SERVER_EXTENSION_UNAUTHENTICATED.getChannel());
+
     when(accountsManager.getByServiceIdentifierAsync(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
@@ -364,32 +372,58 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(accountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(mismatchedPniFingerprintAccountIdentifier)))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(mismatchedPniFingerprintAccount)));
 
-    final Flux<CheckIdentityKeyRequest> requests = Flux.just(
-        buildCheckIdentityKeyRequest(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI, mismatchedAciFingerprintAccountIdentifier,
-            new IdentityKey(ECKeyPair.generate().getPublicKey())),
-        buildCheckIdentityKeyRequest(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI, matchingAciFingerprintAccountIdentifier,
-            matchingAciFingerprintAccountIdentityKey),
-        buildCheckIdentityKeyRequest(org.signal.chat.common.IdentityType.IDENTITY_TYPE_PNI, UUID.randomUUID(),
-            new IdentityKey(ECKeyPair.generate().getPublicKey())),
-        buildCheckIdentityKeyRequest(org.signal.chat.common.IdentityType.IDENTITY_TYPE_PNI, mismatchedPniFingerprintAccountIdentifier,
-            new IdentityKey(ECKeyPair.generate().getPublicKey()))
-    );
-
     final Map<UUID, IdentityKey> expectedResponses = Map.of(
         mismatchedAciFingerprintAccountIdentifier, mismatchedAciFingerprintAccountIdentityKey,
         mismatchedPniFingerprintAccountIdentifier, mismatchedPniFingerpringAccountIdentityKey);
 
-    final Map<UUID, IdentityKey> responses = reactiveKeysAnonymousStub.checkIdentityKeys(requests)
-        .collectMap(response -> ServiceIdentifierUtil.fromGrpcServiceIdentifier(response.getTargetIdentifier()).uuid(),
-            response -> {
-              try {
-                return new IdentityKey(response.getIdentityKey().toByteArray());
-              } catch (InvalidKeyException e) {
-                throw new RuntimeException(e);
-              }
-            })
-        .block();
+    final Map<UUID, IdentityKey> responses = new ConcurrentHashMap<>();
+    final CountDownLatch completedLatch = new CountDownLatch(1);
+    final AtomicReference<Throwable> error = new AtomicReference<>();
 
+    final StreamObserver<CheckIdentityKeyRequest> requestStreamObserver =
+        keysAnonymousStub.checkIdentityKeys(new StreamObserver<>() {
+          @Override
+          public void onNext(final CheckIdentityKeyResponse checkIdentityKeyResponse) {
+            try {
+              responses.put(
+                  ServiceIdentifierUtil.fromGrpcServiceIdentifier(checkIdentityKeyResponse.getTargetIdentifier()).uuid(),
+                  new IdentityKey(checkIdentityKeyResponse.getIdentityKey().toByteArray()));
+            } catch (final InvalidKeyException e) {
+              throw new RuntimeException(e);
+            }
+          }
+
+          @Override
+          public void onError(final Throwable throwable) {
+            error.set(throwable);
+            completedLatch.countDown();
+          }
+
+          @Override
+          public void onCompleted() {
+            completedLatch.countDown();
+          }
+        });
+
+    requestStreamObserver.onNext(buildCheckIdentityKeyRequest(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI, mismatchedAciFingerprintAccountIdentifier,
+        new IdentityKey(ECKeyPair.generate().getPublicKey())));
+
+    requestStreamObserver.onNext(buildCheckIdentityKeyRequest(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI, matchingAciFingerprintAccountIdentifier,
+        matchingAciFingerprintAccountIdentityKey));
+
+    requestStreamObserver.onNext(buildCheckIdentityKeyRequest(org.signal.chat.common.IdentityType.IDENTITY_TYPE_PNI, UUID.randomUUID(),
+        new IdentityKey(ECKeyPair.generate().getPublicKey())));
+
+    requestStreamObserver.onNext(buildCheckIdentityKeyRequest(org.signal.chat.common.IdentityType.IDENTITY_TYPE_PNI, mismatchedPniFingerprintAccountIdentifier,
+        new IdentityKey(ECKeyPair.generate().getPublicKey())));
+
+    requestStreamObserver.onCompleted();
+
+    if (!completedLatch.await(5, TimeUnit.SECONDS)) {
+      fail("Timed out waiting for countdown latch");
+    }
+
+    assertNull(error.get());
     assertEquals(expectedResponses, responses);
   }
 
