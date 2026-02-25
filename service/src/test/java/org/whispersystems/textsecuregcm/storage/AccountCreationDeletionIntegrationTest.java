@@ -59,7 +59,6 @@ public class AccountCreationDeletionIntegrationTest {
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       DynamoDbExtensionSchema.Tables.ACCOUNTS,
-      DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK,
       DynamoDbExtensionSchema.Tables.NUMBERS,
@@ -83,7 +82,6 @@ public class AccountCreationDeletionIntegrationTest {
 
   private AccountsManager accountsManager;
   private KeysManager keysManager;
-  private ClientPublicKeysManager clientPublicKeysManager;
   private DisconnectionRequestManager disconnectionRequestManager;
 
   record DeliveryChannels(boolean fetchesMessages, String apnsToken, String fcmToken) {}
@@ -108,9 +106,6 @@ public class AccountCreationDeletionIntegrationTest {
         new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
             DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
 
-    final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
-
     final Accounts accounts = new Accounts(
         CLOCK,
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -126,8 +121,6 @@ public class AccountCreationDeletionIntegrationTest {
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK.tableName());
-
-    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys, accountLockManager, executor);
 
     final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
     when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -167,7 +160,6 @@ public class AccountCreationDeletionIntegrationTest {
         svr2Client,
         disconnectionRequestManager,
         registrationRecoveryPasswordsManager,
-        clientPublicKeysManager,
         executor,
         executor,
         executor,
@@ -475,8 +467,6 @@ public class AccountCreationDeletionIntegrationTest {
             pniPqLastResortPreKey),
         null);
 
-    clientPublicKeysManager.setPublicKey(account, Device.PRIMARY_ID, ECKeyPair.generate().getPublicKey()).join();
-
     final UUID aci = account.getIdentifier(IdentityType.ACI);
 
     assertTrue(accountsManager.getByAccountIdentifier(aci).isPresent());
@@ -488,7 +478,6 @@ public class AccountCreationDeletionIntegrationTest {
     assertFalse(keysManager.getEcSignedPreKey(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
-    assertFalse(clientPublicKeysManager.findPublicKey(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
 
     verify(disconnectionRequestManager).requestDisconnection(account);
   }

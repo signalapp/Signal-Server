@@ -136,7 +136,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(SecureValueRecoveryClient.class),
           mock(DisconnectionRequestManager.class),
           mock(RegistrationRecoveryPasswordsManager.class),
-          mock(ClientPublicKeysManager.class),
           mock(Executor.class),
           mock(ScheduledExecutorService.class),
           mock(ScheduledExecutorService.class),

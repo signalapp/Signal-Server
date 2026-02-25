@@ -73,7 +73,6 @@ import org.whispersystems.textsecuregcm.entities.LinkDeviceResponse;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachmentError;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
-import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -82,7 +81,6 @@ import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapp
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
@@ -101,7 +99,6 @@ import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 class DeviceControllerTest {
 
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
-  private static final ClientPublicKeysManager clientPublicKeysManager = mock(ClientPublicKeysManager.class);
   private static final PersistentTimer persistentTimer = mock(PersistentTimer.class);
   private static final RateLimiters rateLimiters = mock(RateLimiters.class);
   private static final RateLimiter rateLimiter = mock(RateLimiter.class);
@@ -119,7 +116,6 @@ class DeviceControllerTest {
 
   private static final DeviceController deviceController = new DeviceController(
       accountsManager,
-      clientPublicKeysManager,
       rateLimiters,
       persistentTimer,
       deviceConfiguration);
@@ -159,9 +155,6 @@ class DeviceControllerTest {
 
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER)).thenReturn(Optional.of(account));
     when(accountsManager.getByE164(AuthHelper.VALID_NUMBER_TWO)).thenReturn(Optional.of(maxedAccount));
-
-    when(clientPublicKeysManager.setPublicKey(any(), anyByte(), any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     when(persistentTimer.start(anyString(), anyString()))
         .thenReturn(CompletableFuture.completedFuture(mock(PersistentTimer.Sample.class)));
@@ -976,22 +969,6 @@ class DeviceControllerTest {
 
       verify(accountsManager, never()).removeDevice(any(), anyByte());
     }
-  }
-
-  @Test
-  void setPublicKey() {
-    final SetPublicKeyRequest request = new SetPublicKeyRequest(ECKeyPair.generate().getPublicKey());
-
-    try (final Response response = resources.getJerseyTest()
-        .target("/v1/devices/public_key")
-        .request()
-        .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
-
-      assertEquals(204, response.getStatus());
-    }
-
-    verify(clientPublicKeysManager).setPublicKey(account, AuthHelper.VALID_DEVICE.getId(), request.publicKey());
   }
 
   @Test

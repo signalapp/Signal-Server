@@ -37,14 +37,12 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -64,7 +62,6 @@ import org.whispersystems.textsecuregcm.entities.ProvisioningMessage;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachmentError;
 import org.whispersystems.textsecuregcm.entities.RestoreAccountRequest;
-import org.whispersystems.textsecuregcm.entities.SetPublicKeyRequest;
 import org.whispersystems.textsecuregcm.entities.TransferArchiveUploadedRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
@@ -74,7 +71,6 @@ import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.ClientPublicKeysManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
@@ -96,7 +92,6 @@ public class DeviceController {
   static final int MAX_DEVICES = 6;
 
   private final AccountsManager accounts;
-  private final ClientPublicKeysManager clientPublicKeysManager;
   private final RateLimiters rateLimiters;
   private final PersistentTimer persistentTimer;
   private final Map<String, Integer> maxDeviceConfiguration;
@@ -122,13 +117,11 @@ public class DeviceController {
   static final int MAX_TOKEN_IDENTIFIER_LENGTH = 64;
 
   public DeviceController(final AccountsManager accounts,
-      final ClientPublicKeysManager clientPublicKeysManager,
       final RateLimiters rateLimiters,
       final PersistentTimer persistentTimer,
       final Map<String, Integer> maxDeviceConfiguration) {
 
     this.accounts = accounts;
-    this.clientPublicKeysManager = clientPublicKeysManager;
     this.rateLimiters = rateLimiters;
     this.persistentTimer = persistentTimer;
     this.maxDeviceConfiguration = maxDeviceConfiguration;
@@ -417,29 +410,6 @@ public class DeviceController {
 
     accounts.updateDevice(account, auth.deviceId(),
         d -> d.setCapabilities(DeviceCapabilityAdapter.mapToSet(capabilities)));
-  }
-
-  @PUT
-  @Produces(MediaType.APPLICATION_JSON)
-  @Path("/public_key")
-  @Operation(
-      summary = "Sets a public key for authentication",
-      description = """
-          Sets the authentication public key for the authenticated device. The public key will be used for
-          authentication in the nascent gRPC-over-Noise API. Existing devices must upload a public key before they can
-          use the gRPC-over-Noise API, and this endpoint exists to facilitate migration to the new API.
-          """
-  )
-  @ApiResponse(responseCode = "200", description = "Public key stored successfully")
-  @ApiResponse(responseCode = "401", description = "Account authentication check failed")
-  @ApiResponse(responseCode = "422", description = "Invalid request format")
-  public CompletableFuture<Void> setPublicKey(@Auth final AuthenticatedDevice auth,
-      final SetPublicKeyRequest setPublicKeyRequest) {
-
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
-
-    return clientPublicKeysManager.setPublicKey(account, auth.deviceId(), setPublicKeyRequest.publicKey());
   }
 
   private static boolean isCapabilityDowngrade(final Account account, final Set<DeviceCapability> capabilities) {

@@ -53,7 +53,6 @@ public class AddRemoveDeviceIntegrationTest {
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       DynamoDbExtensionSchema.Tables.ACCOUNTS,
-      DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS,
       DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK,
       DynamoDbExtensionSchema.Tables.USED_LINK_DEVICE_TOKENS,
@@ -79,7 +78,6 @@ public class AddRemoveDeviceIntegrationTest {
   private ScheduledExecutorService scheduledExecutorService;
 
   private KeysManager keysManager;
-  private ClientPublicKeysManager clientPublicKeysManager;
   private MessagesManager messagesManager;
   private AccountsManager accountsManager;
   private TestClock clock;
@@ -106,9 +104,6 @@ public class AddRemoveDeviceIntegrationTest {
         new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
             DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
 
-    final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-        DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
-
     final Accounts accounts = new Accounts(
         clock,
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -125,8 +120,6 @@ public class AddRemoveDeviceIntegrationTest {
 
     final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DynamoDbExtensionSchema.Tables.DELETED_ACCOUNTS_LOCK.tableName());
-
-    clientPublicKeysManager = new ClientPublicKeysManager(clientPublicKeys, accountLockManager, accountLockExecutor);
 
     final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
     when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -168,7 +161,6 @@ public class AddRemoveDeviceIntegrationTest {
         svr2Client,
         mock(DisconnectionRequestManager.class),
         mock(RegistrationRecoveryPasswordsManager.class),
-        clientPublicKeysManager,
         accountLockExecutor,
         scheduledExecutorService,
         scheduledExecutorService,
@@ -331,9 +323,6 @@ public class AddRemoveDeviceIntegrationTest {
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
 
-    clientPublicKeysManager.setPublicKey(account, Device.PRIMARY_ID, ECKeyPair.generate().getPublicKey()).join();
-    clientPublicKeysManager.setPublicKey(account, addedDeviceId, ECKeyPair.generate().getPublicKey()).join();
-
     final Account updatedAccount = accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId).join();
 
     assertEquals(1, updatedAccount.getDevices().size());
@@ -343,7 +332,6 @@ public class AddRemoveDeviceIntegrationTest {
         keysManager.getEcSignedPreKey(updatedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
     assertFalse(keysManager.getLastResort(updatedAccount.getUuid(), addedDeviceId).join().isPresent());
     assertFalse(keysManager.getLastResort(updatedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
-    assertFalse(clientPublicKeysManager.findPublicKey(updatedAccount.getUuid(), addedDeviceId).join().isPresent());
 
     assertTrue(keysManager.getEcSignedPreKey(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(
@@ -351,7 +339,6 @@ public class AddRemoveDeviceIntegrationTest {
     assertTrue(keysManager.getLastResort(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(
         keysManager.getLastResort(updatedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
-    assertTrue(clientPublicKeysManager.findPublicKey(updatedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
   }
 
   @Test
@@ -396,11 +383,6 @@ public class AddRemoveDeviceIntegrationTest {
 
     final Account retrievedAccount = accountsManager.getByAccountIdentifierAsync(aci).join().orElseThrow();
 
-    clientPublicKeysManager.setPublicKey(retrievedAccount, Device.PRIMARY_ID, ECKeyPair.generate().getPublicKey())
-        .join();
-    clientPublicKeysManager.setPublicKey(retrievedAccount, addedDeviceId, ECKeyPair.generate().getPublicKey())
-        .join();
-
     assertEquals(2, retrievedAccount.getDevices().size());
 
     assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
@@ -409,7 +391,6 @@ public class AddRemoveDeviceIntegrationTest {
     assertTrue(keysManager.getLastResort(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
     assertTrue(
         keysManager.getLastResort(retrievedAccount.getPhoneNumberIdentifier(), addedDeviceId).join().isPresent());
-    assertTrue(clientPublicKeysManager.findPublicKey(retrievedAccount.getUuid(), addedDeviceId).join().isPresent());
 
     assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(keysManager.getEcSignedPreKey(retrievedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join()
@@ -417,7 +398,6 @@ public class AddRemoveDeviceIntegrationTest {
     assertTrue(keysManager.getLastResort(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertTrue(
         keysManager.getLastResort(retrievedAccount.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
-    assertTrue(clientPublicKeysManager.findPublicKey(retrievedAccount.getUuid(), Device.PRIMARY_ID).join().isPresent());
   }
 
   @Test

@@ -52,7 +52,6 @@ class AccountsManagerChangeNumberIntegrationTest {
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(
       Tables.ACCOUNTS,
-      Tables.CLIENT_PUBLIC_KEYS,
       Tables.DELETED_ACCOUNTS,
       Tables.DELETED_ACCOUNTS_LOCK,
       Tables.NUMBERS,
@@ -98,9 +97,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           new RepeatedUseKEMSignedPreKeyStore(dynamoDbAsyncClient,
               DynamoDbExtensionSchema.Tables.REPEATED_USE_KEM_SIGNED_PRE_KEYS.tableName()));
 
-      final ClientPublicKeys clientPublicKeys = new ClientPublicKeys(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
-          DynamoDbExtensionSchema.Tables.CLIENT_PUBLIC_KEYS.tableName());
-
       final Accounts accounts = new Accounts(
           Clock.systemUTC(),
           DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -116,9 +112,6 @@ class AccountsManagerChangeNumberIntegrationTest {
 
       final AccountLockManager accountLockManager = new AccountLockManager(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
           Tables.DELETED_ACCOUNTS_LOCK.tableName());
-
-      final ClientPublicKeysManager clientPublicKeysManager =
-          new ClientPublicKeysManager(clientPublicKeys, accountLockManager, executor);
 
       final SecureStorageClient secureStorageClient = mock(SecureStorageClient.class);
       when(secureStorageClient.deleteStoredData(any())).thenReturn(CompletableFuture.completedFuture(null));
@@ -156,7 +149,6 @@ class AccountsManagerChangeNumberIntegrationTest {
           svr2Client,
           disconnectionRequestManager,
           registrationRecoveryPasswordsManager,
-          clientPublicKeysManager,
           executor,
           executor,
           executor,

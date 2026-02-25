@@ -5,8 +5,8 @@
 package org.whispersystems.textsecuregcm.storage;
 
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import static java.util.Objects.requireNonNull;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -134,7 +134,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final SecureValueRecoveryClient secureValueRecovery2Client;
   private final DisconnectionRequestManager disconnectionRequestManager;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
-  private final ClientPublicKeysManager clientPublicKeysManager;
   private final Executor accountLockExecutor;
   private final ScheduledExecutorService messagesPollExecutor;
   private final ScheduledExecutorService retryExecutor;
@@ -218,7 +217,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final SecureValueRecoveryClient secureValueRecovery2Client,
       final DisconnectionRequestManager disconnectionRequestManager,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
-      final ClientPublicKeysManager clientPublicKeysManager,
       final Executor accountLockExecutor,
       final ScheduledExecutorService messagesPollExecutor, final ScheduledExecutorService retryExecutor,
       final Clock clock,
@@ -236,7 +234,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.secureValueRecovery2Client = secureValueRecovery2Client;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.registrationRecoveryPasswordsManager = requireNonNull(registrationRecoveryPasswordsManager);
-    this.clientPublicKeysManager = clientPublicKeysManager;
     this.accountLockExecutor = accountLockExecutor;
     this.messagesPollExecutor = messagesPollExecutor;
     this.retryExecutor = retryExecutor;
@@ -662,8 +659,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                   account.getIdentifier(IdentityType.ACI),
                   account.getIdentifier(IdentityType.PNI),
                   deviceId));
-
-          additionalWriteItems.add(clientPublicKeysManager.buildTransactWriteItemForDeletion(account.getIdentifier(IdentityType.ACI), deviceId));
 
           return accounts.updateTransactionallyAsync(account, additionalWriteItems)
               .thenApply(ignored -> account);
@@ -1238,18 +1233,15 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   private CompletableFuture<Void> delete(final Account account) {
-    final List<TransactWriteItem> additionalWriteItems = Stream.concat(
-            account.getDevices().stream()
-                .flatMap(device -> keysManager.buildWriteItemsForRemovedDevice(
-                        account.getIdentifier(IdentityType.ACI),
-                        account.getIdentifier(IdentityType.PNI),
-                        device.getId())
-                    .stream()),
-            account.getDevices().stream()
-                .map(device -> clientPublicKeysManager.buildTransactWriteItemForDeletion(
+    final List<TransactWriteItem> additionalWriteItems =
+        account.getDevices().stream()
+            .flatMap(device -> keysManager.buildWriteItemsForRemovedDevice(
                     account.getIdentifier(IdentityType.ACI),
-                    device.getId())))
-        .toList();
+                    account.getIdentifier(IdentityType.PNI),
+                    device.getId())
+                .stream())
+            .toList();
+
     return CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),
             secureValueRecovery2Client.removeData(account.getUuid()),
