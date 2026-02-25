@@ -160,8 +160,6 @@ class AccountsManagerTest {
     when(asyncClusterCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
     when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
-    when(accounts.delete(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
-
     doAnswer((Answer<Void>) invocation -> {
       final Account account = invocation.getArgument(0, Account.class);
       final String number = invocation.getArgument(1, String.class);

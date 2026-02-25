@@ -96,8 +96,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   @Override
   public DeleteAccountResponse deleteAccount(final DeleteAccountRequest request) {
     accountsManager.delete(getAuthenticatedAccount(AuthenticationUtil.requireAuthenticatedPrimaryDevice()),
-            AccountsManager.DeletionReason.USER_REQUEST)
-        .join();
+            AccountsManager.DeletionReason.USER_REQUEST);
 
     return DeleteAccountResponse.getDefaultInstance();
   }

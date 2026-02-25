@@ -154,9 +154,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
-    when(accountsManager.delete(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
     final DeleteAccountResponse ignored =
         authenticatedServiceStub().deleteAccount(DeleteAccountRequest.newBuilder().build());
 

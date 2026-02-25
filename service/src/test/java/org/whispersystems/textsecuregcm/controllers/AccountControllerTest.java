@@ -92,7 +92,6 @@ import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableExceptio
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -846,8 +845,6 @@ class AccountControllerTest {
 
   @Test
   void testDeleteAccount() {
-    when(accountsManager.delete(any(), any())).thenReturn(CompletableFutureTestUtil.almostCompletedFuture(null));
-
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/me")
         .request()
@@ -861,7 +858,8 @@ class AccountControllerTest {
 
   @Test
   void testDeleteAccountException() {
-    when(accountsManager.delete(any(), any())).thenReturn(CompletableFuture.failedFuture(new RuntimeException("OH NO")));
+    doThrow(new RuntimeException("OH NO"))
+        .when(accountsManager).delete(any(), any());
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/me")

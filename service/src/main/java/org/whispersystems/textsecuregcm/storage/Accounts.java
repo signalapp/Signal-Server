@@ -1176,30 +1176,39 @@ public class Accounts {
         .map(UUID::fromString);
   }
 
-  public CompletableFuture<Void> delete(final UUID uuid, final List<TransactWriteItem> additionalWriteItems) {
+  public void delete(final UUID uuid, final List<TransactWriteItem> additionalWriteItems) {
     final Timer.Sample sample = Timer.start();
 
-    return getByAccountIdentifierAsync(uuid)
-        .thenCompose(maybeAccount -> maybeAccount.map(account -> {
-              final List<TransactWriteItem> transactWriteItems = new ArrayList<>(List.of(
-                  buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
-                  buildDelete(accountsTableName, KEY_ACCOUNT_UUID, uuid),
-                  buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
-                  buildPutDeletedAccount(uuid, account.getPhoneNumberIdentifier())
-              ));
+    try {
+      final Account account;
+      {
+        final Optional<Account> maybeAccount = getByAccountIdentifier(uuid);
 
-              account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(
-                  buildDelete(usernamesConstraintTableName, UsernameTable.KEY_USERNAME_HASH, usernameHash)));
+        if (maybeAccount.isEmpty()) {
+          return;
+        }
 
-              transactWriteItems.addAll(additionalWriteItems);
+        account = maybeAccount.get();
+      }
 
-              return dynamoDbAsyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
-                  .transactItems(transactWriteItems)
-                  .build())
-                  .thenRun(Util.NOOP);
-            })
-            .orElseGet(() -> CompletableFuture.completedFuture(null)))
-            .thenRun(() -> sample.stop(DELETE_TIMER));
+      final List<TransactWriteItem> transactWriteItems = new ArrayList<>(List.of(
+          buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
+          buildDelete(accountsTableName, KEY_ACCOUNT_UUID, uuid),
+          buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
+          buildPutDeletedAccount(uuid, account.getPhoneNumberIdentifier())
+      ));
+
+      account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(
+          buildDelete(usernamesConstraintTableName, UsernameTable.KEY_USERNAME_HASH, usernameHash)));
+
+      transactWriteItems.addAll(additionalWriteItems);
+
+      dynamoDbClient.transactWriteItems(TransactWriteItemsRequest.builder()
+          .transactItems(transactWriteItems)
+          .build());
+    } finally {
+      sample.stop(DELETE_TIMER);
+    }
   }
 
   Flux<Account> getAll(final int segments, final Scheduler scheduler) {

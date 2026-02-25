@@ -463,7 +463,7 @@ public class AccountCreationDeletionIntegrationTest {
 
     assertTrue(accountsManager.getByAccountIdentifier(aci).isPresent());
 
-    accountsManager.delete(account, AccountsManager.DeletionReason.ADMIN_DELETED).join();
+    accountsManager.delete(account, AccountsManager.DeletionReason.ADMIN_DELETED);
 
     assertFalse(accountsManager.getByAccountIdentifier(aci).isPresent());
     assertFalse(keysManager.getEcSignedPreKey(account.getUuid(), Device.PRIMARY_ID).join().isPresent());

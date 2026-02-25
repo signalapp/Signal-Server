@@ -558,11 +558,11 @@ public class AccountController {
 
   @DELETE
   @Path("/me")
-  public CompletableFuture<Response> deleteAccount(@Auth AuthenticatedDevice auth) {
+  public void deleteAccount(@Auth AuthenticatedDevice auth) {
     final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
 
-    return accounts.delete(account, AccountsManager.DeletionReason.USER_REQUEST).thenApply(Util.ASYNC_EMPTY_RESPONSE);
+    accounts.delete(account, AccountsManager.DeletionReason.USER_REQUEST);
   }
 
   private void clearUsernameLink(final Account account) {

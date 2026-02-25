@@ -747,7 +747,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       if (maybeExistingAccount.get().getIdentifier(IdentityType.ACI).equals(account.getIdentifier(IdentityType.ACI))) {
         maybeDisplacedUuid = Optional.empty();
       } else {
-        delete(maybeExistingAccount.get()).join();
+        delete(maybeExistingAccount.get());
         maybeDisplacedUuid = maybeExistingAccount.map(Account::getUuid);
       }
     } else {
@@ -1133,36 +1133,42 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return accounts.getAll(segments, scheduler);
   }
 
-  public CompletableFuture<Void> delete(final Account account, final DeletionReason deletionReason) {
+  public void delete(final Account account, final DeletionReason deletionReason) {
     final Timer.Sample sample = Timer.start();
 
-    return accountLockManager.withLockAsync(Set.of(account.getPhoneNumberIdentifier()), () -> delete(account),
-            accountLockExecutor)
-        .whenComplete((ignored, throwable) -> {
-          sample.stop(deleteTimer);
+    try {
+      accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()), () -> {
+        delete(account);
+        return null;
+      }, accountLockExecutor);
 
-          if (throwable == null) {
-            Metrics.counter(DELETE_COUNTER_NAME,
-                    COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber()),
-                    DELETION_REASON_TAG_NAME, deletionReason.tagValue)
-                .increment();
-          } else {
-            logger.warn("Failed to delete account", throwable);
-          }
-        });
+      Metrics.counter(DELETE_COUNTER_NAME,
+              COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber()),
+              DELETION_REASON_TAG_NAME, deletionReason.tagValue)
+          .increment();
+    } catch (final Exception e) {
+      logger.warn("Failed to delete account", e);
+
+      if (e instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+
+      throw new RuntimeException(e);
+    } finally {
+      sample.stop(deleteTimer);
+    }
   }
 
-  private CompletableFuture<Void> delete(final Account account) {
-    final List<TransactWriteItem> additionalWriteItems =
-        account.getDevices().stream()
-            .flatMap(device -> keysManager.buildWriteItemsForRemovedDevice(
-                    account.getIdentifier(IdentityType.ACI),
-                    account.getIdentifier(IdentityType.PNI),
-                    device.getId())
-                .stream())
-            .toList();
+  private void delete(final Account account) {
+    final List<TransactWriteItem> additionalWriteItems = account.getDevices().stream()
+        .flatMap(device -> keysManager.buildWriteItemsForRemovedDevice(
+                account.getIdentifier(IdentityType.ACI),
+                account.getIdentifier(IdentityType.PNI),
+                device.getId())
+            .stream())
+        .toList();
 
-    return CompletableFuture.allOf(
+    CompletableFuture.allOf(
             secureStorageClient.deleteStoredData(account.getUuid()),
             secureValueRecovery2Client.removeData(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getUuid()),
@@ -1170,9 +1176,12 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             messagesManager.clear(account.getUuid()),
             profilesManager.deleteAll(account.getUuid(), true),
             registrationRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI)))
-        .thenCompose(ignored -> accounts.delete(account.getUuid(), additionalWriteItems))
-        .thenCompose(ignored -> redisDeleteAsync(account))
-        .thenRun(() -> disconnectionRequestManager.requestDisconnection(account));
+        .join();
+
+    accounts.delete(account.getUuid(), additionalWriteItems);
+    redisDelete(account);
+
+    disconnectionRequestManager.requestDisconnection(account);
   }
 
   private String getAccountMapKey(String key) {

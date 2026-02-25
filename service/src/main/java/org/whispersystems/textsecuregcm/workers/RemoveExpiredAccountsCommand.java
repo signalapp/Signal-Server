@@ -20,6 +20,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 
 public class RemoveExpiredAccountsCommand extends AbstractSinglePassCrawlAccountsCommand {
@@ -66,7 +67,9 @@ public class RemoveExpiredAccountsCommand extends AbstractSinglePassCrawlAccount
         .flatMap(expiredAccount -> {
           final Mono<Void> deleteAccountMono = isDryRun
               ? Mono.empty()
-              : Mono.fromFuture(() -> getCommandDependencies().accountsManager().delete(expiredAccount, AccountsManager.DeletionReason.EXPIRED));
+              : Mono.fromRunnable(() -> getCommandDependencies().accountsManager().delete(expiredAccount, AccountsManager.DeletionReason.EXPIRED))
+                  .subscribeOn(Schedulers.boundedElastic())
+                  .then();
 
           return deleteAccountMono
               .doOnSuccess(ignored -> deletedAccountCounter.increment())

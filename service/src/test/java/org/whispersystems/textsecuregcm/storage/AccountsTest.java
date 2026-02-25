@@ -214,7 +214,7 @@ class AccountsTest {
     assertPhoneNumberConstraintExists("+14151112222", account.getUuid());
     assertPhoneNumberIdentifierConstraintExists(account.getPhoneNumberIdentifier(), account.getUuid());
 
-    accounts.delete(originalUuid, Collections.emptyList()).join();
+    accounts.delete(originalUuid, Collections.emptyList());
     assertThat(accounts.findRecentlyDeletedAccountIdentifier(account.getPhoneNumberIdentifier())).hasValue(originalUuid);
 
     freshUser = createAccount(account);
@@ -773,7 +773,7 @@ class AccountsTest {
     assertThat(accounts.getByAccountIdentifier(deletedAccount.getUuid())).isPresent();
     assertThat(accounts.getByAccountIdentifier(retainedAccount.getUuid())).isPresent();
 
-    accounts.delete(deletedAccount.getUuid(), Collections.emptyList()).join();
+    accounts.delete(deletedAccount.getUuid(), Collections.emptyList());
 
     assertThat(accounts.getByAccountIdentifier(deletedAccount.getUuid())).isNotPresent();
     assertThat(accounts.findRecentlyDeletedAccountIdentifier(deletedAccount.getPhoneNumberIdentifier())).hasValue(deletedAccount.getUuid());
@@ -1813,7 +1813,7 @@ class AccountsTest {
                 .build())
             .items());
 
-    accounts.delete(account.getIdentifier(IdentityType.ACI), Collections.emptyList()).join();
+    accounts.delete(account.getIdentifier(IdentityType.ACI), Collections.emptyList());
 
     writeAccountRecordWithoutConstraints(account);
     accounts.regenerateConstraints(account).join();

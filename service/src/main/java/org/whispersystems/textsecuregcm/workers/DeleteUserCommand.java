@@ -51,7 +51,7 @@ public class DeleteUserCommand extends AbstractCommandWithDependencies {
         Optional<Account> account = accountsManager.getByE164(user);
 
         if (account.isPresent()) {
-          accountsManager.delete(account.get(), DeletionReason.ADMIN_DELETED).join();
+          accountsManager.delete(account.get(), DeletionReason.ADMIN_DELETED);
           logger.warn("Removed " + account.get().getNumber());
         } else {
           logger.warn("Account not found");

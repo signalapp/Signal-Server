@@ -16,7 +16,6 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import net.sourceforge.argparse4j.inf.Namespace;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -61,7 +60,6 @@ class RemoveExpiredAccountsCommandTest {
     final Clock clock = Clock.fixed(Instant.now(), ZoneId.systemDefault());
 
     final AccountsManager accountsManager = mock(AccountsManager.class);
-    when(accountsManager.delete(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final RemoveExpiredAccountsCommand removeExpiredAccountsCommand =
         new TestRemoveExpiredAccountsCommand(clock, accountsManager, isDryRun);
