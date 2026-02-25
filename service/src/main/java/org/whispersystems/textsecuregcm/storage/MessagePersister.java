@@ -22,7 +22,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.IntStream;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -249,7 +248,7 @@ public class MessagePersister implements Managed {
         throw new MessagePersistenceException("Could not persist due to an overfull queue. Trimmed primary queue, a subsequent retry may succeed");
       } else {
         logger.warn("Failed to persist queue {}::{} due to overfull queue; will unlink device", accountUuid, deviceId);
-        accountsManager.removeDevice(account, deviceId).join();
+        accountsManager.removeDevice(account, deviceId);
       }
     } finally {
       messagesCache.unlockQueueForPersistence(accountUuid, deviceId);

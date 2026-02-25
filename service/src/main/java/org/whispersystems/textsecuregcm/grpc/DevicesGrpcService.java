@@ -82,7 +82,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
 
     final byte deviceId = DeviceIdUtil.validate(request.getId());
 
-    accountsManager.removeDevice(getAuthenticatedAccount(), deviceId).join();
+    accountsManager.removeDevice(getAuthenticatedAccount(), deviceId);
 
     return RemoveDeviceResponse.getDefaultInstance();
   }

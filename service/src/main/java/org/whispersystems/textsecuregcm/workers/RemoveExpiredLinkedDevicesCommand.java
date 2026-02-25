@@ -130,7 +130,7 @@ public class RemoveExpiredLinkedDevicesCommand extends AbstractSinglePassCrawlAc
 
     return Flux.fromIterable(expiredDevices)
         .flatMap(deviceId ->
-                Mono.fromFuture(() -> getCommandDependencies().accountsManager().removeDevice(account, deviceId))
+                Mono.fromRunnable(() -> getCommandDependencies().accountsManager().removeDevice(account, deviceId))
                     .retryWhen(Retry.backoff(maxRetries, Duration.ofSeconds(1))
                         .doAfterRetry(ignored -> retryCounter.increment())
                         .onRetryExhaustedThrow((spec, rs) -> rs.failure()))

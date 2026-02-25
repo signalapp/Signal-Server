@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -166,7 +165,7 @@ public class DeviceController {
     final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
             .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    accounts.removeDevice(account, deviceId).join();
+    accounts.removeDevice(account, deviceId);
   }
 
   /**
@@ -294,7 +293,7 @@ public class DeviceController {
     }
 
     try {
-      return accounts.addDevice(account, new DeviceSpec(accountAttributes.getName(),
+      final Pair<Account, Device> accountAndDevice = accounts.addDevice(account, new DeviceSpec(accountAttributes.getName(),
                   authorizationHeader.getPassword(),
                   signalAgent,
                   capabilities,
@@ -307,18 +306,14 @@ public class DeviceController {
                   deviceActivationRequest.pniSignedPreKey(),
                   deviceActivationRequest.aciPqLastResortPreKey(),
                   deviceActivationRequest.pniPqLastResortPreKey()),
-              linkDeviceRequest.verificationCode())
-          .thenApply(accountAndDevice -> new LinkDeviceResponse(
-              accountAndDevice.first().getIdentifier(IdentityType.ACI),
-              accountAndDevice.first().getIdentifier(IdentityType.PNI),
-              accountAndDevice.second().getId()))
-          .join();
-    } catch (final CompletionException e) {
-      if (e.getCause() instanceof LinkDeviceTokenAlreadyUsedException) {
-        throw new ForbiddenException();
-      }
+              linkDeviceRequest.verificationCode());
 
-      throw e;
+      return new LinkDeviceResponse(
+          accountAndDevice.first().getIdentifier(IdentityType.ACI),
+          accountAndDevice.first().getIdentifier(IdentityType.PNI),
+          accountAndDevice.second().getId());
+    } catch (final LinkDeviceTokenAlreadyUsedException e) {
+      throw new ForbiddenException();
     }
   }
 
@@ -377,8 +372,8 @@ public class DeviceController {
                 .map(deviceInfo -> Response.status(Response.Status.OK).entity(deviceInfo).build())
                 .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
             .exceptionally(ExceptionUtils.exceptionallyHandler(IllegalArgumentException.class,
-                e -> Response.status(Response.Status.BAD_REQUEST).build()))
-            .whenComplete((response, throwable) -> {
+                _ -> Response.status(Response.Status.BAD_REQUEST).build()))
+            .whenComplete((response, _) -> {
               linkedDeviceListenerCounter.decrementAndGet();
 
               if (response != null && response.getStatus() == Response.Status.OK.getStatusCode()) {
@@ -568,7 +563,7 @@ public class DeviceController {
             .thenApply(maybeTransferArchive -> maybeTransferArchive
                 .map(transferArchive -> Response.status(Response.Status.OK).entity(transferArchive).build())
                 .orElseGet(() -> Response.status(Response.Status.NO_CONTENT).build()))
-            .whenComplete((response, throwable) -> {
+            .whenComplete((response, _) -> {
               if (response != null && response.getStatus() == Response.Status.OK.getStatusCode()) {
                 accountAndSample.second().stop(Timer.builder(WAIT_FOR_TRANSFER_ARCHIVE_TIMER_NAME)
                     .tags(Tags.of(

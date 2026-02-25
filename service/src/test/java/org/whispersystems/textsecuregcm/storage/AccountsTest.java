@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -648,7 +647,7 @@ class AccountsTest {
 
     account.getPrimaryDevice().setName(deviceName);
 
-    accounts.updateTransactionallyAsync(account, List.of(TransactWriteItem.builder()
+    accounts.updateTransactionally(account, List.of(TransactWriteItem.builder()
         .put(Put.builder()
             .tableName(Tables.CLIENT_RELEASES.tableName())
             .item(Map.of(
@@ -656,7 +655,7 @@ class AccountsTest {
                 ClientReleases.ATTR_VERSION, AttributeValues.fromString("test")
             ))
             .build())
-        .build())).toCompletableFuture().join();
+        .build()));
 
     assertArrayEquals(deviceName,
         accounts.getByAccountIdentifier(account.getUuid()).orElseThrow().getPrimaryDevice().getName());
@@ -678,8 +677,8 @@ class AccountsTest {
 
     account.setVersion(account.getVersion() - 1);
 
-    final CompletionException completionException = assertThrows(CompletionException.class,
-        () -> accounts.updateTransactionallyAsync(account, List.of(TransactWriteItem.builder()
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.updateTransactionally(account, List.of(TransactWriteItem.builder()
             .put(Put.builder()
                 .tableName(Tables.CLIENT_RELEASES.tableName())
                 .item(Map.of(
@@ -687,19 +686,17 @@ class AccountsTest {
                     ClientReleases.ATTR_VERSION, AttributeValues.fromString("test")
                 ))
                 .build())
-            .build())).toCompletableFuture().join());
-
-    assertInstanceOf(ContestedOptimisticLockException.class, completionException.getCause());
+            .build())));
   }
 
   @Test
   void testUpdateTransactionallyWithMockTransactionConflictException() {
-    final DynamoDbAsyncClient dynamoDbAsyncClient = mock(DynamoDbAsyncClient.class);
+    final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
 
     accounts = new Accounts(
         clock,
-        mock(DynamoDbClient.class),
-        dynamoDbAsyncClient,
+        dynamoDbClient,
+        mock(DynamoDbAsyncClient.class),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -707,18 +704,17 @@ class AccountsTest {
         Tables.DELETED_ACCOUNTS.tableName(),
         Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
-    when(dynamoDbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
-        .thenReturn(CompletableFuture.failedFuture(TransactionCanceledException.builder()
+    when(dynamoDbClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenThrow(TransactionCanceledException.builder()
             .cancellationReasons(CancellationReason.builder()
                 .code("TransactionConflict")
                 .build())
-            .build()));
+            .build());
 
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
+    final Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
 
-    assertThatThrownBy(() -> accounts.updateTransactionallyAsync(account, Collections.emptyList()).toCompletableFuture().join())
-        .isInstanceOfAny(CompletionException.class)
-        .hasCauseInstanceOf(ContestedOptimisticLockException.class);
+    assertThatThrownBy(() -> accounts.updateTransactionally(account, Collections.emptyList()))
+        .isInstanceOfAny(ContestedOptimisticLockException.class);
   }
 
   @Test

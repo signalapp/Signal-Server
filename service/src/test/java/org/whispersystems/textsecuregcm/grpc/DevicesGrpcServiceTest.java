@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -72,7 +71,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
         .thenReturn(Optional.of(authenticatedAccount));
 
     when(accountsManager.removeDevice(any(), anyByte()))
-        .thenReturn(CompletableFuture.completedFuture(authenticatedAccount));
+        .thenReturn(authenticatedAccount);
 
     when(accountsManager.update(any(), any()))
         .thenAnswer(invocation -> {

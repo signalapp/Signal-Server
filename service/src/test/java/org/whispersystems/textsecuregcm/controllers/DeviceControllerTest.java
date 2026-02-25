@@ -220,7 +220,7 @@ class DeviceControllerTest {
                         final Optional<ApnRegistrationId> apnRegistrationId,
                         final Optional<GcmRegistrationId> gcmRegistrationId,
                         final Optional<String> expectedApnsToken,
-                        final Optional<String> expectedGcmToken) {
+                        final Optional<String> expectedGcmToken) throws LinkDeviceTokenAlreadyUsedException {
 
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
@@ -249,7 +249,7 @@ class DeviceControllerTest {
       final Account a = invocation.getArgument(0);
       final DeviceSpec deviceSpec = invocation.getArgument(1);
 
-      return CompletableFuture.completedFuture(new Pair<>(a, deviceSpec.toDevice(NEXT_DEVICE_ID, testClock, aciIdentityKey)));
+      return new Pair<>(a, deviceSpec.toDevice(NEXT_DEVICE_ID, testClock, aciIdentityKey));
     });
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
@@ -298,11 +298,12 @@ class DeviceControllerTest {
   @CartesianTest
   void deviceDowngrade(@CartesianTest.Enum final DeviceCapability capability,
       @CartesianTest.Values(booleans = {true, false}) final boolean accountHasCapability,
-      @CartesianTest.Values(booleans = {true, false}) final boolean requestHasCapability) {
+      @CartesianTest.Values(booleans = {true, false}) final boolean requestHasCapability)
+      throws LinkDeviceTokenAlreadyUsedException {
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(accountsManager.addDevice(any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new Pair<>(mock(Account.class), mock(Device.class))));
+        .thenReturn(new Pair<>(mock(Account.class), mock(Device.class)));
 
     final Device primaryDevice = mock(Device.class);
     when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
@@ -392,7 +393,7 @@ class DeviceControllerTest {
   }
 
   @Test
-  void linkDeviceAtomicReusedToken() {
+  void linkDeviceAtomicReusedToken() throws LinkDeviceTokenAlreadyUsedException {
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(account.getDevices()).thenReturn(List.of(existingDevice));
@@ -416,7 +417,7 @@ class DeviceControllerTest {
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
     when(accountsManager.addDevice(any(), any(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new LinkDeviceTokenAlreadyUsedException()));
+        .thenThrow(new LinkDeviceTokenAlreadyUsedException());
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
@@ -729,7 +730,8 @@ class DeviceControllerTest {
 
   @ParameterizedTest
   @MethodSource
-  void linkDeviceRegistrationId(final int registrationId, final int pniRegistrationId, final int expectedStatusCode) {
+  void linkDeviceRegistrationId(final int registrationId, final int pniRegistrationId, final int expectedStatusCode)
+      throws LinkDeviceTokenAlreadyUsedException {
     final Device existingDevice = mock(Device.class);
     when(existingDevice.getId()).thenReturn(Device.PRIMARY_ID);
     when(account.getDevices()).thenReturn(List.of(existingDevice));
@@ -750,7 +752,7 @@ class DeviceControllerTest {
       final Account a = invocation.getArgument(0);
       final DeviceSpec deviceSpec = invocation.getArgument(1);
 
-      return CompletableFuture.completedFuture(new Pair<>(a, deviceSpec.toDevice(NEXT_DEVICE_ID, testClock, aciIdentityKey)));
+      return new Pair<>(a, deviceSpec.toDevice(NEXT_DEVICE_ID, testClock, aciIdentityKey));
     });
 
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
@@ -835,7 +837,7 @@ class DeviceControllerTest {
   }
 
   @Test
-  void maxDevicesTest() {
+  void maxDevicesTest() throws LinkDeviceTokenAlreadyUsedException {
     final List<Device> devices = IntStream.range(0, DeviceController.MAX_DEVICES + 1)
         .mapToObj(i -> mock(Device.class))
         .toList();
@@ -891,7 +893,7 @@ class DeviceControllerTest {
     final byte deviceId = 2;
 
     when(accountsManager.removeDevice(account, deviceId))
-        .thenReturn(CompletableFuture.completedFuture(account));
+        .thenReturn(account);
 
     try (final Response response = resources
         .getJerseyTest()
@@ -932,7 +934,7 @@ class DeviceControllerTest {
     final byte deviceId = 2;
 
     when(accountsManager.removeDevice(AuthHelper.VALID_ACCOUNT_3, deviceId))
-        .thenReturn(CompletableFuture.completedFuture(account));
+        .thenReturn(account);
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_3))
         .thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_3));

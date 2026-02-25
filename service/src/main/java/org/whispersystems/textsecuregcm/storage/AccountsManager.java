@@ -439,88 +439,92 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return account;
   }
 
-  public CompletableFuture<Pair<Account, Device>> addDevice(final Account account, final DeviceSpec deviceSpec, final String linkDeviceToken) {
-    return accountLockManager.withLockAsync(Set.of(account.getPhoneNumberIdentifier()),
-        () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
-        accountLockExecutor);
+  public Pair<Account, Device> addDevice(final Account account, final DeviceSpec deviceSpec, final String linkDeviceToken)
+      throws LinkDeviceTokenAlreadyUsedException {
+
+    try {
+      return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()),
+          () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
+          accountLockExecutor);
+    } catch (final LinkDeviceTokenAlreadyUsedException | RuntimeException e) {
+      throw e;
+    } catch (final Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
-  private CompletableFuture<Pair<Account, Device>> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final String linkDeviceToken, final int retries) {
-    return accounts.getByAccountIdentifierAsync(accountIdentifier)
-        .thenApply(maybeAccount -> maybeAccount.orElseThrow(ContestedOptimisticLockException::new))
-        .thenCompose(account -> {
-          final byte nextDeviceId = account.getNextDeviceId();
+  private Pair<Account, Device> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final String linkDeviceToken, final int retries)
+      throws LinkDeviceTokenAlreadyUsedException {
+    final Account account = accounts.getByAccountIdentifier(accountIdentifier)
+        .orElseThrow(ContestedOptimisticLockException::new);
 
-          return CompletableFuture.allOf(
-                  keysManager.deleteSingleUsePreKeys(account.getUuid(), nextDeviceId),
-                  keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier(), nextDeviceId),
-                  messagesManager.clear(account.getUuid(), nextDeviceId))
-              .thenApply(ignored -> new Pair<>(account, nextDeviceId));
-        })
-        .thenCompose(accountAndNextDeviceId -> {
-          final Account account = accountAndNextDeviceId.first();
-          final byte nextDeviceId = accountAndNextDeviceId.second();
+    final byte nextDeviceId = account.getNextDeviceId();
 
-          account.addDevice(deviceSpec.toDevice(nextDeviceId, clock, account.getIdentityKey(IdentityType.ACI)));
+    CompletableFuture.allOf(
+            keysManager.deleteSingleUsePreKeys(account.getUuid(), nextDeviceId),
+            keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier(), nextDeviceId),
+            messagesManager.clear(account.getUuid(), nextDeviceId))
+        .join();
 
-          final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(
-              account.getIdentifier(IdentityType.ACI),
-              account.getIdentifier(IdentityType.PNI),
-              nextDeviceId,
-              deviceSpec.aciSignedPreKey(),
-              deviceSpec.pniSignedPreKey(),
-              deviceSpec.aciPqLastResortPreKey(),
-              deviceSpec.pniPqLastResortPreKey()));
+    account.addDevice(deviceSpec.toDevice(nextDeviceId, clock, account.getIdentityKey(IdentityType.ACI)));
 
-          additionalWriteItems.add(accounts.buildTransactWriteItemForLinkDevice(linkDeviceToken, LINK_DEVICE_TOKEN_EXPIRATION_DURATION));
+    final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(keysManager.buildWriteItemsForNewDevice(
+        account.getIdentifier(IdentityType.ACI),
+        account.getIdentifier(IdentityType.PNI),
+        nextDeviceId,
+        deviceSpec.aciSignedPreKey(),
+        deviceSpec.pniSignedPreKey(),
+        deviceSpec.aciPqLastResortPreKey(),
+        deviceSpec.pniPqLastResortPreKey()));
 
-          return accounts.updateTransactionallyAsync(account, additionalWriteItems)
-              .thenApply(ignored -> new Pair<>(account, account.getDevice(nextDeviceId).orElseThrow()));
-        })
-        .thenCompose(updatedAccountAndDevice -> redisDeleteAsync(updatedAccountAndDevice.first())
-            .thenApply(ignored -> updatedAccountAndDevice))
-        .exceptionallyCompose(throwable -> {
-          if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException && retries > 0) {
-            return addDevice(accountIdentifier, deviceSpec, linkDeviceToken, retries - 1);
-          } else if (ExceptionUtils.unwrap(throwable) instanceof TransactionCanceledException transactionCanceledException) {
-            // We can be confident the transaction was canceled because the linked device token was already used if the
-            // "check token" transaction write item is the only one that failed. That SHOULD be the last one in the
-            // list.
-            final long cancelledTransactions = transactionCanceledException.cancellationReasons().stream()
-                .filter(cancellationReason -> !"None".equals(cancellationReason.code()))
-                .count();
+    additionalWriteItems.add(accounts.buildTransactWriteItemForLinkDevice(linkDeviceToken, LINK_DEVICE_TOKEN_EXPIRATION_DURATION));
 
-            final boolean tokenReuseConditionFailed =
-                "ConditionalCheckFailed".equals(transactionCanceledException.cancellationReasons().getLast().code());
+    try {
+      accounts.updateTransactionally(account, additionalWriteItems);
+      redisDelete(account);
 
-            if (cancelledTransactions == 1 && tokenReuseConditionFailed) {
-              return CompletableFuture.failedFuture(new LinkDeviceTokenAlreadyUsedException());
+      final String key = getLinkedDeviceKey(getLinkDeviceTokenIdentifier(linkDeviceToken));
+      final String deviceInfoJson;
+
+      try {
+        deviceInfoJson = SystemMapper.jsonMapper().writeValueAsString(DeviceInfo.forDevice(account.getDevice(nextDeviceId).orElseThrow()));
+      } catch (final JsonProcessingException e) {
+        throw new UncheckedIOException(e);
+      }
+
+      ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
+          .executeCompletionStage(retryExecutor, () -> pubSubRedisClient.withConnection(connection ->
+              connection.async().set(key, deviceInfoJson, SetArgs.Builder.ex(RECENTLY_ADDED_DEVICE_TTL))))
+          .whenComplete((_, pubSubThrowable) -> {
+            if (pubSubThrowable != null) {
+              logger.warn("Failed to record recently-created device", pubSubThrowable);
             }
-          }
+          });
 
-          return CompletableFuture.failedFuture(throwable);
-        })
-        .whenComplete((updatedAccountAndDevice, _) -> {
-          if (updatedAccountAndDevice != null) {
-            final String key = getLinkedDeviceKey(getLinkDeviceTokenIdentifier(linkDeviceToken));
-            final String deviceInfoJson;
+      return new Pair<>(account, account.getDevice(nextDeviceId).orElseThrow());
+    } catch (final ContestedOptimisticLockException e) {
+      if (retries > 0) {
+        return addDevice(accountIdentifier, deviceSpec, linkDeviceToken, retries - 1);
+      }
 
-            try {
-              deviceInfoJson = SystemMapper.jsonMapper().writeValueAsString(DeviceInfo.forDevice(updatedAccountAndDevice.second()));
-            } catch (final JsonProcessingException e) {
-              throw new UncheckedIOException(e);
-            }
+      throw e;
+    } catch (final TransactionCanceledException transactionCanceledException) {
+      // We can be confident the transaction was canceled because the linked device token was already used if the
+      // "check token" transaction write item is the only one that failed. That SHOULD be the last one in the
+      // list.
+      final long cancelledTransactions = transactionCanceledException.cancellationReasons().stream()
+          .filter(cancellationReason -> !"None".equals(cancellationReason.code()))
+          .count();
 
-            ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
-                .executeCompletionStage(retryExecutor, () -> pubSubRedisClient.withConnection(connection ->
-                    connection.async().set(key, deviceInfoJson, SetArgs.Builder.ex(RECENTLY_ADDED_DEVICE_TTL))))
-                .whenComplete((_, pubSubThrowable) -> {
-                  if (pubSubThrowable != null) {
-                    logger.warn("Failed to record recently-created device", pubSubThrowable);
-                  }
-                });
-          }
-        });
+      final boolean tokenReuseConditionFailed =
+          "ConditionalCheckFailed".equals(transactionCanceledException.cancellationReasons().getLast().code());
+
+      if (cancelledTransactions == 1 && tokenReuseConditionFailed) {
+        throw new LinkDeviceTokenAlreadyUsedException();
+      }
+
+      throw transactionCanceledException;
+    }
   }
 
   private Mac getInitializedMac() {
@@ -630,53 +634,58 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
    *
    * @return the updated Account
    */
-  public CompletableFuture<Account> removeDevice(final Account account, final byte deviceId) {
+  public Account removeDevice(final Account account, final byte deviceId) {
     if (deviceId == Device.PRIMARY_ID) {
       throw new IllegalArgumentException("Cannot remove primary device");
     }
 
-    return accountLockManager.withLockAsync(Set.of(account.getPhoneNumberIdentifier()),
-        () -> removeDevice(account.getIdentifier(IdentityType.ACI), deviceId, MAX_UPDATE_ATTEMPTS),
-        accountLockExecutor);
+    try {
+      return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()),
+          () -> removeDevice(account.getIdentifier(IdentityType.ACI), deviceId, MAX_UPDATE_ATTEMPTS),
+          accountLockExecutor);
+    } catch (final Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
-  private CompletableFuture<Account> removeDevice(final UUID accountIdentifier, final byte deviceId, final int retries) {
-    return accounts.getByAccountIdentifierAsync(accountIdentifier)
-        .thenApply(maybeAccount -> maybeAccount.orElseThrow(ContestedOptimisticLockException::new))
-        .thenCompose(account ->  CompletableFuture.allOf(
+  private Account removeDevice(final UUID accountIdentifier, final byte deviceId, final int retries) {
+    final Account account = accounts.getByAccountIdentifier(accountIdentifier)
+        .orElseThrow(ContestedOptimisticLockException::new);
+
+    CompletableFuture.allOf(
             keysManager.deleteSingleUsePreKeys(account.getUuid(), deviceId),
             messagesManager.clear(account.getUuid(), deviceId))
-            .thenApply(ignored -> account))
-        .thenCompose(account -> {
-          account.removeDevice(deviceId);
+        .join();
 
-          final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(
-              keysManager.buildWriteItemsForRemovedDevice(
-                  account.getIdentifier(IdentityType.ACI),
-                  account.getIdentifier(IdentityType.PNI),
-                  deviceId));
+    account.removeDevice(deviceId);
 
-          return accounts.updateTransactionallyAsync(account, additionalWriteItems)
-              .thenApply(ignored -> account);
-        })
-        .thenCompose(updatedAccount -> redisDeleteAsync(updatedAccount).thenApply(ignored -> updatedAccount))
-        // Ensure any messages/single-use pre-keys that came in while we were working are also removed
-        .thenCompose(account ->  CompletableFuture.allOf(
-                keysManager.deleteSingleUsePreKeys(account.getUuid(), deviceId),
-                messagesManager.clear(account.getUuid(), deviceId))
-            .thenApply(ignored -> account))
-        .exceptionallyCompose(throwable -> {
-          if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException && retries > 0) {
-            return removeDevice(accountIdentifier, deviceId, retries - 1);
-          }
+    final List<TransactWriteItem> additionalWriteItems = new ArrayList<>(
+        keysManager.buildWriteItemsForRemovedDevice(
+            account.getIdentifier(IdentityType.ACI),
+            account.getIdentifier(IdentityType.PNI),
+            deviceId));
 
-          return CompletableFuture.failedFuture(throwable);
-        })
-        .whenComplete((ignored, throwable) -> {
-          if (throwable == null) {
-            disconnectionRequestManager.requestDisconnection(accountIdentifier, List.of(deviceId));
-          }
-        });
+    try {
+      accounts.updateTransactionally(account, additionalWriteItems);
+
+      redisDelete(account);
+
+      // Ensure any messages/single-use pre-keys that came in while we were working are also removed
+      CompletableFuture.allOf(
+              keysManager.deleteSingleUsePreKeys(account.getUuid(), deviceId),
+              messagesManager.clear(account.getUuid(), deviceId))
+          .join();
+
+      disconnectionRequestManager.requestDisconnection(accountIdentifier, List.of(deviceId));
+
+      return account;
+    } catch (final ContestedOptimisticLockException e) {
+      if (retries > 0) {
+        return removeDevice(accountIdentifier, deviceId, retries - 1);
+      }
+
+      throw e;
+    }
   }
 
   public Account changeNumber(final Account account,

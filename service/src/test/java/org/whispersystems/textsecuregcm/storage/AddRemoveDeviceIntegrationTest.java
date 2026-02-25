@@ -2,7 +2,6 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,7 +20,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -174,7 +172,7 @@ public class AddRemoveDeviceIntegrationTest {
   }
 
   @Test
-  void addDevice() throws InterruptedException {
+  void addDevice() throws InterruptedException, LinkDeviceTokenAlreadyUsedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -200,8 +198,7 @@ public class AddRemoveDeviceIntegrationTest {
                     KeysHelper.signedECPreKey(2, pniKeyPair),
                     KeysHelper.signedKEMPreKey(3, aciKeyPair),
                     KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)))
-            .join();
+                accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)));
 
     assertEquals(2, updatedAccountAndDevice.first().getDevices().size());
 
@@ -223,7 +220,7 @@ public class AddRemoveDeviceIntegrationTest {
   }
 
   @Test
-  void addDeviceReusedToken() throws InterruptedException {
+  void addDeviceReusedToken() throws InterruptedException, LinkDeviceTokenAlreadyUsedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -251,14 +248,13 @@ public class AddRemoveDeviceIntegrationTest {
                     KeysHelper.signedECPreKey(2, pniKeyPair),
                     KeysHelper.signedKEMPreKey(3, aciKeyPair),
                     KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                linkDeviceToken)
-            .join();
+                linkDeviceToken);
 
     assertEquals(2,
         accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getUuid()).orElseThrow().getDevices()
             .size());
 
-    final CompletionException completionException = assertThrows(CompletionException.class,
+    assertThrows(LinkDeviceTokenAlreadyUsedException.class,
         () -> accountsManager.addDevice(account, new DeviceSpec(
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
@@ -273,10 +269,7 @@ public class AddRemoveDeviceIntegrationTest {
                     KeysHelper.signedECPreKey(2, pniKeyPair),
                     KeysHelper.signedKEMPreKey(3, aciKeyPair),
                     KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                linkDeviceToken)
-            .join());
-
-    assertInstanceOf(LinkDeviceTokenAlreadyUsedException.class, completionException.getCause());
+                linkDeviceToken));
 
     assertEquals(2,
         accountsManager.getByAccountIdentifier(updatedAccountAndDevice.first().getUuid()).orElseThrow().getDevices()
@@ -284,7 +277,7 @@ public class AddRemoveDeviceIntegrationTest {
   }
 
   @Test
-  void removeDevice() throws InterruptedException {
+  void removeDevice() throws InterruptedException, LinkDeviceTokenAlreadyUsedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -310,12 +303,11 @@ public class AddRemoveDeviceIntegrationTest {
                     KeysHelper.signedECPreKey(2, pniKeyPair),
                     KeysHelper.signedKEMPreKey(3, aciKeyPair),
                     KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)))
-            .join();
+                accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)));
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
 
-    final Account updatedAccount = accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId).join();
+    final Account updatedAccount = accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId);
 
     assertEquals(1, updatedAccount.getDevices().size());
 
@@ -334,7 +326,7 @@ public class AddRemoveDeviceIntegrationTest {
   }
 
   @Test
-  void removeDevicePartialFailure() throws InterruptedException {
+  void removeDevicePartialFailure() throws InterruptedException, LinkDeviceTokenAlreadyUsedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -362,16 +354,15 @@ public class AddRemoveDeviceIntegrationTest {
                     KeysHelper.signedECPreKey(2, pniKeyPair),
                     KeysHelper.signedKEMPreKey(3, aciKeyPair),
                     KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)))
-            .join();
+                accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI)));
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
 
     when(messagesManager.clear(any(), anyByte()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("OH NO")));
 
-    assertThrows(CompletionException.class,
-        () -> accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId).join());
+    assertThrows(RuntimeException.class,
+        () -> accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId));
 
     final Account retrievedAccount = accountsManager.getByAccountIdentifierAsync(aci).join().orElseThrow();
 
@@ -393,7 +384,7 @@ public class AddRemoveDeviceIntegrationTest {
   }
 
   @Test
-  void waitForNewLinkedDevice() throws InterruptedException {
+  void waitForNewLinkedDevice() throws InterruptedException, LinkDeviceTokenAlreadyUsedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -433,8 +424,7 @@ public class AddRemoveDeviceIntegrationTest {
                     KeysHelper.signedECPreKey(2, pniKeyPair),
                     KeysHelper.signedKEMPreKey(3, aciKeyPair),
                     KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                linkDeviceToken)
-            .join();
+                linkDeviceToken);
 
     final Optional<DeviceInfo> maybeDeviceInfo = activeFuture.join();
 
@@ -447,7 +437,7 @@ public class AddRemoveDeviceIntegrationTest {
   }
 
   @Test
-  void waitForNewLinkedDeviceAlreadyAdded() throws InterruptedException {
+  void waitForNewLinkedDeviceAlreadyAdded() throws InterruptedException, LinkDeviceTokenAlreadyUsedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -475,8 +465,7 @@ public class AddRemoveDeviceIntegrationTest {
                     KeysHelper.signedECPreKey(2, pniKeyPair),
                     KeysHelper.signedKEMPreKey(3, aciKeyPair),
                     KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                linkDeviceToken)
-            .join();
+                linkDeviceToken);
 
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getUuid(), account.getPrimaryDevice()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -520,7 +509,7 @@ public class AddRemoveDeviceIntegrationTest {
       "10_000,10_001,false",   // pending message after now
   })
   void waitForMessageFetch(long currentTime, Long oldestMessage, boolean shouldWait)
-      throws InterruptedException {
+      throws InterruptedException, LinkDeviceTokenAlreadyUsedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -531,23 +520,21 @@ public class AddRemoveDeviceIntegrationTest {
     final String linkDeviceToken = accountsManager.generateLinkDeviceToken(UUID.randomUUID());
     final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
 
-    final Pair<Account, Device> updatedAccountAndDevice =
-        accountsManager.addDevice(account, new DeviceSpec(
-                    "device-name".getBytes(StandardCharsets.UTF_8),
-                    "password",
-                    "OWT",
-                    Set.of(),
-                    1,
-                    2,
-                    true,
-                    Optional.empty(),
-                    Optional.empty(),
-                    KeysHelper.signedECPreKey(1, aciKeyPair),
-                    KeysHelper.signedECPreKey(2, pniKeyPair),
-                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                linkDeviceToken)
-            .join();
+    accountsManager.addDevice(account, new DeviceSpec(
+            "device-name".getBytes(StandardCharsets.UTF_8),
+            "password",
+            "OWT",
+            Set.of(),
+            1,
+            2,
+            true,
+            Optional.empty(),
+            Optional.empty(),
+            KeysHelper.signedECPreKey(1, aciKeyPair),
+            KeysHelper.signedECPreKey(2, pniKeyPair),
+            KeysHelper.signedKEMPreKey(3, aciKeyPair),
+            KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+        linkDeviceToken);
 
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getUuid(), account.getPrimaryDevice()))
         .thenReturn(CompletableFuture.completedFuture(Optional.ofNullable(oldestMessage).map(Instant::ofEpochMilli)));
@@ -564,7 +551,7 @@ public class AddRemoveDeviceIntegrationTest {
   @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
   @Test
   void waitForMessageFetchRetries()
-      throws InterruptedException {
+      throws InterruptedException, LinkDeviceTokenAlreadyUsedException {
     final String number = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"),
         PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -577,21 +564,20 @@ public class AddRemoveDeviceIntegrationTest {
 
     clock.pin(Instant.ofEpochMilli(0));
     accountsManager.addDevice(account, new DeviceSpec(
-                    "device-name".getBytes(StandardCharsets.UTF_8),
-                    "password",
-                    "OWT",
-                    Set.of(),
-                    1,
-                    2,
-                    true,
-                    Optional.empty(),
-                    Optional.empty(),
-                    KeysHelper.signedECPreKey(1, aciKeyPair),
-                    KeysHelper.signedECPreKey(2, pniKeyPair),
-                    KeysHelper.signedKEMPreKey(3, aciKeyPair),
-                    KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-                linkDeviceToken)
-            .join();
+            "device-name".getBytes(StandardCharsets.UTF_8),
+            "password",
+            "OWT",
+            Set.of(),
+            1,
+            2,
+            true,
+            Optional.empty(),
+            Optional.empty(),
+            KeysHelper.signedECPreKey(1, aciKeyPair),
+            KeysHelper.signedECPreKey(2, pniKeyPair),
+            KeysHelper.signedKEMPreKey(3, aciKeyPair),
+            KeysHelper.signedKEMPreKey(4, pniKeyPair)),
+        linkDeviceToken);
 
     when(messagesManager.getEarliestUndeliveredTimestampForDevice(account.getUuid(), account.getPrimaryDevice()))
         // Has a message older than the message epoch

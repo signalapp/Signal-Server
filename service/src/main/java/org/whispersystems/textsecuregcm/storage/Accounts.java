@@ -1013,40 +1013,37 @@ public class Accounts {
     }
   }
 
-  public CompletionStage<Void> updateTransactionallyAsync(final Account account,
-      final Collection<TransactWriteItem> additionalWriteItems) {
+  public void updateTransactionally(final Account account, final Collection<TransactWriteItem> additionalWriteItems)
+      throws ContestedOptimisticLockException {
 
-    return AsyncTimerUtil.record(UPDATE_TRANSACTIONALLY_TIMER, () -> {
+    final Timer.Sample sample = Timer.start();
+
+    try {
       final List<TransactWriteItem> writeItems = new ArrayList<>(additionalWriteItems.size() + 1);
       writeItems.add(UpdateAccountSpec.forAccount(accountsTableName, account).transactItem());
       writeItems.addAll(additionalWriteItems);
 
-      return dynamoDbAsyncClient.transactWriteItems(TransactWriteItemsRequest.builder()
-              .transactItems(writeItems)
-              .build())
-          .thenApply(_ -> {
-            account.setVersion(account.getVersion() + 1);
-            return (Void) null;
-          })
-          .exceptionally(throwable -> {
-            final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
+      dynamoDbClient.transactWriteItems(TransactWriteItemsRequest.builder()
+          .transactItems(writeItems)
+          .build());
 
-            if (unwrapped instanceof TransactionCanceledException transactionCanceledException) {
-              if (CONDITIONAL_CHECK_FAILED.equals(transactionCanceledException.cancellationReasons().getFirst().code())) {
-                throw new ContestedOptimisticLockException();
-              }
+      account.setVersion(account.getVersion() + 1);
+    } catch (final TransactionCanceledException transactionCanceledException) {
+      if (CONDITIONAL_CHECK_FAILED.equals(transactionCanceledException.cancellationReasons().getFirst().code())) {
+        throw new ContestedOptimisticLockException();
+      }
 
-              if (transactionCanceledException.cancellationReasons()
-                  .stream()
-                  .anyMatch(reason -> TRANSACTION_CONFLICT.equals(reason.code()))) {
+      if (transactionCanceledException.cancellationReasons()
+          .stream()
+          .anyMatch(reason -> TRANSACTION_CONFLICT.equals(reason.code()))) {
 
-                throw new ContestedOptimisticLockException();
-              }
-            }
+        throw new ContestedOptimisticLockException();
+      }
 
-            throw CompletableFutureUtils.errorAsCompletionException(throwable);
-          });
-    });
+      throw transactionCanceledException;
+    } finally {
+      sample.stop(UPDATE_TRANSACTIONALLY_TIMER);
+    }
   }
 
   public TransactWriteItem buildTransactWriteItemForLinkDevice(final String linkDeviceToken, final Duration tokenTtl) {

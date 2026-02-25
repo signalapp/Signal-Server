@@ -19,7 +19,6 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import net.sourceforge.argparse4j.inf.Namespace;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -70,7 +69,7 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
   void crawlAccounts(final boolean isDryRun) {
     final AccountsManager accountsManager = mock(AccountsManager.class);
     when(accountsManager.removeDevice(any(), anyByte()))
-        .thenReturn(CompletableFuture.completedFuture(null));
+        .thenReturn(null);
 
     final Duration idleDeviceLastSeenDuration =
         Duration.ofDays(UnlinkDevicesWithIdlePrimaryCommand.DEFAULT_PRIMARY_IDLE_DAYS).plus(Duration.ofDays(1));

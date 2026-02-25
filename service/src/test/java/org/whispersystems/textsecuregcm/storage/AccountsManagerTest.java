@@ -160,7 +160,6 @@ class AccountsManagerTest {
     when(asyncClusterCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
     when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
-    when(accounts.updateTransactionallyAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(accounts.delete(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     doAnswer((Answer<Void>) invocation -> {
@@ -692,15 +691,13 @@ class AccountsManagerTest {
 
     Account account = AccountsHelper.generateTestAccount("+14152222222", List.of(primaryDevice, linkedDevice));
 
-    when(accounts.getByAccountIdentifierAsync(account.getUuid()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
-
+    when(accounts.getByAccountIdentifier(account.getUuid())).thenReturn(Optional.of(account));
     when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
     assertTrue(account.getDevice(linkedDevice.getId()).isPresent());
 
-    account = accountsManager.removeDevice(account, linkedDevice.getId()).join();
+    account = accountsManager.removeDevice(account, linkedDevice.getId());
 
     assertFalse(account.getDevice(linkedDevice.getId()).isPresent());
     verify(messagesManager, times(2)).clear(account.getUuid(), linkedDevice.getId());
@@ -855,7 +852,7 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testAddDevice() {
+  void testAddDevice() throws LinkDeviceTokenAlreadyUsedException {
     final String phoneNumber =
         PhoneNumberUtil.getInstance().format(PhoneNumberUtil.getInstance().getExampleNumber("US"),
             PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -883,8 +880,7 @@ class AccountsManagerTest {
 
     when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
-    when(accounts.getByAccountIdentifierAsync(aci)).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
-    when(accounts.updateTransactionallyAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(accounts.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
 
     CLOCK.pin(CLOCK.instant().plusSeconds(60));
 
@@ -902,8 +898,7 @@ class AccountsManagerTest {
             pniSignedPreKey,
             aciPqLastResortPreKey,
             pniPqLastResortPreKey),
-            accountsManager.generateLinkDeviceToken(aci))
-        .join();
+            accountsManager.generateLinkDeviceToken(aci));
 
     verify(keysManager).deleteSingleUsePreKeys(aci, nextDeviceId);
     verify(keysManager).deleteSingleUsePreKeys(pni, nextDeviceId);

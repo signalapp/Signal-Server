@@ -20,6 +20,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuples;
 import reactor.util.retry.Retry;
 
@@ -96,7 +97,8 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
         .flatMap(accountAndLinkedDeviceId -> {
           final Mono<Account> unlinkDeviceMono = isDryRun
               ? Mono.empty()
-              : Mono.fromFuture(() -> accountsManager.removeDevice(accountAndLinkedDeviceId.getT1(), accountAndLinkedDeviceId.getT2()));
+              : Mono.fromSupplier(() -> accountsManager.removeDevice(accountAndLinkedDeviceId.getT1(), accountAndLinkedDeviceId.getT2()))
+                  .subscribeOn(Schedulers.boundedElastic());
 
           return unlinkDeviceMono
               .doOnSuccess(ignored -> unlinkDeviceCounter.increment())
