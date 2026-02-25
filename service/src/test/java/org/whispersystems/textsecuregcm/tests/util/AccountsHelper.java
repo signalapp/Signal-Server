@@ -67,7 +67,6 @@ public class AccountsHelper {
    *    <li>{@link AccountsManager#update(Account, Consumer)}</li>
    *    <li>{@link AccountsManager#updateAsync(Account, Consumer)}</li>
    *    <li>{@link AccountsManager#updateDevice(Account, byte, Consumer)}</li>
-   *    <li>{@link AccountsManager#updateDeviceAsync(Account, byte, Consumer)}</li>
    * </ul>
    *
    * with multiple calls to the {@link Consumer<Account>}. This simulates retries from {@link org.whispersystems.textsecuregcm.storage.ContestedOptimisticLockException}.
@@ -112,17 +111,6 @@ public class AccountsHelper {
 
       return copyAndMarkStale(account);
     });
-
-    when(mockAccountsManager.updateDeviceAsync(any(), anyByte(), any())).thenAnswer(answer -> {
-      final Account account = answer.getArgument(0, Account.class);
-      final byte deviceId = answer.getArgument(1, Byte.class);
-
-      for (int i = 0; i < retryCount; i++) {
-        account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
-      }
-
-      return CompletableFuture.completedFuture(copyAndMarkStale(account));
-    });
   }
 
   @SuppressWarnings("unchecked")
@@ -147,14 +135,6 @@ public class AccountsHelper {
       account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
 
       return markStale ? copyAndMarkStale(account) : account;
-    });
-
-    when(mockAccountsManager.updateDeviceAsync(any(), anyByte(), any())).thenAnswer(answer -> {
-      final Account account = answer.getArgument(0, Account.class);
-      final byte deviceId = answer.getArgument(1, Byte.class);
-      account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
-
-      return CompletableFuture.completedFuture(markStale ? copyAndMarkStale(account) : account);
     });
 
     when(mockAccountsManager.updateDeviceLastSeen(any(), any(), anyLong())).thenAnswer(answer -> {

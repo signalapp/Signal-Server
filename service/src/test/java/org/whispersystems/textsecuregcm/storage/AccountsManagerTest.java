@@ -720,38 +720,6 @@ class AccountsManagerTest {
   }
 
   @Test
-  void testUpdateDeviceAsync() {
-    final UUID uuid = UUID.randomUUID();
-    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-
-    when(accounts.getByAccountIdentifierAsync(uuid)).thenReturn(CompletableFuture.completedFuture(
-        Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]))));
-
-    assertTrue(account.getDevices().isEmpty());
-
-    Device enabledDevice = new Device();
-    enabledDevice.setFetchesMessages(true);
-    enabledDevice.setLastSeen(System.currentTimeMillis());
-    final byte deviceId = account.getNextDeviceId();
-    enabledDevice.setId(deviceId);
-    account.addDevice(enabledDevice);
-
-    @SuppressWarnings("unchecked") Consumer<Device> deviceUpdater = mock(Consumer.class);
-    @SuppressWarnings("unchecked") Consumer<Device> unknownDeviceUpdater = mock(Consumer.class);
-
-    account = accountsManager.updateDeviceAsync(account, deviceId, deviceUpdater).join();
-    account = accountsManager.updateDeviceAsync(account, deviceId, d -> d.setName("deviceName".getBytes(StandardCharsets.UTF_8))).join();
-
-    assertArrayEquals("deviceName".getBytes(StandardCharsets.UTF_8), account.getDevice(deviceId).orElseThrow().getName());
-
-    verify(deviceUpdater, times(1)).accept(any(Device.class));
-
-    accountsManager.updateDeviceAsync(account, account.getNextDeviceId(), unknownDeviceUpdater).join();
-
-    verify(unknownDeviceUpdater, never()).accept(any(Device.class));
-  }
-
-  @Test
   void testRemoveDevice() {
     final Device primaryDevice = new Device();
     primaryDevice.setId(Device.PRIMARY_ID);

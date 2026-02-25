@@ -1110,15 +1110,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     });
   }
 
-  public CompletableFuture<Account> updateDeviceAsync(final Account account, final byte deviceId,
-      final Consumer<Device> deviceUpdater) {
-    return updateAsync(account, a -> {
-      a.getDevice(deviceId).ifPresent(deviceUpdater);
-      // assume that all updaters passed to the public method actually modify the device
-      return true;
-    });
-  }
-
   public Optional<Account> getByE164(final String number) {
     return getByNumberTimer.record(() -> accounts.getByE164(number));
   }
