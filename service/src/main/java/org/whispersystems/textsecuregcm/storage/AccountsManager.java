@@ -45,7 +45,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -947,14 +946,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     });
   }
 
-  public CompletableFuture<Account> updateAsync(Account account, Consumer<Account> updater) {
-    return updateAsync(account, a -> {
-      updater.accept(a);
-      // assume that all updaters passed to the public method actually modify the account
-      return true;
-    });
-  }
-
   /**
    * Specialized version of {@link #updateDevice(Account, byte, Consumer)} that minimizes potentially contentious and
    * redundant updates of {@code device.lastSeen}
@@ -1006,25 +997,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     });
   }
 
-  private CompletableFuture<Account> updateAsync(final Account account, final Function<Account, Boolean> updater) {
-
-    final Timer.Sample timerSample = Timer.start();
-
-    return redisDeleteAsync(account)
-        .thenCompose(ignored -> {
-          final UUID uuid = account.getUuid();
-
-          return updateWithRetriesAsync(account,
-              updater,
-              a -> accounts.updateAsync(a).toCompletableFuture(),
-              () -> accounts.getByAccountIdentifierAsync(uuid).thenApply(Optional::orElseThrow),
-              AccountChangeValidator.GENERAL_CHANGE_VALIDATOR,
-              MAX_UPDATE_ATTEMPTS);
-        })
-        .thenCompose(updatedAccount -> redisSetAsync(updatedAccount).thenApply(ignored -> updatedAccount))
-        .whenComplete((_, _) -> timerSample.stop(updateTimer));
-  }
-
   private <E extends Exception> Account updateWithRetries(Account account,
       final Function<Account, Boolean> updater,
       final ThrowingConsumer<Account, E> persister,
@@ -1064,42 +1036,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     }
 
     throw new OptimisticLockRetryLimitExceededException();
-  }
-
-  private CompletionStage<Account> updateWithRetriesAsync(Account account,
-      final Function<Account, Boolean> updater,
-      final Function<Account, CompletionStage<Void>> persister,
-      final Supplier<CompletionStage<Account>> retriever,
-      final AccountChangeValidator changeValidator,
-      final int remainingTries) {
-
-    final Account originalAccount = AccountUtil.cloneAccountAsNotStale(account);
-
-    if (!updater.apply(account)) {
-      return CompletableFuture.completedFuture(account);
-    }
-
-    if (remainingTries > 0) {
-      return persister.apply(account)
-          .thenApply(ignored -> {
-            final Account updatedAccount = AccountUtil.cloneAccountAsNotStale(account);
-            account.markStale();
-
-            changeValidator.validateChange(originalAccount, updatedAccount);
-
-            return updatedAccount;
-          })
-          .exceptionallyCompose(throwable -> {
-            if (ExceptionUtils.unwrap(throwable) instanceof ContestedOptimisticLockException) {
-              return retriever.get().thenCompose(refreshedAccount ->
-                  updateWithRetriesAsync(refreshedAccount, updater, persister, retriever, changeValidator, remainingTries - 1));
-            } else {
-              throw ExceptionUtils.wrap(throwable);
-            }
-          });
-    }
-
-    return CompletableFuture.failedFuture(new OptimisticLockRetryLimitExceededException());
   }
 
   public Account updateDevice(Account account, byte deviceId, Consumer<Device> deviceUpdater) {

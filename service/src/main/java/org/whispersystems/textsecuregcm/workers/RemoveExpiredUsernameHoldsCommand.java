@@ -22,9 +22,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 
 public class RemoveExpiredUsernameHoldsCommand extends AbstractSinglePassCrawlAccountsCommand {
@@ -85,8 +85,9 @@ public class RemoveExpiredUsernameHoldsCommand extends AbstractSinglePassCrawlAc
           final int holdsToRemove = removeExpired(holds);
           final Mono<Void> purgeMono = isDryRun || holdsToRemove == 0
               ? Mono.empty()
-              : Mono.fromFuture(() ->
-                  accountManager.updateAsync(account, a -> a.setUsernameHolds(holds)).thenRun(Util.NOOP));
+              : Mono.fromRunnable(() -> accountManager.update(account, a -> a.setUsernameHolds(holds)))
+                  .subscribeOn(Schedulers.boundedElastic())
+                  .then();
           Metrics.counter(INSPECTED_ACCOUNTS_COUNTER_NAME,
                   "dryRun", String.valueOf(isDryRun),
                   "expiredHolds", String.valueOf(holdsToRemove > 0))

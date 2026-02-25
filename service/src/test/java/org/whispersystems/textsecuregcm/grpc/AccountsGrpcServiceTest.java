@@ -241,7 +241,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().clearRegistrationLock(ClearRegistrationLockRequest.newBuilder().build()));
 
-    verify(accountsManager, never()).updateAsync(any(), any());
+    verify(accountsManager, never()).update(any(), any());
   }
 
   @Test

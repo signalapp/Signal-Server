@@ -604,15 +604,14 @@ class AccountsTest {
     verifyStoredState("+14151112222", account.getUuid(), account.getPhoneNumberIdentifier(), null, account, true);
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void testUpdateWithMockTransactionConflictException(boolean wrapException) {
+  @Test
+  void testUpdateWithMockTransactionConflictException() {
 
-    final DynamoDbAsyncClient dynamoDbAsyncClient = mock(DynamoDbAsyncClient.class);
+    final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
     accounts = new Accounts(
         clock,
-        mock(DynamoDbClient.class),
-        dynamoDbAsyncClient,
+        dynamoDbClient,
+        mock(DynamoDbAsyncClient.class),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -620,13 +619,10 @@ class AccountsTest {
         Tables.DELETED_ACCOUNTS.tableName(),
         Tables.USED_LINK_DEVICE_TOKENS.tableName());
 
-    Exception e = TransactionConflictException.builder().build();
-    e = wrapException ? new CompletionException(e) : e;
+    when(dynamoDbClient.updateItem(any(UpdateItemRequest.class)))
+        .thenThrow(TransactionConflictException.builder().build());
 
-    when(dynamoDbAsyncClient.updateItem(any(UpdateItemRequest.class)))
-        .thenReturn(CompletableFuture.failedFuture(e));
-
-    Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
+    final Account account = generateAccount("+14151112222", UUID.randomUUID(), UUID.randomUUID());
 
     assertThatThrownBy(() -> accounts.update(account)).isInstanceOfAny(ContestedOptimisticLockException.class);
   }

@@ -138,15 +138,6 @@ class AccountsManagerTest {
     return null;
   };
 
-  private static final Answer<CompletableFuture<Void>> ACCOUNT_UPDATE_ASYNC_ANSWER = invocation -> {
-    // it is implicit in the update() contract is that a successful call will
-    // result in an incremented version
-    final Account updatedAccount = invocation.getArgument(0, Account.class);
-    updatedAccount.setVersion(updatedAccount.getVersion() + 1);
-
-    return CompletableFuture.completedFuture(null);
-  };
-
   @BeforeEach
   void setup() throws Exception {
     accounts = mock(Accounts.class);
@@ -169,7 +160,6 @@ class AccountsManagerTest {
     when(asyncClusterCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
     when(asyncClusterCommands.setex(any(), anyLong(), any())).thenReturn(MockRedisFuture.completedFuture("OK"));
 
-    when(accounts.updateAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(accounts.updateTransactionallyAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
     when(accounts.delete(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -640,33 +630,6 @@ class AccountsManagerTest {
 
     verify(accounts, times(1)).getByAccountIdentifier(uuid);
     verify(accounts, times(2)).update(any());
-    verifyNoMoreInteractions(accounts);
-  }
-
-  @Test
-  void testUpdateAsync_optimisticLockingFailure() {
-    UUID uuid = UUID.randomUUID();
-    UUID pni = UUID.randomUUID();
-    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-
-    when(asyncClusterCommands.get(eq("Account3::" + uuid))).thenReturn(null);
-
-    when(accounts.getByAccountIdentifierAsync(uuid)).thenReturn(CompletableFuture.completedFuture(
-        Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]))));
-
-    when(accounts.updateAsync(any()))
-        .thenReturn(CompletableFuture.failedFuture(new ContestedOptimisticLockException()))
-        .thenAnswer(ACCOUNT_UPDATE_ASYNC_ANSWER);
-
-    final IdentityKey identityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
-
-    account = accountsManager.updateAsync(account, a -> a.setIdentityKey(identityKey)).join();
-
-    assertEquals(1, account.getVersion());
-    assertEquals(identityKey, account.getIdentityKey(IdentityType.ACI));
-
-    verify(accounts, times(1)).getByAccountIdentifierAsync(uuid);
-    verify(accounts, times(2)).updateAsync(any());
     verifyNoMoreInteractions(accounts);
   }
 

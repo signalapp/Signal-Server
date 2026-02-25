@@ -4,13 +4,12 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import static java.util.Objects.requireNonNull;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
@@ -30,7 +29,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -70,6 +68,7 @@ import software.amazon.awssdk.services.dynamodb.model.TransactionCanceledExcepti
 import software.amazon.awssdk.services.dynamodb.model.TransactionConflictException;
 import software.amazon.awssdk.services.dynamodb.model.Update;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 import software.amazon.awssdk.services.dynamodb.paginators.ScanPublisher;
 import software.amazon.awssdk.utils.CompletableFutureUtils;
 
@@ -990,53 +989,28 @@ public class Accounts {
     }
   }
 
-  @Nonnull
-  public CompletionStage<Void> updateAsync(final Account account) {
-    return AsyncTimerUtil.record(UPDATE_TIMER, () -> {
-      final UpdateItemRequest updateItemRequest = UpdateAccountSpec
-          .forAccount(accountsTableName, account)
-          .updateItemRequest();
-
-      return dynamoDbAsyncClient.updateItem(updateItemRequest)
-          .thenApply(response -> {
-            account.setVersion(AttributeValues.getInt(response.attributes(), "V", account.getVersion() + 1));
-            return (Void) null;
-          })
-          .exceptionallyCompose(throwable -> {
-            final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
-            if (unwrapped instanceof TransactionConflictException) {
-              throw new ContestedOptimisticLockException();
-            } else if (unwrapped instanceof ConditionalCheckFailedException e) {
-              // the exception doesn't give details about which condition failed,
-              // but we can infer it was an optimistic locking failure if the UUID is known
-              return getByAccountIdentifierAsync(account.getUuid())
-                  .thenAccept(refreshedAccount -> {
-                    throw refreshedAccount.isPresent() ? new ContestedOptimisticLockException() : e;
-                  });
-            } else {
-              // rethrow
-              throw CompletableFutureUtils.errorAsCompletionException(throwable);
-            }
-          });
-    });
-  }
-
-  private static void joinAndUnwrapUpdateFuture(CompletionStage<Void> future) {
-    try {
-      future.toCompletableFuture().join();
-    } catch (final CompletionException e) {
-      // unwrap CompletionExceptions, throw as long is it's unchecked
-      Throwables.throwIfUnchecked(ExceptionUtils.unwrap(e));
-
-      // if we otherwise somehow got a wrapped checked exception,
-      // rethrow the checked exception wrapped by the original CompletionException
-      log.error("Unexpected checked exception thrown from dynamo update", e);
-      throw e;
-    }
-  }
-
   public void update(final Account account) throws ContestedOptimisticLockException {
-    joinAndUnwrapUpdateFuture(updateAsync(account));
+    final Timer.Sample sample = Timer.start();
+
+    try {
+      final UpdateItemResponse response = dynamoDbClient.updateItem(UpdateAccountSpec
+          .forAccount(accountsTableName, account)
+          .updateItemRequest());
+
+      account.setVersion(AttributeValues.getInt(response.attributes(), "V", account.getVersion() + 1));
+    } catch (final TransactionConflictException _) {
+      throw new ContestedOptimisticLockException();
+    } catch (final ConditionalCheckFailedException e) {
+      // the exception doesn't give details about which condition failed,
+      // but we can infer it was an optimistic locking failure if the UUID is known
+      if (getByAccountIdentifier(account.getUuid()).isPresent()) {
+        throw new ContestedOptimisticLockException();
+      } else {
+        throw e;
+      }
+    } finally {
+      sample.stop(UPDATE_TIMER);
+    }
   }
 
   public CompletionStage<Void> updateTransactionallyAsync(final Account account,

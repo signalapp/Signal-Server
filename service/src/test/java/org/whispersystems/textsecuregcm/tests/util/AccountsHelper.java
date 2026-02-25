@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
@@ -65,7 +64,6 @@ public class AccountsHelper {
    * Sets up stubbing for:
    * <ul>
    *    <li>{@link AccountsManager#update(Account, Consumer)}</li>
-   *    <li>{@link AccountsManager#updateAsync(Account, Consumer)}</li>
    *    <li>{@link AccountsManager#updateDevice(Account, byte, Consumer)}</li>
    * </ul>
    *
@@ -91,16 +89,6 @@ public class AccountsHelper {
       return copyAndMarkStale(account);
     });
 
-    when(mockAccountsManager.updateAsync(any(), any())).thenAnswer(answer -> {
-      final Account account = answer.getArgument(0, Account.class);
-
-      for (int i = 0; i < retryCount; i++) {
-        answer.getArgument(1, Consumer.class).accept(account);
-      }
-
-      return CompletableFuture.completedFuture(copyAndMarkStale(account));
-    });
-
     when(mockAccountsManager.updateDevice(any(), anyByte(), any())).thenAnswer(answer -> {
       final Account account = answer.getArgument(0, Account.class);
       final byte deviceId = answer.getArgument(1, Byte.class);
@@ -120,13 +108,6 @@ public class AccountsHelper {
       answer.getArgument(1, Consumer.class).accept(account);
 
       return markStale ? copyAndMarkStale(account) : account;
-    });
-
-    when(mockAccountsManager.updateAsync(any(), any())).thenAnswer(answer -> {
-      final Account account = answer.getArgument(0, Account.class);
-      answer.getArgument(1, Consumer.class).accept(account);
-
-      return CompletableFuture.completedFuture(markStale ? copyAndMarkStale(account) : account);
     });
 
     when(mockAccountsManager.updateDevice(any(), anyByte(), any())).thenAnswer(answer -> {
