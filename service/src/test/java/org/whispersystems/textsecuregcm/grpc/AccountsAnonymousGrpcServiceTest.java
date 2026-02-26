@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -60,8 +61,8 @@ class AccountsAnonymousGrpcServiceTest extends
 
   @Override
   protected AccountsAnonymousGrpcService createServiceBeforeEachTest() {
-    when(accountsManager.getByServiceIdentifierAsync(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(accountsManager.getByServiceIdentifier(any()))
+        .thenReturn(Optional.empty());
 
     when(accountsManager.getByUsernameHash(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -85,8 +86,8 @@ class AccountsAnonymousGrpcServiceTest extends
   void checkAccountExistence() {
     final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
 
-    when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(mock(Account.class))));
+    when(accountsManager.getByServiceIdentifier(serviceIdentifier))
+        .thenReturn(Optional.of(mock(Account.class)));
 
     assertTrue(unauthenticatedServiceStub().checkAccountExistence(CheckAccountExistenceRequest.newBuilder()
         .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
@@ -121,11 +122,11 @@ class AccountsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  void checkAccountExistenceRateLimited() {
+  void checkAccountExistenceRateLimited() throws RateLimitExceededException {
     final Duration retryAfter = Duration.ofSeconds(11);
 
-    when(rateLimiter.validateReactive(anyString()))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
+    doThrow(new RateLimitExceededException(retryAfter))
+        .when(rateLimiter).validate(anyString());
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
@@ -153,7 +154,6 @@ class AccountsAnonymousGrpcServiceTest extends
                 .build())
             .getServiceIdentifier());
 
-    //noinspection ResultOfMethodCallIgnored
     assertEquals(LookupUsernameHashResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build(),
         unauthenticatedServiceStub().lookupUsernameHash(LookupUsernameHashRequest.newBuilder()
             .setUsernameHash(ByteString.copyFrom(new byte[AccountController.USERNAME_HASH_LENGTH]))
@@ -186,11 +186,11 @@ class AccountsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  void lookupUsernameHashRateLimited() {
+  void lookupUsernameHashRateLimited() throws RateLimitExceededException {
     final Duration retryAfter = Duration.ofSeconds(13);
 
-    when(rateLimiter.validateReactive(anyString()))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
+    doThrow(new RateLimitExceededException(retryAfter))
+        .when(rateLimiter).validate(anyString());
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
@@ -255,11 +255,11 @@ class AccountsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  void lookupUsernameLinkRateLimited() {
+  void lookupUsernameLinkRateLimited() throws RateLimitExceededException {
     final Duration retryAfter = Duration.ofSeconds(17);
 
-    when(rateLimiter.validateReactive(anyString()))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
+    doThrow(new RateLimitExceededException(retryAfter))
+        .when(rateLimiter).validate(anyString());
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,

@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -78,7 +77,6 @@ import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundExcep
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
-import reactor.core.publisher.Mono;
 
 class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, AccountsGrpc.AccountsBlockingStub> {
 
@@ -96,23 +94,20 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Override
   protected AccountsGrpcService createServiceBeforeEachTest() {
-    when(accountsManager.updateAsync(any(), any()))
+    when(accountsManager.update(any(), any()))
         .thenAnswer(invocation -> {
           final Account account = invocation.getArgument(0);
           final Consumer<Account> updater = invocation.getArgument(1);
 
           updater.accept(account);
 
-          return CompletableFuture.completedFuture(account);
+          return account;
         });
 
     final RateLimiters rateLimiters = mock(RateLimiters.class);
     when(rateLimiters.getUsernameReserveLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameSetLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameLinkOperationLimiter()).thenReturn(rateLimiter);
-
-    when(rateLimiter.validateReactive(any(UUID.class))).thenReturn(Mono.empty());
-    when(rateLimiter.validateReactive(anyString())).thenReturn(Mono.empty());
 
     when(registrationRecoveryPasswordsManager.store(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -124,7 +119,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void getAccountIdentity() {
+  void getAuthenticatedAccountIdentity() {
     final UUID phoneNumberIdentifier = UUID.randomUUID();
     final String e164 = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -137,8 +132,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(account.getNumber()).thenReturn(e164);
     when(account.getUsernameHash()).thenReturn(Optional.of(usernameHash));
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     final GetAccountIdentityResponse expectedResponse = GetAccountIdentityResponse.newBuilder()
         .setAccountIdentifiers(AccountIdentifiers.newBuilder()
@@ -156,8 +151,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void deleteAccount() {
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     when(accountsManager.delete(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -183,8 +178,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void setRegistrationLock() {
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     final byte[] registrationLockSecret = TestRandomUtil.nextBytes(32);
 
@@ -209,7 +204,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         () -> authenticatedServiceStub().setRegistrationLock(SetRegistrationLockRequest.newBuilder()
             .build()));
 
-    verify(accountsManager, never()).updateAsync(any(), any());
+    verify(accountsManager, never()).update(any(), any());
   }
 
   @Test
@@ -219,17 +214,18 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, "BAD_AUTHENTICATION",
         () -> authenticatedServiceStub().setRegistrationLock(SetRegistrationLockRequest.newBuilder()
+                .setRegistrationLock(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))
             .build()));
 
-    verify(accountsManager, never()).updateAsync(any(), any());
+    verify(accountsManager, never()).update(any(), any());
   }
 
   @Test
   void clearRegistrationLock() {
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     final ClearRegistrationLockResponse ignored =
         authenticatedServiceStub().clearRegistrationLock(ClearRegistrationLockRequest.newBuilder().build());
@@ -252,8 +248,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void reserveUsernameHash() {
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
@@ -279,8 +275,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void reserveUsernameHashNotAvailable() {
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
@@ -322,8 +318,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void reserveUsernameHashBadHashLength() {
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH + 1);
 
@@ -335,13 +331,13 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void reserveUsernameHashRateLimited() {
+  void reserveUsernameHashRateLimited() throws RateLimitExceededException {
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     final Duration retryAfter = Duration.ofMinutes(3);
 
-    when(rateLimiter.validateReactive(any(UUID.class)))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
+    doThrow(new RateLimitExceededException(retryAfter))
+        .when(rateLimiter).validate(any(UUID.class));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
@@ -363,11 +359,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     when(accountsManager.confirmReservedUsernameHash(account, usernameHash, usernameCiphertext))
-        .thenAnswer(invocation -> {
+        .thenAnswer(_ -> {
           final Account updatedAccount = mock(Account.class);
 
           when(updatedAccount.getUsernameHash()).thenReturn(Optional.of(usernameHash));
@@ -402,8 +398,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     when(accountsManager.confirmReservedUsernameHash(any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(confirmationException));
@@ -441,8 +437,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     doThrow(BaseUsernameException.class).when(usernameHashZkProofVerifier).verifyProof(any(), any());
 
@@ -501,8 +497,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void deleteUsernameHash() {
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     when(accountsManager.clearUsernameHash(account)).thenReturn(CompletableFuture.completedFuture(account));
 
@@ -520,8 +516,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(account.getUsernameHash()).thenReturn(Optional.of(new byte[AccountController.USERNAME_HASH_LENGTH]));
     when(account.getUsernameLinkHandle()).thenReturn(oldHandle);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     final byte[] usernameCiphertext = TestRandomUtil.nextBytes(EncryptedUsername.MAX_SIZE);
 
@@ -548,8 +544,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final Account account = mock(Account.class);
     when(account.getUsernameHash()).thenReturn(Optional.empty());
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     final byte[] usernameCiphertext = TestRandomUtil.nextBytes(EncryptedUsername.MAX_SIZE);
 
@@ -583,11 +579,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void setUsernameLinkRateLimited() {
+  void setUsernameLinkRateLimited() throws RateLimitExceededException {
     final Duration retryAfter = Duration.ofSeconds(97);
 
-    when(rateLimiter.validateReactive(any(UUID.class)))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
+    doThrow(new RateLimitExceededException(retryAfter))
+        .when(rateLimiter).validate(any(UUID.class));
 
     final byte[] usernameCiphertext = TestRandomUtil.nextBytes(EncryptedUsername.MAX_SIZE);
 
@@ -603,8 +599,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void deleteUsernameLink() {
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     assertDoesNotThrow(
         () -> authenticatedServiceStub().deleteUsernameLink(DeleteUsernameLinkRequest.newBuilder().build()));
@@ -613,11 +609,11 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void deleteUsernameLinkRateLimited() {
+  void deleteUsernameLinkRateLimited() throws RateLimitExceededException {
     final Duration retryAfter = Duration.ofSeconds(11);
 
-    when(rateLimiter.validateReactive(any(UUID.class)))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfter)));
+    doThrow(new RateLimitExceededException(retryAfter))
+        .when(rateLimiter).validate(any(UUID.class));
 
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
@@ -633,8 +629,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     assertDoesNotThrow(() -> authenticatedServiceStub().configureUnidentifiedAccess(ConfigureUnidentifiedAccessRequest.newBuilder()
         .setAllowUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)
@@ -681,8 +677,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void setDiscoverableByPhoneNumber(final boolean discoverableByPhoneNumber) {
     final Account account = mock(Account.class);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     assertDoesNotThrow(() ->
         authenticatedServiceStub().setDiscoverableByPhoneNumber(SetDiscoverableByPhoneNumberRequest.newBuilder()
@@ -699,8 +695,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final Account account = mock(Account.class);
     when(account.getIdentifier(IdentityType.PNI)).thenReturn(phoneNumberIdentifier);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
 
     final byte[] registrationRecoveryPassword = TestRandomUtil.nextBytes(32);
 

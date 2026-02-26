@@ -5,12 +5,12 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
-import reactor.core.publisher.Mono;
 
 class RateLimitUtil {
 
-  static Mono<Void> rateLimitByRemoteAddress(final RateLimiter rateLimiter) {
-    return rateLimiter.validateReactive(RequestAttributesUtil.getRemoteAddress().getHostAddress());
+  static void rateLimitByRemoteAddress(final RateLimiter rateLimiter) throws RateLimitExceededException {
+    rateLimiter.validate(RequestAttributesUtil.getRemoteAddress().getHostAddress());
   }
 }
