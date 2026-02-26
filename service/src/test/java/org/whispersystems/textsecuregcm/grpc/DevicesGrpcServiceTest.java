@@ -68,23 +68,23 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   protected DevicesGrpcService createServiceBeforeEachTest() {
     when(authenticatedAccount.getUuid()).thenReturn(AUTHENTICATED_ACI);
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(authenticatedAccount)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(authenticatedAccount));
 
     when(accountsManager.removeDevice(any(), anyByte()))
         .thenReturn(CompletableFuture.completedFuture(authenticatedAccount));
 
-    when(accountsManager.updateAsync(any(), any()))
+    when(accountsManager.update(any(), any()))
         .thenAnswer(invocation -> {
           final Account account = invocation.getArgument(0);
           final Consumer<Account> updater = invocation.getArgument(1);
 
           updater.accept(account);
 
-          return CompletableFuture.completedFuture(account);
+          return account;
         });
 
-    when(accountsManager.updateDeviceAsync(any(), anyByte(), any()))
+    when(accountsManager.updateDevice(any(), anyByte(), any()))
         .thenAnswer(invocation -> {
           final Account account = invocation.getArgument(0);
           final Device device = account.getDevice(invocation.getArgument(1)).orElseThrow();
@@ -92,7 +92,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
 
           updater.accept(device);
 
-          return CompletableFuture.completedFuture(account);
+          return account;
         });
 
     return new DevicesGrpcService(accountsManager);
@@ -131,14 +131,12 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     final GetDevicesResponse expectedResponse = GetDevicesResponse.newBuilder()
         .addDevices(GetDevicesResponse.LinkedDevice.newBuilder()
             .setId(Device.PRIMARY_ID)
-            .setCreated(primaryDeviceCreated.toEpochMilli())
             .setLastSeen(primaryDeviceLastSeen.toEpochMilli())
             .setRegistrationId(primaryRegistrationId)
             .setCreatedAtCiphertext(ByteString.copyFrom(primaryCreatedAtCiphertext))
             .build())
         .addDevices(GetDevicesResponse.LinkedDevice.newBuilder()
             .setId(Device.PRIMARY_ID + 1)
-            .setCreated(linkedDeviceCreated.toEpochMilli())
             .setLastSeen(linkedDeviceLastSeen.toEpochMilli())
             .setName(ByteString.copyFrom(linkedDeviceName.getBytes(StandardCharsets.UTF_8)))
             .setRegistrationId(linkedRegistrationId)

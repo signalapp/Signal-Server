@@ -57,21 +57,17 @@ message GetDevicesResponse {
     // this device.
     bytes name = 2;
 
-    // The time, in milliseconds since the epoch, at which this device was
-    // attached to its parent account.
-    uint64 created = 3;
-
     // The approximate time, in milliseconds since the epoch, at which this
     // device last connected to the server.
-    uint64 last_seen = 4;
+    uint64 last_seen = 3;
 
     // The registration ID of the given device.
-    uint32 registration_id = 5 [(require.range).max = 0x3fff];
+    uint32 registration_id = 4 [(require.range).max = 0x3fff];
 
     // A sequence of bytes that encodes the time,
     // in milliseconds since the epoch, at which this device was
     // attached to its parent account.
-    bytes created_at_ciphertext = 6;
+    bytes created_at_ciphertext = 5;
   }
 
   // A list of devices linked to the authenticated account.
