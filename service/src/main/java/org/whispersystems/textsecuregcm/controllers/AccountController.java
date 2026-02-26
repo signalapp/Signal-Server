@@ -4,6 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -67,12 +69,9 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 import org.whispersystems.textsecuregcm.util.Util;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/accounts")
@@ -306,12 +305,11 @@ public class AccountController {
   )
   @ApiResponse(responseCode = "204", description = "Username successfully deleted.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
-  public CompletableFuture<Response> deleteUsernameHash(@Auth final AuthenticatedDevice auth) {
+  public void deleteUsernameHash(@Auth final AuthenticatedDevice auth) {
     final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
 
-    return accounts.clearUsernameHash(account)
-        .thenApply(Util.ASYNC_EMPTY_RESPONSE);
+    accounts.clearUsernameHash(account);
   }
 
   @PUT
@@ -330,7 +328,7 @@ public class AccountController {
   @ApiResponse(responseCode = "409", description = "All username hashes from the list are taken.")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
-  public CompletableFuture<ReserveUsernameHashResponse> reserveUsernameHash(
+  public ReserveUsernameHashResponse reserveUsernameHash(
       @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final ReserveUsernameHashRequest usernameRequest) throws RateLimitExceededException {
 
@@ -345,15 +343,14 @@ public class AccountController {
       }
     }
 
-    return accounts.reserveUsernameHash(account, usernameRequest.usernameHashes())
-        .thenApply(reservation -> new ReserveUsernameHashResponse(reservation.reservedUsernameHash()))
-        .exceptionally(throwable -> {
-          if (ExceptionUtils.unwrap(throwable) instanceof UsernameHashNotAvailableException) {
-            throw new WebApplicationException(Status.CONFLICT);
-          }
+    try {
+      final AccountsManager.UsernameReservation reservation =
+          accounts.reserveUsernameHash(account, usernameRequest.usernameHashes());
 
-          throw ExceptionUtils.wrap(throwable);
-        });
+      return new ReserveUsernameHashResponse(reservation.reservedUsernameHash());
+    } catch (final UsernameHashNotAvailableException e) {
+      throw new WebApplicationException(Status.CONFLICT);
+    }
   }
 
   @PUT
@@ -373,9 +370,9 @@ public class AccountController {
   @ApiResponse(responseCode = "410", description = "Username hash not available (username can't be used).")
   @ApiResponse(responseCode = "422", description = "Invalid request format.")
   @ApiResponse(responseCode = "429", description = "Ratelimited.")
-  public CompletableFuture<UsernameHashResponse> confirmUsernameHash(
+  public UsernameHashResponse confirmUsernameHash(
       @Auth final AuthenticatedDevice auth,
-      @NotNull @Valid final ConfirmUsernameHashRequest confirmRequest) {
+      @NotNull @Valid final ConfirmUsernameHashRequest confirmRequest) throws RateLimitExceededException {
 
     final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
@@ -386,26 +383,22 @@ public class AccountController {
       throw new WebApplicationException(Response.status(422).build());
     }
 
-    return rateLimiters.getUsernameSetLimiter().validateAsync(account.getUuid())
-        .thenCompose(ignored -> accounts.confirmReservedUsernameHash(
-            account,
-            confirmRequest.usernameHash(),
-            confirmRequest.encryptedUsername()))
-        .thenApply(updatedAccount -> new UsernameHashResponse(updatedAccount.getUsernameHash()
-            .orElseThrow(() -> new IllegalStateException("Could not get username after setting")),
-            updatedAccount.getUsernameLinkHandle()))
-        .exceptionally(throwable -> {
-          if (ExceptionUtils.unwrap(throwable) instanceof UsernameReservationNotFoundException) {
-            throw new WebApplicationException(Status.CONFLICT);
-          }
+    rateLimiters.getUsernameSetLimiter().validate(account.getUuid());
 
-          if (ExceptionUtils.unwrap(throwable) instanceof UsernameHashNotAvailableException) {
-            throw new WebApplicationException(Status.GONE);
-          }
+    try {
+      final Account updatedAccount = accounts.confirmReservedUsernameHash(
+          account,
+          confirmRequest.usernameHash(),
+          confirmRequest.encryptedUsername());
 
-          throw ExceptionUtils.wrap(throwable);
-        })
-        .toCompletableFuture();
+      return new UsernameHashResponse(updatedAccount.getUsernameHash()
+          .orElseThrow(() -> new IllegalStateException("Could not get username after setting")),
+          updatedAccount.getUsernameLinkHandle());
+    } catch (final UsernameReservationNotFoundException e) {
+      throw new WebApplicationException(Status.CONFLICT);
+    } catch (UsernameHashNotAvailableException e) {
+      throw new WebApplicationException(Status.GONE);
+    }
   }
 
   @GET

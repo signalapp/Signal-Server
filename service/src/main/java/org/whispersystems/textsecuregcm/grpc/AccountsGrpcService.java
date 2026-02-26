@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletionException;
 import org.signal.chat.account.ClearRegistrationLockRequest;
 import org.signal.chat.account.ClearRegistrationLockResponse;
 import org.signal.chat.account.ConfigureUnidentifiedAccessRequest;
@@ -160,19 +159,15 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
     try {
       final AccountsManager.UsernameReservation usernameReservation =
-          accountsManager.reserveUsernameHash(account, usernameHashes).join();
+          accountsManager.reserveUsernameHash(account, usernameHashes);
 
       return ReserveUsernameHashResponse.newBuilder()
           .setUsernameHash(ByteString.copyFrom(usernameReservation.reservedUsernameHash()))
           .build();
-    } catch (final CompletionException e) {
-      if (e.getCause() instanceof UsernameHashNotAvailableException) {
+    } catch (final UsernameHashNotAvailableException e) {
         return ReserveUsernameHashResponse.newBuilder()
             .setUsernameNotAvailable(UsernameNotAvailable.getDefaultInstance())
             .build();
-      }
-
-      throw e;
     }
   }
 
@@ -216,34 +211,29 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     try {
       final Account updatedAccount = accountsManager.confirmReservedUsernameHash(getAuthenticatedAccount(),
               request.getUsernameHash().toByteArray(),
-              request.getUsernameCiphertext().toByteArray())
-          .join();
+              request.getUsernameCiphertext().toByteArray());
 
       return ConfirmUsernameHashResponse.newBuilder()
           .setConfirmedUsernameHash(ConfirmUsernameHashResponse.ConfirmedUsernameHash.newBuilder()
               .setUsernameHash(ByteString.copyFrom(updatedAccount.getUsernameHash().orElseThrow()))
               .setUsernameLinkHandle(UUIDUtil.toByteString(updatedAccount.getUsernameLinkHandle())))
           .build();
-    } catch (final CompletionException e) {
-      if (e.getCause() instanceof UsernameReservationNotFoundException) {
-        return ConfirmUsernameHashResponse
-            .newBuilder()
-            .setReservationNotFound(FailedPrecondition.getDefaultInstance())
-            .build();
-      } else if (e.getCause() instanceof UsernameHashNotAvailableException) {
-        return ConfirmUsernameHashResponse
-            .newBuilder()
-            .setUsernameNotAvailable(UsernameNotAvailable.getDefaultInstance())
-            .build();
-      }
-
-      throw e;
+    } catch (final UsernameHashNotAvailableException e) {
+      return ConfirmUsernameHashResponse
+          .newBuilder()
+          .setUsernameNotAvailable(UsernameNotAvailable.getDefaultInstance())
+          .build();
+    } catch (final UsernameReservationNotFoundException e) {
+      return ConfirmUsernameHashResponse
+          .newBuilder()
+          .setReservationNotFound(FailedPrecondition.getDefaultInstance())
+          .build();
     }
   }
 
   @Override
   public DeleteUsernameHashResponse deleteUsernameHash(final DeleteUsernameHashRequest request) {
-    accountsManager.clearUsernameHash(getAuthenticatedAccount()).join();
+    accountsManager.clearUsernameHash(getAuthenticatedAccount());
 
     return DeleteUsernameHashResponse.getDefaultInstance();
   }

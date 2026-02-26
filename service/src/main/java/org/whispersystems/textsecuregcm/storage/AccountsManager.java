@@ -88,6 +88,7 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RegistrationIdValidator;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.ThrowingConsumer;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Scheduler;
@@ -830,119 +831,116 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
   public record UsernameReservation(Account account, byte[] reservedUsernameHash){}
 
-  /**
-   * Reserve a username hash so that no other accounts may take it.
-   * <p>
-   * The reserved hash can later be set with {@link #confirmReservedUsernameHash(Account, byte[], byte[])}. The reservation
-   * will eventually expire, after which point confirmReservedUsernameHash may fail if another account has taken the
-   * username hash.
-   *
-   * @param account the account to update
-   * @param requestedUsernameHashes the list of username hashes to attempt to reserve
-   * @return a future that yields the reserved username hash and an updated Account object on success; may fail with a
-   * {@link UsernameHashNotAvailableException} if none of the given username hashes are available
-   */
-  public CompletableFuture<UsernameReservation> reserveUsernameHash(final Account account, final List<byte[]> requestedUsernameHashes) {
+  /// Reserve a username hash so that no other accounts may take it.
+  ///
+  /// The reserved hash can later be set with [#confirmReservedUsernameHash(Account, byte\[\], byte\[\])]. The
+  /// reservation will eventually expire, after which point confirmReservedUsernameHash may fail if another account has
+  /// taken the username hash.
+  ///
+  /// @param account the account to update
+  /// @param requestedUsernameHashes the list of username hashes to attempt to reserve
+  ///
+  /// @return the reserved username hash
+  ///
+  /// @throws UsernameHashNotAvailableException if none of the given username hashes are available
+  public UsernameReservation reserveUsernameHash(final Account account, final List<byte[]> requestedUsernameHashes)
+      throws UsernameHashNotAvailableException {
     if (account.getUsernameHash().filter(
             oldHash -> requestedUsernameHashes.stream().anyMatch(hash -> Arrays.equals(oldHash, hash)))
         .isPresent()) {
+
       // if we are trying to reserve our already-confirmed username hash, we don't need to do
       // anything, and can give the client a success response (they may try to confirm it again,
       // but that's a no-op other than rotaing their username link which they may need to do
       // anyway). note this is *not* the case for reserving our already-reserved username hash,
       // which should extend the reservation's TTL.
-      return CompletableFuture.completedFuture(new UsernameReservation(account, account.getUsernameHash().get()));
+      return new UsernameReservation(account, account.getUsernameHash().get());
     }
 
     final AtomicReference<byte[]> reservedUsernameHash = new AtomicReference<>();
 
-    return redisDeleteAsync(account)
-        .thenCompose(ignored -> updateWithRetriesAsync(
-            account,
-            a -> true,
-            a -> checkAndReserveNextUsernameHash(a, new ArrayDeque<>(requestedUsernameHashes))
-                .thenAccept(reservedUsernameHash::set),
-            () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
-            AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
-            MAX_UPDATE_ATTEMPTS))
-        .whenComplete((updatedAccount, throwable) -> {
-          if (throwable == null) {
-            // Make a best effort to clear any stale data that may have been cached while this operation was in progress
-            redisDeleteAsync(updatedAccount);
-          }
-        })
-        .thenApply(updatedAccount -> new UsernameReservation(updatedAccount, reservedUsernameHash.get()));
+    redisDelete(account);
+
+    final Account updatedAccount = updateWithRetries(
+        account,
+        _ -> true,
+        a -> reservedUsernameHash.set(
+            checkAndReserveNextUsernameHash(a, new ArrayDeque<>(requestedUsernameHashes))),
+        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
+
+    redisDelete(updatedAccount);
+
+    return new UsernameReservation(updatedAccount, reservedUsernameHash.get());
   }
 
-  private CompletableFuture<byte[]> checkAndReserveNextUsernameHash(final Account account, final Queue<byte[]> requestedUsernameHashes) {
+  private byte[] checkAndReserveNextUsernameHash(final Account account, final Queue<byte[]> requestedUsernameHashes)
+      throws UsernameHashNotAvailableException {
+
     final byte[] usernameHash = requestedUsernameHashes.remove();
 
-    return accounts.reserveUsernameHash(account, usernameHash, USERNAME_HASH_RESERVATION_TTL_MINUTES)
-        .thenApply(ignored -> usernameHash)
-        .exceptionallyComposeAsync(
-            throwable -> {
-              if (ExceptionUtils.unwrap(throwable) instanceof UsernameHashNotAvailableException && !requestedUsernameHashes.isEmpty()) {
-                return checkAndReserveNextUsernameHash(account, requestedUsernameHashes);
-              }
-              return CompletableFuture.failedFuture(throwable);
-            });
+    try {
+      accounts.reserveUsernameHash(account, usernameHash, USERNAME_HASH_RESERVATION_TTL_MINUTES);
+      return usernameHash;
+    } catch (final UsernameHashNotAvailableException e) {
+      if (!requestedUsernameHashes.isEmpty()) {
+        return checkAndReserveNextUsernameHash(account, requestedUsernameHashes);
+      }
+
+      throw e;
+    }
   }
 
-  /**
-   * Set a username hash previously reserved with {@link #reserveUsernameHash(Account, List)}
-   *
-   * @param account the account to update
-   * @param reservedUsernameHash the previously reserved username hash
-   * @param encryptedUsername the encrypted form of the previously reserved username for the username link
-   * @return a future that yields the updated account with the username hash field set; may fail with a
-   * {@link UsernameHashNotAvailableException} if the reserved username hash has been taken (because the reservation
-   * expired) or a {@link UsernameReservationNotFoundException} if {@code reservedUsernameHash} was not reserved in the
-   * account
-   */
-  public CompletableFuture<Account> confirmReservedUsernameHash(final Account account, final byte[] reservedUsernameHash, @Nullable final byte[] encryptedUsername) {
+  /// Set a username hash previously reserved with {@link #reserveUsernameHash(Account, List)}
+  ///
+  /// @param account the account to update
+  /// @param reservedUsernameHash the previously reserved username hash
+  /// @param encryptedUsername the encrypted form of the previously reserved username for the username link
+  ///
+  /// @return the updated account with the username hash field set
+  ///
+  /// @throws UsernameHashNotAvailableException if the reserved username hash has been taken (because the reservation
+  /// expired)
+  /// @throws UsernameReservationNotFoundException if `reservedUsernameHash` was not reserved for the account
+  public Account confirmReservedUsernameHash(final Account account, final byte[] reservedUsernameHash, @Nullable final byte[] encryptedUsername)
+      throws UsernameReservationNotFoundException, UsernameHashNotAvailableException {
+
     if (account.getUsernameHash().map(currentUsernameHash -> Arrays.equals(currentUsernameHash, reservedUsernameHash)).orElse(false)) {
       // the client likely already succeeded and is retrying
-      return CompletableFuture.completedFuture(account);
+      return account;
     }
 
     if (!account.getReservedUsernameHash().map(oldHash -> Arrays.equals(oldHash, reservedUsernameHash)).orElse(false)) {
       // no such reservation existed, either there was no previous call to reserveUsername
       // or the reservation changed
-      return CompletableFuture.failedFuture(new UsernameReservationNotFoundException());
+      throw new UsernameReservationNotFoundException();
     }
 
-    return redisDeleteAsync(account)
-        .thenCompose(ignored -> updateWithRetriesAsync(
-            account,
-            a -> true,
-            a -> accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername),
-            () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
-            AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
-            MAX_UPDATE_ATTEMPTS
-        ))
-        .whenComplete((updatedAccount, throwable) -> {
-          if (throwable == null) {
-            // Make a best effort to clear any stale data that may have been cached while this operation was in progress
-            redisDeleteAsync(updatedAccount);
-          }
-        });
+    redisDelete(account);
+
+    final Account updatedAccount = updateWithRetries(account,
+        _ -> true,
+        a -> accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername),
+        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
+
+    redisDelete(updatedAccount);
+
+    return updatedAccount;
   }
 
-  public CompletableFuture<Account> clearUsernameHash(final Account account) {
-    return redisDeleteAsync(account)
-        .thenCompose(ignored -> updateWithRetriesAsync(
-            account,
-            a -> true,
-            accounts::clearUsernameHash,
-            () -> accounts.getByAccountIdentifierAsync(account.getUuid()).thenApply(Optional::orElseThrow),
-            AccountChangeValidator.USERNAME_CHANGE_VALIDATOR,
-            MAX_UPDATE_ATTEMPTS))
-        .whenComplete((updatedAccount, throwable) -> {
-          if (throwable == null) {
-            // Make a best effort to clear any stale data that may have been cached while this operation was in progress
-            redisDeleteAsync(updatedAccount);
-          }
-        });
+  public Account clearUsernameHash(final Account account) {
+    redisDelete(account);
+
+    final Account updatedAccount = updateWithRetries(account,
+        _ -> true,
+        accounts::clearUsernameHash,
+        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
+
+    redisDelete(updatedAccount);
+
+    return updatedAccount;
   }
 
   public Account update(Account account, Consumer<Account> updater) {
@@ -1031,11 +1029,11 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
         .whenComplete((_, _) -> timerSample.stop(updateTimer));
   }
 
-  private Account updateWithRetries(Account account,
+  private <E extends Exception> Account updateWithRetries(Account account,
       final Function<Account, Boolean> updater,
-      final Consumer<Account> persister,
+      final ThrowingConsumer<Account, E> persister,
       final Supplier<Account> retriever,
-      final AccountChangeValidator changeValidator) {
+      final AccountChangeValidator changeValidator) throws E {
 
     Account originalAccount = AccountUtil.cloneAccountAsNotStale(account);
 
@@ -1129,12 +1127,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return getByNumberTimer.record(() -> accounts.getByE164(number));
   }
 
-  public CompletableFuture<Optional<Account>> getByE164Async(final String number) {
-    Timer.Sample sample = Timer.start();
-    return accounts.getByE164Async(number)
-        .whenComplete((ignoredResult, ignoredThrowable) -> sample.stop(getByNumberTimer));
-  }
-
   public Optional<Account> getByPhoneNumberIdentifier(final UUID pni) {
     return checkRedisThenAccounts(
         getByNumberTimer,
@@ -1207,10 +1199,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
   public Flux<Account> streamAllFromDynamo(final int segments, final Scheduler scheduler) {
     return accounts.getAll(segments, scheduler);
-  }
-
-  public Flux<UUID> streamAccountIdentifiersFromDynamo(final int segments, final Scheduler scheduler) {
-    return accounts.getAllAccountIdentifiers(segments, scheduler);
   }
 
   public CompletableFuture<Void> delete(final Account account, final DeletionReason deletionReason) {

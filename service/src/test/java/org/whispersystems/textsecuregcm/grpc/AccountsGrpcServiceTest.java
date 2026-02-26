@@ -245,7 +245,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void reserveUsernameHash() {
+  void reserveUsernameHash() throws UsernameHashNotAvailableException {
     final Account account = mock(Account.class);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
@@ -257,8 +257,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         .thenAnswer(invocation -> {
           final List<byte[]> usernameHashes = invocation.getArgument(1);
 
-          return CompletableFuture.completedFuture(
-              new AccountsManager.UsernameReservation(invocation.getArgument(0), usernameHashes.getFirst()));
+          return new AccountsManager.UsernameReservation(invocation.getArgument(0), usernameHashes.getFirst());
         });
 
     final ReserveUsernameHashResponse expectedResponse = ReserveUsernameHashResponse.newBuilder()
@@ -272,7 +271,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void reserveUsernameHashNotAvailable() {
+  void reserveUsernameHashNotAvailable() throws UsernameHashNotAvailableException {
     final Account account = mock(Account.class);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
@@ -281,7 +280,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     when(accountsManager.reserveUsernameHash(any(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
+        .thenThrow(new UsernameHashNotAvailableException());
 
     final ReserveUsernameHashResponse expectedResponse = ReserveUsernameHashResponse.newBuilder()
         .setUsernameNotAvailable(UsernameNotAvailable.getDefaultInstance())
@@ -348,7 +347,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   }
 
   @Test
-  void confirmUsernameHash() {
+  void confirmUsernameHash() throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     final byte[] usernameCiphertext = TestRandomUtil.nextBytes(32);
@@ -369,7 +368,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
           when(updatedAccount.getUsernameHash()).thenReturn(Optional.of(usernameHash));
           when(updatedAccount.getUsernameLinkHandle()).thenReturn(linkHandle);
 
-          return CompletableFuture.completedFuture(updatedAccount);
+          return updatedAccount;
         });
 
     final ConfirmUsernameHashResponse expectedResponse = ConfirmUsernameHashResponse.newBuilder()
@@ -389,7 +388,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @ParameterizedTest
   @MethodSource
-  void confirmUsernameHashConfirmationException(final Exception confirmationException, final ConfirmUsernameHashResponse expectedResponse) {
+  void confirmUsernameHashConfirmationException(final Exception confirmationException, final ConfirmUsernameHashResponse expectedResponse)
+      throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     final byte[] usernameHash = TestRandomUtil.nextBytes(AccountController.USERNAME_HASH_LENGTH);
 
     final byte[] usernameCiphertext = TestRandomUtil.nextBytes(32);
@@ -402,7 +402,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         .thenReturn(Optional.of(account));
 
     when(accountsManager.confirmReservedUsernameHash(any(), any(), any()))
-        .thenReturn(CompletableFuture.failedFuture(confirmationException));
+        .thenThrow(confirmationException);
 
     final ConfirmUsernameHashResponse actualResponse = authenticatedServiceStub()
         .confirmUsernameHash(ConfirmUsernameHashRequest.newBuilder()
@@ -500,7 +500,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
-    when(accountsManager.clearUsernameHash(account)).thenReturn(CompletableFuture.completedFuture(account));
+    when(accountsManager.clearUsernameHash(account)).thenReturn(account);
 
     assertDoesNotThrow(() ->
         authenticatedServiceStub().deleteUsernameHash(DeleteUsernameHashRequest.newBuilder().build()));

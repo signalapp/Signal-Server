@@ -65,7 +65,6 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
-import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -394,7 +393,7 @@ class AccountsTest {
 
   @ParameterizedTest
   @EnumSource(UsernameStatus.class)
-  void reclaimAccountWithNoUsername(UsernameStatus usernameStatus) {
+  void reclaimAccountWithNoUsername(UsernameStatus usernameStatus) throws UsernameHashNotAvailableException {
     Device device = generateDevice(DEVICE_ID_1);
     UUID firstUuid = UUID.randomUUID();
     UUID firstPni = UUID.randomUUID();
@@ -407,12 +406,12 @@ class AccountsTest {
       case NONE:
         break;
       case RESERVED:
-        accounts.reserveUsernameHash(account, TestRandomUtil.nextBytes(32), Duration.ofMinutes(1)).join();
+        accounts.reserveUsernameHash(account, TestRandomUtil.nextBytes(32), Duration.ofMinutes(1));
         break;
       case RESERVED_WITH_SAVED_LINK:
         // give the account a username
-        accounts.reserveUsernameHash(account, usernameHash, Duration.ofMinutes(1)).join();
-        accounts.confirmUsernameHash(account, usernameHash, encryptedUsername).join();
+        accounts.reserveUsernameHash(account, usernameHash, Duration.ofMinutes(1));
+        accounts.confirmUsernameHash(account, usernameHash, encryptedUsername);
 
         // simulate a partially-completed re-reg: we give the account a reclaimable username, but we'll try
         // re-registering again later in the test case
@@ -420,8 +419,8 @@ class AccountsTest {
         reclaimAccount(account);
         break;
       case CONFIRMED:
-        accounts.reserveUsernameHash(account, usernameHash, Duration.ofMinutes(1)).join();
-        accounts.confirmUsernameHash(account, usernameHash, encryptedUsername).join();
+        accounts.reserveUsernameHash(account, usernameHash, Duration.ofMinutes(1));
+        accounts.confirmUsernameHash(account, usernameHash, encryptedUsername);
         break;
     }
 
@@ -433,7 +432,7 @@ class AccountsTest {
 
     // If we had a username link, or we had previously saved a username link from another re-registration, make sure
     // we preserve it
-    accounts.confirmUsernameHash(account, usernameHash, encryptedUsername).join();
+    accounts.confirmUsernameHash(account, usernameHash, encryptedUsername);
 
     boolean shouldReuseLink = switch (usernameStatus) {
       case RESERVED_WITH_SAVED_LINK, CONFIRMED -> true;
@@ -488,7 +487,7 @@ class AccountsTest {
   }
 
   @Test
-  void testReclaimAccount() {
+  void testReclaimAccount() throws UsernameHashNotAvailableException {
     final String e164 = "+14151112222";
     final Device device = generateDevice(DEVICE_ID_1);
     final UUID existingUuid = UUID.randomUUID();
@@ -505,7 +504,7 @@ class AccountsTest {
     final byte[] encryptedUsername = TestRandomUtil.nextBytes(16);
 
     // Set up the existing account to have a username hash
-    accounts.confirmUsernameHash(existingAccount, usernameHash, encryptedUsername).join();
+    accounts.confirmUsernameHash(existingAccount, usernameHash, encryptedUsername);
     final UUID usernameLinkHandle = existingAccount.getUsernameLinkHandle();
 
     verifyStoredState(e164, existingAccount.getUuid(), existingAccount.getPhoneNumberIdentifier(), usernameHash, existingAccount, true);
@@ -538,7 +537,7 @@ class AccountsTest {
     assertThat(result.getBackupVoucher()).isEqualTo(bv);
 
     // should keep the same usernameLink, now encryptedUsername should be set
-    accounts.confirmUsernameHash(result, usernameHash, encryptedUsername).join();
+    accounts.confirmUsernameHash(result, usernameHash, encryptedUsername);
     item = readAccount(existingUuid);
     result = Accounts.fromItem(item);
     assertThat(AttributeValues.getUUID(item, Accounts.ATTR_USERNAME_LINK_UUID, null))
@@ -1025,14 +1024,14 @@ class AccountsTest {
   }
 
   @Test
-  void testSwitchUsernameHashes() {
+  void testSwitchUsernameHashes() throws UsernameHashNotAvailableException {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     final UUID oldHandle = account.getUsernameLinkHandle();
 
     {
@@ -1043,8 +1042,8 @@ class AccountsTest {
       verifyStoredState(account.getNumber(), account.getUuid(), account.getPhoneNumberIdentifier(), USERNAME_HASH_1, maybeAccount2.orElseThrow(), account);
     }
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2);
     final UUID newHandle = account.getUsernameLinkHandle();
 
     // switching usernames should put a hold on our original username
@@ -1079,8 +1078,8 @@ class AccountsTest {
 
     // first account reserves and confirms username hash
     assertThatNoException().isThrownBy(() -> {
-      accounts.reserveUsernameHash(firstAccount, USERNAME_HASH_1, Duration.ofDays(1)).join();
-      accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+      accounts.reserveUsernameHash(firstAccount, USERNAME_HASH_1, Duration.ofDays(1));
+      accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     });
 
     final Optional<Account> maybeAccount = accounts.getByUsernameHash(USERNAME_HASH_1).join();
@@ -1089,16 +1088,16 @@ class AccountsTest {
     verifyStoredState(firstAccount.getNumber(), firstAccount.getUuid(), firstAccount.getPhoneNumberIdentifier(), USERNAME_HASH_1, maybeAccount.get(), firstAccount);
 
     // throw an error if second account tries to reserve or confirm the same username hash
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.reserveUsernameHash(secondAccount, USERNAME_HASH_1, Duration.ofDays(1)));
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.confirmUsernameHash(secondAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.reserveUsernameHash(secondAccount, USERNAME_HASH_1, Duration.ofDays(1)));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.confirmUsernameHash(secondAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
 
     // throw an error if first account tries to reserve or confirm the username hash that it has already confirmed
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.reserveUsernameHash(firstAccount, USERNAME_HASH_1, Duration.ofDays(1)));
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.reserveUsernameHash(firstAccount, USERNAME_HASH_1, Duration.ofDays(1)));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.confirmUsernameHash(firstAccount, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
 
     assertThat(secondAccount.getReservedUsernameHash()).isEmpty();
     assertThat(secondAccount.getUsernameHash()).isEmpty();
@@ -1110,12 +1109,12 @@ class AccountsTest {
   void testReserveUsernameHashTransactionConflict(final Optional<String> constraintCancellationString,
       final Optional<String> accountsCancellationString,
       final Class<Exception> expectedException) {
-    final DynamoDbAsyncClient dbAsyncClient = mock(DynamoDbAsyncClient.class);
+    final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
 
     accounts = new Accounts(
         clock,
-        mock(DynamoDbClient.class),
-        dbAsyncClient,
+        dynamoDbClient,
+        mock(DynamoDbAsyncClient.class),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -1133,13 +1132,13 @@ class AccountsTest {
         reason -> CancellationReason.builder().code(reason).build()
     ).orElse(CancellationReason.builder().build());
 
-    when(dbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
-        .thenReturn(CompletableFuture.failedFuture(TransactionCanceledException.builder()
+    when(dynamoDbClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenThrow(TransactionCanceledException.builder()
             .cancellationReasons(constraintCancellationReason, accountsCancellationReason)
-            .build()));
+            .build());
 
-    CompletableFutureTestUtil.assertFailsWithCause(expectedException,
-        accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
+    assertThrows(expectedException,
+        () -> accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
   }
 
   private static Stream<Arguments> testReserveUsernameHashTransactionConflict() {
@@ -1156,12 +1155,12 @@ class AccountsTest {
   void testConfirmUsernameHashTransactionConflict(final Optional<String> constraintCancellationString,
       final Optional<String> accountsCancellationString,
       final Class<Exception> expectedException) {
-    final DynamoDbAsyncClient dbAsyncClient = mock(DynamoDbAsyncClient.class);
+    final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
 
     accounts = new Accounts(
         clock,
-        mock(DynamoDbClient.class),
-        dbAsyncClient,
+        dynamoDbClient,
+        mock(DynamoDbAsyncClient.class),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -1179,15 +1178,15 @@ class AccountsTest {
         reason -> CancellationReason.builder().code(reason).build()
     ).orElse(CancellationReason.builder().build());
 
-    when(dbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
-        .thenReturn(CompletableFuture.failedFuture(TransactionCanceledException.builder()
+    when(dynamoDbClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenThrow(TransactionCanceledException.builder()
             .cancellationReasons(constraintCancellationReason,
                 accountsCancellationReason,
                 CancellationReason.builder().build())
-            .build()));
+            .build());
 
-    CompletableFutureTestUtil.assertFailsWithCause(expectedException,
-        accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    assertThrows(expectedException,
+        () -> accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
   }
 
   private static Stream<Arguments> testConfirmUsernameHashTransactionConflict() {
@@ -1199,28 +1198,28 @@ class AccountsTest {
   }
 
   @Test
-  void testConfirmUsernameHashVersionMismatch() {
+  void testConfirmUsernameHashVersionMismatch() throws UsernameHashNotAvailableException {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
     account.setVersion(account.getVersion() + 77);
 
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
-        accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
 
     assertThat(account.getUsernameHash()).isEmpty();
   }
 
   @Test
-  void testClearUsername() {
+  void testClearUsername() throws UsernameHashNotAvailableException {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isPresent();
 
-    accounts.clearUsernameHash(account).join();
+    accounts.clearUsernameHash(account);
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
     assertThat(accounts.getByAccountIdentifier(account.getUuid()))
@@ -1236,21 +1235,21 @@ class AccountsTest {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    assertThatNoException().isThrownBy(() -> accounts.clearUsernameHash(account).join());
+    assertThatNoException().isThrownBy(() -> accounts.clearUsernameHash(account));
   }
 
   @Test
-  void testClearUsernameVersionMismatch() {
+  void testClearUsernameVersionMismatch() throws UsernameHashNotAvailableException {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     account.setVersion(account.getVersion() + 12);
 
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
-        accounts.clearUsernameHash(account));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.clearUsernameHash(account));
 
     assertArrayEquals(USERNAME_HASH_1, account.getUsernameHash().orElseThrow());
   }
@@ -1259,13 +1258,13 @@ class AccountsTest {
   @ParameterizedTest
   @MethodSource
   void testClearUsernameTransactionConflict(final Optional<String> constraintCancellationString,
-      final Optional<String> accountsCancellationString) {
-    final DynamoDbAsyncClient dbAsyncClient = mock(DynamoDbAsyncClient.class);
+      final Optional<String> accountsCancellationString) throws UsernameHashNotAvailableException {
+    final DynamoDbClient dynamoDbClient = mock(DynamoDbClient.class);
 
     accounts = new Accounts(
         clock,
-        mock(DynamoDbClient.class),
-        dbAsyncClient,
+        dynamoDbClient,
+        mock(DynamoDbAsyncClient.class),
         Tables.ACCOUNTS.tableName(),
         Tables.NUMBERS.tableName(),
         Tables.PNI_ASSIGNMENTS.tableName(),
@@ -1276,27 +1275,27 @@ class AccountsTest {
     final Account account = generateAccount("+14155551111", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    when(dbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
-        .thenReturn(CompletableFuture.completedFuture(mock(TransactWriteItemsResponse.class)));
+    when(dynamoDbClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenReturn(mock(TransactWriteItemsResponse.class));
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
-    final CancellationReason constraintCancellationReason = constraintCancellationString.map(
-        reason -> CancellationReason.builder().code(reason).build()
-    ).orElse(CancellationReason.builder().build());
+    final CancellationReason constraintCancellationReason = constraintCancellationString
+        .map(reason -> CancellationReason.builder().code(reason).build())
+        .orElse(CancellationReason.builder().build());
 
-    final CancellationReason accountsCancellationReason = accountsCancellationString.map(
-        reason -> CancellationReason.builder().code(reason).build()
-    ).orElse(CancellationReason.builder().build());
+    final CancellationReason accountsCancellationReason = accountsCancellationString
+        .map(reason -> CancellationReason.builder().code(reason).build())
+        .orElse(CancellationReason.builder().build());
 
-    when(dbAsyncClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
-        .thenReturn(CompletableFuture.failedFuture(TransactionCanceledException.builder()
+    when(dynamoDbClient.transactWriteItems(any(TransactWriteItemsRequest.class)))
+        .thenThrow(TransactionCanceledException.builder()
             .cancellationReasons(accountsCancellationReason, constraintCancellationReason)
-            .build()));
+            .build());
 
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
-        accounts.clearUsernameHash(account));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.clearUsernameHash(account));
 
     assertArrayEquals(USERNAME_HASH_1, account.getUsernameHash().orElseThrow());
   }
@@ -1309,24 +1308,24 @@ class AccountsTest {
   }
 
   @Test
-  void testReservedUsernameHash() {
+  void testReservedUsernameHash() throws UsernameHashNotAvailableException {
     final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account1);
     final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account2);
 
-    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(1));
     assertArrayEquals(USERNAME_HASH_1, account1.getReservedUsernameHash().orElseThrow());
     assertThat(account1.getUsernameHash()).isEmpty();
 
     // account 2 shouldn't be able to reserve or confirm the same username hash
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)));
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
 
-    accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertThat(account1.getReservedUsernameHash()).isEmpty();
     assertArrayEquals(USERNAME_HASH_1, account1.getUsernameHash().orElseThrow());
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join().orElseThrow().getUuid()).isEqualTo(account1.getUuid());
@@ -1338,15 +1337,15 @@ class AccountsTest {
   }
 
   @Test
-  void switchBetweenReservedUsernameHashes() {
+  void switchBetweenReservedUsernameHashes() throws UsernameHashNotAvailableException {
     final Account account = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
     assertArrayEquals(USERNAME_HASH_1, account.getReservedUsernameHash().orElseThrow());
     assertThat(account.getUsernameHash()).isEmpty();
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1));
     assertArrayEquals(USERNAME_HASH_2, account.getReservedUsernameHash().orElseThrow());
     assertThat(account.getUsernameHash()).isEmpty();
 
@@ -1359,7 +1358,7 @@ class AccountsTest {
 
     clock.pin(Instant.EPOCH.plus(Duration.ofMinutes(1)));
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
     assertArrayEquals(USERNAME_HASH_1, account.getReservedUsernameHash().orElseThrow());
     assertThat(account.getUsernameHash()).isEmpty();
 
@@ -1371,23 +1370,23 @@ class AccountsTest {
   }
 
   @Test
-  void reserveOwnConfirmedUsername() {
+  void reserveOwnConfirmedUsername() throws UsernameHashNotAvailableException {
     final Account account = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
     assertArrayEquals(USERNAME_HASH_1, account.getReservedUsernameHash().orElseThrow());
     assertThat(account.getUsernameHash()).isEmpty();
     assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsKey(Accounts.UsernameTable.ATTR_TTL);
 
 
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertArrayEquals(USERNAME_HASH_1, account.getUsernameHash().orElseThrow());
     assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).doesNotContainKey(Accounts.UsernameTable.ATTR_TTL);
 
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertArrayEquals(USERNAME_HASH_1, account.getUsernameHash().orElseThrow());
     assertThat(getUsernameConstraintTableItem(USERNAME_HASH_1)).containsKey(Accounts.UsernameTable.KEY_USERNAME_HASH);
@@ -1395,47 +1394,47 @@ class AccountsTest {
   }
 
   @Test
-  void testConfirmReservedUsernameHashWrongAccountUuid() {
+  void testConfirmReservedUsernameHashWrongAccountUuid() throws UsernameHashNotAvailableException {
     final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account1);
     final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account2);
 
-    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(1));
     assertArrayEquals(USERNAME_HASH_1, account1.getReservedUsernameHash().orElseThrow());
     assertThat(account1.getUsernameHash()).isEmpty();
 
     // only account1 should be able to confirm the reserved hash
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
   }
 
   @Test
-  void testConfirmExpiredReservedUsernameHash() {
+  void testConfirmExpiredReservedUsernameHash() throws UsernameHashNotAvailableException {
     final Account account1 = generateAccount("+18005551111", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account1);
     final Account account2 = generateAccount("+18005552222", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account2);
 
-    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(2)).join();
+    accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(2));
 
     for (int i = 0; i <= 2; i++) {
       clock.pin(Instant.EPOCH.plus(Duration.ofDays(i)));
-      CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-          accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)));
+      assertThrows(UsernameHashNotAvailableException.class,
+          () -> accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)));
     }
 
     // after 2 days, can reserve and confirm the hash
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(2)).plus(Duration.ofSeconds(1)));
-    accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1));
     assertEquals(USERNAME_HASH_1, account2.getReservedUsernameHash().orElseThrow());
 
-    accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(2)));
-    CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-        accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.reserveUsernameHash(account1, USERNAME_HASH_1, Duration.ofDays(2)));
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.confirmUsernameHash(account1, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join().orElseThrow().getUuid()).isEqualTo(account2.getUuid());
   }
 
@@ -1444,30 +1443,30 @@ class AccountsTest {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
     account.setVersion(account.getVersion() + 12);
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
-        accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
-        accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertThat(account.getReservedUsernameHash()).isEmpty();
     assertThat(account.getUsernameHash()).isEmpty();
   }
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
-  void testRemoveOldestHold(boolean clearUsername) {
+  void testRemoveOldestHold(boolean clearUsername) throws UsernameHashNotAvailableException {
     Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
-    final List<byte[]> usernames = IntStream.range(0, 7).mapToObj(i -> TestRandomUtil.nextBytes(32)).toList();
+    final List<byte[]> usernames = IntStream.range(0, 7).mapToObj(_ -> TestRandomUtil.nextBytes(32)).toList();
     final ArrayDeque<byte[]> expectedHolds = new ArrayDeque<>();
     expectedHolds.add(USERNAME_HASH_1);
 
     for (byte[] username : usernames) {
-      accounts.reserveUsernameHash(account, username, Duration.ofDays(1)).join();
-      accounts.confirmUsernameHash(account, username, ENCRYPTED_USERNAME_1).join();
+      accounts.reserveUsernameHash(account, username, Duration.ofDays(1));
+      accounts.confirmUsernameHash(account, username, ENCRYPTED_USERNAME_1);
       assertThat(accounts.getByUsernameHash(username).join()).isPresent();
 
       final Account read = accounts.getByAccountIdentifier(account.getUuid()).orElseThrow();
@@ -1482,7 +1481,7 @@ class AccountsTest {
       // clearing the username adds a hold, but the subsequent confirm in the next iteration should add the same hold
       // (should be a noop) so we don't need to touch expectedHolds
       if (clearUsername) {
-        accounts.clearUsernameHash(account).join();
+        accounts.clearUsernameHash(account);
       }
     }
 
@@ -1496,72 +1495,69 @@ class AccountsTest {
     final List<byte[]> freeUsernames = usernames.subList(0, numFree);
     final List<byte[]> heldUsernames = usernames.subList(numFree, usernames.size());
     for (byte[] username : freeUsernames) {
-      assertDoesNotThrow(() ->
-          accounts.reserveUsernameHash(account2, username, Duration.ofDays(2)).join());
+      assertDoesNotThrow(() -> accounts.reserveUsernameHash(account2, username, Duration.ofDays(2)));
     }
     for (byte[] username : heldUsernames) {
-      CompletableFutureTestUtil.assertFailsWithCause(UsernameHashNotAvailableException.class,
-          accounts.reserveUsernameHash(account2, username, Duration.ofDays(2)));
+      assertThrows(UsernameHashNotAvailableException.class,
+          () -> accounts.reserveUsernameHash(account2, username, Duration.ofDays(2)));
     }
   }
 
   @Test
-  void testHoldUsername() {
+  void testHoldUsername() throws UsernameHashNotAvailableException {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
-    accounts.clearUsernameHash(account).join();
+    accounts.clearUsernameHash(account);
 
     Account account2 = generateAccount("+18005554321", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account2);
-    CompletableFutureTestUtil.assertFailsWithCause(
-        UsernameHashNotAvailableException.class,
-        accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)),
+    assertThrows(UsernameHashNotAvailableException.class,
+        () -> accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)),
         "account2 should not be able reserve username held by account");
 
     // but we should be able to get it back
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
   }
 
   @Test
-  void testNoHoldsBarred() {
+  void testNoHoldsBarred() throws UsernameHashNotAvailableException {
     // should be able to reserve all MAX_HOLDS usernames
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
     final List<byte[]> usernames = IntStream.range(0, Accounts.MAX_USERNAME_HOLDS + 1)
-        .mapToObj(i -> TestRandomUtil.nextBytes(32))
+        .mapToObj(_ -> TestRandomUtil.nextBytes(32))
         .toList();
     for (byte[] username : usernames) {
-      accounts.reserveUsernameHash(account, username, Duration.ofDays(1)).join();
-      accounts.confirmUsernameHash(account, username, ENCRYPTED_USERNAME_1).join();
+      accounts.reserveUsernameHash(account, username, Duration.ofDays(1));
+      accounts.confirmUsernameHash(account, username, ENCRYPTED_USERNAME_1);
     }
 
     // someone else shouldn't be able to get any of our holds
     Account account2 = generateAccount("+18005554321", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account2);
     for (byte[] username : usernames) {
-      CompletableFutureTestUtil.assertFailsWithCause(
-          UsernameHashNotAvailableException.class,
-          accounts.reserveUsernameHash(account2, username, Duration.ofDays(1)),
+      assertThrows(UsernameHashNotAvailableException.class,
+          () -> accounts.reserveUsernameHash(account2, username, Duration.ofDays(1)),
           "account2 should not be able reserve username held by account");
     }
 
     // once the hold expires it's fine though
     clock.pin(Instant.EPOCH.plus(Accounts.USERNAME_HOLD_DURATION).plus(Duration.ofSeconds(1)));
-    accounts.reserveUsernameHash(account2, usernames.getFirst(), Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account2, usernames.getFirst(), Duration.ofDays(1));
 
     // if account1 modifies their username, we should also clear out the old holds, leaving only their newly added hold
-    accounts.clearUsernameHash(account).join();
+    accounts.clearUsernameHash(account);
     assertThat(account.getUsernameHolds().stream().map(Account.UsernameHold::usernameHash))
         .containsExactly(usernames.getLast());
   }
 
   @Test
-  public void testCannotRemoveHold() {
+  public void testCannotRemoveHold() throws UsernameHashNotAvailableException {
     // Tests the case where we are trying to remove a hold we think we have, but it turns out we've already lost it.
     // This means that the Account record an account has a hold on a particular username, but that hold is held by
     // someone else in the username table. This can happen when the hold TTL expires while we are performing the update
@@ -1569,44 +1565,44 @@ class AccountsTest {
     // case, a simple retry should let us check the clock again and notice that our hold in our account has expired.
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_1);
 
     // Now we have a hold on username_hash_1. Simulate a race where the TTL on username_hash_1 expires, and someone
     // else picks up the username by going forward and then back in time
     Account account2 = generateAccount("+18005554321", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account2);
     clock.pin(Instant.EPOCH.plus(Accounts.USERNAME_HOLD_DURATION).plus(Duration.ofSeconds(1)));
-    accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account2, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account2, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     clock.pin(Instant.EPOCH);
     // already have 1 hold, should be able to get to MAX_HOLDS without a problem
     for (int i = 1; i < Accounts.MAX_USERNAME_HOLDS; i++) {
-      accounts.reserveUsernameHash(account, TestRandomUtil.nextBytes(32), Duration.ofDays(1)).join();
-      accounts.confirmUsernameHash(account, TestRandomUtil.nextBytes(32), ENCRYPTED_USERNAME_1).join();
+      accounts.reserveUsernameHash(account, TestRandomUtil.nextBytes(32), Duration.ofDays(1));
+      accounts.confirmUsernameHash(account, TestRandomUtil.nextBytes(32), ENCRYPTED_USERNAME_1);
     }
 
-    accounts.reserveUsernameHash(account, TestRandomUtil.nextBytes(32), Duration.ofDays(1)).join();
+    accounts.reserveUsernameHash(account, TestRandomUtil.nextBytes(32), Duration.ofDays(1));
     // Should fail, because we cannot remove our hold on USERNAME_HASH_1
-    CompletableFutureTestUtil.assertFailsWithCause(ContestedOptimisticLockException.class,
-        accounts.confirmUsernameHash(account, TestRandomUtil.nextBytes(32), ENCRYPTED_USERNAME_1));
+    assertThrows(ContestedOptimisticLockException.class,
+        () -> accounts.confirmUsernameHash(account, TestRandomUtil.nextBytes(32), ENCRYPTED_USERNAME_1));
 
     // Should now pass once we realize our hold's TTL is over
     clock.pin(Instant.EPOCH.plus(Accounts.USERNAME_HOLD_DURATION).plus(Duration.ofSeconds(1)));
-    accounts.confirmUsernameHash(account, TestRandomUtil.nextBytes(32), ENCRYPTED_USERNAME_1).join();
+    accounts.confirmUsernameHash(account, TestRandomUtil.nextBytes(32), ENCRYPTED_USERNAME_1);
   }
 
   @Test
-  void testDeduplicateHoldsOnSwappedUsernames() {
+  void testDeduplicateHoldsOnSwappedUsernames() throws UsernameHashNotAvailableException {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     final Consumer<byte[]> assertSingleHold = (byte[] usernameToCheck) -> {
       // our account should have exactly one hold for the username
@@ -1623,25 +1619,25 @@ class AccountsTest {
     // Swap back and forth between username 1 and 2.  Username hashes shouldn't reappear in our holds if we already have
     // a hold
     for (int i = 0; i < 5; i++) {
-      accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofSeconds(1)).join();
-      accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_1).join();
+      accounts.reserveUsernameHash(account, USERNAME_HASH_2, Duration.ofSeconds(1));
+      accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_1);
       assertSingleHold.accept(USERNAME_HASH_1);
 
-      accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofSeconds(1)).join();
-      accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+      accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofSeconds(1));
+      accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
       assertSingleHold.accept(USERNAME_HASH_2);
     }
   }
 
   @Test
-  void testRemoveHoldAfterConfirm() {
+  void testRemoveHoldAfterConfirm() throws UsernameHashNotAvailableException {
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
     createAccount(account);
     final List<byte[]> usernames = IntStream.range(0, Accounts.MAX_USERNAME_HOLDS)
-        .mapToObj(i -> TestRandomUtil.nextBytes(32)).toList();
+        .mapToObj(_ -> TestRandomUtil.nextBytes(32)).toList();
     for (byte[] username : usernames) {
-      accounts.reserveUsernameHash(account, username, Duration.ofDays(1)).join();
-      accounts.confirmUsernameHash(account, username, ENCRYPTED_USERNAME_1).join();
+      accounts.reserveUsernameHash(account, username, Duration.ofDays(1));
+      accounts.confirmUsernameHash(account, username, ENCRYPTED_USERNAME_1);
     }
 
     int holdToRereserve = (Accounts.MAX_USERNAME_HOLDS / 2) - 1;
@@ -1651,8 +1647,8 @@ class AccountsTest {
         .containsExactlyElementsOf(usernames.subList(0, usernames.size() - 1));
 
     // if we confirm a username we already have held, it should just drop out of the holds list
-    accounts.reserveUsernameHash(account, usernames.get(holdToRereserve), Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, usernames.get(holdToRereserve), ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, usernames.get(holdToRereserve), Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, usernames.get(holdToRereserve), ENCRYPTED_USERNAME_1);
 
     // should have a hold on every username but the one we just confirmed
     assertThat(account.getUsernameHolds().stream().map(Account.UsernameHold::usernameHash).toList())
@@ -1682,7 +1678,7 @@ class AccountsTest {
   }
 
   @Test
-  void testGetByUsernameHashAsync() {
+  void testGetByUsernameHashAsync() throws UsernameHashNotAvailableException {
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
 
     final Account account = generateAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID());
@@ -1690,8 +1686,8 @@ class AccountsTest {
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
 
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1)).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Duration.ofDays(1));
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     assertThat(accounts.getByUsernameHash(USERNAME_HASH_1).join()).isPresent();
   }
@@ -1764,20 +1760,16 @@ class AccountsTest {
       final Account conflictingUsernameAccount = nextRandomAccount();
       createAccount(conflictingUsernameAccount);
 
-      final CompletionException completionException = assertThrows(CompletionException.class,
-          () -> accounts.reserveUsernameHash(conflictingUsernameAccount, USERNAME_HASH_1, Accounts.USERNAME_HOLD_DURATION).join());
-
-      assertInstanceOf(UsernameHashNotAvailableException.class, completionException.getCause());
+      assertThrows(UsernameHashNotAvailableException.class,
+          () -> accounts.reserveUsernameHash(conflictingUsernameAccount, USERNAME_HASH_1, Accounts.USERNAME_HOLD_DURATION));
     }
 
     {
       final Account conflictingUsernameHoldAccount = nextRandomAccount();
       createAccount(conflictingUsernameHoldAccount);
 
-      final CompletionException completionException = assertThrows(CompletionException.class,
-          () -> accounts.reserveUsernameHash(conflictingUsernameHoldAccount, USERNAME_HASH_2, Accounts.USERNAME_HOLD_DURATION).join());
-
-      assertInstanceOf(UsernameHashNotAvailableException.class, completionException.getCause());
+      assertThrows(UsernameHashNotAvailableException.class,
+          () -> accounts.reserveUsernameHash(conflictingUsernameHoldAccount, USERNAME_HASH_2, Accounts.USERNAME_HOLD_DURATION));
     }
 
     // Check that bare constraint records are written as expected
@@ -1795,7 +1787,7 @@ class AccountsTest {
   }
 
   @Test
-  void testRegeneratedConstraintsMatchOriginalConstraints() {
+  void testRegeneratedConstraintsMatchOriginalConstraints() throws UsernameHashNotAvailableException {
     final Instant usernameHoldExpiration = clock.instant().plus(Accounts.USERNAME_HOLD_DURATION).truncatedTo(ChronoUnit.SECONDS);
 
     final Account account = nextRandomAccount();
@@ -1804,10 +1796,10 @@ class AccountsTest {
     account.setUsernameHolds(List.of(new Account.UsernameHold(USERNAME_HASH_2, usernameHoldExpiration.getEpochSecond())));
 
     createAccount(account);
-    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Accounts.USERNAME_HOLD_DURATION).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2).join();
-    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Accounts.USERNAME_HOLD_DURATION).join();
-    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1).join();
+    accounts.reserveUsernameHash(account, USERNAME_HASH_2, Accounts.USERNAME_HOLD_DURATION);
+    accounts.confirmUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2);
+    accounts.reserveUsernameHash(account, USERNAME_HASH_1, Accounts.USERNAME_HOLD_DURATION);
+    accounts.confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     final Map<String, AttributeValue> originalE164ConstraintItem =
         DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()

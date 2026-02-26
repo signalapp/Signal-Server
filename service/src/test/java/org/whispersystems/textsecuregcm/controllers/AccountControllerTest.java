@@ -504,9 +504,9 @@ class AccountControllerTest {
   }
 
   @Test
-  void testReserveUsernameHash() {
+  void testReserveUsernameHash() throws UsernameHashNotAvailableException {
     when(accountsManager.reserveUsernameHash(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(new AccountsManager.UsernameReservation(null, USERNAME_HASH_1)));
+        .thenReturn(new AccountsManager.UsernameReservation(null, USERNAME_HASH_1));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username_hash/reserve")
@@ -521,9 +521,9 @@ class AccountControllerTest {
   }
 
   @Test
-  void testReserveUsernameHashUnavailable() {
+  void testReserveUsernameHashUnavailable() throws UsernameHashNotAvailableException {
     when(accountsManager.reserveUsernameHash(any(), anyList()))
-        .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
+        .thenThrow(new UsernameHashNotAvailableException());
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username_hash/reserve")
@@ -604,13 +604,14 @@ class AccountControllerTest {
   }
 
   @Test
-  void testConfirmUsernameHash() throws BaseUsernameException {
+  void testConfirmUsernameHash()
+      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     Account account = mock(Account.class);
     final UUID uuid = UUID.randomUUID();
     when(account.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH_1));
     when(account.getUsernameLinkHandle()).thenReturn(uuid);
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1)))
-        .thenReturn(CompletableFuture.completedFuture(account));
+        .thenReturn(account);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username_hash/confirm")
@@ -641,12 +642,13 @@ class AccountControllerTest {
   }
 
   @Test
-  void testConfirmUsernameHashOld() throws BaseUsernameException {
+  void testConfirmUsernameHashOld()
+      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     Account account = mock(Account.class);
     when(account.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH_1));
     when(account.getUsernameLinkHandle()).thenReturn(null);
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), eq(null)))
-        .thenReturn(CompletableFuture.completedFuture(account));
+        .thenReturn(account);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username_hash/confirm")
@@ -664,9 +666,10 @@ class AccountControllerTest {
   }
 
   @Test
-  void testConfirmUnreservedUsernameHash() throws BaseUsernameException {
+  void testConfirmUnreservedUsernameHash()
+      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
-        .thenReturn(CompletableFuture.failedFuture(new UsernameReservationNotFoundException()));
+        .thenThrow(new UsernameReservationNotFoundException());
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username_hash/confirm")
@@ -680,9 +683,10 @@ class AccountControllerTest {
   }
 
   @Test
-  void testConfirmLapsedUsernameHash() throws BaseUsernameException {
+  void testConfirmLapsedUsernameHash()
+      throws BaseUsernameException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     when(accountsManager.confirmReservedUsernameHash(any(), eq(USERNAME_HASH_1), any()))
-        .thenReturn(CompletableFuture.failedFuture(new UsernameHashNotAvailableException()));
+        .thenThrow(new UsernameHashNotAvailableException());
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username_hash/confirm")
@@ -748,7 +752,7 @@ class AccountControllerTest {
   @Test
   void testDeleteUsername() {
     when(accountsManager.clearUsernameHash(any()))
-        .thenAnswer(invocation -> CompletableFutureTestUtil.almostCompletedFuture(invocation.getArgument(0)));
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username_hash/")
@@ -756,7 +760,6 @@ class AccountControllerTest {
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .delete()) {
 
-      assertThat(response.readEntity(String.class)).isEqualTo("");
       assertThat(response.getStatus()).isEqualTo(204);
       verify(accountsManager).clearUsernameHash(AuthHelper.VALID_ACCOUNT);
     }
