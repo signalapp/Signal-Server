@@ -53,12 +53,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.crypto.spec.SecretKeySpec;
@@ -99,6 +97,7 @@ import org.whispersystems.textsecuregcm.tests.util.RedisServerHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import org.whispersystems.textsecuregcm.util.ThrowingSupplier;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class AccountsManagerTest {
@@ -187,14 +186,9 @@ class AccountsManagerTest {
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
     doAnswer(invocation -> {
-      final Callable<?> task = invocation.getArgument(1);
-      return task.call();
+      final ThrowingSupplier<?, ?> task = invocation.getArgument(1);
+      return task.get();
     }).when(accountLockManager).withLock(anySet(), any(), any());
-
-    when(accountLockManager.withLockAsync(anySet(), any(), any())).thenAnswer(invocation -> {
-      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
-      return taskSupplier.get();
-    });
 
     final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         mock(RegistrationRecoveryPasswordsManager.class);

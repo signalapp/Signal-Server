@@ -298,13 +298,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       try {
         return accountLockManager.withLock(Set.of(pni),
             () -> create(number, pni, accountAttributes, accountBadges, aciIdentityKey, pniIdentityKey, primaryDeviceSpec, userAgent), accountLockExecutor);
-      } catch (final Exception e) {
-        if (e instanceof RuntimeException runtimeException) {
-          throw runtimeException;
-        }
-
+      } catch (final RuntimeException e) {
         logger.error("Unexpected exception while creating account", e);
-        throw new RuntimeException(e);
+        throw e;
       }
     });
   }
@@ -442,15 +438,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   public Pair<Account, Device> addDevice(final Account account, final DeviceSpec deviceSpec, final String linkDeviceToken)
       throws LinkDeviceTokenAlreadyUsedException {
 
-    try {
-      return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()),
-          () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
-          accountLockExecutor);
-    } catch (final LinkDeviceTokenAlreadyUsedException | RuntimeException e) {
-      throw e;
-    } catch (final Exception e) {
-      throw new RuntimeException(e);
-    }
+    return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()),
+        () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
+        accountLockExecutor);
   }
 
   private Pair<Account, Device> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final String linkDeviceToken, final int retries)
@@ -639,13 +629,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       throw new IllegalArgumentException("Cannot remove primary device");
     }
 
-    try {
-      return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()),
-          () -> removeDevice(account.getIdentifier(IdentityType.ACI), deviceId, MAX_UPDATE_ATTEMPTS),
-          accountLockExecutor);
-    } catch (final Exception e) {
-      throw new RuntimeException(e);
-    }
+    return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()),
+        () -> removeDevice(account.getIdentifier(IdentityType.ACI), deviceId, MAX_UPDATE_ATTEMPTS),
+        accountLockExecutor);
   }
 
   private Account removeDevice(final UUID accountIdentifier, final byte deviceId, final int retries) {
@@ -700,15 +686,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     try {
       return accountLockManager.withLock(new HashSet<>(List.of(account.getPhoneNumberIdentifier(), targetPhoneNumberIdentifier)),
           () -> changeNumber(account, targetNumber, targetPhoneNumberIdentifier, pniIdentityKey, pniSignedPreKeys, pniPqLastResortPreKeys, pniRegistrationIds), accountLockExecutor);
-    } catch (final Exception e) {
-      if (e instanceof MismatchedDevicesException mismatchedDevicesException) {
-        throw mismatchedDevicesException;
-      } if (e instanceof RuntimeException runtimeException) {
-        throw runtimeException;
-      }
-
+    } catch (final RuntimeException e) {
       logger.error("Unexpected exception when changing phone number", e);
-      throw new RuntimeException(e);
+      throw e;
     }
   }
 
@@ -1146,14 +1126,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
               COUNTRY_CODE_TAG_NAME, Util.getCountryCode(account.getNumber()),
               DELETION_REASON_TAG_NAME, deletionReason.tagValue)
           .increment();
-    } catch (final Exception e) {
+    } catch (final RuntimeException e) {
       logger.warn("Failed to delete account", e);
-
-      if (e instanceof RuntimeException runtimeException) {
-        throw runtimeException;
-      }
-
-      throw new RuntimeException(e);
+      throw e;
     } finally {
       sample.stop(deleteTimer);
     }

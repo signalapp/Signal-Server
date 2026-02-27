@@ -30,10 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -47,6 +45,7 @@ import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import org.whispersystems.textsecuregcm.util.ThrowingSupplier;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
@@ -119,16 +118,9 @@ class AccountsManagerUsernameIntegrationTest {
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
     doAnswer(invocation -> {
-      final Callable<?> task = invocation.getArgument(1);
-      return task.call();
+      final ThrowingSupplier<?, ?> task = invocation.getArgument(1);
+      return task.get();
     }).when(accountLockManager).withLock(anySet(), any(), any());
-
-    when(accountLockManager.withLockAsync(anySet(), any(), any())).thenAnswer(invocation -> {
-      final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
-      taskSupplier.get().join();
-
-      return CompletableFuture.completedFuture(null);
-    });
 
     final PhoneNumberIdentifiers phoneNumberIdentifiers =
         new PhoneNumberIdentifiers(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.PNI.tableName());

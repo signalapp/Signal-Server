@@ -12,7 +12,6 @@ import com.amazonaws.services.dynamodbv2.ReleaseLockOptions;
 import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -70,37 +69,6 @@ class AccountLockManagerTest {
 
     assertThrows(IllegalArgumentException.class, () -> accountLockManager.withLock(Collections.emptySet(), () -> null,
         executor));
-    verify(task, never()).run();
-  }
-
-  @Test
-  void withLockAsync() throws InterruptedException {
-    accountLockManager.withLockAsync(
-        Set.of(FIRST_PNI, SECOND_PNI), () -> CompletableFuture.completedFuture(null), executor).join();
-
-    verify(lockClient, times(2)).acquireLock(any());
-    verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
-  }
-
-  @Test
-  void withLockAsyncTaskThrowsException() throws InterruptedException {
-    assertThrows(RuntimeException.class,
-        () -> accountLockManager.withLockAsync(
-                Set.of(FIRST_PNI, SECOND_PNI), () -> CompletableFuture.failedFuture(new RuntimeException()), executor)
-            .join());
-
-    verify(lockClient, times(2)).acquireLock(any());
-    verify(lockClient, times(2)).releaseLock(any(ReleaseLockOptions.class));
-  }
-
-  @Test
-  void withLockAsyncEmptyList() {
-    final Runnable task = mock(Runnable.class);
-
-    assertThrows(IllegalArgumentException.class,
-        () -> accountLockManager.withLockAsync(Collections.emptySet(), () -> CompletableFuture.completedFuture(null),
-            executor));
-
     verify(task, never()).run();
   }
 }

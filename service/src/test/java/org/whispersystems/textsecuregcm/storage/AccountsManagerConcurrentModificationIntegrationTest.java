@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -36,7 +35,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +57,7 @@ import org.whispersystems.textsecuregcm.tests.util.JsonHelpers;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.tests.util.RedisClusterHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.ThrowingSupplier;
 
 
 class AccountsManagerConcurrentModificationIntegrationTest {
@@ -103,16 +102,9 @@ class AccountsManagerConcurrentModificationIntegrationTest {
       final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
       doAnswer(invocation -> {
-        final Callable<?> task = invocation.getArgument(1);
-        return task.call();
+        final ThrowingSupplier<?, ?> task = invocation.getArgument(1);
+        return task.get();
       }).when(accountLockManager).withLock(anySet(), any(), any());
-
-      when(accountLockManager.withLockAsync(anySet(), any(), any())).thenAnswer(invocation -> {
-        final Supplier<CompletableFuture<?>> taskSupplier = invocation.getArgument(1);
-        taskSupplier.get().join();
-
-        return CompletableFuture.completedFuture(null);
-      });
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
       when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString()))
