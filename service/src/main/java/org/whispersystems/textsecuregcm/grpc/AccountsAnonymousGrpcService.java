@@ -15,7 +15,6 @@ import org.signal.chat.account.LookupUsernameLinkRequest;
 import org.signal.chat.account.LookupUsernameLinkResponse;
 import org.signal.chat.account.SimpleAccountsAnonymousGrpc;
 import org.signal.chat.errors.NotFound;
-import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
@@ -51,12 +50,6 @@ public class AccountsAnonymousGrpcService extends SimpleAccountsAnonymousGrpc.Ac
   @Override
   public LookupUsernameHashResponse lookupUsernameHash(final LookupUsernameHashRequest request)
       throws RateLimitExceededException {
-
-    if (request.getUsernameHash().size() != AccountController.USERNAME_HASH_LENGTH) {
-      throw GrpcExceptions.fieldViolation("username_hash",
-          String.format("Illegal username hash length; expected %d bytes, but got %d bytes",
-              AccountController.USERNAME_HASH_LENGTH, request.getUsernameHash().size()));
-    }
 
     RateLimitUtil.rateLimitByRemoteAddress(rateLimiters.getUsernameLookupLimiter());
 

@@ -9,6 +9,8 @@ option java_multiple_files = true;
 
 package org.signal.chat.common;
 
+import "org/signal/chat/require.proto";
+
 enum IdentityType {
   IDENTITY_TYPE_UNSPECIFIED = 0;
   IDENTITY_TYPE_ACI = 1;
@@ -20,7 +22,7 @@ message ServiceIdentifier {
   IdentityType identity_type = 1;
 
   // The UUID of the identity represented by this service identifier.
-  bytes uuid = 2;
+  bytes uuid = 2 [(require.exactlySize) = 16];
 }
 
 message AccountIdentifiers {
@@ -36,35 +38,40 @@ message AccountIdentifiers {
 }
 
 message EcPreKey {
-  // A locally-unique identifier for this key.
+  // A locally-unique identifier for this key, which will be provided by
+  // peers using this key to encrypt messages so the private key can be looked
+  // up.
   uint64 key_id = 1;
 
-  // The serialized form of the public key.
-  bytes public_key = 2;
+  // The public key, serialized in libsignal's elliptic-curve public key format.
+  bytes public_key = 2  [(require.nonEmpty) = true];
 }
 
 message EcSignedPreKey {
-  // A locally-unique identifier for this key.
+  // A locally-unique identifier for this key, which will be provided by
+  // peers using this key to encrypt messages so the private key can be looked
+  // up.
   uint64 key_id = 1;
 
-  // The serialized form of the public key.
-  bytes public_key = 2;
+  // The public key, serialized in libsignal's elliptic-curve public key format.
+  bytes public_key = 2  [(require.nonEmpty) = true];
 
   // A signature of the public key, verifiable with the identity key for the
   // account/identity associated with this pre-key.
-  bytes signature = 3;
+  bytes signature = 3  [(require.nonEmpty) = true];
 }
 
 message KemSignedPreKey {
-  // A locally-unique identifier for this key.
+  // An locally-unique identifier for this key, which will be provided by peers
+  // using this key to encrypt messages so the private key can be looked up.
   uint64 key_id = 1;
 
-  // The serialized form of the public key.
-  bytes public_key = 2;
+  // The public key, serialized in libsignal's Kyber1024 public key format.
+  bytes public_key = 2 [(require.nonEmpty) = true];
 
   // A signature of the public key, verifiable with the identity key for the
   // account/identity associated with this pre-key.
-  bytes signature = 3;
+  bytes signature = 3 [(require.nonEmpty) = true];
 }
 
 enum DeviceCapability {
@@ -87,6 +94,6 @@ message ZkCredential {
   /*
    * The ZK credential, using libsignal's serialization
    */
-  bytes credential = 2;
+  bytes credential = 2  [(require.nonEmpty) = true];
 }
 

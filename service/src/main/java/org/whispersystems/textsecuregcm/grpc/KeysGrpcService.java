@@ -119,10 +119,6 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
 
   @Override
   public SetPreKeyResponse setOneTimeEcPreKeys(final SetOneTimeEcPreKeysRequest request) {
-    if (request.getPreKeysList().isEmpty()) {
-      throw GrpcExceptions.fieldViolation("pre_keys", "pre_keys must be non-empty");
-    }
-
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     storeOneTimePreKeys(authenticatedDevice.accountIdentifier(),
@@ -136,10 +132,6 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
 
   @Override
   public SetPreKeyResponse setOneTimeKemSignedPreKeys(final SetOneTimeKemSignedPreKeysRequest request) {
-    if (request.getPreKeysList().isEmpty()) {
-      throw GrpcExceptions.fieldViolation("pre_keys", "pre_keys must be non-empty");
-    }
-
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     storeOneTimePreKeys(authenticatedDevice.accountIdentifier(),

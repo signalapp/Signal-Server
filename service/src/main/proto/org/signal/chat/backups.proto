@@ -202,18 +202,18 @@ service BackupsAnonymous {
 message SignedPresentation {
   // Presentation of a BackupAuthCredential previously retrieved from
   // GetBackupAuthCredentials on the authenticated channel
-  bytes presentation = 1;
+  bytes presentation = 1 [(require.nonEmpty) = true];
 
   // The presentation signed with the private key corresponding to the public
   // key set with SetPublicKey
-  bytes presentation_signature = 2;
+  bytes presentation_signature = 2 [(require.nonEmpty) = true];
 }
 
 message SetPublicKeyRequest {
   SignedPresentation signed_presentation = 1;
 
   // The public key, serialized in libsignal's elliptic-curve public key format.
-  bytes public_key = 2;
+  bytes public_key = 2 [(require.nonEmpty) = true];
 }
 
 message SetPublicKeyResponse {
@@ -422,7 +422,7 @@ message CopyMediaRequest {
   SignedPresentation signed_presentation = 1;
 
   // Items to copy
-  repeated CopyMediaItem items = 2;
+  repeated CopyMediaItem items = 2 [(require.size) = {min: 1, max: 1000}];
 }
 
 message CopyMediaResponse {
@@ -465,7 +465,7 @@ message ListMediaRequest {
   optional string cursor = 2;
 
   // If provided, the maximum number of entries to return in a page
-  uint32 limit = 3 [(require.range) = {min: 0, max: 10000}];
+  uint32 limit = 3 [(require.range) = {min: 1, max: 10000}];
 }
 message ListMediaResponse {
   message ListEntry {
@@ -529,13 +529,13 @@ message DeleteMediaItem {
   uint32 cdn = 1;
 
   // The media_id of the object to delete
-  bytes media_id = 2;
+  bytes media_id = 2 [(require.exactlySize) = 15];
 }
 
 message DeleteMediaRequest {
   SignedPresentation signed_presentation = 1;
 
-  repeated DeleteMediaItem items = 2;
+  repeated DeleteMediaItem items = 2 [(require.size) = {min: 1, max: 1000}];
 }
 
 message DeleteMediaResponse {

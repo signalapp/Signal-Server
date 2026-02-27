@@ -45,7 +45,6 @@ import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.entities.EncryptedUsername;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
@@ -103,10 +102,6 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public SetRegistrationLockResponse setRegistrationLock(final SetRegistrationLockRequest request) {
-    if (request.getRegistrationLock().isEmpty()) {
-      throw GrpcExceptions.fieldViolation("registration_lock", "Registration lock secret must not be empty");
-    }
-
     // In the previous REST-based API, clients would send hex strings directly. For backward compatibility, we
     // convert the registration lock secret to a lowercase hex string before turning it into a salted hash.
     final SaltedTokenHash credentials =
@@ -130,16 +125,6 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   public ReserveUsernameHashResponse reserveUsernameHash(final ReserveUsernameHashRequest request)
       throws RateLimitExceededException {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-
-    if (request.getUsernameHashesCount() == 0) {
-      throw GrpcExceptions.fieldViolation("username_hashes", "List of username hashes must not be empty");
-    }
-
-    if (request.getUsernameHashesCount() > AccountController.MAXIMUM_USERNAME_HASHES_LIST_LENGTH) {
-      throw GrpcExceptions.fieldViolation("username_hashes",
-          String.format("List of username hashes may have at most %d elements, but actually had %d",
-              AccountController.MAXIMUM_USERNAME_HASHES_LIST_LENGTH, request.getUsernameHashesCount()));
-    }
 
     final List<byte[]> usernameHashes = new ArrayList<>(request.getUsernameHashesCount());
 
@@ -174,30 +159,6 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   public ConfirmUsernameHashResponse confirmUsernameHash(final ConfirmUsernameHashRequest request)
       throws RateLimitExceededException {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-
-    if (request.getUsernameHash().isEmpty()) {
-      throw GrpcExceptions.fieldViolation("username_hash", "Username hash must not be empty");
-    }
-
-    if (request.getUsernameHash().size() != AccountController.USERNAME_HASH_LENGTH) {
-      throw GrpcExceptions.fieldViolation("username_hash",
-          String.format("Username hash length must be %d bytes, but was actually %d",
-              AccountController.USERNAME_HASH_LENGTH, request.getUsernameHash().size()));
-    }
-
-    if (request.getZkProof().isEmpty()) {
-      throw GrpcExceptions.fieldViolation("zk_proof", "Zero-knowledge proof must not be empty");
-    }
-
-    if (request.getUsernameCiphertext().isEmpty()) {
-      throw GrpcExceptions.fieldViolation("username_ciphertext", "Username ciphertext must not be empty");
-    }
-
-    if (request.getUsernameCiphertext().size() > AccountController.MAXIMUM_USERNAME_CIPHERTEXT_LENGTH) {
-      throw GrpcExceptions.fieldViolation("username_ciphertext",
-          String.format("Username ciphertext length must at most %d bytes, but was actually %d",
-              AccountController.MAXIMUM_USERNAME_CIPHERTEXT_LENGTH, request.getUsernameCiphertext().size()));
-    }
 
     try {
       usernameHashZkProofVerifier.verifyProof(request.getZkProof().toByteArray(), request.getUsernameHash().toByteArray());
@@ -241,11 +202,6 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   public SetUsernameLinkResponse setUsernameLink(final SetUsernameLinkRequest request)
       throws RateLimitExceededException {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-
-    if (request.getUsernameCiphertext().isEmpty() || request.getUsernameCiphertext().size() > EncryptedUsername.MAX_SIZE) {
-      throw GrpcExceptions.fieldViolation("username_ciphertext",
-          String.format("Username ciphertext must not be empty and must be shorter than %d bytes", EncryptedUsername.MAX_SIZE));
-    }
 
     rateLimiters.getUsernameLinkOperationLimiter().validate(authenticatedDevice.accountIdentifier());
 
@@ -304,10 +260,6 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public SetRegistrationRecoveryPasswordResponse setRegistrationRecoveryPassword(final SetRegistrationRecoveryPasswordRequest request) {
-    if (request.getRegistrationRecoveryPassword().isEmpty()) {
-      throw GrpcExceptions.fieldViolation("registration_recovery_password", "Registration recovery password must not be empty");
-    }
-
     registrationRecoveryPasswordsManager.store(getAuthenticatedAccount().getIdentifier(IdentityType.PNI),
             request.getRegistrationRecoveryPassword().toByteArray())
         .join();

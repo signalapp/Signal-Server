@@ -19,8 +19,11 @@ public class ServiceIdentifierUtil {
   }
 
   public static ServiceIdentifier fromGrpcServiceIdentifier(final org.signal.chat.common.ServiceIdentifier serviceIdentifier) {
-    final UUID uuid;
+    if (serviceIdentifier == null) {
+      throw GrpcExceptions.invalidArguments("invalid service identifier");
+    }
 
+    final UUID uuid;
     try {
       uuid = UUIDUtil.fromByteString(serviceIdentifier.getUuid());
     } catch (final IllegalArgumentException e) {

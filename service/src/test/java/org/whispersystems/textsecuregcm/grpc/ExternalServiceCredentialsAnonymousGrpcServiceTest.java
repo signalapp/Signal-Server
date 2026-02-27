@@ -18,6 +18,8 @@ import java.util.UUID;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.signal.chat.credentials.AuthCheckResult;
@@ -127,11 +129,12 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
     ), day(25));
   }
 
-  @Test
-  public void testTooManyPasswords() {
+  @ParameterizedTest
+  @ValueSource(ints = {0, 11})
+  public void testInvalidPasswordCount(int count) {
     final CheckSvrCredentialsRequest request = CheckSvrCredentialsRequest.newBuilder()
         .setNumber(USER_E164)
-        .addAllPasswords(IntStream.range(0, 12).mapToObj(i -> token(UUID.randomUUID(), day(10))).toList())
+        .addAllPasswords(IntStream.range(0, count).mapToObj(i -> token(UUID.randomUUID(), day(10))).toList())
         .build();
     final StatusRuntimeException status = assertThrows(StatusRuntimeException.class,
         () -> unauthenticatedServiceStub().checkSvrCredentials(request));

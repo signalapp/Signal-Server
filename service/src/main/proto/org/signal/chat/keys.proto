@@ -13,6 +13,7 @@ import "google/protobuf/empty.proto";
 
 import "org/signal/chat/common.proto";
 import "org/signal/chat/errors.proto";
+import "org/signal/chat/require.proto";
 
 // Provides methods for working with pre-keys.
 service Keys {
@@ -175,7 +176,7 @@ message SetOneTimeEcPreKeysRequest {
   common.IdentityType identity_type = 1;
 
   // The unsigned EC pre-keys to be stored.
-  repeated common.EcPreKey pre_keys = 2;
+  repeated common.EcPreKey pre_keys = 2 [(require.size) = {min: 1, max: 100}];
 }
 
 message SetOneTimeKemSignedPreKeysRequest {
@@ -184,7 +185,7 @@ message SetOneTimeKemSignedPreKeysRequest {
   common.IdentityType identity_type = 1;
 
   // The KEM pre-keys to be stored.
-  repeated common.KemSignedPreKey pre_keys = 2;
+  repeated common.KemSignedPreKey pre_keys = 2 [(require.size) = {min: 1, max: 100}];
 }
 
 message SetEcSignedPreKeyRequest {
@@ -192,7 +193,7 @@ message SetEcSignedPreKeyRequest {
   common.IdentityType identity_type = 1;
 
   // The signed EC pre-key itself.
-  common.EcSignedPreKey signed_pre_key = 2;
+  common.EcSignedPreKey signed_pre_key = 2 [(require.present) = true];
 }
 
 message SetKemLastResortPreKeyRequest {
@@ -200,7 +201,7 @@ message SetKemLastResortPreKeyRequest {
   common.IdentityType identity_type = 1;
 
   // The signed KEM pre-key itself.
-  common.KemSignedPreKey signed_pre_key = 2;
+  common.KemSignedPreKey signed_pre_key = 2 [(require.present) = true];
 }
 
 message SetPreKeyResponse {
@@ -210,7 +211,7 @@ message CheckIdentityKeyRequest {
   // The service identifier of the account for which we want to check the associated identity key fingerprint.
   common.ServiceIdentifier target_identifier = 1;
   // The most significant 4 bytes of the SHA-256 hash of the identity key associated with the target account/identity type.
-  bytes fingerprint = 2;
+  bytes fingerprint = 2 [(require.exactlySize) = 4];
 }
 
 message CheckIdentityKeyResponse {

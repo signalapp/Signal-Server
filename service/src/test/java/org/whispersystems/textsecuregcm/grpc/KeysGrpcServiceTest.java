@@ -149,7 +149,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
   void setOneTimeEcPreKeys(final org.signal.chat.common.IdentityType identityType) {
     final List<ECPreKey> preKeys = new ArrayList<>();
 
-    for (int keyId = 0; keyId < 100; keyId++) {
+    for (int keyId = 1; keyId <= 100; keyId++) {
       preKeys.add(new ECPreKey(keyId, ECKeyPair.generate().getPublicKey()));
     }
 
@@ -220,7 +220,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
     final List<KEMSignedPreKey> preKeys = new ArrayList<>();
 
-    for (int keyId = 0; keyId < 100; keyId++) {
+    for (int keyId = 1; keyId <= 100; keyId++) {
       preKeys.add(KeysHelper.signedKEMPreKey(keyId, identityKeyPair));
     }
 

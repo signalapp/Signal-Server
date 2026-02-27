@@ -83,7 +83,7 @@ message RemoveDeviceRequest {
 message SetDeviceNameRequest {
   // A sequence of bytes that encodes an encrypted human-readable name for this
   // device.
-  bytes name = 1 [(require.size) = {min: 1, max: 256}];
+  bytes name = 1 [(require.size) = {min: 1, max: 225}];
 
   // The identifier for the device for which to set a name.
   uint32 id = 2;

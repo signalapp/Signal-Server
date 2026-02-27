@@ -53,9 +53,6 @@ public class ExternalServiceCredentialsAnonymousGrpcService extends
   @Override
   public CheckSvrCredentialsResponse checkSvrCredentials(final CheckSvrCredentialsRequest request) {
     final List<String> tokens = request.getPasswordsList();
-    if (tokens.size() > 10) {
-      throw GrpcExceptions.fieldViolation("passwordsList", "At most 10 passwords may be provided");
-    }
     final List<ExternalServiceCredentialsSelector.CredentialInfo> credentials = ExternalServiceCredentialsSelector.check(
         tokens,
         svrCredentialsGenerator,

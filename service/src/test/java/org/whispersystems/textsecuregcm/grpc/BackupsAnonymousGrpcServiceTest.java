@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.Iterators;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -26,13 +27,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.commons.collections4.IteratorUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
 import org.signal.chat.backup.BackupsAnonymousGrpc;
@@ -379,6 +383,60 @@ class BackupsAnonymousGrpcServiceTest extends
             .build());
     assertThat(response.getCdnCredentials().getHeadersMap()).containsExactlyEntriesOf(Map.of("key", "value"));
   }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, 1001})
+  void copyMediaInvalidRequest(final int count) {
+    final SignedPresentation sp = SignedPresentation.newBuilder()
+        .setPresentation(ByteString.copyFrom(TestRandomUtil.nextBytes(10)))
+        .setPresentationSignature(ByteString.copyFromUtf8("aaa")).build();
+
+    final CopyMediaItem validItem = CopyMediaItem.newBuilder()
+        .setSourceAttachmentCdn(3)
+        .setSourceKey("abc")
+        .setObjectLength(100)
+        .setMediaId(ByteString.copyFrom(TestRandomUtil.nextBytes(15)))
+        .setHmacKey(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
+        .setEncryptionKey(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
+        .build();
+
+    GrpcTestUtils.assertStatusInvalidArgument(() -> IteratorUtils.toList(unauthenticatedServiceStub().copyMedia(
+        CopyMediaRequest.newBuilder()
+            .setSignedPresentation(sp)
+            .addAllItems(IntStream.range(0, count).mapToObj(_ -> validItem).toList())
+            .build())));
+  }
+
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, 1001})
+  void deleteMediaInvalidRequest(final int count) {
+    final SignedPresentation sp = SignedPresentation.newBuilder()
+        .setPresentation(ByteString.copyFrom(TestRandomUtil.nextBytes(10)))
+        .setPresentationSignature(ByteString.copyFromUtf8("aaa")).build();
+
+    final DeleteMediaItem validItem = DeleteMediaItem.newBuilder()
+        .setCdn(3)
+        .setMediaId(ByteString.copyFrom(TestRandomUtil.nextBytes(15)))
+        .build();
+
+    GrpcTestUtils.assertStatusInvalidArgument(() -> IteratorUtils.toList(unauthenticatedServiceStub().deleteMedia(
+        DeleteMediaRequest.newBuilder()
+            .setSignedPresentation(sp)
+            .addAllItems(IntStream.range(0, count).mapToObj(_ -> validItem).toList())
+            .build())));
+  }
+
+  @ParameterizedTest
+  @ValueSource(ints = {0, 10001})
+  void listMediaInvalidLimit(int count) {
+    GrpcTestUtils.assertStatusInvalidArgument(() -> unauthenticatedServiceStub().listMedia(
+        ListMediaRequest.newBuilder()
+            .setSignedPresentation(signedPresentation(presentation))
+            .setLimit(count)
+            .build()));
+  }
+
 
   private static AuthenticatedBackupUser backupUser(final byte[] backupId, final BackupCredentialType credentialType,
       final BackupLevel backupLevel) {

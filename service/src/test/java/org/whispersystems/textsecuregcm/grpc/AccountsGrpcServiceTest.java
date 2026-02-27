@@ -211,7 +211,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT, "BAD_AUTHENTICATION",
         () -> authenticatedServiceStub().setRegistrationLock(SetRegistrationLockRequest.newBuilder()
-                .setRegistrationLock(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))
+                .setRegistrationLock(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
             .build()));
 
     verify(accountsManager, never()).update(any(), any());
