@@ -91,6 +91,8 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 class RegistrationControllerTest {
 
   private static final long SESSION_EXPIRATION_SECONDS = Duration.ofMinutes(10).toSeconds();
+  private static final Set<DeviceCapability> SPQR_DEVICE_CAPABILITIES =
+      Set.of(DeviceCapability.SPARSE_POST_QUANTUM_RATCHET);
 
   private static final String NUMBER = PhoneNumberUtil.getInstance().format(
       PhoneNumberUtil.getInstance().getExampleNumber("US"),
@@ -538,10 +540,12 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of());
+        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
+            SPQR_DEVICE_CAPABILITIES);
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of());
+        new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
+            SPQR_DEVICE_CAPABILITIES);
 
     return List.of(
         Arguments.argumentSet("\"Fetches messages\" is true, but an APNs token is provided",
@@ -627,7 +631,8 @@ class RegistrationControllerTest {
     }
 
     final AccountAttributes accountAttributes =
-        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true, Set.of());
+        new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
+            SPQR_DEVICE_CAPABILITIES);
 
     return List.of(
         Arguments.argumentSet("Signed PNI EC pre-key is missing",
@@ -792,6 +797,30 @@ class RegistrationControllerTest {
     }
   }
 
+  @Test
+  void registrationMissingSpqrCapability() throws Exception {
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], NUMBER, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
+
+    final Account account = mock(Account.class);
+    when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
+
+    when(accountsManager.create(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(account);
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+    final RegistrationRequest requestObj = request("sessionId", new byte[0], false, 1, 2, Collections.emptySet());
+    try (final Response response = request.post(Entity.json(requestToJson(requestObj)))) {
+      assertEquals(499, response.getStatus());
+    }
+  }
+
   private static boolean accountAttributesEqual(final AccountAttributes a, final AccountAttributes b) {
     return a.getFetchesMessages() == b.getFetchesMessages()
         && a.getRegistrationId() == b.getRegistrationId()
@@ -828,7 +857,7 @@ class RegistrationControllerTest {
     final int registrationId = 1;
     final int pniRegistrationId = 2;
 
-    final Set<DeviceCapability> deviceCapabilities = Set.of();
+    final Set<DeviceCapability> deviceCapabilities = SPQR_DEVICE_CAPABILITIES;
 
     final AccountAttributes fetchesMessagesAccountAttributes =
         new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities);
@@ -932,25 +961,24 @@ class RegistrationControllerTest {
     );
   }
 
-  /**
-   * Valid request JSON with the give session ID and skipDeviceTransfer
-   */
-  private static String requestJson(final String sessionId,
+  private static RegistrationRequest request(
+      final String sessionId,
       final byte[] recoveryPassword,
       final boolean skipDeviceTransfer,
       final int registrationId,
-      int pniRegistrationId) {
-
+      int pniRegistrationId,
+      Set<DeviceCapability> deviceCapabilities) {
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final IdentityKey aciIdentityKey = new IdentityKey(aciIdentityKeyPair.getPublicKey());
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
-    final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId, "name".getBytes(StandardCharsets.UTF_8), "reglock",
-            true, Set.of());
+    final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId,
+        "name".getBytes(StandardCharsets.UTF_8), "reglock",
+        true, deviceCapabilities);
 
-    final RegistrationRequest request = new RegistrationRequest(
+    return new RegistrationRequest(
         Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8)),
         recoveryPassword,
         accountAttributes,
@@ -964,11 +992,25 @@ class RegistrationControllerTest {
             KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair),
             Optional.empty(),
             Optional.empty()));
+  }
+
+  private static String requestToJson(RegistrationRequest request) {
     try {
       return SystemMapper.jsonMapper().writerWithDefaultPrettyPrinter().writeValueAsString(request);
     } catch (final JsonProcessingException e) {
       throw new UncheckedIOException(e);
     }
+  }
+
+  /**
+   * Valid request JSON with the give session ID and skipDeviceTransfer
+   */
+  private static String requestJson(final String sessionId,
+      final byte[] recoveryPassword,
+      final boolean skipDeviceTransfer,
+      final int registrationId,
+      final int pniRegistrationId) {
+      return requestToJson(request(sessionId, recoveryPassword, skipDeviceTransfer, registrationId, pniRegistrationId, SPQR_DEVICE_CAPABILITIES));
   }
 
   /**

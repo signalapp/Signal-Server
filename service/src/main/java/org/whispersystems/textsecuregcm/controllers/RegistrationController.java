@@ -32,6 +32,7 @@ import jakarta.ws.rs.core.Response;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Optional;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
@@ -100,6 +101,7 @@ public class RegistrationController {
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+  @ApiResponse(responseCode = "499", description = "Client must support post-quantum ratchet")
   public AccountCreationResponse register(
       @HeaderParam(HttpHeaders.AUTHORIZATION) @NotNull final BasicAuthorizationHeader authorizationHeader,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) final String signalAgent,
@@ -112,6 +114,13 @@ public class RegistrationController {
 
     if (!registrationRequest.isEverySignedKeyValid(userAgent)) {
       throw new WebApplicationException("Invalid signature", 422);
+    }
+
+    if (!(registrationRequest.accountAttributes().getCapabilities() != null
+        ? registrationRequest.accountAttributes().getCapabilities()
+        : Collections.<DeviceCapability>emptySet()).containsAll(DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION)) {
+
+      throw new WebApplicationException("Missing required device capability", 499);
     }
 
     rateLimiters.getRegistrationLimiter().validate(number);

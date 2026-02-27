@@ -5,13 +5,15 @@
 
 package org.whispersystems.textsecuregcm.storage;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Optional;
 
 public enum DeviceCapability {
-  STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false),
-  TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false),
-  ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true),
-  SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, false, true);
+  STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false, false),
+  TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false, false),
+  ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true, false),
+  SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, false, true, true);
 
   public enum AccountCapabilityMode {
     /**
@@ -33,32 +35,42 @@ public enum DeviceCapability {
     ALWAYS_CAPABLE,
   }
 
+  public static final Collection<DeviceCapability> CAPABILITIES_REQUIRED_FOR_REGISTRATION =
+      Arrays.stream(DeviceCapability.values())
+          .filter(DeviceCapability::requireForRegistration)
+          .toList();
+
   private final String name;
   private final AccountCapabilityMode accountCapabilityMode;
   private final boolean preventDowngrade;
   private final boolean includeInProfile;
+  private final boolean requireForRegistration;
 
   /**
    * Create a DeviceCapability
    *
-   * @param name                  The name of the device capability that clients will see
-   * @param accountCapabilityMode How to combine the constituent device's capabilities in the account to an overall
-   *                              account capability
-   * @param preventDowngrade      If true, don't let linked devices join that don't have a device capability if the
-   *                              overall account has the capability. Most of the time this should only be used in
-   *                              conjunction with AccountCapabilityMode.ALL_DEVICES
-   * @param includeInProfile      Whether to return this capability on the account's profile. If false, the capability
-   *                              is only visible to the server
+   * @param name                   The name of the device capability that clients will see
+   * @param accountCapabilityMode  How to combine the constituent device's capabilities in the account to an overall
+   *                               account capability
+   * @param preventDowngrade       If true, don't let linked devices join that don't have a device capability if the
+   *                               overall account has the capability. Most of the time this should only be used in
+   *                               conjunction with AccountCapabilityMode.ALL_DEVICES.
+   * @param includeInProfile       Whether to return this capability on the account's profile. If false, the capability
+   *                               is only visible to the server.
+   * @param requireForRegistration If true, prevent account creation if the account's initial device does not have this
+   *                               capability
    */
   DeviceCapability(final String name,
       final AccountCapabilityMode accountCapabilityMode,
       final boolean preventDowngrade,
-      final boolean includeInProfile) {
+      final boolean includeInProfile,
+      final boolean requireForRegistration) {
 
     this.name = name;
     this.accountCapabilityMode = accountCapabilityMode;
     this.preventDowngrade = preventDowngrade;
     this.includeInProfile = includeInProfile;
+    this.requireForRegistration = requireForRegistration;
   }
 
   public String getName() {
@@ -75,6 +87,10 @@ public enum DeviceCapability {
 
   public boolean includeInProfile() {
     return includeInProfile;
+  }
+
+  public boolean requireForRegistration() {
+    return requireForRegistration;
   }
 
   public static Optional<DeviceCapability> forName(final String name) {
