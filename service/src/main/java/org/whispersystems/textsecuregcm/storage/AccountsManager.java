@@ -66,7 +66,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -139,7 +138,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final ScheduledExecutorService messagesPollExecutor;
   private final ScheduledExecutorService retryExecutor;
   private final Clock clock;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final Key verificationTokenKey;
 
@@ -221,8 +219,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final Executor accountLockExecutor,
       final ScheduledExecutorService messagesPollExecutor, final ScheduledExecutorService retryExecutor,
       final Clock clock,
-      final byte[] linkDeviceSecret,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      final byte[] linkDeviceSecret) {
     this.accounts = accounts;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.cacheCluster = cacheCluster;
@@ -239,7 +236,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.messagesPollExecutor = messagesPollExecutor;
     this.retryExecutor = retryExecutor;
     this.clock = requireNonNull(clock);
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
 
     this.verificationTokenKey = new SecretKeySpec(linkDeviceSecret, LINK_DEVICE_VERIFICATION_TOKEN_ALGORITHM);
 

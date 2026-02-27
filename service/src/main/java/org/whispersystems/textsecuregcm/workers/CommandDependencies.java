@@ -282,8 +282,7 @@ public record CommandDependencies(
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
         secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, accountLockExecutor, messagePollExecutor,
-        retryExecutor, clock, configuration.getLinkDeviceSecretConfiguration().secret().value(),
-        dynamicConfigurationManager);
+        retryExecutor, clock, configuration.getLinkDeviceSecretConfiguration().secret().value());
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster, retryExecutor);
     final BackupsDb backupsDb =
         new BackupsDb(dynamoDbAsyncClient, configuration.getDynamoDbTables().getBackups().getTableName(), clock);

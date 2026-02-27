@@ -48,7 +48,6 @@ import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
@@ -86,10 +85,6 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   @BeforeEach
   void setup() throws Exception {
 
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
-
     accounts = new Accounts(
         Clock.systemUTC(),
         DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -121,7 +116,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
 
       final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
       when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString()))
-          .thenAnswer((Answer<CompletableFuture<UUID>>) invocation -> CompletableFuture.completedFuture(UUID.randomUUID()));
+          .thenAnswer((Answer<CompletableFuture<UUID>>) _ -> CompletableFuture.completedFuture(UUID.randomUUID()));
 
       accountsManager = new AccountsManager(
           accounts,
@@ -140,8 +135,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
           mock(ScheduledExecutorService.class),
           mock(ScheduledExecutorService.class),
           mock(Clock.class),
-          "link-device-secret".getBytes(StandardCharsets.UTF_8),
-          dynamicConfigurationManager
+          "link-device-secret".getBytes(StandardCharsets.UTF_8)
       );
     }
   }

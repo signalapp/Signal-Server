@@ -35,7 +35,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
@@ -84,12 +83,6 @@ public class AddRemoveDeviceIntegrationTest {
 
   @BeforeEach
   void setUp() {
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-
     clock = TestClock.pinned(Instant.now());
 
     final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
@@ -165,8 +158,7 @@ public class AddRemoveDeviceIntegrationTest {
         scheduledExecutorService,
         scheduledExecutorService,
         clock,
-        "link-device-secret".getBytes(StandardCharsets.UTF_8),
-        dynamicConfigurationManager);
+        "link-device-secret".getBytes(StandardCharsets.UTF_8));
 
     accountsManager.start();
   }

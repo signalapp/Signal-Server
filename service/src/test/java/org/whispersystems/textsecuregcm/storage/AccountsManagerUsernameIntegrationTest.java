@@ -39,7 +39,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -93,11 +92,6 @@ class AccountsManagerUsernameIntegrationTest {
 
   private void buildAccountsManager(final int initialWidth, int discriminatorMaxWidth, int attemptsPerWidth)
       throws Exception {
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
-    DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
     final KeysManager keysManager = new KeysManager(
@@ -164,8 +158,7 @@ class AccountsManagerUsernameIntegrationTest {
         Executors.newSingleThreadScheduledExecutor(),
         Executors.newSingleThreadScheduledExecutor(),
         mock(Clock.class),
-        "link-device-secret".getBytes(StandardCharsets.UTF_8),
-        dynamicConfigurationManager);
+        "link-device-secret".getBytes(StandardCharsets.UTF_8));
   }
 
   @Test

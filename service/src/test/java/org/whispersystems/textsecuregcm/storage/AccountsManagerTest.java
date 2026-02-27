@@ -77,7 +77,6 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -130,7 +129,6 @@ class AccountsManagerTest {
   private RedisAdvancedClusterAsyncCommands<String, String> asyncClusterCommands;
   private AccountsManager accountsManager;
   private SecureValueRecoveryClient svr2Client;
-  private DynamicConfiguration dynamicConfiguration;
 
   private static final Answer<?> ACCOUNT_UPDATE_ANSWER = (answer) -> {
     // it is implicit in the update() contract is that a successful call will
@@ -156,7 +154,6 @@ class AccountsManagerTest {
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
-    dynamicConfiguration = mock(DynamicConfiguration.class);
 
     //noinspection unchecked
     asyncCommands = mock(RedisAsyncCommands.class);
@@ -199,11 +196,6 @@ class AccountsManagerTest {
       final String number = invocation.getArgument(0, String.class);
       return CompletableFuture.completedFuture(phoneNumberIdentifiersByE164.computeIfAbsent(number, n -> UUID.randomUUID()));
     });
-
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
 
@@ -256,8 +248,7 @@ class AccountsManagerTest {
         mock(ScheduledExecutorService.class),
         mock(ScheduledExecutorService.class),
         CLOCK,
-        LINK_DEVICE_SECRET,
-        dynamicConfigurationManager);
+        LINK_DEVICE_SECRET);
   }
 
   @Test

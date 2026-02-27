@@ -32,7 +32,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -79,12 +78,6 @@ class AccountsManagerChangeNumberIntegrationTest {
   void setup() throws InterruptedException {
 
     {
-      @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-          mock(DynamicConfigurationManager.class);
-
-      DynamicConfiguration dynamicConfiguration = new DynamicConfiguration();
-      when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-
       final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
       keysManager = new KeysManager(
           new SingleUseECPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.EC_KEYS.tableName()),
@@ -153,8 +146,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           executor,
           executor,
           mock(Clock.class),
-          "link-device-secret".getBytes(StandardCharsets.UTF_8),
-          dynamicConfigurationManager);
+          "link-device-secret".getBytes(StandardCharsets.UTF_8));
     }
   }
 

@@ -40,7 +40,6 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -88,12 +87,6 @@ public class AccountCreationDeletionIntegrationTest {
 
   @BeforeEach
   void setUp() {
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-
     final DynamoDbAsyncClient dynamoDbAsyncClient = DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient();
     keysManager = new KeysManager(
         new SingleUseECPreKeyStore(dynamoDbAsyncClient, DynamoDbExtensionSchema.Tables.EC_KEYS.tableName()),
@@ -164,8 +157,7 @@ public class AccountCreationDeletionIntegrationTest {
         executor,
         executor,
         CLOCK,
-        "link-device-secret".getBytes(StandardCharsets.UTF_8),
-        dynamicConfigurationManager);
+        "link-device-secret".getBytes(StandardCharsets.UTF_8));
   }
 
   @AfterEach

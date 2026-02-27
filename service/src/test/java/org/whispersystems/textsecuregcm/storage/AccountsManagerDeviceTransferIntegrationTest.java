@@ -55,7 +55,6 @@ public class AccountsManagerDeviceTransferIntegrationTest {
       connection.sync().configSet("notify-keyspace-events", "K$");
     });
 
-    //noinspection unchecked
     accountsManager = new AccountsManager(
         mock(Accounts.class),
         mock(PhoneNumberIdentifiers.class),
@@ -73,8 +72,7 @@ public class AccountsManagerDeviceTransferIntegrationTest {
         mock(ScheduledExecutorService.class),
         mock(ScheduledExecutorService.class),
         Clock.systemUTC(),
-        "link-device-secret".getBytes(StandardCharsets.UTF_8),
-        mock(DynamicConfigurationManager.class));
+        "link-device-secret".getBytes(StandardCharsets.UTF_8));
 
     accountsManager.start();
   }
