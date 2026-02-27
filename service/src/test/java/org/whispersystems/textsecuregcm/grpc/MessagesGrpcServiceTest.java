@@ -39,7 +39,7 @@ import org.signal.chat.messages.IndividualRecipientMessageBundle;
 import org.signal.chat.messages.MessagesGrpc;
 import org.signal.chat.messages.MismatchedDevices;
 import org.signal.chat.messages.SendAuthenticatedSenderMessageRequest;
-import org.signal.chat.messages.SendMessageResponse;
+import org.signal.chat.messages.SendMessageAuthenticatedSenderResponse;
 import org.signal.chat.messages.SendSyncMessageRequest;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
@@ -53,7 +53,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
-import org.whispersystems.textsecuregcm.spam.GrpcResponse;
+import org.whispersystems.textsecuregcm.spam.GrpcChallengeResponse;
 import org.whispersystems.textsecuregcm.spam.MessageType;
 import org.whispersystems.textsecuregcm.spam.SpamCheckResult;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
@@ -184,10 +184,10 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .setPayload(ByteString.copyFrom(payload))
               .build());
 
-      final SendMessageResponse response = authenticatedServiceStub().sendMessage(
+      final SendMessageAuthenticatedSenderResponse response = authenticatedServiceStub().sendMessage(
           generateRequest(serviceIdentifier, messageType, ephemeral, urgent, messages));
 
-      assertEquals(SendMessageResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build(), response);
+      assertEquals(SendMessageAuthenticatedSenderResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build(), response);
 
       final MessageProtos.Envelope.Type expectedEnvelopeType = switch (messageType) {
         case DOUBLE_RATCHET -> MessageProtos.Envelope.Type.CIPHERTEXT;
@@ -245,10 +245,10 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
           Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of(staleDeviceId))))
           .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      final SendMessageResponse response = authenticatedServiceStub().sendMessage(
+      final SendMessageAuthenticatedSenderResponse response = authenticatedServiceStub().sendMessage(
           generateRequest(serviceIdentifier, AuthenticatedSenderMessageType.DOUBLE_RATCHET, false, true, messages));
 
-      final SendMessageResponse expectedResponse = SendMessageResponse.newBuilder()
+      final SendMessageAuthenticatedSenderResponse expectedResponse = SendMessageAuthenticatedSenderResponse.newBuilder()
           .setMismatchedDevices(MismatchedDevices.newBuilder()
               .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
               .addMissingDevices(missingDeviceId)
@@ -270,7 +270,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
               .build());
 
-      final SendMessageResponse response = authenticatedServiceStub().sendMessage(
+      final SendMessageAuthenticatedSenderResponse response = authenticatedServiceStub().sendMessage(
           generateRequest(serviceIdentifier, AuthenticatedSenderMessageType.DOUBLE_RATCHET, false, true, messages));
       assertTrue(response.hasDestinationNotFound());
 
@@ -359,7 +359,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
           .thenReturn(new SpamCheckResult<>(
-              Optional.of(GrpcResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
+              Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
@@ -395,15 +395,17 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
               .build());
 
-      final SendMessageResponse response = SendMessageResponse.newBuilder()
-          .setChallengeRequired(ChallengeRequired.newBuilder()
-              .addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA))
+      final ChallengeRequired challengeRequired = ChallengeRequired.newBuilder()
+          .addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA)
+          .build();
+      final SendMessageAuthenticatedSenderResponse expectedResponse = SendMessageAuthenticatedSenderResponse.newBuilder()
+          .setChallengeRequired(challengeRequired)
           .build();
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withResponse(response)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcChallengeResponse.withResponse(challengeRequired)), Optional.empty()));
 
-      assertEquals(response, authenticatedServiceStub().sendMessage(
+      assertEquals(expectedResponse, authenticatedServiceStub().sendMessage(
           generateRequest(serviceIdentifier, AuthenticatedSenderMessageType.DOUBLE_RATCHET, false, true, messages)));
 
       verify(spamChecker).checkForIndividualRecipientSpamGrpc(MessageType.INDIVIDUAL_IDENTIFIED_SENDER,
@@ -466,10 +468,10 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
             .thenReturn(new SpamCheckResult<>(Optional.empty(), Optional.of(reportSpamToken)));
       }
 
-      final SendMessageResponse response =
+      final SendMessageAuthenticatedSenderResponse response =
           authenticatedServiceStub().sendSyncMessage(generateRequest(messageType, urgent, messages));
 
-      assertEquals(SendMessageResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build(), response);
+      assertEquals(SendMessageAuthenticatedSenderResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build(), response);
 
       final MessageProtos.Envelope.Type expectedEnvelopeType = switch (messageType) {
         case DOUBLE_RATCHET -> MessageProtos.Envelope.Type.CIPHERTEXT;
@@ -539,10 +541,10 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
           Set.of(missingDeviceId), Set.of(extraDeviceId), Set.of(staleDeviceId))))
           .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
-      final SendMessageResponse response = authenticatedServiceStub().sendSyncMessage(
+      final SendMessageAuthenticatedSenderResponse response = authenticatedServiceStub().sendSyncMessage(
           generateRequest(AuthenticatedSenderMessageType.DOUBLE_RATCHET, true, messages));
 
-      final SendMessageResponse expectedResponse = SendMessageResponse.newBuilder()
+      final SendMessageAuthenticatedSenderResponse expectedResponse = SendMessageAuthenticatedSenderResponse.newBuilder()
           .setMismatchedDevices(MismatchedDevices.newBuilder()
               .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(AUTHENTICATED_ACI)))
               .addMissingDevices(missingDeviceId)

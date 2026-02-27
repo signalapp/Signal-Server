@@ -65,7 +65,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
-import org.whispersystems.textsecuregcm.spam.GrpcResponse;
+import org.whispersystems.textsecuregcm.spam.GrpcChallengeResponse;
 import org.whispersystems.textsecuregcm.spam.MessageType;
 import org.whispersystems.textsecuregcm.spam.SpamCheckResult;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
@@ -427,7 +427,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
           .thenReturn(new SpamCheckResult<>(
-              Optional.of(GrpcResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
+              Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
@@ -464,16 +464,16 @@ class MessagesAnonymousGrpcServiceTest extends
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
               .build());
 
-      final SendMessageResponse response = SendMessageResponse.newBuilder()
-          .setChallengeRequired(ChallengeRequired.newBuilder()
-              .addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA))
-          .build();
+      final ChallengeRequired challengeResponse =
+          ChallengeRequired.newBuilder().addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA).build();
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withResponse(response)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcChallengeResponse.withResponse(challengeResponse)), Optional.empty()));
 
-      assertEquals(response, unauthenticatedServiceStub().sendSingleRecipientMessage(
-          generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null)));
+      final SendSealedSenderMessageRequest request =
+          generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null);
+      GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED, () ->
+          unauthenticatedServiceStub().sendSingleRecipientMessage(request));
 
       verify(spamChecker).checkForIndividualRecipientSpamGrpc(MessageType.INDIVIDUAL_SEALED_SENDER,
           Optional.empty(),
@@ -793,7 +793,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
           .thenReturn(new SpamCheckResult<>(
-              Optional.of(GrpcResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
+              Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
@@ -837,15 +837,14 @@ class MessagesAnonymousGrpcServiceTest extends
           .setUrgent(true)
           .build();
 
-      final SendMultiRecipientMessageResponse response = SendMultiRecipientMessageResponse.newBuilder()
-          .setChallengeRequired(ChallengeRequired.newBuilder()
-              .addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA))
-          .build();
-
+      final ChallengeRequired challengeResponse =
+          ChallengeRequired.newBuilder().addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA).build();
       when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withResponse(response)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcChallengeResponse.withResponse(challengeResponse)), Optional.empty()));
 
-      assertEquals(response, unauthenticatedServiceStub().sendMultiRecipientMessage(request));
+      //noinspection ResultOfMethodCallIgnored
+      GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED,
+          () -> unauthenticatedServiceStub().sendMultiRecipientMessage(request));
 
       verify(spamChecker).checkForMultiRecipientSpamGrpc(MessageType.MULTI_RECIPIENT_SEALED_SENDER);
 
@@ -1052,7 +1051,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
           .thenReturn(new SpamCheckResult<>(
-              Optional.of(GrpcResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
+              Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
@@ -1087,16 +1086,13 @@ class MessagesAnonymousGrpcServiceTest extends
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
               .build());
 
-      final SendMessageResponse response = SendMessageResponse.newBuilder()
-          .setChallengeRequired(ChallengeRequired.newBuilder()
-              .addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA))
-          .build();
-
+      final ChallengeRequired challengeResponse =
+          ChallengeRequired.newBuilder().addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA).build();
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withResponse(response)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcChallengeResponse.withResponse(challengeResponse)), Optional.empty()));
 
-      assertEquals(response, unauthenticatedServiceStub().sendStory(
-          generateRequest(serviceIdentifier, true, messages)));
+      GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED, () ->
+          unauthenticatedServiceStub().sendStory(generateRequest(serviceIdentifier, true, messages)));
 
       verify(spamChecker).checkForIndividualRecipientSpamGrpc(MessageType.INDIVIDUAL_STORY,
           Optional.empty(),
@@ -1335,7 +1331,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
           .thenReturn(new SpamCheckResult<>(
-              Optional.of(GrpcResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
+              Optional.of(GrpcChallengeResponse.withStatusException(GrpcExceptions.rateLimitExceeded(null))),
               Optional.empty()));
 
       //noinspection ResultOfMethodCallIgnored
@@ -1377,15 +1373,13 @@ class MessagesAnonymousGrpcServiceTest extends
           .setUrgent(true)
           .build();
 
-      final SendMultiRecipientMessageResponse response = SendMultiRecipientMessageResponse.newBuilder()
-          .setChallengeRequired(ChallengeRequired.newBuilder()
-              .addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA))
-          .build();
-
+      final ChallengeRequired challengeResponse =
+          ChallengeRequired.newBuilder().addChallengeOptions(ChallengeRequired.ChallengeType.CAPTCHA).build();
       when(spamChecker.checkForMultiRecipientSpamGrpc(any()))
-          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcResponse.withResponse(response)), Optional.empty()));
+          .thenReturn(new SpamCheckResult<>(Optional.of(GrpcChallengeResponse.withResponse(challengeResponse)), Optional.empty()));
 
-      assertEquals(response, unauthenticatedServiceStub().sendMultiRecipientStory(request));
+      GrpcTestUtils.assertStatusException(Status.RESOURCE_EXHAUSTED, () ->
+          unauthenticatedServiceStub().sendMultiRecipientStory(request));
 
       verify(spamChecker).checkForMultiRecipientSpamGrpc(MessageType.MULTI_RECIPIENT_STORY);
 

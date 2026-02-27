@@ -10,15 +10,17 @@ import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import com.google.protobuf.Empty;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.messages.AuthenticatedSenderMessageType;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
 import org.signal.chat.messages.SendAuthenticatedSenderMessageRequest;
-import org.signal.chat.messages.SendMessageResponse;
+import org.signal.chat.messages.SendMessageAuthenticatedSenderResponse;
 import org.signal.chat.messages.SendSyncMessageRequest;
 import org.signal.chat.messages.SimpleMessagesGrpc;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -26,12 +28,15 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.MessageSender;
-import org.whispersystems.textsecuregcm.spam.GrpcResponse;
+import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
+import org.whispersystems.textsecuregcm.spam.GrpcChallengeResponse;
 import org.whispersystems.textsecuregcm.spam.MessageType;
 import org.whispersystems.textsecuregcm.spam.SpamCheckResult;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+
+import static org.whispersystems.textsecuregcm.grpc.MessagesGrpcHelper.buildMismatchedDevices;
 
 public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
 
@@ -41,6 +46,9 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
   private final CardinalityEstimator messageByteLimitEstimator;
   private final SpamChecker spamChecker;
   private final Clock clock;
+
+  private static final SendMessageAuthenticatedSenderResponse SEND_MESSAGE_SUCCESS_RESPONSE =
+      SendMessageAuthenticatedSenderResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build();
 
   public MessagesGrpcService(final AccountsManager accountsManager,
       final RateLimiters rateLimiters,
@@ -58,7 +66,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
   }
 
   @Override
-  public SendMessageResponse sendMessage(final SendAuthenticatedSenderMessageRequest request)
+  public SendMessageAuthenticatedSenderResponse sendMessage(final SendAuthenticatedSenderMessageRequest request)
       throws RateLimitExceededException {
 
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
@@ -75,7 +83,9 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
 
     final Optional<Account> maybeDestination = accountsManager.getByServiceIdentifier(destinationServiceIdentifier);
     if (maybeDestination.isEmpty()) {
-      return SendMessageResponse.newBuilder().setDestinationNotFound(NotFound.getDefaultInstance()).build();
+      return SendMessageAuthenticatedSenderResponse.newBuilder()
+          .setDestinationNotFound(NotFound.getDefaultInstance())
+          .build();
     }
     final Account destination = maybeDestination.get();
 
@@ -92,7 +102,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
   }
 
   @Override
-  public SendMessageResponse sendSyncMessage(final SendSyncMessageRequest request)
+  public SendMessageAuthenticatedSenderResponse sendSyncMessage(final SendSyncMessageRequest request)
       throws RateLimitExceededException {
 
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
@@ -110,7 +120,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
         request.getUrgent());
   }
 
-  private SendMessageResponse sendMessage(final Account destination,
+  private SendMessageAuthenticatedSenderResponse sendMessage(final Account destination,
       final ServiceIdentifier destinationServiceIdentifier,
       final AuthenticatedDevice sender,
       final AuthenticatedSenderMessageType envelopeType,
@@ -130,14 +140,16 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
       throw e;
     }
 
-    final SpamCheckResult<GrpcResponse<SendMessageResponse>> spamCheckResult =
+    final SpamCheckResult<GrpcChallengeResponse> spamCheckResult =
         spamChecker.checkForIndividualRecipientSpamGrpc(messageType,
             Optional.of(sender),
             Optional.of(destination),
             destinationServiceIdentifier);
 
     if (spamCheckResult.response().isPresent()) {
-      return spamCheckResult.response().get().getResponseOrThrowStatus();
+      return SendMessageAuthenticatedSenderResponse.newBuilder()
+          .setChallengeRequired(spamCheckResult.response().get().getResponseOrThrowStatus())
+          .build();
     }
 
     final Map<Byte, MessageProtos.Envelope> messagesByDeviceId = messages.getMessagesMap().entrySet()
@@ -168,12 +180,22 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
             entry -> entry.getKey().byteValue(),
             entry -> entry.getValue().getRegistrationId()));
 
-    return MessagesGrpcHelper.sendMessage(messageSender,
-        destination,
-        destinationServiceIdentifier,
-        messagesByDeviceId,
-        registrationIdsByDeviceId,
-        messageType == MessageType.SYNC ? Optional.of(sender.deviceId()) : Optional.empty());
+    try {
+      messageSender.sendMessages(destination,
+          destinationServiceIdentifier,
+          messagesByDeviceId,
+          registrationIdsByDeviceId,
+          messageType == MessageType.SYNC ? Optional.of(sender.deviceId()) : Optional.empty(),
+          RequestAttributesUtil.getUserAgent().orElse(null));
+
+      return SEND_MESSAGE_SUCCESS_RESPONSE;
+    } catch (final MismatchedDevicesException e) {
+      return SendMessageAuthenticatedSenderResponse.newBuilder()
+          .setMismatchedDevices(buildMismatchedDevices(destinationServiceIdentifier, e.getMismatchedDevices()))
+          .build();
+    } catch (final MessageTooLargeException e) {
+      throw GrpcExceptions.invalidArguments("message too large");
+    }
   }
 
   private static MessageProtos.Envelope.Type getEnvelopeType(final AuthenticatedSenderMessageType type) {

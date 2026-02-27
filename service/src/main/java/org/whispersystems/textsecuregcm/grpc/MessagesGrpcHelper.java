@@ -5,70 +5,10 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
-import com.google.protobuf.Empty;
-import io.grpc.Status;
-import io.grpc.StatusException;
-import java.util.Map;
-import java.util.Optional;
 import org.signal.chat.messages.MismatchedDevices;
-import org.signal.chat.messages.SendMessageResponse;
-import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
-import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
-import org.whispersystems.textsecuregcm.push.MessageSender;
-import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
-import org.whispersystems.textsecuregcm.storage.Account;
 
 public class MessagesGrpcHelper {
-
-  private static final SendMessageResponse SEND_MESSAGE_SUCCESS_RESPONSE = SendMessageResponse
-      .newBuilder()
-      .setSuccess(Empty.getDefaultInstance())
-      .build();
-
-  /**
-   * Sends a "bundle" of messages to an individual destination account, mapping common exceptions to appropriate gRPC
-   * statuses.
-   *
-   * @param messageSender the {@code MessageSender} instance to use to send the messages
-   * @param destination the destination account for the messages
-   * @param destinationServiceIdentifier the service identifier for the destination account
-   * @param messagesByDeviceId a map of device IDs to message payloads
-   * @param registrationIdsByDeviceId a map of device IDs to device registration IDs
-   * @param syncMessageSenderDeviceId if the message is a sync message (i.e. a message to other devices linked to the
-   *                                  caller's own account), contains the ID of the device that sent the message
-   *
-   * @return a response object to send to callers
-   *
-   * @throws RateLimitExceededException if the message bundle could not be sent due to a violated rated limit
-   * @throws io.grpc.StatusRuntimeException for invalid arguments if the message is too large to send
-   */
-  public static SendMessageResponse sendMessage(final MessageSender messageSender,
-      final Account destination,
-      final ServiceIdentifier destinationServiceIdentifier,
-      final Map<Byte, MessageProtos.Envelope> messagesByDeviceId,
-      final Map<Byte, Integer> registrationIdsByDeviceId,
-      @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId)
-      throws RateLimitExceededException {
-
-    try {
-      messageSender.sendMessages(destination,
-          destinationServiceIdentifier,
-          messagesByDeviceId,
-          registrationIdsByDeviceId,
-          syncMessageSenderDeviceId,
-          RequestAttributesUtil.getUserAgent().orElse(null));
-
-      return SEND_MESSAGE_SUCCESS_RESPONSE;
-    } catch (final MismatchedDevicesException e) {
-      return SendMessageResponse.newBuilder()
-          .setMismatchedDevices(buildMismatchedDevices(destinationServiceIdentifier, e.getMismatchedDevices()))
-          .build();
-    } catch (final MessageTooLargeException e) {
-      throw GrpcExceptions.invalidArguments("message too large");
-    }
-  }
 
   /**
    * Translates an internal {@link org.whispersystems.textsecuregcm.controllers.MismatchedDevices} entity to a gRPC

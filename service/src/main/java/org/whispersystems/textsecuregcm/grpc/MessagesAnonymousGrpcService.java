@@ -27,6 +27,7 @@ import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.InvalidVersionException;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -37,7 +38,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.push.MessageUtil;
-import org.whispersystems.textsecuregcm.spam.GrpcResponse;
+import org.whispersystems.textsecuregcm.spam.GrpcChallengeResponse;
 import org.whispersystems.textsecuregcm.spam.MessageType;
 import org.whispersystems.textsecuregcm.spam.SpamCheckResult;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
@@ -155,16 +156,15 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
       final boolean urgent,
       final boolean story) throws RateLimitExceededException {
 
-    final SpamCheckResult<GrpcResponse<SendMessageResponse>> spamCheckResult =
+    final SpamCheckResult<GrpcChallengeResponse> spamCheckResult =
         spamChecker.checkForIndividualRecipientSpamGrpc(
             story ? MessageType.INDIVIDUAL_STORY : MessageType.INDIVIDUAL_SEALED_SENDER,
             Optional.empty(),
             Optional.of(destination),
             destinationServiceIdentifier);
 
-    if (spamCheckResult.response().isPresent()) {
-      return spamCheckResult.response().get().getResponseOrThrowStatus();
-    }
+    spamCheckResult.response().ifPresent(grpcResponse ->
+      grpcResponse.throwStatusOr(_ -> GrpcExceptions.rateLimitExceeded(null)));
 
     try {
       final int totalPayloadLength = messages.getMessagesMap().values().stream()
@@ -208,12 +208,22 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
             entry -> entry.getKey().byteValue(),
             entry -> entry.getValue().getRegistrationId()));
 
-    return MessagesGrpcHelper.sendMessage(messageSender,
-        destination,
-        destinationServiceIdentifier,
-        messagesByDeviceId,
-        registrationIdsByDeviceId,
-        Optional.empty());
+    try {
+      messageSender.sendMessages(destination,
+          destinationServiceIdentifier,
+          messagesByDeviceId,
+          registrationIdsByDeviceId,
+          Optional.empty(),
+          RequestAttributesUtil.getUserAgent().orElse(null));
+
+      return SEND_MESSAGE_SUCCESS_RESPONSE;
+    } catch (final MismatchedDevicesException e) {
+      return SendMessageResponse.newBuilder()
+          .setMismatchedDevices(MessagesGrpcHelper.buildMismatchedDevices(destinationServiceIdentifier, e.getMismatchedDevices()))
+          .build();
+    } catch (final MessageTooLargeException e) {
+      throw GrpcExceptions.invalidArguments("message too large");
+    }
   }
 
   @Override
@@ -265,14 +275,13 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
       final boolean urgent,
       final boolean story) {
 
-    final SpamCheckResult<GrpcResponse<SendMultiRecipientMessageResponse>> spamCheckResult =
+    final SpamCheckResult<GrpcChallengeResponse> spamCheckResult =
         spamChecker.checkForMultiRecipientSpamGrpc(story
             ? MessageType.MULTI_RECIPIENT_STORY
             : MessageType.MULTI_RECIPIENT_SEALED_SENDER);
 
-    if (spamCheckResult.response().isPresent()) {
-      return spamCheckResult.response().get().getResponseOrThrowStatus();
-    }
+    spamCheckResult.response().ifPresent(response ->
+        response.throwStatusOr(_ -> GrpcExceptions.rateLimitExceeded(null)));
 
     // At this point, the caller has at least superficially provided the information needed to send a multi-recipient
     // message. Attempt to resolve the destination service identifiers to Signal accounts.

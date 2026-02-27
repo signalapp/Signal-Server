@@ -5,10 +5,8 @@
 package org.whispersystems.textsecuregcm.spam;
 
 import jakarta.ws.rs.container.ContainerRequestContext;
-import java.util.Optional;
 import jakarta.ws.rs.core.Response;
-import org.signal.chat.messages.SendMessageResponse;
-import org.signal.chat.messages.SendMultiRecipientMessageResponse;
+import java.util.Optional;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 
@@ -55,7 +53,7 @@ public interface SpamChecker {
    * @return A {@link SpamCheckResult}
    */
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  SpamCheckResult<GrpcResponse<SendMessageResponse>> checkForIndividualRecipientSpamGrpc(
+  SpamCheckResult<GrpcChallengeResponse> checkForIndividualRecipientSpamGrpc(
       final MessageType messageType,
       final Optional<org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice> maybeSource,
       final Optional<Account> maybeDestination,
@@ -68,7 +66,7 @@ public interface SpamChecker {
    *
    * @return A {@link SpamCheckResult}
    */
-  SpamCheckResult<GrpcResponse<SendMultiRecipientMessageResponse>> checkForMultiRecipientSpamGrpc(final MessageType messageType);
+  SpamCheckResult<GrpcChallengeResponse> checkForMultiRecipientSpamGrpc(final MessageType messageType);
 
 
   static SpamChecker noop() {
@@ -92,7 +90,7 @@ public interface SpamChecker {
       }
 
       @Override
-      public SpamCheckResult<GrpcResponse<SendMessageResponse>> checkForIndividualRecipientSpamGrpc(final MessageType messageType,
+      public SpamCheckResult<GrpcChallengeResponse> checkForIndividualRecipientSpamGrpc(final MessageType messageType,
           final Optional<org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice> maybeSource,
           final Optional<Account> maybeDestination,
           final ServiceIdentifier destinationIdentifier) {
@@ -101,7 +99,7 @@ public interface SpamChecker {
       }
 
       @Override
-      public SpamCheckResult<GrpcResponse<SendMultiRecipientMessageResponse>> checkForMultiRecipientSpamGrpc(
+      public SpamCheckResult<GrpcChallengeResponse> checkForMultiRecipientSpamGrpc(
           final MessageType messageType) {
 
         return new SpamCheckResult<>(Optional.empty(), Optional.empty());

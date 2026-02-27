@@ -25,11 +25,11 @@ service Messages {
   //
   // The destination account must not be the same as the authenticated caller.
   // Callers should use `SendSyncMessage` to send messages to themselves.
-  rpc SendMessage(SendAuthenticatedSenderMessageRequest) returns (SendMessageResponse) {}
+  rpc SendMessage(SendAuthenticatedSenderMessageRequest) returns (SendMessageAuthenticatedSenderResponse) {}
 
   // Sends a "sync" message to all other devices linked to the authenticated
   // sender's account.
-  rpc SendSyncMessage(SendSyncMessageRequest) returns (SendMessageResponse) {}
+  rpc SendSyncMessage(SendSyncMessageRequest) returns (SendMessageAuthenticatedSenderResponse) {}
 }
 
 // Provides methods for sending "sealed sender" messages.
@@ -133,6 +133,30 @@ message SendAuthenticatedSenderMessageRequest {
   IndividualRecipientMessageBundle messages = 5;
 }
 
+message SendMessageAuthenticatedSenderResponse {
+
+  // The outcome of the message delivery
+  oneof response {
+
+    // The message was successfully delivered to all destination devices
+    google.protobuf.Empty success = 1;
+
+    // A list of discrepancies between the destination devices identified in a
+    // request to send a message and the devices that are actually linked to an
+    // account.
+    MismatchedDevices mismatched_devices = 2;
+
+    // A description of a challenge callers must complete before sending
+    // additional messages.
+    ChallengeRequired challenge_required = 3;
+
+    // The destination account did not exist
+    errors.NotFound destination_not_found = 4;
+
+  }
+}
+
+
 message SendSyncMessageRequest {
 
   // The type identifier for this message.
@@ -202,15 +226,11 @@ message SendMessageResponse {
     // account.
     MismatchedDevices mismatched_devices = 2;
 
-    // A description of a challenge callers must complete before sending
-    // additional messages.
-    ChallengeRequired challenge_required = 3;
-
     // The provided unidentified authorization credential was invalid
-    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 4;
+    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3;
 
     // The destination account did not exist
-    errors.NotFound destination_not_found = 5;
+    errors.NotFound destination_not_found = 4;
 
   }
 }
@@ -280,12 +300,8 @@ message SendMultiRecipientMessageResponse {
     // actually linked to a destination account.
     MultiRecipientMismatchedDevices mismatched_devices = 2;
 
-    // A description of a challenge callers must complete before sending
-    // additional messages.
-    ChallengeRequired challenge_required = 3;
-
     // The provided unidentified authorization credential was invalid
-    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 4;
+    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3;
   }
 }
 
