@@ -98,8 +98,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(targetAccount.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
-    when(accountsManager.getByServiceIdentifierAsync(identifier))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
+    when(accountsManager.getByServiceIdentifier(identifier))
+        .thenReturn(Optional.of(targetAccount));
 
     final ECPreKey ecPreKey = new ECPreKey(1, ECKeyPair.generate().getPublicKey());
     final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(2, identityKeyPair);
@@ -146,8 +146,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(targetAccount.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
     when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(identityKey);
-    when(accountsManager.getByServiceIdentifierAsync(identifier))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
+    when(accountsManager.getByServiceIdentifier(identifier))
+        .thenReturn(Optional.of(targetAccount));
 
     final ECPreKey ecPreKey = new ECPreKey(1, ECKeyPair.generate().getPublicKey());
     final ECSignedPreKey ecSignedPreKey = KeysHelper.signedECPreKey(2, identityKeyPair);
@@ -204,8 +204,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
-    when(accountsManager.getByServiceIdentifierAsync(identifier))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
+    when(accountsManager.getByServiceIdentifier(identifier))
+        .thenReturn(Optional.of(targetAccount));
 
     final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(
         GetPreKeysAnonymousRequest.newBuilder()
@@ -252,7 +252,6 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final Instant expiration = Instant.now().truncatedTo(ChronoUnit.DAYS);
     CLOCK.pin(expiration.minus(Duration.ofHours(1))); // set time so the credential isn't expired yet
 
-    final AciServiceIdentifier wrongAci = new AciServiceIdentifier(UUID.randomUUID());
     final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(authorizedIdentifier), expiration);
 
     final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(
@@ -270,8 +269,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
   @Test
   void getPreKeysAccountNotFoundUnidentifiedAccessKey() {
     final AciServiceIdentifier nonexistentAci = new AciServiceIdentifier(UUID.randomUUID());
-    when(accountsManager.getByServiceIdentifierAsync(nonexistentAci))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(accountsManager.getByServiceIdentifier(nonexistentAci))
+        .thenReturn(Optional.empty());
 
     final GetPreKeysAnonymousResponse preKeysResponse =
         unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
@@ -293,8 +292,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
 
     final byte[] token = AuthHelper.validGroupSendToken(SERVER_SECRET_PARAMS, List.of(nonexistentAci), expiration);
 
-    when(accountsManager.getByServiceIdentifierAsync(nonexistentAci))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(accountsManager.getByServiceIdentifier(nonexistentAci))
+        .thenReturn(Optional.empty());
 
     final GetPreKeysAnonymousResponse preKeysResponse =
         unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
@@ -319,8 +318,8 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
     when(targetAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
 
-    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(accountIdentifier)))
+        .thenReturn(Optional.of(targetAccount));
 
     final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(
         GetPreKeysAnonymousRequest.newBuilder()

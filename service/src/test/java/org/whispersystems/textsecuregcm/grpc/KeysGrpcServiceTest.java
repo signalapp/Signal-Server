@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -31,7 +32,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -115,8 +115,8 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(authenticatedAccount));
     when(accountsManager.getByPhoneNumberIdentifier(AUTHENTICATED_PNI)).thenReturn(Optional.of(authenticatedAccount));
 
-    when(accountsManager.getByAccountIdentifierAsync(AUTHENTICATED_ACI)).thenReturn(CompletableFuture.completedFuture(Optional.of(authenticatedAccount)));
-    when(accountsManager.getByPhoneNumberIdentifierAsync(AUTHENTICATED_PNI)).thenReturn(CompletableFuture.completedFuture(Optional.of(authenticatedAccount)));
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(authenticatedAccount));
+    when(accountsManager.getByPhoneNumberIdentifier(AUTHENTICATED_PNI)).thenReturn(Optional.of(authenticatedAccount));
 
     return new KeysGrpcService(accountsManager, keysManager, rateLimiters);
   }
@@ -296,16 +296,6 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
   @ParameterizedTest
   @EnumSource(value = org.signal.chat.common.IdentityType.class, names = {"IDENTITY_TYPE_ACI", "IDENTITY_TYPE_PNI"})
   void setSignedPreKey(final org.signal.chat.common.IdentityType identityType) {
-    when(accountsManager.updateDeviceAsync(any(), anyByte(), any())).thenAnswer(invocation -> {
-      final Account account = invocation.getArgument(0);
-      final byte deviceId = invocation.getArgument(1);
-      final Consumer<Device> deviceUpdater = invocation.getArgument(2);
-
-      account.getDevice(deviceId).ifPresent(deviceUpdater);
-
-      return CompletableFuture.completedFuture(account);
-    });
-
     when(keysManager.storeEcSignedPreKeys(any(), anyByte(), any())).thenReturn(CompletableFuture.completedFuture(null));
 
     final ECKeyPair identityKeyPair = switch (IdentityTypeUtil.fromGrpcIdentityType(identityType)) {
@@ -476,8 +466,8 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     when(targetAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(targetAccount.getIdentifier(identityType)).thenReturn(identifier);
     when(targetAccount.getIdentityKey(identityType)).thenReturn(identityKey);
-    when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
+    when(accountsManager.getByServiceIdentifier(serviceIdentifier))
+        .thenReturn(Optional.of(targetAccount));
 
     final Map<Byte, KeysManager.DevicePreKeys> devicePreKeysMap = new HashMap<>();
 
@@ -573,8 +563,8 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
   @Test
   void getPreKeysAccountNotFound() {
-    when(accountsManager.getByServiceIdentifierAsync(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+    when(accountsManager.getByServiceIdentifier(any()))
+        .thenReturn(Optional.empty());
 
     final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
         .setTargetIdentifier(ServiceIdentifier.newBuilder()
@@ -595,8 +585,8 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
     when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
 
-    when(accountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(accountIdentifier)))
+        .thenReturn(Optional.of(targetAccount));
 
     final GetPreKeysResponse response = authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
         .setTargetIdentifier(ServiceIdentifier.newBuilder()
@@ -609,19 +599,20 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
   }
 
   @Test
-  void getPreKeysRateLimited() {
+  void getPreKeysRateLimited() throws RateLimitExceededException {
     final Account targetAccount = mock(Account.class);
     when(targetAccount.getUuid()).thenReturn(UUID.randomUUID());
     when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
     when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
     when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
 
-    when(accountsManager.getByServiceIdentifierAsync(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(targetAccount)));
+    when(accountsManager.getByServiceIdentifier(any()))
+        .thenReturn(Optional.of(targetAccount));
 
     final Duration retryAfterDuration = Duration.ofMinutes(7);
-    when(preKeysRateLimiter.validateReactive(anyString()))
-        .thenReturn(Mono.error(new RateLimitExceededException(retryAfterDuration)));
+
+    doThrow(new RateLimitExceededException(retryAfterDuration))
+        .when(preKeysRateLimiter).validate(anyString());
 
     assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
         .setTargetIdentifier(ServiceIdentifier.newBuilder()
