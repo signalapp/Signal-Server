@@ -1973,30 +1973,6 @@ paths:
             application/json: {}
       security:
       - authenticatedAccount: []
-  /v1/devices/public_key:
-    put:
-      tags:
-      - Devices
-      summary: Sets a public key for authentication
-      description: |
-        Sets the authentication public key for the authenticated device. The public key will be used for
-        authentication in the nascent gRPC-over-Noise API. Existing devices must upload a public key before they can
-        use the gRPC-over-Noise API, and this endpoint exists to facilitate migration to the new API.
-      operationId: setPublicKey_1
-      requestBody:
-        content:
-          '*/*':
-            schema:
-              $ref: "#/components/schemas/SetPublicKeyRequest"
-      responses:
-        "200":
-          description: Public key stored successfully
-        "401":
-          description: Account authentication check failed
-        "422":
-          description: Invalid request format
-      security:
-      - authenticatedAccount: []
   /v1/devices/wait_for_linked_device/{tokenIdentifier}:
     get:
       tags:
@@ -2416,15 +2392,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
@@ -2645,15 +2621,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2736,15 +2712,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2772,15 +2748,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -4722,13 +4698,14 @@ components:
             This backup-id should be used for media only, and must have the media type set on the credential. If absent,
             only the media credential request will not be updated.
     SetPublicKeyRequest:
+      required:
+      - backupIdPublicKey
       type: object
       properties:
-        publicKey:
+        backupIdPublicKey:
           type: string
-          description: |
-            The public key, serialized in libsignal's elliptic-curve public key format and then encoded as a standard (i.e.
-            not URL-safe), padded, base64-encoded string.
+          description: "The public key, serialized in libsignal's elliptic-curve public\
+            \ key format, and encoded in standard padded base64."
     AttachmentDescriptorV3:
       type: object
       properties:
