@@ -247,9 +247,8 @@ public class WebSocketConnection implements DisconnectionRequestListener {
 
     final Timer.Sample sample = Timer.start();
 
-    // X-Signal-Key: false must be sent until Android stops assuming it missing means true
     return client.sendRequest("PUT", "/api/v1/message",
-            List.of(HeaderUtils.X_SIGNAL_KEY + ": false", HeaderUtils.getTimestampHeader()), body)
+            List.of(HeaderUtils.getTimestampHeader()), body)
         .whenComplete((ignored, throwable) -> {
           if (throwable != null) {
             sendFailuresCounter.increment();

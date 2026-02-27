@@ -32,8 +32,6 @@ public final class HeaderUtils {
 
   public static final String X_SIGNAL_AGENT = "X-Signal-Agent";
 
-  public static final String X_SIGNAL_KEY = "X-Signal-Key";
-
   public static final String TIMESTAMP_HEADER = "X-Signal-Timestamp";
 
   public static final String UNIDENTIFIED_ACCESS_KEY = "Unidentified-Access-Key";
