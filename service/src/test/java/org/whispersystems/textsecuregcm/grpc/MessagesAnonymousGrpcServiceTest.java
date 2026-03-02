@@ -16,6 +16,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
@@ -40,6 +41,7 @@ import org.mockito.Mock;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.messages.ChallengeRequired;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
+import org.signal.chat.messages.SendMessageType;
 import org.signal.chat.messages.MessagesAnonymousGrpc;
 import org.signal.chat.messages.MismatchedDevices;
 import org.signal.chat.messages.MultiRecipientMessage;
@@ -175,6 +177,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
               .setRegistrationId(registrationId)
               .setPayload(ByteString.copyFrom(payload))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
       final byte[] reportSpamToken = TestRandomUtil.nextBytes(64);
@@ -217,6 +220,37 @@ class MessagesAnonymousGrpcServiceTest extends
           null);
     }
 
+
+    @Test
+    void wrongMessageType() {
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+      when(destinationAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(destinationAccount));
+
+      final byte[] payload = TestRandomUtil.nextBytes(128);
+
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
+          Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(registrationId)
+              .setType(SendMessageType.DOUBLE_RATCHET)
+              .setPayload(ByteString.copyFrom(payload))
+              .build());
+      final byte[] reportSpamToken = TestRandomUtil.nextBytes(64);
+      GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
+          () -> unauthenticatedServiceStub().sendSingleRecipientMessage(
+              generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null)));
+      verifyNoInteractions(messageSender);
+    }
+
     @Test
     void mismatchedDevices() throws MessageTooLargeException, MismatchedDevicesException {
       final byte missingDeviceId = Device.PRIMARY_ID;
@@ -233,6 +267,7 @@ class MessagesAnonymousGrpcServiceTest extends
           staleDeviceId, IndividualRecipientMessageBundle.Message.newBuilder()
               .setRegistrationId(Device.PRIMARY_ID)
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
       doThrow(new MismatchedDevicesException(new org.whispersystems.textsecuregcm.controllers.MismatchedDevices(
@@ -879,6 +914,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
               .setRegistrationId(registrationId)
               .setPayload(ByteString.copyFrom(payload))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
       final byte[] reportSpamToken = TestRandomUtil.nextBytes(64);
@@ -936,6 +972,7 @@ class MessagesAnonymousGrpcServiceTest extends
           staleDeviceId, IndividualRecipientMessageBundle.Message.newBuilder()
               .setRegistrationId(Device.PRIMARY_ID)
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
       doThrow(new MismatchedDevicesException(new org.whispersystems.textsecuregcm.controllers.MismatchedDevices(
@@ -963,6 +1000,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Map.of(Device.PRIMARY_ID, IndividualRecipientMessageBundle.Message.newBuilder()
               .setRegistrationId(7)
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
       final SendMessageResponse response = unauthenticatedServiceStub().sendStory(
@@ -995,6 +1033,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
               .setRegistrationId(registrationId)
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
       //noinspection ResultOfMethodCallIgnored
@@ -1020,6 +1059,7 @@ class MessagesAnonymousGrpcServiceTest extends
           staleDeviceId, IndividualRecipientMessageBundle.Message.newBuilder()
               .setRegistrationId(Device.PRIMARY_ID)
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
       doThrow(new MessageTooLargeException()).when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
@@ -1047,6 +1087,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
               .setRegistrationId(registrationId)
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
       when(spamChecker.checkForIndividualRecipientSpamGrpc(any(), any(), any(), any()))
@@ -1084,6 +1125,7 @@ class MessagesAnonymousGrpcServiceTest extends
           Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
               .setRegistrationId(registrationId)
               .setPayload(ByteString.copyFrom(TestRandomUtil.nextBytes(128)))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
               .build());
 
       final ChallengeRequired challengeResponse =

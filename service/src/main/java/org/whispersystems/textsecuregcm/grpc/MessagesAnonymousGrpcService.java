@@ -14,6 +14,7 @@ import com.google.protobuf.Empty;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
+import org.signal.chat.messages.SendMessageType;
 import org.signal.chat.messages.MultiRecipientMismatchedDevices;
 import org.signal.chat.messages.MultiRecipientSuccess;
 import org.signal.chat.messages.SendMessageResponse;
@@ -182,6 +183,9 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
         .collect(Collectors.toMap(
             entry -> DeviceIdUtil.validate(entry.getKey()),
             entry -> {
+              if (entry.getValue().getType() != SendMessageType.UNIDENTIFIED_SENDER) {
+                throw GrpcExceptions.invalidArguments("sealed sender messages must have a type of UNIDENTIFIED_SENDER");
+              }
               final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder()
                   .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
                   .setClientTimestamp(messages.getTimestamp())

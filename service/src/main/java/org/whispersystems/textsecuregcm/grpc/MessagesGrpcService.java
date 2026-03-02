@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import com.google.protobuf.Empty;
 import org.signal.chat.errors.NotFound;
-import org.signal.chat.messages.AuthenticatedSenderMessageType;
+import org.signal.chat.messages.SendMessageType;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
 import org.signal.chat.messages.SendAuthenticatedSenderMessageRequest;
 import org.signal.chat.messages.SendMessageAuthenticatedSenderResponse;
@@ -94,7 +94,6 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
     return sendMessage(destination,
         destinationServiceIdentifier,
         authenticatedDevice,
-        request.getType(),
         MessageType.INDIVIDUAL_IDENTIFIED_SENDER,
         request.getMessages(),
         request.getEphemeral(),
@@ -113,7 +112,6 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
     return sendMessage(sender,
         senderServiceIdentifier,
         authenticatedDevice,
-        request.getType(),
         MessageType.SYNC,
         request.getMessages(),
         false,
@@ -123,7 +121,6 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
   private SendMessageAuthenticatedSenderResponse sendMessage(final Account destination,
       final ServiceIdentifier destinationServiceIdentifier,
       final AuthenticatedDevice sender,
-      final AuthenticatedSenderMessageType envelopeType,
       final MessageType messageType,
       final IndividualRecipientMessageBundle messages,
       final boolean ephemeral,
@@ -158,7 +155,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
             entry -> DeviceIdUtil.validate(entry.getKey()),
             entry -> {
               final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder()
-                  .setType(getEnvelopeType(envelopeType))
+                  .setType(getEnvelopeType(entry.getValue().getType()))
                   .setClientTimestamp(messages.getTimestamp())
                   .setServerTimestamp(clock.millis())
                   .setDestinationServiceId(destinationServiceIdentifier.toServiceIdentifierString())
@@ -198,11 +195,13 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
     }
   }
 
-  private static MessageProtos.Envelope.Type getEnvelopeType(final AuthenticatedSenderMessageType type) {
+  private static MessageProtos.Envelope.Type getEnvelopeType(final SendMessageType type) {
     return switch (type) {
       case DOUBLE_RATCHET -> MessageProtos.Envelope.Type.CIPHERTEXT;
       case PREKEY_MESSAGE -> MessageProtos.Envelope.Type.PREKEY_BUNDLE;
       case PLAINTEXT_CONTENT -> MessageProtos.Envelope.Type.PLAINTEXT_CONTENT;
+      case UNIDENTIFIED_SENDER ->
+          throw GrpcExceptions.invalidArguments("illegal envelope type for identified sends");
       case UNSPECIFIED, UNRECOGNIZED ->
           throw GrpcExceptions.invalidArguments("unrecognized envelope type");
     };
