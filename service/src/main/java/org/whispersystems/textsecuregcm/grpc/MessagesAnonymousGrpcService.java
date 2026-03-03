@@ -102,6 +102,8 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
       }
       case GROUP_SEND_TOKEN ->
           groupSendTokenUtil.checkGroupSendToken(request.getGroupSendToken(), destinationServiceIdentifier);
+      case UNRESTRICTED_ACCESS ->
+        maybeDestination.map(account -> account.isUnrestrictedUnidentifiedAccess()).orElse(false);
       case AUTHORIZATION_NOT_SET ->
           throw GrpcExceptions.fieldViolation("authorization", "expected authorization token not provided");
     };

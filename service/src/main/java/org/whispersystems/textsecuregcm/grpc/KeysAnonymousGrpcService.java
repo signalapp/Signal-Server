@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.concurrent.Flow;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.NotFound;
+import org.signal.chat.keys.AccountPreKeyBundles;
 import org.signal.chat.keys.CheckIdentityKeyRequest;
 import org.signal.chat.keys.CheckIdentityKeyResponse;
 import org.signal.chat.keys.GetPreKeysAnonymousRequest;
@@ -22,6 +23,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import reactor.adapter.JdkFlowAdapter;
@@ -74,7 +76,15 @@ public class KeysAnonymousGrpcService extends SimpleKeysAnonymousGrpc.KeysAnonym
               .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
               .build());
 
-      default -> throw GrpcExceptions.fieldViolation("authorization", "invalid authorization type");
+      case UNRESTRICTED_ACCESS -> accountsManager.getByServiceIdentifier(serviceIdentifier)
+          .filter(Account::isUnrestrictedUnidentifiedAccess)
+          .flatMap(targetAccount -> KeysGrpcHelper.getPreKeys(targetAccount, serviceIdentifier, deviceId, keysManager))
+          .map(accountPreKeyBundles -> GetPreKeysAnonymousResponse.newBuilder().setPreKeys(accountPreKeyBundles).build())
+          .orElseGet(() -> GetPreKeysAnonymousResponse.newBuilder()
+              .setFailedUnidentifiedAuthorization(FailedUnidentifiedAuthorization.getDefaultInstance())
+              .build());
+
+      case AUTHORIZATION_NOT_SET -> throw GrpcExceptions.fieldViolation("authorization", "invalid authorization type");
     };
   }
 

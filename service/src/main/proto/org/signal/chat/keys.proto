@@ -9,6 +9,8 @@ option java_multiple_files = true;
 
 package org.signal.chat.keys;
 
+import "google/protobuf/empty.proto";
+
 import "org/signal/chat/common.proto";
 import "org/signal/chat/errors.proto";
 
@@ -111,6 +113,9 @@ message GetPreKeysAnonymousRequest {
 
     // A group send endorsement token for the targeted account.
     bytes group_send_token = 3;
+
+    // The destination account allows unrestricted unidentified access
+    google.protobuf.Empty unrestricted_access = 4;
   }
 }
 

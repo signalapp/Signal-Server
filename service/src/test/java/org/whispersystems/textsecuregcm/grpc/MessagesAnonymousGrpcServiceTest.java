@@ -250,6 +250,43 @@ class MessagesAnonymousGrpcServiceTest extends
               generateRequest(serviceIdentifier, false, true, messages, UNIDENTIFIED_ACCESS_KEY, null)));
       verifyNoInteractions(messageSender);
     }
+    
+    @CartesianTest
+    void sendUnrestrictedAccessMessage(
+        @CartesianTest.Values(booleans = {true, false}) final boolean useUak,
+        @CartesianTest.Values(booleans = {true, false}) final boolean isUua)
+        throws MessageTooLargeException, MismatchedDevicesException {
+
+      final byte deviceId = Device.PRIMARY_ID;
+      final int registrationId = 7;
+
+      final Device destinationDevice = DevicesHelper.createDevice(deviceId, CLOCK.millis(), registrationId);
+
+      final Account destinationAccount = mock(Account.class);
+      when(destinationAccount.getDevices()).thenReturn(List.of(destinationDevice));
+      when(destinationAccount.getDevice(deviceId)).thenReturn(Optional.of(destinationDevice));
+
+      when(destinationAccount.isUnrestrictedUnidentifiedAccess()).thenReturn(isUua);
+      when(destinationAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+
+      final AciServiceIdentifier serviceIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+      when(accountsManager.getByServiceIdentifier(serviceIdentifier)).thenReturn(Optional.of(destinationAccount));
+
+      final byte[] payload = TestRandomUtil.nextBytes(128);
+      final Map<Byte, IndividualRecipientMessageBundle.Message> messages =
+          Map.of(deviceId, IndividualRecipientMessageBundle.Message.newBuilder()
+              .setRegistrationId(registrationId)
+              .setPayload(ByteString.copyFrom(payload))
+              .setType(SendMessageType.UNIDENTIFIED_SENDER)
+              .build());
+      final SendSealedSenderMessageRequest request =
+          generateRequest(serviceIdentifier, false, true, messages, useUak ? TestRandomUtil.nextBytes(16) : null, null);
+      final SendMessageResponse response = unauthenticatedServiceStub().sendSingleRecipientMessage(request);
+      final SendMessageResponse.ResponseCase expectedResponse = isUua
+          ? SendMessageResponse.ResponseCase.SUCCESS
+          : SendMessageResponse.ResponseCase.FAILED_UNIDENTIFIED_AUTHORIZATION;
+      assertEquals(expectedResponse, response.getResponseCase());
+    }
 
     @Test
     void mismatchedDevices() throws MessageTooLargeException, MismatchedDevicesException {
@@ -542,6 +579,10 @@ class MessagesAnonymousGrpcServiceTest extends
 
       if (groupSendToken != null) {
         requestBuilder.setGroupSendToken(ByteString.copyFrom(groupSendToken));
+      }
+
+      if (groupSendToken == null && unidentifiedAccessKey == null) {
+        requestBuilder.setUnrestrictedAccess(Empty.getDefaultInstance());
       }
 
       return requestBuilder.build();
