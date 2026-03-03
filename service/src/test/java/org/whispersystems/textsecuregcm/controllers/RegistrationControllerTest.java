@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.http.HttpStatus;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -86,16 +87,19 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class RegistrationControllerTest {
 
   private static final long SESSION_EXPIRATION_SECONDS = Duration.ofMinutes(10).toSeconds();
 
+
   private static final String NUMBER = PhoneNumberUtil.getInstance().format(
       PhoneNumberUtil.getInstance().getExampleNumber("US"),
       PhoneNumberUtil.PhoneNumberFormat.E164);
   private static final String PASSWORD = "password";
+  private static final String REGLOCK = RandomStringUtils.insecure().nextAlphanumeric(64);
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
@@ -973,7 +977,7 @@ class RegistrationControllerTest {
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
 
     final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId,
-        "name".getBytes(StandardCharsets.UTF_8), "reglock",
+        "name".getBytes(StandardCharsets.UTF_8), REGLOCK,
         true, deviceCapabilities);
 
     return new RegistrationRequest(

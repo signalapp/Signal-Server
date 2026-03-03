@@ -40,6 +40,7 @@ public class AccountAttributes {
   private byte[] name;
 
   @JsonProperty
+  @ExactlySize({0, 64})
   private String registrationLock;
 
   @JsonProperty
@@ -61,6 +62,7 @@ public class AccountAttributes {
   @JsonProperty
   @Nullable
   @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
+  @ExactlySize({0, 32})
   private byte[] recoveryPassword = null;
 
   public AccountAttributes() {
