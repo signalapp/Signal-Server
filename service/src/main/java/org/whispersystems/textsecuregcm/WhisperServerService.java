@@ -142,14 +142,20 @@ import org.whispersystems.textsecuregcm.filters.RestDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
+import org.whispersystems.textsecuregcm.grpc.BackupsAnonymousGrpcService;
+import org.whispersystems.textsecuregcm.grpc.BackupsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CallQualitySurveyGrpcService;
+import org.whispersystems.textsecuregcm.grpc.DevicesGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ErrorConformanceInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsGrpcService;
+import org.whispersystems.textsecuregcm.grpc.GroupSendTokenUtil;
 import org.whispersystems.textsecuregcm.grpc.GrpcAllowListInterceptor;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.KeysGrpcService;
+import org.whispersystems.textsecuregcm.grpc.MessagesAnonymousGrpcService;
+import org.whispersystems.textsecuregcm.grpc.MessagesGrpcService;
 import org.whispersystems.textsecuregcm.grpc.MetricServerInterceptor;
 import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
@@ -799,6 +805,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     environment.lifecycle().manage(asnInfoProviderSupplier);
 
+    environment.lifecycle().manage(dnsResolutionEventLoopGroup);
     environment.lifecycle().manage(apnSender);
     environment.lifecycle().manage(pushNotificationScheduler);
     environment.lifecycle().manage(provisioningManager);
@@ -854,6 +861,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         secureValueRecoveryBClient,
         clock,
         dynamicConfigurationManager);
+    final BackupMetrics backupMetrics = new BackupMetrics();
 
     final AppleDeviceChecks appleDeviceChecks = new AppleDeviceChecks(
         dynamoDbClient,
@@ -868,138 +876,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         deviceCheckManager,
         config.getAppleDeviceCheck().teamId(),
         config.getAppleDeviceCheck().bundleId());
-
-    final RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
-    final MetricServerInterceptor metricServerInterceptor = new MetricServerInterceptor(Metrics.globalRegistry, clientReleaseManager);
-
-    final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
-    final ErrorConformanceInterceptor errorConformanceInterceptor = new ErrorConformanceInterceptor();
-    final GrpcAllowListInterceptor grpcAllowListInterceptor = new GrpcAllowListInterceptor(dynamicConfigurationManager);
-    final RequestAttributesInterceptor requestAttributesInterceptor = new RequestAttributesInterceptor();
-
-    final ValidatingInterceptor validatingInterceptor = new ValidatingInterceptor();
-
-    final ExternalRequestFilter grpcExternalRequestFilter = new ExternalRequestFilter(
-        config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
-        config.getExternalRequestFilterConfiguration().grpcMethods());
-    final RequireAuthenticationInterceptor requireAuthenticationInterceptor = new RequireAuthenticationInterceptor(accountAuthenticator);
-    final ProhibitAuthenticationInterceptor prohibitAuthenticationInterceptor = new ProhibitAuthenticationInterceptor();
-
-    final List<ServerServiceDefinition> authenticatedServices = Stream.of(
-        new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager),
-        ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters),
-        new KeysGrpcService(accountsManager, keysManager, rateLimiters))
-        .map(bindableService -> ServerInterceptors.intercept(bindableService,
-            // Note: interceptors run in the reverse order they are added; the remote deprecation filter
-            // depends on the user-agent context so it has to come first here!
-            validatingInterceptor,
-            errorMappingInterceptor,
-            errorConformanceInterceptor,
-            grpcAllowListInterceptor,
-            remoteDeprecationFilter,
-            metricServerInterceptor,
-            requestAttributesInterceptor,
-            requireAuthenticationInterceptor))
-        .toList();
-
-    final List<ServerServiceDefinition> unauthenticatedServices = Stream.of(
-            new AccountsAnonymousGrpcService(accountsManager, rateLimiters),
-            new CallQualitySurveyGrpcService(callQualitySurveyManager, rateLimiters),
-            new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()),
-            new PaymentsGrpcService(currencyManager),
-            ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
-        .map(bindableService -> ServerInterceptors.intercept(bindableService,
-            // Note: interceptors run in the reverse order they are added; the remote deprecation filter
-            // depends on the user-agent context so it has to come first here!
-            grpcExternalRequestFilter,
-            validatingInterceptor,
-            errorMappingInterceptor,
-            errorConformanceInterceptor,
-            grpcAllowListInterceptor,
-            remoteDeprecationFilter,
-            metricServerInterceptor,
-            requestAttributesInterceptor,
-            prohibitAuthenticationInterceptor))
-        .toList();
-
-    final ServerBuilder<?> serverBuilder =
-        NettyServerBuilder.forAddress(new InetSocketAddress(config.getGrpc().bindAddress(), config.getGrpc().port()));
-    authenticatedServices.forEach(serverBuilder::addService);
-    unauthenticatedServices.forEach(serverBuilder::addService);
-    final ManagedGrpcServer exposedGrpcServer = new ManagedGrpcServer(serverBuilder.build());
-
-    environment.lifecycle().manage(dnsResolutionEventLoopGroup);
-    environment.lifecycle().manage(exposedGrpcServer);
-
-    final List<Filter> filters = new ArrayList<>();
-    filters.add(remoteDeprecationFilter);
-    filters.add(new RemoteAddressFilter());
-    filters.add(new TimestampResponseFilter());
-
-    for (Filter filter : filters) {
-      environment.servlets()
-          .addFilter(filter.getClass().getSimpleName(), filter)
-          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
-    }
-
-    if (!config.getExternalRequestFilterConfiguration().paths().isEmpty()) {
-      environment.servlets().addFilter(ExternalRequestFilter.class.getSimpleName(),
-              new ExternalRequestFilter(config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
-                  config.getExternalRequestFilterConfiguration().grpcMethods()))
-          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), true,
-              config.getExternalRequestFilterConfiguration().paths().toArray(new String[]{}));
-    }
-
-    final AuthFilter<BasicCredentials, AuthenticatedDevice> accountAuthFilter =
-        new BasicCredentialAuthFilter.Builder<AuthenticatedDevice>()
-            .setAuthenticator(accountAuthenticator)
-            .buildAuthFilter();
-
-    final String websocketServletPath = "/v1/websocket/";
-    final String provisioningWebsocketServletPath = "/v1/websocket/provisioning/";
-
-    final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(clientReleaseManager,
-        Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
-    metricsHttpChannelListener.configure(environment);
-    final MessageMetrics messageMetrics = new MessageMetrics();
-    final BackupMetrics backupMetrics = new BackupMetrics();
-
-    // BufferingInterceptor is needed on the base environment but not the WebSocketEnvironment,
-    // because we handle serialization of http responses on the websocket on our own and can
-    // compute content lengths without it
-    environment.jersey().register(new BufferingInterceptor());
-    environment.jersey().register(new RestDeprecationFilter(dynamicConfigurationManager, experimentEnrollmentManager));
-
-    environment.jersey().register(new VirtualExecutorServiceProvider(
-        "managed-async-virtual-thread",
-        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor()));
-    environment.jersey().register(new RateLimitByIpFilter(rateLimiters));
-    environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
-    environment.jersey().register(MultiRecipientMessageProvider.class);
-    environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
-    environment.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class));
-    environment.jersey().register(new TimestampResponseFilter());
-
-    ///
-    WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment = new WebSocketEnvironment<>(environment,
-        config.getWebSocketConfiguration(), Duration.ofMillis(90000));
-    webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider(
-        "managed-async-websocket-virtual-thread",
-        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor()));
-    webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
-    webSocketEnvironment.setAuthenticatedWebSocketUpgradeFilter(new IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter(
-        config.idlePrimaryDeviceReminderConfiguration().minIdleDuration(), Clock.systemUTC()));
-    webSocketEnvironment.setConnectListener(
-        new AuthenticatedConnectListener(accountsManager, receiptSender, messagesManager, messageMetrics, pushNotificationManager,
-            pushNotificationScheduler, disconnectionRequestManager,
-            messageDeliveryScheduler, clientReleaseManager, messageDeliveryLoopMonitor, experimentEnrollmentManager
-        ));
-    webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));
-    webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
-    webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
-    webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
-    webSocketEnvironment.jersey().register(new KeepAliveController(redisMessageAvailabilityManager));
-    webSocketEnvironment.jersey().register(new TimestampResponseFilter());
 
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
         .stream()
@@ -1069,6 +945,141 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       environment.lifecycle().manage(filter);
       log.info("Registered spam filter: {}", filter.getClass().getName());
     });
+
+    final RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
+    final MetricServerInterceptor metricServerInterceptor = new MetricServerInterceptor(Metrics.globalRegistry, clientReleaseManager);
+
+    final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
+    final ErrorConformanceInterceptor errorConformanceInterceptor = new ErrorConformanceInterceptor();
+    final GrpcAllowListInterceptor grpcAllowListInterceptor = new GrpcAllowListInterceptor(dynamicConfigurationManager);
+    final RequestAttributesInterceptor requestAttributesInterceptor = new RequestAttributesInterceptor();
+
+    final ValidatingInterceptor validatingInterceptor = new ValidatingInterceptor();
+
+    final ExternalRequestFilter grpcExternalRequestFilter = new ExternalRequestFilter(
+        config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
+        config.getExternalRequestFilterConfiguration().grpcMethods());
+    final RequireAuthenticationInterceptor requireAuthenticationInterceptor = new RequireAuthenticationInterceptor(accountAuthenticator);
+    final ProhibitAuthenticationInterceptor prohibitAuthenticationInterceptor = new ProhibitAuthenticationInterceptor();
+    final GroupSendTokenUtil groupSendTokenUtil = new GroupSendTokenUtil(zkSecretParams, Clock.systemUTC());
+
+    final List<ServerServiceDefinition> authenticatedServices = Stream.of(
+            new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager),
+            ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters),
+            new KeysGrpcService(accountsManager, keysManager, rateLimiters),
+            new MessagesGrpcService(accountsManager, rateLimiters, messageSender, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
+            new BackupsGrpcService(accountsManager, backupAuthManager, backupMetrics),
+            new DevicesGrpcService(accountsManager))
+        .map(bindableService -> ServerInterceptors.intercept(bindableService,
+            // Note: interceptors run in the reverse order they are added; the remote deprecation filter
+            // depends on the user-agent context so it has to come first here!
+            validatingInterceptor,
+            errorMappingInterceptor,
+            errorConformanceInterceptor,
+            grpcAllowListInterceptor,
+            remoteDeprecationFilter,
+            metricServerInterceptor,
+            requestAttributesInterceptor,
+            requireAuthenticationInterceptor))
+        .toList();
+    final List<ServerServiceDefinition> unauthenticatedServices = Stream.of(
+            new AccountsAnonymousGrpcService(accountsManager, rateLimiters),
+            new CallQualitySurveyGrpcService(callQualitySurveyManager, rateLimiters),
+            new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()),
+            new PaymentsGrpcService(currencyManager),
+            new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
+            new BackupsAnonymousGrpcService(backupManager, backupMetrics),
+            ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
+        .map(bindableService -> ServerInterceptors.intercept(bindableService,
+            // Note: interceptors run in the reverse order they are added; the remote deprecation filter
+            // depends on the user-agent context so it has to come first here!
+            grpcExternalRequestFilter,
+            validatingInterceptor,
+            errorMappingInterceptor,
+            errorConformanceInterceptor,
+            grpcAllowListInterceptor,
+            remoteDeprecationFilter,
+            metricServerInterceptor,
+            requestAttributesInterceptor,
+            prohibitAuthenticationInterceptor))
+        .toList();
+
+    final ServerBuilder<?> serverBuilder =
+        NettyServerBuilder.forAddress(new InetSocketAddress(config.getGrpc().bindAddress(), config.getGrpc().port()));
+    authenticatedServices.forEach(serverBuilder::addService);
+    unauthenticatedServices.forEach(serverBuilder::addService);
+    final ManagedGrpcServer exposedGrpcServer = new ManagedGrpcServer(serverBuilder.build());
+
+    environment.lifecycle().manage(exposedGrpcServer);
+
+    final List<Filter> filters = new ArrayList<>();
+    filters.add(remoteDeprecationFilter);
+    filters.add(new RemoteAddressFilter());
+    filters.add(new TimestampResponseFilter());
+
+    for (Filter filter : filters) {
+      environment.servlets()
+          .addFilter(filter.getClass().getSimpleName(), filter)
+          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
+    }
+
+    if (!config.getExternalRequestFilterConfiguration().paths().isEmpty()) {
+      environment.servlets().addFilter(ExternalRequestFilter.class.getSimpleName(),
+              new ExternalRequestFilter(config.getExternalRequestFilterConfiguration().permittedInternalRanges(),
+                  config.getExternalRequestFilterConfiguration().grpcMethods()))
+          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), true,
+              config.getExternalRequestFilterConfiguration().paths().toArray(new String[]{}));
+    }
+
+    final AuthFilter<BasicCredentials, AuthenticatedDevice> accountAuthFilter =
+        new BasicCredentialAuthFilter.Builder<AuthenticatedDevice>()
+            .setAuthenticator(accountAuthenticator)
+            .buildAuthFilter();
+
+    final String websocketServletPath = "/v1/websocket/";
+    final String provisioningWebsocketServletPath = "/v1/websocket/provisioning/";
+
+    final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(clientReleaseManager,
+        Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
+    metricsHttpChannelListener.configure(environment);
+    final MessageMetrics messageMetrics = new MessageMetrics();
+
+    // BufferingInterceptor is needed on the base environment but not the WebSocketEnvironment,
+    // because we handle serialization of http responses on the websocket on our own and can
+    // compute content lengths without it
+    environment.jersey().register(new BufferingInterceptor());
+    environment.jersey().register(new RestDeprecationFilter(dynamicConfigurationManager, experimentEnrollmentManager));
+
+    environment.jersey().register(new VirtualExecutorServiceProvider(
+        "managed-async-virtual-thread",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor()));
+    environment.jersey().register(new RateLimitByIpFilter(rateLimiters));
+    environment.jersey().register(new RequestStatisticsFilter(TrafficSource.HTTP));
+    environment.jersey().register(MultiRecipientMessageProvider.class);
+    environment.jersey().register(new AuthDynamicFeature(accountAuthFilter));
+    environment.jersey().register(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class));
+    environment.jersey().register(new TimestampResponseFilter());
+
+    ///
+    WebSocketEnvironment<AuthenticatedDevice> webSocketEnvironment = new WebSocketEnvironment<>(environment,
+        config.getWebSocketConfiguration(), Duration.ofMillis(90000));
+    webSocketEnvironment.jersey().register(new VirtualExecutorServiceProvider(
+        "managed-async-websocket-virtual-thread",
+        config.getVirtualThreadConfiguration().maxConcurrentThreadsPerExecutor()));
+    webSocketEnvironment.setAuthenticator(new WebSocketAccountAuthenticator(accountAuthenticator));
+    webSocketEnvironment.setAuthenticatedWebSocketUpgradeFilter(new IdlePrimaryDeviceAuthenticatedWebSocketUpgradeFilter(
+        config.idlePrimaryDeviceReminderConfiguration().minIdleDuration(), Clock.systemUTC()));
+    webSocketEnvironment.setConnectListener(
+        new AuthenticatedConnectListener(accountsManager, receiptSender, messagesManager, messageMetrics, pushNotificationManager,
+            pushNotificationScheduler, disconnectionRequestManager,
+            messageDeliveryScheduler, clientReleaseManager, messageDeliveryLoopMonitor, experimentEnrollmentManager
+        ));
+    webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));
+    webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
+    webSocketEnvironment.jersey().register(MultiRecipientMessageProvider.class);
+    webSocketEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
+    webSocketEnvironment.jersey().register(new KeepAliveController(redisMessageAvailabilityManager));
+    webSocketEnvironment.jersey().register(new TimestampResponseFilter());
 
     final PersistentTimer persistentTimer = new PersistentTimer(rateLimitersCluster, clock);
 
