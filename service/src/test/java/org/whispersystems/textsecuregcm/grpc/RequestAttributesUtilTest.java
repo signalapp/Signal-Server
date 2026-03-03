@@ -22,22 +22,22 @@ class RequestAttributesUtilTest {
   @Test
   void getAcceptableLanguages() throws Exception {
     assertEquals(Collections.emptyList(),
-        callWithRequestAttributes(buildRequestAttributes(Collections.emptyList()),
+        callWithRequestAttributes(buildRequestAttributes(null, null),
             RequestAttributesUtil::getAcceptableLanguages));
 
     assertEquals(Locale.LanguageRange.parse("en,ja"),
-        callWithRequestAttributes(buildRequestAttributes(Locale.LanguageRange.parse("en,ja")),
+        callWithRequestAttributes(buildRequestAttributes(null, "en,ja"),
             RequestAttributesUtil::getAcceptableLanguages));
   }
 
   @Test
   void getAvailableAcceptedLocales() throws Exception {
     assertEquals(Collections.emptyList(),
-        callWithRequestAttributes(buildRequestAttributes(Collections.emptyList()),
+        callWithRequestAttributes(buildRequestAttributes(null, null),
             RequestAttributesUtil::getAvailableAcceptedLocales));
 
     final List<Locale> availableAcceptedLocales =
-        callWithRequestAttributes(buildRequestAttributes(Locale.LanguageRange.parse("en,ja")),
+        callWithRequestAttributes(buildRequestAttributes(null, "en,ja"),
             RequestAttributesUtil::getAvailableAcceptedLocales);
 
     assertFalse(availableAcceptedLocales.isEmpty());
@@ -56,11 +56,11 @@ class RequestAttributesUtilTest {
   @Test
   void getUserAgent() throws Exception {
     assertEquals(Optional.empty(),
-        callWithRequestAttributes(buildRequestAttributes((String) null),
+        callWithRequestAttributes(buildRequestAttributes(null, null),
             RequestAttributesUtil::getUserAgent));
 
     assertEquals(Optional.of("Signal-Desktop/1.2.3 Linux"),
-        callWithRequestAttributes(buildRequestAttributes("Signal-Desktop/1.2.3 Linux"),
+        callWithRequestAttributes(buildRequestAttributes("Signal-Desktop/1.2.3 Linux", null),
             RequestAttributesUtil::getUserAgent));
   }
 
@@ -70,16 +70,8 @@ class RequestAttributesUtilTest {
         .call(callable);
   }
 
-  private static RequestAttributes buildRequestAttributes(final String userAgent) {
-    return buildRequestAttributes(userAgent, Collections.emptyList());
-  }
-
-  private static RequestAttributes buildRequestAttributes(final List<Locale.LanguageRange> acceptLanguage) {
-    return buildRequestAttributes(null, acceptLanguage);
-  }
-
   private static RequestAttributes buildRequestAttributes(@Nullable final String userAgent,
-      final List<Locale.LanguageRange> acceptLanguage) {
+      @Nullable final String acceptLanguage) {
 
     return new RequestAttributes(REMOTE_ADDRESS, userAgent, acceptLanguage);
   }

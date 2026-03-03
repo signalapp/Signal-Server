@@ -173,7 +173,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     getMockRequestAttributesInterceptor().setRequestAttributes(new RequestAttributes(InetAddresses.forString("127.0.0.1"),
         "Signal-Android/1.2.3",
-        Locale.LanguageRange.parse("en-us")));
+        "en-us"));
 
     when(rateLimiters.getProfileLimiter()).thenReturn(rateLimiter);
 

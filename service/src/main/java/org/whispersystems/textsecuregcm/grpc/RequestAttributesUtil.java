@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import io.grpc.Context;
+import javax.annotation.Nullable;
 import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.List;
@@ -20,6 +21,15 @@ public class RequestAttributesUtil {
    */
   public static List<Locale.LanguageRange> getAcceptableLanguages() {
     return REQUEST_ATTRIBUTES_CONTEXT_KEY.get().acceptLanguage();
+  }
+
+  /**
+   * Returns the raw "Accept-Language" header string from the remote client in the current gRPC request context
+   *
+   * @return the raw "Accept-Language" header listed by the remote client; may be null if not specified
+   */
+  public static @Nullable String getAcceptLanguageRaw() {
+    return REQUEST_ATTRIBUTES_CONTEXT_KEY.get().acceptLanguageRaw();
   }
 
   /**

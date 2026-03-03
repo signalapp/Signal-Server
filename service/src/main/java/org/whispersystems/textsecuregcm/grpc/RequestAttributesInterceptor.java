@@ -70,17 +70,8 @@ public class RequestAttributesInterceptor implements ServerInterceptor {
       return ServerInterceptorUtil.closeWithStatus(call, Status.UNAVAILABLE);
     }
 
-    @Nullable List<Locale.LanguageRange> acceptLanguages = Collections.emptyList();
-    if (StringUtils.isNotBlank(acceptLanguageHeader)) {
-      try {
-        acceptLanguages = Locale.LanguageRange.parse(acceptLanguageHeader);
-      } catch (final IllegalArgumentException e) {
-        log.debug("Invalid Accept-Language header from User-Agent {}: {}", userAgentHeader, acceptLanguageHeader, e);
-      }
-    }
-
     final RequestAttributes requestAttributes =
-        new RequestAttributes(remoteAddress.get(), userAgentHeader, acceptLanguages);
+        new RequestAttributes(remoteAddress.get(), userAgentHeader, acceptLanguageHeader);
     return Contexts.interceptCall(
         Context.current().withValue(RequestAttributesUtil.REQUEST_ATTRIBUTES_CONTEXT_KEY, requestAttributes),
         call, headers, next);

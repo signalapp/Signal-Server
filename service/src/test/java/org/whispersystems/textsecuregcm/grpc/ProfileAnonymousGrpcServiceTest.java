@@ -96,7 +96,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   protected ProfileAnonymousGrpcService createServiceBeforeEachTest() {
     getMockRequestAttributesInterceptor().setRequestAttributes(new RequestAttributes(InetAddresses.forString("127.0.0.1"),
         "Signal-Android/1.2.3",
-        Locale.LanguageRange.parse("en-us")));
+        "en-us"));
 
     return new ProfileAnonymousGrpcService(
         accountsManager,
