@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.google.protobuf.ByteString;
@@ -404,6 +405,22 @@ public class ValidatingInterceptorTest {
     final RecursiveMessage recursiveMessage = curr.build();
     assertStatusException(Status.INVALID_ARGUMENT, () ->
         stub.validationsEndpoint(builderWithValidDefaults().setRecursiveMessage(recursiveMessage).build()));
+  }
+
+  @Test
+  public void oneOfValidation() throws Exception {
+
+    // These should pass even if we don't meet the requirements on the one-of case that we're not setting
+    assertDoesNotThrow(() ->
+        stub.validationsEndpoint(builderWithValidDefaults()
+            .setOneOfNonEmptyBytes(ByteString.copyFrom(new byte[1]))
+            .build()));
+    assertDoesNotThrow(() ->
+        stub.validationsEndpoint(builderWithValidDefaults()
+            .setOneOfMessage(ValidationsRequest.RequirePresentMessage.getDefaultInstance())
+            .build()));
+
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(ValidationsRequest.newBuilder().setOneOfNonEmptyBytes(ByteString.EMPTY).build()));
   }
 
   @Nonnull

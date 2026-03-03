@@ -72,6 +72,11 @@ message ValidationsRequest {
   map<string, NestedMessage> mapNested = 29;
 
   RecursiveMessage recursiveMessage = 30;
+
+  oneof oneOf {
+    RequirePresentMessage oneOfMessage = 31 [(require.present) = true];
+    bytes oneOfNonEmptyBytes = 32 [(require.nonEmpty) = true];
+  }
 }
 
 message NestedMessage {

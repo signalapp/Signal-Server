@@ -94,6 +94,12 @@ public class ValidatingInterceptor implements ServerInterceptor {
           final Descriptors.FieldDescriptor extensionFieldDescriptor = entry.getKey();
           final String extensionName = extensionFieldDescriptor.getFullName();
 
+          // If this is a oneof, but this field isn't set, we shouldn't validate it. We assume if you have a validator
+          // that requires presence, you don't actually want presence enforcement on a oneof case.
+          if (fd.getRealContainingOneof() != null && !msg.hasField(fd)) {
+            continue;
+          }
+
           // first validate the field
           final FieldValidator validator = fieldValidators.get(extensionName);
           // not all extensions are validators, so `validator` value here could legitimately be `null`

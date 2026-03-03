@@ -14,8 +14,9 @@ import "google/protobuf/descriptor.proto";
 extend google.protobuf.FieldOptions {
   /*
    * Requires a field to have content of non-zero size/length.
-   * Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
-   * it's considered to be empty.
+   * Applies to both `optional` and regular fields, i.e. if the field is not set
+   * or has a default value, it's considered to be empty. This does not apply
+   * to fields that are contained in a `oneof`.
    *
    * ```
    * import "org/signal/chat/require.proto";
@@ -57,8 +58,10 @@ extend google.protobuf.FieldOptions {
 
   /*
    * Requires a size/length of a field to be within certain boundaries.
-   * Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
-   * its size considered to be zero.
+   * Applies to both `optional` and regular fields, i.e. if the field is not set
+   * or has a default value, its size considered to be zero. However, if the
+   * field is contained in a `oneof` and is not set, this annotation does not
+   * apply.
    *
    * ```
    * import "org/signal/chat/require.proto";
@@ -76,9 +79,11 @@ extend google.protobuf.FieldOptions {
   optional SizeConstraint size = 70003;
 
   /*
-   * Requires a size/length of a field to be one of the specified values.
-   * Applies to both `optional` and regular fields, i.e. if the field is not set or has a default value,
-   * its size considered to be zero.
+   * Requires a size/length of a field to be within certain boundaries.
+   * Applies to both `optional` and regular fields, i.e. if the field is not set
+   * or has a default value, its size considered to be zero. However, if the
+   * field is contained in a `oneof` and is not set, this annotation does not
+   * apply.
    *
    * ```
    * import "org/signal/chat/require.proto";
@@ -130,7 +135,8 @@ extend google.protobuf.FieldOptions {
    * Require a value of a message field to be present.
    *
    * Applies to both `optional` and regular fields (both of which have explicit
-   * presence for the message type anyways)
+   * presence for the message type anyways). This does not apply to fields that
+   * are contained in a `oneof`.
    *
    * ```
    * import "org/signal/chat/require.proto";
