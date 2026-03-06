@@ -26,6 +26,7 @@ import org.signal.libsignal.protocol.util.KeyHelper;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 
 public class TestUser {
 
@@ -128,7 +129,8 @@ public class TestUser {
   }
 
   public AccountAttributes accountAttributes() {
-    return new AccountAttributes(true, registrationId, pniRegistrationId, "".getBytes(StandardCharsets.UTF_8), "", true, Set.of())
+    return new AccountAttributes(true, registrationId, pniRegistrationId, "".getBytes(StandardCharsets.UTF_8), "", true,
+        DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION)
         .withUnidentifiedAccessKey(unidentifiedAccessKey)
         .withRecoveryPassword(registrationPassword);
   }

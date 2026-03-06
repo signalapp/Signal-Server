@@ -6,8 +6,9 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public enum DeviceCapability {
   STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false, false),
@@ -35,10 +36,10 @@ public enum DeviceCapability {
     ALWAYS_CAPABLE,
   }
 
-  public static final Collection<DeviceCapability> CAPABILITIES_REQUIRED_FOR_REGISTRATION =
+  public static final Set<DeviceCapability> CAPABILITIES_REQUIRED_FOR_REGISTRATION =
       Arrays.stream(DeviceCapability.values())
           .filter(DeviceCapability::requireForRegistration)
-          .toList();
+          .collect(Collectors.toSet());
 
   private final String name;
   private final AccountCapabilityMode accountCapabilityMode;

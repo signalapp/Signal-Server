@@ -91,8 +91,6 @@ import org.whispersystems.textsecuregcm.util.SystemMapper;
 class RegistrationControllerTest {
 
   private static final long SESSION_EXPIRATION_SECONDS = Duration.ofMinutes(10).toSeconds();
-  private static final Set<DeviceCapability> SPQR_DEVICE_CAPABILITIES =
-      Set.of(DeviceCapability.SPARSE_POST_QUANTUM_RATCHET);
 
   private static final String NUMBER = PhoneNumberUtil.getInstance().format(
       PhoneNumberUtil.getInstance().getExampleNumber("US"),
@@ -541,11 +539,11 @@ class RegistrationControllerTest {
 
     final AccountAttributes fetchesMessagesAccountAttributes =
         new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
-            SPQR_DEVICE_CAPABILITIES);
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION);
 
     final AccountAttributes pushAccountAttributes =
         new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
-            SPQR_DEVICE_CAPABILITIES);
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION);
 
     return List.of(
         Arguments.argumentSet("\"Fetches messages\" is true, but an APNs token is provided",
@@ -632,7 +630,7 @@ class RegistrationControllerTest {
 
     final AccountAttributes accountAttributes =
         new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
-            SPQR_DEVICE_CAPABILITIES);
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION);
 
     return List.of(
         Arguments.argumentSet("Signed PNI EC pre-key is missing",
@@ -857,7 +855,7 @@ class RegistrationControllerTest {
     final int registrationId = 1;
     final int pniRegistrationId = 2;
 
-    final Set<DeviceCapability> deviceCapabilities = SPQR_DEVICE_CAPABILITIES;
+    final Set<DeviceCapability> deviceCapabilities = DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION;
 
     final AccountAttributes fetchesMessagesAccountAttributes =
         new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities);
@@ -1010,7 +1008,7 @@ class RegistrationControllerTest {
       final boolean skipDeviceTransfer,
       final int registrationId,
       final int pniRegistrationId) {
-      return requestToJson(request(sessionId, recoveryPassword, skipDeviceTransfer, registrationId, pniRegistrationId, SPQR_DEVICE_CAPABILITIES));
+      return requestToJson(request(sessionId, recoveryPassword, skipDeviceTransfer, registrationId, pniRegistrationId, DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION));
   }
 
   /**
