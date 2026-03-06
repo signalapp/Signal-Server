@@ -13,7 +13,7 @@ public enum DeviceCapability {
   STORAGE("storage", AccountCapabilityMode.ANY_DEVICE, false, false, false),
   TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false, false),
   ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true, false),
-  SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, false, true, true);
+  SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, true, true, true);
 
   public enum AccountCapabilityMode {
     /**
