@@ -3032,6 +3032,8 @@ paths:
               description: "If present, an positive integer indicating the number\
                 \ of seconds before a subsequent attempt could succeed"
               style: simple
+        "499":
+          description: Client must support post-quantum ratchet
   /v2/config:
     get:
       tags:
