@@ -87,7 +87,6 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
-import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class RegistrationControllerTest {
@@ -543,11 +542,11 @@ class RegistrationControllerTest {
 
     final AccountAttributes fetchesMessagesAccountAttributes =
         new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
-            DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION);
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
 
     final AccountAttributes pushAccountAttributes =
         new AccountAttributes(false, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
-            DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION);
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
 
     return List.of(
         Arguments.argumentSet("\"Fetches messages\" is true, but an APNs token is provided",
@@ -634,7 +633,7 @@ class RegistrationControllerTest {
 
     final AccountAttributes accountAttributes =
         new AccountAttributes(true, 1, 1, "test".getBytes(StandardCharsets.UTF_8), null, true,
-            DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION);
+            DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
 
     return List.of(
         Arguments.argumentSet("Signed PNI EC pre-key is missing",
@@ -859,7 +858,7 @@ class RegistrationControllerTest {
     final int registrationId = 1;
     final int pniRegistrationId = 2;
 
-    final Set<DeviceCapability> deviceCapabilities = DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION;
+    final Set<DeviceCapability> deviceCapabilities = DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES;
 
     final AccountAttributes fetchesMessagesAccountAttributes =
         new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities);
@@ -1012,7 +1011,7 @@ class RegistrationControllerTest {
       final boolean skipDeviceTransfer,
       final int registrationId,
       final int pniRegistrationId) {
-      return requestToJson(request(sessionId, recoveryPassword, skipDeviceTransfer, registrationId, pniRegistrationId, DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION));
+      return requestToJson(request(sessionId, recoveryPassword, skipDeviceTransfer, registrationId, pniRegistrationId, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES));
   }
 
   /**

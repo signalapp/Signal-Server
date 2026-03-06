@@ -36,42 +36,41 @@ public enum DeviceCapability {
     ALWAYS_CAPABLE,
   }
 
-  public static final Set<DeviceCapability> CAPABILITIES_REQUIRED_FOR_REGISTRATION =
+  public static final Set<DeviceCapability> CAPABILITIES_REQUIRED_FOR_NEW_DEVICES =
       Arrays.stream(DeviceCapability.values())
-          .filter(DeviceCapability::requireForRegistration)
+          .filter(DeviceCapability::requireForNewDevices)
           .collect(Collectors.toSet());
 
   private final String name;
   private final AccountCapabilityMode accountCapabilityMode;
   private final boolean preventDowngrade;
   private final boolean includeInProfile;
-  private final boolean requireForRegistration;
+  private final boolean requireForNewDevices;
 
   /**
    * Create a DeviceCapability
    *
-   * @param name                   The name of the device capability that clients will see
-   * @param accountCapabilityMode  How to combine the constituent device's capabilities in the account to an overall
-   *                               account capability
-   * @param preventDowngrade       If true, don't let linked devices join that don't have a device capability if the
-   *                               overall account has the capability. Most of the time this should only be used in
-   *                               conjunction with AccountCapabilityMode.ALL_DEVICES.
-   * @param includeInProfile       Whether to return this capability on the account's profile. If false, the capability
-   *                               is only visible to the server.
-   * @param requireForRegistration If true, prevent account creation if the account's initial device does not have this
-   *                               capability
+   * @param name                  The name of the device capability that clients will see
+   * @param accountCapabilityMode How to combine the constituent device's capabilities in the account to an overall
+   *                              account capability
+   * @param preventDowngrade      If true, don't let linked devices join that don't have a device capability if the
+   *                              overall account has the capability. Most of the time this should only be used in
+   *                              conjunction with AccountCapabilityMode.ALL_DEVICES.
+   * @param includeInProfile      Whether to return this capability on the account's profile. If false, the capability
+   *                              is only visible to the server.
+   * @param requireForNewDevices  If true, prevent device creation if the new device does not have this capability
    */
   DeviceCapability(final String name,
       final AccountCapabilityMode accountCapabilityMode,
       final boolean preventDowngrade,
       final boolean includeInProfile,
-      final boolean requireForRegistration) {
+      final boolean requireForNewDevices) {
 
     this.name = name;
     this.accountCapabilityMode = accountCapabilityMode;
     this.preventDowngrade = preventDowngrade;
     this.includeInProfile = includeInProfile;
-    this.requireForRegistration = requireForRegistration;
+    this.requireForNewDevices = requireForNewDevices;
   }
 
   public String getName() {
@@ -90,8 +89,8 @@ public enum DeviceCapability {
     return includeInProfile;
   }
 
-  public boolean requireForRegistration() {
-    return requireForRegistration;
+  public boolean requireForNewDevices() {
+    return requireForNewDevices;
   }
 
   public static Optional<DeviceCapability> forName(final String name) {

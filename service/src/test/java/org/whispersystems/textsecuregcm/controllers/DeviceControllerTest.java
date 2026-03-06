@@ -32,6 +32,7 @@ import jakarta.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -40,6 +41,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -255,7 +257,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final AccountAttributes accountAttributes = new AccountAttributes(fetchesMessages, 1234, 5678, null,
-        null, true, Set.of());
+        null, true, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         accountAttributes,
@@ -296,7 +298,7 @@ class DeviceControllerTest {
   }
 
   @CartesianTest
-  void deviceDowngrade(@CartesianTest.Enum final DeviceCapability capability,
+  void deviceDowngrade(@CartesianTest.Enum(mode = CartesianTest.Enum.Mode.EXCLUDE, names = "SPARSE_POST_QUANTUM_RATCHET") final DeviceCapability capability,
       @CartesianTest.Values(booleans = {true, false}) final boolean accountHasCapability,
       @CartesianTest.Values(booleans = {true, false}) final boolean requestHasCapability)
       throws LinkDeviceTokenAlreadyUsedException {
@@ -351,6 +353,55 @@ class DeviceControllerTest {
         .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
 
       assertEquals(expectedStatus, response.getStatus());
+    }
+  }
+
+  @Test
+  void missingRequiredCapability() throws LinkDeviceTokenAlreadyUsedException {
+
+    when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
+    when(accountsManager.addDevice(any(), any(), any()))
+        .thenReturn(new Pair<>(mock(Account.class), mock(Device.class)));
+
+    final Device primaryDevice = mock(Device.class);
+    when(primaryDevice.getId()).thenReturn(Device.PRIMARY_ID);
+    when(account.getDevices()).thenReturn(List.of(primaryDevice));
+
+    final ECSignedPreKey aciSignedPreKey;
+    final ECSignedPreKey pniSignedPreKey;
+    final KEMSignedPreKey aciPqLastResortPreKey;
+    final KEMSignedPreKey pniPqLastResortPreKey;
+
+    final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+
+    aciSignedPreKey = KeysHelper.signedECPreKey(1, aciIdentityKeyPair);
+    pniSignedPreKey = KeysHelper.signedECPreKey(2, pniIdentityKeyPair);
+    aciPqLastResortPreKey = KeysHelper.signedKEMPreKey(3, aciIdentityKeyPair);
+    pniPqLastResortPreKey = KeysHelper.signedKEMPreKey(4, pniIdentityKeyPair);
+
+    when(account.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(aciIdentityKeyPair.getPublicKey()));
+    when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
+
+    when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
+
+    when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
+
+    final Set<DeviceCapability> requestCapabilities = Arrays.stream(DeviceCapability.values())
+        .filter(capability -> !capability.requireForNewDevices())
+        .collect(Collectors.toSet());
+
+    final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
+        new AccountAttributes(false, 1234, 5678, null, null, true, requestCapabilities),
+        new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/devices/link")
+        .request()
+        .header("Authorization", AuthHelper.getProvisioningAuthHeader(AuthHelper.VALID_NUMBER, "password1"))
+        .put(Entity.entity(request, MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertEquals(409, response.getStatus());
     }
   }
 
@@ -422,7 +473,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final AccountAttributes accountAttributes = new AccountAttributes(true, 1234, 5678, null,
-        null, true, Set.of());
+        null, true, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
         accountAttributes,
@@ -760,7 +811,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, Set.of()),
+        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.of(new ApnRegistrationId("apn")), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()

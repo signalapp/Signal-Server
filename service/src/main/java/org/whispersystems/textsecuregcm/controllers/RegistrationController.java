@@ -118,7 +118,7 @@ public class RegistrationController {
 
     if (!(registrationRequest.accountAttributes().getCapabilities() != null
         ? registrationRequest.accountAttributes().getCapabilities()
-        : Collections.<DeviceCapability>emptySet()).containsAll(DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION)) {
+        : Collections.<DeviceCapability>emptySet()).containsAll(DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES)) {
 
       throw new WebApplicationException("Missing required device capability", 499);
     }

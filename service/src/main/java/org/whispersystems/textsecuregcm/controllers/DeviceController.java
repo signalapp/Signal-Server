@@ -408,6 +408,10 @@ public class DeviceController {
   }
 
   private static boolean isCapabilityDowngrade(final Account account, final Set<DeviceCapability> capabilities) {
+    if (!capabilities.containsAll(DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES)) {
+      return true;
+    }
+
     final Set<DeviceCapability> requiredCapabilities = Arrays.stream(DeviceCapability.values())
         // `ALWAYS_CAPABLE` capabilities are always assumed to be present, so we don't require callers to specify them
         .filter(capability -> capability.getAccountCapabilityMode() != DeviceCapability.AccountCapabilityMode.ALWAYS_CAPABLE)

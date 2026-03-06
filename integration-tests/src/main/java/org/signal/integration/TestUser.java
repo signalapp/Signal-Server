@@ -14,7 +14,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -130,7 +129,7 @@ public class TestUser {
 
   public AccountAttributes accountAttributes() {
     return new AccountAttributes(true, registrationId, pniRegistrationId, "".getBytes(StandardCharsets.UTF_8), "", true,
-        DeviceCapability.CAPABILITIES_REQUIRED_FOR_REGISTRATION)
+        DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES)
         .withUnidentifiedAccessKey(unidentifiedAccessKey)
         .withRecoveryPassword(registrationPassword);
   }
