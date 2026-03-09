@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -55,6 +56,7 @@ class AuthenticatedConnectListenerTest {
 
     authenticatedConnectListener = new AuthenticatedConnectListener(accountsManager,
         disconnectionRequestManager,
+        () -> mock(AsnInfoProvider.class),
         mock(ClientReleaseManager.class),
         (_, _, _) -> authenticatedWebSocketConnection);
 

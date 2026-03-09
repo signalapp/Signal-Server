@@ -37,6 +37,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
@@ -109,7 +110,7 @@ public class ProvisioningTimeoutIntegrationTest {
           .addFilter("RemoteAddressFilter", new RemoteAddressFilter())
           .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
       webSocketEnvironment.setConnectListener(
-          new ProvisioningConnectListener(mock(ProvisioningManager.class), mock(ClientReleaseManager.class), scheduler, Duration.ofSeconds(5)));
+          new ProvisioningConnectListener(mock(ProvisioningManager.class), () -> mock(AsnInfoProvider.class), mock(ClientReleaseManager.class), scheduler, Duration.ofSeconds(5)));
 
       final WebSocketResourceProviderFactory<AuthenticatedDevice> webSocketServlet =
           new WebSocketResourceProviderFactory<>(webSocketEnvironment, AuthenticatedDevice.class,

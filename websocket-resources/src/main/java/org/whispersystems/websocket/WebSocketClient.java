@@ -5,6 +5,7 @@
 package org.whispersystems.websocket;
 
 import com.google.common.net.HttpHeaders;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -104,5 +105,9 @@ public class WebSocketClient {
 
   private long generateRequestId() {
     return Math.abs(SECURE_RANDOM.nextLong());
+  }
+
+  public SocketAddress getRemoteAddress() {
+    return session.getRemoteAddress();
   }
 }

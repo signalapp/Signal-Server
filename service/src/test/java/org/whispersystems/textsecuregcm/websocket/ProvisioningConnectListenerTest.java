@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.ProvisioningManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -40,7 +41,7 @@ class ProvisioningConnectListenerTest {
     provisioningManager = mock(ProvisioningManager.class);
     scheduledExecutorService = mock(ScheduledExecutorService.class);
     provisioningConnectListener =
-        new ProvisioningConnectListener(provisioningManager, mock(ClientReleaseManager.class), scheduledExecutorService, TIMEOUT);
+        new ProvisioningConnectListener(provisioningManager, () -> mock(AsnInfoProvider.class), mock(ClientReleaseManager.class), scheduledExecutorService, TIMEOUT);
   }
 
   @Test

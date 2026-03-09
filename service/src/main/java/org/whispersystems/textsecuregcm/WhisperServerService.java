@@ -1072,7 +1072,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.setConnectListener(
         new AuthenticatedConnectListener(accountsManager, receiptSender, messagesManager, messageMetrics, pushNotificationManager,
             pushNotificationScheduler, disconnectionRequestManager,
-            messageDeliveryScheduler, clientReleaseManager, messageDeliveryLoopMonitor, experimentEnrollmentManager
+            messageDeliveryScheduler, asnInfoProviderSupplier, clientReleaseManager, messageDeliveryLoopMonitor, experimentEnrollmentManager
         ));
     webSocketEnvironment.jersey().register(new RateLimitByIpFilter(rateLimiters));
     webSocketEnvironment.jersey().register(new RequestStatisticsFilter(TrafficSource.WEBSOCKET));
@@ -1150,7 +1150,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     WebSocketEnvironment<AuthenticatedDevice> provisioningEnvironment = new WebSocketEnvironment<>(environment,
         webSocketEnvironment.getRequestLog(), Duration.ofMillis(60000));
-    provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager, clientReleaseManager, provisioningWebsocketTimeoutExecutor, Duration.ofSeconds(90)));
+    provisioningEnvironment.setConnectListener(new ProvisioningConnectListener(provisioningManager, asnInfoProviderSupplier, clientReleaseManager, provisioningWebsocketTimeoutExecutor, Duration.ofSeconds(90)));
     provisioningEnvironment.jersey().register(new MetricsApplicationEventListener(TrafficSource.WEBSOCKET, clientReleaseManager));
     provisioningEnvironment.jersey().register(new KeepAliveController(redisMessageAvailabilityManager));
     provisioningEnvironment.jersey().register(new TimestampResponseFilter());

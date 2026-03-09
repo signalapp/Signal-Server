@@ -14,6 +14,8 @@ import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.controllers.ProvisioningController;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -48,13 +50,14 @@ public class ProvisioningConnectListener implements WebSocketConnectListener {
   private final Duration timeout;
 
   public ProvisioningConnectListener(final ProvisioningManager provisioningManager,
+      final Supplier<AsnInfoProvider> asnInfoProviderSupplier,
       final ClientReleaseManager clientReleaseManager,
       final ScheduledExecutorService timeoutExecutor,
       final Duration timeout) {
     this.provisioningManager = provisioningManager;
     this.timeoutExecutor = timeoutExecutor;
     this.timeout = timeout;
-    this.openWebSocketCounter = new OpenWebSocketCounter("provisioning", clientReleaseManager);
+    this.openWebSocketCounter = new OpenWebSocketCounter("provisioning", asnInfoProviderSupplier, clientReleaseManager);
   }
 
   @Override

@@ -7,8 +7,10 @@ package org.whispersystems.textsecuregcm.websocket;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
@@ -55,12 +57,14 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final PushNotificationScheduler pushNotificationScheduler,
       final DisconnectionRequestManager disconnectionRequestManager,
       final Scheduler messageDeliveryScheduler,
+      final Supplier<AsnInfoProvider> asnInfoProviderSupplier,
       final ClientReleaseManager clientReleaseManager,
       final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
       final ExperimentEnrollmentManager experimentEnrollmentManager) {
 
     this(accountsManager,
         disconnectionRequestManager,
+        asnInfoProviderSupplier,
         clientReleaseManager,
         (account, device, client) -> new WebSocketConnection(receiptSender,
             messagesManager,
@@ -80,6 +84,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   @VisibleForTesting AuthenticatedConnectListener(
       final AccountsManager accountsManager,
       final DisconnectionRequestManager disconnectionRequestManager,
+      final Supplier<AsnInfoProvider> asnInfoProviderSupplier,
       final ClientReleaseManager clientReleaseManager,
       final WebSocketConnectionBuilder webSocketConnectionBuilder) {
 
@@ -87,8 +92,8 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.webSocketConnectionBuilder = webSocketConnectionBuilder;
 
-    this.openAuthenticatedWebSocketCounter = new OpenWebSocketCounter("rpc-authenticated", clientReleaseManager);
-    this.openUnauthenticatedWebSocketCounter = new OpenWebSocketCounter("rpc-unauthenticated", clientReleaseManager);
+    this.openAuthenticatedWebSocketCounter = new OpenWebSocketCounter("rpc-authenticated", asnInfoProviderSupplier, clientReleaseManager);
+    this.openUnauthenticatedWebSocketCounter = new OpenWebSocketCounter("rpc-unauthenticated", asnInfoProviderSupplier, clientReleaseManager);
   }
 
   @Override
