@@ -361,7 +361,7 @@ message ChallengeRequired {
 
   // An opaque token identifying this challenge request. Clients must generally
   // submit this token when submitting a challenge response.
-  bytes token = 1;
+  string token = 1;
 
   // A list of challenge types callers may choose to complete to resolve the
   // challenge requirement. May be empty, in which case callers cannot resolve
