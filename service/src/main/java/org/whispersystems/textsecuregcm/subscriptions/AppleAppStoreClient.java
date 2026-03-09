@@ -130,12 +130,13 @@ public class AppleAppStoreClient {
         try {
           return getAllSubscriptionsHelper(defaultEnvironment, originalTransactionId);
         } catch (final APIException e) {
-          Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, errorTags.and("reason", e.getApiError().name())).increment();
+          final APIError apiError = e.getApiError();
+          Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, errorTags.and("reason", apiError != null ? apiError.name() : "http_" + e.getHttpStatusCode())).increment();
           throw switch (e.getApiError()) {
             case TRANSACTION_ID_NOT_FOUND, ORIGINAL_TRANSACTION_ID_NOT_FOUND -> new SubscriptionNotFoundException();
             case RATE_LIMIT_EXCEEDED -> new RateLimitExceededException(null);
             case INVALID_ORIGINAL_TRANSACTION_ID -> new SubscriptionInvalidArgumentsException(e.getApiErrorMessage());
-            default -> throw e;
+            case null, default -> throw e;
           };
         } catch (final IOException e) {
           Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, "reason", "io_error").increment();
