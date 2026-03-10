@@ -9,19 +9,24 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.LongTaskTimer;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +37,11 @@ import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuples;
 import reactor.util.retry.Retry;
+import reactor.util.retry.RetryBackoffSpec;
 import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
 
 public class MessagePersister implements Managed {
@@ -41,31 +50,41 @@ public class MessagePersister implements Managed {
   private final MessagesManager messagesManager;
   private final AccountsManager accountsManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final Scheduler persistQueueScheduler;
+  private final Clock clock;
 
   private final Duration persistDelay;
+  private final int maxConcurrency;
 
-  private final Thread[] workerThreads;
+  private final RetryBackoffSpec retryBackoffSpec;
+
+  private final String persisterId = UUID.randomUUID().toString();
+
   private volatile boolean running;
+
+  @Nullable
+  private Thread workerThread;
+
+  private static final String INSPECTED_QUEUE_COUNTER_NAME = name(MessagePersister.class, "inspectedQueue");
 
   private static final String OVERSIZED_QUEUE_COUNTER_NAME = name(MessagePersister.class, "persistQueueOversized");
   private static final String PERSISTED_MESSAGE_COUNTER_NAME = name(MessagePersister.class, "persistMessage");
   private static final String PERSISTED_BYTES_COUNTER_NAME = name(MessagePersister.class, "persistBytes");
 
-  private static final Timer GET_QUEUES_TIMER = Metrics.timer(name(MessagePersister.class, "getQueues"));
   private static final Timer PERSIST_QUEUE_TIMER = Metrics.timer(name(MessagePersister.class, "persistQueue"));
-  private static final Counter PERSIST_QUEUE_EXCEPTION_METER =
-      Metrics.counter(name(MessagePersister.class, "persistQueueException"));
   private static final Counter TRIMMED_MESSAGE_COUNTER = Metrics.counter(name(MessagePersister.class, "trimmedMessage"));
   private static final Counter TRIMMED_MESSAGE_BYTES_COUNTER = Metrics.counter(name(MessagePersister.class, "trimmedMessageBytes"));
+
+  private static final LongTaskTimer PERSIST_NODE_TIMER = Metrics.more().longTaskTimer(name(MessagePersister.class, "persistNode"));
 
   private static final String QUEUE_SIZE_DISTRIBUTION_SUMMARY_NAME = name(MessagePersister.class, "queueSize");
 
   static final int QUEUE_BATCH_LIMIT = 100;
   static final int MESSAGE_BATCH_LIMIT = 100;
 
-  private static final DistributionSummary QUEUE_COUNT_DISTRIBUTION_SUMMARY = DistributionSummary.builder(
-          name(MessagePersister.class, "queueCount"))
-      .register(Metrics.globalRegistry);
+  private static final DistributionSummary QUEUE_COUNT_DISTRIBUTION_SUMMARY =
+      DistributionSummary.builder(name(MessagePersister.class, "queueCount"))
+          .register(Metrics.globalRegistry);
 
   private static final long EXCEPTION_PAUSE_MILLIS = Duration.ofSeconds(3).toMillis();
 
@@ -77,117 +96,172 @@ public class MessagePersister implements Managed {
       final MessagesManager messagesManager,
       final AccountsManager accountsManager,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final Scheduler persistQueueScheduler,
+      final Clock clock,
       final Duration persistDelay,
-      final int dedicatedProcessWorkerThreadCount) {
+      final int maxConcurrency) {
+
+    this(messagesCache,
+        messagesManager,
+        accountsManager,
+        dynamicConfigurationManager,
+        persistQueueScheduler,
+        clock,
+        persistDelay,
+        maxConcurrency,
+        Retry.backoff(3, Duration.ofSeconds(1)));
+  }
+
+  @VisibleForTesting
+  MessagePersister(final MessagesCache messagesCache,
+      final MessagesManager messagesManager,
+      final AccountsManager accountsManager,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final Scheduler persistQueueScheduler,
+      final Clock clock,
+      final Duration persistDelay,
+      final int maxConcurrency,
+      final RetryBackoffSpec retryBackoffSpec) {
 
     this.messagesCache = messagesCache;
     this.messagesManager = messagesManager;
     this.accountsManager = accountsManager;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.clock = clock;
     this.persistDelay = persistDelay;
-    this.workerThreads = new Thread[dedicatedProcessWorkerThreadCount];
-
-    for (int i = 0; i < workerThreads.length; i++) {
-      workerThreads[i] = new Thread(() -> {
-        while (running) {
-          if (dynamicConfigurationManager.getConfiguration().getMessagePersisterConfiguration()
-              .isPersistenceEnabled()) {
-            try {
-              final int queuesPersisted = persistNextQueues(Instant.now());
-              QUEUE_COUNT_DISTRIBUTION_SUMMARY.record(queuesPersisted);
-
-              if (queuesPersisted == 0) {
-                Util.sleep(100);
-              }
-            } catch (final Throwable t) {
-              logger.warn("Failed to persist queues", t);
-              Util.sleep(EXCEPTION_PAUSE_MILLIS);
-            }
-          } else {
-            Util.sleep(1000);
-          }
-        }
-      }, "MessagePersisterWorker-" + i);
-    }
-  }
-
-  @VisibleForTesting
-  Duration getPersistDelay() {
-    return persistDelay;
+    this.maxConcurrency = maxConcurrency;
+    this.retryBackoffSpec = retryBackoffSpec;
+    this.persistQueueScheduler = persistQueueScheduler;
   }
 
   @Override
-  public void start() {
+  public synchronized void start() {
     running = true;
 
-    for (final Thread workerThread : workerThreads) {
-      workerThread.start();
-    }
+    workerThread = new Thread(() -> {
+      while (running) {
+        if (dynamicConfigurationManager.getConfiguration().getMessagePersisterConfiguration().isPersistenceEnabled()) {
+          try {
+            final int queuesPersisted = persistNextNode();
+            QUEUE_COUNT_DISTRIBUTION_SUMMARY.record(queuesPersisted);
+
+            if (queuesPersisted == 0) {
+              Util.sleep(100);
+            }
+          } catch (final Throwable t) {
+            logger.warn("Failed to persist queues", t);
+            Util.sleep(EXCEPTION_PAUSE_MILLIS);
+          }
+        } else {
+          Util.sleep(1000);
+        }
+      }
+    }, "MessagePersister");
+
+    workerThread.start();
   }
 
   @Override
-  public void stop() {
+  public synchronized void stop() {
     running = false;
 
-    for (final Thread workerThread : workerThreads) {
+    if (workerThread != null) {
       try {
         workerThread.join();
       } catch (final InterruptedException e) {
         logger.warn("Interrupted while waiting for worker thread to complete current operation");
       }
+
+      workerThread = null;
     }
   }
 
   @VisibleForTesting
-  int persistNextQueues(final Instant currentTime) {
-    final int slot = messagesCache.getNextSlotToPersist();
-    final String shard = messagesCache.shardForSlot(slot);
+  int persistNextNode() {
+    final RedisClusterNode node;
+    {
+      final Duration nodeClaimTtl =
+          dynamicConfigurationManager.getConfiguration().getMessagePersisterConfiguration().getNodeClaimTtl();
 
-    List<String> queuesToPersist;
-    int queuesPersisted = 0;
+      final Optional<RedisClusterNode> maybeNode = messagesCache.claimNextNodeToPersist(persisterId, nodeClaimTtl);
 
-    do {
-      queuesToPersist = GET_QUEUES_TIMER.record(
-          () -> messagesCache.getQueuesToPersist(slot, currentTime.minus(persistDelay), QUEUE_BATCH_LIMIT));
-
-      for (final String queue : queuesToPersist) {
-        final UUID accountUuid = MessagesCache.getAccountUuidFromQueueName(queue);
-        final byte deviceId = MessagesCache.getDeviceIdFromQueueName(queue);
-
-        final Optional<Account> maybeAccount = accountsManager.getByAccountIdentifier(accountUuid);
-        if (maybeAccount.isEmpty()) {
-          logger.error("No account record found for account {}", accountUuid);
-          continue;
-        }
-        final Optional<Device> maybeDevice = maybeAccount.flatMap(account -> account.getDevice(deviceId));
-        if (maybeDevice.isEmpty()) {
-          logger.error("Account {} does not have a device with id {}", accountUuid, deviceId);
-          continue;
-        }
-        try {
-          persistQueue(maybeAccount.get(), maybeDevice.get(), shard);
-        } catch (final Exception e) {
-          PERSIST_QUEUE_EXCEPTION_METER.increment();
-          logger.warn("Failed to persist queue {}::{} (slot {}, shard {}); will schedule for retry",
-              accountUuid, deviceId, slot, shard, e);
-
-          messagesCache.addQueueToPersist(accountUuid, deviceId);
-
-          if (!(e instanceof MessagePersistenceException)) {
-            // Pause after unexpected exceptions
-            Util.sleep(EXCEPTION_PAUSE_MILLIS);
-          }
-        }
+      if (maybeNode.isEmpty()) {
+        return 0;
       }
 
-      queuesPersisted += queuesToPersist.size();
-    } while (queuesToPersist.size() >= QUEUE_BATCH_LIMIT);
+      node = maybeNode.get();
+    }
 
-    return queuesPersisted;
+    try {
+      return persistNode(node);
+    } finally {
+      messagesCache.releaseNodeClaim(node, persisterId);
+    }
+  }
+
+  int persistNode(final RedisClusterNode node) {
+    final LongTaskTimer.Sample sample = PERSIST_NODE_TIMER.start();
+
+    try {
+      final Tags tags = Tags.of("node", node.getUri().getHost());
+
+      return messagesCache.getQueues(node)
+          .filter(_ -> dynamicConfigurationManager.getConfiguration().getMessagePersisterConfiguration()
+              .isPersistenceEnabled())
+          .flatMap(queueKey -> Mono.defer(() -> shouldPersistQueue(queueKey))
+              .retryWhen(retryBackoffSpec)
+              .onErrorResume(e -> {
+                logger.warn("Failed to determine whether queue {} should be persisted", queueKey, e);
+                return Mono.empty();
+              })
+              .mapNotNull(shouldPersist -> shouldPersist ? queueKey : null)
+              .doOnTerminate(() -> Metrics.counter(INSPECTED_QUEUE_COUNTER_NAME, tags).increment()), maxConcurrency)
+          .distinct()
+          .flatMap(queueKey -> {
+            final UUID accountIdentifier = MessagesCache.getAccountUuidFromQueueName(queueKey);
+            final byte deviceId = MessagesCache.getDeviceIdFromQueueName(queueKey);
+
+            return Mono.fromFuture(() -> accountsManager.getByAccountIdentifierAsync(accountIdentifier))
+                .map(maybeAccount -> maybeAccount
+                    .flatMap(account -> account.getDevice(deviceId))
+                    .map(device -> Tuples.of(maybeAccount.get(), device)))
+                .flatMap(Mono::justOrEmpty)
+                .retryWhen(retryBackoffSpec)
+                .onErrorResume(e -> {
+                  logger.warn("Failed to fetch account/device for queue: {}", queueKey, e);
+                  return Mono.empty();
+                });
+          }, maxConcurrency)
+          .flatMap(accountAndDevice -> {
+            final Account account = accountAndDevice.getT1();
+            final Device device = accountAndDevice.getT2();
+
+            return Mono.fromCallable(() -> {
+                  persistQueue(account, device, tags);
+                  return 1;
+                })
+                .subscribeOn(persistQueueScheduler)
+                .retryWhen(retryBackoffSpec
+                    // Don't retry with backoff for persistence exceptions
+                    .filter(e -> !(e instanceof MessagePersistenceException)))
+                .onErrorResume(e -> {
+                  logger.warn("Failed to persist queue {}::{} ({}); will schedule for retry",
+                      account.getIdentifier(IdentityType.ACI), device.getId(), node.getUri().getHost(), e);
+
+                  return Mono.empty();
+                });
+          }, maxConcurrency)
+          .count()
+          .blockOptional()
+          .map(Math::toIntExact)
+          .orElse(0);
+    } finally {
+      sample.stop();
+    }
   }
 
   @VisibleForTesting
-  void persistQueue(final Account account, final Device device, final String shard) throws MessagePersistenceException {
+  void persistQueue(final Account account, final Device device, final Tags baseTags) throws MessagePersistenceException {
     final UUID accountUuid = account.getUuid();
     final byte deviceId = device.getId();
 
@@ -211,7 +285,7 @@ public class MessagePersister implements Managed {
         final int urgentMessageCount = (int) messages.stream().filter(MessageProtos.Envelope::getUrgent).count();
         final int nonUrgentMessageCount = messages.size() - urgentMessageCount;
 
-        final Tags tags = Tags.of(platformTag, Tag.of("shard", shard));
+        final Tags tags = baseTags.and(platformTag);
 
         Metrics.counter(PERSISTED_MESSAGE_COUNTER_NAME, tags.and("urgent", "true")).increment(urgentMessageCount);
         Metrics.counter(PERSISTED_MESSAGE_COUNTER_NAME, tags.and("urgent", "false")).increment(nonUrgentMessageCount);
@@ -237,7 +311,7 @@ public class MessagePersister implements Managed {
           .tags(Tags.of(platformTag))
           .register(Metrics.globalRegistry)
           .record(messageCount);
-    } catch (ItemCollectionSizeLimitExceededException e) {
+    } catch (final ItemCollectionSizeLimitExceededException e) {
       final boolean isPrimary = deviceId == Device.PRIMARY_ID;
       Metrics.counter(OVERSIZED_QUEUE_COUNTER_NAME, "primary", String.valueOf(isPrimary)).increment();
       // may throw, in which case we'll retry later by the usual mechanism
@@ -297,7 +371,7 @@ public class MessagePersister implements Managed {
           return Mono
               .fromCompletionStage(() -> messagesManager
                   .delete(aci, device, UUID.fromString(envelope.getServerGuid()), envelope.getServerTimestamp()))
-              .retryWhen(Retry.backoff(5, Duration.ofSeconds(1)))
+              .retryWhen(retryBackoffSpec)
               .map(Optional::isPresent);
         })
         .reduce(Pair.of(0L, 0L), (acc, deleted) -> deleted
@@ -312,5 +386,20 @@ public class MessagePersister implements Managed {
         Instant.ofEpochMilli(oldestMessage.get()), Instant.ofEpochMilli(newestMessage.get()),
         targetDeleteBytes, cachedMessageBytes,
         outcomes.getLeft(), outcomes.getRight());
+  }
+
+  @VisibleForTesting
+  Mono<Boolean> shouldPersistQueue(final String queueKey) {
+    return messagesCache.getEarliestUndeliveredTimestamp(
+            MessagesCache.getAccountUuidFromQueueName(queueKey),
+            MessagesCache.getDeviceIdFromQueueName(queueKey))
+        .map(oldestMessageTimestamp ->
+            Duration.between(Instant.ofEpochMilli(oldestMessageTimestamp), clock.instant()).compareTo(persistDelay) > 0)
+        .switchIfEmpty(Mono.just(false));
+  }
+
+  @VisibleForTesting
+  String getPersisterId() {
+    return persisterId;
   }
 }

@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -53,6 +54,7 @@ class MessagePersisterIntegrationTest {
   static final RedisClusterExtension REDIS_CLUSTER_EXTENSION = RedisClusterExtension.builder().build();
 
   private Scheduler messageDeliveryScheduler;
+  private Scheduler persistQueueScheduler;
   private ExecutorService messageDeletionExecutorService;
   private ExecutorService websocketConnectionEventExecutor;
   private ExecutorService asyncOperationQueueingExecutor;
@@ -77,6 +79,7 @@ class MessagePersisterIntegrationTest {
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
 
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
+    persistQueueScheduler = Schedulers.newBoundedElastic(10, 10_000, "persistQueue");
     messageDeletionExecutorService = Executors.newSingleThreadExecutor();
     experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
     final MessagesDynamoDb messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
@@ -97,8 +100,14 @@ class MessagePersisterIntegrationTest {
 
     redisMessageAvailabilityManager.start();
 
-    messagePersister = new MessagePersister(messagesCache, messagesManager, accountsManager,
-        dynamicConfigurationManager, PERSIST_DELAY, 1);
+    messagePersister = new MessagePersister(messagesCache,
+        messagesManager,
+        accountsManager,
+        dynamicConfigurationManager,
+        persistQueueScheduler,
+        Clock.systemUTC(),
+        PERSIST_DELAY,
+        1);
 
     account = mock(Account.class);
 
@@ -107,6 +116,7 @@ class MessagePersisterIntegrationTest {
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(accountUuid);
     when(accountsManager.getByAccountIdentifier(accountUuid)).thenReturn(Optional.of(account));
+    when(accountsManager.getByAccountIdentifierAsync(accountUuid)).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(DevicesHelper.createDevice(Device.PRIMARY_ID)));
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
@@ -125,6 +135,7 @@ class MessagePersisterIntegrationTest {
     asyncOperationQueueingExecutor.awaitTermination(15, TimeUnit.SECONDS);
 
     messageDeliveryScheduler.dispose();
+    persistQueueScheduler.dispose();
 
     redisMessageAvailabilityManager.stop();
   }

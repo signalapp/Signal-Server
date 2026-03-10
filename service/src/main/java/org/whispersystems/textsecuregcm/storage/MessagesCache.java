@@ -13,9 +13,12 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.github.resilience4j.reactor.retry.RetryOperator;
 import io.lettuce.core.Limit;
 import io.lettuce.core.Range;
+import io.lettuce.core.ScanArgs;
+import io.lettuce.core.ScanStream;
 import io.lettuce.core.ScoredValue;
-import io.lettuce.core.ZAddArgs;
+import io.lettuce.core.SetArgs;
 import io.lettuce.core.cluster.SlotHash;
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -25,7 +28,6 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,6 +40,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.reactivestreams.Publisher;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.signal.libsignal.protocol.ServiceId;
@@ -48,9 +51,9 @@ import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
+import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -127,15 +130,16 @@ public class MessagesCache {
   private final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript;
   private final MessagesCacheRemoveByGuidScript removeByGuidScript;
   private final MessagesCacheGetItemsScript getItemsScript;
+  private final MessagesCacheReleaseNodeClaimScript releaseNodeClaimScript;
   private final MessagesCacheRemoveQueueScript removeQueueScript;
-  private final MessagesCacheGetQueuesToPersistScript getQueuesToPersistScript;
   private final MessagesCacheRemoveRecipientViewFromMrmDataScript removeRecipientViewFromMrmDataScript;
   private final MessagesCacheUnlockQueueScript unlockQueueScript;
+
+  private int nextNodeRotateDistance = 0;
 
   private final Timer insertTimer = Metrics.timer(name(MessagesCache.class, "insert"));
   private final Timer insertSharedMrmPayloadTimer = Metrics.timer(name(MessagesCache.class, "insertSharedMrmPayload"));
   private final Timer getMessagesTimer = Metrics.timer(name(MessagesCache.class, "get"));
-  private final Timer getQueuesToPersistTimer = Metrics.timer(name(MessagesCache.class, "getQueuesToPersist"));
   private final Timer removeByGuidTimer = Metrics.timer(name(MessagesCache.class, "removeByGuid"));
   private final Timer removeRecipientViewTimer = Metrics.timer(name(MessagesCache.class, "removeRecipientView"));
   private final Timer clearQueueTimer = Metrics.timer(name(MessagesCache.class, "clear"));
@@ -187,9 +191,9 @@ public class MessagesCache {
         new MessagesCacheInsertScript(redisCluster, retryExecutor),
         new MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript(redisCluster, retryExecutor),
         new MessagesCacheGetItemsScript(redisCluster),
+        new MessagesCacheReleaseNodeClaimScript(redisCluster),
         new MessagesCacheRemoveByGuidScript(redisCluster, retryExecutor),
         new MessagesCacheRemoveQueueScript(redisCluster),
-        new MessagesCacheGetQueuesToPersistScript(redisCluster),
         new MessagesCacheRemoveRecipientViewFromMrmDataScript(redisCluster),
         new MessagesCacheUnlockQueueScript(redisCluster)
     );
@@ -202,9 +206,10 @@ public class MessagesCache {
                 final ExperimentEnrollmentManager experimentEnrollmentManager,
                 final MessagesCacheInsertScript insertScript,
                 final MessagesCacheInsertSharedMultiRecipientPayloadAndViewsScript insertMrmScript,
-                final MessagesCacheGetItemsScript getItemsScript, final MessagesCacheRemoveByGuidScript removeByGuidScript,
+                final MessagesCacheGetItemsScript getItemsScript,
+                final MessagesCacheReleaseNodeClaimScript releaseNodeClaimScript,
+                final MessagesCacheRemoveByGuidScript removeByGuidScript,
                 final MessagesCacheRemoveQueueScript removeQueueScript,
-                final MessagesCacheGetQueuesToPersistScript getQueuesToPersistScript,
                 final MessagesCacheRemoveRecipientViewFromMrmDataScript removeRecipientViewFromMrmDataScript,
                 final MessagesCacheUnlockQueueScript unlockQueueScript) throws IOException {
 
@@ -220,8 +225,8 @@ public class MessagesCache {
     this.insertMrmScript = insertMrmScript;
     this.removeByGuidScript = removeByGuidScript;
     this.getItemsScript = getItemsScript;
+    this.releaseNodeClaimScript = releaseNodeClaimScript;
     this.removeQueueScript = removeQueueScript;
-    this.getQueuesToPersistScript = getQueuesToPersistScript;
     this.removeRecipientViewFromMrmDataScript = removeRecipientViewFromMrmDataScript;
     this.unlockQueueScript = unlockQueueScript;
   }
@@ -680,28 +685,37 @@ public class MessagesCache {
         .thenRun(() -> sample.stop(clearQueueTimer));
   }
 
-  public String shardForSlot(int slot) {
-    try {
-      return redisCluster.withBinaryCluster(
-          connection -> connection.getPartitions().getPartitionBySlot(slot).getUri().getHost());
-    } catch (final Throwable _) {
-      return "unknown";
-    }
+  Optional<RedisClusterNode> claimNextNodeToPersist(final String persisterId, final Duration ttl) {
+    final List<RedisClusterNode> primaryNodes =  redisCluster.withCluster(connection -> connection.getPartitions().stream()
+        .filter(node -> node.is(RedisClusterNode.NodeFlag.UPSTREAM))
+        .collect(Collectors.toCollection(ArrayList::new)));
+
+    Collections.rotate(primaryNodes, Math.abs(nextNodeRotateDistance++) % primaryNodes.size());
+
+    return primaryNodes.stream()
+        .filter(node -> claimNode(node, persisterId, ttl))
+        .findFirst();
   }
 
-  int getNextSlotToPersist() {
-    return (int) (redisCluster.withCluster(connection -> connection.sync().incr(NEXT_SLOT_TO_PERSIST_KEY))
-        % SlotHash.SLOT_COUNT);
+  @VisibleForTesting
+  boolean claimNode(final RedisClusterNode node, final String persisterId, final Duration claimTtl) {
+    return redisCluster.withCluster(connection ->
+        "OK".equals(connection.sync().set(getPersisterNodeClaimKey(node), persisterId, SetArgs.Builder.nx().ex(claimTtl))));
   }
 
-  List<String> getQueuesToPersist(final int slot, final Instant maxTime, final int limit) {
-    return getQueuesToPersistTimer.record(() -> getQueuesToPersistScript.execute(slot, maxTime, limit));
+  void releaseNodeClaim(final RedisClusterNode node, final String persisterId) {
+    releaseNodeClaimScript.execute(node, persisterId);
   }
 
-  void addQueueToPersist(final UUID accountUuid, final byte deviceId) {
-    redisCluster.useBinaryCluster(connection -> connection.sync()
-        .zadd(getQueueIndexKey(accountUuid, deviceId), ZAddArgs.Builder.nx(), System.currentTimeMillis(),
-            getMessageQueueKey(accountUuid, deviceId)));
+  @VisibleForTesting
+  static String getPersisterNodeClaimKey(final RedisClusterNode node) {
+    return "persister_node_claim::" + node.getNodeId();
+  }
+
+  Flux<String> getQueues(final RedisClusterNode node) {
+    return redisCluster.withCluster(connection ->
+        ScanStream.scan(connection.getConnection(node.getNodeId()).reactive(),
+            ScanArgs.Builder.matches("user_queue::*")));
   }
 
   void lockQueueForPersistence(final UUID accountUuid, final byte deviceId) {

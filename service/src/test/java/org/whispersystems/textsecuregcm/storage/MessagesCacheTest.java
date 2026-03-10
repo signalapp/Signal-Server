@@ -24,9 +24,9 @@ import static org.mockito.Mockito.when;
 import com.google.protobuf.ByteString;
 import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisFuture;
-import io.lettuce.core.cluster.SlotHash;
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.reactive.RedisAdvancedClusterReactiveCommands;
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.protocol.AsyncCommand;
 import io.lettuce.core.protocol.RedisCommand;
 import java.io.ByteArrayOutputStream;
@@ -42,10 +42,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -98,8 +100,9 @@ class MessagesCacheTest {
     private MessagesCache messagesCache;
 
     private static final UUID DESTINATION_UUID = UUID.randomUUID();
-
     private static final byte DESTINATION_DEVICE_ID = 7;
+
+    private static final Duration NODE_CLAIM_TTL = Duration.ofHours(1);
 
     @BeforeEach
     void setUp() throws Exception {
@@ -390,22 +393,74 @@ class MessagesCacheTest {
                   StandardCharsets.UTF_8)));
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testGetQueuesToPersist(final boolean sealedSender) {
-      final UUID messageGuid = UUID.randomUUID();
+    @Test
+    void claimNextNodeToPersist() {
+      final int partitionCount =
+          REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection -> connection.getPartitions().size());
 
-      messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID,
-          generateRandomMessage(messageGuid, sealedSender)).join();
-      final int slot = SlotHash.getSlot(DESTINATION_UUID + "::" + DESTINATION_DEVICE_ID);
+      final String persisterId = UUID.randomUUID().toString();
 
-      assertTrue(messagesCache.getQueuesToPersist(slot + 1, Instant.now().plusSeconds(60), 100).isEmpty());
+      for (int i = 0; i < partitionCount; i++) {
+        assertTrue(messagesCache.claimNextNodeToPersist(persisterId, NODE_CLAIM_TTL).isPresent());
+      }
 
-      final List<String> queues = messagesCache.getQueuesToPersist(slot, Instant.now().plusSeconds(60), 100);
+      assertTrue(messagesCache.claimNextNodeToPersist(persisterId, NODE_CLAIM_TTL).isEmpty(),
+          "Should not be able to claim a node when all nodes are already claimed");
+    }
 
-      assertEquals(1, queues.size());
-      assertEquals(DESTINATION_UUID, MessagesCache.getAccountUuidFromQueueName(queues.getFirst()));
-      assertEquals(DESTINATION_DEVICE_ID, MessagesCache.getDeviceIdFromQueueName(queues.getFirst()));
+    @Test
+    void claimNextNodeToPersistRotation() {
+      final int partitionCount =
+          REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection -> connection.getPartitions().size());
+
+      final String persisterId = UUID.randomUUID().toString();
+
+      final Set<RedisClusterNode> claimedNodes = new HashSet<>();
+
+      for (int i = 0; i < partitionCount; i++) {
+        final Optional<RedisClusterNode> maybeNode = messagesCache.claimNextNodeToPersist(persisterId, NODE_CLAIM_TTL);
+        assertTrue(maybeNode.isPresent());
+
+        claimedNodes.add(maybeNode.get());
+        messagesCache.releaseNodeClaim(maybeNode.get(), persisterId);
+      }
+
+      assertEquals(partitionCount, claimedNodes.size(),
+          "Persisters should cycle through all available partitions when claims are uncontested");
+    }
+
+    @Test
+    void claimNode() {
+      final RedisClusterNode node =
+          REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection ->
+              connection.getPartitions().stream().findFirst().orElseThrow());
+
+      final String persisterId = UUID.randomUUID().toString();
+
+      assertTrue(messagesCache.claimNode(node, persisterId, NODE_CLAIM_TTL));
+      assertFalse(messagesCache.claimNode(node, persisterId, NODE_CLAIM_TTL), "Should not be able to claim a node twice");
+
+      messagesCache.releaseNodeClaim(node, persisterId);
+      assertTrue(messagesCache.claimNode(node, persisterId, NODE_CLAIM_TTL), "Should be able to claim node after releasing claim");
+    }
+
+    @Test
+    void releaseNodeClaim() {
+      final RedisClusterNode node =
+          REDIS_CLUSTER_EXTENSION.getRedisCluster().withCluster(connection ->
+              connection.getPartitions().stream().findFirst().orElseThrow());
+
+      final String persisterId = UUID.randomUUID().toString();
+      final String competingPersisterId = UUID.randomUUID().toString();
+
+      messagesCache.claimNode(node, competingPersisterId, NODE_CLAIM_TTL);
+
+      assertFalse(messagesCache.claimNode(node, persisterId, NODE_CLAIM_TTL),
+          "Should not be able to claim a node claimed by another persister");
+
+      messagesCache.releaseNodeClaim(node, persisterId);
+      assertFalse(messagesCache.claimNode(node, persisterId, NODE_CLAIM_TTL),
+          "Should not be able to release/claim a node claimed by another persister");
     }
 
     @ParameterizedTest

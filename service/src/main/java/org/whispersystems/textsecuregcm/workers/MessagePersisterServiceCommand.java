@@ -10,17 +10,21 @@ import io.dropwizard.core.cli.ServerCommand;
 import io.dropwizard.core.server.DefaultServerFactory;
 import io.dropwizard.core.setup.Environment;
 import io.dropwizard.jetty.HttpsConnectorFactory;
+import java.time.Clock;
 import java.time.Duration;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
+import reactor.core.scheduler.Schedulers;
 
 public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerConfiguration> {
 
-  private static final String WORKER_COUNT = "workers";
+  private static final String MAX_CONCURRENCY = "maxConcurrency";
 
   public MessagePersisterServiceCommand() {
     super(new Application<>() {
@@ -35,11 +39,13 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
   @Override
   public void configure(final Subparser subparser) {
     super.configure(subparser);
+
+    // This is a deliberate misnomer for consistency with other service commands that expect a worker count
     subparser.addArgument("--workers")
         .type(Integer.class)
-        .dest(WORKER_COUNT)
+        .dest(MAX_CONCURRENCY)
         .required(true)
-        .help("The number of worker threads");
+        .help("The maximum number of concurrent Redis/DynamoDB operations");
   }
 
   @Override
@@ -60,16 +66,20 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
           });
     }
 
-    final MessagePersister messagePersister = new MessagePersister(deps.messagesCache(),
-        deps.messagesManager(),
-        deps.accountsManager(),
-        deps.dynamicConfigurationManager(),
-        Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
-        namespace.getInt(WORKER_COUNT));
+    try (final ExecutorService persistQueueExecutorService = Executors.newVirtualThreadPerTaskExecutor()) {
+      final MessagePersister messagePersister = new MessagePersister(deps.messagesCache(),
+          deps.messagesManager(),
+          deps.accountsManager(),
+          deps.dynamicConfigurationManager(),
+          Schedulers.fromExecutorService(persistQueueExecutorService, "persistQueue"),
+          Clock.systemUTC(),
+          Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
+          namespace.getInt(MAX_CONCURRENCY));
 
-    environment.lifecycle().manage(messagePersister);
+      environment.lifecycle().manage(messagePersister);
 
-    super.run(environment, namespace, configuration);
+      super.run(environment, namespace, configuration);
+    }
   }
 
 }
