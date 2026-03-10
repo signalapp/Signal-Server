@@ -6,30 +6,46 @@
 package org.whispersystems.textsecuregcm.subscriptions;
 
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.assertArg;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.stripe.StripeClient;
 import com.stripe.exception.ApiException;
 import com.stripe.exception.StripeException;
+import com.stripe.model.Price;
+import com.stripe.model.StripeCollection;
+import com.stripe.model.Subscription;
+import com.stripe.model.SubscriptionItem;
+import com.stripe.param.SubscriptionUpdateParams;
+import com.stripe.service.SubscriptionItemService;
 import com.stripe.service.SubscriptionService;
+import com.stripe.service.V1Services;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import com.stripe.service.V1Services;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class StripeManagerTest {
 
   private StripeClient stripeClient;
   private SubscriptionService subscriptionService;
+  private SubscriptionItemService subscriptionItemsService;
   private StripeManager stripeManager;
   private ExecutorService executor;
 
@@ -49,6 +65,8 @@ class StripeManagerTest {
 
     subscriptionService = mock(SubscriptionService.class);
     when(v1Services.subscriptions()).thenReturn(subscriptionService);
+    subscriptionItemsService = mock(SubscriptionItemService.class);
+    when(v1Services.subscriptionItems()).thenReturn(subscriptionItemsService);
   }
 
   @AfterEach
@@ -66,4 +84,41 @@ class StripeManagerTest {
     assertThatExceptionOfType(SubscriptionPaymentRequiresActionException.class).isThrownBy(() ->
         stripeManager.createSubscription("customerId", "priceId", 1, 0));
   }
+
+  @ParameterizedTest
+  @CsvSource(
+      {
+          "usd, unpaid, true",
+          "usd, past_due, true",
+          "usd, incomplete, true",
+          "usd, active, false",
+          "zzz, active, true",
+      }
+  )
+  void testEndSubscription(final String currency, final String status, final boolean expectCancelImmediately) throws Exception {
+    final Subscription subscription = mock(Subscription.class);
+    when(subscription.getId()).thenReturn("test-subscription");
+    when(subscription.getStatus()).thenReturn(status);
+
+    final SubscriptionItem item = mock(SubscriptionItem.class);
+    final Price price = new Price();
+    price.setCurrency(currency);
+    when(item.getPrice()).thenReturn(price);
+
+    @SuppressWarnings("unchecked") final StripeCollection<SubscriptionItem> items = mock(StripeCollection.class);
+    when(items.autoPagingIterable()).thenReturn(List.of(item));
+    when(subscriptionItemsService.list(any(), any()))
+        .thenReturn(items);
+
+    stripeManager.endSubscription(subscription);
+
+    verify(subscriptionService, expectCancelImmediately ? times(1) : never())
+        .cancel(any(), any(), any());
+    verify(subscriptionService, expectCancelImmediately ? never() : times(1))
+        .update(any(), assertArg(
+            (Consumer<SubscriptionUpdateParams>) params -> assertTrue(params.getCancelAtPeriodEnd())),
+            any());
+
+  }
+
 }

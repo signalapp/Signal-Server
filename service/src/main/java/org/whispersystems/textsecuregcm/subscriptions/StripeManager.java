@@ -433,33 +433,48 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     }
   }
 
-  private Subscription endSubscription(Subscription subscription) {
+  @VisibleForTesting
+  void endSubscription(Subscription subscription) {
+
     final SubscriptionStatus status = SubscriptionStatus.forApiValue(subscription.getStatus());
-    return switch (status) {
+    switch (status) {
       // The payment for this period has not processed yet, we should immediately cancel to prevent any payment from
       // going through.
       case UNPAID, PAST_DUE, INCOMPLETE -> cancelSubscriptionImmediately(subscription);
       // Otherwise, set the subscription to cancel at the current period end. If the subscription is active, it may
       // continue to be used until the end of the period.
-      default -> cancelSubscriptionAtEndOfCurrentPeriod(subscription);
+      default -> {
+
+        final Price price = getPriceForSubscription(subscription);
+
+        if (supportedCurrenciesByPaymentMethod.values().stream()
+            .noneMatch(supported -> supported.contains(price.getCurrency()))) {
+
+          // This currency is no longer supported. Cancel-at-period-end will fail, so we must cancel immediately.
+          cancelSubscriptionImmediately(subscription);
+        } else {
+
+          cancelSubscriptionAtEndOfCurrentPeriod(subscription);
+        }
+      }
     };
   }
 
-  private Subscription cancelSubscriptionImmediately(Subscription subscription) {
+  private void cancelSubscriptionImmediately(Subscription subscription) {
     SubscriptionCancelParams params = SubscriptionCancelParams.builder().build();
     try {
-      return stripeClient.v1().subscriptions().cancel(subscription.getId(), params, commonOptions());
+      stripeClient.v1().subscriptions().cancel(subscription.getId(), params, commonOptions());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
   }
 
-  private Subscription cancelSubscriptionAtEndOfCurrentPeriod(Subscription subscription) {
+  private void cancelSubscriptionAtEndOfCurrentPeriod(Subscription subscription) {
     SubscriptionUpdateParams params = SubscriptionUpdateParams.builder()
         .setCancelAtPeriodEnd(true)
         .build();
     try {
-      return stripeClient.v1().subscriptions().update(subscription.getId(), params, commonOptions());
+      stripeClient.v1().subscriptions().update(subscription.getId(), params, commonOptions());
     } catch (StripeException e) {
       throw new UncheckedIOException(new IOException(e));
     }
