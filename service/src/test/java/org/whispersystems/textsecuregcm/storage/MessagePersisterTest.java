@@ -138,10 +138,12 @@ class MessagePersisterTest {
   @AfterEach
   void tearDown() throws Exception {
     sharedExecutorService.shutdown();
+    //noinspection ResultOfMethodCallIgnored
     sharedExecutorService.awaitTermination(1, TimeUnit.SECONDS);
 
     messageDeliveryScheduler.dispose();
     resubscribeRetryExecutorService.shutdown();
+    //noinspection ResultOfMethodCallIgnored
     resubscribeRetryExecutorService.awaitTermination(1, TimeUnit.SECONDS);
   }
 
@@ -164,7 +166,8 @@ class MessagePersisterTest {
 
     messagePersister.persistNextQueues(now.plus(messagePersister.getPersistDelay()));
 
-    final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor = ArgumentCaptor.forClass(List.class);
+    @SuppressWarnings("unchecked") final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor =
+        ArgumentCaptor.forClass(List.class);
 
     verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), eq(DESTINATION_ACCOUNT_UUID),
         eq(DESTINATION_DEVICE));
@@ -197,7 +200,7 @@ class MessagePersisterTest {
       final String queueName = generateRandomQueueNameForSlot(slot);
       final UUID accountUuid = MessagesCache.getAccountUuidFromQueueName(queueName);
       final byte deviceId = MessagesCache.getDeviceIdFromQueueName(queueName);
-      final String accountNumber = "+1" + RandomStringUtils.randomNumeric(10);
+      final String accountNumber = "+1800555%04d".formatted(i);
 
       final Account account = mock(Account.class);
 
@@ -213,7 +216,8 @@ class MessagePersisterTest {
 
     messagePersister.persistNextQueues(now.plus(messagePersister.getPersistDelay()));
 
-    final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor = ArgumentCaptor.forClass(List.class);
+    @SuppressWarnings("unchecked") final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor =
+        ArgumentCaptor.forClass(List.class);
 
     verify(messagesDynamoDb, atLeastOnce()).store(messagesCaptor.capture(), any(UUID.class), any());
     assertEquals(queueCount * messagesPerQueue, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
@@ -229,7 +233,7 @@ class MessagePersisterTest {
     insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, messageCount, now);
     setNextSlotToPersist(SlotHash.getSlot(queueName));
 
-    doAnswer((Answer<Void>) invocation -> {
+    doAnswer((Answer<Void>) _ -> {
       throw new RuntimeException("OH NO.");
         }).when(messagesDynamoDb).store(any(), eq(DESTINATION_ACCOUNT_UUID), eq(DESTINATION_DEVICE));
 
@@ -357,8 +361,8 @@ class MessagePersisterTest {
 
     final List<String> queuesToPersist = messagesCache.getQueuesToPersist(SlotHash.getSlot(queueName),
         Clock.systemUTC().instant(), 1);
-    assertEquals(queuesToPersist.size(), 1);
-    assertEquals(queuesToPersist.getFirst(), new String(queueName, StandardCharsets.UTF_8));
+    assertEquals(1, queuesToPersist.size());
+    assertEquals(new String(queueName, StandardCharsets.UTF_8), queuesToPersist.getFirst());
   }
 
   @Test

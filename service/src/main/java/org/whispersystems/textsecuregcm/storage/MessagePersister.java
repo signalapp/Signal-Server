@@ -290,7 +290,8 @@ public class MessagePersister implements Managed {
         })
         .takeWhile(Optional::isPresent)
         .flatMap(maybeEnvelope -> {
-          final MessageProtos.Envelope envelope = maybeEnvelope.get();
+          // We know this must be present because we `takeWhile` values are present
+          final MessageProtos.Envelope envelope = maybeEnvelope.orElseThrow(AssertionError::new);
           TRIMMED_MESSAGE_COUNTER.increment();
           TRIMMED_MESSAGE_BYTES_COUNTER.increment(envelope.getSerializedSize());
           return Mono
@@ -302,7 +303,8 @@ public class MessagePersister implements Managed {
         .reduce(Pair.of(0L, 0L), (acc, deleted) -> deleted
             ? Pair.of(acc.getLeft() + 1, acc.getRight())
             : Pair.of(acc.getLeft(), acc.getRight() + 1))
-        .block();
+        .blockOptional()
+        .orElseGet(() -> Pair.of(0L, 0L));
 
     logger.warn(
         "Finished trimming {}:{}. Oldest message = {}, newest message = {}. Attempted to delete {} persisted bytes to make room for {} cached message bytes.  Delete outcomes: {} present, {} missing.",
