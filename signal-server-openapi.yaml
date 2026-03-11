@@ -5074,6 +5074,8 @@ components:
           format: date-time
         open:
           type: boolean
+        remoteAddress:
+          type: object
         userAgent:
           type: string
     WebSocketSessionContext:
