@@ -6,7 +6,6 @@
 
 local queueKey              = KEYS[1] -- sorted set of Envelopes for a device, by queue-local ID
 local queueMetadataKey      = KEYS[2] -- hash of message GUID to queue-local IDs
-local queueTotalIndexKey    = KEYS[3] -- sorted set of all queues in the shard, by timestamp of oldest message
 local limit                 = ARGV[1] -- the maximum number of messages to return
 local processedMessageGuids = { unpack(ARGV, 2) }
 
@@ -23,7 +22,6 @@ local messages = redis.call("ZRANGE", queueKey, 0, limit-1)
 if #messages == 0 then
     redis.call("DEL", queueKey)
     redis.call("DEL", queueMetadataKey)
-    redis.call("ZREM", queueTotalIndexKey, queueKey)
 end
 
 return messages

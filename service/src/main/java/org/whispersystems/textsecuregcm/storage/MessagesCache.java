@@ -53,7 +53,6 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
@@ -89,9 +88,6 @@ import reactor.core.scheduler.Schedulers;
  *   <dt>{@code queueLockKey}</dt>
  *   <dd>Used to indicate that a queue is being modified by the {@link MessagePersister} and that {@code get_items} should
  *   return an empty list.</dd>
- *   <dt>{@code queueTotalIndexKey}</dt>
- *   <dd>A sorted set of all queues in a shard. A queue’s score is the timestamp of its oldest message, which is used by
- *   the {@link MessagePersister} to prioritize queues to persist.</dd>
  * </dl>
  * <p>
  * At a high level, the process is:
@@ -730,14 +726,6 @@ public class MessagesCache {
 
   static byte[] getMessageQueueMetadataKey(final UUID accountUuid, final byte deviceId) {
     return ("user_queue_metadata::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
-  }
-
-  static byte[] getQueueIndexKey(final UUID accountUuid, final byte deviceId) {
-    return getQueueIndexKey(SlotHash.getSlot(accountUuid.toString() + "::" + deviceId));
-  }
-
-  static byte[] getQueueIndexKey(final int slot) {
-    return ("user_queue_index::{" + RedisClusterUtil.getMinimalHashTag(slot) + "}").getBytes(StandardCharsets.UTF_8);
   }
 
   static byte[] getSharedMrmKey(final UUID mrmGuid) {

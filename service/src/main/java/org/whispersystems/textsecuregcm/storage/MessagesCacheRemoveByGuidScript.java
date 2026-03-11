@@ -37,8 +37,7 @@ class MessagesCacheRemoveByGuidScript {
 
     final List<byte[]> keys = List.of(
         MessagesCache.getMessageQueueKey(destinationUuid, destinationDevice), // queueKey
-        MessagesCache.getMessageQueueMetadataKey(destinationUuid, destinationDevice), // queueMetadataKey
-        MessagesCache.getQueueIndexKey(destinationUuid, destinationDevice) // queueTotalIndexKey
+        MessagesCache.getMessageQueueMetadataKey(destinationUuid, destinationDevice) // queueMetadataKey
     );
     final List<byte[]> args = messageGuids.stream().map(guid -> guid.toString().getBytes(StandardCharsets.UTF_8))
         .toList();

@@ -58,13 +58,11 @@ class MessagesCacheInsertScript {
     final List<byte[]> keys = List.of(
         MessagesCache.getMessageQueueKey(destinationUuid, destinationDevice), // queueKey
         MessagesCache.getMessageQueueMetadataKey(destinationUuid, destinationDevice), // queueMetadataKey
-        MessagesCache.getQueueIndexKey(destinationUuid, destinationDevice), // queueTotalIndexKey
         RedisMessageAvailabilityManager.getClientEventChannel(destinationUuid, destinationDevice) // eventChannelKey
     );
 
     final List<byte[]> args = new ArrayList<>(Arrays.asList(
         EnvelopeUtil.compress(envelope).toByteArray(), // message
-        String.valueOf(envelope.getServerTimestamp()).getBytes(StandardCharsets.UTF_8), // currentTime
         envelope.getServerGuid().getBytes(StandardCharsets.UTF_8), // guid
         NEW_MESSAGE_EVENT_BYTES // eventPayload
     ));
