@@ -16,10 +16,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
+import reactor.core.publisher.Hooks;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 import javax.annotation.Nullable;
@@ -33,6 +36,8 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
   private Scheduler persistQueueScheduler;
 
   private static final String MAX_CONCURRENCY = "maxConcurrency";
+
+  private static final Logger logger = LoggerFactory.getLogger(MessagePersisterServiceCommand.class);
 
   public MessagePersisterServiceCommand() {
     super(new Application<>() {
@@ -61,6 +66,7 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
       throws Exception {
 
     UncaughtExceptionHandler.register();
+    Hooks.onErrorDropped(e -> logger.warn("Dropped message persistence error", e));
 
     final CommandDependencies deps = CommandDependencies.build("message-persister-service", environment, configuration);
     MetricsUtil.configureRegistries(configuration, environment, deps.dynamicConfigurationManager());
@@ -94,6 +100,8 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
   @Override
   protected void cleanup() {
     super.cleanup();
+
+    Hooks.resetOnErrorDropped();
 
     if (persistQueueScheduler != null) {
       persistQueueScheduler.dispose();
