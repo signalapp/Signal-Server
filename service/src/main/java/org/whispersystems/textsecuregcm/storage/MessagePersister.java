@@ -73,6 +73,7 @@ public class MessagePersister implements Managed {
   private static final Counter TRIMMED_MESSAGE_COUNTER = Metrics.counter(name(MessagePersister.class, "trimmedMessage"));
   private static final Counter TRIMMED_MESSAGE_BYTES_COUNTER = Metrics.counter(name(MessagePersister.class, "trimmedMessageBytes"));
 
+  private static final Counter PERSIST_NODE_COUNTER = Metrics.counter(name(MessagePersister.class, "persistNodeCount"));
   private static final LongTaskTimer PERSIST_NODE_TIMER = Metrics.more().longTaskTimer(name(MessagePersister.class, "persistNode"));
 
   private static final String QUEUE_SIZE_DISTRIBUTION_SUMMARY_NAME = name(MessagePersister.class, "queueSize");
@@ -259,6 +260,7 @@ public class MessagePersister implements Managed {
           .orElse(0);
     } finally {
       sample.stop();
+      PERSIST_NODE_COUNTER.increment();
     }
   }
 
