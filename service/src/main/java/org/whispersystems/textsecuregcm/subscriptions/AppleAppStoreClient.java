@@ -184,7 +184,7 @@ public class AppleAppStoreClient {
   private static boolean shouldRetry(Throwable e) {
     return e instanceof APIException apiException && switch (apiException.getApiError()) {
       case ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE, GENERAL_INTERNAL_RETRYABLE, APP_NOT_FOUND_RETRYABLE -> true;
-      default -> false;
+      case null, default -> false;
     };
   }
 
