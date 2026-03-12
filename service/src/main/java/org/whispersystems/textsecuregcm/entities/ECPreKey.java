@@ -8,7 +8,10 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.signal.libsignal.protocol.ecc.ECPublicKey;
+import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.util.ECPublicKeyAdapter;
 
 public record ECPreKey(
@@ -16,6 +19,8 @@ public record ECPreKey(
         An arbitrary ID for this key, which will be provided by peers using this key to encrypt messages so the private key can be looked up.
         Should not be zero. Should be less than 2^24.
         """)
+    @Max(KeyIdUtil.MAX_KEY_ID)
+    @Min(KeyIdUtil.MIN_KEY_ID)
     long keyId,
 
     @JsonSerialize(using = ECPublicKeyAdapter.Serializer.class)

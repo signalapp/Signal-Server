@@ -41,7 +41,7 @@ message EcPreKey {
   // A locally-unique identifier for this key, which will be provided by
   // peers using this key to encrypt messages so the private key can be looked
   // up.
-  uint64 key_id = 1;
+  uint32 key_id = 1;
 
   // The public key, serialized in libsignal's elliptic-curve public key format.
   bytes public_key = 2  [(require.nonEmpty) = true];
@@ -51,7 +51,7 @@ message EcSignedPreKey {
   // A locally-unique identifier for this key, which will be provided by
   // peers using this key to encrypt messages so the private key can be looked
   // up.
-  uint64 key_id = 1;
+  uint32 key_id = 1;
 
   // The public key, serialized in libsignal's elliptic-curve public key format.
   bytes public_key = 2  [(require.nonEmpty) = true];
@@ -64,7 +64,7 @@ message EcSignedPreKey {
 message KemSignedPreKey {
   // An locally-unique identifier for this key, which will be provided by peers
   // using this key to encrypt messages so the private key can be looked up.
-  uint64 key_id = 1;
+  uint32 key_id = 1;
 
   // The public key, serialized in libsignal's Kyber1024 public key format.
   bytes public_key = 2 [(require.nonEmpty) = true];

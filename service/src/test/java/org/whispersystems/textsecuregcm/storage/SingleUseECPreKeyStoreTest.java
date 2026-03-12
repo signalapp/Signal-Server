@@ -155,6 +155,28 @@ class SingleUseECPreKeyStoreTest {
     assertEquals(0, preKeyStore.getCount(accountIdentifier, (byte) (deviceId + 1)).join());
   }
 
+  @Test
+  void takeSkipsOutOfRangeKeys() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final byte deviceId = 1;
+
+    final long outOfRange1 = KeyIdUtil.MAX_KEY_ID + 1;
+    final long outOfRange2 = KeyIdUtil.MAX_KEY_ID + 2;
+    final long validKeyId = 1;
+
+    final List<ECPreKey> preKeys = List.of(
+        generatePreKey(outOfRange1),
+        generatePreKey(outOfRange2),
+        generatePreKey(validKeyId));
+
+    preKeyStore.store(accountIdentifier, deviceId, preKeys).join();
+
+    final Optional<ECPreKey> taken = preKeyStore.take(accountIdentifier, deviceId).join();
+    assertEquals(Optional.of(preKeys.get(2)), taken);
+    assertEquals(Optional.empty(), preKeyStore.take(accountIdentifier, deviceId).join());
+    assertEquals(0, preKeyStore.getCount(accountIdentifier, deviceId).join());
+  }
+
   private List<ECPreKey> generateRandomPreKeys() {
     final Set<Integer> keyIds = new HashSet<>(KEY_COUNT);
 

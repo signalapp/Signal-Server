@@ -66,6 +66,7 @@ import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
@@ -508,14 +509,14 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
 
   private static EcPreKey toGrpcEcPreKey(final ECPreKey preKey) {
     return EcPreKey.newBuilder()
-        .setKeyId(preKey.keyId())
+        .setKeyId(KeyIdUtil.toUnsignedInt(preKey.keyId()))
         .setPublicKey(ByteString.copyFrom(preKey.publicKey().serialize()))
         .build();
   }
 
   private static EcSignedPreKey toGrpcEcSignedPreKey(final ECSignedPreKey preKey) {
     return EcSignedPreKey.newBuilder()
-        .setKeyId(preKey.keyId())
+        .setKeyId(KeyIdUtil.toUnsignedInt(preKey.keyId()))
         .setPublicKey(ByteString.copyFrom(preKey.publicKey().serialize()))
         .setSignature(ByteString.copyFrom(preKey.signature()))
         .build();
@@ -523,7 +524,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
 
   private static KemSignedPreKey toGrpcKemSignedPreKey(final KEMSignedPreKey preKey) {
     return KemSignedPreKey.newBuilder()
-        .setKeyId(preKey.keyId())
+        .setKeyId(KeyIdUtil.toUnsignedInt(preKey.keyId()))
         .setPublicKey(ByteString.copyFrom(preKey.publicKey().serialize()))
         .setSignature(ByteString.copyFrom(preKey.signature()))
         .build();

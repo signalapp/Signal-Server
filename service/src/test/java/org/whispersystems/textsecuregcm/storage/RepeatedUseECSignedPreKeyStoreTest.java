@@ -37,11 +37,17 @@ class RepeatedUseECSignedPreKeyStoreTest extends RepeatedUseSignedPreKeyStoreTes
 
   @Override
   protected ECSignedPreKey generateSignedPreKey() {
-    return KeysHelper.signedECPreKey(currentKeyId++, IDENTITY_KEY_PAIR);
+    return generateSignedPreKey(currentKeyId++);
+  }
+
+  @Override
+  protected ECSignedPreKey generateSignedPreKey(long keyId) {
+    return KeysHelper.signedECPreKey(keyId, IDENTITY_KEY_PAIR);
   }
 
   @Override
   protected DynamoDbClient getDynamoDbClient() {
     return DYNAMO_DB_EXTENSION.getDynamoDbClient();
   }
+
 }

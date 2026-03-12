@@ -68,6 +68,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -161,7 +162,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
         .setIdentityType(identityType)
         .addAllPreKeys(preKeys.stream()
             .map(preKey -> EcPreKey.newBuilder()
-                .setKeyId(preKey.keyId())
+                .setKeyId(KeyIdUtil.toUnsignedInt(preKey.keyId()))
                 .setPublicKey(ByteString.copyFrom(preKey.serializedPublicKey()))
                 .build())
             .toList())
@@ -233,7 +234,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
             .setIdentityType(identityType)
             .addAllPreKeys(preKeys.stream()
                 .map(preKey -> KemSignedPreKey.newBuilder()
-                    .setKeyId(preKey.keyId())
+                    .setKeyId(KeyIdUtil.toUnsignedInt(preKey.keyId()))
                     .setPublicKey(ByteString.copyFrom(preKey.serializedPublicKey()))
                     .setSignature(ByteString.copyFrom(preKey.signature()))
                     .build())
@@ -309,7 +310,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     authenticatedServiceStub().setEcSignedPreKey(SetEcSignedPreKeyRequest.newBuilder()
             .setIdentityType(identityType)
             .setSignedPreKey(EcSignedPreKey.newBuilder()
-                .setKeyId(signedPreKey.keyId())
+                .setKeyId(KeyIdUtil.toUnsignedInt(signedPreKey.keyId()))
                 .setPublicKey(ByteString.copyFrom(signedPreKey.serializedPublicKey()))
                 .setSignature(ByteString.copyFrom(signedPreKey.signature()))
                 .build())
@@ -339,7 +340,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     final SetEcSignedPreKeyRequest prototypeRequest = SetEcSignedPreKeyRequest.newBuilder()
         .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
         .setSignedPreKey(EcSignedPreKey.newBuilder()
-            .setKeyId(signedPreKey.keyId())
+            .setKeyId(KeyIdUtil.toUnsignedInt(signedPreKey.keyId()))
             .setPublicKey(ByteString.copyFrom(signedPreKey.serializedPublicKey()))
             .setSignature(ByteString.copyFrom(signedPreKey.signature()))
             .build())
@@ -388,7 +389,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     authenticatedServiceStub().setKemLastResortPreKey(SetKemLastResortPreKeyRequest.newBuilder()
             .setIdentityType(identityType)
             .setSignedPreKey(KemSignedPreKey.newBuilder()
-                .setKeyId(lastResortPreKey.keyId())
+                .setKeyId(KeyIdUtil.toUnsignedInt(lastResortPreKey.keyId()))
                 .setPublicKey(ByteString.copyFrom(lastResortPreKey.serializedPublicKey()))
                 .setSignature(ByteString.copyFrom(lastResortPreKey.signature()))
                 .build())
@@ -415,7 +416,7 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     final SetKemLastResortPreKeyRequest prototypeRequest = SetKemLastResortPreKeyRequest.newBuilder()
         .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
         .setSignedPreKey(KemSignedPreKey.newBuilder()
-            .setKeyId(lastResortPreKey.keyId())
+            .setKeyId(KeyIdUtil.toUnsignedInt(lastResortPreKey.keyId()))
             .setPublicKey(ByteString.copyFrom(lastResortPreKey.serializedPublicKey()))
             .setSignature(ByteString.copyFrom(lastResortPreKey.signature()))
             .build())
@@ -493,19 +494,19 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
 
       final DevicePreKeyBundle.Builder builder = DevicePreKeyBundle.newBuilder()
           .setEcSignedPreKey(EcSignedPreKey.newBuilder()
-              .setKeyId(ecSignedPreKey.keyId())
+              .setKeyId(KeyIdUtil.toUnsignedInt(ecSignedPreKey.keyId()))
               .setPublicKey(ByteString.copyFrom(ecSignedPreKey.serializedPublicKey()))
               .setSignature(ByteString.copyFrom(ecSignedPreKey.signature()))
               .build())
           .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
-              .setKeyId(kemSignedPreKey.keyId())
+              .setKeyId(KeyIdUtil.toUnsignedInt(kemSignedPreKey.keyId()))
               .setPublicKey(ByteString.copyFrom(kemSignedPreKey.serializedPublicKey()))
               .setSignature(ByteString.copyFrom(kemSignedPreKey.signature()))
               .build())
           .setRegistrationId(entry.getValue());
       maybeEcPreKey.ifPresent(ecPreKey -> builder
             .setEcOneTimePreKey(EcPreKey.newBuilder()
-                .setKeyId(ecPreKey.keyId())
+                .setKeyId(KeyIdUtil.toUnsignedInt(ecPreKey.keyId()))
                 .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))
                 .build()));
       expectedPreKeyBundles.put(entry.getKey(), builder.build());

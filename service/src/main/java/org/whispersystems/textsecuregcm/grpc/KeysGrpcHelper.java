@@ -19,6 +19,7 @@ import org.signal.chat.keys.DevicePreKeyBundle;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 
 class KeysGrpcHelper {
@@ -67,19 +68,20 @@ class KeysGrpcHelper {
     preKeysByDeviceId.forEach((deviceId, devicePreKeys) -> {
       final Device device = targetAccount.getDevice(deviceId).orElseThrow();
 
+
       final DevicePreKeyBundle.Builder builder = DevicePreKeyBundle.newBuilder()
           .setEcSignedPreKey(EcSignedPreKey.newBuilder()
-              .setKeyId(devicePreKeys.ecSignedPreKey().keyId())
+              .setKeyId(KeyIdUtil.toUnsignedInt(devicePreKeys.ecSignedPreKey().keyId()))
               .setPublicKey(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().serializedPublicKey()))
               .setSignature(ByteString.copyFrom(devicePreKeys.ecSignedPreKey().signature())))
           .setKemOneTimePreKey(KemSignedPreKey.newBuilder()
-              .setKeyId(devicePreKeys.kemSignedPreKey().keyId())
+              .setKeyId(KeyIdUtil.toUnsignedInt(devicePreKeys.kemSignedPreKey().keyId()))
               .setPublicKey(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().serializedPublicKey()))
               .setSignature(ByteString.copyFrom(devicePreKeys.kemSignedPreKey().signature())))
           .setRegistrationId(device.getRegistrationId(targetServiceIdentifier.identityType()));
 
       devicePreKeys.ecPreKey().ifPresent(ecPreKey -> builder.setEcOneTimePreKey(EcPreKey.newBuilder()
-          .setKeyId(ecPreKey.keyId())
+          .setKeyId(KeyIdUtil.toUnsignedInt(ecPreKey.keyId()))
           .setPublicKey(ByteString.copyFrom(ecPreKey.serializedPublicKey()))));
 
       preKeyBundlesBuilder.putDevicePreKeys(deviceId, builder.build());

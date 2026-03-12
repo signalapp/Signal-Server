@@ -8,7 +8,10 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.signal.libsignal.protocol.kem.KEMPublicKey;
+import org.whispersystems.textsecuregcm.storage.KeyIdUtil;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.KEMPublicKeyAdapter;
 import java.util.Arrays;
@@ -20,6 +23,8 @@ public record KEMSignedPreKey(
         Should not be zero. Should be less than 2^24. The owner of this key must be able to determine from the key ID whether this represents
         a single-use or last-resort key, but another party should *not* be able to tell.
         """)
+    @Max(KeyIdUtil.MAX_KEY_ID)
+    @Min(KeyIdUtil.MIN_KEY_ID)
     long keyId,
 
     @JsonSerialize(using = KEMPublicKeyAdapter.Serializer.class)

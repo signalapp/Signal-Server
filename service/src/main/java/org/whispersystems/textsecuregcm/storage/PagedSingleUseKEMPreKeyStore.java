@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
@@ -71,6 +72,7 @@ public class PagedSingleUseKEMPreKeyStore {
   private final Timer deleteForDeviceTimer = Metrics.timer(name(getClass(), "deleteForDevice"));
   private final Timer deleteForAccountTimer = Metrics.timer(name(getClass(), "deleteForAccount"));
 
+  private final Counter outOfRangeKeysDiscarded = Metrics.counter(name(getClass(), "outOfRangeKeysDiscarded"));
   final DistributionSummary availableKeyCountDistributionSummary = DistributionSummary
       .builder(name(getClass(), "availableKeyCount"))
       .register(Metrics.globalRegistry);
@@ -159,7 +161,14 @@ public class PagedSingleUseKEMPreKeyStore {
    */
   public CompletableFuture<Optional<KEMSignedPreKey>> take(final UUID identifier, final byte deviceId) {
     final Timer.Sample sample = Timer.start();
+    return takeHelper(identifier, deviceId)
+        .whenComplete((maybeKey, throwable) ->
+            sample.stop(Metrics.timer(
+                takeKeyTimerName,
+                KEY_PRESENT_TAG_NAME, String.valueOf(maybeKey != null && maybeKey.isPresent()))));
+  }
 
+  private CompletableFuture<Optional<KEMSignedPreKey>> takeHelper(final UUID identifier, final byte deviceId) {
     return dynamoDbAsyncClient.updateItem(UpdateItemRequest.builder()
             .tableName(tableName)
             .key(Map.of(
@@ -196,10 +205,15 @@ public class PagedSingleUseKEMPreKeyStore {
         .exceptionally(ExceptionUtils.exceptionallyHandler(
             ConditionalCheckFailedException.class,
             e -> Optional.empty()))
-        .whenComplete((maybeKey, throwable) ->
-            sample.stop(Metrics.timer(
-                takeKeyTimerName,
-                KEY_PRESENT_TAG_NAME, String.valueOf(maybeKey != null && maybeKey.isPresent()))));
+        .thenCompose(maybeKey -> {
+          if (!maybeKey.map(KEMSignedPreKey::keyId).map(KeyIdUtil::keyIdValid).orElse(true)) {
+            // At some point we did not validate that keyIds fit in an unsigned 32-bit integer, which clients require.
+            // This keyId was invalid, so just recursively fetch the next key
+            outOfRangeKeysDiscarded.increment();
+            return takeHelper(identifier, deviceId);
+          }
+          return CompletableFuture.completedFuture(maybeKey);
+        });
   }
 
   /**

@@ -42,6 +42,11 @@ class RepeatedUseKEMSignedPreKeyStoreTest extends RepeatedUseSignedPreKeyStoreTe
 
   @Override
   protected KEMSignedPreKey generateSignedPreKey() {
-    return KeysHelper.signedKEMPreKey(currentKeyId++, IDENTITY_KEY_PAIR);
+    return generateSignedPreKey(currentKeyId++);
+  }
+
+  @Override
+  protected KEMSignedPreKey generateSignedPreKey(long keyId) {
+    return KeysHelper.signedKEMPreKey(keyId, IDENTITY_KEY_PAIR);
   }
 }

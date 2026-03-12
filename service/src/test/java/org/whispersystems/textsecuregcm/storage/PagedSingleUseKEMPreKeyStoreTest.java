@@ -253,6 +253,22 @@ class PagedSingleUseKEMPreKeyStoreTest {
         .block();
   }
 
+  @Test
+  void takeSkipsOutOfRangeKeys() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final byte deviceId = 1;
+
+    final KEMSignedPreKey validKey = KeysHelper.signedKEMPreKey(1, IDENTITY_KEY_PAIR);
+    final KEMSignedPreKey outOfRange1 = KeysHelper.signedKEMPreKey(KeyIdUtil.MAX_KEY_ID + 1, IDENTITY_KEY_PAIR);
+    final KEMSignedPreKey outOfRange2 = KeysHelper.signedKEMPreKey(KeyIdUtil.MAX_KEY_ID + 2, IDENTITY_KEY_PAIR);
+
+    keyStore.store(accountIdentifier, deviceId, List.of(outOfRange1, outOfRange2, validKey)).join();
+    assertEquals(Optional.of(validKey), keyStore.take(accountIdentifier, deviceId).join());
+    assertEquals(Optional.empty(), keyStore.take(accountIdentifier, deviceId).join());
+    assertEquals(0, keyStore.getCount(accountIdentifier, deviceId).join());
+
+  }
+
   private List<KEMSignedPreKey> generateRandomPreKeys() {
     final Set<Integer> keyIds = new HashSet<>(KEY_COUNT);
 

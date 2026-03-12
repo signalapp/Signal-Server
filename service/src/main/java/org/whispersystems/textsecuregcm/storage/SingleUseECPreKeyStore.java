@@ -47,7 +47,6 @@ import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
  * may fall back to using the device's repeated-use ("last-resort") signed pre-key instead.
  */
 public class SingleUseECPreKeyStore {
-
   private final DynamoDbAsyncClient dynamoDbAsyncClient;
   private final String tableName;
 
@@ -58,11 +57,13 @@ public class SingleUseECPreKeyStore {
   private final Timer deleteForAccountTimer = Metrics.timer(name(getClass(), "deleteForAccount"));
 
   private final Counter noKeyCountAvailableCounter = Metrics.counter(name(getClass(), "noKeyCountAvailable"));
-
+  private final Counter outOfRangeKeysDiscarded =
+      Metrics.counter(name(getClass(), "outOfRangeKeysDiscarded"));
   final DistributionSummary keysConsideredForTakeDistributionSummary = DistributionSummary
       .builder(name(getClass(), "keysConsideredForTake"))
       .distributionStatisticExpiry(Duration.ofMinutes(10))
       .register(Metrics.globalRegistry);
+
 
   final DistributionSummary availableKeyCountDistributionSummary = DistributionSummary
       .builder(name(getClass(), "availableKeyCount"))
@@ -135,7 +136,7 @@ public class SingleUseECPreKeyStore {
   public CompletableFuture<Optional<ECPreKey>> take(final UUID identifier, final byte deviceId) {
     final Timer.Sample sample = Timer.start();
     final AttributeValue partitionKey = getPartitionKey(identifier);
-    final AtomicInteger keysConsidered = new AtomicInteger(0);
+    final AtomicInteger deletionAttempts = new AtomicInteger(0);
 
     return Flux.from(dynamoDbAsyncClient.queryPaginator(QueryRequest.builder()
                 .tableName(tableName)
@@ -156,16 +157,26 @@ public class SingleUseECPreKeyStore {
                 KEY_DEVICE_ID_KEY_ID, item.get(KEY_DEVICE_ID_KEY_ID)))
             .returnValues(ReturnValue.ALL_OLD)
             .build())
-        .flatMap(deleteItemRequest -> Mono.fromFuture(() -> dynamoDbAsyncClient.deleteItem(deleteItemRequest)), 1)
-        .doOnNext(deleteItemResponse -> keysConsidered.incrementAndGet())
+        .concatMap(deleteItemRequest -> Mono.fromFuture(() -> dynamoDbAsyncClient.deleteItem(deleteItemRequest)))
+        .doOnNext(_ -> deletionAttempts.incrementAndGet())
         .filter(DeleteItemResponse::hasAttributes)
+        .filter(item -> {
+          final long keyId = getKeyIdFromItem(item.attributes());
+          final boolean keyIdValid = KeyIdUtil.keyIdValid(keyId);
+          if (!keyIdValid) {
+            outOfRangeKeysDiscarded.increment();
+          }
+          // At some point we did not validate that keyIds fit in an unsigned 32-bit integer, which clients require.
+          // If this keyId is invalid, we'll skip it and fetch the next key
+          return keyIdValid;
+        })
         .next()
         .map(deleteItemResponse -> getPreKeyFromItem(deleteItemResponse.attributes()))
         .toFuture()
         .thenApply(Optional::ofNullable)
         .whenComplete((maybeKey, throwable) -> {
           sample.stop(Metrics.timer(takeKeyTimerName, KEY_PRESENT_TAG_NAME, String.valueOf(maybeKey != null && maybeKey.isPresent())));
-          keysConsideredForTakeDistributionSummary.record(keysConsidered.get());
+          keysConsideredForTakeDistributionSummary.record(deletionAttempts.get());
         });
   }
 
@@ -310,7 +321,7 @@ public class SingleUseECPreKeyStore {
   }
 
   private ECPreKey getPreKeyFromItem(final Map<String, AttributeValue> item) {
-    final long keyId = item.get(KEY_DEVICE_ID_KEY_ID).b().asByteBuffer().getLong(8);
+    final long keyId = getKeyIdFromItem(item);
     final byte[] publicKey = AttributeValues.extractByteArray(item.get(ATTR_PUBLIC_KEY), PARSE_BYTE_ARRAY_COUNTER_NAME);
 
     try {
@@ -319,5 +330,9 @@ public class SingleUseECPreKeyStore {
       // This should never happen since we're serializing keys directly from `ECPublicKey` instances on the way in
       throw new IllegalArgumentException(e);
     }
+  }
+
+  private static long getKeyIdFromItem(final Map<String, AttributeValue> item) {
+    return item.get(KEY_DEVICE_ID_KEY_ID).b().asByteBuffer().getLong(8);
   }
 }

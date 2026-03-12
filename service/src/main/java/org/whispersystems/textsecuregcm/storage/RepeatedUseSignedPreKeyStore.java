@@ -107,11 +107,14 @@ public abstract class RepeatedUseSignedPreKeyStore<K extends SignedPreKey<?>> {
             .build())
         .thenApply(response -> response.hasItem() ? Optional.of(getPreKeyFromItem(response.item())) : Optional.empty());
 
-    findFuture.whenComplete((maybeSignedPreKey, throwable) ->
-        sample.stop(Metrics.timer(findKeyTimerName,
-            "keyPresent", String.valueOf(maybeSignedPreKey != null && maybeSignedPreKey.isPresent()))));
+    return findFuture.whenComplete((maybeSignedPreKey, throwable) -> {
+      if (throwable == null && maybeSignedPreKey.map(k -> !KeyIdUtil.keyIdValid(k.keyId())).orElse(false)) {
+        throw new IllegalStateException("Encountered an impossible invalid repeated use pre-key id of " + maybeSignedPreKey.get().keyId());
+      }
 
-    return findFuture;
+      sample.stop(Metrics.timer(findKeyTimerName,
+          "keyPresent", String.valueOf(maybeSignedPreKey != null && maybeSignedPreKey.isPresent())));
+    });
   }
 
   protected static Map<String, AttributeValue> getPrimaryKey(final UUID identifier, final byte deviceId) {

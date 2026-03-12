@@ -8,11 +8,11 @@ package org.whispersystems.textsecuregcm.storage;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.SignedPreKey;
+import org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItemsRequest;
 
@@ -21,6 +21,8 @@ abstract class RepeatedUseSignedPreKeyStoreTest<K extends SignedPreKey<?>> {
   protected abstract RepeatedUseSignedPreKeyStore<K> getKeyStore();
 
   protected abstract K generateSignedPreKey();
+
+  protected abstract K generateSignedPreKey(long keyId);
 
   protected abstract DynamoDbClient getDynamoDbClient();
 
@@ -71,5 +73,17 @@ abstract class RepeatedUseSignedPreKeyStoreTest<K extends SignedPreKey<?>> {
 
     assertEquals(Optional.empty(), keys.find(identifier, Device.PRIMARY_ID).join());
     assertEquals(Optional.of(retainedPreKey), keys.find(identifier, deviceId2).join());
+  }
+
+  @Test
+  void findThrowsOnOutOfRangeKeyId() {
+    final RepeatedUseSignedPreKeyStore<K> keys = getKeyStore();
+
+    final UUID identifier = UUID.randomUUID();
+    final byte deviceId = 1;
+    final K outOfRangeKey = generateSignedPreKey(KeyIdUtil.MAX_KEY_ID + 1);
+
+    keys.store(identifier, deviceId, outOfRangeKey).join();
+    CompletableFutureTestUtil.assertFailsWithCause(IllegalStateException.class, keys.find(identifier, deviceId));
   }
 }
