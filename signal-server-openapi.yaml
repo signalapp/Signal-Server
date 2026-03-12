@@ -2392,15 +2392,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
@@ -2621,15 +2621,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2712,15 +2712,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -2748,15 +2748,15 @@ paths:
               schema:
                 type: object
                 properties:
+                  done:
+                    type: boolean
+                  cancelled:
+                    type: boolean
                   completedExceptionally:
                     type: boolean
                   numberOfDependents:
                     type: integer
                     format: int32
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
       security:
       - authenticatedAccount: []
       - {}
@@ -4292,6 +4292,8 @@ components:
       type: object
       properties:
         keyId:
+          maximum: 4294967295
+          minimum: 0
           type: integer
           description: |
             An arbitrary ID for this key, which will be provided by peers using this key to encrypt messages so the private key can be looked up.
@@ -4339,6 +4341,8 @@ components:
       type: object
       properties:
         keyId:
+          maximum: 4294967295
+          minimum: 0
           type: integer
           description: |
             An arbitrary ID for this key, which will be provided by peers using this key to encrypt messages so the private key can be looked up.
@@ -5074,10 +5078,10 @@ components:
           format: date-time
         open:
           type: boolean
-        remoteAddress:
-          type: object
         userAgent:
           type: string
+        remoteAddress:
+          type: object
     WebSocketSessionContext:
       type: object
       properties:
@@ -5261,6 +5265,8 @@ components:
       type: object
       properties:
         keyId:
+          maximum: 4294967295
+          minimum: 0
           type: integer
           description: |
             An arbitrary ID for this key, which will be provided by peers using this key to encrypt messages so the private key can be looked up.
