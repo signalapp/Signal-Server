@@ -20,9 +20,17 @@ import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.MessagePersister;
 import org.whispersystems.textsecuregcm.util.logging.UncaughtExceptionHandler;
+import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import javax.annotation.Nullable;
 
 public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerConfiguration> {
+
+  @Nullable
+  private ExecutorService persistQueueExecutorService;
+
+  @Nullable
+  private Scheduler persistQueueScheduler;
 
   private static final String MAX_CONCURRENCY = "maxConcurrency";
 
@@ -66,20 +74,33 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
           });
     }
 
-    try (final ExecutorService persistQueueExecutorService = Executors.newVirtualThreadPerTaskExecutor()) {
-      final MessagePersister messagePersister = new MessagePersister(deps.messagesCache(),
-          deps.messagesManager(),
-          deps.accountsManager(),
-          deps.dynamicConfigurationManager(),
-          Schedulers.fromExecutorService(persistQueueExecutorService, "persistQueue"),
-          Clock.systemUTC(),
-          Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
-          namespace.getInt(MAX_CONCURRENCY));
+    persistQueueExecutorService = Executors.newVirtualThreadPerTaskExecutor();
+    persistQueueScheduler = Schedulers.fromExecutorService(persistQueueExecutorService, "persistQueue");
 
-      environment.lifecycle().manage(messagePersister);
+    final MessagePersister messagePersister = new MessagePersister(deps.messagesCache(),
+        deps.messagesManager(),
+        deps.accountsManager(),
+        deps.dynamicConfigurationManager(),
+        persistQueueScheduler,
+        Clock.systemUTC(),
+        Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
+        namespace.getInt(MAX_CONCURRENCY));
 
-      super.run(environment, namespace, configuration);
-    }
+    environment.lifecycle().manage(messagePersister);
+
+    super.run(environment, namespace, configuration);
   }
 
+  @Override
+  protected void cleanup() {
+    super.cleanup();
+
+    if (persistQueueScheduler != null) {
+      persistQueueScheduler.dispose();
+    }
+
+    if (persistQueueExecutorService != null) {
+      persistQueueExecutorService.shutdown();
+    }
+  }
 }
