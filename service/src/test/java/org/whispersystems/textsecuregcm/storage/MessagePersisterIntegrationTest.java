@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
@@ -27,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +61,6 @@ class MessagePersisterIntegrationTest {
   private ExecutorService websocketConnectionEventExecutor;
   private ExecutorService asyncOperationQueueingExecutor;
   private MessagesCache messagesCache;
-  private MessagesManager messagesManager;
   private RedisMessageAvailabilityManager redisMessageAvailabilityManager;
   private MessagePersister messagePersister;
   private Account account;
@@ -69,9 +70,7 @@ class MessagePersisterIntegrationTest {
 
   @BeforeEach
   void setUp() throws Exception {
-    REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection -> {
-      connection.sync().flushall();
-    });
+    REDIS_CLUSTER_EXTENSION.getRedisCluster().useCluster(connection -> connection.sync().flushall());
 
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
@@ -89,8 +88,13 @@ class MessagePersisterIntegrationTest {
 
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
         messageDeliveryScheduler, messageDeletionExecutorService, mock(ScheduledExecutorService.class), Clock.systemUTC(), experimentEnrollmentManager);
-    messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, mock(RedisMessageAvailabilityManager.class),
-        mock(ReportMessageManager.class), messageDeletionExecutorService, Clock.systemUTC());
+
+    final MessagesManager messagesManager = new MessagesManager(messagesDynamoDb,
+        messagesCache,
+        mock(RedisMessageAvailabilityManager.class),
+        mock(ReportMessageManager.class),
+        messageDeletionExecutorService,
+        Clock.systemUTC());
 
     websocketConnectionEventExecutor = Executors.newVirtualThreadPerTaskExecutor();
     asyncOperationQueueingExecutor = Executors.newSingleThreadExecutor();
@@ -154,7 +158,7 @@ class MessagePersisterIntegrationTest {
         final UUID messageGuid = UUID.randomUUID();
         final long timestamp = now.minus(PERSIST_DELAY.multipliedBy(2)).toEpochMilli() + i;
 
-        final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp);
+        final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp, false);
 
         messagesCache.insert(messageGuid, account.getUuid(), Device.PRIMARY_ID, message).join();
         expectedMessages.add(message);
@@ -213,7 +217,55 @@ class MessagePersisterIntegrationTest {
     });
   }
 
-  private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final long serverTimestamp) {
+  @Test
+  void testPersistFirstPageDiscarded() throws MessagePersistenceException {
+    final int discardableMessages = MessagePersister.MESSAGE_BATCH_LIMIT * 2;
+    final int persistableMessages = MessagePersister.MESSAGE_BATCH_LIMIT + 1;
+
+    final Instant now = Instant.now();
+
+    for (int i = 0; i < discardableMessages; i++) {
+      final UUID messageGuid = UUID.randomUUID();
+      final long timestamp = now.minus(PERSIST_DELAY.multipliedBy(2)).toEpochMilli() + i;
+
+      final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp, true);
+
+      messagesCache.insert(messageGuid, account.getUuid(), Device.PRIMARY_ID, message).join();
+    }
+
+    final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(persistableMessages);
+
+    for (int i = 0; i < persistableMessages; i++) {
+      final UUID messageGuid = UUID.randomUUID();
+      final long timestamp = now.minus(PERSIST_DELAY.multipliedBy(2)).toEpochMilli() + i;
+
+      final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp, false);
+
+      messagesCache.insert(messageGuid, account.getUuid(), Device.PRIMARY_ID, message).join();
+      expectedMessages.add(message);
+    }
+
+    messagePersister.persistQueue(account, account.getDevice(Device.PRIMARY_ID).orElseThrow(), Tags.empty());
+
+    final DynamoDbClient dynamoDB = DYNAMO_DB_EXTENSION.getDynamoDbClient();
+
+    final List<MessageProtos.Envelope> persistedMessages =
+        dynamoDB.scan(ScanRequest.builder().tableName(Tables.MESSAGES.tableName()).build()).items().stream()
+            .map(item -> {
+              try {
+                return MessagesDynamoDb.convertItemToEnvelope(item, experimentEnrollmentManager);
+              } catch (InvalidProtocolBufferException e) {
+                fail("Could not parse stored message", e);
+                return null;
+              }
+            })
+            .toList();
+
+    assertEquals(expectedMessages, persistedMessages);
+    assertFalse(messagesCache.hasMessagesAsync(account.getUuid(), Device.PRIMARY_ID).join());
+  }
+
+  private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final long serverTimestamp, final boolean ephemeral) {
     return MessageProtos.Envelope.newBuilder()
         .setClientTimestamp(serverTimestamp * 2) // client timestamp may not be accurate
         .setServerTimestamp(serverTimestamp)
@@ -221,6 +273,7 @@ class MessagePersisterIntegrationTest {
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
         .setServerGuid(messageGuid.toString())
         .setDestinationServiceId(UUID.randomUUID().toString())
+        .setEphemeral(ephemeral)
         .build();
   }
 }
