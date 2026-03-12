@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.Pair;
@@ -38,7 +37,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuples;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
@@ -251,6 +249,10 @@ public class MessagePersister implements Managed {
                   return Mono.empty();
                 });
           }, maxConcurrency)
+          .onErrorResume(e -> {
+            logger.warn("Unhandled error while persisting messages", e);
+            return Mono.empty();
+          })
           .count()
           .blockOptional()
           .map(Math::toIntExact)
