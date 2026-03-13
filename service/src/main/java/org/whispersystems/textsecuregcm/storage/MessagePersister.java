@@ -153,8 +153,12 @@ public class MessagePersister implements Managed {
             logger.warn("Failed to persist queues", t);
             Util.sleep(EXCEPTION_PAUSE_MILLIS);
           }
-        } else {
-          Util.sleep(1000);
+        }
+
+        try {
+          // Persisters work through nodes quickly, and running in a hot loop taxes Redis nodes unnecessarily
+          Thread.sleep(dynamicConfigurationManager.getConfiguration().getMessagePersisterConfiguration().getSleepBetweenNodes());
+        } catch (final InterruptedException _) {
         }
       }
     }, "MessagePersister");

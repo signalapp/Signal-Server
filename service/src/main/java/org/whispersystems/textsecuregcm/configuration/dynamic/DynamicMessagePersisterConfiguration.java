@@ -23,16 +23,21 @@ public class DynamicMessagePersisterConfiguration {
   @JsonProperty
   private Duration nodeClaimTtl = Duration.ofHours(1);
 
+  @JsonProperty
+  private Duration sleepBetweenNodes = Duration.ofSeconds(5);
+
   public DynamicMessagePersisterConfiguration() {}
 
   @VisibleForTesting
   public DynamicMessagePersisterConfiguration(final boolean persistenceEnabled,
       final double trimOversizedQueueExtraRoomRatio,
-      final Duration nodeClaimTtl) {
+      final Duration nodeClaimTtl,
+      final Duration sleepBetweenNodes) {
 
     this.persistenceEnabled = persistenceEnabled;
     this.trimOversizedQueueExtraRoomRatio = trimOversizedQueueExtraRoomRatio;
     this.nodeClaimTtl = nodeClaimTtl;
+    this.sleepBetweenNodes = sleepBetweenNodes;
   }
 
   public boolean isPersistenceEnabled() {
@@ -45,5 +50,9 @@ public class DynamicMessagePersisterConfiguration {
 
   public Duration getNodeClaimTtl() {
     return nodeClaimTtl;
+  }
+
+  public Duration getSleepBetweenNodes() {
+    return sleepBetweenNodes;
   }
 }

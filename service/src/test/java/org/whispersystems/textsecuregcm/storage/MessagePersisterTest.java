@@ -124,7 +124,7 @@ class MessagePersisterTest {
 
     dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfiguration.getMessagePersisterConfiguration())
-        .thenReturn(new DynamicMessagePersisterConfiguration(true, EXTRA_ROOM_RATIO, Duration.ofHours(1)));
+        .thenReturn(new DynamicMessagePersisterConfiguration(true, EXTRA_ROOM_RATIO, Duration.ofHours(1), Duration.ZERO));
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     sharedExecutorService = Executors.newSingleThreadExecutor();
@@ -286,7 +286,7 @@ class MessagePersisterTest {
         CLOCK.instant().minus(PERSIST_DELAY.plusSeconds(1)));
 
     when(dynamicConfiguration.getMessagePersisterConfiguration())
-        .thenReturn(new DynamicMessagePersisterConfiguration(false, EXTRA_ROOM_RATIO, Duration.ofHours(1)));
+        .thenReturn(new DynamicMessagePersisterConfiguration(false, EXTRA_ROOM_RATIO, Duration.ofHours(1), Duration.ZERO));
 
     assertEquals(0, messagePersister.persistNode(
         getNodeWithKey(MessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID))));
