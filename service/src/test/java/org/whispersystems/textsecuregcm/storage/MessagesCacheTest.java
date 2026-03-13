@@ -272,6 +272,40 @@ class MessagesCacheTest {
       assertEquals(List.of(message2), get(DESTINATION_UUID, DESTINATION_DEVICE_ID, 1));
     }
 
+    @Test
+    void testGetMessagesFirstPageDiscarded() {
+      final int discardableMessages = MessagesCache.PAGE_SIZE * 2;
+      final int deliverableMessages = MessagesCache.PAGE_SIZE + 1;
+
+      final Instant now = Instant.now();
+      final ServiceIdentifier destinationServiceIdentifier = new AciServiceIdentifier(DESTINATION_UUID);
+
+      for (int i = 0; i < discardableMessages; i++) {
+        final UUID messageGuid = UUID.randomUUID();
+        final long timestamp = now.minus(MessagesCache.MAX_EPHEMERAL_MESSAGE_DELAY.multipliedBy(2)).toEpochMilli() + i;
+
+        final MessageProtos.Envelope message =
+            generateRandomMessage(messageGuid, destinationServiceIdentifier, true, true, timestamp);
+
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
+      }
+
+      final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(deliverableMessages);
+
+      for (int i = 0; i < deliverableMessages; i++) {
+        final UUID messageGuid = UUID.randomUUID();
+        final long timestamp = now.plusMillis(i).toEpochMilli();
+
+        final MessageProtos.Envelope message =
+            generateRandomMessage(messageGuid, destinationServiceIdentifier, true, false, timestamp);
+
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
+        expectedMessages.add(message);
+      }
+
+      assertEquals(expectedMessages, get(DESTINATION_UUID, DESTINATION_DEVICE_ID, deliverableMessages + discardableMessages));
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testGetMessagesPublisher(final boolean expectStale) throws Exception {
@@ -896,24 +930,30 @@ class MessagesCacheTest {
   }
 
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid, final boolean sealedSender) {
-    return generateRandomMessage(messageGuid, new AciServiceIdentifier(UUID.randomUUID()), sealedSender,
+    return generateRandomMessage(messageGuid, new AciServiceIdentifier(UUID.randomUUID()), sealedSender, false,
         serialTimestamp++);
   }
 
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid,
-      final ServiceIdentifier destinationServiceId, final boolean sealedSender) {
-    return generateRandomMessage(messageGuid, destinationServiceId, sealedSender, serialTimestamp++);
+      final ServiceIdentifier destinationServiceId,
+      final boolean sealedSender) {
+
+    return generateRandomMessage(messageGuid, destinationServiceId, sealedSender, false, serialTimestamp++);
   }
 
   private MessageProtos.Envelope generateRandomMessage(final UUID messageGuid,
-      final ServiceIdentifier destinationServiceId, final boolean sealedSender, final long timestamp) {
+      final ServiceIdentifier destinationServiceId,
+      final boolean sealedSender,
+      final boolean ephemeral,
+      final long timestamp) {
     final MessageProtos.Envelope.Builder envelopeBuilder = MessageProtos.Envelope.newBuilder()
         .setClientTimestamp(timestamp)
         .setServerTimestamp(timestamp)
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.secure().nextAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
         .setServerGuid(messageGuid.toString())
-        .setDestinationServiceId(destinationServiceId.toServiceIdentifierString());
+        .setDestinationServiceId(destinationServiceId.toServiceIdentifierString())
+        .setEphemeral(ephemeral);
 
     if (!sealedSender) {
       envelopeBuilder.setSourceDevice(random.nextInt(Device.MAXIMUM_DEVICE_ID) + 1)

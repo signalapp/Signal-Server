@@ -168,7 +168,9 @@ public class MessagesCache {
   static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
 
   private static final String GET_FLUX_NAME = MetricsUtil.name(MessagesCache.class, "get");
-  private static final int PAGE_SIZE = 100;
+
+  @VisibleForTesting
+  static final int PAGE_SIZE = 100;
 
   private static final int REMOVE_MRM_RECIPIENT_VIEW_CONCURRENCY = 8;
 
