@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.entities;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -16,17 +17,24 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
 import org.whispersystems.textsecuregcm.util.ServiceIdentifierAdapter;
 
-public record BatchIdentityCheckResponse(@Valid List<Element> elements) {
+@Schema(description = "Response containing accounts with mismatched identity key fingerprints")
+public record BatchIdentityCheckResponse(
+    @Schema(description = "List of accounts where fingerprint did not match (empty if all matched)")
+    @Valid List<Element> elements) {
 
-  public record Element(@JsonInclude(JsonInclude.Include.NON_EMPTY)
-                        @JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
-                        @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
-                        @NotNull
-                        ServiceIdentifier uuid,
+  @Schema(description = "An account with a mismatched identity key fingerprint")
+  public record Element(
+      @Schema(description = "Service identifier (ACI or PNI)")
+      @JsonInclude(JsonInclude.Include.NON_EMPTY)
+      @JsonSerialize(using = ServiceIdentifierAdapter.ServiceIdentifierSerializer.class)
+      @JsonDeserialize(using = ServiceIdentifierAdapter.ServiceIdentifierDeserializer.class)
+      @NotNull
+      ServiceIdentifier uuid,
 
-                        @NotNull
-                        @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
-                        @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
-                        IdentityKey identityKey) {
+      @Schema(description = "The actual identity key for this account")
+      @NotNull
+      @JsonSerialize(using = IdentityKeyAdapter.Serializer.class)
+      @JsonDeserialize(using = IdentityKeyAdapter.Deserializer.class)
+      IdentityKey identityKey) {
   }
 }

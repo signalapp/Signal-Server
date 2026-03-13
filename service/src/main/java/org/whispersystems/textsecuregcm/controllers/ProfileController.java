@@ -11,6 +11,10 @@ import com.google.common.base.Preconditions;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -72,7 +76,6 @@ import org.whispersystems.textsecuregcm.entities.BaseProfileResponse;
 import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckRequest;
 import org.whispersystems.textsecuregcm.entities.BatchIdentityCheckResponse;
 import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
-import org.whispersystems.textsecuregcm.entities.CredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
@@ -151,6 +154,18 @@ public class ProfileController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Update profile",
+      description = "Updates an account’s profile. Must be authenticated.")
+  @ApiResponse(responseCode = "200", description = "The profile was updated successfully.",
+      content = @Content(schema = @Schema(
+          implementation = ProfileAvatarUploadAttributes.class,
+          description = "If the request changed the avatar, the response body contains an upload form.")))
+  @ApiResponse(responseCode = "400", description = "Invalid create profile request.")
+  @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
+  @ApiResponse(responseCode = "403", description = "The request contained a payment address, but payments are not supported in the region of the account’s phone number.")
+  @ApiResponse(responseCode = "412", description = "The requesting account has the profiles_v2 capability")
+  @ApiResponse(responseCode = "422", description = "Invalid request format")
   public Response setProfile(@Auth AuthenticatedDevice auth, @NotNull @Valid CreateProfileRequest request) {
 
     final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
@@ -214,8 +229,16 @@ public class ProfileController {
   }
 
   @GET
-  @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}/{version}")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Get versioned profile",
+      description = "Retrieves a specific version of an account's profile. Requires either authentication or an unidentified access key.")
+  @ApiResponse(responseCode = "200", description = "Profile retrieved successfully.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "Malformed identifier")
+  @ApiResponse(responseCode = "401", description = "Not authorized to access this profile.")
+  @ApiResponse(responseCode = "404", description = "Profile or account not found.")
+  @ApiResponse(responseCode = "429", description = "Rate limit exceeded.")
   @ManagedAsync
   public VersionedProfileResponse getProfile(
       @Auth Optional<AuthenticatedDevice> maybeAuthenticatedDevice,
@@ -241,9 +264,21 @@ public class ProfileController {
   }
 
   @GET
-  @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}/{version}/{credentialRequest}")
-  public CredentialProfileResponse getProfile(
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Get profile with credential",
+      description = "Retrieves a specific version of an account's profile along with an expiring profile key credential. Requires either authentication or an unidentified access key."
+  )
+  @ApiResponse(
+      responseCode = "200",
+      description = "Account found. Profile information will be limited and credential will be null if the version was not found",
+      useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "Invalid credential type or credential request.")
+  @ApiResponse(responseCode = "401", description = "Not authorized to access this profile.")
+  @ApiResponse(responseCode = "404", description = "Profile or account not found.")
+  @ApiResponse(responseCode = "429", description = "Rate limit exceeded.")
+  public ExpiringProfileKeyCredentialProfileResponse getProfile(
       @Auth Optional<AuthenticatedDevice> maybeAuthenticatedDevice,
       @HeaderParam(HeaderUtils.UNIDENTIFIED_ACCESS_KEY) Optional<Anonymous> accessKey,
       @Context ContainerRequestContext containerRequestContext,
@@ -276,8 +311,16 @@ public class ProfileController {
   // Although clients should generally be using versioned profiles wherever possible, there are still a few lingering
   // use cases for getting profiles without a version (e.g. getting a contact's unidentified access key checksum).
   @GET
-  @Produces(MediaType.APPLICATION_JSON)
   @Path("/{identifier}")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Operation(
+      summary = "Get unversioned profile",
+      description = "Retrieves basic profile information without a specific version. Supports ACI and PNI identifiers. Requires authentication, an unidentified access key, or a group send token.")
+  @ApiResponse(responseCode = "200", description = "Unversioned profile retrieved successfully.", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "Invalid request (e.g., multiple authorization types provided).")
+  @ApiResponse(responseCode = "401", description = "Not authorized to access this profile.")
+  @ApiResponse(responseCode = "404", description = "Account not found.")
+  @ApiResponse(responseCode = "429", description = "Rate limit exceeded.")
   @ManagedAsync
   public BaseProfileResponse getUnversionedProfile(
       @Auth Optional<AuthenticatedDevice> maybeAuthenticatedDevice,
@@ -318,9 +361,17 @@ public class ProfileController {
   }
 
   @POST
+  @Path("/identity_check/batch")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @Path("/identity_check/batch")
+  @Operation(
+      summary = "Batch identity key check",
+      description = "Checks identity key fingerprints for multiple accounts. Returns accounts where the fingerprint does not match. Should not be authenticated.")
+  @ApiResponse(
+      responseCode = "200",
+      description = "Batch check completed successfully. Response may contain accounts with mismatched fingerprints.",
+      content = @Content(schema = @Schema(implementation = BatchIdentityCheckResponse.class)))
+  @ApiResponse(responseCode = "400", description = "Invalid request format or validation failed.")
   public CompletableFuture<BatchIdentityCheckResponse> runBatchIdentityCheck(@NotNull @Valid BatchIdentityCheckRequest request) {
     return CompletableFuture.supplyAsync(() -> {
           List<BatchIdentityCheckResponse.Element> responseElements = Collections.synchronizedList(new ArrayList<>());
@@ -410,7 +461,7 @@ public class ProfileController {
     final Optional<VersionedProfile> maybeProfile = profilesManager.get(account.getUuid(), version);
 
     if (maybeProfile.isEmpty()) {
-      // Hypothesis: this should basically never happen since clients can't delete versions
+      // this can happen if an account re-registers, which includes some device-transfer scenarios
       Metrics.counter(
           VERSION_NOT_FOUND_COUNTER_NAME,
           Tags.of(
