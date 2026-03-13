@@ -306,6 +306,28 @@ class MessagesCacheTest {
       assertEquals(expectedMessages, get(DESTINATION_UUID, DESTINATION_DEVICE_ID, deliverableMessages + discardableMessages));
     }
 
+    @Test
+    void testGetMessagesLockedForPersistence() {
+      final int messageCount = 100;
+
+      final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(messageCount);
+
+      for (int i = 0; i < messageCount; i++) {
+        final UUID messageGuid = UUID.randomUUID();
+        final MessageProtos.Envelope message = generateRandomMessage(messageGuid, true);
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
+        expectedMessages.add(message);
+      }
+
+      messagesCache.lockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID);
+
+      assertTrue(get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount).isEmpty());
+
+      messagesCache.unlockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID);
+
+      assertEquals(expectedMessages, get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testGetMessagesPublisher(final boolean expectStale) throws Exception {
