@@ -2792,6 +2792,9 @@ paths:
     get:
       tags:
       - Profile
+      summary: Get versioned profile
+      description: Retrieves a specific version of an account's profile. Requires
+        either authentication or an unidentified access key.
       operationId: getProfile
       parameters:
       - name: Unidentified-Access-Key
@@ -2813,12 +2816,20 @@ paths:
         schema:
           type: string
       responses:
-        default:
-          description: default response
+        "200":
+          description: Profile retrieved successfully.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/VersionedProfileResponse"
+        "400":
+          description: Malformed identifier
+        "401":
+          description: Not authorized to access this profile.
+        "404":
+          description: Profile or account not found.
+        "429":
+          description: Rate limit exceeded.
       security:
       - authenticatedAccount: []
       - {}
@@ -2826,6 +2837,10 @@ paths:
     get:
       tags:
       - Profile
+      summary: Get profile with credential
+      description: Retrieves a specific version of an account's profile along with
+        an expiring profile key credential. Requires either authentication or an unidentified
+        access key.
       operationId: getProfile_1
       parameters:
       - name: Unidentified-Access-Key
@@ -2856,12 +2871,21 @@ paths:
         schema:
           type: string
       responses:
-        default:
-          description: default response
+        "200":
+          description: Account found. Profile information will be limited and credential
+            will be null if the version was not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CredentialProfileResponse"
+                $ref: "#/components/schemas/ExpiringProfileKeyCredentialProfileResponse"
+        "400":
+          description: Invalid credential type or credential request.
+        "401":
+          description: Not authorized to access this profile.
+        "404":
+          description: Profile or account not found.
+        "429":
+          description: Rate limit exceeded.
       security:
       - authenticatedAccount: []
       - {}
@@ -2869,6 +2893,10 @@ paths:
     get:
       tags:
       - Profile
+      summary: Get unversioned profile
+      description: "Retrieves basic profile information without a specific version.\
+        \ Supports ACI and PNI identifiers. Requires authentication, an unidentified\
+        \ access key, or a group send token."
       operationId: getUnversionedProfile
       parameters:
       - name: Unidentified-Access-Key
@@ -2889,12 +2917,20 @@ paths:
         schema:
           $ref: "#/components/schemas/ServiceIdentifier"
       responses:
-        default:
-          description: default response
+        "200":
+          description: Unversioned profile retrieved successfully.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/BaseProfileResponse"
+        "400":
+          description: "Invalid request (e.g., multiple authorization types provided)."
+        "401":
+          description: Not authorized to access this profile.
+        "404":
+          description: Account not found.
+        "429":
+          description: Rate limit exceeded.
       security:
       - authenticatedAccount: []
       - {}
@@ -2902,6 +2938,9 @@ paths:
     post:
       tags:
       - Profile
+      summary: Batch identity key check
+      description: Checks identity key fingerprints for multiple accounts. Returns
+        accounts where the fingerprint does not match. Should not be authenticated.
       operationId: runBatchIdentityCheck
       requestBody:
         content:
@@ -2910,16 +2949,21 @@ paths:
               $ref: "#/components/schemas/BatchIdentityCheckRequest"
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: Batch check completed successfully. Response may contain accounts
+            with mismatched fingerprints.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/BatchIdentityCheckResponse"
+        "400":
+          description: Invalid request format or validation failed.
   /v1/profile:
     put:
       tags:
       - Profile
+      summary: Update profile
+      description: Updates an account’s profile. Must be authenticated.
       operationId: setProfile
       requestBody:
         content:
@@ -2928,10 +2972,23 @@ paths:
               $ref: "#/components/schemas/CreateProfileRequest"
         required: true
       responses:
-        default:
-          description: default response
+        "200":
+          description: The profile was updated successfully.
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileAvatarUploadAttributes"
+        "400":
+          description: Invalid create profile request.
+        "401":
+          description: Account authentication check failed.
+        "403":
+          description: "The request contained a payment address, but payments are\
+            \ not supported in the region of the account’s phone number."
+        "412":
+          description: The requesting account has the profiles_v2 capability
+        "422":
+          description: Invalid request format
       security:
       - authenticatedAccount: []
   /v1/provisioning/{destination}:
@@ -5078,10 +5135,10 @@ components:
           format: date-time
         open:
           type: boolean
-        userAgent:
-          type: string
         remoteAddress:
           type: object
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
@@ -5671,21 +5728,27 @@ components:
           $ref: "#/components/schemas/IdentityKey"
         unidentifiedAccess:
           type: string
+          description: Checksum for unidentified access authentication (padded base64)
           format: byte
         unrestrictedUnidentifiedAccess:
           type: boolean
+          description: Whether unidentified access is unrestricted for this account
         capabilities:
           type: object
           additionalProperties:
             type: boolean
+            description: Device capabilities and whether they are enabled
+          description: Device capabilities and whether they are enabled
         badges:
           type: array
+          description: List of badges displayed on the profile
           items:
             $ref: "#/components/schemas/Badge"
         uuid:
           type: string
           description: A service identifier is a tuple of a UUID and identity type
             that identifies an account and identity within the Signal service.
+      description: Unversioned profile containing basic information
     VersionedProfileResponse:
       type: object
       properties:
@@ -5693,15 +5756,20 @@ components:
           $ref: "#/components/schemas/IdentityKey"
         unidentifiedAccess:
           type: string
+          description: Checksum for unidentified access authentication (padded base64)
           format: byte
         unrestrictedUnidentifiedAccess:
           type: boolean
+          description: Whether unidentified access is unrestricted for this account
         capabilities:
           type: object
           additionalProperties:
             type: boolean
+            description: Device capabilities and whether they are enabled
+          description: Device capabilities and whether they are enabled
         badges:
           type: array
+          description: List of badges displayed on the profile
           items:
             $ref: "#/components/schemas/Badge"
         uuid:
@@ -5710,37 +5778,50 @@ components:
             that identifies an account and identity within the Signal service.
         name:
           type: string
+          description: Encrypted profile name. Padded base64.
           format: byte
         about:
           type: string
+          description: Encrypted about text. Padded base64.
           format: byte
         aboutEmoji:
           type: string
+          description: Encrypted about emoji. Padded base64.
           format: byte
         avatar:
           type: string
+          description: Avatar CDN path
         paymentAddress:
           type: string
+          description: Encrypted payment address. Padded base64.
           format: byte
         phoneNumberSharing:
           type: string
+          description: Encrypted phone number sharing preference. Padded base64.
           format: byte
-    CredentialProfileResponse:
+      description: Versioned profile containing encrypted fields. Versioned fields
+        may be empty if the version was not found.
+    ExpiringProfileKeyCredentialProfileResponse:
       type: object
       properties:
         identityKey:
           $ref: "#/components/schemas/IdentityKey"
         unidentifiedAccess:
           type: string
+          description: Checksum for unidentified access authentication (padded base64)
           format: byte
         unrestrictedUnidentifiedAccess:
           type: boolean
+          description: Whether unidentified access is unrestricted for this account
         capabilities:
           type: object
           additionalProperties:
             type: boolean
+            description: Device capabilities and whether they are enabled
+          description: Device capabilities and whether they are enabled
         badges:
           type: array
+          description: List of badges displayed on the profile
           items:
             $ref: "#/components/schemas/Badge"
         uuid:
@@ -5749,28 +5830,48 @@ components:
             that identifies an account and identity within the Signal service.
         name:
           type: string
+          description: Encrypted profile name. Padded base64.
           format: byte
         about:
           type: string
+          description: Encrypted about text. Padded base64.
           format: byte
         aboutEmoji:
           type: string
+          description: Encrypted about emoji. Padded base64.
           format: byte
         avatar:
           type: string
+          description: Avatar CDN path
         paymentAddress:
           type: string
+          description: Encrypted payment address. Padded base64.
           format: byte
         phoneNumberSharing:
           type: string
+          description: Encrypted phone number sharing preference. Padded base64.
           format: byte
+        credential:
+          $ref: "#/components/schemas/ExpiringProfileKeyCredentialResponse"
+      description: Profile response with an expiring profile key credential
+    ExpiringProfileKeyCredentialResponse:
+      type: object
+      properties:
+        internalContentsForJNI:
+          type: string
+          format: byte
+      description: Expiring profile key credential response. Null if profile version
+        was not found
     BatchIdentityCheckResponse:
       type: object
       properties:
         elements:
           type: array
+          description: List of accounts where fingerprint did not match (empty if
+            all matched)
           items:
             $ref: "#/components/schemas/Element"
+      description: Response containing accounts with mismatched identity key fingerprints
     Element:
       required:
       - fingerprint
@@ -5783,7 +5884,10 @@ components:
             that identifies an account and identity within the Signal service.
         fingerprint:
           type: string
+          description: "Expected identity key fingerprint (4 bytes, most significant\
+            \ bytes of SHA-256 hash of 33-byte identity key field)"
           format: byte
+      description: A service identifier and expected identity key fingerprint
     BatchIdentityCheckRequest:
       required:
       - elements
@@ -5793,8 +5897,36 @@ components:
           maxItems: 1000
           minItems: 0
           type: array
+          description: List of accounts to check
           items:
             $ref: "#/components/schemas/Element"
+      description: Request to check identity key fingerprints for multiple accounts
+    ProfileAvatarUploadAttributes:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Object key for the avatar
+        credential:
+          type: string
+          description: Credential for the upload
+        acl:
+          type: string
+          description: Access control list setting
+        algorithm:
+          type: string
+          description: Signing algorithm
+        date:
+          type: string
+          description: Date in AWS format
+        policy:
+          type: string
+          description: Base64-encoded upload policy
+        signature:
+          type: string
+          description: Signature calculated over the policy
+      description: "Profile avatar upload form (S3 Post Policy, AWS Signature version\
+        \ 4)"
     CreateProfileRequest:
       required:
       - commitment
@@ -5806,28 +5938,38 @@ components:
         version:
           minLength: 1
           type: string
+          description: Profile version identifier (hex-encoding of the public key)
         name:
           type: string
+          description: Encrypted profile name. Padded base64.
           format: byte
         aboutEmoji:
           type: string
+          description: Encrypted about emoji. Padded base64.
           format: byte
         about:
           type: string
+          description: Encrypted about text. Padded base64.
           format: byte
         paymentAddress:
           type: string
+          description: Encrypted payment address. Padded base64.
           format: byte
         avatar:
           type: boolean
+          description: Whether the profile has an avatar
         sameAvatar:
           type: boolean
+          description: Whether the avatar is unchanged from the previous version
         badgeIds:
           type: array
+          description: List of badge IDs to display on the profile
           items:
             type: string
+            description: List of badge IDs to display on the profile
         phoneNumberSharing:
           type: string
+          description: Encrypted phone number sharing preference. Padded base64.
           format: byte
         avatarChange:
           type: string
@@ -5835,12 +5977,14 @@ components:
           - UNCHANGED
           - CLEAR
           - UPDATE
+      description: Request to create or update a versioned profile
     ProfileKeyCommitment:
       type: object
       properties:
         internalContentsForJNI:
           type: string
           format: byte
+      description: Profile key commitment
     ProvisioningMessage:
       required:
       - body
