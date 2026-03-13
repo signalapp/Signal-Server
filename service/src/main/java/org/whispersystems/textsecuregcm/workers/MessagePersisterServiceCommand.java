@@ -36,6 +36,7 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
   private Scheduler persistQueueScheduler;
 
   private static final String MAX_CONCURRENCY = "maxConcurrency";
+  private static final String SCAN_COUNT = "scanCount";
 
   private static final Logger logger = LoggerFactory.getLogger(MessagePersisterServiceCommand.class);
 
@@ -59,6 +60,13 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
         .dest(MAX_CONCURRENCY)
         .required(true)
         .help("The maximum number of concurrent Redis/DynamoDB operations");
+
+    subparser.addArgument("--scan-count")
+        .type(Integer.class)
+        .dest(SCAN_COUNT)
+        .required(false)
+        .setDefault(1024)
+        .help("The COUNT argument for the Redis SCAN operation that finds message queues");
   }
 
   @Override
@@ -90,7 +98,8 @@ public class MessagePersisterServiceCommand extends ServerCommand<WhisperServerC
         persistQueueScheduler,
         Clock.systemUTC(),
         Duration.ofMinutes(configuration.getMessageCacheConfiguration().getPersistDelayMinutes()),
-        namespace.getInt(MAX_CONCURRENCY));
+        namespace.getInt(MAX_CONCURRENCY),
+        namespace.getInt(SCAN_COUNT));
 
     environment.lifecycle().manage(messagePersister);
 

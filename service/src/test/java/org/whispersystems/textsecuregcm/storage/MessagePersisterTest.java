@@ -140,6 +140,7 @@ class MessagePersisterTest {
         CLOCK,
         PERSIST_DELAY,
         1,
+        1024,
         Retry.backoff(1, Duration.ZERO));
 
     when(messagesManager.clear(any(UUID.class), anyByte())).thenReturn(CompletableFuture.completedFuture(null));

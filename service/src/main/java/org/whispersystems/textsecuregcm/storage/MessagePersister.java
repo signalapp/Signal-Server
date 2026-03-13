@@ -53,6 +53,7 @@ public class MessagePersister implements Managed {
 
   private final Duration persistDelay;
   private final int maxConcurrency;
+  private final int scanCount;
 
   private final RetryBackoffSpec retryBackoffSpec;
 
@@ -98,7 +99,8 @@ public class MessagePersister implements Managed {
       final Scheduler persistQueueScheduler,
       final Clock clock,
       final Duration persistDelay,
-      final int maxConcurrency) {
+      final int maxConcurrency,
+      final int scanCount) {
 
     this(messagesCache,
         messagesManager,
@@ -108,6 +110,7 @@ public class MessagePersister implements Managed {
         clock,
         persistDelay,
         maxConcurrency,
+        scanCount,
         Retry.backoff(3, Duration.ofSeconds(1)));
   }
 
@@ -120,6 +123,7 @@ public class MessagePersister implements Managed {
       final Clock clock,
       final Duration persistDelay,
       final int maxConcurrency,
+      final int scanCount,
       final RetryBackoffSpec retryBackoffSpec) {
 
     this.messagesCache = messagesCache;
@@ -129,6 +133,7 @@ public class MessagePersister implements Managed {
     this.clock = clock;
     this.persistDelay = persistDelay;
     this.maxConcurrency = maxConcurrency;
+    this.scanCount = scanCount;
     this.retryBackoffSpec = retryBackoffSpec;
     this.persistQueueScheduler = persistQueueScheduler;
   }
@@ -204,7 +209,7 @@ public class MessagePersister implements Managed {
     try {
       final Tags tags = Tags.of("node", node.getUri().getHost());
 
-      return messagesCache.getQueues(node)
+      return messagesCache.getQueues(node, scanCount)
           .filter(_ -> dynamicConfigurationManager.getConfiguration().getMessagePersisterConfiguration()
               .isPersistenceEnabled())
           .flatMap(queueKey -> Mono.defer(() -> shouldPersistQueue(queueKey))

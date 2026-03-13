@@ -107,7 +107,8 @@ class MessagePersisterIntegrationTest {
         persistQueueScheduler,
         Clock.systemUTC(),
         PERSIST_DELAY,
-        1);
+        1,
+        1024);
 
     account = mock(Account.class);
 

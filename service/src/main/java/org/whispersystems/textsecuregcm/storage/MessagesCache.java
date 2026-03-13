@@ -712,10 +712,10 @@ public class MessagesCache {
     return "persister_node_claim::" + node.getNodeId();
   }
 
-  Flux<String> getQueues(final RedisClusterNode node) {
+  Flux<String> getQueues(final RedisClusterNode node, final int scanCount) {
     return redisCluster.withCluster(connection ->
         ScanStream.scan(connection.getConnection(node.getNodeId()).reactive(),
-            ScanArgs.Builder.matches("user_queue::*")));
+            ScanArgs.Builder.matches("user_queue::*").limit(scanCount)));
   }
 
   void lockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
