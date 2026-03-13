@@ -68,7 +68,7 @@ class MessagesCacheInsertScriptTest {
     final MessagesCacheGetItemsScript getItemsScript =
         new MessagesCacheGetItemsScript(REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
-    final List<byte[]> queueItems = getItemsScript.execute(destinationUuid, deviceId, 1024, 0)
+    final List<byte[]> queueItems = getItemsScript.execute(destinationUuid, deviceId, 1024, 0, false)
         .blockOptional()
         .orElseGet(Collections::emptyList);
 

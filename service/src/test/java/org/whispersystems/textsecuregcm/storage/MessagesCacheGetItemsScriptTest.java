@@ -49,7 +49,7 @@ class MessagesCacheGetItemsScriptTest {
     final MessagesCacheGetItemsScript getItemsScript = new MessagesCacheGetItemsScript(
         REDIS_CLUSTER_EXTENSION.getRedisCluster());
 
-    final List<byte[]> messageAndScores = getItemsScript.execute(destinationUuid, deviceId, 1, -1)
+    final List<byte[]> messageAndScores = getItemsScript.execute(destinationUuid, deviceId, 1, -1, false)
         .block(Duration.ofSeconds(1));
 
     assertNotNull(messageAndScores);

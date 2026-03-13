@@ -6,15 +6,17 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import io.lettuce.core.ScriptOutputType;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
 import org.whispersystems.textsecuregcm.push.ClientEvent;
 import org.whispersystems.textsecuregcm.push.MessagesPersistedEvent;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
-import org.whispersystems.textsecuregcm.util.ResilienceUtil;
-import java.io.IOException;
-import java.util.List;
-import java.util.UUID;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 /**
  * Unlocks a message queue for persistence/message retrieval.
@@ -33,13 +35,14 @@ class MessagesCacheUnlockQueueScript {
         ClusterLuaScript.fromResource(redisCluster, "lua/unlock_queue.lua", ScriptOutputType.STATUS);
   }
 
-  void execute(final UUID accountIdentifier, final byte deviceId) {
+  Mono<Void> execute(final UUID accountIdentifier, final byte deviceId) {
     final List<byte[]> keys = List.of(
         MessagesCache.getPersistInProgressKey(accountIdentifier, deviceId), // persistInProgressKey
         RedisMessageAvailabilityManager.getClientEventChannel(accountIdentifier, deviceId) // eventChannelKey
     );
 
-    ResilienceUtil.getGeneralRedisRetry(MessagesCache.RETRY_NAME)
-        .executeRunnable(() -> unlockQueueScript.executeBinary(keys, MESSAGES_PERSISTED_EVENT_ARGS));
+    return unlockQueueScript.executeBinaryReactive(keys, MESSAGES_PERSISTED_EVENT_ARGS)
+        .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
+        .then();
   }
 }

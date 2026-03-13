@@ -20,7 +20,6 @@ import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
@@ -87,8 +86,6 @@ public class MessagePersister implements Managed {
           .register(Metrics.globalRegistry);
 
   private static final long EXCEPTION_PAUSE_MILLIS = Duration.ofSeconds(3).toMillis();
-
-  private static final int CONSECUTIVE_EMPTY_CACHE_REMOVAL_LIMIT = 3;
 
   private static final Logger logger = LoggerFactory.getLogger(MessagePersister.class);
 
@@ -240,11 +237,8 @@ public class MessagePersister implements Managed {
             final Account account = accountAndDevice.getT1();
             final Device device = accountAndDevice.getT2();
 
-            return Mono.fromCallable(() -> {
-                  persistQueue(account, device, tags);
-                  return 1;
-                })
-                .subscribeOn(persistQueueScheduler)
+            return persistQueue(account, device, tags)
+                .thenReturn(1)
                 .retryWhen(retryBackoffSpec
                     // Don't retry with backoff for persistence exceptions
                     .filter(e -> !(e instanceof MessagePersistenceException)))
@@ -270,7 +264,7 @@ public class MessagePersister implements Managed {
   }
 
   @VisibleForTesting
-  void persistQueue(final Account account, final Device device, final Tags baseTags) throws MessagePersistenceException {
+  Mono<Void> persistQueue(final Account account, final Device device, final Tags baseTags) {
     final UUID accountUuid = account.getUuid();
     final byte deviceId = device.getId();
 
@@ -279,122 +273,114 @@ public class MessagePersister implements Managed {
         .orElse("unknown"));
 
     final Timer.Sample sample = Timer.start();
+    final Tags tags = baseTags.and(platformTag);
 
-    messagesCache.lockQueueForPersistence(accountUuid, deviceId);
+    return Flux.usingWhen(
+        messagesCache.lockQueueForPersistence(accountUuid, deviceId)
+            .thenReturn(true),
+        _ -> Flux.from(messagesCache.getMessagesToPersist(accountUuid, deviceId))
+            .buffer(MESSAGE_BATCH_LIMIT)
+            .flatMap(messages -> {
+              final int urgentMessageCount = (int) messages.stream().filter(MessageProtos.Envelope::getUrgent).count();
+              final int nonUrgentMessageCount = messages.size() - urgentMessageCount;
 
-    try {
-      int messageCount = 0;
-      List<MessageProtos.Envelope> messages;
+              Metrics.counter(PERSISTED_MESSAGE_COUNTER_NAME, tags.and("urgent", "true")).increment(urgentMessageCount);
+              Metrics.counter(PERSISTED_MESSAGE_COUNTER_NAME, tags.and("urgent", "false")).increment(nonUrgentMessageCount);
+              Metrics.counter(PERSISTED_BYTES_COUNTER_NAME, tags)
+                  .increment(messages.stream().mapToInt(MessageProtos.Envelope::getSerializedSize).sum());
 
-      int consecutiveEmptyCacheRemovals = 0;
+              return Mono.fromRunnable(() -> messagesManager.persistMessages(accountUuid, device, messages))
+                  .subscribeOn(persistQueueScheduler)
+                  .thenReturn(messages.size());
+            }, 1)
+            .reduce(0, Integer::sum)
+            .onErrorResume(ItemCollectionSizeLimitExceededException.class, _ -> {
+              final boolean isPrimary = deviceId == Device.PRIMARY_ID;
+              Metrics.counter(OVERSIZED_QUEUE_COUNTER_NAME, "primary", String.valueOf(isPrimary)).increment();
+              // may throw, in which case we'll retry later by the usual mechanism
+              if (isPrimary) {
+                logger.warn("Failed to persist queue {}::{} due to overfull queue; will trim oldest messages",
+                    account.getUuid(), deviceId);
 
-      do {
-        messages = messagesCache.getMessagesToPersist(accountUuid, deviceId, MESSAGE_BATCH_LIMIT);
+                return trimQueue(account, device)
+                    .then(Mono.error(new MessagePersistenceException("Could not persist due to an overfull queue. Trimmed primary queue, a subsequent retry may succeed")));
+              } else {
+                logger.warn("Failed to persist queue {}::{} due to overfull queue; will unlink device", accountUuid, deviceId);
 
-        final int urgentMessageCount = (int) messages.stream().filter(MessageProtos.Envelope::getUrgent).count();
-        final int nonUrgentMessageCount = messages.size() - urgentMessageCount;
-
-        final Tags tags = baseTags.and(platformTag);
-
-        Metrics.counter(PERSISTED_MESSAGE_COUNTER_NAME, tags.and("urgent", "true")).increment(urgentMessageCount);
-        Metrics.counter(PERSISTED_MESSAGE_COUNTER_NAME, tags.and("urgent", "false")).increment(nonUrgentMessageCount);
-        Metrics.counter(PERSISTED_BYTES_COUNTER_NAME, tags)
-            .increment(messages.stream().mapToInt(MessageProtos.Envelope::getSerializedSize).sum());
-
-        int messagesRemovedFromCache = messagesManager.persistMessages(accountUuid, device, messages);
-        messageCount += messages.size();
-
-        if (messagesRemovedFromCache == 0) {
-          consecutiveEmptyCacheRemovals += 1;
-        } else {
-          consecutiveEmptyCacheRemovals = 0;
-        }
-
-        if (consecutiveEmptyCacheRemovals > CONSECUTIVE_EMPTY_CACHE_REMOVAL_LIMIT) {
-          throw new MessagePersistenceException("persistence failure loop detected");
-        }
-
-      } while (!messages.isEmpty());
-
-      DistributionSummary.builder(QUEUE_SIZE_DISTRIBUTION_SUMMARY_NAME)
-          .tags(Tags.of(platformTag))
-          .register(Metrics.globalRegistry)
-          .record(messageCount);
-    } catch (final ItemCollectionSizeLimitExceededException e) {
-      final boolean isPrimary = deviceId == Device.PRIMARY_ID;
-      Metrics.counter(OVERSIZED_QUEUE_COUNTER_NAME, "primary", String.valueOf(isPrimary)).increment();
-      // may throw, in which case we'll retry later by the usual mechanism
-      if (isPrimary) {
-        logger.warn("Failed to persist queue {}::{} due to overfull queue; will trim oldest messages",
-            account.getUuid(), deviceId);
-        trimQueue(account, deviceId);
-        throw new MessagePersistenceException("Could not persist due to an overfull queue. Trimmed primary queue, a subsequent retry may succeed");
-      } else {
-        logger.warn("Failed to persist queue {}::{} due to overfull queue; will unlink device", accountUuid, deviceId);
-        accountsManager.removeDevice(account, deviceId);
-      }
-    } finally {
-      messagesCache.unlockQueueForPersistence(accountUuid, deviceId);
-      sample.stop(PERSIST_QUEUE_TIMER);
-    }
+                return Mono.fromRunnable(() -> accountsManager.removeDevice(account, deviceId))
+                    .subscribeOn(persistQueueScheduler)
+                    .then(Mono.empty());
+              }
+            })
+            .doOnSuccess(messagesPersisted -> {
+              if (messagesPersisted != null) {
+                DistributionSummary.builder(QUEUE_SIZE_DISTRIBUTION_SUMMARY_NAME)
+                    .tags(Tags.of(platformTag))
+                    .register(Metrics.globalRegistry)
+                    .record(messagesPersisted);
+              }
+            })
+            .doOnTerminate(() -> sample.stop(PERSIST_QUEUE_TIMER)),
+        _ -> messagesCache.unlockQueueForPersistence(accountUuid, deviceId))
+        .then();
   }
 
-  private void trimQueue(final Account account, byte deviceId) {
+  private Mono<Void> trimQueue(final Account account, final Device device) {
     final UUID aci = account.getIdentifier(IdentityType.ACI);
+    final byte deviceId = device.getId();
 
-    final Optional<Device> maybeDevice = account.getDevice(deviceId);
-    if (maybeDevice.isEmpty()) {
-      logger.warn("Not deleting messages for overfull queue {}::{}, deviceId {} does not exist",
-          aci, deviceId, deviceId);
-      return;
-    }
-    final Device device = maybeDevice.get();
-
-    // Calculate how many bytes we should trim
-    final long cachedMessageBytes = messagesCache.estimatePersistedQueueSizeBytes(aci, deviceId).join();
     final double extraRoomRatio = this.dynamicConfigurationManager.getConfiguration()
         .getMessagePersisterConfiguration()
         .getTrimOversizedQueueExtraRoomRatio();
-    final long targetDeleteBytes = Math.round(cachedMessageBytes * extraRoomRatio);
 
     final AtomicLong oldestMessage = new AtomicLong(0L);
     final AtomicLong newestMessage = new AtomicLong(0L);
     final AtomicLong bytesDeleted = new AtomicLong(0L);
 
-    // Iterate from the oldest message until we've removed targetDeleteBytes
-    final Pair<Long, Long> outcomes = Flux.from(messagesManager.getMessagesForDeviceReactive(aci, device, false))
-        .concatMap(envelope -> {
-          if (bytesDeleted.getAndAdd(envelope.getSerializedSize()) >= targetDeleteBytes) {
-            return Mono.just(Optional.<MessageProtos.Envelope>empty());
-          }
-          oldestMessage.compareAndSet(0L, envelope.getServerTimestamp());
-          newestMessage.set(envelope.getServerTimestamp());
-          return Mono.just(Optional.of(envelope));
-        })
-        .takeWhile(Optional::isPresent)
-        .flatMap(maybeEnvelope -> {
-          // We know this must be present because we `takeWhile` values are present
-          final MessageProtos.Envelope envelope = maybeEnvelope.orElseThrow(AssertionError::new);
-          TRIMMED_MESSAGE_COUNTER.increment();
-          TRIMMED_MESSAGE_BYTES_COUNTER.increment(envelope.getSerializedSize());
-          return Mono
-              .fromCompletionStage(() -> messagesManager
-                  .delete(aci, device, UUID.fromString(envelope.getServerGuid()), envelope.getServerTimestamp()))
-              .retryWhen(retryBackoffSpec)
-              .map(Optional::isPresent);
-        })
-        .reduce(Pair.of(0L, 0L), (acc, deleted) -> deleted
-            ? Pair.of(acc.getLeft() + 1, acc.getRight())
-            : Pair.of(acc.getLeft(), acc.getRight() + 1))
-        .blockOptional()
-        .orElseGet(() -> Pair.of(0L, 0L));
+    final AtomicLong cachedMessageBytes = new AtomicLong(0L);
+    final AtomicLong targetDeleteBytes = new AtomicLong(0L);
 
-    logger.warn(
-        "Finished trimming {}:{}. Oldest message = {}, newest message = {}. Attempted to delete {} persisted bytes to make room for {} cached message bytes.  Delete outcomes: {} present, {} missing.",
-        aci, deviceId,
-        Instant.ofEpochMilli(oldestMessage.get()), Instant.ofEpochMilli(newestMessage.get()),
-        targetDeleteBytes, cachedMessageBytes,
-        outcomes.getLeft(), outcomes.getRight());
+    return Mono.fromFuture(() -> messagesCache.estimatePersistedQueueSizeBytes(aci, deviceId))
+        .flatMap(estimatedPersistedQueueSize -> {
+          cachedMessageBytes.set(estimatedPersistedQueueSize);
+          targetDeleteBytes.set(Math.round(estimatedPersistedQueueSize * extraRoomRatio));
+
+          return Flux.from(messagesManager.getMessagesForDeviceReactive(aci, device, false))
+              .concatMap(envelope -> {
+                if (bytesDeleted.getAndAdd(envelope.getSerializedSize()) >= targetDeleteBytes.get()) {
+                  return Mono.just(Optional.<MessageProtos.Envelope>empty());
+                }
+                oldestMessage.compareAndSet(0L, envelope.getServerTimestamp());
+                newestMessage.set(envelope.getServerTimestamp());
+                return Mono.just(Optional.of(envelope));
+              })
+              .takeWhile(Optional::isPresent)
+              .flatMap(maybeEnvelope -> {
+                // We know this must be present because we `takeWhile` values are present
+                final MessageProtos.Envelope envelope = maybeEnvelope.orElseThrow(AssertionError::new);
+                TRIMMED_MESSAGE_COUNTER.increment();
+                TRIMMED_MESSAGE_BYTES_COUNTER.increment(envelope.getSerializedSize());
+                return Mono
+                    .fromCompletionStage(() -> messagesManager
+                        .delete(aci, device, UUID.fromString(envelope.getServerGuid()), envelope.getServerTimestamp()))
+                    .retryWhen(retryBackoffSpec)
+                    .map(Optional::isPresent);
+              })
+              .reduce(Pair.of(0L, 0L), (acc, deleted) -> deleted
+                  ? Pair.of(acc.getLeft() + 1, acc.getRight())
+                  : Pair.of(acc.getLeft(), acc.getRight() + 1));
+        })
+        .doOnSuccess(outcomes -> {
+          if (outcomes != null) {
+            logger.warn(
+                "Finished trimming {}:{}. Oldest message = {}, newest message = {}. Attempted to delete {} persisted bytes to make room for {} cached message bytes.  Delete outcomes: {} present, {} missing.",
+                aci, deviceId,
+                Instant.ofEpochMilli(oldestMessage.get()), Instant.ofEpochMilli(newestMessage.get()),
+                targetDeleteBytes, cachedMessageBytes,
+                outcomes.getLeft(), outcomes.getRight());
+          }
+        })
+        .then();
   }
 
   @VisibleForTesting

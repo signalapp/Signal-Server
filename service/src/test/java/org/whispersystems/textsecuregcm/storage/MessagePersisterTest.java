@@ -64,6 +64,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import reactor.test.StepVerifier;
 import reactor.util.retry.Retry;
 import software.amazon.awssdk.services.dynamodb.model.ItemCollectionSizeLimitExceededException;
 
@@ -174,6 +175,25 @@ class MessagePersisterTest {
     resubscribeRetryExecutorService.shutdown();
     //noinspection ResultOfMethodCallIgnored
     resubscribeRetryExecutorService.awaitTermination(1, TimeUnit.SECONDS);
+  }
+
+  @Test
+  void persistQueue() {
+    final int messageCount = (MessagePersister.MESSAGE_BATCH_LIMIT * 3) + 7;
+
+    insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, messageCount,
+        CLOCK.instant().minus(PERSIST_DELAY.plusSeconds(1)));
+
+    messagePersister.persistQueue(destinationAccount, destinationAccount.getDevice(DESTINATION_DEVICE_ID).orElseThrow(), Tags.empty())
+        .block();
+
+    @SuppressWarnings("unchecked") final ArgumentCaptor<List<MessageProtos.Envelope>> messagesCaptor =
+        ArgumentCaptor.forClass(List.class);
+
+    verify(messagesDynamoDb, atLeastOnce())
+        .store(messagesCaptor.capture(), eq(DESTINATION_ACCOUNT_UUID), eq(DESTINATION_DEVICE));
+
+    assertEquals(messageCount, messagesCaptor.getAllValues().stream().mapToInt(List::size).sum());
   }
 
   @Test
@@ -408,39 +428,6 @@ class MessagePersisterTest {
   }
 
   @Test
-  void persistNodePersistQueueMessagePersistenceException() {
-    final int messageCount = (MessagePersister.MESSAGE_BATCH_LIMIT * 3) + 7;
-
-    insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, messageCount,
-        CLOCK.instant().minus(PERSIST_DELAY.plusSeconds(1)));
-
-    // Provoke a MessagePersistenceException
-    when(messagesManager.persistMessages(any(), any(), any())).thenReturn(0);
-
-    assertEquals(0, messagePersister.persistNode(
-        getNodeWithKey(MessagesCache.getMessageQueueKey(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID))));
-
-    // We use this as a proxy for attempts to persist messages; for a MessagePersistenceException, we should NOT retry,
-    // and this should happen exactly once
-    verify(messagesCache).lockQueueForPersistence(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID);
-    verify(messagesDynamoDb, never()).store(any(), any(), any());
-  }
-
-  @Test
-  void testPersistQueueRetryLoop() {
-    final int messageCount = (MessagePersister.MESSAGE_BATCH_LIMIT * 3) + 7;
-
-    insertMessages(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID, messageCount, CLOCK.instant().minus(PERSIST_DELAY.plusSeconds(1)));
-
-    // returning `0` indicates something not working correctly
-    when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenReturn(0);
-
-    assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
-        assertThrows(MessagePersistenceException.class,
-            () -> messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE, Tags.empty())));
-  }
-
-  @Test
   void testUnlinkOnFullQueue() {
     final int messageCount = 1;
 
@@ -469,12 +456,15 @@ class MessagePersisterTest {
     final Device destination = mock(Device.class);
     when(destination.getId()).thenReturn(DESTINATION_DEVICE_ID);
 
-    when(destinationAccount.getDevices()).thenReturn(List.of(primary, activeA, inactiveB, inactiveC, activeD, destination));
+    when(destinationAccount.getDevices())
+        .thenReturn(List.of(primary, activeA, inactiveB, inactiveC, activeD, destination));
 
-    when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
+    when(messagesManager.persistMessages(any(), any(), any()))
+        .thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
 
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
-        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE, Tags.empty()));
+        messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE, Tags.empty()).block());
+
     verify(accountsManager, exactly()).removeDevice(destinationAccount, DESTINATION_DEVICE_ID);
   }
 
@@ -520,8 +510,9 @@ class MessagePersisterTest {
     when(messagesManager.delete(any(), any(), any(), anyLong()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
 
-    assertThrows(MessagePersistenceException.class, () ->
-        messagePersister.persistQueue(destinationAccount, primary, Tags.empty()));
+    StepVerifier.create(messagePersister.persistQueue(destinationAccount, primary, Tags.empty()))
+        .expectError(MessagePersistenceException.class)
+        .verify();
 
     verify(messagesManager, times(expectedClearedGuids.size()))
         .delete(eq(DESTINATION_ACCOUNT_UUID), eq(primary), argThat(expectedClearedGuids::contains), anyLong());
@@ -563,7 +554,7 @@ class MessagePersisterTest {
     when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
     when(accountsManager.removeDevice(destinationAccount, DESTINATION_DEVICE_ID)).thenThrow(new RuntimeException());
 
-    assertThrows(RuntimeException.class, () -> messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE, Tags.empty()));
+    assertThrows(RuntimeException.class, () -> messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE, Tags.empty()).block());
   }
 
   private static RedisClusterNode getNodeWithKey(final byte[] key) {

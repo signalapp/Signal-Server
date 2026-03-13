@@ -28,6 +28,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -139,7 +140,6 @@ public class MessagesCache {
 
   private final Timer insertTimer = Metrics.timer(name(MessagesCache.class, "insert"));
   private final Timer insertSharedMrmPayloadTimer = Metrics.timer(name(MessagesCache.class, "insertSharedMrmPayload"));
-  private final Timer getMessagesTimer = Metrics.timer(name(MessagesCache.class, "get"));
   private final Timer removeByGuidTimer = Metrics.timer(name(MessagesCache.class, "removeByGuid"));
   private final Timer removeRecipientViewTimer = Metrics.timer(name(MessagesCache.class, "removeRecipientView"));
   private final Timer clearQueueTimer = Metrics.timer(name(MessagesCache.class, "clear"));
@@ -314,13 +314,30 @@ public class MessagesCache {
         .toCompletableFuture();
   }
 
-  public Publisher<MessageProtos.Envelope> get(final UUID destinationUuid, final byte destinationDevice) {
+  public Publisher<MessageProtos.Envelope> get(final UUID destinationUuid, final byte destinationDeviceId) {
+    return get(destinationUuid,
+        destinationDeviceId,
+        clock.instant().minus(MAX_EPHEMERAL_MESSAGE_DELAY),
+        false);
+  }
 
-    final long earliestAllowableEphemeralTimestamp =
-        clock.millis() - MAX_EPHEMERAL_MESSAGE_DELAY.toMillis();
+  Publisher<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDeviceId) {
+    return Flux.from(get(accountUuid,
+        destinationDeviceId,
+        // Discard all ephemeral messages when persisting
+        Instant.ofEpochMilli(Long.MAX_VALUE),
+        true));
+  }
 
-    final Flux<MessageProtos.Envelope> allMessages = getAllMessages(destinationUuid, destinationDevice,
-        earliestAllowableEphemeralTimestamp, PAGE_SIZE)
+  private Publisher<MessageProtos.Envelope> get(final UUID destinationUuid,
+      final byte destinationDeviceId,
+      final Instant earliestAllowableEphemeralTimestamp,
+      final boolean bypassLock) {
+
+    final long earliestAllowableEphemeralTimestampMillis = earliestAllowableEphemeralTimestamp.toEpochMilli();
+
+    final Flux<MessageProtos.Envelope> allMessages = getAllMessages(destinationUuid, destinationDeviceId,
+        earliestAllowableEphemeralTimestampMillis, PAGE_SIZE, bypassLock)
         .publish()
         // We expect exactly three subscribers to this base flux:
         // 1. the websocket that delivers messages to clients
@@ -332,23 +349,23 @@ public class MessagesCache {
 
     final Flux<MessageProtos.Envelope> messagesToPublish = allMessages
         .filter(Predicate.not(envelope ->
-            isStaleEphemeralMessage(envelope, earliestAllowableEphemeralTimestamp) || isStaleMrmMessage(envelope)));
+            isStaleEphemeralMessage(envelope, earliestAllowableEphemeralTimestampMillis) || isStaleMrmMessage(envelope)));
 
     final Flux<MessageProtos.Envelope> staleEphemeralMessages = allMessages
-        .filter(envelope -> isStaleEphemeralMessage(envelope, earliestAllowableEphemeralTimestamp));
-    discardStaleMessages(destinationUuid, destinationDevice, staleEphemeralMessages, staleEphemeralMessagesCounter, "ephemeral");
+        .filter(envelope -> isStaleEphemeralMessage(envelope, earliestAllowableEphemeralTimestampMillis));
+    discardStaleMessages(destinationUuid, destinationDeviceId, staleEphemeralMessages, staleEphemeralMessagesCounter, "ephemeral");
 
     final Flux<MessageProtos.Envelope> staleMrmMessages = allMessages.filter(MessagesCache::isStaleMrmMessage)
         // clearing the sharedMrmKey prevents unnecessary calls to update the shared MRM data
         .map(envelope -> envelope.toBuilder().clearSharedMrmKey().build());
-    discardStaleMessages(destinationUuid, destinationDevice, staleMrmMessages, staleMrmMessagesCounter, "mrm");
+    discardStaleMessages(destinationUuid, destinationDeviceId, staleMrmMessages, staleMrmMessagesCounter, "mrm");
 
     return messagesToPublish.name(GET_FLUX_NAME)
         .tap(Micrometer.metrics(Metrics.globalRegistry));
   }
 
   public Mono<Long> getEarliestUndeliveredTimestamp(final UUID destinationUuid, final byte destinationDevice) {
-    return getAllMessages(destinationUuid, destinationDevice, -1, 1)
+    return getAllMessages(destinationUuid, destinationDevice, -1, 1, true)
         .next()
         .map(MessageProtos.Envelope::getServerTimestamp);
   }
@@ -380,18 +397,21 @@ public class MessagesCache {
   }
 
   @VisibleForTesting
-  Flux<MessageProtos.Envelope> getAllMessages(final UUID destinationUuid, final byte destinationDevice,
-      final long earliestAllowableEphemeralTimestamp, final int pageSize) {
+  Flux<MessageProtos.Envelope> getAllMessages(final UUID destinationUuid,
+      final byte destinationDevice,
+      final long earliestAllowableEphemeralTimestamp,
+      final int pageSize,
+      final boolean bypassLock) {
 
     // fetch messages by page
-    return getNextMessagePage(destinationUuid, destinationDevice, -1, pageSize)
+    return getNextMessagePage(destinationUuid, destinationDevice, -1, pageSize, bypassLock)
         .expand(queueItemsAndLastMessageId -> {
           // expand() is breadth-first, so each page will be published in order
           if (queueItemsAndLastMessageId.first().isEmpty()) {
             return Mono.empty();
           }
 
-          return getNextMessagePage(destinationUuid, destinationDevice, queueItemsAndLastMessageId.second(), pageSize);
+          return getNextMessagePage(destinationUuid, destinationDevice, queueItemsAndLastMessageId.second(), pageSize, bypassLock);
         })
         .limitRate(1)
         // we want to ensure we don’t accidentally block the Lettuce/netty i/o executors
@@ -536,10 +556,13 @@ public class MessagesCache {
         .subscribe();
   }
 
-  private Mono<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid, final byte destinationDevice,
-      long messageId, int pageSize) {
+  private Mono<Pair<List<byte[]>, Long>> getNextMessagePage(final UUID destinationUuid,
+      final byte destinationDevice,
+      final long messageId,
+      final int pageSize,
+      final boolean bypassLock) {
 
-    return getItemsScript.execute(destinationUuid, destinationDevice, pageSize, messageId)
+    return getItemsScript.execute(destinationUuid, destinationDevice, pageSize, messageId, bypassLock)
         .map(queueItems -> {
           logger.trace("Processing page: {}", messageId);
 
@@ -588,35 +611,6 @@ public class MessagesCache {
         .filter(Predicate.not(envelope -> envelope.getEphemeral() || isStaleMrmMessage(envelope)))
         .reduce(0L, (acc, envelope) -> acc + envelope.getSerializedSize())
         .toFuture();
-  }
-
-  List<MessageProtos.Envelope> getMessagesToPersist(final UUID accountUuid, final byte destinationDevice,
-      final int limit) {
-
-    final Timer.Sample sample = Timer.start();
-
-    final List<byte[]> messages = redisCluster.withBinaryCluster(connection ->
-        connection.sync().zrange(getMessageQueueKey(accountUuid, destinationDevice), 0, limit));
-
-    final Flux<MessageProtos.Envelope> allMessages = parseAndFetchMrms(Flux.fromIterable(messages), destinationDevice);
-
-    final Flux<MessageProtos.Envelope> messagesToPersist = allMessages
-        .filter(Predicate.not(envelope ->
-            envelope.getEphemeral() || isStaleMrmMessage(envelope)));
-
-    final Flux<MessageProtos.Envelope> ephemeralMessages = allMessages
-        .filter(MessageProtos.Envelope::getEphemeral);
-    discardStaleMessages(accountUuid, destinationDevice, ephemeralMessages, staleEphemeralMessagesCounter, "ephemeral");
-
-    final Flux<MessageProtos.Envelope> staleMrmMessages = allMessages.filter(MessagesCache::isStaleMrmMessage)
-        // clearing the sharedMrmKey prevents unnecessary calls to update the shared MRM data
-        .map(envelope -> envelope.toBuilder().clearSharedMrmKey().build());
-    discardStaleMessages(accountUuid, destinationDevice, staleMrmMessages, staleMrmMessagesCounter, "mrm");
-
-    return messagesToPersist
-        .collectList()
-        .doOnTerminate(() -> sample.stop(getMessagesTimer))
-        .block(Duration.ofSeconds(5));
   }
 
   private Flux<MessageProtos.Envelope> parseAndFetchMrms(final Flux<byte[]> serializedMessages, final byte destinationDevice) {
@@ -720,13 +714,14 @@ public class MessagesCache {
             ScanArgs.Builder.matches("user_queue::*").limit(scanCount)));
   }
 
-  void lockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
-    redisCluster.useBinaryCluster(
-        connection -> connection.sync().setex(getPersistInProgressKey(accountUuid, deviceId), 30, LOCK_VALUE));
+  Mono<Void> lockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
+    return redisCluster.withBinaryCluster(
+        connection -> connection.reactive().setex(getPersistInProgressKey(accountUuid, deviceId), 30, LOCK_VALUE))
+        .then();
   }
 
-  void unlockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
-    unlockQueueScript.execute(accountUuid, deviceId);
+  Mono<Void> unlockQueueForPersistence(final UUID accountUuid, final byte deviceId) {
+    return unlockQueueScript.execute(accountUuid, deviceId);
   }
 
   static byte[] getMessageQueueKey(final UUID accountUuid, final byte deviceId) {

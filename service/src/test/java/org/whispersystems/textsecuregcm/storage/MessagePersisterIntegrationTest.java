@@ -218,7 +218,7 @@ class MessagePersisterIntegrationTest {
   }
 
   @Test
-  void testPersistFirstPageDiscarded() throws MessagePersistenceException {
+  void testPersistFirstPageDiscarded() {
     final int discardableMessages = MessagePersister.MESSAGE_BATCH_LIMIT * 2;
     final int persistableMessages = MessagePersister.MESSAGE_BATCH_LIMIT + 1;
 
@@ -245,7 +245,7 @@ class MessagePersisterIntegrationTest {
       expectedMessages.add(message);
     }
 
-    messagePersister.persistQueue(account, account.getDevice(Device.PRIMARY_ID).orElseThrow(), Tags.empty());
+    messagePersister.persistQueue(account, account.getDevice(Device.PRIMARY_ID).orElseThrow(), Tags.empty()).block();
 
     final DynamoDbClient dynamoDB = DYNAMO_DB_EXTENSION.getDynamoDbClient();
 

@@ -139,7 +139,7 @@ class MessagesCacheTest {
       messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage).join();
       messagesCache.insert(duplicateGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, duplicateMessage).join();
 
-      assertEquals(1, messagesCache.getAllMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID, 0, 10)
+      assertEquals(1, messagesCache.getAllMessages(DESTINATION_UUID, DESTINATION_DEVICE_ID, 0, 10, false)
           .count()
           .blockOptional()
           .orElse(0L));
@@ -319,13 +319,39 @@ class MessagesCacheTest {
         expectedMessages.add(message);
       }
 
-      messagesCache.lockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID);
+      messagesCache.lockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID).block();
 
       assertTrue(get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount).isEmpty());
 
-      messagesCache.unlockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID);
+      messagesCache.unlockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID).block();
 
       assertEquals(expectedMessages, get(DESTINATION_UUID, DESTINATION_DEVICE_ID, messageCount));
+    }
+
+    @Test
+    void testGetMessagesToPersistLockedForPersistence() {
+      final int messageCount = 100;
+
+      final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(messageCount);
+
+      for (int i = 0; i < messageCount; i++) {
+        final UUID messageGuid = UUID.randomUUID();
+        final MessageProtos.Envelope message = generateRandomMessage(messageGuid, true);
+        messagesCache.insert(messageGuid, DESTINATION_UUID, DESTINATION_DEVICE_ID, message).join();
+        expectedMessages.add(message);
+      }
+
+      messagesCache.lockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID).block();
+
+      try {
+        assertEquals(expectedMessages,
+            Flux.from(messagesCache.getMessagesToPersist(DESTINATION_UUID, DESTINATION_DEVICE_ID))
+                .collectList()
+                .blockOptional()
+                .orElseThrow());
+      } finally {
+        messagesCache.unlockQueueForPersistence(DESTINATION_UUID, DESTINATION_DEVICE_ID).block();
+      }
     }
 
     @ParameterizedTest
@@ -385,7 +411,7 @@ class MessagesCacheTest {
             .get(5, TimeUnit.SECONDS);
 
         final List<MessageProtos.Envelope> messages = messagesCache.getAllMessages(DESTINATION_UUID,
-                DESTINATION_DEVICE_ID, 0, 10)
+                DESTINATION_DEVICE_ID, 0, 10, false)
             .collectList()
             .toFuture().get(5, TimeUnit.SECONDS);
 
@@ -684,7 +710,11 @@ class MessagesCacheTest {
           .build();
       messagesCache.insert(mrmMessageGuid, destinationUuid, deviceId, mrmMessage).join();
 
-      final List<MessageProtos.Envelope> messages = messagesCache.getMessagesToPersist(destinationUuid, deviceId, 100);
+      final List<MessageProtos.Envelope> messages =
+          Flux.from(messagesCache.getMessagesToPersist(destinationUuid, deviceId))
+              .collectList()
+              .blockOptional()
+              .orElseThrow();
 
       if (!sharedMrmKeyPresent) {
         assertEquals(1, messages.size());
@@ -778,7 +808,7 @@ class MessagesCacheTest {
           .thenReturn(Flux.from(emptyFinalPagePublisher))
           .thenReturn(Flux.empty());
 
-      final Flux<?> allMessages = messagesCache.getAllMessages(UUID.randomUUID(), Device.PRIMARY_ID, 0, 10);
+      final Flux<?> allMessages = messagesCache.getAllMessages(UUID.randomUUID(), Device.PRIMARY_ID, 0, 10, false);
 
       // Why initialValue = 3?
       // 1. messagesCache.getAllMessages() above produces the first call
