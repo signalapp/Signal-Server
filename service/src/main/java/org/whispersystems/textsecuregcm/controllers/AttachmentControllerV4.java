@@ -71,9 +71,6 @@ public class AttachmentControllerV4 {
           """
   )
   @ApiResponse(responseCode = "200", description = "Success, response body includes upload form", useReturnTypeSchema = true)
-  @ApiResponse(responseCode = "413", description = "Too many attempts", headers = @Header(
-      name = "Retry-After",
-      description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
