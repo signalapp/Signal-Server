@@ -14,7 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-import io.lettuce.core.cluster.SlotHash;
+import io.micrometer.core.instrument.Tags;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,18 +23,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import io.micrometer.core.instrument.Tags;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagePersisterConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.push.MessageAvailabilityListener;
@@ -75,7 +75,12 @@ class MessagePersisterIntegrationTest {
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
 
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(new DynamicConfiguration());
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+
+    when(dynamicConfiguration.getMessagePersisterConfiguration())
+        .thenReturn(new DynamicMessagePersisterConfiguration(true, 1.5, Duration.ofHours(1), Duration.ZERO));
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     persistQueueScheduler = Schedulers.newBoundedElastic(10, 10_000, "persistQueue");
@@ -146,7 +151,7 @@ class MessagePersisterIntegrationTest {
   }
 
   @Test
-  void testScheduledPersistMessages() {
+  void testPersistMessages() {
 
     final int messageCount = 377;
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(messageCount);
@@ -164,12 +169,7 @@ class MessagePersisterIntegrationTest {
         expectedMessages.add(message);
       }
 
-      REDIS_CLUSTER_EXTENSION.getRedisCluster()
-          .useCluster(connection -> connection.sync().set(MessagesCache.NEXT_SLOT_TO_PERSIST_KEY,
-              String.valueOf(
-                  SlotHash.getSlot(MessagesCache.getMessageQueueKey(account.getUuid(), Device.PRIMARY_ID)) - 1)));
-
-      final AtomicBoolean messagesPersisted = new AtomicBoolean(false);
+      final CountDownLatch messagesPersistedLatch = new CountDownLatch(1);
 
       redisMessageAvailabilityManager.handleClientConnected(account.getUuid(), Device.PRIMARY_ID, new MessageAvailabilityListener() {
         @Override
@@ -178,10 +178,7 @@ class MessagePersisterIntegrationTest {
 
         @Override
         public void handleMessagesPersisted() {
-          synchronized (messagesPersisted) {
-            messagesPersisted.set(true);
-            messagesPersisted.notifyAll();
-          }
+          messagesPersistedLatch.countDown();
         }
 
         @Override
@@ -191,11 +188,7 @@ class MessagePersisterIntegrationTest {
 
       messagePersister.start();
 
-      synchronized (messagesPersisted) {
-        while (!messagesPersisted.get()) {
-          messagesPersisted.wait();
-        }
-      }
+      messagesPersistedLatch.await();
 
       messagePersister.stop();
 
