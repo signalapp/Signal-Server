@@ -97,3 +97,19 @@ message ZkCredential {
   bytes credential = 2  [(require.nonEmpty) = true];
 }
 
+// An upload location and credentials which may be used to upload an object
+// to an external CDN
+message UploadForm {
+  // Indicates the CDN type. 3 indicates resumable uploads using TUS
+  uint32 cdn = 1;
+
+  // The location within the specified cdn where the finished upload can be found
+  string key = 2;
+
+  // A map of headers to include with all upload requests. Potentially contains
+  // time-limited upload credentials
+  map<string, string> headers = 3;
+
+  // The URL to upload to with the appropriate protocol
+  string signed_upload_location = 4;
+}

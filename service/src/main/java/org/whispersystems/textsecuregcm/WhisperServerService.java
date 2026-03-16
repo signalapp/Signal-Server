@@ -142,6 +142,7 @@ import org.whispersystems.textsecuregcm.filters.RestDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
+import org.whispersystems.textsecuregcm.grpc.AttachmentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.BackupsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.BackupsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CallQualitySurveyGrpcService;
@@ -969,7 +970,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new KeysGrpcService(accountsManager, keysManager, rateLimiters),
             new MessagesGrpcService(accountsManager, rateLimiters, messageSender, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
             new BackupsGrpcService(accountsManager, backupAuthManager, backupMetrics),
-            new DevicesGrpcService(accountsManager))
+            new DevicesGrpcService(accountsManager),
+            new AttachmentsGrpcService(experimentEnrollmentManager, rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!

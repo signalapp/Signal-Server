@@ -367,23 +367,8 @@ message GetUploadFormRequest {
   }
 }
 message GetUploadFormResponse {
-  message UploadForm {
-    // Indicates the CDN type. 3 indicates resumable uploads using TUS
-    uint32 cdn = 1;
-
-    // The location within the specified cdn where the finished upload can be found
-    string key = 2;
-
-    // A map of headers to include with all upload requests. Potentially contains
-    // time-limited upload credentials
-    map<string, string> headers = 3;
-
-    // The URL to upload to with the appropriate protocol
-    string signed_upload_location = 4;
-  }
-
   oneof outcome {
-    UploadForm upload_form = 1;
+    common.UploadForm upload_form = 1;
 
     // The provided backup auth credential presentation could not be
     // authenticated. Either, the presentation could not be verified, or

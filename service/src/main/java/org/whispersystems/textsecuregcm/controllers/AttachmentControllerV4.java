@@ -15,7 +15,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
@@ -26,6 +25,7 @@ import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 
 
 /**
@@ -35,8 +35,6 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 @Path("/v4/attachments")
 @Tag(name = "Attachments")
 public class AttachmentControllerV4 {
-
-  public static final String CDN3_EXPERIMENT_NAME = "cdn3";
 
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final RateLimiter rateLimiter;
@@ -77,16 +75,11 @@ public class AttachmentControllerV4 {
   public AttachmentDescriptorV3 getAttachmentUploadForm(@Auth AuthenticatedDevice auth)
       throws RateLimitExceededException {
     rateLimiter.validate(auth.accountIdentifier());
-    final String key = generateAttachmentKey();
-    final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(), CDN3_EXPERIMENT_NAME);
+    final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
+    final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(), AttachmentUtil.CDN3_EXPERIMENT_NAME);
     int cdn = useCdn3 ? 3 : 2;
     final AttachmentGenerator.Descriptor descriptor = this.attachmentGenerators.get(cdn).generateAttachment(key);
     return new AttachmentDescriptorV3(cdn, key, descriptor.headers(), descriptor.signedUploadLocation());
   }
 
-  private String generateAttachmentKey() {
-    final byte[] bytes = new byte[15];
-    secureRandom.nextBytes(bytes);
-    return Base64.getUrlEncoder().encodeToString(bytes);
-  }
 }

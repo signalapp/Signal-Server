@@ -46,6 +46,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryClient;
+import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
@@ -177,9 +178,7 @@ public class BackupManager {
     checkBackupCredentialType(backupUser, BackupCredentialType.MEDIA);
 
     rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT).validate(rateLimitKey(backupUser));
-    final byte[] bytes = new byte[15];
-    secureRandom.nextBytes(bytes);
-    final String attachmentKey = Base64.getUrlEncoder().encodeToString(bytes);
+    final String attachmentKey = AttachmentUtil.generateAttachmentKey(secureRandom);
     final AttachmentGenerator.Descriptor descriptor = tusAttachmentGenerator.generateAttachment(attachmentKey);
     return new BackupUploadDescriptor(3, attachmentKey, descriptor.headers(), descriptor.signedUploadLocation());
   }

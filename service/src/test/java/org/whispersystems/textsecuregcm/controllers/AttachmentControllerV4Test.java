@@ -41,6 +41,7 @@ import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -58,8 +59,8 @@ class AttachmentControllerV4Test {
   private static final String CDN3_ENABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD);
   private static final String CDN3_DISABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO);
   private static final ExperimentEnrollmentManager EXPERIMENT_MANAGER = MockUtils.buildMock(ExperimentEnrollmentManager.class, mgr -> {
-    when(mgr.isEnrolled(AuthHelper.VALID_UUID, AttachmentControllerV4.CDN3_EXPERIMENT_NAME)).thenReturn(true);
-    when(mgr.isEnrolled(AuthHelper.VALID_UUID_TWO, AttachmentControllerV4.CDN3_EXPERIMENT_NAME)).thenReturn(false);
+    when(mgr.isEnrolled(AuthHelper.VALID_UUID, AttachmentUtil.CDN3_EXPERIMENT_NAME)).thenReturn(true);
+    when(mgr.isEnrolled(AuthHelper.VALID_UUID_TWO, AttachmentUtil.CDN3_EXPERIMENT_NAME)).thenReturn(false);
   });
 
   private static final byte[] TUS_SECRET = TestRandomUtil.nextBytes(32);

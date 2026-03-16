@@ -1,0 +1,25 @@
+/*
+ * Copyright 2026 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.attachments;
+
+import "org/signal/chat/common.proto";
+import "org/signal/chat/require.proto";
+
+service Attachments {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
+
+  // Retrieve an upload form that can be used to perform a resumable upload
+  rpc GetUploadForm(GetUploadFormRequest) returns (GetUploadFormResponse) {}
+}
+
+message GetUploadFormRequest {}
+message GetUploadFormResponse {
+  common.UploadForm upload_form = 1;
+}
