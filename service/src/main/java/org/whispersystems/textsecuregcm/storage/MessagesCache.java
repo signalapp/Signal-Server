@@ -53,7 +53,6 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.textsecuregcm.util.RedisClusterUtil;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
@@ -155,7 +154,6 @@ public class MessagesCache {
 
   static final String RETRY_NAME = ResilienceUtil.name(MessagesCache.class);
 
-  static final String NEXT_SLOT_TO_PERSIST_KEY = "user_queue_persist_slot";
   private static final byte[] LOCK_VALUE = "1".getBytes(StandardCharsets.UTF_8);
 
   @VisibleForTesting
@@ -729,10 +727,6 @@ public class MessagesCache {
     return ("user_queue_metadata::{" + accountUuid.toString() + "::" + deviceId + "}").getBytes(StandardCharsets.UTF_8);
   }
 
-  static byte[] getQueueIndexKey(final int slot) {
-    return ("user_queue_index::{" + RedisClusterUtil.getMinimalHashTag(slot) + "}").getBytes(StandardCharsets.UTF_8);
-  }
-
   static byte[] getSharedMrmKey(final UUID mrmGuid) {
     return ("mrm::{" + mrmGuid.toString() + "}").getBytes(StandardCharsets.UTF_8);
   }
@@ -773,13 +767,5 @@ public class MessagesCache {
       throws InvalidProtocolBufferException {
 
     return EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(envelopeBytes), experimentEnrollmentManager);
-  }
-
-  public void discardQueueIndices() {
-    redisCluster.useBinaryCluster(connection -> {
-      for (int slot = 0; slot < SlotHash.SLOT_COUNT; slot++) {
-        connection.sync().del(getQueueIndexKey(slot));
-      }
-    });
   }
 }
