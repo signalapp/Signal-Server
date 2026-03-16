@@ -7,7 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -151,63 +152,63 @@ class MessagePersisterIntegrationTest {
   }
 
   @Test
-  void testPersistMessages() {
+  void testPersistMessages() throws InterruptedException {
 
     final int messageCount = 377;
     final List<MessageProtos.Envelope> expectedMessages = new ArrayList<>(messageCount);
     final Instant now = Instant.now();
 
-    assertTimeoutPreemptively(Duration.ofSeconds(15), () -> {
+    for (int i = 0; i < messageCount; i++) {
+      final UUID messageGuid = UUID.randomUUID();
+      final long timestamp = now.minus(PERSIST_DELAY.multipliedBy(2)).toEpochMilli() + i;
 
-      for (int i = 0; i < messageCount; i++) {
-        final UUID messageGuid = UUID.randomUUID();
-        final long timestamp = now.minus(PERSIST_DELAY.multipliedBy(2)).toEpochMilli() + i;
+      final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp, false);
 
-        final MessageProtos.Envelope message = generateRandomMessage(messageGuid, timestamp, false);
+      messagesCache.insert(messageGuid, account.getUuid(), Device.PRIMARY_ID, message).join();
+      expectedMessages.add(message);
+    }
 
-        messagesCache.insert(messageGuid, account.getUuid(), Device.PRIMARY_ID, message).join();
-        expectedMessages.add(message);
-      }
+    final CountDownLatch messagesPersistedLatch = new CountDownLatch(1);
 
-      final CountDownLatch messagesPersistedLatch = new CountDownLatch(1);
+    redisMessageAvailabilityManager.handleClientConnected(account.getUuid(), Device.PRIMARY_ID,
+            new MessageAvailabilityListener() {
+              @Override
+              public void handleNewMessageAvailable() {
+              }
 
-      redisMessageAvailabilityManager.handleClientConnected(account.getUuid(), Device.PRIMARY_ID, new MessageAvailabilityListener() {
-        @Override
-        public void handleNewMessageAvailable() {
-        }
+              @Override
+              public void handleMessagesPersisted() {
+                messagesPersistedLatch.countDown();
+              }
 
-        @Override
-        public void handleMessagesPersisted() {
-          messagesPersistedLatch.countDown();
-        }
+              @Override
+              public void handleConflictingMessageConsumer() {
+              }
+            })
+        .toCompletableFuture()
+        .join();
 
-        @Override
-        public void handleConflictingMessageConsumer() {
-        }
-      });
+    messagePersister.start();
 
-      messagePersister.start();
+    assertTrue(messagesPersistedLatch.await(15, TimeUnit.SECONDS));
 
-      messagesPersistedLatch.await();
+    messagePersister.stop();
 
-      messagePersister.stop();
+    final DynamoDbClient dynamoDB = DYNAMO_DB_EXTENSION.getDynamoDbClient();
 
-      DynamoDbClient dynamoDB = DYNAMO_DB_EXTENSION.getDynamoDbClient();
+    final List<MessageProtos.Envelope> persistedMessages =
+        dynamoDB.scan(ScanRequest.builder().tableName(Tables.MESSAGES.tableName()).build()).items().stream()
+            .map(item -> {
+              try {
+                return MessagesDynamoDb.convertItemToEnvelope(item, experimentEnrollmentManager);
+              } catch (InvalidProtocolBufferException e) {
+                fail("Could not parse stored message", e);
+                return null;
+              }
+            })
+            .toList();
 
-      final List<MessageProtos.Envelope> persistedMessages =
-          dynamoDB.scan(ScanRequest.builder().tableName(Tables.MESSAGES.tableName()).build()).items().stream()
-              .map(item -> {
-                try {
-                  return MessagesDynamoDb.convertItemToEnvelope(item, experimentEnrollmentManager);
-                } catch (InvalidProtocolBufferException e) {
-                  fail("Could not parse stored message", e);
-                  return null;
-                }
-              })
-              .toList();
-
-      assertEquals(expectedMessages, persistedMessages);
-    });
+    assertEquals(expectedMessages, persistedMessages);
   }
 
   @Test
