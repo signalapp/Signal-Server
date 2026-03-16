@@ -78,7 +78,7 @@ class MessagePersisterIntegrationTest {
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
 
     when(dynamicConfiguration.getMessagePersisterConfiguration())
-        .thenReturn(new DynamicMessagePersisterConfiguration(true, 1.5, Duration.ofHours(1), Duration.ZERO));
+        .thenReturn(new DynamicMessagePersisterConfiguration(true, 1.5, Duration.ofMinutes(5), Duration.ZERO));
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
 

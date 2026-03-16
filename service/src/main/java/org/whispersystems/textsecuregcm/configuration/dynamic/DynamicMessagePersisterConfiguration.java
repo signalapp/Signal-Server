@@ -21,7 +21,7 @@ public class DynamicMessagePersisterConfiguration {
   private double trimOversizedQueueExtraRoomRatio = 1.5;
 
   @JsonProperty
-  private Duration nodeClaimTtl = Duration.ofHours(1);
+  private Duration nodeClaimTtl = Duration.ofMinutes(5);
 
   @JsonProperty
   private Duration sleepBetweenNodes = Duration.ofSeconds(5);
