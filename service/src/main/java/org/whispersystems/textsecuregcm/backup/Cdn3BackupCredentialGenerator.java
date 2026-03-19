@@ -7,8 +7,7 @@ package org.whispersystems.textsecuregcm.backup;
 
 import org.apache.http.HttpHeaders;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.JwtGenerator;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -17,47 +16,31 @@ import java.util.Base64;
 import java.util.Map;
 
 public class Cdn3BackupCredentialGenerator {
-
   public static final String CDN_PATH = "backups";
   public static final int BACKUP_CDN = 3;
 
-  private static String READ_PERMISSION = "read";
-  private static String WRITE_PERMISSION = "write";
-  private static String PERMISSION_SEPARATOR = "$";
-
-  // Write entities will be of the form 'write$backups/<string>
-  private static final String WRITE_ENTITY_PREFIX = String.format("%s%s%s/", WRITE_PERMISSION, PERMISSION_SEPARATOR,
-      CDN_PATH);
-  // Read entities will be of the form 'read$backups/<string>
-  private static final String READ_ENTITY_PREFIX = String.format("%s%s%s/", READ_PERMISSION, PERMISSION_SEPARATOR,
-      CDN_PATH);
-
-  private final ExternalServiceCredentialsGenerator credentialsGenerator;
   private final String tusUri;
+  private final JwtGenerator jwtGenerator;
+  private final long maxUploadSize;
 
   public Cdn3BackupCredentialGenerator(final TusConfiguration cfg) {
     this.tusUri = cfg.uploadUri();
-    this.credentialsGenerator = credentialsGenerator(Clock.systemUTC(), cfg);
-  }
-
-  private static ExternalServiceCredentialsGenerator credentialsGenerator(final Clock clock,
-      final TusConfiguration cfg) {
-    return ExternalServiceCredentialsGenerator
-        .builder(cfg.userAuthenticationTokenSharedSecret())
-        .prependUsername(false)
-        .withClock(clock)
-        .build();
+    this.jwtGenerator = new JwtGenerator(cfg.userAuthenticationTokenSharedSecret().value(), Clock.systemUTC());
+    this.maxUploadSize = cfg.maxSizeInBytes();
   }
 
   public BackupUploadDescriptor generateUpload(final String key) {
     if (key.isBlank()) {
       throw new IllegalArgumentException("Upload descriptors must have non-empty keys");
     }
-    final String entity = WRITE_ENTITY_PREFIX + key;
-    final ExternalServiceCredentials credentials = credentialsGenerator.generateFor(entity);
+
+    final String token = jwtGenerator.generateJwt(CDN_PATH, key, builder -> builder
+        .withClaim(JwtGenerator.MAX_LENGTH_CLAIM_KEY, maxUploadSize)
+        .withClaim(JwtGenerator.SCOPE_CLAIM_KEY, "write"));
+
     final String b64Key = Base64.getEncoder().encodeToString(key.getBytes(StandardCharsets.UTF_8));
     final Map<String, String> headers = Map.of(
-        HttpHeaders.AUTHORIZATION, HeaderUtils.basicAuthHeader(credentials),
+        HttpHeaders.AUTHORIZATION, HeaderUtils.bearerAuthHeader(token),
         "Upload-Metadata", String.format("filename %s", b64Key));
 
     return new BackupUploadDescriptor(
@@ -71,8 +54,9 @@ public class Cdn3BackupCredentialGenerator {
     if (hashedBackupId.isBlank()) {
       throw new IllegalArgumentException("Backup subdir name must be non-empty");
     }
-    final ExternalServiceCredentials credentials = credentialsGenerator.generateFor(
-        READ_ENTITY_PREFIX + hashedBackupId);
-    return Map.of(HttpHeaders.AUTHORIZATION, HeaderUtils.basicAuthHeader(credentials));
+
+    final String token = jwtGenerator.generateJwt(CDN_PATH, hashedBackupId, builder -> builder
+        .withClaim(JwtGenerator.SCOPE_CLAIM_KEY, "read"));
+    return Map.of(HttpHeaders.AUTHORIZATION, HeaderUtils.bearerAuthHeader(token));
   }
 }

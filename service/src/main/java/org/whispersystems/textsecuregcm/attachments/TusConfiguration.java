@@ -6,10 +6,12 @@
 package org.whispersystems.textsecuregcm.attachments;
 
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Positive;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public record TusConfiguration(
   @ExactlySize(32) SecretBytes userAuthenticationTokenSharedSecret,
-  @NotEmpty String uploadUri
+  @NotEmpty String uploadUri,
+  @Positive long maxSizeInBytes
 ){}

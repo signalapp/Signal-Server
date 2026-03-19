@@ -77,6 +77,8 @@ import reactor.core.publisher.Flux;
 class BackupsAnonymousGrpcServiceTest extends
     SimpleBaseGrpcTest<BackupsAnonymousGrpcService, BackupsAnonymousGrpc.BackupsAnonymousBlockingStub> {
 
+  private static final long MAX_MESSAGE_BACKUP_OBJECT_SIZE = 100;
+
   private final UUID aci = UUID.randomUUID();
   private final byte[] messagesBackupKey = TestRandomUtil.nextBytes(32);
   private final BackupAuthTestUtil backupAuthTestUtil = new BackupAuthTestUtil(Clock.systemUTC());
@@ -96,6 +98,7 @@ class BackupsAnonymousGrpcServiceTest extends
     try {
       when(backupManager.authenticateBackupUser(any(), any(), any()))
           .thenReturn(backupUser(presentation.getBackupId(), BackupCredentialType.MESSAGES, BackupLevel.PAID));
+      when(backupManager.maxMessageBackupUploadSize()).thenReturn(MAX_MESSAGE_BACKUP_OBJECT_SIZE);
     } catch (BackupFailedZkAuthenticationException e) {
       Assertions.fail(e);
     }
@@ -344,8 +347,8 @@ class BackupsAnonymousGrpcServiceTest extends
   static Stream<Arguments> messagesUploadForm() {
     return Stream.of(
         Arguments.of(Optional.empty(), true),
-        Arguments.of(Optional.of(BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE), true),
-        Arguments.of(Optional.of(BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE + 1), false)
+        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_OBJECT_SIZE), true),
+        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_OBJECT_SIZE + 1), false)
     );
   }
 

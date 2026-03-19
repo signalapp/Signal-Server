@@ -182,7 +182,7 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
     switch (request.getUploadTypeCase()) {
       case MESSAGES -> {
         final long uploadLength = request.getMessages().getUploadLength();
-        final boolean oversize = uploadLength > BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE;
+        final boolean oversize = uploadLength > backupManager.maxMessageBackupUploadSize();
         backupMetrics.updateMessageBackupSizeDistribution(backupUser, oversize, Optional.of(uploadLength));
         if (oversize) {
           builder.setExceedsMaxUploadLength(FailedPrecondition.getDefaultInstance());

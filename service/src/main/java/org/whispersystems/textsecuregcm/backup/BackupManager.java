@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.backup;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.dropwizard.util.DataSize;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -61,8 +60,6 @@ import javax.annotation.Nullable;
 public class BackupManager {
 
   static final String MESSAGE_BACKUP_NAME = "messageBackup";
-  public static final long MAX_MESSAGE_BACKUP_OBJECT_SIZE = DataSize.mebibytes(101).toBytes();
-  public static final long MAX_MEDIA_OBJECT_SIZE = DataSize.mebibytes(101).toBytes();
 
   private static final String ZK_AUTHN_COUNTER_NAME = MetricsUtil.name(BackupManager.class, "authentication");
   private static final String ZK_AUTHZ_FAILURE_COUNTER_NAME = MetricsUtil.name(BackupManager.class,
@@ -199,7 +196,7 @@ public class BackupManager {
 
       // Report that the backup is out of quota if it cannot store a max size media object
       final boolean quotaExhausted = storedBackupAttributes.bytesUsed() >=
-          (maxTotalMediaSize - BackupManager.MAX_MEDIA_OBJECT_SIZE);
+          (maxTotalMediaSize - tusAttachmentGenerator.maxUploadSizeInBytes());
 
       final Tags tags = Tags.of(
           UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
@@ -338,7 +335,7 @@ public class BackupManager {
     checkBackupCredentialType(backupUser, BackupCredentialType.MEDIA);
 
     for (CopyParameters copyParameters : toCopy) {
-      if (copyParameters.sourceLength() > MAX_MEDIA_OBJECT_SIZE || copyParameters.sourceLength() < 0) {
+      if (copyParameters.sourceLength() > tusAttachmentGenerator.maxUploadSizeInBytes() || copyParameters.sourceLength() < 0) {
         throw new BackupInvalidArgumentException("Invalid sourceObject size");
       }
     }
@@ -730,6 +727,10 @@ public class BackupManager {
             .record(itemsRemoved))
         .then()
         .toFuture();
+  }
+
+  public long maxMessageBackupUploadSize() {
+    return tusAttachmentGenerator.maxUploadSizeInBytes();
   }
 
   interface PresentationSignatureVerifier {

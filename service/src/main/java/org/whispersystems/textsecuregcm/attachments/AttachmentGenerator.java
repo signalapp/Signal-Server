@@ -12,4 +12,6 @@ public interface AttachmentGenerator {
 
   Descriptor generateAttachment(final String key);
 
+  long maxUploadSizeInBytes();
+
 }

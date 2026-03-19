@@ -96,7 +96,7 @@ class AttachmentControllerV4Test {
           .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
           .addProvider(new AttachmentControllerV4(RATE_LIMITERS,
               gcsAttachmentGenerator,
-              new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL)),
+              new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL, 1000)),
               EXPERIMENT_MANAGER))
           .build();
     } catch (IOException | InvalidKeyException | InvalidKeySpecException e) {

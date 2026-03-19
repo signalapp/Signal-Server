@@ -104,6 +104,7 @@ public class BackupManagerTest {
       3, "abc", 100,
       COPY_ENCRYPTION_PARAM, TestRandomUtil.nextBytes(15));
   private static final long MAX_TOTAL_MEDIA_BYTES = DataSize.mebibytes(1).toBytes();
+  private static final long MAX_UPLOAD_SIZE = 1000;
 
   private final TestClock testClock = TestClock.now();
   private final BackupAuthTestUtil backupAuthTestUtil = new BackupAuthTestUtil(testClock);
@@ -150,6 +151,8 @@ public class BackupManagerTest {
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     when(dynamicConfiguration.getBackupConfiguration()).thenReturn(backupConfiguration);
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
+    when(tusAttachmentGenerator.maxUploadSizeInBytes()).thenReturn(MAX_UPLOAD_SIZE);
 
     this.backupManager = new BackupManager(
         backupsDb,

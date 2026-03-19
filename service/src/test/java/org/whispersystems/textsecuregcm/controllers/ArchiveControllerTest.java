@@ -90,6 +90,7 @@ import reactor.core.publisher.Flux;
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class ArchiveControllerTest {
 
+  private static final long MAX_MESSAGE_BACKUP_OBJECT_SIZE = 1000L;
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private static final BackupAuthManager backupAuthManager = mock(BackupAuthManager.class);
   private static final BackupManager backupManager = mock(BackupManager.class);
@@ -116,6 +117,8 @@ public class ArchiveControllerTest {
   public void setUp() {
     reset(backupAuthManager);
     reset(backupManager);
+
+    when(backupManager.maxMessageBackupUploadSize()).thenReturn(MAX_MESSAGE_BACKUP_OBJECT_SIZE);
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID))
         .thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
@@ -612,8 +615,8 @@ public class ArchiveControllerTest {
   static Stream<Arguments> messagesUploadForm() {
     return Stream.of(
         Arguments.of(Optional.empty(), true),
-        Arguments.of(Optional.of(BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE), true),
-        Arguments.of(Optional.of(BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE + 1), false)
+        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_OBJECT_SIZE), true),
+        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_OBJECT_SIZE + 1), false)
     );
   }
 

@@ -249,6 +249,7 @@ gcpAttachments: # GCP Storage configuration
 tus:
   uploadUri: https://example.org/upload
   userAuthenticationTokenSharedSecret: secret://tus.userAuthenticationTokenSharedSecret
+  maxSizeInBytes: 1024
 
 apn: # Apple Push Notifications configuration
   sandbox: true

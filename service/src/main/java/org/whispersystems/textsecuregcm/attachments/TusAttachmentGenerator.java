@@ -6,8 +6,7 @@
 package org.whispersystems.textsecuregcm.attachments;
 
 import org.apache.http.HttpHeaders;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
-import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
+import org.whispersystems.textsecuregcm.auth.JwtGenerator;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -18,30 +17,31 @@ public class TusAttachmentGenerator implements AttachmentGenerator {
 
   private static final String ATTACHMENTS = "attachments";
 
-  final ExternalServiceCredentialsGenerator credentialsGenerator;
-  final String tusUri;
+  private final JwtGenerator jwtGenerator;
+  private final String tusUri;
+  private final long maxUploadSize;
 
   public TusAttachmentGenerator(final TusConfiguration cfg) {
     this.tusUri = cfg.uploadUri();
-    this.credentialsGenerator = credentialsGenerator(Clock.systemUTC(), cfg);
-  }
-
-  private static ExternalServiceCredentialsGenerator credentialsGenerator(final Clock clock, final TusConfiguration cfg) {
-    return ExternalServiceCredentialsGenerator
-        .builder(cfg.userAuthenticationTokenSharedSecret())
-        .prependUsername(false)
-        .withClock(clock)
-        .build();
+    this.jwtGenerator = new JwtGenerator(cfg.userAuthenticationTokenSharedSecret().value(), Clock.systemUTC());
+    this.maxUploadSize = cfg.maxSizeInBytes();
   }
 
   @Override
   public Descriptor generateAttachment(final String key) {
-    final ExternalServiceCredentials credentials = credentialsGenerator.generateFor(ATTACHMENTS + "/" + key);
+    final String token = jwtGenerator.generateJwt(ATTACHMENTS, key,
+        builder -> builder.withClaim(JwtGenerator.MAX_LENGTH_CLAIM_KEY, maxUploadSize));
     final String b64Key = Base64.getEncoder().encodeToString(key.getBytes(StandardCharsets.UTF_8));
+
     final Map<String, String> headers = Map.of(
-        HttpHeaders.AUTHORIZATION, HeaderUtils.basicAuthHeader(credentials),
+        HttpHeaders.AUTHORIZATION, HeaderUtils.bearerAuthHeader(token),
         "Upload-Metadata", String.format("filename %s", b64Key)
     );
     return new Descriptor(headers, tusUri + "/" +  ATTACHMENTS);
+  }
+
+  @Override
+  public long maxUploadSizeInBytes() {
+    return maxUploadSize;
   }
 }

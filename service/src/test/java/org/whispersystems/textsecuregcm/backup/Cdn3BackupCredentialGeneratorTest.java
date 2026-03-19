@@ -6,46 +6,65 @@
 package org.whispersystems.textsecuregcm.backup;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.JWTVerifier;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 public class Cdn3BackupCredentialGeneratorTest {
+  private static final long MAX_UPLOAD_LENGTH = 100;
+  private static final byte[] SECRET = TestRandomUtil.nextBytes(32);
+
   @Test
   public void uploadGenerator() {
-    Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
-        new SecretBytes(TestRandomUtil.nextBytes(32)),
-        "https://example.org/upload"));
+    final Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
+        new SecretBytes(SECRET),
+        "https://example.org/upload",
+        MAX_UPLOAD_LENGTH));
 
     final BackupUploadDescriptor messageBackupUploadDescriptor = generator.generateUpload("subdir/key");
     assertThat(messageBackupUploadDescriptor.signedUploadLocation()).isEqualTo("https://example.org/upload/backups");
     assertThat(messageBackupUploadDescriptor.key()).isEqualTo("subdir/key");
     assertThat(messageBackupUploadDescriptor.headers()).containsKey("Authorization");
-    final String username = parseUsername(messageBackupUploadDescriptor.headers().get("Authorization"));
-    assertThat(username).isEqualTo("write$backups/subdir/key");
+    final String token = parseBearerToken(messageBackupUploadDescriptor.headers().get("Authorization"));
+
+    final DecodedJWT decoded = JWT.require(Algorithm.HMAC256(SECRET))
+        .withAudience(Cdn3BackupCredentialGenerator.CDN_PATH)
+        .withSubject("subdir/key")
+        .withClaim("scope", "write")
+        .withClaim("maxLen", MAX_UPLOAD_LENGTH)
+        .build().verify(token);
+    assertThat(decoded.getClaims()).containsOnlyKeys("aud", "sub", "scope", "iat", "maxLen");
   }
 
   @Test
   public void readCredential() {
-    Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
-        new SecretBytes(TestRandomUtil.nextBytes(32)),
-        "https://example.org/upload"));
+    final Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
+        new SecretBytes(SECRET),
+        "https://example.org/upload",
+        MAX_UPLOAD_LENGTH));
 
     final Map<String, String> headers = generator.readHeaders("subdir");
     assertThat(headers).containsKey("Authorization");
-    final String username = parseUsername(headers.get("Authorization"));
-    assertThat(username).isEqualTo("read$backups/subdir");
+    final DecodedJWT decoded = JWT.require(Algorithm.HMAC256(SECRET))
+        .withAudience(Cdn3BackupCredentialGenerator.CDN_PATH)
+        .withSubject("subdir")
+        .withClaim("scope", "read")
+        .build().verify(parseBearerToken(headers.get("Authorization")));
+    assertThat(decoded.getClaims()).containsOnlyKeys("aud", "sub", "scope", "iat");
   }
 
-  private static String parseUsername(final String authHeader) {
-    assertThat(authHeader).startsWith("Basic");
-    final String encoded = authHeader.substring("Basic".length() + 1);
-    final String cred = new String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8);
-    return cred.split(":")[0];
+  private static String parseBearerToken(final String authHeader) {
+    assertThat(authHeader).startsWith("Bearer");
+    return authHeader.substring("Bearer".length() + 1);
   }
 }

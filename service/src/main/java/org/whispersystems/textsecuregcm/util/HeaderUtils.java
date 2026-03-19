@@ -55,6 +55,10 @@ public final class HeaderUtils {
     return "Basic " + Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
   }
 
+  public static String bearerAuthHeader(final String token) {
+    return "Bearer " + token;
+  }
+
   @Nonnull
   public static String getTimestampHeader() {
     return TIMESTAMP_HEADER + ":" + System.currentTimeMillis();

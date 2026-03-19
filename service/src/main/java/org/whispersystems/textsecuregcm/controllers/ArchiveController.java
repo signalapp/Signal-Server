@@ -596,7 +596,7 @@ public class ArchiveController {
         backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
 
     final boolean oversize = uploadLength
-        .map(length -> length > BackupManager.MAX_MESSAGE_BACKUP_OBJECT_SIZE)
+        .map(length -> length > backupManager.maxMessageBackupUploadSize())
         .orElse(false);
 
     backupMetrics.updateMessageBackupSizeDistribution(backupUser, oversize, uploadLength);

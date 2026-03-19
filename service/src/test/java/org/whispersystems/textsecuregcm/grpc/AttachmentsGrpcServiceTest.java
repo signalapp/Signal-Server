@@ -72,7 +72,7 @@ class AttachmentsGrpcServiceTest extends
       final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator(
           "some-cdn.signal.org", "signal@example.com", 1000, "/attach-here", gcsPrivateKeyPem);
       final TusAttachmentGenerator tusAttachmentGenerator =
-          new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL));
+          new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL, 1000));
 
       return new AttachmentsGrpcService(
           experimentEnrollmentManager,
