@@ -295,14 +295,16 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
         MessageUtil.resolveRecipients(accountsManager, multiRecipientMessage);
 
     try {
-      messageSender.sendMultiRecipientMessage(multiRecipientMessage,
-          resolvedRecipients,
-          timestamp,
-          story,
-          ephemeral,
-          urgent,
-          RequestAttributesUtil.getUserAgent().orElse(null))
-          .join();
+      if (!resolvedRecipients.isEmpty()) {
+        messageSender.sendMultiRecipientMessage(multiRecipientMessage,
+                resolvedRecipients,
+                timestamp,
+                story,
+                ephemeral,
+                urgent,
+                RequestAttributesUtil.getUserAgent().orElse(null))
+            .join();
+      }
 
       final MultiRecipientSuccess.Builder responseBuilder = MultiRecipientSuccess.newBuilder();
 
