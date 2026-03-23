@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -37,9 +38,9 @@ public enum DeviceCapability {
   }
 
   public static final Set<DeviceCapability> CAPABILITIES_REQUIRED_FOR_NEW_DEVICES =
-      Arrays.stream(DeviceCapability.values())
+      EnumSet.copyOf(Arrays.stream(DeviceCapability.values())
           .filter(DeviceCapability::requireForNewDevices)
-          .collect(Collectors.toSet());
+          .collect(Collectors.toSet()));
 
   private final String name;
   private final AccountCapabilityMode accountCapabilityMode;
