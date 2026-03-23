@@ -236,12 +236,12 @@ class DynamicConfigurationTest {
           .getRemoteDeprecationConfiguration();
 
       assertEquals(Map.of(ClientPlatform.IOS, new Semver("1.2.3"), ClientPlatform.ANDROID, new Semver("4.5.6")),
-          remoteDeprecationConfiguration.getMinimumVersions());
+          remoteDeprecationConfiguration.minimumVersions());
       assertEquals(Map.of(ClientPlatform.DESKTOP, new Semver("7.8.9")),
-          remoteDeprecationConfiguration.getVersionsPendingDeprecation());
+          remoteDeprecationConfiguration.versionsPendingDeprecation());
       assertEquals(Map.of(ClientPlatform.DESKTOP, Set.of(new Semver("1.4.0-beta.2"))),
-          remoteDeprecationConfiguration.getBlockedVersions());
-      assertTrue(remoteDeprecationConfiguration.getVersionsPendingBlock().isEmpty());
+          remoteDeprecationConfiguration.blockedVersions());
+      assertTrue(remoteDeprecationConfiguration.versionsPendingBlock().isEmpty());
     }
   }
 

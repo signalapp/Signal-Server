@@ -101,16 +101,16 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
   private boolean shouldBlock(@Nullable final UserAgent userAgent) {
     final DynamicRemoteDeprecationConfiguration configuration = dynamicConfigurationManager
         .getConfiguration().getRemoteDeprecationConfiguration();
-    final Map<ClientPlatform, Semver> minimumVersionsByPlatform = configuration.getMinimumVersions();
+    final Map<ClientPlatform, Semver> minimumVersionsByPlatform = configuration.minimumVersions();
     final Map<ClientPlatform, Semver> versionsPendingDeprecationByPlatform = configuration
-        .getVersionsPendingDeprecation();
-    final Map<ClientPlatform, Set<Semver>> blockedVersionsByPlatform = configuration.getBlockedVersions();
-    final Map<ClientPlatform, Set<Semver>> versionsPendingBlockByPlatform = configuration.getVersionsPendingBlock();
+        .versionsPendingDeprecation();
+    final Map<ClientPlatform, Set<Semver>> blockedVersionsByPlatform = configuration.blockedVersions();
+    final Map<ClientPlatform, Set<Semver>> versionsPendingBlockByPlatform = configuration.versionsPendingBlock();
 
     boolean shouldBlock = false;
 
     if (userAgent == null) {
-      if  (configuration.isUnrecognizedUserAgentAllowed()) {
+      if  (configuration.unrecognizedUserAgentAllowed()) {
         return false;
       }
       recordDeprecation(null, UNRECOGNIZED_UA_REASON);

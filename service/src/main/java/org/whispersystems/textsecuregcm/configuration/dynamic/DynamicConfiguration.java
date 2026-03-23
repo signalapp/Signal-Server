@@ -30,7 +30,7 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
-  private DynamicRemoteDeprecationConfiguration remoteDeprecation = new DynamicRemoteDeprecationConfiguration();
+  private DynamicRemoteDeprecationConfiguration remoteDeprecation = DynamicRemoteDeprecationConfiguration.DEFAULT;
 
   @JsonProperty
   @Valid

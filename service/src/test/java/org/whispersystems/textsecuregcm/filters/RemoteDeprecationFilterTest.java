@@ -56,7 +56,7 @@ class RemoteDeprecationFilterTest {
     // We're happy as long as there's no exception
     final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    final DynamicRemoteDeprecationConfiguration emptyConfiguration = new DynamicRemoteDeprecationConfiguration();
+    final DynamicRemoteDeprecationConfiguration emptyConfiguration = DynamicRemoteDeprecationConfiguration.DEFAULT;
 
     when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
     when(dynamicConfiguration.getRemoteDeprecationConfiguration()).thenReturn(emptyConfiguration);
@@ -92,12 +92,13 @@ class RemoteDeprecationFilterTest {
     final EnumMap<ClientPlatform, Set<Semver>> versionsPendingBlockByPlatform = new EnumMap<>(ClientPlatform.class);
     versionsPendingBlockByPlatform.put(ClientPlatform.DESKTOP, Set.of(new Semver("8.0.0-beta.3")));
 
-    final DynamicRemoteDeprecationConfiguration remoteDeprecationConfiguration = new DynamicRemoteDeprecationConfiguration();
-    remoteDeprecationConfiguration.setMinimumVersions(minimumVersionsByPlatform);
-    remoteDeprecationConfiguration.setVersionsPendingDeprecation(versionsPendingDeprecationByPlatform);
-    remoteDeprecationConfiguration.setBlockedVersions(blockedVersionsByPlatform);
-    remoteDeprecationConfiguration.setVersionsPendingBlock(versionsPendingBlockByPlatform);
-    remoteDeprecationConfiguration.setUnrecognizedUserAgentAllowed(true);
+    final DynamicRemoteDeprecationConfiguration remoteDeprecationConfiguration =
+        new DynamicRemoteDeprecationConfiguration(
+            minimumVersionsByPlatform,
+            versionsPendingDeprecationByPlatform,
+            blockedVersionsByPlatform,
+            versionsPendingBlockByPlatform,
+            true);
 
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
     final DynamicConfigurationManager dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
