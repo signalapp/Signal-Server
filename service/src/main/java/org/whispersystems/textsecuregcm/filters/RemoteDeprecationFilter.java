@@ -52,7 +52,6 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
   private static final String REASON_TAG_NAME = "reason";
   private static final String EXPIRED_CLIENT_REASON = "expired";
   private static final String BLOCKED_CLIENT_REASON = "blocked";
-  private static final String UNRECOGNIZED_UA_REASON = "unrecognized_user_agent";
 
   public RemoteDeprecationFilter(final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
@@ -110,11 +109,7 @@ public class RemoteDeprecationFilter implements Filter, ServerInterceptor {
     boolean shouldBlock = false;
 
     if (userAgent == null) {
-      if  (configuration.unrecognizedUserAgentAllowed()) {
-        return false;
-      }
-      recordDeprecation(null, UNRECOGNIZED_UA_REASON);
-      return true;
+      return false;
     }
 
     if (blockedVersionsByPlatform.containsKey(userAgent.platform())) {

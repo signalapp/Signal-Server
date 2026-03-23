@@ -111,8 +111,7 @@ class RemoteDeprecationFilterTest {
         minimumVersionsByPlatform,
         versionsPendingDeprecationByPlatform,
         blockedVersionsByPlatform,
-        versionsPendingBlockByPlatform,
-        true);
+        versionsPendingBlockByPlatform);
   }
 
   @ParameterizedTest

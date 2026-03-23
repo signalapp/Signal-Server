@@ -16,15 +16,13 @@ public record DynamicRemoteDeprecationConfiguration(
     @NotNull Map<ClientPlatform, Semver> minimumVersions,
     @NotNull Map<ClientPlatform, Semver> versionsPendingDeprecation,
     @NotNull Map<ClientPlatform, Set<Semver>> blockedVersions,
-    @NotNull Map<ClientPlatform, Set<Semver>> versionsPendingBlock,
-    @NotNull Boolean unrecognizedUserAgentAllowed) {
+    @NotNull Map<ClientPlatform, Set<Semver>> versionsPendingBlock) {
 
   public static DynamicRemoteDeprecationConfiguration DEFAULT = new DynamicRemoteDeprecationConfiguration(
       Collections.emptyMap(),
       Collections.emptyMap(),
       Collections.emptyMap(),
-      Collections.emptyMap(),
-      true);
+      Collections.emptyMap());
 
   public DynamicRemoteDeprecationConfiguration {
     if (minimumVersions == null) {
@@ -41,10 +39,6 @@ public record DynamicRemoteDeprecationConfiguration(
 
     if (versionsPendingBlock == null) {
       versionsPendingBlock = DEFAULT.versionsPendingBlock();
-    }
-
-    if (unrecognizedUserAgentAllowed == null) {
-      unrecognizedUserAgentAllowed = DEFAULT.unrecognizedUserAgentAllowed();
     }
   }
 }
