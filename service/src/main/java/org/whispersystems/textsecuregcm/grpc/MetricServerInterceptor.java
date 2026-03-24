@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Descriptors;
+import com.google.protobuf.GeneratedMessage;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.rpc.ErrorInfo;
@@ -53,7 +54,11 @@ public class MetricServerInterceptor implements ServerInterceptor {
   @VisibleForTesting
   static final String REQUEST_MESSAGE_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "requestMessage");
   @VisibleForTesting
+  static final String REQUEST_BYTES_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "requestBytes");
+  @VisibleForTesting
   static final String RESPONSE_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "responseMessage");
+  @VisibleForTesting
+  static final String RESPONSE_BYTES_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "responseBytes");
   @VisibleForTesting
   static final String RPC_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "rpc");
   @VisibleForTesting
@@ -99,12 +104,14 @@ public class MetricServerInterceptor implements ServerInterceptor {
   private class MetricServerCall<ReqT, RespT> extends ForwardingServerCall.SimpleForwardingServerCall<ReqT, RespT> {
 
     private final Counter responseMessageCounter;
+    private final Counter responseBytesCounter;
     private final Tags tags;
     private @Nullable String reason = null;
 
     MetricServerCall(final ServerCall<ReqT, RespT> delegate, final Tags tags) {
       super(delegate);
       this.responseMessageCounter = meterRegistry.counter(RESPONSE_COUNTER_NAME, tags);
+      this.responseBytesCounter = meterRegistry.counter(RESPONSE_BYTES_COUNTER_NAME, tags);
       this.tags = tags;
     }
 
@@ -126,6 +133,11 @@ public class MetricServerInterceptor implements ServerInterceptor {
     @Override
     public void sendMessage(final RespT responseMessage) {
       this.responseMessageCounter.increment();
+
+      if (responseMessage instanceof GeneratedMessage generatedMessage) {
+        this.responseBytesCounter.increment(generatedMessage.getSerializedSize());
+      }
+
       // Extract the annotated reason (if any) from the message
       final String messageReason = MetricServerCall.reason(responseMessage);
 
@@ -171,12 +183,14 @@ public class MetricServerInterceptor implements ServerInterceptor {
   private class MetricServerCallListener<ReqT> extends ForwardingServerCallListener.SimpleForwardingServerCallListener<ReqT> {
 
     private final Counter requestCounter;
+    private final Counter requestBytesCounter;
     private final Timer responseTimer;
     private final Timer.Sample sample;
 
     MetricServerCallListener(final ServerCall.Listener<ReqT> delegate, final Tags tags) {
       super(delegate);
       this.requestCounter = meterRegistry.counter(REQUEST_MESSAGE_COUNTER_NAME, tags);
+      this.requestBytesCounter = meterRegistry.counter(REQUEST_BYTES_COUNTER_NAME, tags);
       this.responseTimer = meterRegistry.timer(DURATION_TIMER_NAME, tags);
       this.sample = Timer.start(meterRegistry);
     }
@@ -184,6 +198,11 @@ public class MetricServerInterceptor implements ServerInterceptor {
     @Override
     public void onMessage(final ReqT requestMessage) {
       this.requestCounter.increment();
+
+      if (requestMessage instanceof GeneratedMessage generatedMessage) {
+        this.requestBytesCounter.increment(generatedMessage.getSerializedSize());
+      }
+
       super.onMessage(requestMessage);
     }
 

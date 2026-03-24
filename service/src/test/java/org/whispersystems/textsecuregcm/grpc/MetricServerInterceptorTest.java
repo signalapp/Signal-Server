@@ -28,10 +28,12 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -100,7 +102,8 @@ public class MetricServerInterceptorTest {
   @Test
   void unary() {
     final EchoServiceGrpc.EchoServiceBlockingStub client = EchoServiceGrpc.newBlockingStub(channel);
-    client.echo(EchoRequest.newBuilder().setPayload(ByteString.copyFromUtf8("hello")).build());
+    final EchoRequest request = EchoRequest.newBuilder().setPayload(ByteString.copyFromUtf8("hello")).build();
+    final EchoResponse response = client.echo(request);
 
     final Tags commonTags = Tags.of(
         "platform", "android",
@@ -110,8 +113,14 @@ public class MetricServerInterceptorTest {
     final Counter requestCount = find(Counter.class, MetricServerInterceptor.REQUEST_MESSAGE_COUNTER_NAME);
     assertThat(requestCount.count()).isCloseTo(1.0, offset(0.01));
 
+    final Counter requestByteCount = find(Counter.class, MetricServerInterceptor.REQUEST_BYTES_COUNTER_NAME);
+    assertThat(requestByteCount.count()).isCloseTo(request.getSerializedSize(), offset(0.01));
+
     final Counter responseCount = find(Counter.class, MetricServerInterceptor.RESPONSE_COUNTER_NAME);
     assertThat(responseCount.count()).isCloseTo(1.0, offset(0.01));
+
+    final Counter responseByteCount = find(Counter.class, MetricServerInterceptor.RESPONSE_BYTES_COUNTER_NAME);
+    assertThat(responseByteCount.count()).isCloseTo(response.getSerializedSize(), offset(0.01));
 
     final Counter rpcCount = find(Counter.class, MetricServerInterceptor.RPC_COUNTER_NAME);
     assertThat(rpcCount.count()).isCloseTo(1.0, offset(0.01));
@@ -132,20 +141,37 @@ public class MetricServerInterceptorTest {
   void streaming() throws StatusException, InterruptedException {
     final EchoServiceGrpc.EchoServiceBlockingV2Stub client = EchoServiceGrpc.newBlockingV2Stub(channel);
     final BlockingClientCall<EchoRequest, EchoResponse> echoStream = client.echoStream();
-    echoStream.write(EchoRequest.newBuilder().setPayload(ByteString.copyFromUtf8("1")).build());
-    echoStream.write(EchoRequest.newBuilder().setPayload(ByteString.copyFromUtf8("2")).build());
-    echoStream.read();
-    echoStream.read();
+
+    final List<EchoRequest> requests = IntStream.range(0, 2)
+        .mapToObj(i -> EchoRequest.newBuilder().setPayload(ByteString.copyFromUtf8(String.valueOf(i))).build())
+        .toList();
+
+    for (final EchoRequest request : requests) {
+      echoStream.write(request);
+    }
+
+    final List<EchoResponse> responses = new ArrayList<>(requests.size());
+
+    for (int i = 0; i < requests.size(); i++) {
+      responses.add(echoStream.read());
+    }
+
     echoStream.halfClose();
 
     // Make sure we don't check metrics before our close is processed
     channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
 
     final Counter requestCount = find(Counter.class, MetricServerInterceptor.REQUEST_MESSAGE_COUNTER_NAME);
-    assertThat(requestCount.count()).isCloseTo(2.0, offset(0.01));
+    assertThat(requestCount.count()).isCloseTo(requests.size(), offset(0.01));
+
+    final Counter requestByteCount = find(Counter.class, MetricServerInterceptor.REQUEST_BYTES_COUNTER_NAME);
+    assertThat(requestByteCount.count()).isCloseTo(requests.stream().mapToInt(EchoRequest::getSerializedSize).sum(), offset(0.01));
 
     final Counter responseCount = find(Counter.class, MetricServerInterceptor.RESPONSE_COUNTER_NAME);
-    assertThat(responseCount.count()).isCloseTo(2.0, offset(0.01));
+    assertThat(responseCount.count()).isCloseTo(responses.size(), offset(0.01));
+
+    final Counter responseByteCount = find(Counter.class, MetricServerInterceptor.RESPONSE_BYTES_COUNTER_NAME);
+    assertThat(responseByteCount.count()).isCloseTo(responses.stream().mapToInt(EchoResponse::getSerializedSize).sum(), offset(0.01));
 
     final Counter rpcCount = find(Counter.class, MetricServerInterceptor.RPC_COUNTER_NAME);
     assertThat(rpcCount.count()).isCloseTo(1.0, offset(0.01));
