@@ -11,7 +11,6 @@ import io.grpc.Metadata;
 import io.grpc.ServerCall;
 import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
-import io.grpc.Status;
 import java.util.Optional;
 import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
 import org.whispersystems.textsecuregcm.grpc.GrpcExceptions;
@@ -26,7 +25,8 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
  */
 public class RequireAuthenticationInterceptor implements ServerInterceptor {
 
-  static final String AUTHORIZATION_HEADER = "authorization";
+  static final Metadata.Key<String> AUTHORIZATION_METADATA_KEY =
+      Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER);
 
   private final AccountAuthenticator authenticator;
 
@@ -37,8 +37,7 @@ public class RequireAuthenticationInterceptor implements ServerInterceptor {
   @Override
   public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(final ServerCall<ReqT, RespT> call,
       final Metadata headers, final ServerCallHandler<ReqT, RespT> next) {
-    final String authHeaderString = headers.get(
-        Metadata.Key.of(AUTHORIZATION_HEADER, Metadata.ASCII_STRING_MARSHALLER));
+    final String authHeaderString = headers.get(AUTHORIZATION_METADATA_KEY);
 
     if (authHeaderString == null) {
       return ServerInterceptorUtil.closeWithStatusException(call,
