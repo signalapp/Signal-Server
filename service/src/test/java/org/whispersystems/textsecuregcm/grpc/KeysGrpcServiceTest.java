@@ -15,7 +15,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimitExceeded;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
@@ -38,6 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
 import org.signal.chat.common.EcPreKey;
 import org.signal.chat.common.EcSignedPreKey;
@@ -599,28 +599,48 @@ class KeysGrpcServiceTest extends SimpleBaseGrpcTest<KeysGrpcService, KeysGrpc.K
     assertTrue(response.hasTargetNotFound());
   }
 
-  @Test
-  void getPreKeysRateLimited() throws RateLimitExceededException {
-    final Account targetAccount = mock(Account.class);
-    when(targetAccount.getUuid()).thenReturn(UUID.randomUUID());
-    when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
-    when(targetAccount.getDevices()).thenReturn(Collections.emptyList());
-    when(targetAccount.getDevice(anyByte())).thenReturn(Optional.empty());
+  @CartesianTest
+  void getPreKeysRateLimited(
+      @CartesianTest.Values(booleans = {true, false})  boolean allDevices,
+      @CartesianTest.Values(booleans = {true, false})  boolean targetMissing) throws RateLimitExceededException {
+    final UUID targetAccountId = UUID.randomUUID();
+    final byte targetDeviceId = 1;
+    final int registrationId = 123;
 
-    when(accountsManager.getByServiceIdentifier(any()))
-        .thenReturn(Optional.of(targetAccount));
+    if (!targetMissing) {
+      final Device mockDevice = mock(Device.class);
+      when(mockDevice.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+
+      final Account targetAccount = mock(Account.class);
+      when(targetAccount.getUuid()).thenReturn(targetAccountId);
+      when(targetAccount.getIdentityKey(IdentityType.ACI)).thenReturn(new IdentityKey(ECKeyPair.generate().getPublicKey()));
+      when(targetAccount.getDevice(targetDeviceId)).thenReturn(Optional.of(mockDevice));
+      when(targetAccount.getDevices()).thenReturn(List.of(mockDevice));
+      when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAccountId)))
+          .thenReturn(Optional.of(targetAccount));
+    }
+
 
     final Duration retryAfterDuration = Duration.ofMinutes(7);
+
+    final String expectedRateLimitKey = AUTHENTICATED_ACI + "." +
+        AUTHENTICATED_DEVICE_ID + "__" +
+        targetAccountId + "." +
+        (allDevices ? "*" : targetDeviceId) + "." +
+        ((allDevices || targetMissing) ? "*" : registrationId);
+
 
     doThrow(new RateLimitExceededException(retryAfterDuration))
         .when(preKeysRateLimiter).validate(anyString());
 
-    assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getPreKeys(GetPreKeysRequest.newBuilder()
+    final GetPreKeysRequest.Builder builder = GetPreKeysRequest.newBuilder()
         .setTargetIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(org.signal.chat.common.IdentityType.IDENTITY_TYPE_ACI)
-            .setUuid(UUIDUtil.toByteString(UUID.randomUUID()))
-            .build())
-        .build()));
-    verifyNoInteractions(accountsManager);
+            .setUuid(UUIDUtil.toByteString(targetAccountId)));
+    if (!allDevices) {
+      builder.setDeviceId(targetDeviceId);
+    }
+    assertRateLimitExceeded(retryAfterDuration, () -> authenticatedServiceStub().getPreKeys(builder.build()));
+    verify(preKeysRateLimiter).validate(expectedRateLimitKey);
   }
 }

@@ -398,16 +398,22 @@ public class KeysController {
   }
 
   private List<Device> parseDeviceId(String deviceId, Account account) {
+    return parseDeviceId(deviceId)
+        .map(id -> account.getDevice(id).map(List::of).orElse(List.of()))
+        .orElseGet(account::getDevices);
+  }
+
+  private Optional<Byte> parseDeviceId(final String deviceId) {
     if (deviceId.equals("*")) {
-      return account.getDevices();
+      return Optional.empty();
     }
     try {
-      byte id = Byte.parseByte(deviceId);
-      return account.getDevice(id).map(List::of).orElse(List.of());
+      return Optional.of(Byte.parseByte(deviceId));
     } catch (NumberFormatException e) {
       throw new WebApplicationException(Response.status(422).build());
     }
   }
+
 
   private String getPreKeysLimiterKey(
       final Account account,
@@ -415,17 +421,15 @@ public class KeysController {
       final ServiceIdentifier targetIdentifier,
       final Account targetAccount,
       final String targetDeviceId) {
-    final String targetRegistrationId = targetDeviceId.equals("*")
-        ? "*"
-        : String.valueOf(
-            parseDeviceId(targetDeviceId, targetAccount).getFirst().getRegistrationId(targetIdentifier.identityType()));
-
-    return String.format("%s.%s__%s.%s.%s",
+    final Optional<Byte> parsedTargetDeviceId = parseDeviceId(targetDeviceId);
+    final Optional<Integer> targetRegistrationId = parsedTargetDeviceId
+        .flatMap(targetAccount::getDevice)
+        .map(device -> device.getRegistrationId(targetIdentifier.identityType()));
+    return RateLimitKeys.preKeyLimiterKey(
         account.getUuid(),
         authenticatedDevice.deviceId(),
-        targetIdentifier.uuid(),
-        targetDeviceId,
-        targetRegistrationId
-    );
+        targetIdentifier,
+        parsedTargetDeviceId, targetRegistrationId);
   }
+
 }

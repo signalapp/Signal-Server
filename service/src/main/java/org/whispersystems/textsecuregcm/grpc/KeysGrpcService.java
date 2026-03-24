@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import io.grpc.StatusRuntimeException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
@@ -31,6 +32,7 @@ import org.signal.libsignal.protocol.kem.KEMPublicKey;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.controllers.RateLimitKeys;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
@@ -96,18 +98,28 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     final ServiceIdentifier targetIdentifier =
         ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier());
 
+
+    final Optional<Account> maybeTargetAccount = accountsManager.getByServiceIdentifier(targetIdentifier);
+
     final byte deviceId = request.hasDeviceId()
         ? DeviceIdUtil.validate(request.getDeviceId())
         : KeysGrpcHelper.ALL_DEVICES;
 
-    final String rateLimitKey = authenticatedDevice.accountIdentifier() + "." +
-        authenticatedDevice.deviceId() + "__" +
-        targetIdentifier.uuid() + "." +
-        deviceId;
+    final Optional<Integer> targetRegistrationId = maybeTargetAccount
+        .filter(_ -> request.hasDeviceId())
+        .flatMap(targetAccount -> targetAccount.getDevice(deviceId))
+        .map(device -> device.getRegistrationId(targetIdentifier.identityType()));
+
+    final String rateLimitKey = RateLimitKeys.preKeyLimiterKey(
+        authenticatedDevice.accountIdentifier(),
+        authenticatedDevice.deviceId(),
+        targetIdentifier,
+        Optional.ofNullable(request.hasDeviceId() ? deviceId : null),
+        targetRegistrationId);
 
     rateLimiters.getPreKeysLimiter().validate(rateLimitKey);
 
-    return accountsManager.getByServiceIdentifier(targetIdentifier)
+    return maybeTargetAccount
         .flatMap(targetAccount -> KeysGrpcHelper.getPreKeys(targetAccount, targetIdentifier, deviceId, keysManager))
         .map(accountPreKeyBundles -> GetPreKeysResponse.newBuilder()
             .setPreKeys(accountPreKeyBundles)

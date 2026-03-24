@@ -14,6 +14,7 @@ import "google/protobuf/empty.proto";
 import "org/signal/chat/common.proto";
 import "org/signal/chat/errors.proto";
 import "org/signal/chat/require.proto";
+import "org/signal/chat/tag.proto";
 
 // Provides methods for working with pre-keys.
 service Keys {
@@ -152,7 +153,7 @@ message GetPreKeysResponse {
 
     // Either the target account was not found, no active device with the given
     // ID (if specified) was found on the target account.
-    errors.NotFound target_not_found = 2;
+    errors.NotFound target_not_found = 2 [(tag.reason) = "not_found"];
   }
 }
 
@@ -163,10 +164,10 @@ message GetPreKeysAnonymousResponse {
 
     // Either the target account was not found, no active device with the given
     // ID (if specified) was found on the target account.
-    errors.NotFound target_not_found = 2;
+    errors.NotFound target_not_found = 2 [(tag.reason) = "not_found"];
 
     // The provided unidentified authorization credential was invalid
-    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3;
+    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3 [(tag.reason) = "failed_unidentified_authorization"];
   }
 }
 
