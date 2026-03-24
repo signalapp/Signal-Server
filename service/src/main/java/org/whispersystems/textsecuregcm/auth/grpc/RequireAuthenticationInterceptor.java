@@ -25,7 +25,7 @@ import org.whispersystems.textsecuregcm.util.HeaderUtils;
  */
 public class RequireAuthenticationInterceptor implements ServerInterceptor {
 
-  static final Metadata.Key<String> AUTHORIZATION_METADATA_KEY =
+  public static final Metadata.Key<String> AUTHORIZATION_METADATA_KEY =
       Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER);
 
   private final AccountAuthenticator authenticator;

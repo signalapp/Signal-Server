@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -21,6 +22,7 @@ import com.google.protobuf.ByteString;
 import com.google.rpc.ErrorInfo;
 import com.google.rpc.Status;
 import com.vdurmont.semver4j.Semver;
+import io.dropwizard.auth.basic.BasicCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
@@ -32,10 +34,16 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,13 +51,20 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.signal.chat.rpc.EchoRequest;
 import org.signal.chat.rpc.EchoServiceGrpc;
+import org.whispersystems.textsecuregcm.auth.AccountAuthenticator;
+import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicRemoteDeprecationConfiguration;
 import org.whispersystems.textsecuregcm.grpc.EchoServiceImpl;
 import org.whispersystems.textsecuregcm.grpc.GrpcExceptions;
 import org.whispersystems.textsecuregcm.grpc.MockRequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributes;
+import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 class RemoteDeprecationFilterTest {
@@ -58,8 +73,34 @@ class RemoteDeprecationFilterTest {
 
   private RemoteDeprecationFilter remoteDeprecationFilter;
 
+  private static final UUID ACCOUNT_IDENTIFIER_WITH_SPQR = UUID.randomUUID();
+  private static final UUID ACCOUNT_IDENTIFIER_WITHOUT_SPQR = UUID.randomUUID();
+
+  private static final String PASSWORD = RandomStringUtils.insecure().nextAlphanumeric(16);
+
   @BeforeEach
   void setUp() {
+    final AccountsManager accountsManager = mock(AccountsManager.class);
+    when(accountsManager.getByAccountIdentifier(any())).thenReturn(Optional.empty());
+
+    final Account accountWithSpqr = buildMockAccount(true);
+    final Account accountWithoutSpqr = buildMockAccount(false);
+
+    when(accountsManager.getByAccountIdentifier(ACCOUNT_IDENTIFIER_WITH_SPQR))
+        .thenReturn(Optional.of(accountWithSpqr));
+
+    when(accountsManager.getByAccountIdentifier(ACCOUNT_IDENTIFIER_WITHOUT_SPQR))
+        .thenReturn(Optional.of(accountWithoutSpqr));
+
+    final AccountAuthenticator accountAuthenticator = mock(AccountAuthenticator.class);
+    when(accountAuthenticator.authenticate(any())).thenReturn(Optional.empty());
+
+    when(accountAuthenticator.authenticate(new BasicCredentials(ACCOUNT_IDENTIFIER_WITH_SPQR.toString(), PASSWORD)))
+        .thenReturn(Optional.of(new AuthenticatedDevice(ACCOUNT_IDENTIFIER_WITH_SPQR, Device.PRIMARY_ID, Instant.now())));
+
+    when(accountAuthenticator.authenticate(new BasicCredentials(ACCOUNT_IDENTIFIER_WITHOUT_SPQR.toString(), PASSWORD)))
+        .thenReturn(Optional.of(new AuthenticatedDevice(ACCOUNT_IDENTIFIER_WITHOUT_SPQR, Device.PRIMARY_ID, Instant.now())));
+
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
         mock(DynamicConfigurationManager.class);
 
@@ -69,7 +110,20 @@ class RemoteDeprecationFilterTest {
     when(dynamicConfiguration.getRemoteDeprecationConfiguration())
         .thenReturn(DynamicRemoteDeprecationConfiguration.DEFAULT);
 
-    remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
+    remoteDeprecationFilter =
+        new RemoteDeprecationFilter(accountsManager, accountAuthenticator, dynamicConfigurationManager);
+  }
+
+  private static Account buildMockAccount(final boolean hasSpqr) {
+    final Device device = mock(Device.class);
+    when(device.hasCapability(any())).thenReturn(false);
+    when(device.hasCapability(DeviceCapability.SPARSE_POST_QUANTUM_RATCHET)).thenReturn(hasSpqr);
+
+    final Account account = mock(Account.class);
+    when(account.getDevice(anyByte())).thenReturn(Optional.empty());
+    when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
+
+    return account;
   }
 
   @Test
@@ -111,7 +165,9 @@ class RemoteDeprecationFilterTest {
         minimumVersionsByPlatform,
         versionsPendingDeprecationByPlatform,
         blockedVersionsByPlatform,
-        versionsPendingBlockByPlatform);
+        versionsPendingBlockByPlatform,
+        false,
+        false);
   }
 
   @ParameterizedTest
@@ -200,4 +256,61 @@ class RemoteDeprecationFilterTest {
         Arguments.of("Signal-iOS/8.0.0-beta.2", false));
   }
 
+  @ParameterizedTest
+  @MethodSource
+  void isMissingSpqrCapability(@Nullable final String authHeader, final boolean expectMissingCapability) {
+    assertEquals(expectMissingCapability, remoteDeprecationFilter.isMissingSpqrCapability(authHeader));
+  }
+
+  private static List<Arguments> isMissingSpqrCapability() {
+    final String password = RandomStringUtils.insecure().nextAlphanumeric(16);
+    AuthHelper.getAuthHeader(ACCOUNT_IDENTIFIER_WITH_SPQR, password);
+
+    return List.of(
+        Arguments.argumentSet("No authentication header", null, false),
+
+        Arguments.argumentSet("Authentication header for device with SPQR",
+            AuthHelper.getAuthHeader(ACCOUNT_IDENTIFIER_WITH_SPQR, PASSWORD), false),
+
+        Arguments.argumentSet("Authentication header for device without SPQR",
+            AuthHelper.getAuthHeader(ACCOUNT_IDENTIFIER_WITHOUT_SPQR, PASSWORD), true)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void shouldBlockSpqr(final boolean enforcementPending, final boolean spqrRequired, final String authHeader, final boolean expectBlock) {
+    when(dynamicConfiguration.getRemoteDeprecationConfiguration())
+        .thenReturn(new DynamicRemoteDeprecationConfiguration(
+            DynamicRemoteDeprecationConfiguration.DEFAULT.minimumVersions(),
+            DynamicRemoteDeprecationConfiguration.DEFAULT.versionsPendingDeprecation(),
+            DynamicRemoteDeprecationConfiguration.DEFAULT.blockedVersions(),
+            DynamicRemoteDeprecationConfiguration.DEFAULT.versionsPendingBlock(),
+            enforcementPending,
+            spqrRequired));
+
+    assertEquals(expectBlock, remoteDeprecationFilter.shouldBlock(null, authHeader));
+  }
+
+  private static List<Arguments> shouldBlockSpqr() {
+    return List.of(
+        Arguments.argumentSet("Has capability, no enforcement",
+            false, false, AuthHelper.getAuthHeader(ACCOUNT_IDENTIFIER_WITH_SPQR, PASSWORD), false),
+
+        Arguments.argumentSet("Has capability, enforcement pending",
+            true, false, AuthHelper.getAuthHeader(ACCOUNT_IDENTIFIER_WITH_SPQR, PASSWORD), false),
+
+        Arguments.argumentSet("Has capability, enforcement active",
+            false, true, AuthHelper.getAuthHeader(ACCOUNT_IDENTIFIER_WITH_SPQR, PASSWORD), false),
+
+        Arguments.argumentSet("Missing capability, no enforcement",
+            false, false, AuthHelper.getAuthHeader(ACCOUNT_IDENTIFIER_WITHOUT_SPQR, PASSWORD), false),
+
+        Arguments.argumentSet("Missing capability, enforcement pending",
+            true, false, AuthHelper.getAuthHeader(ACCOUNT_IDENTIFIER_WITHOUT_SPQR, PASSWORD), false),
+
+        Arguments.argumentSet("Missing capability, enforcement active",
+            false, true, AuthHelper.getAuthHeader(ACCOUNT_IDENTIFIER_WITHOUT_SPQR, PASSWORD), true)
+    );
+  }
 }

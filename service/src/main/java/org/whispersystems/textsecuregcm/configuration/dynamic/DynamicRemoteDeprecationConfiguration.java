@@ -16,13 +16,17 @@ public record DynamicRemoteDeprecationConfiguration(
     @NotNull Map<ClientPlatform, Semver> minimumVersions,
     @NotNull Map<ClientPlatform, Semver> versionsPendingDeprecation,
     @NotNull Map<ClientPlatform, Set<Semver>> blockedVersions,
-    @NotNull Map<ClientPlatform, Set<Semver>> versionsPendingBlock) {
+    @NotNull Map<ClientPlatform, Set<Semver>> versionsPendingBlock,
+    @NotNull Boolean spqrEnforcementPending,
+    @NotNull Boolean requireSpqr) {
 
   public static DynamicRemoteDeprecationConfiguration DEFAULT = new DynamicRemoteDeprecationConfiguration(
       Collections.emptyMap(),
       Collections.emptyMap(),
       Collections.emptyMap(),
-      Collections.emptyMap());
+      Collections.emptyMap(),
+      false,
+      false);
 
   public DynamicRemoteDeprecationConfiguration {
     if (minimumVersions == null) {
@@ -39,6 +43,14 @@ public record DynamicRemoteDeprecationConfiguration(
 
     if (versionsPendingBlock == null) {
       versionsPendingBlock = DEFAULT.versionsPendingBlock();
+    }
+
+    if (spqrEnforcementPending == null) {
+      spqrEnforcementPending = DEFAULT.spqrEnforcementPending();
+    }
+
+    if (requireSpqr == null) {
+      requireSpqr = DEFAULT.requireSpqr();
     }
   }
 }

@@ -947,7 +947,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
       log.info("Registered spam filter: {}", filter.getClass().getName());
     });
 
-    final RemoteDeprecationFilter remoteDeprecationFilter = new RemoteDeprecationFilter(dynamicConfigurationManager);
+    final RemoteDeprecationFilter remoteDeprecationFilter =
+        new RemoteDeprecationFilter(accountsManager, accountAuthenticator, dynamicConfigurationManager);
+
     final MetricServerInterceptor metricServerInterceptor = new MetricServerInterceptor(Metrics.globalRegistry, clientReleaseManager);
 
     final ErrorMappingInterceptor errorMappingInterceptor = new ErrorMappingInterceptor();
