@@ -34,6 +34,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
@@ -44,6 +46,7 @@ import org.whispersystems.textsecuregcm.entities.RegistrationLockFailure;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
@@ -69,16 +72,21 @@ public class RegistrationController {
   private final PhoneVerificationTokenManager phoneVerificationTokenManager;
   private final RegistrationLockVerificationManager registrationLockVerificationManager;
   private final RateLimiters rateLimiters;
+  private final RegistrationFraudChecker registrationFraudChecker;
+
+  private static final Logger logger = LoggerFactory.getLogger(RegistrationController.class);
 
   public RegistrationController(final AccountsManager accounts,
                                 final PhoneVerificationTokenManager phoneVerificationTokenManager,
                                 final RegistrationLockVerificationManager registrationLockVerificationManager,
-                                final RateLimiters rateLimiters) {
+                                final RateLimiters rateLimiters,
+                                final RegistrationFraudChecker registrationFraudChecker) {
 
     this.accounts = accounts;
     this.phoneVerificationTokenManager = phoneVerificationTokenManager;
     this.registrationLockVerificationManager = registrationLockVerificationManager;
     this.rateLimiters = rateLimiters;
+    this.registrationFraudChecker = registrationFraudChecker;
   }
 
   @POST
@@ -125,8 +133,8 @@ public class RegistrationController {
 
     rateLimiters.getRegistrationLimiter().validate(number);
 
-    final PhoneVerificationRequest.VerificationType verificationType = phoneVerificationTokenManager.verify(
-        requestContext, number, registrationRequest);
+    final PhoneVerificationRequest.VerificationType verificationType =
+        phoneVerificationTokenManager.verify(requestContext, number, registrationRequest);
 
     final Optional<Account> existingAccount = accounts.getByE164(number);
 
@@ -168,6 +176,14 @@ public class RegistrationController {
             registrationRequest.deviceActivationRequest().aciPqLastResortPreKey(),
             registrationRequest.deviceActivationRequest().pniPqLastResortPreKey()),
         userAgent);
+
+    if (verificationType == PhoneVerificationRequest.VerificationType.SESSION) {
+      try {
+        registrationFraudChecker.handleVerificationCompleted(registrationRequest.sessionId(), account);
+      } catch (final Exception e) {
+        logger.warn("Failed to notify fraud checker of completed verification session", e);
+      }
+    }
 
     Metrics.counter(ACCOUNT_CREATED_COUNTER_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
             Tag.of(COUNTRY_CODE_TAG_NAME, Util.getCountryCode(number)),

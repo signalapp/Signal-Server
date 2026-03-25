@@ -8,6 +8,7 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import java.util.Optional;
 import org.whispersystems.textsecuregcm.entities.UpdateVerificationSessionRequest;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
+import org.whispersystems.textsecuregcm.storage.Account;
 
 public interface RegistrationFraudChecker {
 
@@ -47,6 +48,14 @@ public interface RegistrationFraudChecker {
       final VerificationSession verificationSession,
       final String e164);
 
+  /**
+   * Handles a completed verification session resulting in a registration.
+   *
+   * @param verificationSessionId The ID of the verification session that resulted in a completed registration
+   * @param createdAccount        The account created at the end of the verification session
+   */
+  void handleVerificationCompleted(final String verificationSessionId, final Account createdAccount);
+
   static RegistrationFraudChecker noop() {
     return new RegistrationFraudChecker() {
 
@@ -63,6 +72,10 @@ public interface RegistrationFraudChecker {
           final VerificationSession verificationSession, final String e164) {
 
         return VerificationCheck.DEFAULT;
+      }
+
+      @Override
+      public void handleVerificationCompleted(final String verificationSessionId, final Account createdAccount) {
       }
     };
   }

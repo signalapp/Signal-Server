@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -75,6 +76,7 @@ import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMa
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
+import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -109,6 +111,7 @@ class RegistrationControllerTest {
       RegistrationRecoveryPasswordsManager.class);
   private final RegistrationRecoveryChecker registrationRecoveryChecker = mock(RegistrationRecoveryChecker.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
+  private final RegistrationFraudChecker registrationFraudChecker = mock(RegistrationFraudChecker.class);
 
   private final RateLimiter registrationLimiter = mock(RateLimiter.class);
 
@@ -123,7 +126,7 @@ class RegistrationControllerTest {
           new RegistrationController(accountsManager,
               new PhoneVerificationTokenManager(phoneNumberIdentifiers, registrationServiceClient,
                   registrationRecoveryPasswordsManager, registrationRecoveryChecker),
-              registrationLockVerificationManager, rateLimiters))
+              registrationLockVerificationManager, rateLimiters, registrationFraudChecker))
       .build();
 
   @BeforeEach
@@ -138,6 +141,8 @@ class RegistrationControllerTest {
 
       return invocation.getArgument(0);
     });
+
+    reset(registrationFraudChecker);
   }
 
   @Test
@@ -497,9 +502,14 @@ class RegistrationControllerTest {
         .target("/v1/registration")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
+
     try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
       assertEquals(200, response.getStatus());
     }
+
+    verify(registrationFraudChecker)
+        .handleVerificationCompleted(Base64.getEncoder().encodeToString("sessionId".getBytes(StandardCharsets.UTF_8)),
+            account);
   }
 
   @ParameterizedTest
