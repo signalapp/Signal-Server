@@ -19,7 +19,7 @@ public class ExpiringProfileKeyCredentialProfileResponse {
   @JsonUnwrapped
   private VersionedProfileResponse versionedProfileResponse;
 
-  @Schema(description = "Expiring profile key credential response. Null if profile version was not found")
+  @Schema(description = "Expiring profile key credential response. Null if profile version was not found or if the profile version is not current")
   @JsonProperty
   @JsonSerialize(using = ExpiringProfileKeyCredentialResponseAdapter.Serializing.class)
   @JsonDeserialize(using = ExpiringProfileKeyCredentialResponseAdapter.Deserializing.class)

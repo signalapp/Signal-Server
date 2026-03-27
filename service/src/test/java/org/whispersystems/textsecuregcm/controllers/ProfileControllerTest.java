@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.any;
@@ -51,7 +52,6 @@ import java.util.stream.Stream;
 import org.assertj.core.api.Condition;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -176,7 +176,7 @@ class ProfileControllerTest {
 
   @BeforeEach
   void setup() {
-    reset(profilesManager);
+    reset(profilesManager, zkProfileOperations, accountsManager, rateLimiter);
     clock.pin(Instant.ofEpochSecond(42));
     AccountsHelper.setupMockUpdate(accountsManager);
 
@@ -239,12 +239,6 @@ class ProfileControllerTest {
     clearInvocations(usernameRateLimiter);
     clearInvocations(profilesManager);
     clearInvocations(zkProfileOperations);
-  }
-
-  @AfterEach
-  void teardown() {
-    reset(accountsManager);
-    reset(rateLimiter);
   }
 
   @Test
@@ -1288,6 +1282,7 @@ class ProfileControllerTest {
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
     when(account.isIdentifiedBy(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(true);
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
 
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(account));
     when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
@@ -1303,6 +1298,56 @@ class ProfileControllerTest {
         .get();
 
     assertEquals(400, response.getStatus());
+  }
+
+  @Test
+  void testGetProfileWithExpiringProfileKeyCredentialNonCurrentVersion()
+      throws VerificationFailedException, InvalidInputException {
+    final String version = versionHex("version");
+
+    final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
+    final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
+
+    final ClientZkProfileOperations clientZkProfile = new ClientZkProfileOperations(serverPublicParams);
+
+    final byte[] profileKeyBytes = TestRandomUtil.nextBytes(32);
+
+    final ProfileKey profileKey = new ProfileKey(profileKeyBytes);
+    final ProfileKeyCommitment profileKeyCommitment = profileKey.getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
+
+    final VersionedProfile versionedProfile = mock(VersionedProfile.class);
+    when(versionedProfile.commitment()).thenReturn(profileKeyCommitment.serialize());
+    final String avatar = "avatar";
+    when(versionedProfile.avatar()).thenReturn(avatar);
+
+    final ProfileKeyCredentialRequestContext profileKeyCredentialRequestContext =
+        clientZkProfile.createProfileKeyCredentialRequestContext(new ServiceId.Aci(AuthHelper.VALID_UUID), profileKey);
+
+    final ProfileKeyCredentialRequest credentialRequest = profileKeyCredentialRequestContext.getRequest();
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
+    when(account.isIdentifiedBy(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(true);
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex("the-current-version")));
+
+    when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(account));
+    when(profilesManager.get(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
+
+    final Response response = resources.getJerseyTest()
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
+            HexFormat.of().formatHex(credentialRequest.serialize())))
+        .queryParam("credentialType", "expiringProfileKey")
+        .request()
+        .headers(new MultivaluedHashMap<>(Map.of(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_KEY))))
+        .get();
+
+    assertEquals(200, response.getStatus());
+    final ExpiringProfileKeyCredentialProfileResponse expiringProfileKeyCredentialProfileResponse = response.readEntity(
+        ExpiringProfileKeyCredentialProfileResponse.class);
+
+    assertNull(expiringProfileKeyCredentialProfileResponse.getCredential());
+    assertEquals(avatar, expiringProfileKeyCredentialProfileResponse.getVersionedProfileResponse().avatar());
   }
 
   @Test

@@ -434,18 +434,25 @@ public class ProfileController {
       final boolean isSelf,
       final ContainerRequestContext containerRequestContext) {
 
-    final ExpiringProfileKeyCredentialResponse expiringProfileKeyCredentialResponse = profilesManager.get(account.getUuid(), version)
-        .map(profile -> {
-          final ExpiringProfileKeyCredentialResponse profileKeyCredentialResponse;
-          try {
-            profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(HexFormat.of().parseHex(encodedCredentialRequest),
-                profile, new ServiceId.Aci(account.getUuid()), zkProfileOperations);
-          } catch (VerificationFailedException | InvalidInputException e) {
-            throw new BadRequestException(e);
-          }
-          return profileKeyCredentialResponse;
-        })
-        .orElse(null);
+    final ExpiringProfileKeyCredentialResponse expiringProfileKeyCredentialResponse;
+
+    if (account.getCurrentProfileVersion().map(version::equals).orElse(false)) {
+      expiringProfileKeyCredentialResponse = profilesManager.get(account.getUuid(), version)
+          .map(profile -> {
+            final ExpiringProfileKeyCredentialResponse profileKeyCredentialResponse;
+            try {
+              profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(
+                  HexFormat.of().parseHex(encodedCredentialRequest),
+                  profile, new ServiceId.Aci(account.getUuid()), zkProfileOperations);
+            } catch (VerificationFailedException | InvalidInputException e) {
+              throw new BadRequestException(e);
+            }
+            return profileKeyCredentialResponse;
+          })
+          .orElse(null);
+    } else {
+      expiringProfileKeyCredentialResponse = null;
+    }
 
     return new ExpiringProfileKeyCredentialProfileResponse(
         buildVersionedProfileResponse(account, version, isSelf, true, containerRequestContext),
