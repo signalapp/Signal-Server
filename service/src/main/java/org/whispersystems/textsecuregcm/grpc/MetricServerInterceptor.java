@@ -27,6 +27,7 @@ import io.micrometer.core.instrument.Timer;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -47,9 +48,9 @@ public class MetricServerInterceptor implements ServerInterceptor {
   private static final String TAG_REASON = "reason";
 
   @VisibleForTesting
-  static final String DEFAULT_SUCCESS_REASON = "success";
+  static final String DEFAULT_SUCCESS_REASON = "SUCCESS";
   @VisibleForTesting
-  static final String DEFAULT_ERROR_REASON = "n/a";
+  static final String DEFAULT_ERROR_REASON = "N/A";
 
   @VisibleForTesting
   static final String REQUEST_MESSAGE_COUNTER_NAME = MetricsUtil.name(MetricServerInterceptor.class, "requestMessage");
@@ -124,7 +125,7 @@ public class MetricServerInterceptor implements ServerInterceptor {
       }
       Tags responseTags = tags.and(Tag.of(TAG_STATUS_CODE, status.getCode().name()));
       if (reason != null) {
-        responseTags = responseTags.and(TAG_REASON, reason);
+        responseTags = responseTags.and(TAG_REASON, reason.toUpperCase(Locale.ROOT));
       }
       meterRegistry.counter(RPC_COUNTER_NAME, responseTags).increment();
       super.close(status, responseHeaders);

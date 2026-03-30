@@ -198,15 +198,15 @@ public class MetricServerInterceptorTest {
 
   static Stream<Arguments> testUnaryOkResponseReason() {
     return Stream.of(
-            Arguments.argumentSet("Default reason", TagResponse.newBuilder().build(), "success"),
-            Arguments.argumentSet("No reason", TagResponse.newBuilder().setNoReason(true).build(), "success"),
-            Arguments.argumentSet("Explicitly set reason", TagResponse.newBuilder().setReason1(true).build(), "reason_1"),
-            Arguments.argumentSet("Nested reason", TagResponse.newBuilder().setNestedReason(TagResponse.NestedReason.newBuilder().setReason(true)).build(), "nested_reason"));
+            Arguments.argumentSet("Default reason", TagResponse.newBuilder().build(), "SUCCESS"),
+            Arguments.argumentSet("No reason", TagResponse.newBuilder().setNoReason(true).build(), "SUCCESS"),
+            Arguments.argumentSet("Explicitly set reason", TagResponse.newBuilder().setReason1(true).build(), "REASON_1"),
+            Arguments.argumentSet("Nested reason", TagResponse.newBuilder().setNestedReason(TagResponse.NestedReason.newBuilder().setReason(true)).build(), "NESTED_REASON"));
   }
 
   @ParameterizedTest
   @MethodSource
-  void testUnaryOkResponseReason(TagResponse response, String expectedReason) throws InterruptedException {
+  void testUnaryOkResponseReason(TagResponse response, String expectedReason) {
     final TagTestServiceGrpc.TagTestServiceBlockingStub tagTestServiceBlockingStub =
         TagTestServiceGrpc.newBlockingStub(channel);
     when(tagResponseSupplier.get()).thenReturn(response);
@@ -229,13 +229,13 @@ public class MetricServerInterceptorTest {
     // We make no promises if proto fields that have reason tags are present on a message, but this tests for the sane
     // behavior that at least one of these tags makes it into the metric.
     assertThat(find(Counter.class, MetricServerInterceptor.RPC_COUNTER_NAME).getId().getTag("reason"))
-        .isIn("duplicate_reason", "reason_1");
+        .isIn("DUPLICATE_REASON", "REASON_1");
   }
 
   @CartesianTest
   public void testStatusErrorResponseReason(
       @CartesianTest.Enum(mode = CartesianTest.Enum.Mode.EXCLUDE, names = {"OK"}) Status.Code statusCode,
-      @CartesianTest.Values(strings = {"test", "", "null"}) String reasonParam) {
+      @CartesianTest.Values(strings = {"TEST", "", "null"}) String reasonParam) {
 
     final String reason, expectedReasonTag;
     if (reasonParam.equals("null")) {
