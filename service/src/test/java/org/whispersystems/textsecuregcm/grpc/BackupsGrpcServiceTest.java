@@ -170,14 +170,14 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
 
   public static Stream<Arguments> redeemReceipt() {
     return Stream.of(
-        Arguments.of(null, RedeemReceiptResponse.OutcomeCase.SUCCESS),
-        Arguments.of(new BackupBadReceiptException("test"), RedeemReceiptResponse.OutcomeCase.INVALID_RECEIPT),
-        Arguments.of(new BackupMissingIdCommitmentException(), RedeemReceiptResponse.OutcomeCase.ACCOUNT_MISSING_COMMITMENT));
+        Arguments.of(null, RedeemReceiptResponse.ResponseCase.SUCCESS),
+        Arguments.of(new BackupBadReceiptException("test"), RedeemReceiptResponse.ResponseCase.INVALID_RECEIPT),
+        Arguments.of(new BackupMissingIdCommitmentException(), RedeemReceiptResponse.ResponseCase.ACCOUNT_MISSING_COMMITMENT));
   }
 
   @ParameterizedTest
   @MethodSource
-  void redeemReceipt(@Nullable final BackupException exception, final RedeemReceiptResponse.OutcomeCase expectedOutcome)
+  void redeemReceipt(@Nullable final BackupException exception, final RedeemReceiptResponse.ResponseCase expectedOutcome)
       throws InvalidInputException, VerificationFailedException, BackupInvalidArgumentException, BackupMissingIdCommitmentException, BackupBadReceiptException {
 
     final ServerSecretParams params = ServerSecretParams.generate();
@@ -197,7 +197,7 @@ class BackupsGrpcServiceTest extends SimpleBaseGrpcTest<BackupsGrpcService, Back
         RedeemReceiptRequest.newBuilder()
             .setPresentation(ByteString.copyFrom(presentation.serialize()))
             .build());
-    assertThat(redeemReceiptResponse.getOutcomeCase()).isEqualTo(expectedOutcome);
+    assertThat(redeemReceiptResponse.getResponseCase()).isEqualTo(expectedOutcome);
 
     verify(backupAuthManager).redeemReceipt(account, presentation);
   }

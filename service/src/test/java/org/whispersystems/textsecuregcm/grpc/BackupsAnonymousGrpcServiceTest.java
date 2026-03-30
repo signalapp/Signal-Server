@@ -111,7 +111,7 @@ class BackupsAnonymousGrpcServiceTest extends
         .setPublicKey(ByteString.copyFrom(ECKeyPair.generate().getPublicKey().serialize()))
         .setSignedPresentation(signedPresentation(presentation))
         .build())
-        .getOutcomeCase()).isEqualTo(SetPublicKeyResponse.OutcomeCase.SUCCESS);
+        .getResponseCase()).isEqualTo(SetPublicKeyResponse.ResponseCase.SUCCESS);
   }
 
   @Test

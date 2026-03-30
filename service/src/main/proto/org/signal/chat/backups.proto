@@ -84,7 +84,7 @@ message RedeemReceiptRequest {
 }
 
 message RedeemReceiptResponse {
-  oneof outcome {
+  oneof response {
     // The receipt was successfully redeemed
     google.protobuf.Empty success = 1;
 
@@ -217,7 +217,7 @@ message SetPublicKeyRequest {
 }
 
 message SetPublicKeyResponse {
-  oneof outcome {
+  oneof response {
     // The public key was successfully set
     google.protobuf.Empty success = 1;
 
@@ -240,7 +240,7 @@ message GetCdnCredentialsResponse {
   message CdnCredentials {
     map<string, string> headers = 1;
   }
-  oneof outcome {
+  oneof response {
     // Headers to include with requests to the read from the backup CDN. Includes
     // time limited read-only credentials.
     CdnCredentials cdn_credentials = 1;
@@ -266,7 +266,7 @@ message GetSvrBCredentialsResponse {
     string password = 2;
   }
 
-  oneof outcome {
+  oneof response {
     SvrBCredentials svrb_credentials = 1;
 
     // The provided backup auth credential presentation could not be
@@ -295,7 +295,7 @@ message GetMessageBackupInfoResponse {
     string backup_name = 3;
   }
 
-  oneof outcome {
+  oneof response {
     MessageBackupInfo backup_info = 1;
 
     // The provided backup auth credential presentation could not be
@@ -319,7 +319,7 @@ message GetMediaBackupInfoResponse {
     uint64 used_space = 3;
   }
 
-  oneof outcome {
+  oneof response {
     MediaBackupInfo backup_info = 1;
 
     // The provided backup auth credential presentation could not be
@@ -334,7 +334,7 @@ message RefreshRequest {
   SignedPresentation signed_presentation = 1;
 }
 message RefreshResponse {
-  oneof outcome {
+  oneof response {
     // The backup was successfully refreshed
     google.protobuf.Empty success = 1;
 
@@ -369,7 +369,7 @@ message GetUploadFormRequest {
   uint64 uploadLength = 4 [(require.range) = {min: 1}];
 }
 message GetUploadFormResponse {
-  oneof outcome {
+  oneof response {
     common.UploadForm upload_form = 1;
 
     // The provided backup auth credential presentation could not be
@@ -425,7 +425,7 @@ message CopyMediaResponse {
   // The 15-byte media_id from the corresponding CopyMediaItem in the request
   bytes media_id = 1;
 
-  oneof outcome {
+  oneof response {
     // The media item was successfully copied into the backup
     CopySuccess success = 2;
 
@@ -485,7 +485,7 @@ message ListMediaResponse {
     optional string cursor = 4;
   }
 
-  oneof outcome {
+  oneof response {
     ListResult list_result = 1;
 
     // The provided backup auth credential presentation could not be
@@ -500,7 +500,7 @@ message DeleteAllRequest {
   SignedPresentation signed_presentation = 1;
 }
 message DeleteAllResponse {
-  oneof outcome {
+  oneof response {
     // The backup was successfully scheduled for deletion
     google.protobuf.Empty success = 1;
 
@@ -527,7 +527,7 @@ message DeleteMediaRequest {
 }
 
 message DeleteMediaResponse {
-  oneof outcome {
+  oneof response {
     DeleteMediaItem deleted_item = 1;
 
     // The provided backup auth credential presentation could not be
