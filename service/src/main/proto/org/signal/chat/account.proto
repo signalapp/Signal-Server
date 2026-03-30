@@ -7,6 +7,7 @@ package org.signal.chat.account;
 import "org/signal/chat/common.proto";
 import "org/signal/chat/errors.proto";
 import "org/signal/chat/require.proto";
+import "org/signal/chat/tag.proto";
 
 // Provides methods for working with Signal accounts.
 service Accounts {
@@ -115,7 +116,7 @@ message ReserveUsernameHashResponse {
 
     // Indicates that, of all of the candidate hashes provided, none were
     // available. Callers may generate a new set of hashes and and retry.
-    UsernameNotAvailable username_not_available = 2;
+    UsernameNotAvailable username_not_available = 2 [(tag.reason) = "username_not_available"];
   }
 }
 
@@ -146,11 +147,11 @@ message ConfirmUsernameHashResponse {
     ConfirmedUsernameHash confirmed_username_hash = 1;
 
     // The provided hash was not reserved for the account.
-    errors.FailedPrecondition reservation_not_found = 2;
+    errors.FailedPrecondition reservation_not_found = 2 [(tag.reason) = "reservation_not_found"];
 
     // The reservation has lapsed and the requested username has been claimed by
     // another caller.
-    UsernameNotAvailable username_not_available =  3;
+    UsernameNotAvailable username_not_available =  3 [(tag.reason) = "username_not_available"];
   }
 }
 
@@ -177,7 +178,7 @@ message SetUsernameLinkResponse {
     bytes username_link_handle = 1;
 
     // The authenticated account did not have a username set.
-    errors.FailedPrecondition no_username_set = 2;
+    errors.FailedPrecondition no_username_set = 2 [(tag.reason) = "no_username_set"];
 
   }
 }
@@ -244,7 +245,7 @@ message LookupUsernameHashResponse {
     common.ServiceIdentifier service_identifier = 1;
 
     // No account was found for the provided username hash.
-    errors.NotFound not_found = 2;
+    errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
   }
 }
 
@@ -261,6 +262,6 @@ message LookupUsernameLinkResponse {
 
 
     // No username was found for the provided link handle.
-    errors.NotFound not_found = 2;
+    errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
   }
 }
