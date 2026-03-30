@@ -13,7 +13,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
@@ -34,8 +33,16 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 
+@ExtendWith(MockitoExtension.class)
 public class CloudflareTurnCredentialsManagerTest {
   @RegisterExtension
   private static final WireMockExtension wireMock = WireMockExtension.newInstance()
@@ -44,7 +51,12 @@ public class CloudflareTurnCredentialsManagerTest {
 
   private ExecutorService httpExecutor;
   private ScheduledExecutorService retryExecutor;
+  @Mock
   private DnsNameResolver dnsResolver;
+  @Mock
+  private DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  @Mock
+  private ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private CloudflareTurnCredentialsManager cloudflareTurnCredentialsManager;
 
@@ -64,8 +76,6 @@ public class CloudflareTurnCredentialsManagerTest {
     httpExecutor = Executors.newSingleThreadExecutor();
     retryExecutor = Executors.newSingleThreadScheduledExecutor();
 
-    dnsResolver = mock(DnsNameResolver.class);
-
     cloudflareTurnCredentialsManager = new CloudflareTurnCredentialsManager(
         API_TOKEN,
         "http://localhost:" + wireMock.getPort() + GET_CREDENTIALS_PATH,
@@ -79,7 +89,9 @@ public class CloudflareTurnCredentialsManagerTest {
         httpExecutor,
         null,
         retryExecutor,
-        dnsResolver
+        dnsResolver,
+        dynamicConfigurationManager,
+        experimentEnrollmentManager
     );
   }
 
@@ -116,7 +128,7 @@ public class CloudflareTurnCredentialsManagerTest {
         .thenReturn(new SucceededFuture<>(GlobalEventExecutor.INSTANCE,
             List.of(InetAddress.getByName("127.0.0.1"), InetAddress.getByName("::1"))));
 
-    TurnToken token = cloudflareTurnCredentialsManager.retrieveFromCloudflare();
+    TurnToken token = cloudflareTurnCredentialsManager.retrieveFromCloudflare(AuthHelper.VALID_UUID);
 
     wireMock.verify(postRequestedFor(urlEqualTo(GET_CREDENTIALS_PATH))
         .withHeader("Content-Type", equalTo("application/json"))

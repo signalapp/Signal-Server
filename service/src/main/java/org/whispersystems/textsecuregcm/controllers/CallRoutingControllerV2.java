@@ -60,7 +60,7 @@ public class CallRoutingControllerV2 {
     rateLimiters.getCallEndpointLimiter().validate(auth.accountIdentifier());
 
     try {
-      return new GetCallingRelaysResponse(List.of(cloudflareTurnCredentialsManager.retrieveFromCloudflare()));
+      return new GetCallingRelaysResponse(List.of(cloudflareTurnCredentialsManager.retrieveFromCloudflare(auth.accountIdentifier())));
     } catch (final Exception e) {
       CLOUDFLARE_TURN_ERROR_COUNTER.increment();
       throw e;

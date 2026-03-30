@@ -758,8 +758,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         cloudflareTurnHttpExecutor,
         config.getTurnConfiguration().cloudflare().retryConfigurationName(),
         cloudflareTurnRetryExecutor,
-        cloudflareDnsResolver
-        );
+        cloudflareDnsResolver,
+        dynamicConfigurationManager,
+        experimentEnrollmentManager);
 
     final CardinalityEstimator messageByteLimitCardinalityEstimator = new CardinalityEstimator(
         rateLimitersCluster,

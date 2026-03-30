@@ -16,13 +16,17 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
@@ -37,6 +41,8 @@ public class CloudflareTurnCredentialsManager {
 
   private final FaultTolerantHttpClient cloudflareTurnClient;
   private final DnsNameResolver dnsNameResolver;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private final Duration clientCredentialTtl;
 
@@ -63,7 +69,9 @@ public class CloudflareTurnCredentialsManager {
       final ExecutorService executor,
       @Nullable final String retryConfigurationName,
       final ScheduledExecutorService retryExecutor,
-      final DnsNameResolver dnsNameResolver) {
+      final DnsNameResolver dnsNameResolver,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final ExperimentEnrollmentManager experimentEnrollmentManager) {
 
     this.cloudflareTurnClient = FaultTolerantHttpClient.newBuilder("cloudflare-turn", executor)
         .withCircuitBreaker(circuitBreakerConfigurationName)
@@ -74,6 +82,8 @@ public class CloudflareTurnCredentialsManager {
     this.cloudflareTurnUrlsWithIps = cloudflareTurnUrlsWithIps;
     this.cloudflareTurnHostname = cloudflareTurnHostname;
     this.dnsNameResolver = dnsNameResolver;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
 
     final String credentialsRequestBody;
 
@@ -95,15 +105,27 @@ public class CloudflareTurnCredentialsManager {
     this.clientCredentialTtl = clientCredentialTtl;
   }
 
-  public TurnToken retrieveFromCloudflare() throws IOException {
+  public TurnToken retrieveFromCloudflare(UUID accountUuid) throws IOException {
     final List<String> cloudflareTurnComposedUrls;
+    final List<String> turnUrls;
+    final List<String> turnUrlsWithIps;
+    final String turnHostname;
+    if (experimentEnrollmentManager.isEnrolled(accountUuid, "turnBeta")) {
+      turnUrls = dynamicConfigurationManager.getConfiguration().getTurnConfiguration().getUrls();
+      turnUrlsWithIps = dynamicConfigurationManager.getConfiguration().getTurnConfiguration().getUrlsWithIps();
+      turnHostname = dynamicConfigurationManager.getConfiguration().getTurnConfiguration().getHostname();
+    } else {
+      turnUrls = this.cloudflareTurnUrls;
+      turnUrlsWithIps = this.cloudflareTurnUrlsWithIps;
+      turnHostname = this.cloudflareTurnHostname;
+    }
     try {
-      cloudflareTurnComposedUrls = dnsNameResolver.resolveAll(cloudflareTurnHostname).get().stream()
+      cloudflareTurnComposedUrls = dnsNameResolver.resolveAll(turnHostname).get().stream()
           .map(i -> switch (i) {
             case Inet6Address i6 -> "[" + i6.getHostAddress() + "]";
             default -> i.getHostAddress();
           })
-          .flatMap(i -> cloudflareTurnUrlsWithIps.stream().map(u -> u.formatted(i)))
+          .flatMap(i -> turnUrlsWithIps.stream().map(u -> u.formatted(i)))
           .toList();
     } catch (Exception e) {
       throw new IOException(e);
@@ -129,9 +151,9 @@ public class CloudflareTurnCredentialsManager {
         cloudflareTurnResponse.iceServers().username(),
         cloudflareTurnResponse.iceServers().credential(),
         clientCredentialTtl.toSeconds(),
-        cloudflareTurnUrls == null ? Collections.emptyList() : cloudflareTurnUrls,
+        turnUrls,
         cloudflareTurnComposedUrls,
-        cloudflareTurnHostname
+        turnHostname
     );
   }
 }

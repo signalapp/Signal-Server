@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.signal.chat.calling.GetTurnCredentialsResponseOrBuilder;
 import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
 
 public class DynamicConfiguration {
@@ -76,6 +77,10 @@ public class DynamicConfiguration {
   @Valid
   private DynamicGrpcAllowListConfiguration grpcAllowList = new DynamicGrpcAllowListConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicTurnConfiguration turn = new DynamicTurnConfiguration();
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -136,5 +141,9 @@ public class DynamicConfiguration {
 
   public DynamicGrpcAllowListConfiguration getGrpcAllowList() {
     return grpcAllowList;
+  }
+
+  public DynamicTurnConfiguration getTurnConfiguration() {
+    return turn;
   }
 }

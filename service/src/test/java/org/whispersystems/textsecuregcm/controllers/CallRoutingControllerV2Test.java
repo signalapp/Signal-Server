@@ -72,7 +72,7 @@ class CallRoutingControllerV2Test {
 
   @Test
   void testGetRelaysBothRouting() throws IOException {
-    when(cloudflareTurnCredentialsManager.retrieveFromCloudflare()).thenReturn(CLOUDFLARE_TURN_TOKEN);
+    when(cloudflareTurnCredentialsManager.retrieveFromCloudflare(AuthHelper.VALID_UUID)).thenReturn(CLOUDFLARE_TURN_TOKEN);
 
     try (final Response rawResponse = resources.getJerseyTest()
         .target(GET_CALL_RELAYS_PATH)
