@@ -14,6 +14,7 @@ import "google/protobuf/empty.proto";
 import "org/signal/chat/common.proto";
 import "org/signal/chat/require.proto";
 import "org/signal/chat/errors.proto";
+import "org/signal/chat/tag.proto";
 
 // Provides methods for sending "unsealed sender" messages.
 service Messages {
@@ -153,14 +154,14 @@ message SendMessageAuthenticatedSenderResponse {
     // A list of discrepancies between the destination devices identified in a
     // request to send a message and the devices that are actually linked to an
     // account.
-    MismatchedDevices mismatched_devices = 2;
+    MismatchedDevices mismatched_devices = 2 [(tag.reason) = "mismatched_devices"];
 
     // A description of a challenge callers must complete before sending
     // additional messages.
-    ChallengeRequired challenge_required = 3;
+    ChallengeRequired challenge_required = 3 [(tag.reason) = "challenge_required"];
 
     // The destination account did not exist
-    errors.NotFound destination_not_found = 4;
+    errors.NotFound destination_not_found = 4 [(tag.reason) = "destination_not_found"];
 
   }
 }
@@ -233,13 +234,13 @@ message SendMessageResponse {
     // A list of discrepancies between the destination devices identified in a
     // request to send a message and the devices that are actually linked to an
     // account.
-    MismatchedDevices mismatched_devices = 2;
+    MismatchedDevices mismatched_devices = 2 [(tag.reason) = "mismatched_devices"];
 
     // The provided unidentified authorization credential was invalid
-    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3;
+    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3 [(tag.reason) = "failed_unidentified_authorization"];
 
     // The destination account did not exist
-    errors.NotFound destination_not_found = 4;
+    errors.NotFound destination_not_found = 4 [(tag.reason) = "destination_not_found"];
 
   }
 }
@@ -307,10 +308,10 @@ message SendMultiRecipientMessageResponse {
     // A list of sets of discrepancies between the destination devices
     // identified in a request to send a message and the devices that are
     // actually linked to a destination account.
-    MultiRecipientMismatchedDevices mismatched_devices = 2;
+    MultiRecipientMismatchedDevices mismatched_devices = 2 [(tag.reason) = "mismatched_devices"];
 
     // The provided unidentified authorization credential was invalid
-    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3;
+    errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3 [(tag.reason) = "failed_unidentified_authorization"];
   }
 }
 
