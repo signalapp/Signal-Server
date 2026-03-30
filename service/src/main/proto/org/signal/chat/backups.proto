@@ -436,13 +436,13 @@ message CopyMediaResponse {
     errors.FailedZkAuthentication failed_authentication = 3 [(tag.reason) = "failed_authentication"];
 
     // The source object was not found
-    SourceNotFound source_not_found = 4;
+    SourceNotFound source_not_found = 4 [(tag.reason) = "source_not_found"];
 
     // The provided object length was incorrect
-    WrongSourceLength wrong_source_length = 5;
+    WrongSourceLength wrong_source_length = 5 [(tag.reason) = "wrong_source_length"];
 
     // All media capacity has been consumed. Free some space to continue.
-    OutOfSpace out_of_space = 6;
+    OutOfSpace out_of_space = 6 [(tag.reason) = "out_of_space"];
   }
 }
 
