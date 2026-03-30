@@ -7,12 +7,16 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import jakarta.ws.rs.core.Response;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -27,14 +31,15 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import jakarta.ws.rs.core.Response;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
@@ -44,7 +49,7 @@ import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
+import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -53,11 +58,13 @@ import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 @ExtendWith(DropwizardExtensionsSupport.class)
 class AttachmentControllerV4Test {
 
-  private static final RateLimiter RATE_LIMITER = mock(RateLimiter.class);
+  private static final RateLimiter COUNT_RATE_LIMITER = mock(RateLimiter.class);
+  private static final RateLimiter BYTE_RATE_LIMITER = mock(RateLimiter.class);
 
-  private static final RateLimiters RATE_LIMITERS = MockUtils.buildMock(RateLimiters.class, rateLimiters ->
-      when(rateLimiters.getAttachmentLimiter()).thenReturn(RATE_LIMITER));
-
+  private static final RateLimiters RATE_LIMITERS = MockUtils.buildMock(RateLimiters.class, rateLimiters -> {
+    when(rateLimiters.getAttachmentLimiter()).thenReturn(COUNT_RATE_LIMITER);
+    when(rateLimiters.getAttachmentBytesLimiter()).thenReturn(BYTE_RATE_LIMITER);
+  });
 
   private static final String CDN3_ENABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD);
   private static final String CDN3_DISABLED_CREDS = AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO);
@@ -98,6 +105,7 @@ class AttachmentControllerV4Test {
           .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
           .setMapper(SystemMapper.jsonMapper())
           .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
+          .addProvider(new RateLimitExceededExceptionMapper())
           .addProvider(new AttachmentControllerV4(RATE_LIMITERS,
               gcsAttachmentGenerator,
               new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL)),
@@ -106,6 +114,11 @@ class AttachmentControllerV4Test {
     } catch (IOException | InvalidKeyException | InvalidKeySpecException e) {
       throw new AssertionError(e);
     }
+  }
+
+  @AfterEach
+  public void tearDown() {
+    reset(COUNT_RATE_LIMITER, BYTE_RATE_LIMITER);
   }
 
   @ParameterizedTest
@@ -129,6 +142,44 @@ class AttachmentControllerV4Test {
         .header("Authorization", CDN3_ENABLED_CREDS)
         .get().getStatus())
         .isEqualTo(Response.Status.REQUEST_ENTITY_TOO_LARGE.getStatusCode());
+  }
+
+  @Test
+  void missingUploadLengthDoesNotRateLimit() throws RateLimitExceededException {
+    doThrow(RateLimitExceededException.class).when(BYTE_RATE_LIMITER).validate(AuthHelper.VALID_UUID);
+
+    assertThatNoException().isThrownBy(() -> resources.getJerseyTest()
+        .target("/v4/attachments/form/upload")
+        .request()
+        .header("Authorization", CDN3_ENABLED_CREDS)
+        .get().getStatus());
+  }
+
+  @Test
+  void countRateLimitExceeded() throws RateLimitExceededException {
+    doThrow(RateLimitExceededException.class).when(COUNT_RATE_LIMITER).validate(AuthHelper.VALID_UUID);
+    assertThat(resources.getJerseyTest()
+        .target("/v4/attachments/form/upload")
+        .request()
+        .header("Authorization", CDN3_ENABLED_CREDS)
+        .get().getStatus())
+        .isEqualTo(Response.Status.TOO_MANY_REQUESTS.getStatusCode());
+  }
+
+  @Test
+  void rollbackRateLimit() throws RateLimitExceededException {
+    doThrow(RateLimitExceededException.class).when(BYTE_RATE_LIMITER)
+        .validate(AuthHelper.VALID_UUID, MAX_UPLOAD_LENGTH);
+    assertThat(resources.getJerseyTest()
+        .target("/v4/attachments/form/upload")
+        .queryParam("uploadLength", MAX_UPLOAD_LENGTH)
+        .request()
+        .header("Authorization", CDN3_ENABLED_CREDS)
+        .get().getStatus())
+        .isEqualTo(Response.Status.TOO_MANY_REQUESTS.getStatusCode());
+
+    verify(COUNT_RATE_LIMITER).validate(AuthHelper.VALID_UUID);
+    verify(COUNT_RATE_LIMITER).restorePermits(AuthHelper.VALID_UUID, 1);
   }
 
   @Test

@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.limits;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import reactor.core.publisher.Mono;
 
 public interface RateLimiter {
@@ -77,5 +76,28 @@ public interface RateLimiter {
 
   default CompletionStage<Void> clearAsync(final UUID accountUuid) {
     return clearAsync(accountUuid.toString());
+  }
+
+  /// Restore `permitsToRestore` permits to the pool. If the RateLimiter has a maximum bucket size, it is respected even
+  /// if `permitsToRestore` would exceed the maximum bucket size.
+  ///
+  /// @param key The key to restore permits for.
+  /// @param permitsToRestore The number of permits to restore
+  /// @implNote The default implementation of this method assumes permits can be restored by calling `validate` with a
+  /// negative permit count. If the `validate` implementation does not support this, the implementor must provide a
+  /// custom implementation of [this#restorePermits].
+  default void restorePermits(final String key, int permitsToRestore) {
+    if (permitsToRestore < 0) {
+      throw new IllegalArgumentException("permits to restore must be non-negative");
+    }
+    try {
+      validate(key, -1 * permitsToRestore);
+    } catch (RateLimitExceededException e) {
+      throw new IllegalStateException("Out of permits when trying to restore permits", e);
+    }
+  }
+
+  default void restorePermits(final UUID accountUuid, int permitsToRestore) {
+    restorePermits(accountUuid.toString(), permitsToRestore);
   }
 }

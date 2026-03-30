@@ -7,7 +7,9 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimitExceeded;
 
@@ -60,7 +62,9 @@ class AttachmentsGrpcServiceTest extends
   @Mock
   private ExperimentEnrollmentManager experimentEnrollmentManager;
   @Mock
-  private RateLimiter rateLimiter;
+  private RateLimiter countRateLimiter;
+  @Mock
+  private RateLimiter byteRateLimiter;
 
   @Override
   protected AttachmentsGrpcService createServiceBeforeEachTest() {
@@ -79,8 +83,10 @@ class AttachmentsGrpcServiceTest extends
 
       return new AttachmentsGrpcService(
           experimentEnrollmentManager,
-          MockUtils.buildMock(RateLimiters.class, rateLimiters ->
-              when(rateLimiters.getAttachmentLimiter()).thenReturn(rateLimiter)),
+          MockUtils.buildMock(RateLimiters.class, rateLimiters -> {
+            when(rateLimiters.getAttachmentLimiter()).thenReturn(countRateLimiter);
+            when(rateLimiters.getAttachmentBytesLimiter()).thenReturn(byteRateLimiter);
+          }),
           gcsAttachmentGenerator,
           tusAttachmentGenerator,
           MAX_UPLOAD_LENGTH);
@@ -102,6 +108,27 @@ class AttachmentsGrpcServiceTest extends
         .getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(MAX_UPLOAD_LENGTH + 1).build())
         .hasExceedsMaxUploadLength()).isTrue();
   }
+
+  @Test
+  void countRateLimitExceeded() throws RateLimitExceededException {
+    final Duration retryAfter = Duration.ofSeconds(17);
+    doThrow(new RateLimitExceededException(retryAfter)).when(countRateLimiter).validate(AUTHENTICATED_ACI);
+    GrpcTestUtils.assertRateLimitExceeded(retryAfter, () -> authenticatedServiceStub()
+        .getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(123).build()));
+  }
+
+  @Test
+  void rollbackRateLimit() throws RateLimitExceededException {
+    final Duration retryAfter = Duration.ofSeconds(17);
+    doThrow(new RateLimitExceededException(retryAfter)).when(byteRateLimiter)
+        .validate(AUTHENTICATED_ACI, 123);
+    GrpcTestUtils.assertRateLimitExceeded(retryAfter, () -> authenticatedServiceStub()
+        .getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(123).build()));
+
+    verify(countRateLimiter).validate(AUTHENTICATED_ACI);
+    verify(countRateLimiter).restorePermits(AUTHENTICATED_ACI, 1);
+  }
+
 
   @Test
   void getUploadFormCdn3() {
@@ -169,10 +196,15 @@ class AttachmentsGrpcServiceTest extends
     assertThat(credentialParts[4]).isEqualTo("goog4_request");
   }
 
-  @Test
-  void getUploadFormRateLimited() throws RateLimitExceededException {
+  @ParameterizedTest
+  @ValueSource(booleans =  {true, false})
+  void getUploadFormRateLimited(boolean useByteRateLimiter) throws RateLimitExceededException {
     final Duration retryAfter = Duration.ofMinutes(5);
-    doThrow(new RateLimitExceededException(retryAfter)).when(rateLimiter).validate(any(UUID.class));
+    if (useByteRateLimiter) {
+      doThrow(new RateLimitExceededException(retryAfter)).when(byteRateLimiter).validate(any(UUID.class), anyLong());
+    } else {
+      doThrow(new RateLimitExceededException(retryAfter)).when(countRateLimiter).validate(any(UUID.class));
+    }
 
     assertRateLimitExceeded(retryAfter, () ->
         authenticatedServiceStub().getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(1).build()));

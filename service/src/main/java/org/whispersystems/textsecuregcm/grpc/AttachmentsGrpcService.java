@@ -26,7 +26,8 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImplBase {
 
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
-  private final RateLimiter rateLimiter;
+  private final RateLimiter countRateLimiter;
+  private final RateLimiter bytesRateLimiter;
   private final long maxUploadLength;
   private final Map<Integer, AttachmentGenerator> attachmentGenerators;
   private final SecureRandom secureRandom;
@@ -38,7 +39,8 @@ public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImp
       final TusAttachmentGenerator tusAttachmentGenerator,
       final long maxUploadLength) {
     this.experimentEnrollmentManager = experimentEnrollmentManager;
-    this.rateLimiter = rateLimiters.getAttachmentLimiter();
+    this.countRateLimiter = rateLimiters.getAttachmentLimiter();
+    this.bytesRateLimiter = rateLimiters.getAttachmentBytesLimiter();
     this.maxUploadLength = maxUploadLength;
     this.secureRandom = new SecureRandom();
     this.attachmentGenerators = Map.of(
@@ -54,7 +56,16 @@ public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImp
           .build();
     }
     final AuthenticatedDevice auth = AuthenticationUtil.requireAuthenticatedDevice();
-    rateLimiter.validate(auth.accountIdentifier());
+
+    countRateLimiter.validate(auth.accountIdentifier());
+    try {
+      // Ideally we'd check these two rate limits transactionally and only update them if both permits were acquired.
+      // However, just undoing the first modification if the second one fails is close enough for our purposes
+      bytesRateLimiter.validate(auth.accountIdentifier(), request.getUploadLength());
+    } catch (RateLimitExceededException e) {
+      countRateLimiter.restorePermits(auth.accountIdentifier(), 1);
+      throw e;
+    }
 
     final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
     final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(),

@@ -44,7 +44,8 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 public class AttachmentControllerV4 {
 
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
-  private final RateLimiter rateLimiter;
+  private final RateLimiter countRateLimiter;
+  private final RateLimiter bytesRateLimiter;
   private final long maxUploadLength;
 
   private final Map<Integer, AttachmentGenerator> attachmentGenerators;
@@ -58,7 +59,8 @@ public class AttachmentControllerV4 {
       final TusAttachmentGenerator tusAttachmentGenerator,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
       final long maxUploadLength) {
-    this.rateLimiter = rateLimiters.getAttachmentLimiter();
+    this.countRateLimiter = rateLimiters.getAttachmentLimiter();
+    this.bytesRateLimiter = rateLimiters.getAttachmentBytesLimiter();
     this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.maxUploadLength = maxUploadLength;
     this.secureRandom = new SecureRandom();
@@ -91,11 +93,23 @@ public class AttachmentControllerV4 {
       @Parameter(description = "The size of the attachment to upload in bytes")
       @QueryParam("uploadLength") final @Valid Optional<@Positive Long> maybeUploadLength)
       throws RateLimitExceededException {
+
     final long uploadLength = maybeUploadLength.orElse(maxUploadLength);
     if (uploadLength > maxUploadLength) {
       throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
     }
-    rateLimiter.validate(auth.accountIdentifier());
+
+    countRateLimiter.validate(auth.accountIdentifier());
+    if (maybeUploadLength.isPresent()) {
+      // Ideally we'd check these two rate limits transactionally and only update them if both permits were acquired.
+      // However, just undoing the first modification if the second one fails is close enough for our purposes
+      try {
+        bytesRateLimiter.validate(auth.accountIdentifier(), maybeUploadLength.get());
+      } catch (RateLimitExceededException e) {
+        countRateLimiter.restorePermits(auth.accountIdentifier(), 1);
+        throw e;
+      }
+    }
 
     final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
     final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(), AttachmentUtil.CDN3_EXPERIMENT_NAME);

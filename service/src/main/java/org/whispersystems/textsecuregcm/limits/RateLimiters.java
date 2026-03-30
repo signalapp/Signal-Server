@@ -8,6 +8,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.concurrent.ScheduledExecutorService;
+import io.dropwizard.util.DataSize;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -19,6 +20,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     BACKUP_AUTH_CHECK("backupAuthCheck", new RateLimiterConfig(100, Duration.ofMinutes(15), true)),
     PIN("pin", new RateLimiterConfig(10, Duration.ofDays(1), false)),
     ATTACHMENT("attachmentCreate", new RateLimiterConfig(50, Duration.ofMillis(1200), true)),
+    ATTACHMENT_BYTES("attachmentCreateBytes", new RateLimiterConfig(DataSize.gigabytes(1).toBytes(), Duration.ofNanos(1000), true)),
     BACKUP_ATTACHMENT("backupAttachmentCreate", new RateLimiterConfig(10_000, Duration.ofSeconds(1), true)),
     PRE_KEYS("prekeys", new RateLimiterConfig(6, Duration.ofMinutes(10), false)),
     MESSAGES("messages", new RateLimiterConfig(60, Duration.ofSeconds(1), true)),
@@ -113,6 +115,10 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getAttachmentLimiter() {
     return forDescriptor(For.ATTACHMENT);
+  }
+
+  public RateLimiter getAttachmentBytesLimiter() {
+    return forDescriptor(For.ATTACHMENT_BYTES);
   }
 
   public RateLimiter getPinLimiter() {

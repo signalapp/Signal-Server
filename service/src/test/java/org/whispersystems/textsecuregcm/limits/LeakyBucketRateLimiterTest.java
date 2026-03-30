@@ -77,6 +77,30 @@ class LeakyBucketRateLimiterTest {
   }
 
   @ParameterizedTest
+  @ValueSource(ints = {1, 2, 3, 4, 100})
+  void restorePermits(int permitsToAdd) throws RateLimitExceededException {
+    final int bucketSize = 3;
+    final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
+        "test",
+        () -> new RateLimiterConfig(bucketSize, Duration.ofHours(1), false),
+        validateRateLimitScript,
+        REDIS_CLUSTER_EXTENSION.getRedisCluster(),
+        retryExecutor,
+        CLOCK);
+    final String key = RandomStringUtils.insecure().nextAlphanumeric(16);
+    for (int i = 0; i < bucketSize; i++) {
+      rateLimiter.validate(key);
+    }
+    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate(key));
+
+    rateLimiter.restorePermits(key, permitsToAdd);
+    for (int i = 0; i < Math.min(permitsToAdd, bucketSize); i++) {
+      assertDoesNotThrow(() -> rateLimiter.validate(key));
+    }
+    assertThrows(RateLimitExceededException.class, () -> rateLimiter.validate(key));
+  }
+
+  @ParameterizedTest
   @ValueSource(booleans = {true, false})
   void validateAsync(final boolean failOpen) {
     final LeakyBucketRateLimiter rateLimiter = new LeakyBucketRateLimiter(
