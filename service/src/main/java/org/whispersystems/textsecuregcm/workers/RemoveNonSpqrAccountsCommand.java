@@ -17,6 +17,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 import java.time.Duration;
 
@@ -78,6 +79,7 @@ public class RemoveNonSpqrAccountsCommand extends AbstractSinglePassCrawlAccount
           final Mono<Void> removeAccountMono = dryRun
               ? Mono.empty()
               : Mono.fromRunnable(() -> accountsManager.delete(account, AccountsManager.DeletionReason.ADMIN_DELETED))
+                  .subscribeOn(Schedulers.boundedElastic())
                   .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)))
                   .onErrorResume(throwable -> {
                     logger.warn("Failed to remove account: {}",
