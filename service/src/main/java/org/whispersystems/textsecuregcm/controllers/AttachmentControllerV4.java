@@ -7,17 +7,25 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import io.dropwizard.auth.Auth;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import java.security.SecureRandom;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
+import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
@@ -25,7 +33,6 @@ import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 
 
 /**
@@ -66,19 +73,32 @@ public class AttachmentControllerV4 {
       description = """
           Retrieve an upload form that can be used to perform a resumable upload. The response will include a cdn number
           indicating what protocol should be used to perform the upload.
+
+          Uploads with the returned form will be limited to a maximum size of the provided uploadLength.
           """
   )
   @ApiResponse(responseCode = "200", description = "Success, response body includes upload form", useReturnTypeSchema = true)
+  @ApiResponse(responseCode = "400", description = "The provided uploadLength was not valid")
+  @ApiResponse(responseCode = "413", description = "The provided uploadLength is larger than the maximum supported upload size. The maximum upload size is subject to change and is governed by `global.attachments.maxBytes`.")
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
       description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
-  public AttachmentDescriptorV3 getAttachmentUploadForm(@Auth AuthenticatedDevice auth)
+  public AttachmentDescriptorV3 getAttachmentUploadForm(
+      @Auth AuthenticatedDevice auth,
+      @Parameter(description = "The size of the attachment to upload in bytes")
+      @QueryParam("uploadLength") final @Valid Optional<@Positive Long> maybeUploadLength)
       throws RateLimitExceededException {
-    rateLimiter.validate(auth.accountIdentifier());
     final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
     final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(), AttachmentUtil.CDN3_EXPERIMENT_NAME);
     int cdn = useCdn3 ? 3 : 2;
-    final AttachmentGenerator.Descriptor descriptor = this.attachmentGenerators.get(cdn).generateAttachment(key);
+    final AttachmentGenerator attachmentGenerator = this.attachmentGenerators.get(cdn);
+    final long uploadLength = maybeUploadLength.orElse(attachmentGenerator.maxUploadSizeInBytes());
+    if (uploadLength > attachmentGenerator.maxUploadSizeInBytes()) {
+      throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
+    }
+
+    rateLimiter.validate(auth.accountIdentifier());
+    final AttachmentGenerator.Descriptor descriptor = attachmentGenerator.generateAttachment(key, uploadLength);
     return new AttachmentDescriptorV3(cdn, key, descriptor.headers(), descriptor.signedUploadLocation());
   }
 

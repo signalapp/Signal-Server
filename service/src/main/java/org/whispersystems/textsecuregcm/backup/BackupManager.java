@@ -176,7 +176,7 @@ public class BackupManager {
 
     rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT).validate(rateLimitKey(backupUser));
     final String attachmentKey = AttachmentUtil.generateAttachmentKey(secureRandom);
-    final AttachmentGenerator.Descriptor descriptor = tusAttachmentGenerator.generateAttachment(attachmentKey);
+    final AttachmentGenerator.Descriptor descriptor = tusAttachmentGenerator.generateAttachment(attachmentKey, tusAttachmentGenerator.maxUploadSizeInBytes());
     return new BackupUploadDescriptor(3, attachmentKey, descriptor.headers(), descriptor.signedUploadLocation());
   }
 

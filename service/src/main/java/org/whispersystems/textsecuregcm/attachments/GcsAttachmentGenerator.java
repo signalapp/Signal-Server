@@ -22,20 +22,23 @@ public class GcsAttachmentGenerator implements AttachmentGenerator {
 
   @Nonnull
   private final CanonicalRequestSigner canonicalRequestSigner;
-  private final int maxSizeInBytes;
+  private final long maxSizeInBytes;
 
   public GcsAttachmentGenerator(@Nonnull String domain, @Nonnull String email,
-      int maxSizeInBytes, @Nonnull String pathPrefix, @Nonnull String rsaSigningKey)
+      long maxSizeInBytes, @Nonnull String pathPrefix, @Nonnull String rsaSigningKey)
       throws IOException, InvalidKeyException, InvalidKeySpecException {
     this.maxSizeInBytes = maxSizeInBytes;
-    this.canonicalRequestGenerator = new CanonicalRequestGenerator(domain, email, maxSizeInBytes, pathPrefix);
+    this.canonicalRequestGenerator = new CanonicalRequestGenerator(domain, email, pathPrefix);
     this.canonicalRequestSigner = new CanonicalRequestSigner(rsaSigningKey);
   }
 
   @Override
-  public Descriptor generateAttachment(final String key) {
+  public Descriptor generateAttachment(final String key, final long uploadLength) {
+    if (uploadLength > maxSizeInBytes) {
+      throw new IllegalArgumentException("uploadLength " + uploadLength + " exceeds maximum " + maxSizeInBytes);
+    }
     final ZonedDateTime now = ZonedDateTime.now(ZoneOffset.UTC);
-    final CanonicalRequest canonicalRequest = canonicalRequestGenerator.createFor(key, now);
+    final CanonicalRequest canonicalRequest = canonicalRequestGenerator.createFor(key, now, uploadLength);
     return new Descriptor(getHeaderMap(canonicalRequest), getSignedUploadLocation(canonicalRequest));
   }
 

@@ -28,9 +28,13 @@ public class TusAttachmentGenerator implements AttachmentGenerator {
   }
 
   @Override
-  public Descriptor generateAttachment(final String key) {
+  public Descriptor generateAttachment(final String key, final long uploadLength) {
+    if (uploadLength > maxUploadSize) {
+      throw new IllegalArgumentException("uploadLength " + uploadLength + " exceeds maximum " + maxUploadSize);
+    }
+
     final String token = jwtGenerator.generateJwt(ATTACHMENTS, key,
-        builder -> builder.withClaim(JwtGenerator.MAX_LENGTH_CLAIM_KEY, maxUploadSize));
+        builder -> builder.withClaim(JwtGenerator.MAX_LENGTH_CLAIM_KEY, uploadLength));
     final String b64Key = Base64.getEncoder().encodeToString(key.getBytes(StandardCharsets.UTF_8));
 
     final Map<String, String> headers = Map.of(

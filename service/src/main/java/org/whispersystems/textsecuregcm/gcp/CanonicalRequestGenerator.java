@@ -26,19 +26,16 @@ public class CanonicalRequestGenerator {
   @Nonnull
   private final String email;
 
-  private final int maxSizeBytes;
-
   @Nonnull
   private final String pathPrefix;
 
-  public CanonicalRequestGenerator(@Nonnull String domain, @Nonnull String email, int maxSizeBytes, @Nonnull String pathPrefix) {
+  public CanonicalRequestGenerator(@Nonnull String domain, @Nonnull String email, @Nonnull String pathPrefix) {
     this.domain       = domain;
     this.email        = email;
-    this.maxSizeBytes = maxSizeBytes;
     this.pathPrefix   = pathPrefix;
   }
 
-  public CanonicalRequest createFor(@Nonnull final String key, @Nonnull final ZonedDateTime now) {
+  public CanonicalRequest createFor(@Nonnull final String key, @Nonnull final ZonedDateTime now, final long uploadLength) {
     final StringBuilder result = new StringBuilder("POST\n");
 
     final StringBuilder resourcePathBuilder = new StringBuilder();
@@ -58,7 +55,7 @@ public class CanonicalRequestGenerator {
     result.append(canonicalQuery).append('\n');
 
     result.append("host:").append(domain).append('\n');
-    result.append("x-goog-content-length-range:1,").append(maxSizeBytes).append('\n');
+    result.append("x-goog-content-length-range:1,").append(uploadLength).append('\n');
     result.append("x-goog-resumable:start\n");
     result.append('\n');
 
@@ -66,7 +63,7 @@ public class CanonicalRequestGenerator {
 
     result.append("UNSIGNED-PAYLOAD");
 
-    return new CanonicalRequest(result.toString(), resourcePath, canonicalQuery, activeDatetime, makeCredentialScope(now), domain, maxSizeBytes);
+    return new CanonicalRequest(result.toString(), resourcePath, canonicalQuery, activeDatetime, makeCredentialScope(now), domain, uploadLength);
   }
 
   private String makeCredentialScope(@Nonnull ZonedDateTime now) {

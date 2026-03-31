@@ -27,9 +27,9 @@ public class CanonicalRequest {
   @Nonnull
   private final String domain;
 
-  private final int maxSizeInBytes;
+  private final long maxSizeInBytes;
 
-  public CanonicalRequest(@Nonnull String canonicalRequest, @Nonnull String resourcePath, @Nonnull String canonicalQuery, @Nonnull String activeDatetime, @Nonnull String credentialScope, @Nonnull String domain, int maxSizeInBytes) {
+  public CanonicalRequest(@Nonnull String canonicalRequest, @Nonnull String resourcePath, @Nonnull String canonicalQuery, @Nonnull String activeDatetime, @Nonnull String credentialScope, @Nonnull String domain, long maxSizeInBytes) {
     this.canonicalRequest = canonicalRequest;
     this.resourcePath     = resourcePath;
     this.canonicalQuery   = canonicalQuery;
@@ -69,7 +69,7 @@ public class CanonicalRequest {
     return domain;
   }
 
-  public int getMaxSizeInBytes() {
+  public long getMaxSizeInBytes() {
     return maxSizeInBytes;
   }
 }

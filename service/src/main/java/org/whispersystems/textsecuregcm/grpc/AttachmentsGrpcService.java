@@ -11,7 +11,9 @@ import org.signal.chat.attachments.GetUploadFormRequest;
 import org.signal.chat.attachments.GetUploadFormResponse;
 import org.signal.chat.attachments.SimpleAttachmentsGrpc;
 import org.signal.chat.common.UploadForm;
+import org.signal.chat.errors.FailedPrecondition;
 import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
+import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
@@ -20,7 +22,6 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 
 public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImplBase {
 
@@ -45,12 +46,19 @@ public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImp
   @Override
   public GetUploadFormResponse getUploadForm(final GetUploadFormRequest request) throws RateLimitExceededException {
     final AuthenticatedDevice auth = AuthenticationUtil.requireAuthenticatedDevice();
-    rateLimiter.validate(auth.accountIdentifier());
     final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
     final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(),
         AttachmentUtil.CDN3_EXPERIMENT_NAME);
     final int cdn = useCdn3 ? 3 : 2;
-    final AttachmentGenerator.Descriptor descriptor = this.attachmentGenerators.get(cdn).generateAttachment(key);
+    final AttachmentGenerator attachmentGenerator = this.attachmentGenerators.get(cdn);
+    if (request.getUploadLength() > attachmentGenerator.maxUploadSizeInBytes()) {
+      return GetUploadFormResponse.newBuilder()
+          .setExceedsMaxUploadLength(FailedPrecondition.getDefaultInstance())
+          .build();
+    }
+
+    rateLimiter.validate(auth.accountIdentifier());
+    final AttachmentGenerator.Descriptor descriptor = attachmentGenerator.generateAttachment(key, request.getUploadLength());
     return GetUploadFormResponse.newBuilder().setUploadForm(UploadForm.newBuilder()
         .setCdn(cdn)
         .setKey(key)

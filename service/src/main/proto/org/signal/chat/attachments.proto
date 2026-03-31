@@ -11,6 +11,8 @@ package org.signal.chat.attachments;
 
 import "org/signal/chat/common.proto";
 import "org/signal/chat/require.proto";
+import "org/signal/chat/errors.proto";
+import "org/signal/chat/tag.proto";
 
 service Attachments {
   option (require.auth) = AUTH_ONLY_AUTHENTICATED;
@@ -19,7 +21,19 @@ service Attachments {
   rpc GetUploadForm(GetUploadFormRequest) returns (GetUploadFormResponse) {}
 }
 
-message GetUploadFormRequest {}
+message GetUploadFormRequest {
+  // The length of the attachment for the requested upload form. Uploads
+  // performed with this form will be limited to the provided length.
+  uint64 uploadLength = 1 [(require.range) = {min: 1}];
+}
+
 message GetUploadFormResponse {
-  common.UploadForm upload_form = 1;
+  oneof outcome {
+    common.UploadForm upload_form = 1;
+
+    // The request size was larger than the maximum supported upload size. The
+    // maximum upload size is subject to change and is governed by
+    // `global.attachments.maxBytes`
+    errors.FailedPrecondition exceeds_max_upload_length = 2 [(tag.reason) = "oversize_upload"];
+  }
 }

@@ -27,11 +27,14 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import jakarta.ws.rs.core.Response;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
@@ -65,6 +68,7 @@ class AttachmentControllerV4Test {
 
   private static final byte[] TUS_SECRET = TestRandomUtil.nextBytes(32);
   private static final String TUS_URL = "https://example.com/uploads";
+  private static final long MAX_UPLOAD_LENGTH = 1000;
 
   public static final String RSA_PRIVATE_KEY_PEM;
 
@@ -96,7 +100,7 @@ class AttachmentControllerV4Test {
           .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
           .addProvider(new AttachmentControllerV4(RATE_LIMITERS,
               gcsAttachmentGenerator,
-              new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL, 1000)),
+              new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL, MAX_UPLOAD_LENGTH)),
               EXPERIMENT_MANAGER))
           .build();
     } catch (IOException | InvalidKeyException | InvalidKeySpecException e) {
@@ -104,10 +108,34 @@ class AttachmentControllerV4Test {
     }
   }
 
+  @ParameterizedTest
+  @ValueSource(longs = {-1, 0})
+  void testInvalidUploadLength(final long uploadLength) {
+    assertThat(resources.getJerseyTest()
+        .target("/v4/attachments/form/upload")
+        .queryParam("uploadLength", uploadLength)
+        .request()
+        .header("Authorization", CDN3_ENABLED_CREDS)
+        .get().getStatus())
+        .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode());
+  }
+
+  @Test
+  void testUploadTooLarge() {
+    assertThat(resources.getJerseyTest()
+        .target("/v4/attachments/form/upload")
+        .queryParam("uploadLength", MAX_UPLOAD_LENGTH + 1)
+        .request()
+        .header("Authorization", CDN3_ENABLED_CREDS)
+        .get().getStatus())
+        .isEqualTo(Response.Status.REQUEST_ENTITY_TOO_LARGE.getStatusCode());
+  }
+
   @Test
   void testV4TusForm() {
     AttachmentDescriptorV3 descriptor = resources.getJerseyTest()
         .target("/v4/attachments/form/upload")
+        .queryParam("uploadLength", MAX_UPLOAD_LENGTH)
         .request()
         .header("Authorization", CDN3_ENABLED_CREDS)
         .get(AttachmentDescriptorV3.class);

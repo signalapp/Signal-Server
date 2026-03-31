@@ -31,11 +31,14 @@ import java.util.stream.Collectors;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.signal.chat.attachments.AttachmentsGrpc;
 import org.signal.chat.attachments.GetUploadFormRequest;
 import org.signal.chat.attachments.GetUploadFormResponse;
 import org.signal.chat.common.UploadForm;
+import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
@@ -44,7 +47,6 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
@@ -53,6 +55,7 @@ class AttachmentsGrpcServiceTest extends
 
   private static final byte[] TUS_SECRET = TestRandomUtil.nextBytes(32);
   private static final String TUS_URL = "https://example.com/uploads";
+  private static final int MAX_UPLOAD_LENGTH = 1000;
 
   @Mock
   private ExperimentEnrollmentManager experimentEnrollmentManager;
@@ -72,7 +75,7 @@ class AttachmentsGrpcServiceTest extends
       final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator(
           "some-cdn.signal.org", "signal@example.com", 1000, "/attach-here", gcsPrivateKeyPem);
       final TusAttachmentGenerator tusAttachmentGenerator =
-          new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL, 1000));
+          new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL, MAX_UPLOAD_LENGTH));
 
       return new AttachmentsGrpcService(
           experimentEnrollmentManager,
@@ -85,13 +88,27 @@ class AttachmentsGrpcServiceTest extends
     }
   }
 
+  @ParameterizedTest
+  @ValueSource(longs = {-1, 0})
+  void invalidUploadLength(final long uploadLength) {
+    GrpcTestUtils.assertStatusInvalidArgument(() -> authenticatedServiceStub()
+        .getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(uploadLength).build()));
+  }
+
+  @Test
+  void uploadLengthTooBig() {
+    assertThat(authenticatedServiceStub()
+        .getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(MAX_UPLOAD_LENGTH + 1).build())
+        .hasExceedsMaxUploadLength()).isTrue();
+  }
+
   @Test
   void getUploadFormCdn3() {
     when(experimentEnrollmentManager.isEnrolled(AUTHENTICATED_ACI, AttachmentUtil.CDN3_EXPERIMENT_NAME))
         .thenReturn(true);
 
     final GetUploadFormResponse response = authenticatedServiceStub()
-        .getUploadForm(GetUploadFormRequest.newBuilder().build());
+        .getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(1).build());
 
     final UploadForm uploadForm = response.getUploadForm();
     assertThat(uploadForm.getCdn()).isEqualTo(3);
@@ -105,11 +122,12 @@ class AttachmentsGrpcServiceTest extends
 
   @Test
   void getUploadFormCdn2() throws MalformedURLException {
+    final long uploadLength = 13;
     when(experimentEnrollmentManager.isEnrolled(AUTHENTICATED_ACI, AttachmentUtil.CDN3_EXPERIMENT_NAME))
         .thenReturn(false);
 
     final GetUploadFormResponse response = authenticatedServiceStub()
-        .getUploadForm(GetUploadFormRequest.newBuilder().build());
+        .getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(uploadLength).build());
 
     final UploadForm uploadForm = response.getUploadForm();
     assertThat(uploadForm.getCdn()).isEqualTo(2);
@@ -117,7 +135,7 @@ class AttachmentsGrpcServiceTest extends
     assertThat(uploadForm.getHeadersMap()).containsExactlyInAnyOrderEntriesOf(Map.of(
         "host", "some-cdn.signal.org",
         "x-goog-resumable", "start",
-        "x-goog-content-length-range", "1,1000"));
+        "x-goog-content-length-range", "1," + uploadLength));
     assertThat(uploadForm.getSignedUploadLocation()).isNotEmpty();
 
     final URL signedUploadLocation = URI.create(uploadForm.getSignedUploadLocation()).toURL();
@@ -156,6 +174,6 @@ class AttachmentsGrpcServiceTest extends
     doThrow(new RateLimitExceededException(retryAfter)).when(rateLimiter).validate(any(UUID.class));
 
     assertRateLimitExceeded(retryAfter, () ->
-        authenticatedServiceStub().getUploadForm(GetUploadFormRequest.newBuilder().build()));
+        authenticatedServiceStub().getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(1).build()));
   }
 }
