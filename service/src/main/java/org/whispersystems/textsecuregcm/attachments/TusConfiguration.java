@@ -12,6 +12,4 @@ import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public record TusConfiguration(
   @ExactlySize(32) SecretBytes userAuthenticationTokenSharedSecret,
-  @NotEmpty String uploadUri,
-  @Positive long maxSizeInBytes
-){}
+  @NotEmpty String uploadUri){}

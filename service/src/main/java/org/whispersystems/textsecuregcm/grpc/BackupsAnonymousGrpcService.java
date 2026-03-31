@@ -32,6 +32,7 @@ import org.signal.chat.backup.SetPublicKeyRequest;
 import org.signal.chat.backup.SetPublicKeyResponse;
 import org.signal.chat.backup.SignedPresentation;
 import org.signal.chat.backup.SimpleBackupsAnonymousGrpc;
+import org.signal.chat.common.UploadForm;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.libsignal.protocol.InvalidKeyException;
@@ -60,10 +61,12 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
 
   private final BackupManager backupManager;
   private final BackupMetrics backupMetrics;
+  private final long maxAttachmentSize;
 
-  public BackupsAnonymousGrpcService(final BackupManager backupManager, final BackupMetrics backupMetrics) {
+  public BackupsAnonymousGrpcService(final BackupManager backupManager, final BackupMetrics backupMetrics, final long maxAttachmentSize) {
     this.backupManager = backupManager;
     this.backupMetrics = backupMetrics;
+    this.maxAttachmentSize = maxAttachmentSize;
   }
 
   @Override
@@ -178,35 +181,29 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
           .setFailedAuthentication(FailedZkAuthentication.newBuilder().setDescription(e.getMessage()).build())
           .build();
     }
-    final GetUploadFormResponse.Builder builder = GetUploadFormResponse.newBuilder();
-    switch (request.getUploadTypeCase()) {
-      case MESSAGES -> {
-        final long uploadLength = request.getMessages().getUploadLength();
-        final boolean oversize = uploadLength > backupManager.maxMessageBackupUploadSize();
-        backupMetrics.updateMessageBackupSizeDistribution(backupUser, oversize, Optional.of(uploadLength));
-        if (oversize) {
-          builder.setExceedsMaxUploadLength(FailedPrecondition.getDefaultInstance());
-        } else {
-          final BackupUploadDescriptor uploadDescriptor = backupManager.createMessageBackupUploadDescriptor(backupUser);
-          builder.setUploadForm(builder.getUploadFormBuilder()
-              .setCdn(uploadDescriptor.cdn())
-              .setKey(uploadDescriptor.key())
-              .setSignedUploadLocation(uploadDescriptor.signedUploadLocation())
-              .putAllHeaders(uploadDescriptor.headers())).build();
-        }
+    final long uploadLength = request.getUploadLength();
+    if (uploadLength > maxAttachmentSize) {
+      if (request.getUploadTypeCase() == GetUploadFormRequest.UploadTypeCase.MESSAGES) {
+        backupMetrics.updateMessageBackupSizeDistribution(backupUser, true, Optional.of(uploadLength));
       }
-      case MEDIA -> {
-        final BackupUploadDescriptor uploadDescriptor = backupManager.createTemporaryAttachmentUploadDescriptor(
-            backupUser);
-        builder.setUploadForm(builder.getUploadFormBuilder()
+      return GetUploadFormResponse.newBuilder().setExceedsMaxUploadLength(FailedPrecondition.getDefaultInstance()).build();
+    }
+
+    final BackupUploadDescriptor uploadDescriptor = switch (request.getUploadTypeCase()) {
+      case MESSAGES -> {
+        backupMetrics.updateMessageBackupSizeDistribution(backupUser, false, Optional.of(uploadLength));
+        yield backupManager.createMessageBackupUploadDescriptor(backupUser, uploadLength);
+      }
+      case MEDIA -> backupManager.createTemporaryAttachmentUploadDescriptor(backupUser, uploadLength);
+      case UPLOADTYPE_NOT_SET -> throw GrpcExceptions.fieldViolation("upload_type", "Must set upload_type");
+    };
+    return GetUploadFormResponse.newBuilder()
+        .setUploadForm(UploadForm.newBuilder()
             .setCdn(uploadDescriptor.cdn())
             .setKey(uploadDescriptor.key())
             .setSignedUploadLocation(uploadDescriptor.signedUploadLocation())
-            .putAllHeaders(uploadDescriptor.headers())).build();
-      }
-      case UPLOADTYPE_NOT_SET -> throw GrpcExceptions.fieldViolation("upload_type", "Must set upload_type");
-    }
-    return builder.build();
+            .putAllHeaders(uploadDescriptor.headers()))
+        .build();
   }
 
   @Override
@@ -221,7 +218,7 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
               // uint32 in proto, make sure it fits in a signed int
               fromUnsignedExact(item.getObjectLength()),
               new MediaEncryptionParameters(item.getEncryptionKey().toByteArray(), item.getHmacKey().toByteArray()),
-              item.getMediaId().toByteArray())).toList());
+              item.getMediaId().toByteArray())).toList(), maxAttachmentSize);
     } catch (BackupFailedZkAuthenticationException e) {
       return JdkFlowAdapter.publisherToFlowPublisher(Mono.just(CopyMediaResponse
           .newBuilder()

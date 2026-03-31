@@ -155,28 +155,33 @@ public class BackupManager {
    * If successful, this also updates the TTL of the backup.
    *
    * @param backupUser an already ZK authenticated backup user
+   * @param uploadSize the maximum size of a message backup that can be uploaded with the returned form
    * @return the upload form
    * @throws BackupPermissionException if the credential does not have the correct level
    * @throws BackupWrongCredentialTypeException if the credential does not have the messages type
    */
   public BackupUploadDescriptor createMessageBackupUploadDescriptor(
-      final AuthenticatedBackupUser backupUser) throws BackupPermissionException, BackupWrongCredentialTypeException {
+      final AuthenticatedBackupUser backupUser,
+      final long uploadSize) throws BackupPermissionException, BackupWrongCredentialTypeException {
     checkBackupLevel(backupUser, BackupLevel.FREE);
     checkBackupCredentialType(backupUser, BackupCredentialType.MESSAGES);
 
     // this could race with concurrent updates, but the only effect would be last-writer-wins on the timestamp
     backupsDb.addMessageBackup(backupUser).join();
-    return cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser));
+    return cdn3BackupCredentialGenerator.generateUpload(cdnMessageBackupName(backupUser), uploadSize);
   }
 
-  public BackupUploadDescriptor createTemporaryAttachmentUploadDescriptor(final AuthenticatedBackupUser backupUser)
+  public BackupUploadDescriptor createTemporaryAttachmentUploadDescriptor(
+      final AuthenticatedBackupUser backupUser,
+      final long uploadSize)
       throws RateLimitExceededException, BackupPermissionException, BackupWrongCredentialTypeException {
     checkBackupLevel(backupUser, BackupLevel.PAID);
     checkBackupCredentialType(backupUser, BackupCredentialType.MEDIA);
 
     rateLimiters.forDescriptor(RateLimiters.For.BACKUP_ATTACHMENT).validate(rateLimitKey(backupUser));
     final String attachmentKey = AttachmentUtil.generateAttachmentKey(secureRandom);
-    final AttachmentGenerator.Descriptor descriptor = tusAttachmentGenerator.generateAttachment(attachmentKey, tusAttachmentGenerator.maxUploadSizeInBytes());
+    final AttachmentGenerator.Descriptor descriptor =
+        tusAttachmentGenerator.generateAttachment(attachmentKey, uploadSize);
     return new BackupUploadDescriptor(3, attachmentKey, descriptor.headers(), descriptor.signedUploadLocation());
   }
 
@@ -194,9 +199,9 @@ public class BackupManager {
       final long maxTotalMediaSize =
           dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
 
-      // Report that the backup is out of quota if it cannot store a max size media object
+      // Report that the backup is out of quota if it is within 100MiB of the limit
       final boolean quotaExhausted = storedBackupAttributes.bytesUsed() >=
-          (maxTotalMediaSize - tusAttachmentGenerator.maxUploadSizeInBytes());
+          (maxTotalMediaSize - 1024 * 1024 * 100);
 
       final Tags tags = Tags.of(
           UserAgentTagUtil.getPlatformTag(backupUser.userAgent()),
@@ -329,13 +334,14 @@ public class BackupManager {
    */
   public CopyQuota getCopyQuota(
       final AuthenticatedBackupUser backupUser,
-      final List<CopyParameters> toCopy)
+      final List<CopyParameters> toCopy,
+      final long maximumSourceObjectSize)
       throws BackupWrongCredentialTypeException, BackupPermissionException, BackupInvalidArgumentException {
     checkBackupLevel(backupUser, BackupLevel.PAID);
     checkBackupCredentialType(backupUser, BackupCredentialType.MEDIA);
 
     for (CopyParameters copyParameters : toCopy) {
-      if (copyParameters.sourceLength() > tusAttachmentGenerator.maxUploadSizeInBytes() || copyParameters.sourceLength() < 0) {
+      if (copyParameters.sourceLength() > maximumSourceObjectSize || copyParameters.sourceLength() < 0) {
         throw new BackupInvalidArgumentException("Invalid sourceObject size");
       }
     }
@@ -727,10 +733,6 @@ public class BackupManager {
             .record(itemsRemoved))
         .then()
         .toFuture();
-  }
-
-  public long maxMessageBackupUploadSize() {
-    return tusAttachmentGenerator.maxUploadSizeInBytes();
   }
 
   interface PresentationSignatureVerifier {

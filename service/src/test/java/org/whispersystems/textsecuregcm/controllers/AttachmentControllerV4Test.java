@@ -92,7 +92,7 @@ class AttachmentControllerV4Test {
   static {
     try {
       final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator("some-cdn.signal.org",
-          "signal@example.com", 1000, "/attach-here", RSA_PRIVATE_KEY_PEM);
+          "signal@example.com", "/attach-here", RSA_PRIVATE_KEY_PEM);
       resources = ResourceExtension.builder()
           .addProvider(AuthHelper.getAuthFilter())
           .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
@@ -100,8 +100,8 @@ class AttachmentControllerV4Test {
           .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
           .addProvider(new AttachmentControllerV4(RATE_LIMITERS,
               gcsAttachmentGenerator,
-              new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL, MAX_UPLOAD_LENGTH)),
-              EXPERIMENT_MANAGER))
+              new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL)),
+              EXPERIMENT_MANAGER, MAX_UPLOAD_LENGTH))
           .build();
     } catch (IOException | InvalidKeyException | InvalidKeySpecException e) {
       throw new AssertionError(e);

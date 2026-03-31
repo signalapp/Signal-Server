@@ -14,7 +14,6 @@ import org.whispersystems.textsecuregcm.configuration.secrets.SecretString;
 
 public record GcpAttachmentsConfiguration(@NotBlank String domain,
                                           @NotBlank String email,
-                                          @Min(1) int maxSizeInBytes,
                                           String pathPrefix,
                                           @NotNull SecretString rsaSigningKey) {
   @SuppressWarnings("unused")

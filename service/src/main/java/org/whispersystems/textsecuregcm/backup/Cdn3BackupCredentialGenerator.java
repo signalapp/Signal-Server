@@ -21,21 +21,19 @@ public class Cdn3BackupCredentialGenerator {
 
   private final String tusUri;
   private final JwtGenerator jwtGenerator;
-  private final long maxUploadSize;
 
   public Cdn3BackupCredentialGenerator(final TusConfiguration cfg) {
     this.tusUri = cfg.uploadUri();
     this.jwtGenerator = new JwtGenerator(cfg.userAuthenticationTokenSharedSecret().value(), Clock.systemUTC());
-    this.maxUploadSize = cfg.maxSizeInBytes();
   }
 
-  public BackupUploadDescriptor generateUpload(final String key) {
+  public BackupUploadDescriptor generateUpload(final String key, final long uploadSize) {
     if (key.isBlank()) {
       throw new IllegalArgumentException("Upload descriptors must have non-empty keys");
     }
 
     final String token = jwtGenerator.generateJwt(CDN_PATH, key, builder -> builder
-        .withClaim(JwtGenerator.MAX_LENGTH_CLAIM_KEY, maxUploadSize)
+        .withClaim(JwtGenerator.MAX_LENGTH_CLAIM_KEY, uploadSize)
         .withClaim(JwtGenerator.SCOPE_CLAIM_KEY, "write"));
 
     final String b64Key = Base64.getEncoder().encodeToString(key.getBytes(StandardCharsets.UTF_8));

@@ -19,20 +19,14 @@ public class TusAttachmentGenerator implements AttachmentGenerator {
 
   private final JwtGenerator jwtGenerator;
   private final String tusUri;
-  private final long maxUploadSize;
 
   public TusAttachmentGenerator(final TusConfiguration cfg) {
     this.tusUri = cfg.uploadUri();
     this.jwtGenerator = new JwtGenerator(cfg.userAuthenticationTokenSharedSecret().value(), Clock.systemUTC());
-    this.maxUploadSize = cfg.maxSizeInBytes();
   }
 
   @Override
   public Descriptor generateAttachment(final String key, final long uploadLength) {
-    if (uploadLength > maxUploadSize) {
-      throw new IllegalArgumentException("uploadLength " + uploadLength + " exceeds maximum " + maxUploadSize);
-    }
-
     final String token = jwtGenerator.generateJwt(ATTACHMENTS, key,
         builder -> builder.withClaim(JwtGenerator.MAX_LENGTH_CLAIM_KEY, uploadLength));
     final String b64Key = Base64.getEncoder().encodeToString(key.getBytes(StandardCharsets.UTF_8));
@@ -42,10 +36,5 @@ public class TusAttachmentGenerator implements AttachmentGenerator {
         "Upload-Metadata", String.format("filename %s", b64Key)
     );
     return new Descriptor(headers, tusUri + "/" +  ATTACHMENTS);
-  }
-
-  @Override
-  public long maxUploadSizeInBytes() {
-    return maxUploadSize;
   }
 }

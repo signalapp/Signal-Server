@@ -349,9 +349,7 @@ message RefreshResponse {
 message GetUploadFormRequest {
   SignedPresentation signed_presentation = 1;
 
-  message MessagesUploadType {
-    uint64 upload_length = 1;
-  }
+  message MessagesUploadType {}
   message MediaUploadType {}
   oneof upload_type {
     // Retrieve an upload form that can be used to perform a resumable upload of
@@ -365,6 +363,10 @@ message GetUploadFormRequest {
     // Behaves identically to the account authenticated version at /attachments.
     MediaUploadType media = 3;
   }
+
+  // The length of the attachment for the requested upload form. Uploads
+  // performed with this form will be limited to the provided length.
+  uint64 uploadLength = 4 [(require.range) = {min: 1}];
 }
 message GetUploadFormResponse {
   oneof outcome {
@@ -377,7 +379,8 @@ message GetUploadFormResponse {
     errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
 
     // The request size was larger than the maximum supported upload size. The
-    // maximum upload size is subject to change.
+    // maximum upload size is subject to change and is governed by
+    // `global.attachments.maxBytes`
     errors.FailedPrecondition exceeds_max_upload_length = 3 [(tag.reason) = "oversize_upload"];
   }
 }

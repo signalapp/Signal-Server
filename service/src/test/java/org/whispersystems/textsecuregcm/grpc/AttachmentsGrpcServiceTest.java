@@ -73,16 +73,17 @@ class AttachmentsGrpcServiceTest extends
           Base64.getMimeEncoder().encodeToString(keyPair.getPrivate().getEncoded()) + "\n" +
           "-----END PRIVATE KEY-----";
       final GcsAttachmentGenerator gcsAttachmentGenerator = new GcsAttachmentGenerator(
-          "some-cdn.signal.org", "signal@example.com", 1000, "/attach-here", gcsPrivateKeyPem);
+          "some-cdn.signal.org", "signal@example.com", "/attach-here", gcsPrivateKeyPem);
       final TusAttachmentGenerator tusAttachmentGenerator =
-          new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL, MAX_UPLOAD_LENGTH));
+          new TusAttachmentGenerator(new TusConfiguration(new SecretBytes(TUS_SECRET), TUS_URL));
 
       return new AttachmentsGrpcService(
           experimentEnrollmentManager,
           MockUtils.buildMock(RateLimiters.class, rateLimiters ->
               when(rateLimiters.getAttachmentLimiter()).thenReturn(rateLimiter)),
           gcsAttachmentGenerator,
-          tusAttachmentGenerator);
+          tusAttachmentGenerator,
+          MAX_UPLOAD_LENGTH);
     } catch (NoSuchAlgorithmException | IOException | InvalidKeyException | InvalidKeySpecException e) {
       throw new AssertionError(e);
     }

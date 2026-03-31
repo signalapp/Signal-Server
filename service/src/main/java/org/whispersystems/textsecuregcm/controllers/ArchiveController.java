@@ -102,17 +102,20 @@ public class ArchiveController {
   private final BackupAuthManager backupAuthManager;
   private final BackupManager backupManager;
   private final BackupMetrics backupMetrics;
+  private final long maxAttachmentSize;
 
   public ArchiveController(
       final AccountsManager accountsManager,
       final BackupAuthManager backupAuthManager,
       final BackupManager backupManager,
-      final BackupMetrics backupMetrics) {
+      final BackupMetrics backupMetrics,
+      final long maxAttachmentSize) {
 
     this.accountsManager = accountsManager;
     this.backupAuthManager = backupAuthManager;
     this.backupManager = backupManager;
     this.backupMetrics = backupMetrics;
+    this.maxAttachmentSize = maxAttachmentSize;
   }
 
   public record SetBackupIdRequest(
@@ -566,8 +569,11 @@ public class ArchiveController {
   @Path("/upload/form")
   @Produces(MediaType.APPLICATION_JSON)
   @Operation(
-      summary = "Fetch message backup upload form",
-      description = "Retrieve an upload form that can be used to perform a resumable upload of a message backup.")
+      summary = "Fetch message backup upload form", description = """
+      Retrieve an upload form that can be used to perform a resumable upload of a message backup.
+
+      Uploads with the returned form will be limited to a maximum size of the provided uploadLength.
+      """)
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = UploadDescriptorResponse.class)))
   @ApiResponse(responseCode = "429", description = "Rate limited.")
   @ApiResponse(responseCode = "413", description = "The provided uploadLength is larger than the maximum supported upload size. The maximum upload size is subject to change.")
@@ -596,7 +602,7 @@ public class ArchiveController {
         backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
 
     final boolean oversize = uploadLength
-        .map(length -> length > backupManager.maxMessageBackupUploadSize())
+        .map(length -> length > maxAttachmentSize)
         .orElse(false);
 
     backupMetrics.updateMessageBackupSizeDistribution(backupUser, oversize, uploadLength);
@@ -604,7 +610,7 @@ public class ArchiveController {
       throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
     }
     final BackupUploadDescriptor uploadDescriptor =
-        backupManager.createMessageBackupUploadDescriptor(backupUser);
+        backupManager.createMessageBackupUploadDescriptor(backupUser, uploadLength.orElse(maxAttachmentSize));
     return new UploadDescriptorResponse(
         uploadDescriptor.cdn(),
         uploadDescriptor.key(),
@@ -621,16 +627,17 @@ public class ArchiveController {
           Retrieve an upload form that can be used to perform a resumable upload of an attachment. After uploading, the
           attachment can be copied into the backup at PUT /archives/media/.
 
-          Like the account authenticated version at /attachments, the uploaded object is only temporary.
+          Like the account authenticated version at /attachments, the uploaded object is only temporary. Uploads with
+          the returned form will be limited to a maximum size of the provided uploadLength.
           """)
   @ApiResponse(responseCode = "200", content = @Content(schema = @Schema(implementation = UploadDescriptorResponse.class)))
   @ApiResponse(responseCode = "429", description = "Rate limited.")
+  @ApiResponse(responseCode = "413", description = "The provided uploadLength is larger than the maximum supported upload size. The maximum upload size is subject to change and is governed by `global.attachments.maxBytes`.")
   @ApiResponseZkAuth
   @ManagedAsync
   public UploadDescriptorResponse uploadTemporaryAttachment(
       @Auth final Optional<AuthenticatedDevice> account,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-
 
       @Parameter(description = BackupAuthCredentialPresentationHeader.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
@@ -638,15 +645,24 @@ public class ArchiveController {
 
       @Parameter(description = BackupAuthCredentialPresentationSignature.DESCRIPTION, schema = @Schema(implementation = String.class))
       @NotNull
-      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature)
+      @HeaderParam(X_SIGNAL_ZK_AUTH_SIGNATURE) final BackupAuthCredentialPresentationSignature signature,
+
+      @Parameter(description = "The size of the temporary attachment to upload in bytes")
+      @QueryParam("uploadLength") final Optional<Long> uploadLength)
       throws RateLimitExceededException, BackupFailedZkAuthenticationException, BackupWrongCredentialTypeException, BackupPermissionException {
     if (account.isPresent()) {
       throw new BadRequestException("must not use authenticated connection for anonymous operations");
     }
     final AuthenticatedBackupUser backupUser =
         backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
+
+    final boolean oversize = uploadLength.map(length -> length > maxAttachmentSize).orElse(false);
+    if (oversize) {
+      throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
+    }
+
     final BackupUploadDescriptor uploadDescriptor =
-        backupManager.createTemporaryAttachmentUploadDescriptor(backupUser);
+        backupManager.createTemporaryAttachmentUploadDescriptor(backupUser, uploadLength.orElse(maxAttachmentSize));
     return new UploadDescriptorResponse(
         uploadDescriptor.cdn(),
         uploadDescriptor.key(),
@@ -741,7 +757,7 @@ public class ArchiveController {
     final AuthenticatedBackupUser backupUser =
         backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
     final BackupManager.CopyQuota copyQuota =
-        backupManager.getCopyQuota(backupUser, List.of(copyMediaRequest.toCopyParameters()));
+        backupManager.getCopyQuota(backupUser, List.of(copyMediaRequest.toCopyParameters()), maxAttachmentSize);
     final CopyResult copyResult = backupManager.copyToBackup(copyQuota).next()
             .blockOptional()
             .orElseThrow(() -> new IllegalStateException("Non empty copy request must return result"));
@@ -844,7 +860,7 @@ public class ArchiveController {
     final Stream<CopyParameters> copyParams = copyMediaRequest.items().stream().map(CopyMediaRequest::toCopyParameters);
     final AuthenticatedBackupUser backupUser =
         backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
-    final BackupManager.CopyQuota copyQuota = backupManager.getCopyQuota(backupUser, copyParams.toList());
+    final BackupManager.CopyQuota copyQuota = backupManager.getCopyQuota(backupUser, copyParams.toList(), maxAttachmentSize);
     final List<CopyMediaBatchResponse.Entry> copyResults = backupManager.copyToBackup(copyQuota)
         .doOnNext(result -> backupMetrics.updateCopyCounter(result, UserAgentTagUtil.getPlatformTag(userAgent)))
         .map(CopyMediaBatchResponse.Entry::fromCopyResult)

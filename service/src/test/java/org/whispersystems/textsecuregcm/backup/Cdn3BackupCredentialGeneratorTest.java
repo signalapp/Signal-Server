@@ -28,10 +28,9 @@ public class Cdn3BackupCredentialGeneratorTest {
   public void uploadGenerator() {
     final Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
         new SecretBytes(SECRET),
-        "https://example.org/upload",
-        MAX_UPLOAD_LENGTH));
+        "https://example.org/upload"));
 
-    final BackupUploadDescriptor messageBackupUploadDescriptor = generator.generateUpload("subdir/key");
+    final BackupUploadDescriptor messageBackupUploadDescriptor = generator.generateUpload("subdir/key", MAX_UPLOAD_LENGTH);
     assertThat(messageBackupUploadDescriptor.signedUploadLocation()).isEqualTo("https://example.org/upload/backups");
     assertThat(messageBackupUploadDescriptor.key()).isEqualTo("subdir/key");
     assertThat(messageBackupUploadDescriptor.headers()).containsKey("Authorization");
@@ -50,8 +49,7 @@ public class Cdn3BackupCredentialGeneratorTest {
   public void readCredential() {
     final Cdn3BackupCredentialGenerator generator = new Cdn3BackupCredentialGenerator(new TusConfiguration(
         new SecretBytes(SECRET),
-        "https://example.org/upload",
-        MAX_UPLOAD_LENGTH));
+        "https://example.org/upload"));
 
     final Map<String, String> headers = generator.readHeaders("subdir");
     assertThat(headers).containsKey("Authorization");

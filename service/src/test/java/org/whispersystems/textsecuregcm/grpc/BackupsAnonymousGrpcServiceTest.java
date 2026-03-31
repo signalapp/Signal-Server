@@ -7,7 +7,9 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
@@ -90,7 +92,7 @@ class BackupsAnonymousGrpcServiceTest extends
 
   @Override
   protected BackupsAnonymousGrpcService createServiceBeforeEachTest() {
-    return new BackupsAnonymousGrpcService(backupManager, new BackupMetrics());
+    return new BackupsAnonymousGrpcService(backupManager, new BackupMetrics(), MAX_MESSAGE_BACKUP_OBJECT_SIZE);
   }
 
   @BeforeEach
@@ -98,7 +100,6 @@ class BackupsAnonymousGrpcServiceTest extends
     try {
       when(backupManager.authenticateBackupUser(any(), any(), any()))
           .thenReturn(backupUser(presentation.getBackupId(), BackupCredentialType.MESSAGES, BackupLevel.PAID));
-      when(backupManager.maxMessageBackupUploadSize()).thenReturn(MAX_MESSAGE_BACKUP_OBJECT_SIZE);
     } catch (BackupFailedZkAuthenticationException e) {
       Assertions.fail(e);
     }
@@ -323,55 +324,66 @@ class BackupsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  void mediaUploadForm() throws RateLimitExceededException, BackupException {
-    when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
-        .thenReturn(new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org"));
+  void mediaUploadFormRateLimit() throws RateLimitExceededException, BackupException {
     final GetUploadFormRequest request = GetUploadFormRequest.newBuilder()
         .setMedia(GetUploadFormRequest.MediaUploadType.getDefaultInstance())
         .setSignedPresentation(signedPresentation(presentation))
+        .setUploadLength(100)
         .build();
-
-    final GetUploadFormResponse uploadForm = unauthenticatedServiceStub().getUploadForm(request);
-    assertThat(uploadForm.getUploadForm().getCdn()).isEqualTo(3);
-    assertThat(uploadForm.getUploadForm().getKey()).isEqualTo("abc");
-    assertThat(uploadForm.getUploadForm().getHeadersMap()).containsExactlyEntriesOf(Map.of("k", "v"));
-    assertThat(uploadForm.getUploadForm().getSignedUploadLocation()).isEqualTo("example.org");
-
-    // rate limit
     Duration duration = Duration.ofSeconds(10);
-    when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
+    when(backupManager.createTemporaryAttachmentUploadDescriptor(any(), anyLong()))
         .thenThrow(new RateLimitExceededException(duration));
     GrpcTestUtils.assertRateLimitExceeded(duration, () -> unauthenticatedServiceStub().getUploadForm(request));
   }
 
-  static Stream<Arguments> messagesUploadForm() {
-    return Stream.of(
-        Arguments.of(Optional.empty(), true),
-        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_OBJECT_SIZE), true),
-        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_OBJECT_SIZE + 1), false)
-    );
-  }
-
   @ParameterizedTest
-  @MethodSource
-  public void messagesUploadForm(Optional<Long> uploadLength, boolean allowedSize) throws BackupException {
-    when(backupManager.createMessageBackupUploadDescriptor(any()))
-        .thenReturn(new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org"));
-    final GetUploadFormRequest.MessagesUploadType.Builder builder = GetUploadFormRequest.MessagesUploadType.newBuilder();
-    uploadLength.ifPresent(builder::setUploadLength);
-    final GetUploadFormRequest request = GetUploadFormRequest.newBuilder()
-        .setMessages(builder.build())
+  @EnumSource(value = GetUploadFormRequest.UploadTypeCase.class, names = "UPLOADTYPE_NOT_SET", mode = EnumSource.Mode.EXCLUDE)
+  public void uploadForm(GetUploadFormRequest.UploadTypeCase uploadType)
+      throws BackupException, RateLimitExceededException {
+    final long uploadLength = 100;
+    final BackupUploadDescriptor result =
+        new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org");
+    final GetUploadFormRequest.Builder builder = switch (uploadType) {
+      case MESSAGES -> {
+        when(backupManager.createMessageBackupUploadDescriptor(any(), eq(uploadLength)))
+            .thenReturn(result);
+        yield GetUploadFormRequest.newBuilder().setMessages(GetUploadFormRequest.MessagesUploadType.getDefaultInstance());
+      }
+      case MEDIA -> {
+        when(backupManager.createTemporaryAttachmentUploadDescriptor(any(), eq(uploadLength)))
+            .thenReturn(result);
+        yield GetUploadFormRequest.newBuilder().setMedia(GetUploadFormRequest.MediaUploadType.getDefaultInstance());
+      }
+      default -> throw new IllegalArgumentException("Unknown upload type: " + uploadType);
+    };
+    final GetUploadFormRequest request = builder
         .setSignedPresentation(signedPresentation(presentation))
+        .setUploadLength(uploadLength)
         .build();
     final GetUploadFormResponse response = unauthenticatedServiceStub().getUploadForm(request);
-    if (allowedSize) {
       assertThat(response.getUploadForm().getCdn()).isEqualTo(3);
       assertThat(response.getUploadForm().getKey()).isEqualTo("abc");
       assertThat(response.getUploadForm().getHeadersMap()).containsExactlyEntriesOf(Map.of("k", "v"));
       assertThat(response.getUploadForm().getSignedUploadLocation()).isEqualTo("example.org");
-    } else {
-      assertThat(response.hasExceedsMaxUploadLength()).isTrue();
-    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(value = GetUploadFormRequest.UploadTypeCase.class, names = "UPLOADTYPE_NOT_SET", mode = EnumSource.Mode.EXCLUDE)
+  public void uploadFormExceedsMax(GetUploadFormRequest.UploadTypeCase uploadType) throws BackupException {
+    final GetUploadFormRequest.Builder builder = switch (uploadType) {
+      case MESSAGES -> GetUploadFormRequest.newBuilder()
+          .setMessages(GetUploadFormRequest.MessagesUploadType.getDefaultInstance());
+      case MEDIA -> GetUploadFormRequest.newBuilder()
+          .setMedia(GetUploadFormRequest.MediaUploadType.getDefaultInstance());
+      default -> throw new IllegalArgumentException("Unknown upload type: " + uploadType);
+    };
+    final GetUploadFormRequest request = builder
+        .setSignedPresentation(signedPresentation(presentation))
+        .setUploadLength(MAX_MESSAGE_BACKUP_OBJECT_SIZE + 1)
+        .build();
+
+    final GetUploadFormResponse response = unauthenticatedServiceStub().getUploadForm(request);
+    assertThat(response.hasExceedsMaxUploadLength()).isTrue();
   }
 
 

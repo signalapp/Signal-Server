@@ -45,6 +45,7 @@ public class AttachmentControllerV4 {
 
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final RateLimiter rateLimiter;
+  private final long maxUploadLength;
 
   private final Map<Integer, AttachmentGenerator> attachmentGenerators;
 
@@ -55,9 +56,11 @@ public class AttachmentControllerV4 {
       final RateLimiters rateLimiters,
       final GcsAttachmentGenerator gcsAttachmentGenerator,
       final TusAttachmentGenerator tusAttachmentGenerator,
-      final ExperimentEnrollmentManager experimentEnrollmentManager) {
+      final ExperimentEnrollmentManager experimentEnrollmentManager,
+      final long maxUploadLength) {
     this.rateLimiter = rateLimiters.getAttachmentLimiter();
     this.experimentEnrollmentManager = experimentEnrollmentManager;
+    this.maxUploadLength = maxUploadLength;
     this.secureRandom = new SecureRandom();
     this.attachmentGenerators = Map.of(
         2, gcsAttachmentGenerator,
@@ -88,17 +91,16 @@ public class AttachmentControllerV4 {
       @Parameter(description = "The size of the attachment to upload in bytes")
       @QueryParam("uploadLength") final @Valid Optional<@Positive Long> maybeUploadLength)
       throws RateLimitExceededException {
+    final long uploadLength = maybeUploadLength.orElse(maxUploadLength);
+    if (uploadLength > maxUploadLength) {
+      throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
+    }
+    rateLimiter.validate(auth.accountIdentifier());
+
     final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
     final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(), AttachmentUtil.CDN3_EXPERIMENT_NAME);
     int cdn = useCdn3 ? 3 : 2;
-    final AttachmentGenerator attachmentGenerator = this.attachmentGenerators.get(cdn);
-    final long uploadLength = maybeUploadLength.orElse(attachmentGenerator.maxUploadSizeInBytes());
-    if (uploadLength > attachmentGenerator.maxUploadSizeInBytes()) {
-      throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
-    }
-
-    rateLimiter.validate(auth.accountIdentifier());
-    final AttachmentGenerator.Descriptor descriptor = attachmentGenerator.generateAttachment(key, uploadLength);
+    final AttachmentGenerator.Descriptor descriptor = this.attachmentGenerators.get(cdn).generateAttachment(key, uploadLength);
     return new AttachmentDescriptorV3(cdn, key, descriptor.headers(), descriptor.signedUploadLocation());
   }
 

@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -73,6 +74,7 @@ import org.whispersystems.textsecuregcm.backup.BackupManager;
 import org.whispersystems.textsecuregcm.backup.BackupNotFoundException;
 import org.whispersystems.textsecuregcm.backup.BackupPermissionException;
 import org.whispersystems.textsecuregcm.backup.BackupUploadDescriptor;
+import org.whispersystems.textsecuregcm.backup.BackupWrongCredentialTypeException;
 import org.whispersystems.textsecuregcm.backup.CopyResult;
 import org.whispersystems.textsecuregcm.entities.RemoteAttachment;
 import org.whispersystems.textsecuregcm.mappers.BackupExceptionMapper;
@@ -90,7 +92,7 @@ import reactor.core.publisher.Flux;
 @ExtendWith(DropwizardExtensionsSupport.class)
 public class ArchiveControllerTest {
 
-  private static final long MAX_MESSAGE_BACKUP_OBJECT_SIZE = 1000L;
+  private static final long MAX_ATTACHMENT_SIZE = 1000L;
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private static final BackupAuthManager backupAuthManager = mock(BackupAuthManager.class);
   private static final BackupManager backupManager = mock(BackupManager.class);
@@ -106,7 +108,7 @@ public class ArchiveControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new ArchiveController(accountsManager, backupAuthManager, backupManager, new BackupMetrics()))
+      .addResource(new ArchiveController(accountsManager, backupAuthManager, backupManager, new BackupMetrics(), MAX_ATTACHMENT_SIZE))
       .build();
 
   private final UUID aci = UUID.randomUUID();
@@ -117,8 +119,6 @@ public class ArchiveControllerTest {
   public void setUp() {
     reset(backupAuthManager);
     reset(backupManager);
-
-    when(backupManager.maxMessageBackupUploadSize()).thenReturn(MAX_MESSAGE_BACKUP_OBJECT_SIZE);
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID))
         .thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
@@ -615,8 +615,8 @@ public class ArchiveControllerTest {
   static Stream<Arguments> messagesUploadForm() {
     return Stream.of(
         Arguments.of(Optional.empty(), true),
-        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_OBJECT_SIZE), true),
-        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_OBJECT_SIZE + 1), false)
+        Arguments.of(Optional.of(MAX_ATTACHMENT_SIZE), true),
+        Arguments.of(Optional.of(MAX_ATTACHMENT_SIZE + 1), false)
     );
   }
 
@@ -627,7 +627,7 @@ public class ArchiveControllerTest {
         backupAuthTestUtil.getPresentation(BackupLevel.PAID, messagesBackupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any(), any()))
         .thenReturn(backupUser(presentation.getBackupId(), BackupCredentialType.MESSAGES, BackupLevel.PAID));
-    when(backupManager.createMessageBackupUploadDescriptor(any()))
+    when(backupManager.createMessageBackupUploadDescriptor(any(), anyLong()))
         .thenReturn(new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org"));
 
     final WebTarget builder = resources.getJerseyTest().target("v1/archives/upload/form");
@@ -641,36 +641,59 @@ public class ArchiveControllerTest {
     if (expectSuccess) {
       assertThat(response.getStatus()).isEqualTo(200);
       ArchiveController.UploadDescriptorResponse desc = response.readEntity(ArchiveController.UploadDescriptorResponse.class);
-      assertThat(desc.cdn()).isEqualTo(3);
-      assertThat(desc.key()).isEqualTo("abc");
-      assertThat(desc.headers()).containsExactlyEntriesOf(Map.of("k", "v"));
-      assertThat(desc.signedUploadLocation()).isEqualTo("example.org");
+      assertThat(desc)
+          .isEqualTo(new ArchiveController.UploadDescriptorResponse(3, "abc", Map.of("k", "v"), "example.org"));
+      verify(backupManager).createMessageBackupUploadDescriptor(any(), eq(uploadLength.orElse(MAX_ATTACHMENT_SIZE)));
+    } else {
+      assertThat(response.getStatus()).isEqualTo(413);
+    }
+  }
+
+  static Stream<Arguments> mediaUploadForm() {
+    return Stream.of(
+        Arguments.of(Optional.empty(), true),
+        Arguments.of(Optional.of(MAX_ATTACHMENT_SIZE), true),
+        Arguments.of(Optional.of(MAX_ATTACHMENT_SIZE + 1), false)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  public void mediaUploadForm(Optional<Long> uploadLength, boolean expectSuccess) throws VerificationFailedException, BackupException, RateLimitExceededException {
+    final BackupAuthCredentialPresentation presentation =
+        backupAuthTestUtil.getPresentation(BackupLevel.PAID, messagesBackupKey, aci);
+    when(backupManager.authenticateBackupUser(any(), any(), any()))
+        .thenReturn(backupUser(presentation.getBackupId(), BackupCredentialType.MESSAGES, BackupLevel.PAID));
+    when(backupManager.createTemporaryAttachmentUploadDescriptor(any(), anyLong()))
+        .thenReturn(new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org"));
+    final WebTarget builder = resources.getJerseyTest().target("v1/archives/media/upload/form");
+    final Response response = uploadLength
+        .map(length -> builder.queryParam("uploadLength", length))
+        .orElse(builder)
+        .request()
+        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
+        .header("X-Signal-ZK-Auth-Signature", "aaa")
+        .get();
+    if (expectSuccess) {
+      assertThat(response.getStatus()).isEqualTo(200);
+      final ArchiveController.UploadDescriptorResponse desc =
+          response.readEntity(ArchiveController.UploadDescriptorResponse.class);
+      assertThat(desc)
+          .isEqualTo(new ArchiveController.UploadDescriptorResponse(3, "abc", Map.of("k", "v"), "example.org"));
+      verify(backupManager).createTemporaryAttachmentUploadDescriptor(any(), eq(uploadLength.orElse(MAX_ATTACHMENT_SIZE)));
     } else {
       assertThat(response.getStatus()).isEqualTo(413);
     }
   }
 
   @Test
-  public void mediaUploadForm() throws VerificationFailedException, BackupException, RateLimitExceededException {
+  public void rateLimitMediaUploadForm()
+      throws BackupWrongCredentialTypeException, RateLimitExceededException, BackupPermissionException, VerificationFailedException, BackupFailedZkAuthenticationException {
     final BackupAuthCredentialPresentation presentation =
         backupAuthTestUtil.getPresentation(BackupLevel.PAID, messagesBackupKey, aci);
     when(backupManager.authenticateBackupUser(any(), any(), any()))
         .thenReturn(backupUser(presentation.getBackupId(), BackupCredentialType.MESSAGES, BackupLevel.PAID));
-    when(backupManager.createTemporaryAttachmentUploadDescriptor(any()))
-        .thenReturn(new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org"));
-    final ArchiveController.UploadDescriptorResponse desc = resources.getJerseyTest()
-        .target("v1/archives/media/upload/form")
-        .request()
-        .header("X-Signal-ZK-Auth", Base64.getEncoder().encodeToString(presentation.serialize()))
-        .header("X-Signal-ZK-Auth-Signature", "aaa")
-        .get(ArchiveController.UploadDescriptorResponse.class);
-    assertThat(desc.cdn()).isEqualTo(3);
-    assertThat(desc.key()).isEqualTo("abc");
-    assertThat(desc.headers()).containsExactlyEntriesOf(Map.of("k", "v"));
-    assertThat(desc.signedUploadLocation()).isEqualTo("example.org");
-
-    // rate limit
-    when(backupManager.createTemporaryAttachmentUploadDescriptor(any())).thenThrow(new RateLimitExceededException(null));
+    when(backupManager.createTemporaryAttachmentUploadDescriptor(any(), anyLong())).thenThrow(new RateLimitExceededException(null));
     final Response response = resources.getJerseyTest()
         .target("v1/archives/media/upload/form")
         .request()

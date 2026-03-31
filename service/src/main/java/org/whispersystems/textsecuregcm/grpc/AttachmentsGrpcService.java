@@ -27,6 +27,7 @@ public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImp
 
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final RateLimiter rateLimiter;
+  private final long maxUploadLength;
   private final Map<Integer, AttachmentGenerator> attachmentGenerators;
   private final SecureRandom secureRandom;
 
@@ -34,9 +35,11 @@ public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImp
       final ExperimentEnrollmentManager experimentEnrollmentManager,
       final RateLimiters rateLimiters,
       final GcsAttachmentGenerator gcsAttachmentGenerator,
-      final TusAttachmentGenerator tusAttachmentGenerator) {
+      final TusAttachmentGenerator tusAttachmentGenerator,
+      final long maxUploadLength) {
     this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.rateLimiter = rateLimiters.getAttachmentLimiter();
+    this.maxUploadLength = maxUploadLength;
     this.secureRandom = new SecureRandom();
     this.attachmentGenerators = Map.of(
         2, gcsAttachmentGenerator,
@@ -45,20 +48,20 @@ public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImp
 
   @Override
   public GetUploadFormResponse getUploadForm(final GetUploadFormRequest request) throws RateLimitExceededException {
-    final AuthenticatedDevice auth = AuthenticationUtil.requireAuthenticatedDevice();
-    final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
-    final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(),
-        AttachmentUtil.CDN3_EXPERIMENT_NAME);
-    final int cdn = useCdn3 ? 3 : 2;
-    final AttachmentGenerator attachmentGenerator = this.attachmentGenerators.get(cdn);
-    if (request.getUploadLength() > attachmentGenerator.maxUploadSizeInBytes()) {
+    if (request.getUploadLength() > maxUploadLength) {
       return GetUploadFormResponse.newBuilder()
           .setExceedsMaxUploadLength(FailedPrecondition.getDefaultInstance())
           .build();
     }
-
+    final AuthenticatedDevice auth = AuthenticationUtil.requireAuthenticatedDevice();
     rateLimiter.validate(auth.accountIdentifier());
-    final AttachmentGenerator.Descriptor descriptor = attachmentGenerator.generateAttachment(key, request.getUploadLength());
+
+    final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
+    final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(),
+        AttachmentUtil.CDN3_EXPERIMENT_NAME);
+    final int cdn = useCdn3 ? 3 : 2;
+    final AttachmentGenerator.Descriptor descriptor =
+        this.attachmentGenerators.get(cdn).generateAttachment(key, request.getUploadLength());
     return GetUploadFormResponse.newBuilder().setUploadForm(UploadForm.newBuilder()
         .setCdn(cdn)
         .setKey(key)
