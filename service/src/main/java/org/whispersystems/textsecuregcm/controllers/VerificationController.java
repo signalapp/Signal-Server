@@ -77,6 +77,7 @@ import org.whispersystems.textsecuregcm.entities.VerificationSessionResponse;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
+import org.whispersystems.textsecuregcm.metrics.CaptchaMetrics;
 import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.PushNotification;
@@ -491,6 +492,11 @@ public class VerificationController {
               Tag.of(REGION_CODE_TAG_NAME, Util.getRegion(registrationServiceSession.number())),
               Tag.of(SCORE_TAG_NAME, assessmentResult.getScoreString())))
           .increment();
+
+      CaptchaMetrics.measureCaptchaOutcome(assessmentResult.getNormalizedIntScore(),
+          assessmentResult.isValid(captchaScoreThreshold),
+          Util.getRegion(registrationServiceSession.number()),
+          "verification");
 
     } catch (final IOException e) {
       logger.error("error assessing captcha during registration verification", e);

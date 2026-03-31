@@ -93,6 +93,9 @@ public class AssessmentResult {
     return this.actualScore;
   }
 
+  public int getNormalizedIntScore() {
+    return normalizedIntScore(this.actualScore);
+  }
 
   /**
    * Map a captcha score in [0.0, 1.0] to a low cardinality discrete space in [0, 100] suitable for use in metrics

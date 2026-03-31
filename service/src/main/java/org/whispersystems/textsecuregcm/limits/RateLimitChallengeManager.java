@@ -14,8 +14,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import org.whispersystems.textsecuregcm.captcha.Action;
+import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
+import org.whispersystems.textsecuregcm.metrics.CaptchaMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.spam.ChallengeType;
@@ -61,13 +63,18 @@ public class RateLimitChallengeManager {
     }
   }
 
-  public boolean answerCaptchaChallenge(final Account account, final String captcha, final String mostRecentProxyIp,
-      final String userAgent, final Optional<Float> scoreThreshold)
-      throws RateLimitExceededException, IOException {
+  public boolean answerCaptchaChallenge(final Account account,
+      final String captcha,
+      final String mostRecentProxyIp,
+      final String userAgent,
+      final Optional<Float> scoreThreshold) throws RateLimitExceededException, IOException {
 
     rateLimiters.getCaptchaChallengeAttemptLimiter().validate(account.getUuid());
 
-    final boolean challengeSuccess = captchaChecker.verify(Optional.of(account.getUuid()), Action.CHALLENGE, captcha, mostRecentProxyIp, userAgent).isValid(scoreThreshold);
+    final AssessmentResult assessmentResult =
+        captchaChecker.verify(Optional.of(account.getUuid()), Action.CHALLENGE, captcha, mostRecentProxyIp, userAgent);
+
+    final boolean challengeSuccess = assessmentResult.isValid(scoreThreshold);
 
     final Tags tags = Tags.of(
         Tag.of(SOURCE_COUNTRY_TAG_NAME, Util.getCountryCode(account.getNumber())),
@@ -76,6 +83,13 @@ public class RateLimitChallengeManager {
     );
 
     Metrics.counter(CAPTCHA_ATTEMPT_COUNTER_NAME, tags).increment();
+
+    CaptchaMetrics.measureCaptchaOutcome(assessmentResult.getNormalizedIntScore(),
+        challengeSuccess,
+        Util.getRegion(account.getNumber()),
+        // Note: currently all challenges are for message-sending, but if we add more use cases, we'll need to make the
+        // accept a context from callers rather than hard-coding it here
+        "sendMessage");
 
     if (challengeSuccess) {
       rateLimiters.getCaptchaChallengeSuccessLimiter().validate(account.getUuid());
