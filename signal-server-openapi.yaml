@@ -5156,10 +5156,10 @@ components:
           format: date-time
         open:
           type: boolean
-        userAgent:
-          type: string
         remoteAddress:
           type: object
+        userAgent:
+          type: string
     WebSocketSessionContext:
       type: object
       properties:
