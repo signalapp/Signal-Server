@@ -111,8 +111,6 @@ public class FoundationDbMessageStore {
         new ArrayList<>();
 
     messagesByShardId.forEach((shardId, messagesForShard) -> {
-      final Database shard = databases[shardId];
-
       int start = 0, current = 0;
       int estimatedTransactionSize = 0;
 
@@ -123,7 +121,7 @@ public class FoundationDbMessageStore {
             .sum();
 
         if (estimatedTransactionSize > MAX_MESSAGE_CHUNK_SIZE) {
-          chunkFutures.add(insertChunk(shard, messagesForShard.subList(start, current)));
+          chunkFutures.add(insertChunk(shardId, messagesForShard.subList(start, current)));
 
           start = current;
           estimatedTransactionSize = 0;
@@ -133,7 +131,7 @@ public class FoundationDbMessageStore {
       }
 
       assert start < messagesForShard.size();
-      chunkFutures.add(insertChunk(shard, messagesForShard.subList(start, messagesForShard.size())));
+      chunkFutures.add(insertChunk(shardId, messagesForShard.subList(start, messagesForShard.size())));
     });
 
     return CompletableFuture.allOf(chunkFutures.toArray(CompletableFuture[]::new))
@@ -146,7 +144,7 @@ public class FoundationDbMessageStore {
   }
 
   private CompletableFuture<Map<AciServiceIdentifier, Map<Byte, InsertResult>>> insertChunk(
-      final Database database,
+      final int shardId,
       final List<Map.Entry<AciServiceIdentifier, Map<Byte, MessageProtos.Envelope>>> messagesByAccountIdentifier) {
 
     final Map<AciServiceIdentifier, CompletableFuture<Map<Byte, Boolean>>> insertFuturesByAci = new HashMap<>();
@@ -158,7 +156,7 @@ public class FoundationDbMessageStore {
         .map(MessageProtos.Envelope::getEphemeral)
         .orElseThrow(() -> new IllegalStateException("One or more bundles is empty"));
 
-    return database.runAsync(transaction -> {
+    return databases[shardId].runAsync(transaction -> {
           messagesByAccountIdentifier.forEach(entry ->
               insertFuturesByAci.put(entry.getKey(), insert(entry.getKey(), entry.getValue(), transaction)));
 
@@ -171,7 +169,7 @@ public class FoundationDbMessageStore {
                     .anyMatch(isPresent -> isPresent);
                 if (anyClientPresent || !ephemeral) {
                   return transaction.getVersionstamp()
-                      .thenApply(versionstampBytes -> Optional.of(Versionstamp.complete(versionstampBytes)));
+                      .thenApply(versionstampBytes -> Optional.of(Versionstamp.complete(versionstampBytes, shardId)));
                 }
                 return CompletableFuture.completedFuture(Optional.<Versionstamp>empty());
               });
@@ -222,7 +220,7 @@ public class FoundationDbMessageStore {
                 if (isPresent || !message.getEphemeral()) {
                   transaction.mutate(MutationType.SET_VERSIONSTAMPED_KEY,
                       getDeviceQueueSubspace(aci, deviceId)
-                          .packWithVersionstamp(Tuple.from(Versionstamp.incomplete())), message.toByteArray());
+                          .packWithVersionstamp(Tuple.from(Versionstamp.incomplete(hashAciToShardNumber(aci)))), message.toByteArray());
                 }
 
                 return isPresent;
@@ -241,7 +239,7 @@ public class FoundationDbMessageStore {
 
           if (anyClientPresent) {
             transaction.mutate(MutationType.SET_VERSIONSTAMPED_VALUE, getMessagesAvailableWatchKey(aci),
-                Tuple.from(Versionstamp.incomplete()).packWithVersionstamp());
+                Tuple.from(Versionstamp.incomplete(hashAciToShardNumber(aci))).packWithVersionstamp());
           }
 
           return presenceByDeviceId;

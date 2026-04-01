@@ -74,23 +74,34 @@ class FoundationDbMessageStoreTest {
 
   @ParameterizedTest
   @MethodSource
-  void insert(final long presenceUpdatedBeforeSeconds, final boolean ephemeral, final boolean expectMessagesInserted,
-      final boolean expectVersionstampUpdated, final boolean expectPresenceState) {
+  void insert(final long presenceUpdatedBeforeSeconds,
+      final boolean ephemeral,
+      final boolean expectMessagesInserted,
+      final boolean expectVersionstampUpdated,
+      final boolean expectPresenceState) {
+
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final List<Byte> deviceIds = IntStream.range(Device.PRIMARY_ID, Device.PRIMARY_ID + 6)
         .mapToObj(i -> (byte) i)
         .toList();
+
     deviceIds.forEach(deviceId -> writePresenceKey(aci, deviceId, 1, presenceUpdatedBeforeSeconds));
+
     final Map<Byte, MessageProtos.Envelope> messagesByDeviceId = deviceIds.stream()
         .collect(Collectors.toMap(Function.identity(), _ -> generateRandomMessage(ephemeral)));
-    final Map<Byte, FoundationDbMessageStore.InsertResult> result = foundationDbMessageStore.insert(aci, messagesByDeviceId).join();
-    assertNotNull(result);
+
+    final Map<Byte, FoundationDbMessageStore.InsertResult> result =
+        foundationDbMessageStore.insert(aci, messagesByDeviceId).join();
+
+    assertTrue(result.keySet().containsAll(deviceIds));
 
     final Optional<Versionstamp> returnedVersionstamp = result.values().stream().findFirst()
         .flatMap(FoundationDbMessageStore.InsertResult::versionstamp);
+
     if (expectMessagesInserted) {
       assertTrue(returnedVersionstamp.isPresent());
       assertTrue(result.values().stream().allMatch(insertResult -> returnedVersionstamp.equals(insertResult.versionstamp())));
+
       final Map<Byte, MessageProtos.Envelope> storedMessagesByDeviceId = deviceIds.stream()
           .collect(Collectors.toMap(Function.identity(), deviceId -> {
             try {
@@ -109,7 +120,7 @@ class FoundationDbMessageStoreTest {
     if (expectVersionstampUpdated) {
       final Optional<Versionstamp> messagesAvailableWatchVersionstamp = getMessagesAvailableWatch(aci);
       assertTrue(messagesAvailableWatchVersionstamp.isPresent());
-      assertEquals(returnedVersionstamp, messagesAvailableWatchVersionstamp,
+      assertEquals(messagesAvailableWatchVersionstamp, returnedVersionstamp,
           "messages available versionstamp should be the versionstamp of the last insert transaction");
     } else {
       assertTrue(getMessagesAvailableWatch(aci).isEmpty());
