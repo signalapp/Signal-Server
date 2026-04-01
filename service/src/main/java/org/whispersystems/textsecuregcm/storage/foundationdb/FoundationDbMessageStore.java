@@ -103,6 +103,14 @@ public class FoundationDbMessageStore {
       throw new IllegalArgumentException("One or more message bundles is empty");
     }
 
+    if (messagesByServiceIdentifier.values()
+        .stream()
+        .flatMap(messages -> messages.values().stream())
+        .anyMatch(MessageProtos.Envelope::hasServerGuid)) {
+
+      throw new IllegalArgumentException("Messages must not have pre-set server GUIDs");
+    }
+
     final Map<Integer, List<Map.Entry<AciServiceIdentifier, Map<Byte, MessageProtos.Envelope>>>> messagesByShardId =
         messagesByServiceIdentifier.entrySet().stream()
             .collect(Collectors.groupingBy(entry -> hashAciToShardNumber(entry.getKey())));
