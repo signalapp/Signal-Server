@@ -40,6 +40,7 @@ import org.whispersystems.textsecuregcm.util.Conversions;
 public class FoundationDbMessageStore {
 
   private final Database[] databases;
+  private final VersionstampUUIDCipher versionstampUUIDCipher;
   private final Executor executor;
   private final Clock clock;
 
@@ -60,8 +61,13 @@ public class FoundationDbMessageStore {
   public record InsertResult(Optional<Versionstamp> versionstamp, boolean present) {
   }
 
-  public FoundationDbMessageStore(final Database[] databases, final Executor executor, final Clock clock) {
+  public FoundationDbMessageStore(final Database[] databases,
+      final VersionstampUUIDCipher versionstampUUIDCipher,
+      final Executor executor,
+      final Clock clock) {
+
     this.databases = databases;
+    this.versionstampUUIDCipher = versionstampUUIDCipher;
     this.executor = executor;
     this.clock = clock;
   }
@@ -263,7 +269,12 @@ public class FoundationDbMessageStore {
     return new FoundationDbMessageStream(getDeviceQueueSubspace(aci, destinationDevice.getId()),
         getMessagesAvailableWatchKey(aci),
         getShardForAci(aci),
+        new MessageGuidCodec(aci.uuid(), destinationDevice.getId(), versionstampUUIDCipher),
         maxMessagesPerScan);
+  }
+
+  static Versionstamp getVersionstamp(final byte[] messageKey) {
+    return Tuple.fromBytes(messageKey).getVersionstamp(4);
   }
 
   @VisibleForTesting
@@ -278,20 +289,20 @@ public class FoundationDbMessageStore {
   }
 
   @VisibleForTesting
-  Subspace getDeviceQueueSubspace(final AciServiceIdentifier aci, final byte deviceId) {
+  static Subspace getDeviceQueueSubspace(final AciServiceIdentifier aci, final byte deviceId) {
     return getDeviceSubspace(aci, deviceId).get("Q");
   }
 
-  private Subspace getDeviceSubspace(final AciServiceIdentifier aci, final byte deviceId) {
+  private static Subspace getDeviceSubspace(final AciServiceIdentifier aci, final byte deviceId) {
     return getAccountSubspace(aci).get(deviceId);
   }
 
-  private Subspace getAccountSubspace(final AciServiceIdentifier aci) {
+  private static Subspace getAccountSubspace(final AciServiceIdentifier aci) {
     return MESSAGES_SUBSPACE.get(aci.uuid());
   }
 
   @VisibleForTesting
-  byte[] getMessagesAvailableWatchKey(final AciServiceIdentifier aci) {
+  static byte[] getMessagesAvailableWatchKey(final AciServiceIdentifier aci) {
     return getAccountSubspace(aci).pack("l");
   }
 

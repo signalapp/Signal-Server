@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.storage.foundationdb;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,11 +14,14 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import io.dropwizard.util.DataSize;
 import java.io.UncheckedIOException;
+import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,11 +34,11 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import io.dropwizard.util.DataSize;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -51,6 +55,7 @@ import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.test.StepVerifier;
 
@@ -60,14 +65,21 @@ class FoundationDbMessageStoreTest {
   @RegisterExtension
   static FoundationDbClusterExtension FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension(2);
 
+  private VersionstampUUIDCipher versionstampUUIDCipher;
   private FoundationDbMessageStore foundationDbMessageStore;
 
   private static final Clock CLOCK = Clock.fixed(Instant.ofEpochSecond(500), ZoneId.of("UTC"));
 
   @BeforeEach
   void setup() {
+    final byte[] versionstampCipherKey = new byte[16];
+    new SecureRandom().nextBytes(versionstampCipherKey);
+
+    versionstampUUIDCipher = new VersionstampUUIDCipher(0, versionstampCipherKey);
+
     foundationDbMessageStore = new FoundationDbMessageStore(
         FOUNDATION_DB_EXTENSION.getDatabases(),
+        versionstampUUIDCipher,
         Executors.newVirtualThreadPerTaskExecutor(),
         CLOCK);
   }
@@ -382,18 +394,34 @@ class FoundationDbMessageStoreTest {
   void getMessages(final int numMessages, final int batchSize) {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
-    for (int i = 0; i < numMessages; i++) {
-      final MessageProtos.Envelope message = generateRandomMessage(false);
-      assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message)).join());
-    }
+
+    final List<Versionstamp> expectedVersionstamps = IntStream.range(0, numMessages)
+        .mapToObj(_ -> foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join()
+            .get(Device.PRIMARY_ID)
+            .versionstamp()
+            .orElseThrow())
+        .toList();
 
     final Device device = new Device();
     device.setId(Device.PRIMARY_ID);
     final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device, batchSize);
+    final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
+        .recordWith(() -> retrievedEntries)
         .expectNextCount(numMessages)
         .expectNext(new MessageStreamEntry.QueueEmpty())
         .verifyTimeout(Duration.ofSeconds(1));
+
+    final MessageGuidCodec messageGuidCodec =
+        new MessageGuidCodec(aci.uuid(), Device.PRIMARY_ID, versionstampUUIDCipher);
+
+    for (int i = 0; i < expectedVersionstamps.size(); i++) {
+      final MessageStreamEntry.Envelope envelopeEntry =
+          assertInstanceOf(MessageStreamEntry.Envelope.class, retrievedEntries.get(i));
+
+      assertEquals(expectedVersionstamps.get(i),
+          messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(envelopeEntry.message().getServerGuidBinary())));
+    }
   }
 
   static Stream<Arguments> getMessages() {
@@ -410,20 +438,38 @@ class FoundationDbMessageStoreTest {
   @Test
   void getMessagesPublishMoreAfterQueueEmpty() {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    final MessageGuidCodec messageGuidCodec =
+        new MessageGuidCodec(aci.uuid(), Device.PRIMARY_ID, versionstampUUIDCipher);
+
     writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
     final MessageProtos.Envelope message1 = generateRandomMessage(false);
-    assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message1)).join());
+    final Versionstamp versionstamp1 = foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message1)).join()
+        .get(Device.PRIMARY_ID)
+        .versionstamp()
+        .orElseThrow();
+
     final MessageProtos.Envelope message2 = generateRandomMessage(false);
-    assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message2)).join());
+    final Versionstamp versionstamp2 = foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message2)).join()
+        .get(Device.PRIMARY_ID)
+        .versionstamp()
+        .orElseThrow();
 
     final CountDownLatch latch = new CountDownLatch(1);
     final MessageProtos.Envelope message3 = generateRandomMessage(false);
+    final AtomicReference<Versionstamp> versionstamp3 = new AtomicReference<>();
     Thread.ofVirtual().start(() -> {
       try {
         // Wait until queue is empty
         assertTrue(latch.await(1000, TimeUnit.MILLISECONDS));
         // Then publish more messages
-        assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message3)).join());
+        synchronized (versionstamp3) {
+          versionstamp3.set(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message3)).join()
+              .get(Device.PRIMARY_ID)
+              .versionstamp()
+              .orElseThrow());
+
+          versionstamp3.notifyAll();
+        }
       } catch (final InterruptedException e) {
         fail(e);
       }
@@ -433,11 +479,34 @@ class FoundationDbMessageStoreTest {
     device.setId(Device.PRIMARY_ID);
     final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
-        .expectNext(new MessageStreamEntry.Envelope(message1))
-        .expectNext(new MessageStreamEntry.Envelope(message2))
+        .expectNext(new MessageStreamEntry.Envelope(message1
+            .toBuilder()
+            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp1)))
+            .build()))
+        .expectNext(new MessageStreamEntry.Envelope(message2
+            .toBuilder()
+            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp2)))
+            .build()))
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .then(latch::countDown)
-        .expectNext(new MessageStreamEntry.Envelope(message3))
+        .then(() -> {
+          // Trigger insertion of another message
+          latch.countDown();
+
+          // …but then wait for its versionstamp so we can verify that we have the right payload
+          synchronized (versionstamp3) {
+            while (versionstamp3.get() == null) {
+              try {
+                versionstamp3.wait();
+              } catch (final InterruptedException e) {
+                throw new RuntimeException(e);
+              }
+            }
+          }
+        })
+        .expectNextMatches(entry -> entry.equals(new MessageStreamEntry.Envelope(message3
+            .toBuilder()
+            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp3.get())))
+            .build())))
         .verifyTimeout(Duration.ofSeconds(3));
   }
 

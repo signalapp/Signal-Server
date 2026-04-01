@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
@@ -25,6 +26,7 @@ import java.util.function.BiConsumer;
 class FoundationDbMessagePublisher {
 
   private final Database database;
+  private final MessageGuidCodec messageGuidCodec;
   /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
   private final int maxMessagesPerScan;
   /// The end key at which we stop reading messages. For finite publisher, this is just past the end-of-queue key at the
@@ -88,15 +90,18 @@ class FoundationDbMessagePublisher {
   private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessagePublisher.class);
 
   FoundationDbMessagePublisher(
-          final KeySelector beginKeyInclusive,
-          final KeySelector endKeyExclusive,
-          final Database database,
-          final int maxMessagesPerScan,
-          @Nullable final byte[] messagesAvailableWatchKey,
-          @Nullable final BiConsumer<State, State> stateChangeListener) {
+      final KeySelector beginKeyInclusive,
+      final KeySelector endKeyExclusive,
+      final Database database,
+      final MessageGuidCodec messageGuidCodec,
+      final int maxMessagesPerScan,
+      @Nullable final byte[] messagesAvailableWatchKey,
+      @Nullable final BiConsumer<State, State> stateChangeListener) {
+
     this.beginKeyCursor = beginKeyInclusive;
     this.endKeyExclusive = endKeyExclusive;
     this.database = database;
+    this.messageGuidCodec = messageGuidCodec;
     this.maxMessagesPerScan = maxMessagesPerScan;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
     this.terminateOnQueueEmpty = messagesAvailableWatchKey == null;
@@ -116,8 +121,16 @@ class FoundationDbMessagePublisher {
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
       final Database database,
+      final MessageGuidCodec messageGuidCodec,
       final int maxMessagesPerScan) {
-    return new FoundationDbMessagePublisher(beginKeyInclusive, endKeyExclusive, database, maxMessagesPerScan, null, null);
+
+    return new FoundationDbMessagePublisher(beginKeyInclusive,
+        endKeyExclusive,
+        database,
+        messageGuidCodec,
+        maxMessagesPerScan,
+        null,
+        null);
   }
 
   /// Creates a [FoundationDbMessagePublisher] that publishes a non-terminating stream of messages from a device queue.
@@ -127,9 +140,17 @@ class FoundationDbMessagePublisher {
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
       final Database database,
+      final MessageGuidCodec messageGuidCodec,
       final int maxMessagesPerScan,
       final byte[] messagesAvailableWatchKey) {
-    return new FoundationDbMessagePublisher(beginKeyInclusive, endKeyExclusive, database, maxMessagesPerScan, messagesAvailableWatchKey, null);
+
+    return new FoundationDbMessagePublisher(beginKeyInclusive,
+        endKeyExclusive,
+        database,
+        messageGuidCodec,
+        maxMessagesPerScan,
+        messagesAvailableWatchKey,
+        null);
   }
 
   private synchronized void setState(final State newState, final Event event) {
@@ -222,7 +243,7 @@ class FoundationDbMessagePublisher {
   ///
   /// @return a future of a list of [MessageStreamEntry] with a max size of [#maxMessagesPerScan]
   private CompletableFuture<List<MessageStreamEntry.Envelope>> getMessagesBatch() {
-    return database.runAsync(transaction -> getItemsInRange(transaction, beginKeyCursor, endKeyExclusive, maxMessagesPerScan)
+    return database.runAsync(transaction -> getItemsInRange(transaction, messageGuidCodec, beginKeyCursor, endKeyExclusive, maxMessagesPerScan)
         .thenApply(lastKeyReadAndItems -> {
           // Set our beginning key to just past the last key read so that we're ready for our next fetch
           lastKeyReadAndItems.first().ifPresent(lastKeyRead -> beginKeyCursor = KeySelector.firstGreaterThan(lastKeyRead));
@@ -248,6 +269,7 @@ class FoundationDbMessagePublisher {
   /// @return the last key read (if there were non-zero number of messages read) and the list of messages read
   private static CompletableFuture<Pair<Optional<byte[]>, List<MessageStreamEntry.Envelope>>> getItemsInRange(
       final Transaction transaction,
+      final MessageGuidCodec messageGuidCodec,
       final KeySelector beginInclusive,
       final KeySelector endExclusive,
       final int maxMessagesPerScan) {
@@ -259,7 +281,10 @@ class FoundationDbMessagePublisher {
           final List<MessageStreamEntry.Envelope> messages = keyValues.stream()
               .map(keyValue -> {
                 try {
-                  return new MessageStreamEntry.Envelope(MessageProtos.Envelope.parseFrom(keyValue.getValue()));
+                  return new MessageStreamEntry.Envelope(MessageProtos.Envelope.parseFrom(keyValue.getValue())
+                      .toBuilder()
+                      .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(FoundationDbMessageStore.getVersionstamp(keyValue.getKey()))))
+                      .build());
                 } catch (final InvalidProtocolBufferException e) {
                   throw new UncheckedIOException(e);
                 }

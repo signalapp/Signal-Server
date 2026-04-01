@@ -21,17 +21,23 @@ public class FoundationDbMessageStream implements MessageStream {
   private final Subspace deviceQueueSubspace;
   private final byte[] messagesAvailableWatchKey;
   private final Database database;
+  private final MessageGuidCodec messageGuidCodec;
   /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
   private final int maxMessagesPerScan;
   private final Flow.Publisher<MessageStreamEntry> messageStreamPublisher;
 
   static final int DEFAULT_MAX_MESSAGES_PER_SCAN = 1024;
 
-  FoundationDbMessageStream(final Subspace deviceQueueSubspace, final byte[] messagesAvailableWatchKey,
-      final Database database, final int maxMessagesPerScan) {
+  FoundationDbMessageStream(final Subspace deviceQueueSubspace,
+      final byte[] messagesAvailableWatchKey,
+      final Database database,
+      final MessageGuidCodec messageGuidCodec,
+      final int maxMessagesPerScan) {
+
     this.deviceQueueSubspace = deviceQueueSubspace;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
     this.database = database;
+    this.messageGuidCodec = messageGuidCodec;
     this.maxMessagesPerScan = maxMessagesPerScan;
     this.messageStreamPublisher = JdkFlowAdapter.publisherToFlowPublisher(createMessagePublisher());
   }
@@ -59,13 +65,13 @@ public class FoundationDbMessageStream implements MessageStream {
           final Flux<MessageStreamEntry.Envelope> finitePublisher = maybeEndOfQueueKeyExclusive
               .map(endOfQueueKeyExclusive -> FoundationDbMessagePublisher.createFinitePublisher(
                   KeySelector.firstGreaterOrEqual(deviceQueueSubspace.range().begin),
-                  endOfQueueKeyExclusive, database, maxMessagesPerScan).getMessages())
+                  endOfQueueKeyExclusive, database, messageGuidCodec, maxMessagesPerScan).getMessages())
               .orElseGet(Flux::empty);
           final KeySelector infinitePublisherBeginKey = maybeEndOfQueueKeyExclusive.orElseGet(
               () -> KeySelector.firstGreaterOrEqual(deviceQueueSubspace.range().begin));
           final Flux<MessageStreamEntry.Envelope> infinitePublisher = FoundationDbMessagePublisher.createInfinitePublisher(
               infinitePublisherBeginKey, KeySelector.firstGreaterThan(deviceQueueSubspace.range().end),
-              database, maxMessagesPerScan, messagesAvailableWatchKey).getMessages();
+              database, messageGuidCodec, maxMessagesPerScan, messagesAvailableWatchKey).getMessages();
           return Flux.concat(
               finitePublisher,
               Mono.just(new MessageStreamEntry.QueueEmpty()),

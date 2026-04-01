@@ -16,36 +16,58 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
+import java.nio.ByteBuffer;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.Versionstamp;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.test.StepVerifier;
 
 /// NOTE: most of the happy-path test cases are already covered in {@link FoundationDbMessageStoreTest}, this test
 /// mostly exercises edge-cases and error handling that are hard to test without mocks
 class FoundationDbMessagePublisherTest {
 
-  private final Range subspaceRange = new Range(new byte[]{(byte) 0}, new byte[]{(byte) 100});
-  private final byte[] messagesAvailableWatchKey = new byte[]{(byte) 42};
-
   private Database database;
+  private MessageGuidCodec messageGuidCodec;
   private List<FoundationDbMessagePublisher.State> stateTransitions;
+
+  private static final AciServiceIdentifier SERVICE_IDENTIFIER = new AciServiceIdentifier(UUID.randomUUID());
+
+  private static final Range SUBSPACE_RANGE =
+      FoundationDbMessageStore.getDeviceQueueSubspace(SERVICE_IDENTIFIER, Device.PRIMARY_ID).range();
+
+  private static final byte[] MESSAGES_AVAILABLE_WATCH_KEY =
+      FoundationDbMessageStore.getMessagesAvailableWatchKey(SERVICE_IDENTIFIER);
 
   @BeforeEach
   void setUp() {
     database = mock(Database.class);
     stateTransitions = new ArrayList<>();
+
+    final byte[] messageGuidCodecKey = new byte[16];
+    new SecureRandom().nextBytes(messageGuidCodecKey);
+
+    messageGuidCodec = new MessageGuidCodec(SERVICE_IDENTIFIER.uuid(),
+        Device.PRIMARY_ID,
+        new VersionstampUUIDCipher(0, messageGuidCodecKey));
   }
 
   @Test
-  void finitePublisherMultipleBatches() {
+  void finitePublisherMultipleBatches() throws InvalidProtocolBufferException {
     final MessageProtos.Envelope message1 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message2 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message3 = FoundationDbMessageStoreTest.generateRandomMessage(false);
@@ -74,18 +96,19 @@ class FoundationDbMessagePublisherTest {
         });
 
     final FoundationDbMessagePublisher finitePublisher = new FoundationDbMessagePublisher(
-        KeySelector.firstGreaterOrEqual(subspaceRange.begin),
-        KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
+        KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
+        KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),
         database,
+        messageGuidCodec,
         2, // With 3 messages and batch size set to 2, we'll need to grab 2 batches.
         null,
-        (oldState, newState) -> stateTransitions.add(newState)
+        (_, newState) -> stateTransitions.add(newState)
     );
 
     StepVerifier.create(finitePublisher.getMessages())
-        .expectNext(new MessageStreamEntry.Envelope(message1))
-        .expectNext(new MessageStreamEntry.Envelope(message2))
-        .expectNext(new MessageStreamEntry.Envelope(message3))
+        .expectNext(getExpectedMessageStreamEntry(keyValue1))
+        .expectNext(getExpectedMessageStreamEntry(keyValue2))
+        .expectNext(getExpectedMessageStreamEntry(keyValue3))
         .verifyComplete();
 
     assertEquals(List.of(
@@ -102,7 +125,7 @@ class FoundationDbMessagePublisherTest {
 
   @Test
   @SuppressWarnings({"unchecked", "resource"})
-  void infinitePublisher() {
+  void infinitePublisher() throws InvalidProtocolBufferException {
     final MessageProtos.Envelope message1 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message2 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message3 = FoundationDbMessageStoreTest.generateRandomMessage(false);
@@ -138,17 +161,18 @@ class FoundationDbMessagePublisherTest {
     final CompletableFuture<Void> watchFuture1 = new CompletableFuture<>();
     final CompletableFuture<Void> watchFuture2 = new CompletableFuture<>();
     final CompletableFuture<Void> watchFuture3 = new CompletableFuture<>(); // this one will not be completed
-    when(transaction.watch(messagesAvailableWatchKey))
+    when(transaction.watch(MESSAGES_AVAILABLE_WATCH_KEY))
         .thenReturn(watchFuture1)
         .thenReturn(watchFuture2)
         .thenReturn(watchFuture3);
 
     final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
-        KeySelector.firstGreaterOrEqual(subspaceRange.begin),
+        KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
         database,
+        messageGuidCodec,
         2,
-        messagesAvailableWatchKey,
+        MESSAGES_AVAILABLE_WATCH_KEY,
         (oldState, newState) -> {
           stateTransitions.add(newState);
           if (newState == FoundationDbMessagePublisher.State.AWAITING_NEW_MESSAGES) {
@@ -167,9 +191,9 @@ class FoundationDbMessagePublisherTest {
     );
 
     StepVerifier.create(infinitePublisher.getMessages())
-        .expectNext(new MessageStreamEntry.Envelope(message1))
-        .expectNext(new MessageStreamEntry.Envelope(message2))
-        .expectNext(new MessageStreamEntry.Envelope(message3))
+        .expectNext(getExpectedMessageStreamEntry(keyValue1))
+        .expectNext(getExpectedMessageStreamEntry(keyValue2))
+        .expectNext(getExpectedMessageStreamEntry(keyValue3))
         .verifyTimeout(Duration.ofSeconds(1));
 
     assertEquals(List.of(
@@ -192,7 +216,7 @@ class FoundationDbMessagePublisherTest {
   }
 
   @Test
-  void messageAvailableWatchSignalBuffered() {
+  void messageAvailableWatchSignalBuffered() throws InvalidProtocolBufferException {
     final MessageProtos.Envelope message1 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message2 = FoundationDbMessageStoreTest.generateRandomMessage(false);
 
@@ -220,16 +244,17 @@ class FoundationDbMessagePublisherTest {
 
     final CompletableFuture<Void> watchFuture1 = new CompletableFuture<>();
     final CompletableFuture<Void> watchFuture2 = new CompletableFuture<>(); // this one will not be completed
-    when(transaction.watch(messagesAvailableWatchKey))
+    when(transaction.watch(MESSAGES_AVAILABLE_WATCH_KEY))
         .thenReturn(watchFuture1)
         .thenReturn(watchFuture2);
 
     final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
-        KeySelector.firstGreaterOrEqual(subspaceRange.begin),
+        KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
         database,
+        messageGuidCodec,
         2,
-        messagesAvailableWatchKey,
+        MESSAGES_AVAILABLE_WATCH_KEY,
         (oldState, newState) -> {
           stateTransitions.add(newState);
           // Simulate an edge case where the messages available watch could trigger right after queue empty, but before
@@ -246,8 +271,8 @@ class FoundationDbMessagePublisherTest {
     );
 
     StepVerifier.create(infinitePublisher.getMessages())
-        .expectNext(new MessageStreamEntry.Envelope(message1))
-        .expectNext(new MessageStreamEntry.Envelope(message2))
+        .expectNext(getExpectedMessageStreamEntry(keyValue1))
+        .expectNext(getExpectedMessageStreamEntry(keyValue2))
         .verifyTimeout(Duration.ofSeconds(1));
 
     assertEquals(List.of(
@@ -268,25 +293,24 @@ class FoundationDbMessagePublisherTest {
 
   @Test
   @SuppressWarnings({"unchecked", "resource"})
-  void watchCanceledOnSubscriptionCancel() {
+  void watchCanceledOnSubscriptionCancel() throws InvalidProtocolBufferException {
     final FoundationDbMessagePublisher infinitePublisher = FoundationDbMessagePublisher.createInfinitePublisher(
-        KeySelector.firstGreaterOrEqual(subspaceRange.begin),
-        KeySelector.firstGreaterThan(subspaceRange.end),
+        KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
+        KeySelector.firstGreaterThan(SUBSPACE_RANGE.end),
         database,
+        messageGuidCodec,
         100,
-        messagesAvailableWatchKey);
+        MESSAGES_AVAILABLE_WATCH_KEY);
     final MessageProtos.Envelope message = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final Transaction transaction = mock(Transaction.class);
-    final KeyValue keyValue = mock(KeyValue.class);
-    when(keyValue.getKey()).thenReturn(new byte[]{(byte) 5});
-    when(keyValue.getValue()).thenReturn(message.toByteArray());
+    final KeyValue keyValue = mockKeyValue((byte) 5, message);
     final AsyncIterable<KeyValue> asyncIterable = mock(AsyncIterable.class);
     when(asyncIterable.asList()).thenReturn(CompletableFuture.completedFuture(List.of(keyValue)));
     when(transaction.getRange(any(KeySelector.class), any(KeySelector.class), anyInt(), anyBoolean(), any(
         StreamingMode.class)))
         .thenReturn(asyncIterable);
     final CompletableFuture<Void> watchFuture = mock(CompletableFuture.class);
-    when(transaction.watch(messagesAvailableWatchKey)).thenReturn(watchFuture);
+    when(transaction.watch(MESSAGES_AVAILABLE_WATCH_KEY)).thenReturn(watchFuture);
 
     when(database.runAsync(any(Function.class))).thenAnswer(
         (Answer<CompletableFuture<List<? extends MessageStreamEntry>>>) invocationOnMock -> {
@@ -295,16 +319,29 @@ class FoundationDbMessagePublisherTest {
           return f.apply(transaction);
         });
     StepVerifier.create(infinitePublisher.getMessages())
-        .expectNext(new MessageStreamEntry.Envelope(message))
+        .expectNext(getExpectedMessageStreamEntry(keyValue))
         .thenCancel()
         .verify(Duration.ofMillis(100));
 
     verify(watchFuture).cancel(true);
   }
 
-  private KeyValue mockKeyValue(final byte key, final MessageProtos.Envelope message) {
+  private MessageStreamEntry.Envelope getExpectedMessageStreamEntry(final KeyValue keyValue)
+      throws InvalidProtocolBufferException {
+    return new MessageStreamEntry.Envelope(MessageProtos.Envelope.parseFrom(keyValue.getValue())
+        .toBuilder()
+        .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(FoundationDbMessageStore.getVersionstamp(keyValue.getKey()))))
+        .build());
+  }
+
+  private static KeyValue mockKeyValue(final byte key, final MessageProtos.Envelope message) {
+    final ByteBuffer versionstampBuffer = ByteBuffer.allocate(Versionstamp.LENGTH);
+    versionstampBuffer.put(11, key);
+
     final KeyValue keyValue = mock(KeyValue.class);
-    when(keyValue.getKey()).thenReturn(new byte[]{key});
+    when(keyValue.getKey())
+        .thenReturn(FoundationDbMessageStore.getDeviceQueueSubspace(SERVICE_IDENTIFIER, Device.PRIMARY_ID)
+            .pack(Tuple.from(Versionstamp.fromBytes(versionstampBuffer.array()))));
     when(keyValue.getValue()).thenReturn(message.toByteArray());
     return keyValue;
   }
