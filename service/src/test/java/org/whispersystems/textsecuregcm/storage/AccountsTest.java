@@ -20,8 +20,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil.assertFailsWithCause;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -47,6 +49,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -455,7 +458,11 @@ class AccountsTest {
             () -> accounts.create(reregisteredAccount, Collections.emptyList()));
 
     reregisteredAccount.setUuid(accountAlreadyExistsException.getExistingAccount().getUuid());
-    reregisteredAccount.setNumber(accountAlreadyExistsException.getExistingAccount().getNumber(),
+
+    // Phone number canonicalization means that a user can re-register with a different phone number
+    // in the same equivalence class and get back the same phone number identifier.
+    // In that case, we favor the re-registering account's phone number.
+    reregisteredAccount.setNumber(reregisteredAccount.getNumber(),
         accountAlreadyExistsException.getExistingAccount().getPhoneNumberIdentifier());
 
     assertDoesNotThrow(() -> accounts.reclaimAccount(accountAlreadyExistsException.getExistingAccount(),
@@ -552,6 +559,144 @@ class AccountsTest {
     Account invalidAccount = generateAccount("+14151113333", existingUuid, UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
 
     assertThatThrownBy(() -> createAccount(invalidAccount));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testReclaimAccountEquivalentPhoneNumbers(final String firstNumber, final String secondNumber) throws IOException {
+    final UUID existingUuid = UUID.randomUUID();
+    final UUID pni = UUID.randomUUID();
+    final Account existingAccount = generateAccount(firstNumber, existingUuid, pni, List.of(generateDevice(DEVICE_ID_1)));
+
+    createAccount(existingAccount);
+
+    verifyStoredState(firstNumber, existingAccount.getUuid(), existingAccount.getPhoneNumberIdentifier(), null, existingAccount, true);
+
+    assertPhoneNumberConstraintExists(firstNumber, existingUuid);
+    assertPhoneNumberIdentifierConstraintExists(pni, existingUuid);
+
+    assertDoesNotThrow(() -> accounts.update(existingAccount));
+
+    final UUID secondUuid = UUID.randomUUID();
+
+    final Account secondAccount = generateAccount(secondNumber, secondUuid, pni, List.of(generateDevice(DEVICE_ID_1)));
+
+    reclaimAccount(secondAccount);
+
+    Map<String, AttributeValue> item = readAccount(existingUuid);
+    final Account account = SystemMapper.jsonMapper().readValue(item.get(Accounts.ATTR_ACCOUNT_DATA).b().asByteArray(), Account.class);
+
+    assertThat(AttributeValues.getString(item, Accounts.ATTR_ACCOUNT_E164, null))
+        .isEqualTo(secondNumber)
+        .isEqualTo(account.getNumber());
+    assertPhoneNumberConstraintDoesNotExist(firstNumber);
+    assertPhoneNumberConstraintExists(secondNumber, existingUuid);
+    assertPhoneNumberIdentifierConstraintExists(pni, existingUuid);
+  }
+
+  private static Stream<Arguments> testReclaimAccountEquivalentPhoneNumbers() {
+    final String newFormatBeninE164 = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final String oldFormatBeninE164 = newFormatBeninE164.replaceFirst("01", "");
+    return Stream.of(
+        Arguments.of(newFormatBeninE164, oldFormatBeninE164),
+        Arguments.of(oldFormatBeninE164, newFormatBeninE164)
+    );
+  }
+
+  @Test
+  void testReclaimAccountNonEquivalentPhoneNumbers() {
+    final String beninPhoneNumber = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final UUID existingUuid = UUID.randomUUID();
+    final UUID pni = UUID.randomUUID();
+    final Account existingAccount = generateAccount(beninPhoneNumber, existingUuid, pni, List.of(generateDevice(DEVICE_ID_1)));
+
+    createAccount(existingAccount);
+
+    verifyStoredState(beninPhoneNumber, existingAccount.getUuid(), existingAccount.getPhoneNumberIdentifier(), null, existingAccount, true);
+
+    assertPhoneNumberConstraintExists(beninPhoneNumber, existingUuid);
+    assertPhoneNumberIdentifierConstraintExists(pni, existingUuid);
+
+    assertDoesNotThrow(() -> accounts.update(existingAccount));
+
+    final String usPhoneNumber = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final UUID secondUuid = UUID.randomUUID();
+
+    // A non-equivalent phone number with the same PNI should fail reclamation
+    final Account secondAccount = generateAccount(usPhoneNumber, secondUuid, pni, List.of(generateDevice(DEVICE_ID_1)));
+
+    final AccountAlreadyExistsException accountAlreadyExistsException =
+        assertThrows(AccountAlreadyExistsException.class,
+            () -> accounts.create(secondAccount, Collections.emptyList()));
+
+    secondAccount.setUuid(accountAlreadyExistsException.getExistingAccount().getUuid());
+
+    assertThrows(IllegalArgumentException.class, () -> accounts.reclaimAccount(existingAccount,
+        secondAccount,
+        Collections.emptyList()).toCompletableFuture().join());
+  }
+
+  @Test
+  void testReclaimAccountUnexpectedDatabasePhoneNumber() {
+    final String beninPhoneNumber = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final UUID existingUuid = UUID.randomUUID();
+    final UUID existingPni = UUID.randomUUID();
+    final Account existingAccount = generateAccount(beninPhoneNumber, existingUuid, existingPni, List.of(generateDevice(DEVICE_ID_1)));
+
+    createAccount(existingAccount);
+
+    verifyStoredState(beninPhoneNumber, existingAccount.getUuid(), existingAccount.getPhoneNumberIdentifier(), null, existingAccount, true);
+
+    assertPhoneNumberConstraintExists(beninPhoneNumber, existingUuid);
+    assertPhoneNumberIdentifierConstraintExists(existingPni, existingUuid);
+
+    assertDoesNotThrow(() -> accounts.update(existingAccount));
+
+    final String usPhoneNumber = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final Account secondAccount = generateAccount(usPhoneNumber, existingUuid, existingPni, List.of(generateDevice(DEVICE_ID_1)));
+
+    // This scenario is very contrived but tests our error handling if we somehow use an existing account with a different
+    // phone number than what actually exists in the database.
+    assertFailsWithCause(UnexpectedExistingPhoneNumberException.class, accounts.reclaimAccount(secondAccount, secondAccount,
+        Collections.emptyList()).toCompletableFuture());
+
+  }
+
+  @Test
+  void testUpdateAccountWithMismatchedJsonDdbPhoneNumbers() {
+    // Test that fixing the DynamoDB/JSON phone number mismatch does not break account updates for existing accounts
+    // with bad data in the time after we ship this change and before we run the crawler to fix the mismatch.
+    final String newFormatBeninE164 = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final String oldFormatBeninE164 = newFormatBeninE164.replaceFirst("01", "");
+    final UUID existingUuid = UUID.randomUUID();
+    final UUID existingPni = UUID.randomUUID();
+    final Account existingAccount = generateAccount(newFormatBeninE164, existingUuid, existingPni, List.of(generateDevice(DEVICE_ID_1)));
+
+    createAccount(existingAccount);
+
+    verifyStoredState(newFormatBeninE164, existingAccount.getUuid(), existingAccount.getPhoneNumberIdentifier(), null, existingAccount, true);
+
+    assertPhoneNumberConstraintExists(newFormatBeninE164, existingUuid);
+    assertPhoneNumberIdentifierConstraintExists(existingPni, existingUuid);
+
+    // Mimic the current bad state
+    DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient().updateItem(UpdateItemRequest.builder()
+        .tableName(Tables.ACCOUNTS.tableName())
+        .key(Map.of(Accounts.KEY_ACCOUNT_UUID, AttributeValues.fromUUID(existingUuid)))
+        .updateExpression("SET #number = :old_number")
+        .expressionAttributeNames(Map.of("#number", Accounts.ATTR_ACCOUNT_E164))
+        .expressionAttributeValues(
+            Map.of(":old_number", AttributeValues.fromString(oldFormatBeninE164)))
+        .build())
+        .join();
+
+    assertDoesNotThrow(() -> accounts.update(existingAccount));
   }
 
   @Test

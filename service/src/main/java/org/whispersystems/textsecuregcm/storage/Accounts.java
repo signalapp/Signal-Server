@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static java.util.Objects.requireNonNull;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+import static org.whispersystems.textsecuregcm.util.Util.getAlternateForms;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -371,7 +372,28 @@ public class Accounts {
                 .build())
             .build());
       }
-      writeItems.add(UpdateAccountSpec.forAccount(accountsTableName, accountToCreate).transactItem());
+
+      // Phone number canonicalization means that a user can use a different phone number in the same equivalence class
+      // to reclaim the account.
+      if (!existingAccount.getNumber().equals(accountToCreate.getNumber())) {
+        if (getAlternateForms(existingAccount.getNumber()).contains(accountToCreate.getNumber())) {
+          final AttributeValue uuidAttr = AttributeValues.fromUUID(existingAccount.getUuid());
+          final AttributeValue numberAttr = AttributeValues.fromString(accountToCreate.getNumber());
+          final TransactWriteItem phoneNumberConstraintPut = buildConstraintTablePutIfAbsent(
+              phoneNumberConstraintTableName, uuidAttr, ATTR_ACCOUNT_E164, numberAttr);
+
+          writeItems.add(buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, existingAccount.getNumber()));
+          writeItems.add(phoneNumberConstraintPut);
+        } else {
+          log.error("Reclaiming account with a non-equivalent phone number. Old account {}:{}:{}, new account {}:{}:{}",
+              existingAccount.getUuid(), existingAccount.getNumber(), existingAccount.getPhoneNumberIdentifier(),
+              accountToCreate.getUuid(), accountToCreate.getNumber(), accountToCreate.getPhoneNumberIdentifier());
+          throw new IllegalArgumentException("reclaimed accounts must have equivalent phone numbers");
+        }
+      }
+
+      final int updateAccountItemIndex = writeItems.size();
+      writeItems.add(UpdateAccountSpec.forReclaimedAccount(accountsTableName, accountToCreate, existingAccount.getNumber()).transactItem());
       writeItems.addAll(additionalWriteItems);
 
       return dynamoDbAsyncClient.transactWriteItems(TransactWriteItemsRequest.builder().transactItems(writeItems).build())
@@ -382,6 +404,16 @@ public class Accounts {
           .exceptionally(throwable -> {
             final Throwable unwrapped = ExceptionUtils.unwrap(throwable);
             if (unwrapped instanceof TransactionCanceledException te) {
+              if (Accounts.conditionalCheckFailed(te.cancellationReasons().get(updateAccountItemIndex))) {
+                final Map<String, AttributeValue> item = te.cancellationReasons().get(updateAccountItemIndex).item();
+                final String existingNumber = AttributeValues.getString(item, Accounts.ATTR_ACCOUNT_E164, null);
+                if (!existingAccount.getNumber().equals(existingNumber)) {
+                  log.error("Failed to update account due to unexpected existing phone number. Account {}. Expected {}, got {}",
+                      existingAccount.getUuid(), existingAccount.getNumber(), existingNumber);
+                  throw new UnexpectedExistingPhoneNumberException();
+                }
+              }
+
               if (te.cancellationReasons().stream().anyMatch(Accounts::conditionalCheckFailed)) {
                 throw new ContestedOptimisticLockException();
               }
@@ -889,6 +921,37 @@ public class Accounts {
     }
   }
 
+  record UpdateExpression (List<String> setClauses, List<String> addClauses, List<String> removeClauses) {
+    public String toExpressionString() {
+      final StringBuilder updateExpressionBuilder = new StringBuilder();
+
+      if (!setClauses.isEmpty()) {
+        updateExpressionBuilder.append("SET ");
+        updateExpressionBuilder.append(String.join(", ", setClauses));
+      }
+
+      if (!removeClauses.isEmpty()) {
+        if (!updateExpressionBuilder.isEmpty()) {
+          updateExpressionBuilder.append(" ");
+        }
+
+        updateExpressionBuilder.append("REMOVE ");
+        updateExpressionBuilder.append(String.join(", ", removeClauses));
+      }
+
+      if (!addClauses.isEmpty()) {
+        if (!updateExpressionBuilder.isEmpty()) {
+          updateExpressionBuilder.append(" ");
+        }
+
+        updateExpressionBuilder.append("ADD ");
+        updateExpressionBuilder.append(String.join(", ", addClauses));
+      }
+
+      return updateExpressionBuilder.toString();
+    }
+  }
+
   /**
    * A ddb update that can be used as part of a transaction or single-item update statement.
    */
@@ -897,13 +960,13 @@ public class Accounts {
       Map<String, AttributeValue> key,
       Map<String, String> attrNames,
       Map<String, AttributeValue> attrValues,
-      String updateExpression,
+      UpdateExpression updateExpression,
       String conditionExpression) {
     UpdateItemRequest updateItemRequest() {
       return UpdateItemRequest.builder()
           .tableName(tableName)
           .key(key)
-          .updateExpression(updateExpression)
+          .updateExpression(updateExpression.toExpressionString())
           .conditionExpression(conditionExpression)
           .expressionAttributeNames(attrNames)
           .expressionAttributeValues(attrValues)
@@ -914,17 +977,46 @@ public class Accounts {
       return TransactWriteItem.builder().update(Update.builder()
           .tableName(tableName)
           .key(key)
-          .updateExpression(updateExpression)
+          .updateExpression(updateExpression.toExpressionString())
           .conditionExpression(conditionExpression)
+          .returnValuesOnConditionCheckFailure(ReturnValuesOnConditionCheckFailure.ALL_OLD)
           .expressionAttributeNames(attrNames)
           .expressionAttributeValues(attrValues)
           .build()).build();
     }
 
+    static UpdateAccountSpec forReclaimedAccount(
+        final String accountTableName,
+        final Account account,
+        final String expectedExistingE164) {
+      final UpdateAccountSpec base = forAccount(accountTableName, account);
+
+      final Map<String, AttributeValue> attrValues = new HashMap<>(base.attrValues());
+      attrValues.put(":number", AttributeValues.fromString(account.getNumber()));
+
+      final UpdateExpression updateExpression = base.updateExpression();
+      final List<String> setClauses = new ArrayList<>(updateExpression.setClauses());
+      setClauses.add("#number = :number");
+
+      final MembershipExpression membershipExpression = MembershipExpression.build(getAlternateForms(expectedExistingE164));
+      attrValues.putAll(membershipExpression.values());
+
+      // Defensive check: we should only update the e164 to another e164 in the same equivalence class
+      final String conditionExpression = base.conditionExpression() + " AND #number IN %s".formatted(membershipExpression.expression());
+
+      return new UpdateAccountSpec(
+          base.tableName(),
+          base.key(),
+          base.attrNames(),
+          attrValues,
+          new UpdateExpression(setClauses, updateExpression.addClauses(), updateExpression.removeClauses()),
+          conditionExpression
+      );
+    }
+
     static UpdateAccountSpec forAccount(
         final String accountTableName,
         final Account account) {
-      // username, e164, and pni cannot be modified through this method
       final Map<String, String> attrNames = new HashMap<>(Map.of(
           "#number", ATTR_ACCOUNT_E164,
           "#data", ATTR_ACCOUNT_DATA,
@@ -937,19 +1029,20 @@ public class Accounts {
           ":version", AttributeValues.fromInt(account.getVersion()),
           ":version_increment", AttributeValues.fromInt(1)));
 
-      final StringBuilder updateExpressionBuilder = new StringBuilder("SET #data = :data, #cds = :cds");
+      final List<String> setClauses = new ArrayList<>(List.of("#data = :data", "#cds = :cds"));
+
       if (account.getUnidentifiedAccessKey().isPresent()) {
         // if it's present in the account, also set the uak
         attrNames.put("#uak", ATTR_UAK);
         attrValues.put(":uak", AttributeValues.fromByteArray(account.getUnidentifiedAccessKey().get()));
-        updateExpressionBuilder.append(", #uak = :uak");
+        setClauses.add("#uak = :uak");
       }
 
       if (account.getUsernameHash().isPresent()) {
         // if it's present in the account, also set the username hash
         attrNames.put("#usernameHash", ATTR_USERNAME_HASH);
         attrValues.put(":usernameHash", AttributeValues.fromByteArray(account.getUsernameHash().get()));
-        updateExpressionBuilder.append(", #usernameHash = :usernameHash");
+        setClauses.add("#usernameHash = :usernameHash");
       }
 
       // If the account has a username/handle pair, we should add it to the top level attributes.
@@ -959,7 +1052,7 @@ public class Accounts {
       if (account.getEncryptedUsername().isPresent() && account.getUsernameLinkHandle() != null) {
         attrNames.put("#ul", ATTR_USERNAME_LINK_UUID);
         attrValues.put(":ul", AttributeValues.fromUUID(account.getUsernameLinkHandle()));
-        updateExpressionBuilder.append(", #ul = :ul");
+        setClauses.add("#ul = :ul");
       }
 
       // Some operations may remove the usernameLink or the usernameHash (re-registration, clear username link, and
@@ -974,17 +1067,20 @@ public class Accounts {
         attrNames.put("#username_hash", ATTR_USERNAME_HASH);
         removes.add("#username_hash");
       }
+
+      final List<String> removeClauses = new ArrayList<>();
       if (!removes.isEmpty()) {
-        updateExpressionBuilder.append(" REMOVE %s".formatted(String.join(",", removes)));
+        removeClauses.add(String.join(",", removes));
       }
-      updateExpressionBuilder.append(" ADD #version :version_increment");
+
+      final List<String> addClauses = List.of("#version :version_increment");
 
       return new UpdateAccountSpec(
           accountTableName,
           Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())),
           attrNames,
           attrValues,
-          updateExpressionBuilder.toString(),
+          new UpdateExpression(setClauses, addClauses, removeClauses),
           "attribute_exists(#number) AND #version = :version");
     }
   }
@@ -1583,5 +1679,27 @@ public class Accounts {
         ? ""
         : phoneNumber.substring(phoneNumber.length() - 2));
     return sb.toString();
+  }
+
+  record MembershipExpression(String expression, Map<String, AttributeValue> values) {
+    public static MembershipExpression build(final Collection<String> values) {
+      if (values.isEmpty()) {
+        throw new IllegalArgumentException("must have at least one value");
+      }
+
+      final Map<String, AttributeValue> expressionValues = new HashMap<>();
+      final List<String> placeholders = new ArrayList<>();
+      final String prefix = "val";
+      int i = 0;
+      for (final String value : values) {
+        String key = ":" + prefix + i;
+        placeholders.add(key);
+        expressionValues.put(key, AttributeValues.fromString(value));
+        i++;
+      }
+
+      final String expression = "(" + String.join(", ", placeholders) + ")";
+      return new MembershipExpression(expression, expressionValues);
+    }
   }
 }
