@@ -294,8 +294,6 @@ import org.whispersystems.textsecuregcm.workers.RemoveExpiredAccountsCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredBackupsCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredLinkedDevicesCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveExpiredUsernameHoldsCommand;
-import org.whispersystems.textsecuregcm.workers.RemoveNonSpqrAccountsCommand;
-import org.whispersystems.textsecuregcm.workers.RemoveNonSpqrLinkedDevicesCommand;
 import org.whispersystems.textsecuregcm.workers.RemoveOrphanedPreKeyPagesCommand;
 import org.whispersystems.textsecuregcm.workers.ScheduledApnPushNotificationSenderServiceCommand;
 import org.whispersystems.textsecuregcm.workers.ServerVersionCommand;
@@ -358,8 +356,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     bootstrap.addCommand(new UnlinkDevicesWithIdlePrimaryCommand(Clock.systemUTC()));
     bootstrap.addCommand(new NotifyIdleDevicesCommand());
     bootstrap.addCommand(new ClearIssuedReceiptRedemptionsCommand());
-    bootstrap.addCommand(new RemoveNonSpqrLinkedDevicesCommand());
-    bootstrap.addCommand(new RemoveNonSpqrAccountsCommand());
 
     bootstrap.addCommand(new ProcessScheduledJobsServiceCommand("process-idle-device-notification-jobs",
         "Processes scheduled jobs to send notifications to idle devices",
