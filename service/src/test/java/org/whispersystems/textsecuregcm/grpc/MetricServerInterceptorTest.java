@@ -182,7 +182,7 @@ public class MetricServerInterceptorTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void clientRelease(boolean enabled) throws UnrecognizedUserAgentException {
+  void clientRelease(boolean enabled) throws UnrecognizedUserAgentException, StatusException {
     final UserAgent ua = UserAgentUtil.parseUserAgentString(USER_AGENT);
     when(clientReleaseManager.isVersionActive(ua.platform(), ua.version())).thenReturn(enabled);
     final EchoServiceGrpc.EchoServiceBlockingV2Stub client = EchoServiceGrpc.newBlockingV2Stub(channel);
