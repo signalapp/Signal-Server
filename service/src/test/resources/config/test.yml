@@ -536,3 +536,18 @@ callQualitySurvey:
 hlrLookup:
   apiKey: secret://hlrLookup.apiKey
   apiSecret: secret://hlrLookup.apiSecret
+
+server:
+  allowedMethods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - HEAD
+    - OPTIONS
+    - PATCH
+    - CONNECT
+  applicationConnectors:
+    - type: h2c
+      port: 8080
+      useForwardedHeaders: true

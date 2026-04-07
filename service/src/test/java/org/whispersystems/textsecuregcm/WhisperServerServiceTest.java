@@ -24,7 +24,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.http2.client.HTTP2Client;
+import org.eclipse.jetty.http2.client.http.HttpClientTransportOverHTTP2;
+import org.eclipse.jetty.io.ClientConnector;
 import org.eclipse.jetty.util.component.LifeCycle;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.StatusCode;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
@@ -34,6 +39,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.configuration.OpenTelemetryConfiguration;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtension;
@@ -59,7 +66,8 @@ class WhisperServerServiceTest {
         Resources.getResource("config/test-secrets-bundle.yml").getPath());
   }
 
-  private static final WebSocketClient webSocketClient = new WebSocketClient();
+  private static WebSocketClient webSocketClient;
+  private static WebSocketClient h2WebSocketClient;
 
   private static final DropwizardAppExtension<WhisperServerConfiguration> EXTENSION = new DropwizardAppExtension<>(
       WhisperServerService.class, Resources.getResource("config/test.yml").getPath(),
@@ -76,7 +84,13 @@ class WhisperServerServiceTest {
 
   @BeforeAll
   static void setUp() throws Exception {
+    final ClientConnector clientConnector = new ClientConnector();
+    final HTTP2Client http2Client = new HTTP2Client(clientConnector);
+    final HttpClient httpClient = new HttpClient(new HttpClientTransportOverHTTP2(http2Client));
+    h2WebSocketClient = new WebSocketClient(httpClient);
+    webSocketClient = new WebSocketClient();
     webSocketClient.start();
+    h2WebSocketClient.start();
   }
 
   @Test
@@ -100,8 +114,9 @@ class WhisperServerServiceTest {
     assertEquals(200, healthCheck.getStatus());
   }
 
-  @Test
-  void websocket() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void websocket(final boolean useH2) throws Exception {
     // test unauthenticated websocket
     final long start = System.currentTimeMillis();
 
@@ -117,7 +132,7 @@ class WhisperServerServiceTest {
         });
 
     // Session is Closeable, but we intentionally keep it open so that we can confirm the container Lifecycle behavior
-    final Session session = webSocketClient.connect(testWebsocketListener,
+    final Session session = (useH2 ? h2WebSocketClient : webSocketClient).connect(testWebsocketListener,
             URI.create(String.format("ws://localhost:%d/v1/websocket/", EXTENSION.getLocalPort())))
         .join();
     final long sessionTimestamp = Long.parseLong(session.getUpgradeResponse().getHeader(HeaderUtils.TIMESTAMP_HEADER));
