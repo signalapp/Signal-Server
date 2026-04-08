@@ -48,6 +48,8 @@ public class RequestAttributesInterceptor implements ServerInterceptor {
     final String acceptLanguageHeader = headers.get(ACCEPT_LANG_KEY);
     final String xForwardedForHeader = headers.get(X_FORWARDED_FOR_KEY);
 
+    // This assumes that X-Forwarded-For has been set by a trusted intermediate proxy. For example, this may be set by
+    // OmnibusH2Server which itself sets X-Forwarded-For using a PPv2 header that comes from a trusted load-balancer.
     final Optional<InetAddress> remoteAddress = getMostRecentProxy(xForwardedForHeader)
         .flatMap(mostRecentProxy -> {
           try {

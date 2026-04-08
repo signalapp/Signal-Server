@@ -337,6 +337,8 @@ dynamicConfig:
   object: |
     captcha:
       scoreFloor: 1.0
+    grpcAllowList:
+      enableAll: true
 
 remoteConfig:
   globalConfig: # keys and values that are given to clients on GET /v1/config
@@ -521,6 +523,8 @@ idlePrimaryDeviceReminder:
 
 grpc:
   port: 50051
+  websocketPort: 8080
+  h2c: true
 
 asnTable:
   s3Region: a-region

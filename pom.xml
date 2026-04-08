@@ -70,13 +70,13 @@
     <kotlin.version>2.3.20</kotlin.version>
     <logback.version>1.5.32</logback.version>
     <logback-access-common.version>2.0.12</logback-access-common.version>
-    <lettuce.version>6.8.2.RELEASE</lettuce.version>
+    <lettuce.version>7.5.1.RELEASE</lettuce.version>
     <libphonenumber.version>9.0.21</libphonenumber.version>
     <logstash.logback.version>8.1</logstash.logback.version>
     <log4j-bom.version>2.25.4</log4j-bom.version>
     <luajava.version>3.5.0</luajava.version>
     <micrometer.version>1.16.4</micrometer.version>
-    <netty.version>4.1.127.Final</netty.version>
+    <netty.version>4.2.13.Final</netty.version>
     <!-- Must be less than or equal to the value from Google libraries-bom which controls the protobuf runtime version.
     See https://protobuf.dev/support/cross-version-runtime-guarantee/. -->
     <protoc.version>4.33.2</protoc.version>

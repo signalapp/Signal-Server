@@ -9,6 +9,7 @@ import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.lettuce.core.ClientOptions;
+import io.lettuce.core.MaintNotificationsConfig;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.TimeoutOptions;
@@ -69,28 +70,15 @@ public class FaultTolerantRedisClusterClient {
 
     this.name = name;
 
-    // Lettuce will issue a CLIENT SETINFO command unconditionally if these fields are set (and they are by default),
-    // which can generate a bunch of spurious warnings in versions of Redis before 7.2.0.
-    //
-    // See:
-    //
-    // - https://github.com/redis/lettuce/pull/2823
-    // - https://github.com/redis/lettuce/issues/2817
-    redisUris.forEach(redisUri -> {
-      redisUri.setClientName(null);
-      redisUri.setLibraryName(null);
-      redisUri.setLibraryVersion(null);
-    });
-
     final LettuceShardCircuitBreaker lettuceShardCircuitBreaker =
         new LettuceShardCircuitBreaker(name, circuitBreakerConfigurationName);
 
     this.clusterClient = RedisClusterClient.create(
-        clientResourcesBuilder.nettyCustomizer(lettuceShardCircuitBreaker).
-            build(),
+        clientResourcesBuilder.nettyCustomizer(lettuceShardCircuitBreaker)
+            .build(),
         redisUris);
 
-    final ClusterClientOptions.Builder clusterClientOptionsBuilder = ClusterClientOptions.builder()
+    final ClusterClientOptions.Builder clusterClientOptionsBuilder = (ClusterClientOptions.Builder) ClusterClientOptions.builder()
         .disconnectedBehavior(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS)
         .validateClusterNodeMembership(false)
         .topologyRefreshOptions(ClusterTopologyRefreshOptions.builder()
@@ -100,7 +88,8 @@ public class FaultTolerantRedisClusterClient {
         .timeoutOptions(TimeoutOptions.builder()
             .fixedTimeout(commandTimeout)
             .build())
-        .publishOnScheduler(true);
+        .publishOnScheduler(true)
+        .maintNotificationsConfig(MaintNotificationsConfig.disabled());
 
     NettyUtil.setSocketTimeoutsIfApplicable(clusterClientOptionsBuilder);
 

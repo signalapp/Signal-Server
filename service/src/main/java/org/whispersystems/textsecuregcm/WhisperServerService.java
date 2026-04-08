@@ -31,16 +31,23 @@ import io.lettuce.core.metrics.MicrometerOptions;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
+import io.netty.channel.DefaultEventLoopGroup;
+import io.netty.channel.local.LocalAddress;
+import io.netty.channel.local.LocalServerChannel;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.ssl.SslContext;
 import io.netty.resolver.ResolvedAddressTypes;
 import io.netty.resolver.dns.DnsNameResolver;
 import io.netty.resolver.dns.DnsNameResolverBuilder;
+import io.netty.util.Mapping;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.Filter;
 import jakarta.servlet.ServletRegistration;
 import java.io.ByteArrayInputStream;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -164,7 +171,10 @@ import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ValidatingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedGrpcServer;
-import org.whispersystems.textsecuregcm.grpc.net.ManagedNioEventLoopGroup;
+import org.whispersystems.textsecuregcm.grpc.net.ManagedEventLoopGroup;
+import org.whispersystems.textsecuregcm.grpc.net.OmnibusH2Server;
+import org.whispersystems.textsecuregcm.grpc.net.OmnibusRouter;
+import org.whispersystems.textsecuregcm.grpc.net.SniMapper;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
@@ -314,6 +324,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import javax.annotation.Nullable;
 
 public class WhisperServerService extends Application<WhisperServerConfiguration> {
 
@@ -619,8 +630,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ScheduledExecutorService provisioningWebsocketTimeoutExecutor = ScheduledExecutorServiceBuilder.of(environment, "provisioningWebsocketTimeout").threads(1).build();
     ScheduledExecutorService jmxDumper = ScheduledExecutorServiceBuilder.of(environment, "jmxDumper").threads(1).build();
 
-    final ManagedNioEventLoopGroup dnsResolutionEventLoopGroup = new ManagedNioEventLoopGroup();
-    final DnsNameResolver cloudflareDnsResolver = new DnsNameResolverBuilder(dnsResolutionEventLoopGroup.next())
+    final ManagedEventLoopGroup<NioEventLoopGroup> dnsResolutionEventLoopGroup = new ManagedEventLoopGroup<>(new NioEventLoopGroup());
+    final DnsNameResolver cloudflareDnsResolver = new DnsNameResolverBuilder(dnsResolutionEventLoopGroup.getEventLoopGroup().next())
             .resolvedAddressTypes(ResolvedAddressTypes.IPV6_PREFERRED)
             .completeOncePreferredResolved(false)
             .channelType(NioDatagramChannel.class)
@@ -1013,13 +1024,38 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             prohibitAuthenticationInterceptor))
         .toList();
 
-    final ServerBuilder<?> serverBuilder =
-        NettyServerBuilder.forAddress(new InetSocketAddress(config.getGrpc().bindAddress(), config.getGrpc().port()));
+    final ManagedEventLoopGroup<DefaultEventLoopGroup> omnibusLocalEventLoopGroup = new ManagedEventLoopGroup<>(new DefaultEventLoopGroup());
+    final ManagedEventLoopGroup<NioEventLoopGroup> omnibusNioEventLoopGroup = new ManagedEventLoopGroup<>(new NioEventLoopGroup());
+    final LocalAddress grpcLocalAddress = new LocalAddress("grpc");
+    final ServerBuilder<?> serverBuilder = NettyServerBuilder
+        .forAddress(grpcLocalAddress)
+        .channelType(LocalServerChannel.class)
+        .bossEventLoopGroup(omnibusLocalEventLoopGroup.getEventLoopGroup())
+        .workerEventLoopGroup(omnibusLocalEventLoopGroup.getEventLoopGroup());
     authenticatedServices.forEach(serverBuilder::addService);
     unauthenticatedServices.forEach(serverBuilder::addService);
-    final ManagedGrpcServer exposedGrpcServer = new ManagedGrpcServer(serverBuilder.build());
+    final ManagedGrpcServer localGrpcServer = new ManagedGrpcServer(serverBuilder.build());
 
-    environment.lifecycle().manage(exposedGrpcServer);
+    final SocketAddress websocketAddress =
+        new InetSocketAddress(config.getGrpc().websocketAddress(), config.getGrpc().websocketPort());
+    final OmnibusRouter omnibusRouter = new OmnibusRouter(List.of(
+        new OmnibusRouter.OmnibusRoute("/v1/websocket", websocketAddress),
+        new OmnibusRouter.OmnibusRoute("/v1/provisioning", websocketAddress)),
+        grpcLocalAddress);
+    @Nullable final Mapping<String, SslContext> sniMapping = config.getGrpc().h2c()
+        ? null
+        : SniMapper.buildSniMapping(config.getTlsKeyStoreConfiguration().path(), config.getTlsKeyStoreConfiguration().password().value());
+    final OmnibusH2Server omnibusH2Server = new OmnibusH2Server(
+        sniMapping,
+        omnibusNioEventLoopGroup.getEventLoopGroup(),
+        omnibusLocalEventLoopGroup.getEventLoopGroup(),
+        new InetSocketAddress(config.getGrpc().bindAddress(), config.getGrpc().port()), omnibusRouter,
+        config.getGrpc().idleTimeout());
+
+    environment.lifecycle().manage(omnibusLocalEventLoopGroup);
+    environment.lifecycle().manage(omnibusNioEventLoopGroup);
+    environment.lifecycle().manage(localGrpcServer);
+    environment.lifecycle().manage(omnibusH2Server);
 
     final List<Filter> filters = new ArrayList<>();
     filters.add(remoteDeprecationFilter);

@@ -40,8 +40,6 @@ public class JettyHttpConfigurationCustomizer implements Container.Listener, Lif
           httpConfiguration.setNotifyRemoteAsyncErrors(false);
         }
       }
-
-      c.addBean(new JettyConnectionMetrics(Metrics.globalRegistry));
     }
   }
 
