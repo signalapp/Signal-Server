@@ -854,7 +854,7 @@ public class VerificationController {
           .orElseThrow(NotFoundException::new);
 
       if (registrationServiceSession.verified()) {
-        registrationRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join());
+        registrationRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join()).join();
       }
 
       return registrationServiceSession;

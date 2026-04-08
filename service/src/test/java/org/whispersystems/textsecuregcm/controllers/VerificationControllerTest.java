@@ -642,6 +642,8 @@ class VerificationControllerTest {
 
     when(verificationSessionManager.update(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
+    when(registrationRecoveryPasswordsManager.remove(PNI))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -952,6 +954,8 @@ class VerificationControllerTest {
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(mock(VerificationSession.class))));
+    when(registrationRecoveryPasswordsManager.remove(PNI))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -978,6 +982,7 @@ class VerificationControllerTest {
                 clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
     when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(registrationServiceSession));
+    when(registrationRecoveryPasswordsManager.remove(PNI)).thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId + "/code")
@@ -1268,6 +1273,8 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
                 clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+    when(registrationRecoveryPasswordsManager.remove(PNI))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId + "/code")
