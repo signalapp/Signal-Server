@@ -782,6 +782,10 @@ public class VerificationController {
 
     boolean existingRRP = false;
     if (resultSession.verified()) {
+      // Since there is a valid verification session we invalidate the other possible verification mechanism,
+      // the RRP. It's possible the client will not actually be able to register (e.g. failed reglock challenge), and
+      // so we will have removed the RRP unnecessarily. The impact of this is low, since the owner of the RRP
+      // can always just fallback to session-based verification.
       existingRRP = registrationRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join()).join();
     }
 
@@ -854,6 +858,10 @@ public class VerificationController {
           .orElseThrow(NotFoundException::new);
 
       if (registrationServiceSession.verified()) {
+        // Since there is a valid verification session we invalidate the other possible verification mechanism,
+        // the RRP. It's possible the client will not actually be able to register (e.g. failed reglock challenge), and
+        // so we will have removed the RRP unnecessarily. The impact of this is low, since the owner of the RRP
+        // can always just fallback to session-based verification.
         registrationRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join()).join();
       }
 
