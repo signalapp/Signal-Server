@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.metrics;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -238,6 +239,42 @@ class MetricsHttpChannelListenerIntegrationTest {
         Arguments.of("/v1/test/greet/unauthorized", "/v1/test/greet/{name}", null, 401),
         Arguments.of("/v1/test/greet/exception", "/v1/test/greet/{name}", null, 500)
     );
+  }
+
+  @Test
+  void unexpectedMethod() throws InterruptedException {
+    final CountDownLatch countDownLatch = new CountDownLatch(1);
+    COUNT_DOWN_LATCH_FUTURE_REFERENCE.set(countDownLatch);
+
+    final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
+    final Map<String, Counter> counterMap = Map.of(
+        MetricsHttpChannelListener.REQUEST_COUNTER_NAME, REQUEST_COUNTER,
+        MetricsHttpChannelListener.RESPONSE_BYTES_COUNTER_NAME, RESPONSE_BYTES_COUNTER,
+        MetricsHttpChannelListener.REQUEST_BYTES_COUNTER_NAME, REQUEST_BYTES_COUNTER
+    );
+    when(METER_REGISTRY.counter(anyString(), any(Iterable.class)))
+        .thenAnswer(a -> counterMap.getOrDefault(a.getArgument(0, String.class), mock(Counter.class)));
+
+    try (final Response _ = EXTENSION.client().target(
+            String.format("http://localhost:%d%s", EXTENSION.getLocalPort(), "/v1/test/hello"))
+        .request()
+        .header(HttpHeaders.USER_AGENT, "Signal-Android/4.53.7 (Android 8.1)")
+        .method("ANNOY")) {
+
+      assertTrue(countDownLatch.await(1000, TimeUnit.MILLISECONDS));
+
+      verify(METER_REGISTRY).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
+      verify(REQUEST_COUNTER).increment();
+
+      final Iterable<Tag> tagIterable = tagCaptor.getValue();
+      final Set<Tag> tags = new HashSet<>();
+
+      for (final Tag tag : tagIterable) {
+        tags.add(tag);
+      }
+
+      assertFalse(tags.contains(Tag.of(MetricsHttpChannelListener.METHOD_TAG, "ANNOY")));
+    }
   }
 
   public static class TestApplication extends Application<Configuration> {
