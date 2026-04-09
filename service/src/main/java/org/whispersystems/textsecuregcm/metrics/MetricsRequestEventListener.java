@@ -107,7 +107,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
 
         final List<Tag> tags = new ArrayList<>();
         tags.add(Tag.of(PATH_TAG, UriInfoUtil.getPathTemplate(event.getUriInfo())));
-        tags.add(Tag.of(METHOD_TAG, event.getContainerRequest().getMethod()));
+        tags.add(Tag.of(METHOD_TAG, MetricsHttpChannelListener.normalizeMethod(event.getContainerRequest().getMethod())));
         tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(Optional
             .ofNullable(event.getContainerResponse())
             .map(ContainerResponse::getStatus)

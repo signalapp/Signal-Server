@@ -30,9 +30,12 @@ import org.glassfish.jersey.server.ExtendedUriInfo;
 import org.glassfish.jersey.uri.UriTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
+import javax.annotation.Nullable;
 
 class MetricsHttpChannelListenerTest {
 
@@ -170,7 +173,21 @@ class MetricsHttpChannelListenerTest {
     } else {
       verifyNoInteractions(requestsByVersionCounter);
     }
+  }
 
+  @ParameterizedTest
+  @MethodSource
+  void normalizeMethod(@Nullable final String originalMethod, final String expectedMethod) {
+    assertEquals(expectedMethod, MetricsHttpChannelListener.normalizeMethod(originalMethod));
+  }
 
+  private static List<Arguments> normalizeMethod() {
+    return List.of(
+        Arguments.arguments(null, "unknown"),
+        Arguments.arguments("", "unknown"),
+        Arguments.arguments("UNEXPECTED_METHOD", "unknown"),
+        Arguments.arguments("GET", "GET"),
+        Arguments.arguments("get", "get")
+    );
   }
 }

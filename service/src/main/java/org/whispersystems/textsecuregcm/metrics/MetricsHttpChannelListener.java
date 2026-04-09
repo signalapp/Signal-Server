@@ -18,9 +18,11 @@ import jakarta.ws.rs.container.ContainerResponseFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.HttpChannel;
 import org.eclipse.jetty.server.Request;
@@ -48,6 +50,9 @@ import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
  */
 public class MetricsHttpChannelListener implements HttpChannel.Listener, Container.Listener, LifeCycle.Listener,
     ContainerResponseFilter {
+
+  private static final Set<String> EXPECTED_HTTP_METHODS =
+      Set.of("GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH");
 
   private static final Logger logger = LoggerFactory.getLogger(MetricsHttpChannelListener.class);
 
@@ -201,14 +206,21 @@ public class MetricsHttpChannelListener implements HttpChannel.Listener, Contain
                 .filter(servletPaths::contains)
                 .orElse("unknown")
         );
-    final String method = Optional.ofNullable(request.getMethod()).orElse("unknown");
+
     // Response cannot be null, but its status might not always reflect an actual response status, since it gets
     // initialized to 200
     final int status = request.getResponse().getStatus();
 
     @Nullable final String userAgent = request.getHeader(HttpHeaders.USER_AGENT);
 
-    return new RequestInfo(path, method, status, userAgent);
+    return new RequestInfo(path, normalizeMethod(request.getMethod()), status, userAgent);
   }
 
+  static String normalizeMethod(@Nullable final String method) {
+    if (StringUtils.isBlank(method)) {
+      return "unknown";
+    }
+
+    return EXPECTED_HTTP_METHODS.contains(method.toUpperCase(Locale.ROOT)) ? method : "unknown";
+  }
 }
