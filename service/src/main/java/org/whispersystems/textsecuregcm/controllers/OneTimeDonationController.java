@@ -58,8 +58,8 @@ import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
-import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
@@ -127,8 +127,8 @@ public class OneTimeDonationController {
     @Min(1)
     public long amount;
 
-    @Schema(description = "The level for the boost payment. Assumed to be the boost level if missing")
-    public Long level;
+    @Schema(description = "The level for the boost payment", defaultValue = "1", requiredMode = Schema.RequiredMode.REQUIRED)
+    public long level = 1;
 
     @Schema(description = "The payment method", defaultValue = "CARD")
     public PaymentMethod paymentMethod = PaymentMethod.CARD;
@@ -160,12 +160,6 @@ public class OneTimeDonationController {
           properties = {
               @StringToClassMapItem(key = "error", value = String.class)
           })))
-  @ApiResponse(responseCode = "409", description = "Provided level does not match the currency/amount combination",
-      content = @Content(schema = @Schema(
-          type = "object",
-          properties = {
-              @StringToClassMapItem(key = "error", value = String.class)
-          })))
   public CompletableFuture<Response> createBoostPaymentIntent(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid CreateBoostRequest request,
@@ -175,23 +169,8 @@ public class OneTimeDonationController {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
-    return CompletableFuture.runAsync(() -> {
-          if (request.level == null) {
-            request.level = oneTimeDonationConfiguration.boost().level();
-          }
-          BigDecimal amount = BigDecimal.valueOf(request.amount);
-          if (request.level == oneTimeDonationConfiguration.gift().level()) {
-            BigDecimal amountConfigured = oneTimeDonationConfiguration.currencies()
-                .get(request.currency.toLowerCase(Locale.ROOT)).gift();
-            if (amountConfigured == null ||
-                SubscriptionCurrencyUtil.convertConfiguredAmountToStripeAmount(request.currency, amountConfigured)
-                    .compareTo(amount) != 0) {
-              throw new WebApplicationException(
-                  Response.status(Response.Status.CONFLICT).entity(Map.of("error", "level_amount_mismatch")).build());
-            }
-          }
-          validateRequestCurrencyAmount(request, amount, stripeManager);
-        })
+    return CompletableFuture.runAsync(() ->
+            validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), stripeManager))
         .thenCompose(unused -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level,
             getClientPlatform(userAgent)))
         .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
@@ -203,17 +182,18 @@ public class OneTimeDonationController {
    *
    * @throws BadRequestException indicates validation failed. Inspect {@code response.error} for details
    */
-  private void validateRequestCurrencyAmount(CreateBoostRequest request, BigDecimal amount,
-      CustomerAwareSubscriptionPaymentProcessor manager) {
+  private void validateRequestCurrencyAmount(final CreateBoostRequest request, final BigDecimal amount,
+      final CustomerAwareSubscriptionPaymentProcessor manager) {
+
     if (!manager.getSupportedCurrenciesForPaymentMethod(request.paymentMethod)
         .contains(request.currency.toLowerCase(Locale.ROOT))) {
       throw new BadRequestException(Response.status(Response.Status.BAD_REQUEST)
           .entity(Map.of("error", "unsupported_currency")).build());
     }
 
-    BigDecimal minCurrencyAmountMajorUnits = oneTimeDonationConfiguration.currencies()
+    final BigDecimal minCurrencyAmountMajorUnits = oneTimeDonationConfiguration.currencies()
         .get(request.currency.toLowerCase(Locale.ROOT)).minimum();
-    BigDecimal minCurrencyAmountMinorUnits = SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(
+    final BigDecimal minCurrencyAmountMinorUnits = SubscriptionCurrencyUtil.convertConfiguredAmountToApiAmount(
         request.currency,
         minCurrencyAmountMajorUnits);
     if (minCurrencyAmountMinorUnits.compareTo(amount) > 0) {
@@ -262,13 +242,8 @@ public class OneTimeDonationController {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
-    return CompletableFuture.runAsync(() -> {
-          if (request.level == null) {
-            request.level = oneTimeDonationConfiguration.boost().level();
-          }
-
-          validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager);
-        })
+    return CompletableFuture.runAsync(() ->
+            validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager))
         .thenCompose(unused -> {
           final List<Locale> acceptableLanguages =
               HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
@@ -300,6 +275,10 @@ public class OneTimeDonationController {
     public String paymentId; // PAYID-…
     @NotEmpty
     public String paymentToken; // EC-…
+
+    public ConfirmPayPalBoostRequest() {
+      super.paymentMethod = PaymentMethod.PAYPAL;
+    }
   }
 
   record ConfirmPayPalBoostResponse(String paymentId) {}
@@ -317,12 +296,9 @@ public class OneTimeDonationController {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
-    return CompletableFuture.runAsync(() -> {
-          if (request.level == null) {
-            request.level = oneTimeDonationConfiguration.boost().level();
-          }
-        })
-        .thenCompose(unused -> braintreeManager.captureOneTimePayment(request.payerId, request.paymentId,
+    return CompletableFuture.runAsync(() ->
+            validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager))
+        .thenCompose(_ -> braintreeManager.captureOneTimePayment(request.payerId, request.paymentId,
             request.paymentToken, request.currency, request.amount, request.level, getClientPlatform(userAgent)))
         .thenCompose(
             chargeSuccessDetails -> oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), Instant.now()))

@@ -35,7 +35,6 @@ class AbstractV1SubscriptionControllerTest {
 
   static final ServerZkReceiptOperations ZK_OPS = mock(ServerZkReceiptOperations.class);
 
-
   /**
    * Encapsulates {@code static} configuration, to keep the class header simpler and avoid illegal forward references
    */

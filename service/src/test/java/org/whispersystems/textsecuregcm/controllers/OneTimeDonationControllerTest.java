@@ -159,23 +159,6 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
   }
 
   @Test
-  void testCreateBoostPaymentIntentLevelAmountMismatch() {
-    when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
-        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
-    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
-        .request()
-        .post(Entity.json("""
-              {
-                "currency": "USD",
-                "amount": 25,
-                "level": 100
-              }
-            """
-        ));
-    assertThat(response.getStatus()).isEqualTo(409);
-  }
-
-  @Test
   void testCreateBoostPaymentIntent() {
     when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
@@ -268,7 +251,8 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
 
   @Test
   void confirmPaypalBoostProcessorError() {
-
+    when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
+        .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     when(BRAINTREE_MANAGER.captureOneTimePayment(anyString(), anyString(), anyString(), anyString(), anyLong(),
         anyLong(), any()))
         .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(PaymentProvider.BRAINTREE,
@@ -280,7 +264,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
             "paymentId", "PAYID-456",
             "paymentToken", "EC-789",
             "currency", "usd",
-            "amount", 123)));
+            "amount", 300)));
 
     assertThat(response.getStatus()).isEqualTo(SubscriptionExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
 
