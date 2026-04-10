@@ -485,7 +485,7 @@ public class BackupManagerTest {
 
     // Copying can start on the next batch of USAGE_CHECKPOINT_COUNT before the current one is done, so we should see
     // at least one usage update, and at most 2
-    final long bytesPerObject = COPY_ENCRYPTION_PARAM.outputSize(100);
+    final long bytesPerObject = CopyParameters.destinationObjectSize(100);
     assertThat(backupsDb.getMediaUsage(backupUser).join().usageInfo()).isIn(
         new UsageInfo(
             bytesPerObject * backupConfiguration.usageCheckpointCount(),

@@ -4,6 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.backup;
 
+import com.google.common.annotations.VisibleForTesting;
+
 /**
  * Descriptor for a single copy-and-encrypt operation
  *
@@ -24,6 +26,25 @@ public record CopyParameters(
    * @return The size of the double-encrypted destination object after it is copied
    */
   long destinationObjectSize() {
-    return encryptionParameters().outputSize(sourceLength());
+    return destinationObjectSize(sourceLength());
+  }
+
+  /// Calculates the size of a ciphertext for a media object stored as part of a backup
+  ///
+  /// @param inputSize the size, in bytes, of the plaintext media object
+  ///
+  /// @return the size, in bytes, of the ciphertext of a media object with the given `inputSize`
+  @VisibleForTesting
+  static long destinationObjectSize(final int inputSize) {
+    if (inputSize < 0) {
+      throw new IllegalArgumentException("Size must be non-negative, but was " + inputSize);
+    }
+
+    // AES-256 has 16-byte block size, and always adds a block if the plaintext is a multiple of the block size
+    final long numBlocks = ((long) inputSize + 16) / 16;
+
+    // 16-byte IV will be generated and prepended to the ciphertext
+    // IV + AES-256 encrypted data + HmacSHA256
+    return 16 + (numBlocks * 16) + 32;
   }
 }
