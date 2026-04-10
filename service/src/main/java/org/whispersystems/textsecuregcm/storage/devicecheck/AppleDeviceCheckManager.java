@@ -206,7 +206,9 @@ public class AppleDeviceCheckManager {
     }
 
     // Store the updated sign count, so we can check the next assertion (step 6)
-    appleDeviceChecks.updateCounter(account, keyId, appleDevice.getCounter());
+    if (!appleDeviceChecks.updateCounter(account, keyId, appleDevice.getCounter())) {
+      throw new RequestReuseException("Sign count from request less than stored sign count");
+    }
     removeChallenge(redisChallengeKey);
   }
 
