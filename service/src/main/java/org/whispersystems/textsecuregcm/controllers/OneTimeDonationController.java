@@ -118,12 +118,12 @@ public class OneTimeDonationController {
 
   public static class CreateBoostRequest {
 
-    @Schema(required = true, maxLength = 3, minLength = 3)
+    @Schema(maxLength = 3, minLength = 3)
     @NotEmpty
     @ExactlySize(3)
     public String currency;
 
-    @Schema(required = true, minimum = "1", description = "The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)")
+    @Schema(minimum = "1", description = "The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)", requiredMode = Schema.RequiredMode.REQUIRED)
     @Min(1)
     public long amount;
 
@@ -171,7 +171,7 @@ public class OneTimeDonationController {
 
     return CompletableFuture.runAsync(() ->
             validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), stripeManager))
-        .thenCompose(unused -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level,
+        .thenCompose(_ -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level,
             getClientPlatform(userAgent)))
         .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
   }
@@ -235,7 +235,6 @@ public class OneTimeDonationController {
   public CompletableFuture<Response> createPayPalBoost(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid CreatePayPalBoostRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
       @Context ContainerRequestContext containerRequestContext) {
 
     if (authenticatedAccount.isPresent()) {
@@ -244,7 +243,7 @@ public class OneTimeDonationController {
 
     return CompletableFuture.runAsync(() ->
             validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager))
-        .thenCompose(unused -> {
+        .thenCompose(_ -> {
           final List<Locale> acceptableLanguages =
               HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
 
@@ -388,7 +387,7 @@ public class OneTimeDonationController {
       final long finalLevel = level;
       return issuedReceiptsManager.recordIssuance(paymentDetails.id(), request.processor,
               receiptCredentialRequest, clock.instant())
-          .thenCompose(unused -> oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created()))
+          .thenCompose(_ -> oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created()))
           .thenApply(paidAt -> {
             Instant expiration = paidAt
                 .plus(levelExpiration)
