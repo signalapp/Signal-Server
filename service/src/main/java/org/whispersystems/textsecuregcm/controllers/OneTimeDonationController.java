@@ -127,7 +127,8 @@ public class OneTimeDonationController {
     @Min(1)
     public long amount;
 
-    @Schema(description = "The level for the boost payment", defaultValue = "1", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "The level for the boost payment", defaultValue = "1", minimum = "1", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Min(1)
     public long level = 1;
 
     @Schema(description = "The payment method", defaultValue = "CARD")
@@ -177,13 +178,19 @@ public class OneTimeDonationController {
   }
 
   /**
-   * Validates that the currency is supported by the {@code manager} and {@code request.paymentMethod} and that the
-   * amount meets minimum and maximum constraints.
+   * Validates that the request level is valid, the currency is supported by the {@code manager} and {@code request.paymentMethod},
+   * and that the amount meets minimum and maximum constraints.
    *
    * @throws BadRequestException indicates validation failed. Inspect {@code response.error} for details
    */
   private void validateRequestCurrencyAmount(final CreateBoostRequest request, final BigDecimal amount,
       final CustomerAwareSubscriptionPaymentProcessor manager) {
+
+    if (!(request.level == oneTimeDonationConfiguration.gift().level()
+        || request.level == oneTimeDonationConfiguration.boost().level())) {
+      throw new BadRequestException(
+          Response.status(Response.Status.BAD_REQUEST).entity(Map.of("error", "invalid_level")).build());
+    }
 
     if (!manager.getSupportedCurrenciesForPaymentMethod(request.paymentMethod)
         .contains(request.currency.toLowerCase(Locale.ROOT))) {

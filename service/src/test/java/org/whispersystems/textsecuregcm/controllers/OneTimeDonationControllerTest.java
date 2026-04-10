@@ -104,8 +104,7 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
         .post(Entity.json("""
               {
                 "currency": "USD",
-                "amount": 249,
-                "level": null
+                "amount": 249
               }
             """));
     assertThat(response.getStatus()).isEqualTo(400);
@@ -125,7 +124,6 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
               {
                 "currency": "EUR",
                 "amount": 1000001,
-                "level": null,
                 "paymentMethod": "SEPA_DEBIT"
               }
             """));
@@ -147,7 +145,6 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
               {
                 "currency": "USD",
                 "amount": 3000,
-                "level": null,
                 "paymentMethod": "SEPA_DEBIT"
               }
             """));
@@ -170,7 +167,10 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
 
     final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/create")
         .request()
-        .post(Entity.json("{\"currency\": \"USD\", \"amount\": 300, \"level\": null}"));
+        .post(Entity.json("""
+            {"currency": "USD", "amount": 300}
+            """
+        ));
     assertThat(response.getStatus()).isEqualTo(200);
   }
 
