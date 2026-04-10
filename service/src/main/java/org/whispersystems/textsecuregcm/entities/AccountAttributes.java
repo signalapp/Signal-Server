@@ -139,9 +139,22 @@ public class AccountAttributes {
     return this;
   }
 
+  @VisibleForTesting
+  public AccountAttributes withUnrestrictedUnidentifiedAccess(final boolean unrestrictedUnidentifiedAccess) {
+    this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
+    return this;
+  }
+
   @AssertTrue
   @Schema(hidden = true)
   public boolean isEachRegistrationIdValid() {
     return validRegistrationId(registrationId) && validRegistrationId(phoneNumberIdentityRegistrationId);
+  }
+
+  @AssertTrue
+  @Schema(hidden = true)
+  public boolean isUakValid() {
+    return (unrestrictedUnidentifiedAccess && (unidentifiedAccessKey == null || unidentifiedAccessKey.length == 0))
+        || (!unrestrictedUnidentifiedAccess && (unidentifiedAccessKey != null && unidentifiedAccessKey.length == 16));
   }
 }

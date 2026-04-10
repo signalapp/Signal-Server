@@ -36,6 +36,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
@@ -776,13 +777,40 @@ class AccountControllerTest {
     }
   }
 
+  @ParameterizedTest
+  @MethodSource
+  void testSetAccountAttributesUnrestrictedUnidentifiedAccess(final boolean unrestrictedUnidentifiedAccess, final byte[] unidentifiedAccessKey, final int expectedStatus) {
+
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/attributes/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
+            .withUnidentifiedAccessKey(unidentifiedAccessKey)
+            .withUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)))) {
+
+      assertThat(response.getStatus()).isEqualTo(expectedStatus);
+    }
+  }
+
+  static Collection<Arguments> testSetAccountAttributesUnrestrictedUnidentifiedAccess() {
+    return List.of(
+        Arguments.argumentSet("restricted, non-empty UAK", false, new byte[16], 204),
+        Arguments.argumentSet("unrestricted, empty UAK", true, new byte[0], 204),
+        Arguments.argumentSet("restricted, empty UAK", false, new byte[0], 422),
+        Arguments.argumentSet("unrestricted, non-empty UAK", true, new byte[16], 422)
+    );
+  }
+
+
   @Test
   void testSetAccountAttributesNoDiscoverabilityChange() {
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/attributes/")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)))) {
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
+            .withUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
     }
@@ -794,7 +822,8 @@ class AccountControllerTest {
         .target("/v1/accounts/attributes/")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
-        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)))) {
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
+            .withUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
     }
@@ -811,6 +840,7 @@ class AccountControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
         .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
+            .withUnidentifiedAccessKey(new byte[16])
             .withRecoveryPassword(recoveryPassword)))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
@@ -824,7 +854,8 @@ class AccountControllerTest {
         .target("/v1/accounts/attributes/")
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)))) {
+        .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)
+            .withUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
     }

@@ -89,6 +89,7 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class RegistrationControllerTest {
@@ -901,10 +902,12 @@ class RegistrationControllerTest {
     final Set<DeviceCapability> deviceCapabilities = DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES;
 
     final AccountAttributes fetchesMessagesAccountAttributes =
-        new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities);
+        new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities)
+            .withUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
 
     final AccountAttributes pushAccountAttributes =
-        new AccountAttributes(false, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities);
+        new AccountAttributes(false, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities)
+            .withUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
 
     final String apnsToken = "apns-token";
     final String gcmToken = "gcm-token";
@@ -1017,7 +1020,8 @@ class RegistrationControllerTest {
 
     final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId,
         "name".getBytes(StandardCharsets.UTF_8), REGLOCK,
-        true, deviceCapabilities);
+        true, deviceCapabilities)
+        .withUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
 
     return new RegistrationRequest(
         Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8)),
