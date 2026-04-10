@@ -236,6 +236,7 @@ public class AuthHelper {
   }
 
   public static String getUnidentifiedAccessHeader(byte[] key) {
+    assert key.length == 16;
     return Base64.getEncoder().encodeToString(key);
   }
 

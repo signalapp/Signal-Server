@@ -92,6 +92,7 @@ public class Account {
   private String registrationLockSalt;
 
   @JsonProperty("uak")
+  @Nullable
   private byte[] unidentifiedAccessKey;
 
   @JsonProperty("uua")
@@ -432,7 +433,9 @@ public class Account {
   public Optional<byte[]> getUnidentifiedAccessKey() {
     requireNotStale();
 
-    return Optional.ofNullable(unidentifiedAccessKey);
+    return Optional.ofNullable((unidentifiedAccessKey == null || unidentifiedAccessKey.length == 0)
+        ? null
+        : unidentifiedAccessKey);
   }
 
   public void setUnidentifiedAccessKey(final byte[] unidentifiedAccessKey) {

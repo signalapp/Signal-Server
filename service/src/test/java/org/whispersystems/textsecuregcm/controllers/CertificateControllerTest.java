@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
@@ -46,6 +47,7 @@ import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.entities.DeliveryCertificate;
 import org.whispersystems.textsecuregcm.entities.GroupCredentials;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.SenderCertificate;
@@ -214,7 +216,9 @@ class CertificateControllerTest {
     Response response = resources.getJerseyTest()
         .target("/v1/certificate/delivery")
         .request()
-        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("1234".getBytes()))
+        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY,
+            AuthHelper.getUnidentifiedAccessHeader(
+                Arrays.copyOf("1234".getBytes(), UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH)))
         .get();
 
     assertEquals(401, response.getStatus());

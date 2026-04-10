@@ -37,6 +37,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +60,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.entities.CheckKeysRequest;
 import org.whispersystems.textsecuregcm.entities.ECPreKey;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -93,20 +95,22 @@ import org.whispersystems.textsecuregcm.util.TestClock;
 class KeysControllerTest {
 
   private static final String EXISTS_NUMBER = "+14152222222";
-  private static final UUID   EXISTS_UUID   = UUID.randomUUID();
-  private static final UUID   EXISTS_PNI    = UUID.randomUUID();
+  private static final UUID EXISTS_UUID = UUID.randomUUID();
+  private static final UUID EXISTS_PNI = UUID.randomUUID();
   private static final AciServiceIdentifier EXISTS_ACI = new AciServiceIdentifier(EXISTS_UUID);
   private static final PniServiceIdentifier EXISTS_PNI_SERVICE_ID = new PniServiceIdentifier(EXISTS_PNI);
+  private static final byte[] EXISTS_UAK = Arrays.copyOf(
+      "1337".getBytes(), UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
 
-  private static final UUID   OTHER_UUID   = UUID.randomUUID();
+  private static final UUID OTHER_UUID = UUID.randomUUID();
   private static final AciServiceIdentifier OTHER_ACI = new AciServiceIdentifier(OTHER_UUID);
 
-  private static final UUID   NOT_EXISTS_UUID   = UUID.randomUUID();
+  private static final UUID NOT_EXISTS_UUID = UUID.randomUUID();
   private static final AciServiceIdentifier NOT_EXISTS_ACI = new AciServiceIdentifier(NOT_EXISTS_UUID);
 
   private static final byte SAMPLE_DEVICE_ID = 1;
 
-  private static final int SAMPLE_REGISTRATION_ID  =  999;
+  private static final int SAMPLE_REGISTRATION_ID = 999;
   private static final int SAMPLE_PNI_REGISTRATION_ID = 1717;
 
   private final ECKeyPair IDENTITY_KEY_PAIR = ECKeyPair.generate();
@@ -218,7 +222,7 @@ class KeysControllerTest {
     when(existsAccount.getIdentityKey(IdentityType.ACI)).thenReturn(IDENTITY_KEY);
     when(existsAccount.getIdentityKey(IdentityType.PNI)).thenReturn(PNI_IDENTITY_KEY);
     when(existsAccount.getNumber()).thenReturn(EXISTS_NUMBER);
-    when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of("1337".getBytes()));
+    when(existsAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(EXISTS_UAK));
 
     when(accounts.getByServiceIdentifier(any())).thenReturn(Optional.empty());
     when(accounts.getByServiceIdentifierAsync(any())).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
@@ -389,7 +393,7 @@ class KeysControllerTest {
         .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
         .queryParam("pq", "true")
         .request()
-        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader(EXISTS_UAK))
         .get(PreKeyResponse.class);
 
     assertThat(result.getIdentityKey()).isEqualTo(existsAccount.getIdentityKey(IdentityType.ACI));
@@ -448,7 +452,7 @@ class KeysControllerTest {
         .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(serverSecretParams, List.of(authorizedTarget), expiration));
 
     if (includeUak) {
-      builder = builder.header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()));
+      builder = builder.header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader(EXISTS_UAK));
     }
 
     Response response = builder.get();
@@ -501,7 +505,7 @@ class KeysControllerTest {
     Response result = resources.getJerseyTest()
         .target(String.format("/v2/keys/%s/*", EXISTS_UUID))
         .request()
-        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("1337".getBytes()))
+        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader(EXISTS_UAK))
         .get();
 
     assertThat(result).isNotNull();
@@ -513,7 +517,7 @@ class KeysControllerTest {
     Response response = resources.getJerseyTest()
                                      .target(String.format("/v2/keys/%s/1", EXISTS_UUID))
                                      .request()
-                                     .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("9999".getBytes()))
+                                     .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader(Arrays.copyOf("9999".getBytes(), UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH)))
                                      .get();
 
     assertThat(response.getStatus()).isEqualTo(401);

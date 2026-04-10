@@ -39,6 +39,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HexFormat;
@@ -76,6 +77,7 @@ import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequestContext;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.BadgeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -291,7 +293,9 @@ class ProfileControllerTest {
     final Response response = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO)
         .request()
-        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("incorrect".getBytes()))
+        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY,
+            AuthHelper.getUnidentifiedAccessHeader(
+                Arrays.copyOf("incorrect".getBytes(), UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH)))
         .get();
 
     assertThat(response.getStatus()).isEqualTo(401);
@@ -418,7 +422,8 @@ class ProfileControllerTest {
     final Response response = resources.getJerseyTest()
         .target("/v1/profile/" + AuthHelper.VALID_PNI_TWO)
         .request()
-        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader("incorrect".getBytes()))
+        .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, AuthHelper.getUnidentifiedAccessHeader(
+            Arrays.copyOf("incorrect".getBytes(), UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH)))
         .get();
 
     assertThat(response.getStatus()).isEqualTo(401);

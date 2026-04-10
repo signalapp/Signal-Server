@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import jakarta.ws.rs.WebApplicationException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class OptionalAccessTest {
 
@@ -51,20 +53,23 @@ class OptionalAccessTest {
   }
 
   private static List<Arguments> verify() {
-    final String unidentifiedAccessKey = RandomStringUtils.secure().nextAlphanumeric(16);
+    final byte[] unidentifiedAccessKey = TestRandomUtil.nextBytes(16);
 
     final Anonymous correctUakHeader =
-        new Anonymous(Base64.getEncoder().encodeToString(unidentifiedAccessKey.getBytes()));
+        new Anonymous(Base64.getEncoder().encodeToString(unidentifiedAccessKey));
+
+    final byte[] incorrectUnidentifiedAccessKey = Arrays.copyOf(unidentifiedAccessKey, unidentifiedAccessKey.length);
+    incorrectUnidentifiedAccessKey[0] = (byte)(incorrectUnidentifiedAccessKey[0]+1);
 
     final Anonymous incorrectUakHeader =
-        new Anonymous(Base64.getEncoder().encodeToString((unidentifiedAccessKey + "-incorrect").getBytes()));
+        new Anonymous(Base64.getEncoder().encodeToString(incorrectUnidentifiedAccessKey));
 
     final Account targetAccount = mock(Account.class);
     final ServiceIdentifier targetAccountAciIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     final ServiceIdentifier targetAccountPniIdentifier = new PniServiceIdentifier(UUID.randomUUID());
     when(targetAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(mock(Device.class)));
     when(targetAccount.getUnidentifiedAccessKey())
-        .thenReturn(Optional.of(unidentifiedAccessKey.getBytes(StandardCharsets.UTF_8)));
+        .thenReturn(Optional.of(unidentifiedAccessKey));
     when(targetAccount.isIdentifiedBy(targetAccountAciIdentifier)).thenReturn(true);
     when(targetAccount.isIdentifiedBy(targetAccountPniIdentifier)).thenReturn(true);
 
@@ -84,7 +89,7 @@ class OptionalAccessTest {
     final ServiceIdentifier inactiveTargetAccountAciIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     when(inactiveTargetAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(mock(Device.class)));
     when(inactiveTargetAccount.getUnidentifiedAccessKey())
-        .thenReturn(Optional.of(unidentifiedAccessKey.getBytes(StandardCharsets.UTF_8)));
+        .thenReturn(Optional.of(unidentifiedAccessKey));
     when(inactiveTargetAccount.isIdentifiedBy(inactiveTargetAccountAciIdentifier)).thenReturn(true);
 
     return List.of(
