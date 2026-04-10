@@ -96,8 +96,8 @@
     <redis.image>redis:7.4-alpine@sha256:af1d0fc3f63b02b13ff7906c9baf7c5b390b8881ca08119cd570677fe2f60b55</redis.image>
     <redis-cluster.image>docker.io/bitnamilegacy/redis-cluster:7.4.3@sha256:a53d023fdfaf8a8d7ddc58da040d3494e4cb45772644618ffa44c42dcd32b9af</redis-cluster.image>
 
-    <!-- eclipse-temurin:24.0.2_12-jre-noble (note: always use the multi-arch manifest *LIST* here) -->
-    <docker.image.sha256>85ecfc9bbb42af046d2bacbf1219d2005be4840cbfa16c2e6fd910d9ccfec95b</docker.image.sha256>
+    <!-- eclipse-temurin:25.0.2_10-jre-noble (note: always use the multi-arch manifest *LIST* here) -->
+    <docker.image.sha256>d2975fcad8dc9ac2180c0c278c8ae7b3443d36cb80845cb0811c20d9463f5fee</docker.image.sha256>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -508,7 +508,7 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.15.0</version>
         <configuration>
-          <release>24</release>
+          <release>25</release>
         </configuration>
       </plugin>
 
