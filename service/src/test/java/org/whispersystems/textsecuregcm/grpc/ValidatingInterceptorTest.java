@@ -104,6 +104,25 @@ public class ValidatingInterceptorTest {
   }
 
   @ParameterizedTest
+  @ValueSource(strings = {"1====", "zzz?", "123/", "123+"})
+  public void testBase64UrlValidationFailure(final String invalidBase64Url) {
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setBase64Url(invalidBase64Url)
+            .build()
+    ));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"abc=", "ab==", "aa", "ab", "abc", "A_b-Cd"})
+  public void testBase64UrlPermittedValues(final String validBase64Url) {
+    assertDoesNotThrow(() -> stub.validationsEndpoint(
+        builderWithValidDefaults()
+            .setBase64Url(validBase64Url)
+            .build()));
+  }
+
+  @ParameterizedTest
   @ValueSource(ints = {0, 1, 2, 3, 4, 6, 1000})
   public void testExactlySizeValidationFailure(final int size) throws Exception {
     final String stringValue = RandomStringUtils.secure().nextAlphanumeric(size);
@@ -450,7 +469,8 @@ public class ValidatingInterceptorTest {
         .setI32Range(15)
         .setNested(NestedMessage.getDefaultInstance())
         .addRepeatedNested(NestedMessage.getDefaultInstance())
-        .putMapNested("test", NestedMessage.getDefaultInstance());
+        .putMapNested("test", NestedMessage.getDefaultInstance())
+        .setBase64Url("123aBc_-");
   }
 
   private static void assertStatusException(final Status expected, final Executable serviceCall) {

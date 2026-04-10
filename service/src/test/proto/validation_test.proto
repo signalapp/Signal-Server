@@ -77,6 +77,8 @@ message ValidationsRequest {
     RequirePresentMessage oneOfMessage = 31 [(require.present) = true];
     bytes oneOfNonEmptyBytes = 32 [(require.nonEmpty) = true];
   }
+
+  optional string base64url = 33 [(require.base64url) = true];
 }
 
 message NestedMessage {

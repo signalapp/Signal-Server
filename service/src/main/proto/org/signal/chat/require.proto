@@ -147,6 +147,21 @@ extend google.protobuf.FieldOptions {
    *````
    */
   optional bool present = 70007;
+
+  /*
+   * Requires a value of a string field to be a valid base64 URL string. The
+   * string may be padded or unpadded. If the field is `optional`, this check
+   * allows a value to be not set.
+   *
+   *  ```
+   *  import "org/signal/chat/require.proto";
+   *
+   *  message Data {
+   *    string myString = 1 [(require.base64url)];
+   *  }
+   *  ```
+   */
+  optional bool base64url  = 70008;
 }
 
 message SizeConstraint {

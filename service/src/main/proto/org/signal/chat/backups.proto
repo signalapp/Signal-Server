@@ -390,7 +390,7 @@ message CopyMediaItem {
   uint32 source_attachment_cdn = 1 [(require.range).min = 1, (require.range).max = 3];
 
   // The attachment key of the object to copy into the backup
-  string source_key = 2 [(require.nonEmpty) = true];
+  string source_key = 2 [(require.nonEmpty) = true, (require.base64url) = true];
 
   // The length of the source attachment before the encryption applied by the
   // copy operation

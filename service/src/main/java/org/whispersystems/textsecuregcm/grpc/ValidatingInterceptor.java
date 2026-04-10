@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.grpc.validators.Base64UrlFieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.E164FieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.EnumSpecifiedFieldValidator;
 import org.whispersystems.textsecuregcm.grpc.validators.ExactlySizeFieldValidator;
@@ -37,7 +38,8 @@ public class ValidatingInterceptor implements ServerInterceptor {
       "org.signal.chat.require.e164", new E164FieldValidator(),
       "org.signal.chat.require.exactlySize", new ExactlySizeFieldValidator(),
       "org.signal.chat.require.range", new RangeFieldValidator(),
-      "org.signal.chat.require.size", new SizeFieldValidator()
+      "org.signal.chat.require.size", new SizeFieldValidator(),
+      "org.signal.chat.require.base64url", new Base64UrlFieldValidator()
   );
 
   @Override
