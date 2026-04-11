@@ -15,9 +15,12 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
+import io.lettuce.core.RedisFuture;
 import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +38,7 @@ public class ProfilesManager {
   private final Logger logger = LoggerFactory.getLogger(ProfilesManager.class);
 
   private static final String CACHE_PREFIX = "profiles::";
+  private static final String CACHE_PREFIX_V1 = "profiles_v1::";
 
   private final Profiles profiles;
   private final FaultTolerantRedisClusterClient cacheCluster;
@@ -145,6 +149,7 @@ public class ProfilesManager {
       final String profileJson = mapper.writeValueAsString(profile);
 
       cacheCluster.useCluster(connection -> connection.sync().hset(getCacheKey(uuid), profile.version(), profileJson));
+      cacheCluster.useBinaryCluster(connection -> connection.sync().hset(getCacheKeyV1(uuid), profile.version().getBytes(), profileJson.getBytes()));
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException(e);
     }
@@ -159,8 +164,11 @@ public class ProfilesManager {
       throw new IllegalArgumentException(e);
     }
 
-    return cacheCluster.withCluster(connection ->
-        connection.async().hset(getCacheKey(uuid), profile.version(), profileJson))
+    final RedisFuture<Boolean> oldSet = cacheCluster.withCluster(connection ->
+        connection.async().hset(getCacheKey(uuid), profile.version(), profileJson));
+    final RedisFuture<Boolean> newSet = cacheCluster.withBinaryCluster(connection ->
+        connection.async().hset(getCacheKeyV1(uuid), profile.version().getBytes(), profileJson.getBytes()));
+    return CompletableFuture.allOf(oldSet.toCompletableFuture(), newSet.toCompletableFuture())
             .thenRun(Util.NOOP)
             .toCompletableFuture();
   }
@@ -200,9 +208,15 @@ public class ProfilesManager {
   }
 
   private CompletableFuture<Void> redisDelete(UUID uuid) {
+
+    final Supplier<CompletionStage<Void>> deletesSupplier = () ->
+        CompletableFuture.allOf(
+            cacheCluster.withCluster(connection -> connection.async().del(getCacheKey(uuid))).toCompletableFuture(),
+            cacheCluster.withBinaryCluster(connection -> connection.async().del(getCacheKeyV1(uuid)))
+                .toCompletableFuture()
+        );
     return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
-        .executeCompletionStage(retryExecutor,
-            () -> cacheCluster.withCluster(connection -> connection.async().del(getCacheKey(uuid))))
+        .executeCompletionStage(retryExecutor, deletesSupplier)
         .toCompletableFuture()
         .thenRun(Util.NOOP);
   }
@@ -210,5 +224,10 @@ public class ProfilesManager {
   @VisibleForTesting
   static String getCacheKey(UUID uuid) {
     return CACHE_PREFIX + uuid.toString();
+  }
+
+  @VisibleForTesting
+  static byte[] getCacheKeyV1(UUID uuid) {
+    return (CACHE_PREFIX_V1 + '{' + uuid.toString() + '}').getBytes();
   }
 }
