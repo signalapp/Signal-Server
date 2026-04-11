@@ -130,8 +130,8 @@ public class TestUser {
   public AccountAttributes accountAttributes() {
     return new AccountAttributes(true, registrationId, pniRegistrationId, "".getBytes(StandardCharsets.UTF_8), "", true,
         DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES)
-        .withUnidentifiedAccessKey(unidentifiedAccessKey)
-        .withRecoveryPassword(registrationPassword);
+        .setUnidentifiedAccessKey(unidentifiedAccessKey)
+        .setRecoveryPassword(registrationPassword);
   }
 
   public void setAciUuid(final UUID aciUuid) {

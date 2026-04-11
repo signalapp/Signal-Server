@@ -60,9 +60,9 @@ import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.ApnRegistrationId;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
+import org.whispersystems.textsecuregcm.entities.DeviceAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -252,11 +252,11 @@ class DeviceControllerTest {
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
-    final AccountAttributes accountAttributes = new AccountAttributes(fetchesMessages, 1234, 5678, null,
-        null, true, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
+    final DeviceAttributes deviceAttributes = new DeviceAttributes(fetchesMessages, 1234, 5678, null,
+         DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        accountAttributes,
+        deviceAttributes,
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
 
     final LinkDeviceResponse response = resources.getJerseyTest()
@@ -335,7 +335,7 @@ class DeviceControllerTest {
     }
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, 1234, 5678, null, null, true, requestCapabilities),
+        new DeviceAttributes(false, 1234, 5678, null, requestCapabilities),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     final int expectedStatus =
@@ -388,7 +388,7 @@ class DeviceControllerTest {
         .collect(Collectors.toSet());
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, 1234, 5678, null, null, true, requestCapabilities),
+        new DeviceAttributes(false, 1234, 5678, null, requestCapabilities),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     try (final Response response = resources.getJerseyTest()
@@ -426,7 +426,7 @@ class DeviceControllerTest {
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, 1234, 5678, null, null, true, null),
+        new DeviceAttributes(false, 1234, 5678, null, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     try (final Response response = resources.getJerseyTest()
@@ -468,11 +468,11 @@ class DeviceControllerTest {
 
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
-    final AccountAttributes accountAttributes = new AccountAttributes(true, 1234, 5678, null,
-        null, true, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
+    final DeviceAttributes deviceAttributes = new DeviceAttributes(true, 1234, 5678, null,
+        DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES);
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        accountAttributes,
+        deviceAttributes,
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -513,7 +513,7 @@ class DeviceControllerTest {
     when(commands.get(anyString())).thenReturn("");
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-            new AccountAttributes(false, 1234, 5678, null, null, true, null),
+            new DeviceAttributes(false, 1234, 5678, null, null),
             new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     try (final Response response = resources.getJerseyTest()
@@ -562,7 +562,7 @@ class DeviceControllerTest {
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.token(),
-        new AccountAttributes(fetchesMessages, 1234, 5678, null, null, true, null),
+        new DeviceAttributes(fetchesMessages, 1234, 5678, null, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnRegistrationId, gcmRegistrationId));
 
     try (final Response response = resources.getJerseyTest()
@@ -610,7 +610,7 @@ class DeviceControllerTest {
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(pniIdentityKey);
 
     final LinkDeviceRequest request = new LinkDeviceRequest(deviceCode.token(),
-        new AccountAttributes(true, 1234, 5678, null, null, true, null),
+        new DeviceAttributes(true, 1234, 5678, null, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -670,7 +670,7 @@ class DeviceControllerTest {
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(true, 1234, 5678, null, null, true, null),
+        new DeviceAttributes(true, 1234, 5678, null, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -703,7 +703,7 @@ class DeviceControllerTest {
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(true, 1234, 5678, null, null, true, null),
+        new DeviceAttributes(true, 1234, 5678, null, null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -762,7 +762,7 @@ class DeviceControllerTest {
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, 1234, 5678, TestRandomUtil.nextBytes(512), null, true, null),
+        new DeviceAttributes(false, 1234, 5678, TestRandomUtil.nextBytes(512), null),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.empty(), Optional.of(new GcmRegistrationId("gcm-id"))));
 
     try (final Response response = resources.getJerseyTest()
@@ -807,7 +807,7 @@ class DeviceControllerTest {
     when(asyncCommands.set(any(), any(), any())).thenReturn(MockRedisFuture.completedFuture(null));
 
     final LinkDeviceRequest request = new LinkDeviceRequest("link-device-token",
-        new AccountAttributes(false, registrationId, pniRegistrationId, null, null, true, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES),
+        new DeviceAttributes(false, registrationId, pniRegistrationId, null, DeviceCapability.CAPABILITIES_REQUIRED_FOR_NEW_DEVICES),
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, Optional.of(new ApnRegistrationId("apn")), Optional.empty()));
 
     try (final Response response = resources.getJerseyTest()
@@ -1461,14 +1461,14 @@ class DeviceControllerTest {
   @NullSource
   @ValueSource(strings = {""})
   void linkDeviceMissingVerificationCode(final String verificationCode) {
-    final AccountAttributes accountAttributes = new AccountAttributes(true, 1234, 5678, null,
-        null, true, Set.of());
+    final DeviceAttributes deviceAttributes = new DeviceAttributes(true, 1234, 5678, null,
+        Set.of());
 
     final ECKeyPair aciIdentityKeyPair = ECKeyPair.generate();
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
     final LinkDeviceRequest request = new LinkDeviceRequest(verificationCode,
-        accountAttributes,
+        deviceAttributes,
         new DeviceActivationRequest(
             KeysHelper.signedECPreKey(1, aciIdentityKeyPair),
             KeysHelper.signedECPreKey(2, pniIdentityKeyPair),

@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -26,6 +27,7 @@ import org.mockito.stubbing.Stubbing;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
+import org.whispersystems.textsecuregcm.entities.DeviceAttributes;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -197,7 +199,8 @@ public class AccountsHelper {
   public static Account createAccount(final AccountsManager accountsManager, final String e164)
       throws InterruptedException {
 
-    return createAccount(accountsManager, e164, new AccountAttributes());
+    return createAccount(accountsManager, e164, new AccountAttributes().setDeviceAttributes(
+        new DeviceAttributes(false, 1, 1, new byte[0], Collections.emptySet())));
   }
 
   public static Account createAccount(final AccountsManager accountsManager, final String e164, final AccountAttributes accountAttributes)

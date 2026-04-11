@@ -4,40 +4,26 @@
  */
 package org.whispersystems.textsecuregcm.entities;
 
-import static org.whispersystems.textsecuregcm.util.RegistrationIdValidator.validRegistrationId;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Size;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
-import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class AccountAttributes {
 
-  @JsonProperty
-  private boolean fetchesMessages;
-
-  @JsonProperty
-  private int registrationId;
-
-  @JsonProperty("pniRegistrationId")
-  private int phoneNumberIdentityRegistrationId;
-
-  @JsonProperty
-  @JsonSerialize(using = ByteArrayAdapter.Serializing.class)
-  @JsonDeserialize(using = ByteArrayAdapter.Deserializing.class)
-  @Size(max = 225)
-  private byte[] name;
+  @JsonUnwrapped
+  @Valid
+  private DeviceAttributes deviceAttributes;
 
   @JsonProperty
   @ExactlySize({0, 64})
@@ -49,12 +35,6 @@ public class AccountAttributes {
 
   @JsonProperty
   private boolean unrestrictedUnidentifiedAccess;
-
-  @JsonProperty
-  @JsonSerialize(using = DeviceCapabilityAdapter.Serializer.class)
-  @JsonDeserialize(using = DeviceCapabilityAdapter.Deserializer.class)
-  @Nullable
-  private Set<DeviceCapability> capabilities;
 
   @JsonProperty
   private boolean discoverableByPhoneNumber = true;
@@ -77,29 +57,26 @@ public class AccountAttributes {
       final String registrationLock,
       final boolean discoverableByPhoneNumber,
       final Set<DeviceCapability> capabilities) {
-    this.fetchesMessages = fetchesMessages;
-    this.registrationId = registrationId;
-    this.phoneNumberIdentityRegistrationId = phoneNumberIdentifierRegistrationId;
-    this.name = name;
+
+    this.deviceAttributes = new DeviceAttributes(fetchesMessages, registrationId, phoneNumberIdentifierRegistrationId, name, capabilities);
     this.registrationLock = registrationLock;
     this.discoverableByPhoneNumber = discoverableByPhoneNumber;
-    this.capabilities = capabilities;
   }
 
   public boolean getFetchesMessages() {
-    return fetchesMessages;
+    return deviceAttributes.fetchesMessages();
   }
 
   public int getRegistrationId() {
-    return registrationId;
+    return deviceAttributes.registrationId();
   }
 
   public int getPhoneNumberIdentityRegistrationId() {
-    return phoneNumberIdentityRegistrationId;
+    return deviceAttributes.phoneNumberIdentityRegistrationId();
   }
 
   public byte[] getName() {
-    return name;
+    return deviceAttributes.name();
   }
 
   public String getRegistrationLock() {
@@ -116,7 +93,7 @@ public class AccountAttributes {
 
   @Nullable
   public Set<DeviceCapability> getCapabilities() {
-    return capabilities;
+    return deviceAttributes.capabilities();
   }
 
   public boolean isDiscoverableByPhoneNumber() {
@@ -128,27 +105,27 @@ public class AccountAttributes {
   }
 
   @VisibleForTesting
-  public AccountAttributes withUnidentifiedAccessKey(final byte[] unidentifiedAccessKey) {
+  public AccountAttributes setUnidentifiedAccessKey(final byte[] unidentifiedAccessKey) {
     this.unidentifiedAccessKey = unidentifiedAccessKey;
     return this;
   }
 
   @VisibleForTesting
-  public AccountAttributes withRecoveryPassword(final byte[] recoveryPassword) {
+  public AccountAttributes setRecoveryPassword(final byte[] recoveryPassword) {
     this.recoveryPassword = recoveryPassword;
     return this;
   }
 
   @VisibleForTesting
-  public AccountAttributes withUnrestrictedUnidentifiedAccess(final boolean unrestrictedUnidentifiedAccess) {
-    this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
+  public AccountAttributes setDeviceAttributes(final DeviceAttributes deviceAttributes) {
+    this.deviceAttributes = deviceAttributes;
     return this;
   }
 
-  @AssertTrue
-  @Schema(hidden = true)
-  public boolean isEachRegistrationIdValid() {
-    return validRegistrationId(registrationId) && validRegistrationId(phoneNumberIdentityRegistrationId);
+  @VisibleForTesting
+  public AccountAttributes setUnrestrictedUnidentifiedAccess(final boolean unrestrictedUnidentifiedAccess) {
+    this.unrestrictedUnidentifiedAccess = unrestrictedUnidentifiedAccess;
+    return this;
   }
 
   @AssertTrue

@@ -786,8 +786,8 @@ class AccountControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
-            .withUnidentifiedAccessKey(unidentifiedAccessKey)
-            .withUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)))) {
+            .setUnidentifiedAccessKey(unidentifiedAccessKey)
+            .setUnrestrictedUnidentifiedAccess(unrestrictedUnidentifiedAccess)))) {
 
       assertThat(response.getStatus()).isEqualTo(expectedStatus);
     }
@@ -810,7 +810,7 @@ class AccountControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
-            .withUnidentifiedAccessKey(new byte[16])))) {
+            .setUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
     }
@@ -823,7 +823,7 @@ class AccountControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
         .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
-            .withUnidentifiedAccessKey(new byte[16])))) {
+            .setUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
     }
@@ -840,8 +840,8 @@ class AccountControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.UNDISCOVERABLE_UUID, AuthHelper.UNDISCOVERABLE_PASSWORD))
         .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, true, null)
-            .withUnidentifiedAccessKey(new byte[16])
-            .withRecoveryPassword(recoveryPassword)))) {
+            .setUnidentifiedAccessKey(new byte[16])
+            .setRecoveryPassword(recoveryPassword)))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
       verify(registrationRecoveryPasswordsManager).store(AuthHelper.UNDISCOVERABLE_PNI, recoveryPassword);
@@ -855,7 +855,7 @@ class AccountControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)
-            .withUnidentifiedAccessKey(new byte[16])))) {
+            .setUnidentifiedAccessKey(new byte[16])))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
     }
@@ -868,7 +868,7 @@ class AccountControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
         .put(Entity.json(new AccountAttributes(false, 2222, 3333, null, null, false, null)
-            .withUnidentifiedAccessKey(new byte[7])))) {
+            .setUnidentifiedAccessKey(new byte[7])))) {
 
       assertThat(response.getStatus()).isEqualTo(422);
     }

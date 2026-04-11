@@ -903,11 +903,11 @@ class RegistrationControllerTest {
 
     final AccountAttributes fetchesMessagesAccountAttributes =
         new AccountAttributes(true, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities)
-            .withUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
+            .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
 
     final AccountAttributes pushAccountAttributes =
         new AccountAttributes(false, registrationId, pniRegistrationId, "test".getBytes(StandardCharsets.UTF_8), null, true, deviceCapabilities)
-            .withUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
+            .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
 
     final String apnsToken = "apns-token";
     final String gcmToken = "gcm-token";
@@ -1021,7 +1021,7 @@ class RegistrationControllerTest {
     final AccountAttributes accountAttributes = new AccountAttributes(true, registrationId, pniRegistrationId,
         "name".getBytes(StandardCharsets.UTF_8), REGLOCK,
         true, deviceCapabilities)
-        .withUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
+        .setUnidentifiedAccessKey(TestRandomUtil.nextBytes(16));
 
     return new RegistrationRequest(
         Base64.getEncoder().encodeToString(sessionId.getBytes(StandardCharsets.UTF_8)),

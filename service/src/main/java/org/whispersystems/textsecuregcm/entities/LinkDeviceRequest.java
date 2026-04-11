@@ -19,7 +19,8 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
 
                                 @NotNull
                                 @Valid
-                                AccountAttributes accountAttributes,
+                                @JsonProperty("accountAttributes")
+                                DeviceAttributes deviceAttributes,
 
                                 @NotNull
                                 @Valid
@@ -30,7 +31,7 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
   @JsonCreator
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public LinkDeviceRequest(@JsonProperty("verificationCode") String verificationCode,
-                           @JsonProperty("accountAttributes") AccountAttributes accountAttributes,
+                           @JsonProperty("accountAttributes") DeviceAttributes deviceAttributes,
                            @JsonProperty("aciSignedPreKey") @NotNull @Valid ECSignedPreKey aciSignedPreKey,
                            @JsonProperty("pniSignedPreKey") @NotNull @Valid ECSignedPreKey pniSignedPreKey,
                            @JsonProperty("aciPqLastResortPreKey") @NotNull @Valid KEMSignedPreKey aciPqLastResortPreKey,
@@ -38,14 +39,14 @@ public record LinkDeviceRequest(@Schema(requiredMode = Schema.RequiredMode.REQUI
                            @JsonProperty("apnToken") Optional<@Valid ApnRegistrationId> apnToken,
                            @JsonProperty("gcmToken") Optional<@Valid GcmRegistrationId> gcmToken) {
 
-    this(verificationCode, accountAttributes,
+    this(verificationCode, deviceAttributes,
         new DeviceActivationRequest(aciSignedPreKey, pniSignedPreKey, aciPqLastResortPreKey, pniPqLastResortPreKey, apnToken, gcmToken));
   }
 
   @AssertTrue
   @Schema(hidden = true)
   public boolean isExactlyOneMessageDeliveryChannel() {
-    if (accountAttributes != null && accountAttributes.getFetchesMessages()) {
+    if (deviceAttributes != null && deviceAttributes.fetchesMessages()) {
       return deviceActivationRequest().apnToken().isEmpty() && deviceActivationRequest().gcmToken().isEmpty();
     } else {
       return deviceActivationRequest().apnToken().isPresent() ^ deviceActivationRequest().gcmToken().isPresent();

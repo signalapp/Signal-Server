@@ -50,8 +50,8 @@ import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
 import org.whispersystems.textsecuregcm.auth.ChangesLinkedDevices;
-import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceActivationRequest;
+import org.whispersystems.textsecuregcm.entities.DeviceAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceInfo;
 import org.whispersystems.textsecuregcm.entities.DeviceInfoList;
 import org.whispersystems.textsecuregcm.entities.LinkDeviceRequest;
@@ -241,7 +241,7 @@ public class DeviceController {
         .orElseThrow(ForbiddenException::new);
 
     final DeviceActivationRequest deviceActivationRequest = linkDeviceRequest.deviceActivationRequest();
-    final AccountAttributes accountAttributes = linkDeviceRequest.accountAttributes();
+    final DeviceAttributes deviceAttributes = linkDeviceRequest.deviceAttributes();
 
     rateLimiters.getVerifyDeviceLimiter().validate(account.getUuid());
 
@@ -263,7 +263,7 @@ public class DeviceController {
       throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
     }
 
-    final Set<DeviceCapability> capabilities = accountAttributes.getCapabilities();
+    final Set<DeviceCapability> capabilities = deviceAttributes.capabilities();
 
     if (capabilities == null) {
       throw new WebApplicationException(Response.status(422, "Missing device capabilities").build());
@@ -282,13 +282,13 @@ public class DeviceController {
     }
 
     try {
-      final Pair<Account, Device> accountAndDevice = accounts.addDevice(account, new DeviceSpec(accountAttributes.getName(),
+      final Pair<Account, Device> accountAndDevice = accounts.addDevice(account, new DeviceSpec(deviceAttributes.name(),
                   authorizationHeader.getPassword(),
                   signalAgent,
                   capabilities,
-                  accountAttributes.getRegistrationId(),
-                  accountAttributes.getPhoneNumberIdentityRegistrationId(),
-                  accountAttributes.getFetchesMessages(),
+                  deviceAttributes.registrationId(),
+                  deviceAttributes.phoneNumberIdentityRegistrationId(),
+                  deviceAttributes.fetchesMessages(),
                   deviceActivationRequest.apnToken(),
                   deviceActivationRequest.gcmToken(),
                   deviceActivationRequest.aciSignedPreKey(),
