@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mockito;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -176,7 +177,7 @@ class AccountsManagerUsernameIntegrationTest {
     }
 
     assertThrows(UsernameHashNotAvailableException.class,
-        () -> accountsManager.reserveUsernameHash(account, usernameHashes));
+        () -> accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), usernameHashes));
 
     assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsernameHash()).isEmpty();
   }
@@ -201,7 +202,7 @@ class AccountsManagerUsernameIntegrationTest {
     usernameHashes.add(TestRandomUtil.nextBytes(32));
 
     final byte[] username = accountsManager
-        .reserveUsernameHash(account, usernameHashes)
+        .reserveUsernameHash(account.getIdentifier(IdentityType.ACI), usernameHashes)
         .reservedUsernameHash();
 
     assertArrayEquals(username, availableHash);
@@ -214,14 +215,14 @@ class AccountsManagerUsernameIntegrationTest {
 
     // reserve
     AccountsManager.UsernameReservation reservation =
-        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1));
+        accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1));
 
     assertArrayEquals(reservation.account().getReservedUsernameHash().orElseThrow(), USERNAME_HASH_1);
     assertThat(accountsManager.getByUsernameHash(reservation.reservedUsernameHash()).join()).isEmpty();
 
     // confirm
     account = accountsManager.confirmReservedUsernameHash(
-        reservation.account(),
+        reservation.account().getIdentifier(IdentityType.ACI),
         reservation.reservedUsernameHash(),
         ENCRYPTED_USERNAME_1);
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
@@ -232,7 +233,7 @@ class AccountsManagerUsernameIntegrationTest {
         .isEqualTo(account.getUuid());
 
     // clear
-    account = accountsManager.clearUsernameHash(account);
+    account = accountsManager.clearUsernameHash(account.getIdentifier(IdentityType.ACI));
     assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
     assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsernameHash()).isEmpty();
   }
@@ -243,16 +244,16 @@ class AccountsManagerUsernameIntegrationTest {
     Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 
     AccountsManager.UsernameReservation reservation =
-        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1));
+        accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1));
 
     // confirm
     account = accountsManager.confirmReservedUsernameHash(
-        reservation.account(),
+        reservation.account().getIdentifier(IdentityType.ACI),
         reservation.reservedUsernameHash(),
         ENCRYPTED_USERNAME_1);
 
     // clear
-    account = accountsManager.clearUsernameHash(account);
+    account = accountsManager.clearUsernameHash(account.getIdentifier(IdentityType.ACI));
     assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
     assertThat(accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getUsernameHash()).isEmpty();
 
@@ -260,7 +261,7 @@ class AccountsManagerUsernameIntegrationTest {
 
     Account account2 = AccountsHelper.createAccount(accountsManager, "+18005552222");
     assertThrows(UsernameHashNotAvailableException.class,
-        () -> accountsManager.reserveUsernameHash(account2, List.of(USERNAME_HASH_1)),
+        () -> accountsManager.reserveUsernameHash(account2.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1)),
         "account2 should not be able to reserve a held hash");
   }
 
@@ -270,7 +271,7 @@ class AccountsManagerUsernameIntegrationTest {
     final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
 
     AccountsManager.UsernameReservation reservation1 =
-        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1));
+        accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1));
 
     long past = Instant.now().minus(Duration.ofMinutes(1)).getEpochSecond();
     // force expiration
@@ -286,12 +287,12 @@ class AccountsManagerUsernameIntegrationTest {
     Account account2 = AccountsHelper.createAccount(accountsManager, "+18005552222");
 
     final AccountsManager.UsernameReservation reservation2 =
-        accountsManager.reserveUsernameHash(account2, List.of(USERNAME_HASH_1));
+        accountsManager.reserveUsernameHash(account2.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1));
     assertArrayEquals(reservation2.reservedUsernameHash(), USERNAME_HASH_1);
 
     assertThrows(UsernameHashNotAvailableException.class,
-        () -> accountsManager.confirmReservedUsernameHash(reservation1.account(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
-    account2 = accountsManager.confirmReservedUsernameHash(reservation2.account(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+        () -> accountsManager.confirmReservedUsernameHash(reservation1.account().getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+    account2 = accountsManager.confirmReservedUsernameHash(reservation2.account().getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertEquals(accountsManager.getByUsernameHash(USERNAME_HASH_1).join().orElseThrow().getUuid(), account2.getUuid());
     assertArrayEquals(account2.getUsernameHash().orElseThrow(), USERNAME_HASH_1);
   }
@@ -303,13 +304,13 @@ class AccountsManagerUsernameIntegrationTest {
 
     // Set username hash
     final AccountsManager.UsernameReservation reservation1 =
-        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1));
+        accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1));
 
-    account = accountsManager.confirmReservedUsernameHash(reservation1.account(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    account = accountsManager.confirmReservedUsernameHash(reservation1.account().getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     // Reserve another hash on the same account
     final AccountsManager.UsernameReservation reservation2 =
-        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_2));
+        accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_2));
 
     account = reservation2.account();
 
@@ -318,12 +319,12 @@ class AccountsManagerUsernameIntegrationTest {
     assertArrayEquals(account.getEncryptedUsername().orElseThrow(), ENCRYPTED_USERNAME_1);
 
     // Clear the set username hash but not the reserved one
-    account = accountsManager.clearUsernameHash(account);
+    account = accountsManager.clearUsernameHash(account.getIdentifier(IdentityType.ACI));
     assertThat(account.getReservedUsernameHash()).isPresent();
     assertThat(account.getUsernameHash()).isEmpty();
 
     // Confirm second reservation
-    account = accountsManager.confirmReservedUsernameHash(account, reservation2.reservedUsernameHash(), ENCRYPTED_USERNAME_2);
+    account = accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), reservation2.reservedUsernameHash(), ENCRYPTED_USERNAME_2);
     assertArrayEquals(account.getUsernameHash().orElseThrow(), USERNAME_HASH_2);
     assertArrayEquals(account.getEncryptedUsername().orElseThrow(), ENCRYPTED_USERNAME_2);
   }
@@ -333,8 +334,8 @@ class AccountsManagerUsernameIntegrationTest {
       throws InterruptedException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
     final AccountsManager.UsernameReservation reservation1 =
-        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1));
-    account = accountsManager.confirmReservedUsernameHash(reservation1.account(), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+        accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1));
+    account = accountsManager.confirmReservedUsernameHash(reservation1.account().getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
     // "reclaim" the account by re-registering
     Account reclaimed = AccountsHelper.createAccount(accountsManager, "+18005551111");
@@ -346,20 +347,29 @@ class AccountsManagerUsernameIntegrationTest {
     assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join()).isEmpty();
 
     // confirm it again
-    accountsManager.confirmReservedUsernameHash(reclaimed, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    accountsManager.confirmReservedUsernameHash(reclaimed.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertThat(accountsManager.getByUsernameHash(USERNAME_HASH_1).join()).isPresent();
   }
 
   @Test
-  public void testUsernameLinks() throws InterruptedException, AccountAlreadyExistsException {
-    final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
+  public void testUsernameLinks()
+      throws InterruptedException, AccountAlreadyExistsException, UsernameHashNotAvailableException, UsernameReservationNotFoundException {
+    final UUID accountIdentifier;
+    {
+      final Account account = AccountsHelper.createAccount(accountsManager, "+18005551111");
+      accounts.create(account, Collections.emptyList());
 
-    account.setUsernameHash(TestRandomUtil.nextBytes(16));
-    accounts.create(account, Collections.emptyList());
+      accountIdentifier = account.getIdentifier(IdentityType.ACI);
+    }
+
+    final AccountsManager.UsernameReservation reservation =
+        accountsManager.reserveUsernameHash(accountIdentifier, List.of(USERNAME_HASH_1));
+
+    accountsManager.confirmReservedUsernameHash(accountIdentifier, reservation.reservedUsernameHash(), ENCRYPTED_USERNAME_1);
 
     final UUID linkHandle = UUID.randomUUID();
     final byte[] encryptedUsername = TestRandomUtil.nextBytes(32);
-    accountsManager.update(account, a -> a.setUsernameLinkDetails(linkHandle, encryptedUsername));
+    accountsManager.update(accountIdentifier, account -> account.setUsernameLinkDetails(linkHandle, encryptedUsername));
 
     final Optional<Account> maybeAccount = accountsManager.getByUsernameLinkHandle(linkHandle).join();
     assertTrue(maybeAccount.isPresent());
@@ -367,17 +377,17 @@ class AccountsManagerUsernameIntegrationTest {
     assertArrayEquals(encryptedUsername, maybeAccount.get().getEncryptedUsername().get());
 
     // making some unrelated change and updating account to check that username link data is still there
-    final Optional<Account> accountToChange = accountsManager.getByAccountIdentifier(account.getUuid());
+    final Optional<Account> accountToChange = accountsManager.getByAccountIdentifier(accountIdentifier);
     assertTrue(accountToChange.isPresent());
-    accountsManager.update(accountToChange.get(), a -> a.setDiscoverableByPhoneNumber(!a.isDiscoverableByPhoneNumber()));
+    accountsManager.update(accountToChange.get().getIdentifier(IdentityType.ACI), a -> a.setDiscoverableByPhoneNumber(!a.isDiscoverableByPhoneNumber()));
     final Optional<Account> accountAfterChange = accountsManager.getByUsernameLinkHandle(linkHandle).join();
     assertTrue(accountAfterChange.isPresent());
     assertTrue(accountAfterChange.get().getEncryptedUsername().isPresent());
     assertArrayEquals(encryptedUsername, accountAfterChange.get().getEncryptedUsername().get());
 
     // now deleting the link
-    final Optional<Account> accountToDeleteLink = accountsManager.getByAccountIdentifier(account.getUuid());
-    accountsManager.update(accountToDeleteLink.orElseThrow(), a -> a.setUsernameLinkDetails(null, null));
+    final Optional<Account> accountToDeleteLink = accountsManager.getByAccountIdentifier(accountIdentifier);
+    accountsManager.update(accountToDeleteLink.orElseThrow().getIdentifier(IdentityType.ACI), a -> a.setUsernameLinkDetails(null, null));
     assertTrue(accounts.getByUsernameLinkHandle(linkHandle).join().isEmpty());
   }
 }

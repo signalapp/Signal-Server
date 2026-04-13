@@ -463,7 +463,7 @@ public class AccountCreationDeletionIntegrationTest {
 
     assertTrue(accountsManager.getByAccountIdentifier(aci).isPresent());
 
-    accountsManager.delete(account, AccountsManager.DeletionReason.ADMIN_DELETED);
+    accountsManager.delete(account.getIdentifier(IdentityType.ACI), AccountsManager.DeletionReason.ADMIN_DELETED);
 
     assertFalse(accountsManager.getByAccountIdentifier(aci).isPresent());
     assertFalse(keysManager.getEcSignedPreKey(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
@@ -471,7 +471,8 @@ public class AccountCreationDeletionIntegrationTest {
     assertFalse(keysManager.getLastResort(account.getUuid(), Device.PRIMARY_ID).join().isPresent());
     assertFalse(keysManager.getLastResort(account.getPhoneNumberIdentifier(), Device.PRIMARY_ID).join().isPresent());
 
-    verify(disconnectionRequestManager).requestDisconnection(account);
+    verify(disconnectionRequestManager).requestDisconnection(argThat(disconnectedAccount ->
+        disconnectedAccount.getIdentifier(IdentityType.ACI).equals(account.getIdentifier(IdentityType.ACI))));
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

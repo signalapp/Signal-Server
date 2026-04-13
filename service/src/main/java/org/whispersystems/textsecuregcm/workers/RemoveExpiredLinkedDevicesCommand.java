@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import reactor.core.publisher.Flux;
@@ -130,7 +131,7 @@ public class RemoveExpiredLinkedDevicesCommand extends AbstractSinglePassCrawlAc
 
     return Flux.fromIterable(expiredDevices)
         .flatMap(deviceId ->
-                Mono.fromRunnable(() -> getCommandDependencies().accountsManager().removeDevice(account, deviceId))
+                Mono.fromRunnable(() -> getCommandDependencies().accountsManager().removeDevice(account.getIdentifier(IdentityType.ACI), deviceId))
                     .retryWhen(Retry.backoff(maxRetries, Duration.ofSeconds(1))
                         .doAfterRetry(ignored -> retryCounter.increment())
                         .onRetryExhaustedThrow((spec, rs) -> rs.failure()))

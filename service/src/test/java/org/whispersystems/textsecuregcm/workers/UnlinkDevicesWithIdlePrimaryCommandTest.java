@@ -124,7 +124,7 @@ class UnlinkDevicesWithIdlePrimaryCommandTest {
         accountWithIdlePrimaryAndLinkedDevice));
 
     if (!isDryRun) {
-      verify(accountsManager).removeDevice(accountWithIdlePrimaryAndLinkedDevice, linkedDeviceId);
+      verify(accountsManager).removeDevice(accountWithIdlePrimaryAndLinkedDevice.getIdentifier(IdentityType.ACI), linkedDeviceId);
     }
 
     verifyNoMoreInteractions(accountsManager);

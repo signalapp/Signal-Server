@@ -284,7 +284,7 @@ public class BackupAuthManager {
     accountsManager.update(account, a -> {
       // Receipt credential expirations must be day aligned. Make sure any manually set backupVoucher is also day
       // aligned
-      final Account.BackupVoucher newPayment =  new Account.BackupVoucher(
+      final Account.BackupVoucher newPayment = new Account.BackupVoucher(
           backupVoucher.receiptLevel(),
           backupVoucher.expiration().truncatedTo(ChronoUnit.DAYS));
       final Account.BackupVoucher existingPayment = a.getBackupVoucher();

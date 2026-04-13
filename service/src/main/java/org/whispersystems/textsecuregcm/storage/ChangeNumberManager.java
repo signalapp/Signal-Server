@@ -80,7 +80,7 @@ public class ChangeNumberManager {
     }
 
     final Account updatedAccount = accountsManager.changeNumber(
-        account, number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
+        account.getIdentifier(IdentityType.ACI), number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
     try {
       // Now that we've actually updated the account, populate the "updated PNI" field on all envelopes

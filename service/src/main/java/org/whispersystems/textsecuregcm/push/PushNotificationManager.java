@@ -17,6 +17,7 @@ import java.util.function.BiConsumer;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -195,7 +196,7 @@ public class PushNotificationManager {
     // updating an uninstalled feedback timestamp though.
     accountsManager.getByAccountIdentifier(account.getUuid()).ifPresent(rereadAccount ->
         rereadAccount.getDevice(device.getId()).ifPresent(rereadDevice ->
-            accountsManager.updateDevice(rereadAccount, device.getId(), d -> {
+            accountsManager.updateDevice(rereadAccount.getIdentifier(IdentityType.ACI), device.getId(), d -> {
               // Don't clear the token if it's already changed
               if (originalToken.equals(getPushToken(d, tokenType))) {
                 switch (tokenType) {

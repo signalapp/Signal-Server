@@ -124,7 +124,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
       }
     };
 
-    profilesManager.set(account.getUuid(),
+    profilesManager.set(account.getIdentifier(IdentityType.ACI),
         new VersionedProfile(
             request.getVersion(),
             request.getName().toByteArray(),
@@ -135,7 +135,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
             request.getPhoneNumberSharing().toByteArray(),
             request.getCommitment().toByteArray()));
 
-    accountsManager.update(account, a -> {
+    accountsManager.update(account.getIdentifier(IdentityType.ACI), a -> {
 
       final List<AccountBadge> updatedBadges = Optional.of(request.getBadgeIdsList())
           .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges,

@@ -197,6 +197,7 @@ class ProfileControllerTest {
     when(profileAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_TWO_IDENTITY_KEY);
     when(profileAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_TWO_PHONE_NUMBER_IDENTITY_KEY);
     when(profileAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID_TWO);
+    when(profileAccount.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID_TWO);
     when(profileAccount.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI_TWO);
     when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.empty());
     when(profileAccount.getUsernameHash()).thenReturn(Optional.of(USERNAME_HASH));
@@ -207,6 +208,7 @@ class ProfileControllerTest {
     capabilitiesAccount = mock(Account.class);
 
     when(capabilitiesAccount.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(capabilitiesAccount.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
     when(capabilitiesAccount.getIdentityKey(IdentityType.ACI)).thenReturn(ACCOUNT_IDENTITY_KEY);
     when(capabilitiesAccount.getIdentityKey(IdentityType.PNI)).thenReturn(ACCOUNT_PHONE_NUMBER_IDENTITY_KEY);
 
@@ -1010,6 +1012,7 @@ class ProfileControllerTest {
   void testGetProfileWithExpiringProfileKeyCredentialVersionNotFound() throws VerificationFailedException {
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex("version")));
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
@@ -1218,6 +1221,7 @@ class ProfileControllerTest {
 
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
     when(account.isIdentifiedBy(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(true);

@@ -159,7 +159,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
                   KeysHelper.signedECPreKey(2, pniKeyPair),
                   KeysHelper.signedKEMPreKey(3, aciKeyPair),
                   KeysHelper.signedKEMPreKey(4, pniKeyPair)),
-              null),
+              null).getIdentifier(IdentityType.ACI),
           a -> {
             a.setUnidentifiedAccessKey(new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
             a.removeDevice(Device.PRIMARY_ID);
@@ -226,18 +226,10 @@ class AccountsManagerConcurrentModificationIntegrationTest {
   }
 
   private CompletableFuture<?> modifyAccount(final UUID uuid, final Consumer<Account> accountMutation) {
-
-    return CompletableFuture.runAsync(() -> {
-      final Account account = accountsManager.getByAccountIdentifier(uuid).orElseThrow();
-      accountsManager.update(account, accountMutation);
-    }, mutationExecutor);
+    return CompletableFuture.runAsync(() -> accountsManager.update(uuid, accountMutation), mutationExecutor);
   }
 
   private CompletableFuture<?> modifyDevice(final UUID uuid, final byte deviceId, final Consumer<Device> deviceMutation) {
-
-    return CompletableFuture.runAsync(() -> {
-      final Account account = accountsManager.getByAccountIdentifier(uuid).orElseThrow();
-      accountsManager.updateDevice(account, deviceId, deviceMutation);
-    }, mutationExecutor);
+    return CompletableFuture.runAsync(() -> accountsManager.updateDevice(uuid, deviceId, deviceMutation), mutationExecutor);
   }
 }

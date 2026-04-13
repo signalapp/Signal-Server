@@ -179,10 +179,7 @@ public class AccountControllerV2 {
       @Auth AuthenticatedDevice auth,
       @NotNull @Valid PhoneNumberDiscoverabilityRequest phoneNumberDiscoverability) {
 
-    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
-
-    accountsManager.update(account, a -> a.setDiscoverableByPhoneNumber(
+    accountsManager.update(auth.accountIdentifier(), a -> a.setDiscoverableByPhoneNumber(
         phoneNumberDiscoverability.discoverableByPhoneNumber()));
   }
 

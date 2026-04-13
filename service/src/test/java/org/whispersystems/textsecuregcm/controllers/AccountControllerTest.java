@@ -293,7 +293,7 @@ class AccountControllerTest {
       assertThat(response.getStatus()).isEqualTo(204);
 
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setGcmId(eq("z000"));
-      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_UUID_3), anyByte(), any());
     }
   }
 
@@ -322,7 +322,7 @@ class AccountControllerTest {
       assertThat(response.getStatus()).isEqualTo(204);
 
       verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setApnId(eq("first"));
-      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_UUID_3), anyByte(), any());
     }
   }
 
@@ -406,7 +406,7 @@ class AccountControllerTest {
     }
 
     // make sure `update()` works
-    doReturn(AuthHelper.VALID_ACCOUNT).when(accountsManager).update(any(), any());
+    doReturn(AuthHelper.VALID_ACCOUNT).when(accountsManager).update(any(UUID.class), any());
 
     try (final Response response =
         builder.put(Entity.json(new EncryptedUsername(TestRandomUtil.nextBytes(payloadSize))))) {
@@ -449,7 +449,7 @@ class AccountControllerTest {
     }
 
     // make sure `update()` works
-    doReturn(AuthHelper.VALID_ACCOUNT).when(accountsManager).update(any(), any());
+    doReturn(AuthHelper.VALID_ACCOUNT).when(accountsManager).update(any(UUID.class), any());
 
     try (final Response delete = builder.delete()) {
       assertEquals(expectedStatus, delete.getStatus());
@@ -753,7 +753,7 @@ class AccountControllerTest {
   @Test
   void testDeleteUsername() {
     when(accountsManager.clearUsernameHash(any()))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+        .thenAnswer(invocation -> accountsManager.getByAccountIdentifier(invocation.getArgument(0)).orElseThrow());
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/username_hash/")
@@ -762,7 +762,7 @@ class AccountControllerTest {
         .delete()) {
 
       assertThat(response.getStatus()).isEqualTo(204);
-      verify(accountsManager).clearUsernameHash(AuthHelper.VALID_ACCOUNT);
+      verify(accountsManager).clearUsernameHash(AuthHelper.VALID_UUID);
     }
   }
 
@@ -887,7 +887,7 @@ class AccountControllerTest {
         .delete()) {
 
       assertThat(response.getStatus()).isEqualTo(204);
-      verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
+      verify(accountsManager).delete(AuthHelper.VALID_UUID, AccountsManager.DeletionReason.USER_REQUEST);
     }
   }
 
@@ -903,7 +903,7 @@ class AccountControllerTest {
         .delete()) {
 
       assertThat(response.getStatus()).isEqualTo(500);
-      verify(accountsManager).delete(AuthHelper.VALID_ACCOUNT, AccountsManager.DeletionReason.USER_REQUEST);
+      verify(accountsManager).delete(AuthHelper.VALID_UUID, AccountsManager.DeletionReason.USER_REQUEST);
     }
   }
 
@@ -1074,7 +1074,7 @@ class AccountControllerTest {
         .put(Entity.json(new DeviceName(TestRandomUtil.nextBytes(64))))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
-      verify(accountsManager).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), eq(Device.PRIMARY_ID), any());
+      verify(accountsManager).updateDevice(eq(AuthHelper.VALID_UUID_3), eq(Device.PRIMARY_ID), any());
     }
   }
 
@@ -1088,7 +1088,7 @@ class AccountControllerTest {
         .put(Entity.json(new DeviceName(TestRandomUtil.nextBytes(64))))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
-      verify(accountsManager).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), eq(AuthHelper.VALID_DEVICE_3_LINKED_ID), any());
+      verify(accountsManager).updateDevice(eq(AuthHelper.VALID_UUID_3), eq(AuthHelper.VALID_DEVICE_3_LINKED_ID), any());
     }
   }
 
@@ -1102,7 +1102,7 @@ class AccountControllerTest {
         .put(Entity.json(new DeviceName(TestRandomUtil.nextBytes(64))))) {
 
       assertThat(response.getStatus()).isEqualTo(204);
-      verify(accountsManager).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), eq(AuthHelper.VALID_DEVICE_3_LINKED_ID), any());
+      verify(accountsManager).updateDevice(eq(AuthHelper.VALID_UUID_3), eq(AuthHelper.VALID_DEVICE_3_LINKED_ID), any());
     }
   }
 

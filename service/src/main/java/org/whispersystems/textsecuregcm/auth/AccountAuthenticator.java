@@ -142,7 +142,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
       Metrics.summary(DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME, IS_PRIMARY_DEVICE_TAG, String.valueOf(device.isPrimary()))
           .record(Duration.ofMillis(todayInMillisWithOffset - device.getLastSeen()).toDays());
 
-      return accountsManager.updateDeviceLastSeen(account, device, Util.todayInMillis(clock));
+      return accountsManager.updateDeviceLastSeen(account.getIdentifier(IdentityType.ACI), device, Util.todayInMillis(clock));
     }
 
     return account;

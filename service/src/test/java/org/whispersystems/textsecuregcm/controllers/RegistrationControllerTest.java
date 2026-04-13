@@ -134,7 +134,7 @@ class RegistrationControllerTest {
   void setUp() {
     when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
 
-    when(accountsManager.update(any(), any())).thenAnswer(invocation -> {
+    when(accountsManager.update(any(UUID.class), any())).thenAnswer(invocation -> {
       final Account account = invocation.getArgument(0);
       final Consumer<Account> accountUpdater = invocation.getArgument(1);
 

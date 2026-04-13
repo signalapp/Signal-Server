@@ -159,10 +159,7 @@ public class DeviceController {
       throw new ForbiddenException();
     }
 
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-            .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
-
-    accounts.removeDevice(account, deviceId);
+    accounts.removeDevice(auth.accountIdentifier(), deviceId);
   }
 
   /**
@@ -282,20 +279,21 @@ public class DeviceController {
     }
 
     try {
-      final Pair<Account, Device> accountAndDevice = accounts.addDevice(account, new DeviceSpec(deviceAttributes.name(),
-                  authorizationHeader.getPassword(),
-                  signalAgent,
-                  capabilities,
-                  deviceAttributes.registrationId(),
-                  deviceAttributes.phoneNumberIdentityRegistrationId(),
-                  deviceAttributes.fetchesMessages(),
-                  deviceActivationRequest.apnToken(),
-                  deviceActivationRequest.gcmToken(),
-                  deviceActivationRequest.aciSignedPreKey(),
-                  deviceActivationRequest.pniSignedPreKey(),
-                  deviceActivationRequest.aciPqLastResortPreKey(),
-                  deviceActivationRequest.pniPqLastResortPreKey()),
-              linkDeviceRequest.verificationCode());
+      final Pair<Account, Device> accountAndDevice = accounts.addDevice(account.getIdentifier(IdentityType.ACI),
+          new DeviceSpec(deviceAttributes.name(),
+              authorizationHeader.getPassword(),
+              signalAgent,
+              capabilities,
+              deviceAttributes.registrationId(),
+              deviceAttributes.phoneNumberIdentityRegistrationId(),
+              deviceAttributes.fetchesMessages(),
+              deviceActivationRequest.apnToken(),
+              deviceActivationRequest.gcmToken(),
+              deviceActivationRequest.aciSignedPreKey(),
+              deviceActivationRequest.pniSignedPreKey(),
+              deviceActivationRequest.aciPqLastResortPreKey(),
+              deviceActivationRequest.pniPqLastResortPreKey()),
+          linkDeviceRequest.verificationCode());
 
       return new LinkDeviceResponse(
           accountAndDevice.first().getIdentifier(IdentityType.ACI),
@@ -384,15 +382,8 @@ public class DeviceController {
   @PUT
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/capabilities")
-  public void setCapabilities(@Auth final AuthenticatedDevice auth,
-
-      @NotNull
-      final Map<String, Boolean> capabilities) {
-
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
-
-    accounts.updateDevice(account, auth.deviceId(),
+  public void setCapabilities(@Auth final AuthenticatedDevice auth, @NotNull final Map<String, Boolean> capabilities) {
+    accounts.updateDevice(auth.accountIdentifier(), auth.deviceId(),
         d -> d.setCapabilities(DeviceCapabilityAdapter.mapToSet(capabilities)));
   }
 

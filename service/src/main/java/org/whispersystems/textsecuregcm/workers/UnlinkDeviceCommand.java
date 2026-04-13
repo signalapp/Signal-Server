@@ -13,6 +13,7 @@ import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
@@ -51,9 +52,6 @@ public class UnlinkDeviceCommand extends AbstractCommandWithDependencies {
     final UUID aci = UUID.fromString(namespace.getString("uuid").trim());
     final List<Byte> deviceIds = namespace.getList("deviceIds");
 
-    Account account = deps.accountsManager().getByAccountIdentifier(aci)
-        .orElseThrow(() -> new IllegalArgumentException("account id " + aci + " does not exist"));
-
     if (deviceIds.contains(Device.PRIMARY_ID)) {
       throw new IllegalArgumentException("cannot delete primary device");
     }
@@ -61,7 +59,7 @@ public class UnlinkDeviceCommand extends AbstractCommandWithDependencies {
     for (byte deviceId : deviceIds) {
       /** see {@link org.whispersystems.textsecuregcm.controllers.DeviceController#removeDevice} */
       System.out.format("Removing device %s::%d\n", aci, deviceId);
-      deps.accountsManager().removeDevice(account, deviceId);
+      deps.accountsManager().removeDevice(aci, deviceId);
     }
   }
 }

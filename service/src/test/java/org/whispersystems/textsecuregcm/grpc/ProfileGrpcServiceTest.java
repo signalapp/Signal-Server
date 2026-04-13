@@ -29,8 +29,6 @@ import com.google.common.net.InetAddresses;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
-import io.grpc.Metadata;
-import io.grpc.ServerCall;
 import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import java.nio.charset.StandardCharsets;
@@ -41,7 +39,6 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -71,7 +68,6 @@ import org.signal.chat.profile.SetProfileRequest.AvatarChange;
 import org.signal.chat.profile.SetProfileResponse;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
-
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ServerPublicParams;
@@ -181,6 +177,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(dynamicConfiguration.getPaymentsConfiguration()).thenReturn(dynamicPaymentsConfiguration);
 
     when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(account.getIdentifier(org.whispersystems.textsecuregcm.identity.IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
     when(account.getNumber()).thenReturn(phoneNumber);
     when(account.getBadges()).thenReturn(Collections.emptyList());
 
@@ -188,7 +185,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(profile.avatar()).thenReturn("");
 
     when(accountsManager.getByAccountIdentifier(any())).thenReturn(Optional.of(account));
-    when(accountsManager.update(any(), any())).thenReturn(null);
+    when(accountsManager.update(any(UUID.class), any())).thenReturn(null);
 
     when(profilesManager.get(any(), any())).thenReturn(Optional.of(profile));
 

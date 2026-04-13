@@ -115,7 +115,7 @@ class MessagePersisterTest {
     when(accountsManager.getByAccountIdentifierAsync(DESTINATION_ACCOUNT_UUID))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(destinationAccount)));
     when(accountsManager.removeDevice(any(), anyByte()))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+        .thenAnswer(invocation -> accountsManager.getByAccountIdentifier(invocation.getArgument(0)).orElseThrow());
 
     when(destinationAccount.getUuid()).thenReturn(DESTINATION_ACCOUNT_UUID);
     when(destinationAccount.getIdentifier(IdentityType.ACI)).thenReturn(DESTINATION_ACCOUNT_UUID);
@@ -465,7 +465,7 @@ class MessagePersisterTest {
     assertTimeoutPreemptively(Duration.ofSeconds(1), () ->
         messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE, Tags.empty()).block());
 
-    verify(accountsManager, exactly()).removeDevice(destinationAccount, DESTINATION_DEVICE_ID);
+    verify(accountsManager, exactly()).removeDevice(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID);
   }
 
   @Test
@@ -552,7 +552,7 @@ class MessagePersisterTest {
     when(destinationAccount.getDevices()).thenReturn(List.of(primary, activeA, inactiveB, inactiveC, activeD, destination));
 
     when(messagesManager.persistMessages(any(UUID.class), any(), anyList())).thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
-    when(accountsManager.removeDevice(destinationAccount, DESTINATION_DEVICE_ID)).thenThrow(new RuntimeException());
+    when(accountsManager.removeDevice(DESTINATION_ACCOUNT_UUID, DESTINATION_DEVICE_ID)).thenThrow(new RuntimeException());
 
     assertThrows(RuntimeException.class, () -> messagePersister.persistQueue(destinationAccount, DESTINATION_DEVICE, Tags.empty()).block());
   }

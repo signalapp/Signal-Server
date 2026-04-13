@@ -35,6 +35,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.MessageSender;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 
@@ -56,7 +57,7 @@ public class ChangeNumberManagerTest {
     updatedPhoneNumberIdentifiersByAccount = new HashMap<>();
 
     when(accountsManager.changeNumber(any(), any(), any(), any(), any(), any())).thenAnswer((Answer<Account>)invocation -> {
-      final Account account = invocation.getArgument(0, Account.class);
+      final Account account = accountsManager.getByAccountIdentifier(invocation.getArgument(0)).orElseThrow();
       final String number = invocation.getArgument(1, String.class);
 
       final UUID uuid = account.getIdentifier(IdentityType.ACI);
@@ -99,11 +100,14 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
 
+    AccountsHelper.setupMockGet(accountsManager, account);
+
     changeNumberManager.changeNumber(account, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), null);
-    verify(accountsManager).changeNumber(account, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyMap());
+    verify(accountsManager).changeNumber(accountIdentifier, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyMap());
     verify(messageSender, never()).sendMessages(eq(account), any(), any(), any(), any(), any());
   }
 
@@ -154,6 +158,8 @@ public class ChangeNumberManagerTest {
     final IncomingMessage incomingMessage =
         new IncomingMessage(1, linkedDeviceId, linkedDeviceRegistrationId, new byte[] { 1 });
 
+    AccountsHelper.setupMockGet(accountsManager, account);
+
     changeNumberManager.changeNumber(account,
         targetNumber,
         pniIdentityKey,
@@ -163,7 +169,7 @@ public class ChangeNumberManagerTest {
         registrationIds,
         null);
 
-    verify(accountsManager).changeNumber(account,
+    verify(accountsManager).changeNumber(aci,
         targetNumber,
         pniIdentityKey,
         ecSignedPreKeys,

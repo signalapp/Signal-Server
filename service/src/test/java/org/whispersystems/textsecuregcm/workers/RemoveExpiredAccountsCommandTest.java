@@ -16,12 +16,14 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.UUID;
 import java.util.stream.Stream;
 import net.sourceforge.argparse4j.inf.Namespace;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import reactor.core.publisher.Flux;
@@ -64,10 +66,15 @@ class RemoveExpiredAccountsCommandTest {
     final RemoveExpiredAccountsCommand removeExpiredAccountsCommand =
         new TestRemoveExpiredAccountsCommand(clock, accountsManager, isDryRun);
 
+    final UUID activeAccountIdentifier = UUID.randomUUID();
+    final UUID expiredAccountIdentifier = UUID.randomUUID();
+
     final Account activeAccount = mock(Account.class);
+    when(activeAccount.getIdentifier(IdentityType.ACI)).thenReturn(activeAccountIdentifier);
     when(activeAccount.getLastSeen()).thenReturn(clock.instant().toEpochMilli());
 
     final Account expiredAccount = mock(Account.class);
+    when(expiredAccount.getIdentifier(IdentityType.ACI)).thenReturn(expiredAccountIdentifier);
     when(expiredAccount.getLastSeen())
         .thenReturn(clock.instant().minus(RemoveExpiredAccountsCommand.MAX_IDLE_DURATION).minusMillis(1).toEpochMilli());
 
@@ -76,8 +83,8 @@ class RemoveExpiredAccountsCommandTest {
     if (isDryRun) {
       verify(accountsManager, never()).delete(any(), any());
     } else {
-      verify(accountsManager).delete(expiredAccount, AccountsManager.DeletionReason.EXPIRED);
-      verify(accountsManager, never()).delete(eq(activeAccount), any());
+      verify(accountsManager).delete(expiredAccountIdentifier, AccountsManager.DeletionReason.EXPIRED);
+      verify(accountsManager, never()).delete(eq(activeAccountIdentifier), any());
     }
   }
 

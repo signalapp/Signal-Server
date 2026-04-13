@@ -166,7 +166,7 @@ public class AuthHelper {
     when(VALID_ACCOUNT_TWO.getUuid()).thenReturn(VALID_UUID_TWO);
     when(VALID_ACCOUNT_TWO.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_TWO);
     when(VALID_ACCOUNT_TWO.getIdentifier(IdentityType.ACI)).thenReturn(VALID_UUID_TWO);
-    when(VALID_ACCOUNT_TWO.getPhoneNumberIdentifier()).thenReturn(VALID_PNI_TWO);
+    when(VALID_ACCOUNT_TWO.getIdentifier(IdentityType.PNI)).thenReturn(VALID_PNI_TWO);
     when(UNDISCOVERABLE_ACCOUNT.getNumber()).thenReturn(UNDISCOVERABLE_NUMBER);
     when(UNDISCOVERABLE_ACCOUNT.getUuid()).thenReturn(UNDISCOVERABLE_UUID);
     when(UNDISCOVERABLE_ACCOUNT.getPhoneNumberIdentifier()).thenReturn(UNDISCOVERABLE_PNI);

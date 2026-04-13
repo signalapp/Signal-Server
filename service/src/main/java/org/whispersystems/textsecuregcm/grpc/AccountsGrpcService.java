@@ -97,8 +97,8 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public DeleteAccountResponse deleteAccount(final DeleteAccountRequest request) {
-    accountsManager.delete(getAuthenticatedAccount(AuthenticationUtil.requireAuthenticatedPrimaryDevice()),
-            AccountsManager.DeletionReason.USER_REQUEST);
+    accountsManager.delete(AuthenticationUtil.requireAuthenticatedPrimaryDevice().accountIdentifier(),
+        AccountsManager.DeletionReason.USER_REQUEST);
 
     return DeleteAccountResponse.getDefaultInstance();
   }
@@ -110,7 +110,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final SaltedTokenHash credentials =
         SaltedTokenHash.generateFor(HexFormat.of().withLowerCase().formatHex(request.getRegistrationLock().toByteArray()));
 
-    accountsManager.update(getAuthenticatedAccount(AuthenticationUtil.requireAuthenticatedPrimaryDevice()),
+    accountsManager.update(AuthenticationUtil.requireAuthenticatedPrimaryDevice().accountIdentifier(),
         account -> account.setRegistrationLock(credentials.hash(), credentials.salt()));
 
     return SetRegistrationLockResponse.getDefaultInstance();
@@ -118,7 +118,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public ClearRegistrationLockResponse clearRegistrationLock(final ClearRegistrationLockRequest request) {
-    accountsManager.update(getAuthenticatedAccount(AuthenticationUtil.requireAuthenticatedPrimaryDevice()),
+    accountsManager.update(AuthenticationUtil.requireAuthenticatedPrimaryDevice().accountIdentifier(),
         account -> account.setRegistrationLock(null, null));
 
     return ClearRegistrationLockResponse.getDefaultInstance();
@@ -142,11 +142,9 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
     rateLimiters.getUsernameReserveLimiter().validate(authenticatedDevice.accountIdentifier());
 
-    final Account account = getAuthenticatedAccount();
-
     try {
       final AccountsManager.UsernameReservation usernameReservation =
-          accountsManager.reserveUsernameHash(account, usernameHashes);
+          accountsManager.reserveUsernameHash(authenticatedDevice.accountIdentifier(), usernameHashes);
 
       return ReserveUsernameHashResponse.newBuilder()
           .setUsernameHash(ByteString.copyFrom(usernameReservation.reservedUsernameHash()))
@@ -172,7 +170,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     rateLimiters.getUsernameSetLimiter().validate(authenticatedDevice.accountIdentifier());
 
     try {
-      final Account updatedAccount = accountsManager.confirmReservedUsernameHash(getAuthenticatedAccount(),
+      final Account updatedAccount = accountsManager.confirmReservedUsernameHash(authenticatedDevice.accountIdentifier(),
               request.getUsernameHash().toByteArray(),
               request.getUsernameCiphertext().toByteArray());
 
@@ -196,7 +194,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public DeleteUsernameHashResponse deleteUsernameHash(final DeleteUsernameHashRequest request) {
-    accountsManager.clearUsernameHash(getAuthenticatedAccount());
+    accountsManager.clearUsernameHash(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier());
 
     return DeleteUsernameHashResponse.getDefaultInstance();
   }
@@ -220,7 +218,8 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
         ? account.getUsernameLinkHandle()
         : UUID.randomUUID();
 
-    accountsManager.update(account, a -> a.setUsernameLinkDetails(linkHandle, request.getUsernameCiphertext().toByteArray()));
+    accountsManager.update(account.getIdentifier(IdentityType.ACI),
+        a -> a.setUsernameLinkDetails(linkHandle, request.getUsernameCiphertext().toByteArray()));
 
     return responseBuilder.setUsernameLinkHandle(UUIDUtil.toByteString(linkHandle)).build();
   }
@@ -232,7 +231,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
     rateLimiters.getUsernameLinkOperationLimiter().validate(authenticatedDevice.accountIdentifier());
 
-    accountsManager.update(getAuthenticatedAccount(), a -> a.setUsernameLinkDetails(null, null));
+    accountsManager.update(authenticatedDevice.accountIdentifier(), a -> a.setUsernameLinkDetails(null, null));
 
     return DeleteUsernameLinkResponse.getDefaultInstance();
   }
@@ -245,7 +244,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
               UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH, request.getUnidentifiedAccessKey().size()));
     }
 
-    accountsManager.update(getAuthenticatedAccount(), account -> {
+    accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(), account -> {
       account.setUnrestrictedUnidentifiedAccess(request.getAllowUnrestrictedUnidentifiedAccess());
       account.setUnidentifiedAccessKey(request.getAllowUnrestrictedUnidentifiedAccess() ? null : request.getUnidentifiedAccessKey().toByteArray());
     });
@@ -255,7 +254,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
   @Override
   public SetDiscoverableByPhoneNumberResponse setDiscoverableByPhoneNumber(final SetDiscoverableByPhoneNumberRequest request) {
-    accountsManager.update(getAuthenticatedAccount(),
+    accountsManager.update(AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier(),
         account -> account.setDiscoverableByPhoneNumber(request.getDiscoverableByPhoneNumber()));
 
     return SetDiscoverableByPhoneNumberResponse.getDefaultInstance();
@@ -283,7 +282,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
 
     rateLimiters.getSetZkCredentialKeyLimiter().validate(authenticatedDevice.accountIdentifier());
 
-    accountsManager.update(authenticatedAccount, account -> account.setZkCredentialKey(zkCredentialKey));
+    accountsManager.update(authenticatedDevice.accountIdentifier(), account -> account.setZkCredentialKey(zkCredentialKey));
 
     return SetZkCredentialKeyResponse.getDefaultInstance();
   }

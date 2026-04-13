@@ -433,11 +433,15 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return account;
   }
 
-  public Pair<Account, Device> addDevice(final Account account, final DeviceSpec deviceSpec, final String linkDeviceToken)
+  public Pair<Account, Device> addDevice(final UUID accountIdentifier, final DeviceSpec deviceSpec, final String linkDeviceToken)
       throws LinkDeviceTokenAlreadyUsedException {
 
-    return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()),
-        () -> addDevice(account.getIdentifier(IdentityType.ACI), deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
+    final UUID phoneNumberIdentifier = accounts.getByAccountIdentifier(accountIdentifier)
+        .map(account -> account.getIdentifier(IdentityType.PNI))
+        .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
+
+    return accountLockManager.withLock(Set.of(phoneNumberIdentifier),
+        () -> addDevice(accountIdentifier, deviceSpec, linkDeviceToken, MAX_UPDATE_ATTEMPTS),
         accountLockExecutor);
   }
 
@@ -622,13 +626,18 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
    *
    * @return the updated Account
    */
-  public Account removeDevice(final Account account, final byte deviceId) {
+  public Account removeDevice(final UUID accountIdentifier, final byte deviceId) {
     if (deviceId == Device.PRIMARY_ID) {
       throw new IllegalArgumentException("Cannot remove primary device");
     }
 
-    return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()),
-        () -> removeDevice(account.getIdentifier(IdentityType.ACI), deviceId, MAX_UPDATE_ATTEMPTS),
+    // Always fetch a fresh, non-cached copy of the account before making modifications
+    final UUID phoneNumberIdentifier = accounts.getByAccountIdentifier(accountIdentifier)
+        .map(account -> account.getIdentifier(IdentityType.PNI))
+        .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
+
+    return accountLockManager.withLock(Set.of(phoneNumberIdentifier),
+        () -> removeDevice(accountIdentifier, deviceId, MAX_UPDATE_ATTEMPTS),
         accountLockExecutor);
   }
 
@@ -672,12 +681,16 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     }
   }
 
-  public Account changeNumber(final Account account,
+  public Account changeNumber(final UUID accountIdentifier,
       final String targetNumber,
       final IdentityKey pniIdentityKey,
       final Map<Byte, ECSignedPreKey> pniSignedPreKeys,
       final Map<Byte, KEMSignedPreKey> pniPqLastResortPreKeys,
       final Map<Byte, Integer> pniRegistrationIds) throws InterruptedException, MismatchedDevicesException {
+
+    // Always fetch a fresh, non-cached copy of the account before making modifications
+    final Account account = accounts.getByAccountIdentifier(accountIdentifier)
+        .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
 
     final UUID targetPhoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(targetNumber).join();
 
@@ -743,7 +756,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
           buildPniKeyWriteItems(targetPhoneNumberIdentifier, pniSignedPreKeys, pniPqLastResortPreKeys);
 
     return updateWithRetries(
-        account,
         a -> {
           setPniKeys(a, pniIdentityKey, pniRegistrationIds);
           return true;
@@ -815,18 +827,23 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
   /// Reserve a username hash so that no other accounts may take it.
   ///
-  /// The reserved hash can later be set with [#confirmReservedUsernameHash(Account, byte\[\], byte\[\])]. The
+  /// The reserved hash can later be set with [#confirmReservedUsernameHash(UUID, byte\[\], byte\[\])]. The
   /// reservation will eventually expire, after which point confirmReservedUsernameHash may fail if another account has
   /// taken the username hash.
   ///
-  /// @param account the account to update
+  /// @param accountIdentifier the unique identifier of the account to update
   /// @param requestedUsernameHashes the list of username hashes to attempt to reserve
   ///
   /// @return the reserved username hash
   ///
   /// @throws UsernameHashNotAvailableException if none of the given username hashes are available
-  public UsernameReservation reserveUsernameHash(final Account account, final List<byte[]> requestedUsernameHashes)
+  public UsernameReservation reserveUsernameHash(final UUID accountIdentifier, final List<byte[]> requestedUsernameHashes)
       throws UsernameHashNotAvailableException {
+
+    // Always fetch a fresh, non-cached copy of the account before making modifications
+    final Account account = accounts.getByAccountIdentifier(accountIdentifier)
+        .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
+
     if (account.getUsernameHash().filter(
             oldHash -> requestedUsernameHashes.stream().anyMatch(hash -> Arrays.equals(oldHash, hash)))
         .isPresent()) {
@@ -844,7 +861,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     redisDelete(account);
 
     final Account updatedAccount = updateWithRetries(
-        account,
         _ -> true,
         a -> reservedUsernameHash.set(
             checkAndReserveNextUsernameHash(a, new ArrayDeque<>(requestedUsernameHashes))),
@@ -873,9 +889,9 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     }
   }
 
-  /// Set a username hash previously reserved with {@link #reserveUsernameHash(Account, List)}
+  /// Set a username hash previously reserved with {@link #reserveUsernameHash(UUID, List)}
   ///
-  /// @param account the account to update
+  /// @param accountIdentifier identifier of the account to update
   /// @param reservedUsernameHash the previously reserved username hash
   /// @param encryptedUsername the encrypted form of the previously reserved username for the username link
   ///
@@ -884,8 +900,12 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   /// @throws UsernameHashNotAvailableException if the reserved username hash has been taken (because the reservation
   /// expired)
   /// @throws UsernameReservationNotFoundException if `reservedUsernameHash` was not reserved for the account
-  public Account confirmReservedUsernameHash(final Account account, final byte[] reservedUsernameHash, @Nullable final byte[] encryptedUsername)
+  public Account confirmReservedUsernameHash(final UUID accountIdentifier, final byte[] reservedUsernameHash, @Nullable final byte[] encryptedUsername)
       throws UsernameReservationNotFoundException, UsernameHashNotAvailableException {
+
+    // Always fetch a fresh, non-cached copy of the account before making modifications
+    final Account account = accounts.getByAccountIdentifier(accountIdentifier)
+        .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
 
     if (account.getUsernameHash().map(currentUsernameHash -> Arrays.equals(currentUsernameHash, reservedUsernameHash)).orElse(false)) {
       // the client likely already succeeded and is retrying
@@ -900,7 +920,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     redisDelete(account);
 
-    final Account updatedAccount = updateWithRetries(account,
+    final Account updatedAccount = updateWithRetries(
         _ -> true,
         a -> accounts.confirmUsernameHash(a, reservedUsernameHash, encryptedUsername),
         () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
@@ -911,13 +931,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return updatedAccount;
   }
 
-  public Account clearUsernameHash(final Account account) {
-    redisDelete(account);
-
-    final Account updatedAccount = updateWithRetries(account,
-        _ -> true,
+  public Account clearUsernameHash(final UUID accountIdentifier) {
+    final Account updatedAccount = updateWithRetries(_ -> true,
         accounts::clearUsernameHash,
-        () -> accounts.getByAccountIdentifier(account.getUuid()).orElseThrow(),
+        () -> accounts.getByAccountIdentifier(accountIdentifier).orElseThrow(),
         AccountChangeValidator.USERNAME_CHANGE_VALIDATOR);
 
     redisDelete(updatedAccount);
@@ -925,8 +942,15 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return updatedAccount;
   }
 
-  public Account update(Account account, Consumer<Account> updater) {
-    return update(account, a -> {
+  public Account update(final Account account, final Consumer<Account> updater) {
+    final Account updatedAccount = update(account.getIdentifier(IdentityType.ACI), updater);
+    account.markStale();
+
+    return updatedAccount;
+  }
+
+  public Account update(final UUID accountIdentifier, final Consumer<Account> updater) {
+    return update(accountIdentifier, a -> {
       updater.accept(a);
       // assume that all updaters passed to the public method actually modify the account
       return true;
@@ -934,11 +958,11 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   /**
-   * Specialized version of {@link #updateDevice(Account, byte, Consumer)} that minimizes potentially contentious and
+   * Specialized version of {@link #updateDevice(UUID, byte, Consumer)} that minimizes potentially contentious and
    * redundant updates of {@code device.lastSeen}
    */
-  public Account updateDeviceLastSeen(Account account, Device device, final long lastSeen) {
-    return update(account, a -> {
+  public Account updateDeviceLastSeen(UUID accountIdentifier, Device device, final long lastSeen) {
+    return update(accountIdentifier, a -> {
 
       final Optional<Device> maybeDevice = a.getDevice(device.getId());
 
@@ -956,21 +980,16 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   }
 
   /**
-   * @param account account to update
+   * @param accountIdentifier identifier of account to update
    * @param updater must return {@code true} if the account was actually updated
    */
-  private Account update(Account account, Function<Account, Boolean> updater) {
+  private Account update(UUID accountIdentifier, Function<Account, Boolean> updater) {
 
     return updateTimer.record(() -> {
 
-      redisDelete(account);
-
-      final UUID uuid = account.getUuid();
-
-      final Account updatedAccount = updateWithRetries(account,
-          updater,
+      final Account updatedAccount = updateWithRetries(updater,
           accounts::update,
-          () -> accounts.getByAccountIdentifier(uuid).orElseThrow(),
+          () -> accounts.getByAccountIdentifier(accountIdentifier).orElseThrow(),
           AccountChangeValidator.GENERAL_CHANGE_VALIDATOR);
 
       redisSet(updatedAccount);
@@ -979,49 +998,38 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     });
   }
 
-  private <E extends Exception> Account updateWithRetries(Account account,
-      final Function<Account, Boolean> updater,
+  private <E extends Exception> Account updateWithRetries(final Function<Account, Boolean> updater,
       final ThrowingConsumer<Account, E> persister,
       final Supplier<Account> retriever,
       final AccountChangeValidator changeValidator) throws E {
-
-    Account originalAccount = AccountUtil.cloneAccountAsNotStale(account);
-
-    if (!updater.apply(account)) {
-      return account;
-    }
 
     final int maxTries = 10;
     int tries = 0;
 
     while (tries < maxTries) {
-
       try {
-        persister.accept(account);
-
-        final Account updatedAccount = AccountUtil.cloneAccountAsNotStale(account);
-        account.markStale();
-
-        changeValidator.validateChange(originalAccount, updatedAccount);
-
-        return updatedAccount;
-      } catch (final ContestedOptimisticLockException e) {
-        tries++;
-
-        account = retriever.get();
-        originalAccount = AccountUtil.cloneAccountAsNotStale(account);
+        final Account account = retriever.get();
+        final Account originalAccount = AccountUtil.cloneAccountAsNotStale(account);
 
         if (!updater.apply(account)) {
           return account;
         }
+
+        persister.accept(account);
+
+        changeValidator.validateChange(originalAccount, account);
+
+        return account;
+      } catch (final ContestedOptimisticLockException e) {
+        tries++;
       }
     }
 
     throw new OptimisticLockRetryLimitExceededException();
   }
 
-  public Account updateDevice(Account account, byte deviceId, Consumer<Device> deviceUpdater) {
-    return update(account, a -> {
+  public Account updateDevice(final UUID accountIdentifier, byte deviceId, Consumer<Device> deviceUpdater) {
+    return update(accountIdentifier, a -> {
       a.getDevice(deviceId).ifPresent(deviceUpdater);
       // assume that all updaters passed to the public method actually modify the device
       return true;
@@ -1106,8 +1114,18 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     return accounts.getAll(segments, scheduler);
   }
 
-  public void delete(final Account account, final DeletionReason deletionReason) {
+  public void delete(final UUID accountIdentifier, final DeletionReason deletionReason) {
     final Timer.Sample sample = Timer.start();
+
+    final Optional<Account> maybeAccount = accounts.getByAccountIdentifier(accountIdentifier);
+
+    if (maybeAccount.isEmpty()) {
+      // In most cases, failing to find an account would be an error, but in this case, it's probably a sign that we've
+      // already succeeded in deleting the account and this is a spurious retry.
+      return;
+    }
+
+    final Account account = maybeAccount.get();
 
     try {
       accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()), () -> {
@@ -1326,21 +1344,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             cacheCluster.useCluster(connection ->
                 connection.sync().del(getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
                     getAccountEntityKey(account.getUuid())))));
-  }
-
-  private CompletableFuture<Void> redisDeleteAsync(final Account account) {
-    final Timer.Sample sample = Timer.start();
-
-    final String[] keysToDelete = new String[]{
-        getAccountMapKey(account.getPhoneNumberIdentifier().toString()),
-        getAccountEntityKey(account.getUuid())
-    };
-
-    return ResilienceUtil.getGeneralRedisRetry(RETRY_NAME).executeCompletionStage(retryExecutor,
-            () -> cacheCluster.withCluster(connection -> connection.async().del(keysToDelete))
-                .thenRun(Util.NOOP))
-        .toCompletableFuture()
-        .whenComplete((_, _) -> sample.stop(redisDeleteTimer));
   }
 
   public CompletableFuture<Optional<DeviceInfo>> waitForNewLinkedDevice(

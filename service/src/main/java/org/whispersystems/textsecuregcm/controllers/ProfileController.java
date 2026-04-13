@@ -215,7 +215,7 @@ public class ProfileController {
       currentAvatar.ifPresent(profilesManager::deleteAvatar);
     }
 
-    accountsManager.update(account, a -> {
+    accountsManager.update(account.getIdentifier(IdentityType.ACI), a -> {
 
       final List<AccountBadge> updatedBadges = request.badges()
           .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges, a.getBadges()))

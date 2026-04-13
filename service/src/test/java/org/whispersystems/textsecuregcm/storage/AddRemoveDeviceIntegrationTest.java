@@ -184,7 +184,7 @@ public class AddRemoveDeviceIntegrationTest {
     assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
 
     final Pair<Account, Device> updatedAccountAndDevice =
-        accountsManager.addDevice(account, new DeviceSpec(
+        accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
@@ -234,7 +234,7 @@ public class AddRemoveDeviceIntegrationTest {
     final String linkDeviceToken = accountsManager.generateLinkDeviceToken(account.getIdentifier(IdentityType.ACI));
 
     final Pair<Account, Device> updatedAccountAndDevice =
-        accountsManager.addDevice(account, new DeviceSpec(
+        accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
@@ -255,7 +255,7 @@ public class AddRemoveDeviceIntegrationTest {
             .size());
 
     assertThrows(LinkDeviceTokenAlreadyUsedException.class,
-        () -> accountsManager.addDevice(account, new DeviceSpec(
+        () -> accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
@@ -289,7 +289,7 @@ public class AddRemoveDeviceIntegrationTest {
     assertEquals(1, accountsManager.getByAccountIdentifier(account.getUuid()).orElseThrow().getDevices().size());
 
     final Pair<Account, Device> updatedAccountAndDevice =
-        accountsManager.addDevice(account, new DeviceSpec(
+        accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
@@ -307,7 +307,7 @@ public class AddRemoveDeviceIntegrationTest {
 
     final byte addedDeviceId = updatedAccountAndDevice.second().getId();
 
-    final Account updatedAccount = accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId);
+    final Account updatedAccount = accountsManager.removeDevice(updatedAccountAndDevice.first().getIdentifier(IdentityType.ACI), addedDeviceId);
 
     assertEquals(1, updatedAccount.getDevices().size());
 
@@ -340,7 +340,7 @@ public class AddRemoveDeviceIntegrationTest {
     final UUID aci = account.getIdentifier(IdentityType.ACI);
 
     final Pair<Account, Device> updatedAccountAndDevice =
-        accountsManager.addDevice(account, new DeviceSpec(
+        accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
@@ -362,7 +362,7 @@ public class AddRemoveDeviceIntegrationTest {
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("OH NO")));
 
     assertThrows(RuntimeException.class,
-        () -> accountsManager.removeDevice(updatedAccountAndDevice.first(), addedDeviceId));
+        () -> accountsManager.removeDevice(updatedAccountAndDevice.first().getIdentifier(IdentityType.ACI), addedDeviceId));
 
     final Account retrievedAccount = accountsManager.getByAccountIdentifierAsync(aci).join().orElseThrow();
 
@@ -410,7 +410,7 @@ public class AddRemoveDeviceIntegrationTest {
     assertEquals(Optional.empty(), displacedFuture.join());
 
     final Pair<Account, Device> updatedAccountAndDevice =
-        accountsManager.addDevice(account, new DeviceSpec(
+        accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
@@ -451,7 +451,7 @@ public class AddRemoveDeviceIntegrationTest {
     final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
 
     final Pair<Account, Device> updatedAccountAndDevice =
-        accountsManager.addDevice(account, new DeviceSpec(
+        accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
                     "device-name".getBytes(StandardCharsets.UTF_8),
                     "password",
                     "OWT",
@@ -520,7 +520,7 @@ public class AddRemoveDeviceIntegrationTest {
     final String linkDeviceToken = accountsManager.generateLinkDeviceToken(UUID.randomUUID());
     final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
 
-    accountsManager.addDevice(account, new DeviceSpec(
+    accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
             "device-name".getBytes(StandardCharsets.UTF_8),
             "password",
             "OWT",
@@ -563,7 +563,7 @@ public class AddRemoveDeviceIntegrationTest {
     final String linkDeviceTokenIdentifier = AccountsManager.getLinkDeviceTokenIdentifier(linkDeviceToken);
 
     clock.pin(Instant.ofEpochMilli(0));
-    accountsManager.addDevice(account, new DeviceSpec(
+    accountsManager.addDevice(account.getIdentifier(IdentityType.ACI), new DeviceSpec(
             "device-name".getBytes(StandardCharsets.UTF_8),
             "password",
             "OWT",

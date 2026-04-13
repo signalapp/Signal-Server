@@ -25,7 +25,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
@@ -53,6 +52,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, DevicesGrpc.DevicesBlockingStub> {
@@ -66,6 +66,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
   @Override
   protected DevicesGrpcService createServiceBeforeEachTest() {
     when(authenticatedAccount.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(authenticatedAccount.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(authenticatedAccount));
@@ -73,26 +74,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
     when(accountsManager.removeDevice(any(), anyByte()))
         .thenReturn(authenticatedAccount);
 
-    when(accountsManager.update(any(), any()))
-        .thenAnswer(invocation -> {
-          final Account account = invocation.getArgument(0);
-          final Consumer<Account> updater = invocation.getArgument(1);
-
-          updater.accept(account);
-
-          return account;
-        });
-
-    when(accountsManager.updateDevice(any(), anyByte(), any()))
-        .thenAnswer(invocation -> {
-          final Account account = invocation.getArgument(0);
-          final Device device = account.getDevice(invocation.getArgument(1)).orElseThrow();
-          final Consumer<Device> updater = invocation.getArgument(2);
-
-          updater.accept(device);
-
-          return account;
-        });
+    AccountsHelper.setupMockUpdate(accountsManager);
 
     return new DevicesGrpcService(accountsManager);
   }
@@ -154,7 +136,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
         .setId(deviceId)
         .build());
 
-    verify(accountsManager).removeDevice(authenticatedAccount, deviceId);
+    verify(accountsManager).removeDevice(AUTHENTICATED_ACI, deviceId);
   }
 
   @Test
@@ -176,7 +158,7 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
         .setId(deviceId)
         .build());
 
-    verify(accountsManager).removeDevice(authenticatedAccount, deviceId);
+    verify(accountsManager).removeDevice(AUTHENTICATED_ACI, deviceId);
   }
 
   @Test

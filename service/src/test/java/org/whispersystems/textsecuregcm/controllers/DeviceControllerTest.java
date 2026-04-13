@@ -30,8 +30,6 @@ import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.EnumSet;
@@ -141,7 +139,9 @@ class DeviceControllerTest {
     when(account.getNextDeviceId()).thenReturn(NEXT_DEVICE_ID);
     when(account.getNumber()).thenReturn(AuthHelper.VALID_NUMBER);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
     when(account.getPhoneNumberIdentifier()).thenReturn(AuthHelper.VALID_PNI);
+    when(account.getIdentifier(IdentityType.PNI)).thenReturn(AuthHelper.VALID_PNI);
     when(account.getPrimaryDevice()).thenReturn(primaryDevice);
     when(account.getDevice(anyByte())).thenReturn(Optional.empty());
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(primaryDevice));
@@ -244,7 +244,7 @@ class DeviceControllerTest {
     when(accountsManager.checkDeviceLinkingToken(anyString())).thenReturn(Optional.of(AuthHelper.VALID_UUID));
 
     when(accountsManager.addDevice(any(), any(), any())).thenAnswer(invocation -> {
-      final Account a = invocation.getArgument(0);
+      final Account a = accountsManager.getByAccountIdentifier(invocation.getArgument(0)).orElseThrow();
       final DeviceSpec deviceSpec = invocation.getArgument(1);
 
       return new Pair<>(a, deviceSpec.toDevice(NEXT_DEVICE_ID, testClock, aciIdentityKey));
@@ -268,7 +268,7 @@ class DeviceControllerTest {
     assertThat(response.deviceId()).isEqualTo(NEXT_DEVICE_ID);
 
     final ArgumentCaptor<DeviceSpec> deviceSpecCaptor = ArgumentCaptor.forClass(DeviceSpec.class);
-    verify(accountsManager).addDevice(eq(account), deviceSpecCaptor.capture(), any());
+    verify(accountsManager).addDevice(eq(AuthHelper.VALID_UUID), deviceSpecCaptor.capture(), any());
 
     final Device device = deviceSpecCaptor.getValue().toDevice(NEXT_DEVICE_ID, testClock, aciIdentityKey);
 
@@ -796,7 +796,7 @@ class DeviceControllerTest {
     when(account.getIdentityKey(IdentityType.PNI)).thenReturn(new IdentityKey(pniIdentityKeyPair.getPublicKey()));
 
     when(accountsManager.addDevice(any(), any(), any())).thenAnswer(invocation -> {
-      final Account a = invocation.getArgument(0);
+      final Account a = accountsManager.getByAccountIdentifier(invocation.getArgument(0)).orElseThrow();
       final DeviceSpec deviceSpec = invocation.getArgument(1);
 
       return new Pair<>(a, deviceSpec.toDevice(NEXT_DEVICE_ID, testClock, aciIdentityKey));
@@ -886,7 +886,7 @@ class DeviceControllerTest {
   @Test
   void maxDevicesTest() throws LinkDeviceTokenAlreadyUsedException {
     final List<Device> devices = IntStream.range(0, DeviceController.MAX_DEVICES + 1)
-        .mapToObj(i -> mock(Device.class))
+        .mapToObj(_ -> mock(Device.class))
         .toList();
 
     when(account.getDevices()).thenReturn(devices);
@@ -939,7 +939,7 @@ class DeviceControllerTest {
 
     final byte deviceId = 2;
 
-    when(accountsManager.removeDevice(account, deviceId))
+    when(accountsManager.removeDevice(AuthHelper.VALID_UUID, deviceId))
         .thenReturn(account);
 
     try (final Response response = resources
@@ -953,7 +953,7 @@ class DeviceControllerTest {
       assertThat(response.getStatus()).isEqualTo(204);
       assertThat(response.hasEntity()).isFalse();
 
-      verify(accountsManager).removeDevice(account, deviceId);
+      verify(accountsManager).removeDevice(AuthHelper.VALID_UUID, deviceId);
     }
   }
 
@@ -980,7 +980,7 @@ class DeviceControllerTest {
   void removeDeviceBySelf() {
     final byte deviceId = 2;
 
-    when(accountsManager.removeDevice(AuthHelper.VALID_ACCOUNT_3, deviceId))
+    when(accountsManager.removeDevice(AuthHelper.VALID_UUID_3, deviceId))
         .thenReturn(account);
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_3))
@@ -997,7 +997,7 @@ class DeviceControllerTest {
       assertThat(response.getStatus()).isEqualTo(204);
       assertThat(response.hasEntity()).isFalse();
 
-      verify(accountsManager).removeDevice(AuthHelper.VALID_ACCOUNT_3, deviceId);
+      verify(accountsManager).removeDevice(AuthHelper.VALID_UUID_3, deviceId);
     }
   }
 
@@ -1173,7 +1173,6 @@ class DeviceControllerTest {
   void recordTransferArchiveFailed() {
     final byte deviceId = Device.PRIMARY_ID + 1;
     final int registrationId = 123;
-    final Instant deviceCreated = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     final RemoteAttachmentError transferFailure = new RemoteAttachmentError(RemoteAttachmentError.ErrorType.CONTINUE_WITHOUT_UPLOAD);
 
     when(rateLimiter.validateAsync(AuthHelper.VALID_UUID)).thenReturn(CompletableFuture.completedFuture(null));

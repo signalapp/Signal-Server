@@ -16,6 +16,7 @@ import java.time.Instant;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import reactor.core.publisher.Mono;
@@ -67,7 +68,7 @@ public class RemoveExpiredAccountsCommand extends AbstractSinglePassCrawlAccount
         .flatMap(expiredAccount -> {
           final Mono<Void> deleteAccountMono = isDryRun
               ? Mono.empty()
-              : Mono.fromRunnable(() -> getCommandDependencies().accountsManager().delete(expiredAccount, AccountsManager.DeletionReason.EXPIRED))
+              : Mono.fromRunnable(() -> getCommandDependencies().accountsManager().delete(expiredAccount.getIdentifier(IdentityType.ACI), AccountsManager.DeletionReason.EXPIRED))
                   .subscribeOn(Schedulers.boundedElastic())
                   .then();
 

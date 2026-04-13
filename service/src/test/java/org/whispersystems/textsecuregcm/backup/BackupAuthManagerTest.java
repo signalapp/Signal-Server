@@ -55,6 +55,7 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.RedemptionRange;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -62,6 +63,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.ExperimentHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
@@ -110,14 +112,10 @@ public class BackupAuthManagerTest {
 
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(aci);
-    when(accountsManager.update(any(), any()))
-        .thenAnswer(invocation -> {
-          final Account a = invocation.getArgument(0);
-          final Consumer<Account> updater = invocation.getArgument(1);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(aci);
 
-          updater.accept(a);
-          return a;
-        });
+    AccountsHelper.setupMockGet(accountsManager, account);
+    AccountsHelper.setupMockUpdate(accountsManager);
 
     final BackupAuthCredentialRequest messagesCredentialRequest = backupAuthTestUtil.getRequest(messagesBackupKey, aci);
     final BackupAuthCredentialRequest mediaCredentialRequest = backupAuthTestUtil.getRequest(mediaBackupKey, aci);
@@ -135,7 +133,7 @@ public class BackupAuthManagerTest {
   void commitOnAnyBackupLevel(final BackupLevel backupLevel) {
     final BackupAuthManager authManager = create();
     final Account account = new MockAccountBuilder().backupLevel(backupLevel).build();
-    when(accountsManager.update(any(), any())).thenReturn(account);
+    when(accountsManager.update(any(Account.class), any())).thenReturn(account);
 
     final ThrowableAssert.ThrowingCallable commit = () ->
         authManager.commitBackupId(account,
@@ -149,7 +147,7 @@ public class BackupAuthManagerTest {
   void commitRequiresPrimary() {
     final BackupAuthManager authManager = create();
     final Account account = new MockAccountBuilder().build();
-    when(accountsManager.update(any(), any())).thenReturn(account);
+    when(accountsManager.update(any(Account.class), any())).thenReturn(account);
 
     final ThrowableAssert.ThrowingCallable commit = () ->
         authManager.commitBackupId(account,
@@ -306,7 +304,7 @@ public class BackupAuthManagerTest {
         .backupVoucher(null)
         .build();
 
-    when(accountsManager.update(any(), any())).thenReturn(updated);
+    when(accountsManager.update(any(Account.class), any())).thenReturn(updated);
 
     clock.pin(day2.plus(Duration.ofSeconds(1)));
     assertThat(authManager
@@ -316,7 +314,7 @@ public class BackupAuthManagerTest {
 
     @SuppressWarnings("unchecked") final ArgumentCaptor<Consumer<Account>> accountUpdater = ArgumentCaptor.forClass(
         Consumer.class);
-    verify(accountsManager, times(1)).update(any(), accountUpdater.capture());
+    verify(accountsManager, times(1)).update(any(Account.class), accountUpdater.capture());
 
     // If the account is not expired when we go to update it, we shouldn't wipe it out
     final Account alreadyUpdated = mock(Account.class);
@@ -341,11 +339,11 @@ public class BackupAuthManagerTest {
         .mediaCredential(Optional.of(new byte[0]))
         .build();
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
-    when(accountsManager.update(any(), any())).thenReturn(account);
+    when(accountsManager.update(any(Account.class), any())).thenReturn(account);
     when(redeemedReceiptsManager.put(any(), eq(expirationTime.getEpochSecond()), eq(201L), eq(aci)))
         .thenReturn(CompletableFuture.completedFuture(true));
     authManager.redeemReceipt(account, receiptPresentation(201, expirationTime));
-    verify(accountsManager, times(1)).update(any(), any());
+    verify(accountsManager, times(1)).update(any(Account.class), any());
   }
 
   @Test
@@ -375,13 +373,13 @@ public class BackupAuthManagerTest {
         .build();
 
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
-    when(accountsManager.update(any(), any())).thenReturn(account);
+    when(accountsManager.update(any(Account.class), any())).thenReturn(account);
     when(redeemedReceiptsManager.put(any(), eq(newExpirationTime.getEpochSecond()), eq(201L), eq(aci)))
         .thenReturn(CompletableFuture.completedFuture(true));
     authManager.redeemReceipt(account, receiptPresentation(201, newExpirationTime));
 
     final ArgumentCaptor<Consumer<Account>> updaterCaptor = ArgumentCaptor.captor();
-    verify(accountsManager, times(1)).update(any(), updaterCaptor.capture());
+    verify(accountsManager, times(1)).update(any(Account.class), updaterCaptor.capture());
 
     updaterCaptor.getValue().accept(account);
     // Should select the voucher with the later expiration time
@@ -430,7 +428,7 @@ public class BackupAuthManagerTest {
         .build();
 
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
-    when(accountsManager.update(any(), any())).thenReturn(account);
+    when(accountsManager.update(any(Account.class), any())).thenReturn(account);
     when(redeemedReceiptsManager.put(any(), eq(expirationTime.getEpochSecond()), eq(201L), eq(aci)))
         .thenReturn(CompletableFuture.completedFuture(false));
 
@@ -510,7 +508,7 @@ public class BackupAuthManagerTest {
         .backupVoucher(backupVoucher)
         .build();
 
-    when(accountsManager.update(any(), any())).thenReturn(account);
+    when(accountsManager.update(any(Account.class), any())).thenReturn(account);
 
     final Optional<BackupAuthCredentialRequest> newMessagesCredential = switch (messageChange) {
       case MATCH -> Optional.of(storedMessagesCredential);

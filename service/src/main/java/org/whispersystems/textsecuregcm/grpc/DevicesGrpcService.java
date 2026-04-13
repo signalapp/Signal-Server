@@ -80,9 +80,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
       throw GrpcExceptions.badAuthentication("linked devices cannot remove devices other than themselves");
     }
 
-    final byte deviceId = DeviceIdUtil.validate(request.getId());
-
-    accountsManager.removeDevice(getAuthenticatedAccount(), deviceId);
+    accountsManager.removeDevice(authenticatedDevice.accountIdentifier(), DeviceIdUtil.validate(request.getId()));
 
     return RemoveDeviceResponse.getDefaultInstance();
   }
@@ -106,7 +104,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
       return SetDeviceNameResponse.newBuilder().setTargetDeviceNotFound(NotFound.getDefaultInstance()).build();
     }
 
-    accountsManager.updateDevice(account, deviceId, device -> device.setName(request.getName().toByteArray()));
+    accountsManager.updateDevice(account.getIdentifier(IdentityType.ACI), deviceId, device -> device.setName(request.getName().toByteArray()));
 
     return SetDeviceNameResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build();
   }
@@ -141,7 +139,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
         .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
     if (!Objects.equals(device.getApnId(), apnsToken) || !Objects.equals(device.getGcmId(), fcmToken)) {
-      accountsManager.updateDevice(account, authenticatedDevice.deviceId(), d -> {
+      accountsManager.updateDevice(account.getIdentifier(IdentityType.ACI), authenticatedDevice.deviceId(), d -> {
         d.setApnId(apnsToken);
         d.setGcmId(fcmToken);
         d.setFetchesMessages(false);
@@ -154,9 +152,8 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
   @Override
   public ClearPushTokenResponse clearPushToken(final ClearPushTokenRequest request) {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
-    final Account account = getAuthenticatedAccount();
 
-    accountsManager.updateDevice(account, authenticatedDevice.deviceId(), device -> {
+    accountsManager.updateDevice(authenticatedDevice.accountIdentifier(), authenticatedDevice.deviceId(), device -> {
       if (StringUtils.isNotBlank(device.getApnId())) {
         device.setUserAgent(device.isPrimary() ? "OWI" : "OWP");
       } else if (StringUtils.isNotBlank(device.getGcmId())) {
@@ -179,7 +176,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
         .map(DeviceCapabilityUtil::fromGrpcDeviceCapability)
         .collect(Collectors.toSet());
 
-    accountsManager.updateDevice(getAuthenticatedAccount(), authenticatedDevice.deviceId(),
+    accountsManager.updateDevice(authenticatedDevice.accountIdentifier(), authenticatedDevice.deviceId(),
         device -> device.setCapabilities(capabilities));
 
     return SetCapabilitiesResponse.getDefaultInstance();

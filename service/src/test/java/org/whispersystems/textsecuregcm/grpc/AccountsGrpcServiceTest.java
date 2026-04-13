@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -77,6 +76,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
+import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
@@ -97,15 +97,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Override
   protected AccountsGrpcService createServiceBeforeEachTest() {
-    when(accountsManager.update(any(), any()))
-        .thenAnswer(invocation -> {
-          final Account account = invocation.getArgument(0);
-          final Consumer<Account> updater = invocation.getArgument(1);
-
-          updater.accept(account);
-
-          return account;
-        });
+    AccountsHelper.setupMockUpdate(accountsManager);
 
     final RateLimiters rateLimiters = mock(RateLimiters.class);
     when(rateLimiters.getUsernameReserveLimiter()).thenReturn(rateLimiter);
@@ -154,15 +146,10 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @Test
   void deleteAccount() {
-    final Account account = mock(Account.class);
-
-    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
-        .thenReturn(Optional.of(account));
-
     final DeleteAccountResponse ignored =
         authenticatedServiceStub().deleteAccount(DeleteAccountRequest.newBuilder().build());
 
-    verify(accountsManager).delete(account, AccountsManager.DeletionReason.USER_REQUEST);
+    verify(accountsManager).delete(AUTHENTICATED_ACI, AccountsManager.DeletionReason.USER_REQUEST);
   }
 
   @Test
@@ -206,7 +193,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         () -> authenticatedServiceStub().setRegistrationLock(SetRegistrationLockRequest.newBuilder()
             .build()));
 
-    verify(accountsManager, never()).update(any(), any());
+    verify(accountsManager, never()).update(any(UUID.class), any());
   }
 
   @Test
@@ -219,7 +206,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
                 .setRegistrationLock(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
             .build()));
 
-    verify(accountsManager, never()).update(any(), any());
+    verify(accountsManager, never()).update(any(UUID.class), any());
   }
 
   @Test
@@ -243,12 +230,13 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().clearRegistrationLock(ClearRegistrationLockRequest.newBuilder().build()));
 
-    verify(accountsManager, never()).update(any(), any());
+    verify(accountsManager, never()).update(any(UUID.class), any());
   }
 
   @Test
   void reserveUsernameHash() throws UsernameHashNotAvailableException {
     final Account account = mock(Account.class);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
@@ -259,7 +247,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         .thenAnswer(invocation -> {
           final List<byte[]> usernameHashes = invocation.getArgument(1);
 
-          return new AccountsManager.UsernameReservation(invocation.getArgument(0), usernameHashes.getFirst());
+          return new AccountsManager.UsernameReservation(accountsManager.getByAccountIdentifier(invocation.getArgument(0)).orElseThrow(), usernameHashes.getFirst());
         });
 
     final ReserveUsernameHashResponse expectedResponse = ReserveUsernameHashResponse.newBuilder()
@@ -363,7 +351,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
-    when(accountsManager.confirmReservedUsernameHash(account, usernameHash, usernameCiphertext))
+    when(accountsManager.confirmReservedUsernameHash(AUTHENTICATED_ACI, usernameHash, usernameCiphertext))
         .thenAnswer(_ -> {
           final Account updatedAccount = mock(Account.class);
 
@@ -502,12 +490,12 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
-    when(accountsManager.clearUsernameHash(account)).thenReturn(account);
+    when(accountsManager.clearUsernameHash(AUTHENTICATED_ACI)).thenReturn(account);
 
     assertDoesNotThrow(() ->
         authenticatedServiceStub().deleteUsernameHash(DeleteUsernameHashRequest.newBuilder().build()));
 
-    verify(accountsManager).clearUsernameHash(account);
+    verify(accountsManager).clearUsernameHash(AUTHENTICATED_ACI);
   }
 
   @ParameterizedTest
@@ -515,6 +503,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void setUsernameLink(final boolean keepLink) {
     final Account account = mock(Account.class);
     final UUID oldHandle = UUID.randomUUID();
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(AUTHENTICATED_ACI);
     when(account.getUsernameHash()).thenReturn(Optional.of(new byte[AccountController.USERNAME_HASH_LENGTH]));
     when(account.getUsernameLinkHandle()).thenReturn(oldHandle);
 
@@ -740,7 +729,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final int updateMethodCalls = matchesCurrentZkCredentialKey ? 0 : 1;
 
-    verify(accountsManager, times(updateMethodCalls)).update(eq(account), any(Consumer.class));
+    verify(accountsManager, times(updateMethodCalls)).update(eq(AUTHENTICATED_ACI), any());
     verify(account, times(updateMethodCalls)).setZkCredentialKey(aryEq(publicKey));
   }
 
@@ -763,7 +752,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
             .setPublicKey(ByteString.copyFrom(publicKey))
             .build()));
 
-    verify(accountsManager, never()).update(any(Account.class), any(Consumer.class));
+    verify(accountsManager, never()).update(any(UUID.class), any());
     verify(account, never()).setZkCredentialKey(any());
   }
 }

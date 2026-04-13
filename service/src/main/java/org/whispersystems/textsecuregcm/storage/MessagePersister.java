@@ -311,7 +311,7 @@ public class MessagePersister implements Managed {
               } else {
                 logger.warn("Failed to persist queue {}::{} due to overfull queue; will unlink device", accountUuid, deviceId);
 
-                return Mono.fromRunnable(() -> accountsManager.removeDevice(account, deviceId))
+                return Mono.fromRunnable(() -> accountsManager.removeDevice(accountUuid, deviceId))
                     .subscribeOn(persistQueueScheduler)
                     .then(Mono.empty());
               }

@@ -603,6 +603,7 @@ class AccountsManagerTest {
     UUID uuid = UUID.randomUUID();
     UUID pni = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, pni, new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
 
     when(clusterCommands.get(eq("Account3::" + uuid))).thenReturn(null);
 
@@ -614,30 +615,13 @@ class AccountsManagerTest {
 
     final IdentityKey identityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
 
-    account = accountsManager.update(account, a -> a.setIdentityKey(identityKey));
+    account = accountsManager.update(uuid, a -> a.setIdentityKey(identityKey));
 
     assertEquals(1, account.getVersion());
     assertEquals(identityKey, account.getIdentityKey(IdentityType.ACI));
 
-    verify(accounts, times(1)).getByAccountIdentifier(uuid);
+    verify(accounts, times(2)).getByAccountIdentifier(uuid);
     verify(accounts, times(2)).update(any());
-    verifyNoMoreInteractions(accounts);
-  }
-
-  @Test
-  void testUpdate_dynamoOptimisticLockingFailureDuringCreate() throws AccountAlreadyExistsException {
-    UUID uuid = UUID.randomUUID();
-    Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-
-    when(clusterCommands.get(eq("Account3::" + uuid))).thenReturn(null);
-    when(accounts.getByAccountIdentifier(uuid)).thenReturn(Optional.empty())
-        .thenReturn(Optional.of(account));
-    when(accounts.create(any(), any())).thenThrow(ContestedOptimisticLockException.class);
-
-    accountsManager.update(account, a -> {
-    });
-
-    verify(accounts, times(1)).update(account);
     verifyNoMoreInteractions(accounts);
   }
 
@@ -645,9 +629,7 @@ class AccountsManagerTest {
   void testUpdateDevice() {
     final UUID uuid = UUID.randomUUID();
     Account account = AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-
-    when(accounts.getByAccountIdentifier(uuid)).thenReturn(
-        Optional.of(AccountsHelper.generateTestAccount("+14152222222", uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH])));
+    addRetrievableAccount(account);
 
     assertTrue(account.getDevices().isEmpty());
 
@@ -661,14 +643,14 @@ class AccountsManagerTest {
     @SuppressWarnings("unchecked") Consumer<Device> deviceUpdater = mock(Consumer.class);
     @SuppressWarnings("unchecked") Consumer<Device> unknownDeviceUpdater = mock(Consumer.class);
 
-    account = accountsManager.updateDevice(account, deviceId, deviceUpdater);
-    account = accountsManager.updateDevice(account, deviceId, d -> d.setName("deviceName".getBytes(StandardCharsets.UTF_8)));
+    account = accountsManager.updateDevice(uuid, deviceId, deviceUpdater);
+    account = accountsManager.updateDevice(uuid, deviceId, d -> d.setName("deviceName".getBytes(StandardCharsets.UTF_8)));
 
     assertArrayEquals("deviceName".getBytes(StandardCharsets.UTF_8), account.getDevice(deviceId).orElseThrow().getName());
 
     verify(deviceUpdater, times(1)).accept(any(Device.class));
 
-    accountsManager.updateDevice(account, account.getNextDeviceId(), unknownDeviceUpdater);
+    accountsManager.updateDevice(uuid, account.getNextDeviceId(), unknownDeviceUpdater);
 
     verify(unknownDeviceUpdater, never()).accept(any(Device.class));
   }
@@ -689,7 +671,7 @@ class AccountsManagerTest {
 
     assertTrue(account.getDevice(linkedDevice.getId()).isPresent());
 
-    account = accountsManager.removeDevice(account, linkedDevice.getId());
+    account = accountsManager.removeDevice(account.getIdentifier(IdentityType.ACI), linkedDevice.getId());
 
     assertFalse(account.getDevice(linkedDevice.getId()).isPresent());
     verify(messagesManager, times(2)).clear(account.getUuid(), linkedDevice.getId());
@@ -708,7 +690,8 @@ class AccountsManagerTest {
     when(keysManager.deleteSingleUsePreKeys(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any(), anyByte())).thenReturn(CompletableFuture.completedFuture(null));
 
-    assertThrows(IllegalArgumentException.class, () -> accountsManager.removeDevice(account, Device.PRIMARY_ID));
+    assertThrows(IllegalArgumentException.class,
+        () -> accountsManager.removeDevice(account.getIdentifier(IdentityType.ACI), Device.PRIMARY_ID));
 
     assertDoesNotThrow(account::getPrimaryDevice);
     verify(messagesManager, never()).clear(any(), anyByte());
@@ -876,7 +859,7 @@ class AccountsManagerTest {
 
     CLOCK.pin(CLOCK.instant().plusSeconds(60));
 
-    final Pair<Account, Device> updatedAccountAndDevice = accountsManager.addDevice(account, new DeviceSpec(
+    final Pair<Account, Device> updatedAccountAndDevice = accountsManager.addDevice(aci, new DeviceSpec(
             deviceNameCiphertext,
             password,
             signalAgent,
@@ -922,10 +905,12 @@ class AccountsManagerTest {
   @MethodSource
   void testUpdateDeviceLastSeen(final boolean expectUpdate, final long initialLastSeen, final long updatedLastSeen) {
     final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
+
     final Device device = generateTestDevice(initialLastSeen);
     account.addDevice(device);
 
-    accountsManager.updateDeviceLastSeen(account, device, updatedLastSeen);
+    accountsManager.updateDeviceLastSeen(account.getIdentifier(IdentityType.ACI), device, updatedLastSeen);
 
     assertEquals(expectUpdate ? updatedLastSeen : initialLastSeen, device.getLastSeen());
     verify(accounts, expectUpdate ? times(1) : never()).update(account);
@@ -957,7 +942,8 @@ class AccountsManagerTest {
     final KEMSignedPreKey kemLastResortPreKey = KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair);
 
     Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, List.of(DevicesHelper.createDevice(Device.PRIMARY_ID)), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-    account = accountsManager.changeNumber(account,
+    addRetrievableAccount(account);
+    account = accountsManager.changeNumber(uuid,
         targetNumber,
         new IdentityKey(pniIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, ecSignedPreKey),
@@ -985,9 +971,11 @@ class AccountsManagerTest {
     Account account = AccountsHelper.generateTestAccount(originalNumber, UUID.randomUUID(), phoneNumberIdentifier,
         List.of(DevicesHelper.createDevice(Device.PRIMARY_ID)), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
 
+    addRetrievableAccount(account);
+
     phoneNumberIdentifiersByE164.put(originalNumber, account.getPhoneNumberIdentifier());
     phoneNumberIdentifiersByE164.put(newNumber, account.getPhoneNumberIdentifier());
-    account = accountsManager.changeNumber(account,
+    account = accountsManager.changeNumber(account.getIdentifier(IdentityType.ACI),
         newNumber,
         new IdentityKey(pniIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)),
@@ -1016,7 +1004,9 @@ class AccountsManagerTest {
     final KEMSignedPreKey kemLastResoryPreKey = KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair);
 
     Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, List.of(DevicesHelper.createDevice(Device.PRIMARY_ID)), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-    account = accountsManager.changeNumber(account,
+    addRetrievableAccount(account);
+
+    account = accountsManager.changeNumber(uuid,
         targetNumber,
         new IdentityKey(pniIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, ecSignedPreKey),
@@ -1064,8 +1054,9 @@ class AccountsManagerTest {
         DevicesHelper.createDevice(Device.PRIMARY_ID, 0L, 101),
         DevicesHelper.createDevice(deviceId2, 0L, 102));
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
     final Account updatedAccount = accountsManager.changeNumber(
-        account, targetNumber, new IdentityKey(ECKeyPair.generate().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds);
+        uuid, targetNumber, new IdentityKey(ECKeyPair.generate().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds);
 
     assertEquals(targetNumber, updatedAccount.getNumber());
 
@@ -1102,11 +1093,12 @@ class AccountsManagerTest {
     final List<Device> devices = List.of(DevicesHelper.createDevice(Device.PRIMARY_ID, 0L, 101),
         DevicesHelper.createDevice(deviceId2, 0L, 102));
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, originalPni, devices, new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
     assertThrows(MismatchedDevicesException.class,
         () -> accountsManager.changeNumber(
-            account, targetNumber, new IdentityKey(ECKeyPair.generate().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds));
+            uuid, targetNumber, new IdentityKey(ECKeyPair.generate().getPublicKey()), newSignedKeys, newSignedPqKeys, newRegistrationIds));
 
-    verifyNoInteractions(accounts);
+    verify(accounts, never()).changeNumber(any(), any(), any(), any(), any());
     verifyNoInteractions(keysManager);
   }
 
@@ -1117,8 +1109,9 @@ class AccountsManagerTest {
     final UUID uuid = UUID.randomUUID();
 
     final Account account = AccountsHelper.generateTestAccount(originalNumber, uuid, UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
 
-    assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setNumber(targetNumber, UUID.randomUUID())));
+    assertThrows(AssertionError.class, () -> accountsManager.update(uuid, a -> a.setNumber(targetNumber, UUID.randomUUID())));
   }
 
   @Test
@@ -1128,7 +1121,7 @@ class AccountsManagerTest {
 
     final List<byte[]> usernameHashes = List.of(TestRandomUtil.nextBytes(32), TestRandomUtil.nextBytes(32));
 
-    final UsernameReservation result = accountsManager.reserveUsernameHash(account, usernameHashes);
+    final UsernameReservation result = accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), usernameHashes);
     assertArrayEquals(usernameHashes.getFirst(), result.reservedUsernameHash());
     verify(accounts, times(1)).reserveUsernameHash(eq(account), any(), eq(Duration.ofMinutes(5)));
   }
@@ -1142,7 +1135,7 @@ class AccountsManagerTest {
 
     final List<byte[]> usernameHashes = List.of(TestRandomUtil.nextBytes(32), oldUsernameHash, TestRandomUtil.nextBytes(32));
 
-    final UsernameReservation result = accountsManager.reserveUsernameHash(account, usernameHashes);
+    final UsernameReservation result = accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), usernameHashes);
     assertArrayEquals(oldUsernameHash, result.reservedUsernameHash());
     verify(accounts, never()).reserveUsernameHash(any(), any(), any());
   }
@@ -1158,7 +1151,7 @@ class AccountsManagerTest {
         .doNothing()
         .when(accounts).reserveUsernameHash(any(), any(), any());
 
-    final UsernameReservation result = accountsManager.reserveUsernameHash(account, usernameHashes);
+    final UsernameReservation result = accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), usernameHashes);
     assertArrayEquals(usernameHashes.getFirst(), result.reservedUsernameHash());
     verify(accounts, times(2)).reserveUsernameHash(eq(account), any(), eq(Duration.ofMinutes(5)));
   }
@@ -1166,21 +1159,23 @@ class AccountsManagerTest {
   @Test
   void testReserveUsernameHashAsyncNotAvailable() throws UsernameHashNotAvailableException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
-    when(accounts.getByAccountIdentifierAsync(account.getUuid())).thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    addRetrievableAccount(account);
 
     doThrow(new UsernameHashNotAvailableException())
         .when(accounts).reserveUsernameHash(any(), any(), any());
 
     assertThrows(UsernameHashNotAvailableException.class, () ->
-        accountsManager.reserveUsernameHash(account, List.of(USERNAME_HASH_1, USERNAME_HASH_2)));
+        accountsManager.reserveUsernameHash(account.getIdentifier(IdentityType.ACI), List.of(USERNAME_HASH_1, USERNAME_HASH_2)));
   }
 
   @Test
   void testConfirmReservedUsernameHash() throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
+
     setReservationHash(account, USERNAME_HASH_1);
 
-    accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     verify(accounts).confirmUsernameHash(eq(account), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1));
   }
 
@@ -1194,62 +1189,72 @@ class AccountsManagerTest {
         .doNothing()
         .when(accounts).confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
 
-    accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     verify(accounts, times(2)).confirmUsernameHash(eq(account), eq(USERNAME_HASH_1), eq(ENCRYPTED_USERNAME_1));
   }
 
   @Test
   void testConfirmReservedHashNameMismatch() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
+
     setReservationHash(account, USERNAME_HASH_1);
     assertThrows(UsernameReservationNotFoundException.class,
-        () -> accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_2, ENCRYPTED_USERNAME_2));
+        () -> accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_2, ENCRYPTED_USERNAME_2));
   }
 
   @Test
   void testConfirmReservedLapsed() throws UsernameHashNotAvailableException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
     // hash was reserved, but the reservation lapsed and another account took it
     setReservationHash(account, USERNAME_HASH_1);
     doThrow(new UsernameHashNotAvailableException())
         .when(accounts).confirmUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
     assertThrows(UsernameHashNotAvailableException.class,
-        () -> accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+        () -> accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     assertTrue(account.getUsernameHash().isEmpty());
   }
 
   @Test
   void testConfirmReservedRetry() throws UsernameHashNotAvailableException, UsernameReservationNotFoundException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
     account.setUsernameHash(USERNAME_HASH_1);
 
     // reserved username already set, should be treated as a replay
-    accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
-    verifyNoInteractions(accounts);
+    accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1);
+    verify(accounts, never()).confirmUsernameHash(any(), any(), any());
   }
 
   @Test
   void testConfirmReservedUsernameHashWithNoReservation() throws UsernameHashNotAvailableException {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(),
         new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
+
     assertThrows(UsernameReservationNotFoundException.class,
-        () -> accountsManager.confirmReservedUsernameHash(account, USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
+        () -> accountsManager.confirmReservedUsernameHash(account.getIdentifier(IdentityType.ACI), USERNAME_HASH_1, ENCRYPTED_USERNAME_1));
     verify(accounts, never()).confirmUsernameHash(any(), any(), any());
   }
 
   @Test
   void testClearUsernameHash() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
+
     account.setUsernameHash(USERNAME_HASH_1);
-    accountsManager.clearUsernameHash(account);
+    accountsManager.clearUsernameHash(account.getIdentifier(IdentityType.ACI));
     verify(accounts).clearUsernameHash(eq(account));
   }
 
   @Test
   void testSetUsernameViaUpdate() {
     final Account account = AccountsHelper.generateTestAccount("+18005551234", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    addRetrievableAccount(account);
 
-    assertThrows(AssertionError.class, () -> accountsManager.update(account, a -> a.setUsernameHash(USERNAME_HASH_1)));
+    assertThrows(AssertionError.class, () ->
+        accountsManager.update(account.getIdentifier(IdentityType.ACI), a -> a.setUsernameHash(USERNAME_HASH_1)));
   }
 
   @Test
@@ -1439,5 +1444,13 @@ class AccountsManagerTest {
             new MismatchedDevicesException(
                 new MismatchedDevices(Set.of(deviceId), Set.of((byte) (extraDeviceId)), Collections.emptySet())))
     );
+  }
+
+  private void addRetrievableAccount(final Account account) {
+    when(accounts.getByAccountIdentifier(account.getIdentifier(IdentityType.ACI)))
+        .thenReturn(Optional.of(account));
+
+    when(accounts.getByAccountIdentifierAsync(account.getIdentifier(IdentityType.ACI)))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
   }
 }

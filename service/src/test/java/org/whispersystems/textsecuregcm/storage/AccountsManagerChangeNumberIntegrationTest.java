@@ -169,7 +169,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
-    accountsManager.changeNumber(account,
+    accountsManager.changeNumber(originalUuid,
         secondNumber,
         new IdentityKey(pniIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)),
@@ -197,7 +197,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
-    accountsManager.changeNumber(account,
+    accountsManager.changeNumber(originalUuid,
         originalNumber,
         new IdentityKey(pniIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)),
@@ -235,7 +235,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final Map<Byte, KEMSignedPreKey> kemSignedPreKeys = Map.of(Device.PRIMARY_ID, rotatedKemSignedPreKey);
     final Map<Byte, Integer> registrationIds = Map.of(Device.PRIMARY_ID, rotatedPniRegistrationId);
 
-    final Account updatedAccount = accountsManager.changeNumber(account, secondNumber, pniIdentityKey, preKeys, kemSignedPreKeys, registrationIds);
+    final Account updatedAccount = accountsManager.changeNumber(originalUuid, secondNumber, pniIdentityKey, preKeys, kemSignedPreKeys, registrationIds);
     final UUID secondPni = updatedAccount.getPhoneNumberIdentifier();
 
     assertTrue(accountsManager.getByE164(originalNumber).isEmpty());
@@ -270,7 +270,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final ECKeyPair originalIdentityKeyPair = ECKeyPair.generate();
     final ECKeyPair secondIdentityKeyPair = ECKeyPair.generate();
 
-    account = accountsManager.changeNumber(account,
+    account = accountsManager.changeNumber(originalUuid,
         secondNumber,
         new IdentityKey(secondIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, secondIdentityKeyPair)),
@@ -279,7 +279,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     final UUID secondPni = account.getPhoneNumberIdentifier();
 
-    accountsManager.changeNumber(account,
+    accountsManager.changeNumber(originalUuid,
         originalNumber,
         new IdentityKey(originalIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(3, originalIdentityKeyPair)),
@@ -315,7 +315,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     final UUID existingAccountUuid = existingAccount.getUuid();
 
-    accountsManager.changeNumber(account,
+    accountsManager.changeNumber(originalUuid,
         secondNumber,
         new IdentityKey(secondIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, secondIdentityKeyPair)),
@@ -337,7 +337,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     assertEquals(Optional.of(existingAccountUuid), accountsManager.findRecentlyDeletedAccountIdentifier(originalPni));
     assertEquals(Optional.empty(), accountsManager.findRecentlyDeletedAccountIdentifier(secondPni));
 
-    accountsManager.changeNumber(accountsManager.getByAccountIdentifier(originalUuid).orElseThrow(),
+    accountsManager.changeNumber(originalUuid,
         originalNumber,
         new IdentityKey(originalIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, originalIdentityKeyPair)),
@@ -364,7 +364,7 @@ class AccountsManagerChangeNumberIntegrationTest {
     final UUID existingAccountUuid = existingAccount.getUuid();
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
 
-    final Account changedNumberAccount = accountsManager.changeNumber(account,
+    final Account changedNumberAccount = accountsManager.changeNumber(originalUuid,
         secondNumber,
         new IdentityKey(pniIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair)),
@@ -383,7 +383,7 @@ class AccountsManagerChangeNumberIntegrationTest {
 
     final ECKeyPair reRegisteredPniIdentityKeyPair = ECKeyPair.generate();
 
-    final Account changedNumberReRegisteredAccount = accountsManager.changeNumber(reRegisteredAccount,
+    final Account changedNumberReRegisteredAccount = accountsManager.changeNumber(reRegisteredAccount.getIdentifier(IdentityType.ACI),
         secondNumber,
         new IdentityKey(reRegisteredPniIdentityKeyPair.getPublicKey()),
         Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, reRegisteredPniIdentityKeyPair)),

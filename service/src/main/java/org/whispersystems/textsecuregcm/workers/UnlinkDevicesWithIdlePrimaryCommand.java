@@ -93,7 +93,7 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
         .filter(account -> isPrimaryDeviceIdle(account, currentTime, idleDurationThreshold))
         .flatMap(accountWithIdlePrimaryDevice -> Flux.fromIterable(accountWithIdlePrimaryDevice.getDevices())
             .filter(device -> !device.isPrimary())
-            .map(linkedDevice -> Tuples.of(accountWithIdlePrimaryDevice, linkedDevice.getId())))
+            .map(linkedDevice -> Tuples.of(accountWithIdlePrimaryDevice.getIdentifier(IdentityType.ACI), linkedDevice.getId())))
         .flatMap(accountAndLinkedDeviceId -> {
           final Mono<Account> unlinkDeviceMono = isDryRun
               ? Mono.empty()
@@ -104,8 +104,7 @@ public class UnlinkDevicesWithIdlePrimaryCommand extends AbstractSinglePassCrawl
               .doOnSuccess(ignored -> unlinkDeviceCounter.increment())
               .retryWhen(Retry.backoff(3, Duration.ofSeconds(1)).maxBackoff(Duration.ofSeconds(4)))
               .onErrorResume(throwable -> {
-                logger.warn("Failed to unlink device to delete account {}:{}", accountAndLinkedDeviceId.getT1().getIdentifier(
-                    IdentityType.ACI), accountAndLinkedDeviceId.getT2(), throwable);
+                logger.warn("Failed to unlink device to delete account {}:{}", accountAndLinkedDeviceId.getT1(), accountAndLinkedDeviceId.getT2(), throwable);
 
                 return Mono.empty();
               });

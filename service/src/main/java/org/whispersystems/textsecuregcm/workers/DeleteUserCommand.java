@@ -13,6 +13,7 @@ import net.sourceforge.argparse4j.inf.Subparser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.AccountsManager.DeletionReason;
@@ -51,7 +52,7 @@ public class DeleteUserCommand extends AbstractCommandWithDependencies {
         Optional<Account> account = accountsManager.getByE164(user);
 
         if (account.isPresent()) {
-          accountsManager.delete(account.get(), DeletionReason.ADMIN_DELETED);
+          accountsManager.delete(account.get().getIdentifier(IdentityType.ACI), DeletionReason.ADMIN_DELETED);
           logger.warn("Removed " + account.get().getNumber());
         } else {
           logger.warn("Account not found");

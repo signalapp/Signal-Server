@@ -108,33 +108,26 @@ public class AccountController {
   public void setGcmRegistrationId(@Auth AuthenticatedDevice auth,
       @NotNull @Valid GcmRegistrationId registrationId) {
 
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
+    final String currentGcmId = accounts.getByAccountIdentifier(auth.accountIdentifier())
+        .flatMap(account -> account.getDevice(auth.deviceId()))
+        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED))
+        .getGcmId();
 
-    final Device device = account.getDevice(auth.deviceId())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    if (Objects.equals(device.getGcmId(), registrationId.gcmRegistrationId())) {
+    if (Objects.equals(currentGcmId, registrationId.gcmRegistrationId())) {
       return;
     }
 
-    accounts.updateDevice(account, device.getId(), d -> {
-      d.setApnId(null);
-      d.setGcmId(registrationId.gcmRegistrationId());
-      d.setFetchesMessages(false);
+    accounts.updateDevice(auth.accountIdentifier(), auth.deviceId(), device -> {
+      device.setApnId(null);
+      device.setGcmId(registrationId.gcmRegistrationId());
+      device.setFetchesMessages(false);
     });
   }
 
   @DELETE
   @Path("/gcm/")
   public void deleteGcmRegistrationId(@Auth AuthenticatedDevice auth) {
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    final Device device = account.getDevice(auth.deviceId())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    accounts.updateDevice(account, device.getId(), d -> {
+    accounts.updateDevice(auth.accountIdentifier(), auth.deviceId(), d -> {
       d.setGcmId(null);
       d.setFetchesMessages(false);
       d.setUserAgent("OWA");
@@ -148,15 +141,9 @@ public class AccountController {
   public void setApnRegistrationId(@Auth AuthenticatedDevice auth,
       @NotNull @Valid ApnRegistrationId registrationId) {
 
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    final Device device = account.getDevice(auth.deviceId())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
     // Unlike FCM tokens, we need current "last updated" timestamps for APNs tokens and so update device records
     // unconditionally
-    accounts.updateDevice(account, device.getId(), d -> {
+    accounts.updateDevice(auth.accountIdentifier(), auth.deviceId(), d -> {
       d.setApnId(registrationId.apnRegistrationId());
       d.setGcmId(null);
       d.setFetchesMessages(false);
@@ -166,20 +153,10 @@ public class AccountController {
   @DELETE
   @Path("/apn/")
   public void deleteApnRegistrationId(@Auth AuthenticatedDevice auth) {
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    final Device device = account.getDevice(auth.deviceId())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    accounts.updateDevice(account, device.getId(), d -> {
+    accounts.updateDevice(auth.accountIdentifier(), auth.deviceId(), d -> {
       d.setApnId(null);
       d.setFetchesMessages(false);
-      if (d.getId() == 1) {
-        d.setUserAgent("OWI");
-      } else {
-        d.setUserAgent("OWP");
-      }
+      d.setUserAgent(d.isPrimary() ? "OWI" : "OWP");
     });
   }
 
@@ -189,20 +166,14 @@ public class AccountController {
   public void setRegistrationLock(@Auth AuthenticatedDevice auth, @NotNull @Valid RegistrationLock accountLock) {
     final SaltedTokenHash credentials = SaltedTokenHash.generateFor(accountLock.registrationLock());
 
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    accounts.update(account,
+    accounts.update(auth.accountIdentifier(),
         a -> a.setRegistrationLock(credentials.hash(), credentials.salt()));
   }
 
   @DELETE
   @Path("/registration_lock")
   public void removeRegistrationLock(@Auth AuthenticatedDevice auth) {
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    accounts.update(account, a -> a.setRegistrationLock(null, null));
+    accounts.update(auth.accountIdentifier(), a -> a.setRegistrationLock(null, null));
   }
 
   @PUT
@@ -240,7 +211,7 @@ public class AccountController {
       throw new ForbiddenException();
     }
 
-    accounts.updateDevice(account, targetDeviceId, d -> d.setName(deviceName.deviceName()));
+    accounts.updateDevice(account.getIdentifier(IdentityType.ACI), targetDeviceId, d -> d.setName(deviceName.deviceName()));
   }
 
   @PUT
@@ -252,10 +223,8 @@ public class AccountController {
       @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
       @HeaderParam(HeaderUtils.X_SIGNAL_AGENT) String signalAgent,
       @NotNull @Valid AccountAttributes attributes) {
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
 
-    final Account updatedAccount = accounts.update(account, a -> {
+    final Account updatedAccount = accounts.update(auth.accountIdentifier(), a -> {
       a.getDevice(auth.deviceId()).ifPresent(d -> {
         d.setFetchesMessages(attributes.getFetchesMessages());
         d.setName(attributes.getName());
@@ -306,10 +275,7 @@ public class AccountController {
   @ApiResponse(responseCode = "204", description = "Username successfully deleted.", useReturnTypeSchema = true)
   @ApiResponse(responseCode = "401", description = "Account authentication check failed.")
   public void deleteUsernameHash(@Auth final AuthenticatedDevice auth) {
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    accounts.clearUsernameHash(account);
+    accounts.clearUsernameHash(auth.accountIdentifier());
   }
 
   @PUT
@@ -332,9 +298,6 @@ public class AccountController {
       @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final ReserveUsernameHashRequest usernameRequest) throws RateLimitExceededException {
 
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
     rateLimiters.getUsernameReserveLimiter().validate(auth.accountIdentifier());
 
     for (final byte[] hash : usernameRequest.usernameHashes()) {
@@ -345,7 +308,7 @@ public class AccountController {
 
     try {
       final AccountsManager.UsernameReservation reservation =
-          accounts.reserveUsernameHash(account, usernameRequest.usernameHashes());
+          accounts.reserveUsernameHash(auth.accountIdentifier(), usernameRequest.usernameHashes());
 
       return new ReserveUsernameHashResponse(reservation.reservedUsernameHash());
     } catch (final UsernameHashNotAvailableException e) {
@@ -374,20 +337,17 @@ public class AccountController {
       @Auth final AuthenticatedDevice auth,
       @NotNull @Valid final ConfirmUsernameHashRequest confirmRequest) throws RateLimitExceededException {
 
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
     try {
       usernameHashZkProofVerifier.verifyProof(confirmRequest.zkProof(), confirmRequest.usernameHash());
     } catch (final BaseUsernameException e) {
       throw new WebApplicationException(Response.status(422).build());
     }
 
-    rateLimiters.getUsernameSetLimiter().validate(account.getUuid());
+    rateLimiters.getUsernameSetLimiter().validate(auth.accountIdentifier());
 
     try {
       final Account updatedAccount = accounts.confirmReservedUsernameHash(
-          account,
+          auth.accountIdentifier(),
           confirmRequest.usernameHash(),
           confirmRequest.encryptedUsername());
 
@@ -474,7 +434,7 @@ public class AccountController {
     } else {
       usernameLinkHandle = UUID.randomUUID();
     }
-    updateUsernameLink(account, usernameLinkHandle, encryptedUsername.usernameLinkEncryptedValue());
+    updateUsernameLink(account.getIdentifier(IdentityType.ACI), usernameLinkHandle, encryptedUsername.usernameLinkEncryptedValue());
     return new UsernameLinkHandle(usernameLinkHandle);
   }
 
@@ -494,10 +454,7 @@ public class AccountController {
     // check ratelimiter for username link operations
     rateLimiters.forDescriptor(RateLimiters.For.USERNAME_LINK_OPERATION).validate(auth.accountIdentifier());
 
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    clearUsernameLink(account);
+    clearUsernameLink(auth.accountIdentifier());
   }
 
   @GET
@@ -559,24 +516,21 @@ public class AccountController {
   @DELETE
   @Path("/me")
   public void deleteAccount(@Auth AuthenticatedDevice auth) {
-    final Account account = accounts.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-    accounts.delete(account, AccountsManager.DeletionReason.USER_REQUEST);
+    accounts.delete(auth.accountIdentifier(), AccountsManager.DeletionReason.USER_REQUEST);
   }
 
-  private void clearUsernameLink(final Account account) {
-    updateUsernameLink(account, null, null);
+  private void clearUsernameLink(final UUID accountIdentifier) {
+    updateUsernameLink(accountIdentifier, null, null);
   }
 
   private void updateUsernameLink(
-      final Account account,
+      final UUID accountIdentifier,
       @Nullable final UUID usernameLinkHandle,
       @Nullable final byte[] encryptedUsername) {
     if ((encryptedUsername == null) ^ (usernameLinkHandle == null)) {
       throw new IllegalStateException("Both or neither arguments must be null");
     }
-    accounts.update(account, a -> a.setUsernameLinkDetails(usernameLinkHandle, encryptedUsername));
+    accounts.update(accountIdentifier, a -> a.setUsernameLinkDetails(usernameLinkHandle, encryptedUsername));
   }
 
   private void requireNotAuthenticated(final Optional<AuthenticatedDevice> authenticatedAccount) {

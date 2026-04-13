@@ -12,6 +12,7 @@ import java.util.UUID;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 
@@ -61,7 +62,7 @@ public class SetUserDiscoverabilityCommand extends AbstractCommandWithDependenci
 
       maybeAccount.ifPresentOrElse(account -> {
             final boolean initiallyDiscoverable = account.isDiscoverableByPhoneNumber();
-            accountsManager.update(account, a -> a.setDiscoverableByPhoneNumber(namespace.getBoolean("discoverable")));
+            accountsManager.update(account.getIdentifier(IdentityType.ACI), a -> a.setDiscoverableByPhoneNumber(namespace.getBoolean("discoverable")));
 
             System.out.format("Set discoverability flag for %s to %s (was previously %s)\n",
                 namespace.getString("user"),

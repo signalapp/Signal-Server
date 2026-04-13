@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.tests.util;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.when;
@@ -18,16 +17,21 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.junit.platform.commons.util.StringUtils;
 import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.entities.DeviceAttributes;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -64,8 +68,8 @@ public class AccountsHelper {
   /**
    * Sets up stubbing for:
    * <ul>
-   *    <li>{@link AccountsManager#update(Account, Consumer)}</li>
-   *    <li>{@link AccountsManager#updateDevice(Account, byte, Consumer)}</li>
+   *    <li>{@link AccountsManager#update(UUID, Consumer)}</li>
+   *    <li>{@link AccountsManager#updateDevice(UUID, byte, Consumer)}</li>
    * </ul>
    *
    * with multiple calls to the {@link Consumer<Account>}. This simulates retries from {@link org.whispersystems.textsecuregcm.storage.ContestedOptimisticLockException}.
@@ -80,67 +84,127 @@ public class AccountsHelper {
    */
   @SuppressWarnings("unchecked")
   public static void setupMockUpdateWithRetries(final AccountsManager mockAccountsManager, final int retryCount) {
-    when(mockAccountsManager.update(any(), any())).thenAnswer(answer -> {
-      final Account account = answer.getArgument(0, Account.class);
+    when(mockAccountsManager.update(any(UUID.class), any())).thenAnswer(invocation -> {
+      final UUID accountIdentifier = invocation.getArgument(0, UUID.class);
+      final Account account = mockAccountsManager.getByAccountIdentifier(accountIdentifier).orElseThrow();
 
       for (int i = 0; i < retryCount; i++) {
-        answer.getArgument(1, Consumer.class).accept(account);
+        invocation.getArgument(1, Consumer.class).accept(account);
+      }
+
+      return account;
+    });
+
+    when(mockAccountsManager.update(any(Account.class), any())).thenAnswer(invocation -> {
+      final Account account = invocation.getArgument(0);
+
+      for (int i = 0; i < retryCount; i++) {
+        invocation.getArgument(1, Consumer.class).accept(account);
       }
 
       return copyAndMarkStale(account);
     });
 
-    when(mockAccountsManager.updateDevice(any(), anyByte(), any())).thenAnswer(answer -> {
-      final Account account = answer.getArgument(0, Account.class);
+    when(mockAccountsManager.updateDevice(any(UUID.class), anyByte(), any())).thenAnswer(answer -> {
+      final UUID accountIdentifier = answer.getArgument(0, UUID.class);
+      final Account account = mockAccountsManager.getByAccountIdentifier(accountIdentifier).orElseThrow();
+
       final byte deviceId = answer.getArgument(1, Byte.class);
 
       for (int i = 0; i < retryCount; i++) {
         account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
       }
 
-      return copyAndMarkStale(account);
+      return account;
     });
   }
 
   @SuppressWarnings("unchecked")
   private static void setupMockUpdate(final AccountsManager mockAccountsManager, final boolean markStale) {
-    when(mockAccountsManager.update(any(), any())).thenAnswer(answer -> {
-      final Account account = answer.getArgument(0, Account.class);
-      answer.getArgument(1, Consumer.class).accept(account);
+    when(mockAccountsManager.update(any(UUID.class), any())).thenAnswer(invocation -> {
+      final UUID accountIdentifier = invocation.getArgument(0, UUID.class);
+      final Account account = mockAccountsManager.getByAccountIdentifier(accountIdentifier).orElseThrow();
+
+      invocation.getArgument(1, Consumer.class).accept(account);
+
+      return account;
+    });
+
+    when(mockAccountsManager.update(any(Account.class), any())).thenAnswer(invocation -> {
+      final Account account = invocation.getArgument(0);
+
+      invocation.getArgument(1, Consumer.class).accept(account);
 
       return markStale ? copyAndMarkStale(account) : account;
     });
 
-    when(mockAccountsManager.updateDevice(any(), anyByte(), any())).thenAnswer(answer -> {
-      final Account account = answer.getArgument(0, Account.class);
-      final byte deviceId = answer.getArgument(1, Byte.class);
-      account.getDevice(deviceId).ifPresent(answer.getArgument(2, Consumer.class));
+    when(mockAccountsManager.updateDevice(any(), anyByte(), any())).thenAnswer(invocation -> {
+      final UUID accountIdentifier = invocation.getArgument(0, UUID.class);
+      final Account account = mockAccountsManager.getByAccountIdentifier(accountIdentifier).orElseThrow();
 
-      return markStale ? copyAndMarkStale(account) : account;
+      final byte deviceId = invocation.getArgument(1, Byte.class);
+      account.getDevice(deviceId).ifPresent(invocation.getArgument(2, Consumer.class));
+
+      return account;
     });
 
-    when(mockAccountsManager.updateDeviceLastSeen(any(), any(), anyLong())).thenAnswer(answer -> {
-      answer.getArgument(1, Device.class).setLastSeen(answer.getArgument(2, Long.class));
-      return mockAccountsManager.update(answer.getArgument(0, Account.class), account -> {});
+    when(mockAccountsManager.updateDeviceLastSeen(any(), any(), anyLong())).thenAnswer(invocation -> {
+      final UUID accountIdentifier = invocation.getArgument(0, UUID.class);
+      final Account account = mockAccountsManager.getByAccountIdentifier(accountIdentifier).orElseThrow();
+
+      final Device device = account.getDevice(invocation.getArgument(1, Device.class).getId()).orElseThrow();
+      device.setLastSeen(invocation.getArgument(2, Long.class));
+
+      return mockAccountsManager.update(accountIdentifier, _ -> {});
     });
   }
 
-  public static void setupMockGet(final AccountsManager mockAccountsManager, final Set<Account> mockAccounts) {
-    when(mockAccountsManager.getByAccountIdentifier(any(UUID.class))).thenAnswer(answer -> {
+  public static void setupMockGet(final AccountsManager mockAccountsManager, final Account account) {
+    if (account.getUuid() != null || account.getIdentifier(IdentityType.ACI) != null) {
+      final UUID accountIdentifier =
+          Objects.requireNonNullElseGet(account.getIdentifier(IdentityType.ACI), account::getUuid);
 
-      final UUID uuid = answer.getArgument(0, UUID.class);
+      when(mockAccountsManager.getByAccountIdentifier(accountIdentifier))
+          .thenReturn(Optional.of(account));
 
-      return mockAccounts.stream()
-          .filter(account -> uuid.equals(account.getUuid()))
-          .findFirst()
-          .map(account -> {
-            try {
-              return copyAndMarkStale(account);
-            } catch (final Exception e) {
-              throw new RuntimeException(e);
-            }
-          });
-    });
+      when(mockAccountsManager.getByAccountIdentifierAsync(accountIdentifier))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+      when(mockAccountsManager.getByServiceIdentifier(new AciServiceIdentifier(accountIdentifier)))
+          .thenReturn(Optional.of(account));
+
+      when(mockAccountsManager.getByServiceIdentifierAsync(new AciServiceIdentifier(accountIdentifier)))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    }
+
+    if (account.getPhoneNumberIdentifier() != null || account.getIdentifier(IdentityType.PNI) != null) {
+      final UUID phoneNumberIdentifier =
+          Objects.requireNonNullElseGet(account.getIdentifier(IdentityType.PNI), account::getPhoneNumberIdentifier);
+
+      when(mockAccountsManager.getByPhoneNumberIdentifier(phoneNumberIdentifier))
+          .thenReturn(Optional.of(account));
+
+      when(mockAccountsManager.getByPhoneNumberIdentifierAsync(phoneNumberIdentifier))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+
+      when(mockAccountsManager.getByServiceIdentifier(new PniServiceIdentifier(phoneNumberIdentifier)))
+          .thenReturn(Optional.of(account));
+
+      when(mockAccountsManager.getByServiceIdentifierAsync(new PniServiceIdentifier(phoneNumberIdentifier)))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    }
+
+    if (StringUtils.isNotBlank(account.getNumber())) {
+      when(mockAccountsManager.getByE164(account.getNumber())).thenReturn(Optional.of(account));
+    }
+
+    account.getUsernameHash().ifPresent(usernameHash -> when(mockAccountsManager.getByUsernameHash(usernameHash))
+        .thenReturn(CompletableFuture.completedFuture(Optional.of(account))));
+
+    if (account.getUsernameLinkHandle() != null) {
+      when(mockAccountsManager.getByUsernameLinkHandle(account.getUsernameLinkHandle()))
+          .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
+    }
   }
 
   private static Account copyAndMarkStale(Account account) throws IOException {
@@ -190,10 +254,6 @@ public class AccountsHelper {
     }
 
     return updatedAccount;
-  }
-
-  public static Account eqUuid(Account value) {
-    return argThat(other -> other.getUuid().equals(value.getUuid()));
   }
 
   public static Account createAccount(final AccountsManager accountsManager, final String e164)

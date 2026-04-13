@@ -15,16 +15,12 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
 import javax.annotation.Nonnull;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.zkgroup.InvalidInputException;
@@ -35,7 +31,6 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.BadgesConfiguration;
 import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
-import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
@@ -121,9 +116,6 @@ public class DonationController {
           .build();
     }
 
-    final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
-        .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
     final boolean receiptMatched = redeemedReceiptsManager.put(
         receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.accountIdentifier()).join();
     if (!receiptMatched) {
@@ -133,7 +125,7 @@ public class DonationController {
           .build();
     }
 
-    accountsManager.update(account, a -> {
+    accountsManager.update(auth.accountIdentifier(), a -> {
       a.addBadge(clock, new AccountBadge(badgeId, receiptExpiration, request.isVisible()));
       if (request.isPrimary()) {
         a.makeBadgePrimaryIfExists(clock, badgeId);
