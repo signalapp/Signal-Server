@@ -9,8 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -47,8 +47,6 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 public class ProfilesManagerTest {
 
   private Profiles profiles;
-  private RedisAdvancedClusterCommands<String, String> commands;
-  private RedisAdvancedClusterAsyncCommands<String, String> asyncCommands;
   private RedisAdvancedClusterCommands<byte[], byte[]> binaryCommands;
   private RedisAdvancedClusterAsyncCommands<byte[], byte[]> binaryAsyncCommands;
   private S3AsyncClient s3Client;
@@ -60,13 +58,10 @@ public class ProfilesManagerTest {
   @BeforeEach
   void setUp() {
     //noinspection unchecked
-    commands = mock(RedisAdvancedClusterCommands.class);
-    asyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
     binaryCommands = mock(RedisAdvancedClusterCommands.class);
+    //noinspection unchecked
     binaryAsyncCommands = mock(RedisAdvancedClusterAsyncCommands.class);
     final FaultTolerantRedisClusterClient cacheCluster = RedisClusterHelper.builder()
-        .stringCommands(commands)
-        .stringAsyncCommands(asyncCommands)
         .binaryCommands(binaryCommands)
         .binaryAsyncCommands(binaryAsyncCommands)
         .build();
@@ -82,10 +77,11 @@ public class ProfilesManagerTest {
     final UUID uuid = UUID.randomUUID();
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(uuid)).serialize();
-    when(commands.hget(eq(ProfilesManager.getCacheKey( uuid)), eq("someversion"))).thenReturn(String.format(
-        "{\"version\": \"someversion\", \"name\": \"%s\", \"avatar\": \"someavatar\", \"commitment\":\"%s\"}",
-        ProfileTestHelper.encodeToBase64(name),
-        ProfileTestHelper.encodeToBase64(commitment)));
+    when(binaryCommands.hget(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes())))
+        .thenReturn(String.format(
+            "{\"version\": \"someversion\", \"name\": \"%s\", \"avatar\": \"someavatar\", \"commitment\":\"%s\"}",
+            ProfileTestHelper.encodeToBase64(name),
+            ProfileTestHelper.encodeToBase64(commitment)).getBytes());
 
     Optional<VersionedProfile> profile = profilesManager.get(uuid, "someversion");
 
@@ -94,8 +90,8 @@ public class ProfilesManagerTest {
     assertEquals("someavatar", profile.get().avatar());
     assertArrayEquals(profile.get().commitment(), commitment);
 
-    verify(commands, times(1)).hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"));
-    verifyNoMoreInteractions(commands);
+    verify(binaryCommands, times(1)).hget(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()));
+    verifyNoMoreInteractions(binaryCommands);
     verifyNoMoreInteractions(profiles);
   }
 
@@ -105,10 +101,10 @@ public class ProfilesManagerTest {
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(uuid)).serialize();
 
-    when(asyncCommands.hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"))).thenReturn(
-        MockRedisFuture.completedFuture(String.format("{\"version\": \"someversion\", \"name\": \"%s\", \"avatar\": \"someavatar\", \"commitment\":\"%s\"}",
+    when(binaryAsyncCommands.hget(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes())))
+        .thenReturn(MockRedisFuture.completedFuture(String.format("{\"version\": \"someversion\", \"name\": \"%s\", \"avatar\": \"someavatar\", \"commitment\":\"%s\"}",
             ProfileTestHelper.encodeToBase64(name),
-            ProfileTestHelper.encodeToBase64(commitment))));
+            ProfileTestHelper.encodeToBase64(commitment)).getBytes()));
 
     Optional<VersionedProfile> profile = profilesManager.getAsync(uuid, "someversion").join();
 
@@ -117,8 +113,8 @@ public class ProfilesManagerTest {
     assertEquals("someavatar", profile.get().avatar());
     assertArrayEquals(profile.get().commitment(), commitment);
 
-    verify(asyncCommands, times(1)).hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"));
-    verifyNoMoreInteractions(asyncCommands);
+    verify(binaryAsyncCommands, times(1)).hget(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()));
+    verifyNoMoreInteractions(binaryAsyncCommands);
     verifyNoMoreInteractions(profiles);
   }
 
@@ -129,7 +125,7 @@ public class ProfilesManagerTest {
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, null, "somecommitment".getBytes());
 
-    when(commands.hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"))).thenReturn(null);
+    when(binaryCommands.hget(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()))).thenReturn(null);
     when(profiles.get(eq(uuid), eq("someversion"))).thenReturn(Optional.of(profile));
 
     Optional<VersionedProfile> retrieved = profilesManager.get(uuid, "someversion");
@@ -137,9 +133,9 @@ public class ProfilesManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), profile);
 
-    verify(commands, times(1)).hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"));
-    verify(commands, times(1)).hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString());
-    verifyNoMoreInteractions(commands);
+    verify(binaryCommands, times(1)).hget(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()));
+    verify(binaryCommands, times(1)).hset(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()), any(byte[].class));
+    verifyNoMoreInteractions(binaryCommands);
 
     verify(profiles, times(1)).get(eq(uuid), eq("someversion"));
     verifyNoMoreInteractions(profiles);
@@ -152,8 +148,6 @@ public class ProfilesManagerTest {
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, null, "somecommitment".getBytes());
 
-    when(asyncCommands.hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"))).thenReturn(MockRedisFuture.completedFuture(null));
-    when(asyncCommands.hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString())).thenReturn(MockRedisFuture.completedFuture(null));
     when(binaryAsyncCommands.hget(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()))).thenReturn(MockRedisFuture.completedFuture(null));
     when(binaryAsyncCommands.hset(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()), any(byte[].class))).thenReturn(MockRedisFuture.completedFuture(null));
     when(profiles.getAsync(eq(uuid), eq("someversion"))).thenReturn(CompletableFuture.completedFuture(Optional.of(profile)));
@@ -163,11 +157,8 @@ public class ProfilesManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), profile);
 
-    verify(asyncCommands, times(1)).hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"));
-    verify(asyncCommands, times(1)).hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString());
-    verify(binaryAsyncCommands, times(0)).hget(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()));
+    verify(binaryAsyncCommands, times(1)).hget(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()));
     verify(binaryAsyncCommands, times(1)).hset(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()), any(byte[].class));
-    verifyNoMoreInteractions(asyncCommands);
     verifyNoMoreInteractions(binaryAsyncCommands);
 
     verify(profiles, times(1)).getAsync(eq(uuid), eq("someversion"));
@@ -182,9 +173,9 @@ public class ProfilesManagerTest {
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, null, "somecommitment".getBytes());
 
-    when(commands.hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"))).thenThrow(new RedisException("Connection lost"));
+    when(binaryCommands.hget(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()))).thenThrow(new RedisException("Connection lost"));
     if (failUpdateCache) {
-      when(commands.hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString()))
+      when(binaryCommands.hset(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()), any(byte[].class)))
         .thenThrow(new RedisException("Connection lost"));
     }
     when(profiles.get(eq(uuid), eq("someversion"))).thenReturn(Optional.of(profile));
@@ -194,9 +185,9 @@ public class ProfilesManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), profile);
 
-    verify(commands, times(1)).hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"));
-    verify(commands, times(1)).hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString());
-    verifyNoMoreInteractions(commands);
+    verify(binaryCommands, times(1)).hget(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()));
+    verify(binaryCommands, times(1)).hset(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()), any(byte[].class));
+    verifyNoMoreInteractions(binaryCommands);
 
     verify(profiles, times(1)).get(eq(uuid), eq("someversion"));
     verifyNoMoreInteractions(profiles);
@@ -210,11 +201,6 @@ public class ProfilesManagerTest {
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, null, "somecommitment".getBytes());
 
-    when(asyncCommands.hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"))).thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost")));
-    when(asyncCommands.hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString()))
-        .thenReturn(failUpdateCache
-            ? MockRedisFuture.failedFuture(new RedisException("Connection lost"))
-            : MockRedisFuture.completedFuture(null));
     when(binaryAsyncCommands.hget(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()))).thenReturn(MockRedisFuture.failedFuture(new RedisException("Connection lost")));
     when(binaryAsyncCommands.hset(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()), any(byte[].class)))
         .thenReturn(failUpdateCache
@@ -227,11 +213,9 @@ public class ProfilesManagerTest {
     assertTrue(retrieved.isPresent());
     assertSame(retrieved.get(), profile);
 
-    verify(asyncCommands, times(1)).hget(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"));
-    verify(asyncCommands, times(1)).hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString());
-    verify(binaryAsyncCommands, times(0)).hget(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()));
+    verify(binaryAsyncCommands, times(1)).hget(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()));
     verify(binaryAsyncCommands, times(1)).hset(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()), any(byte[].class));
-    verifyNoMoreInteractions(asyncCommands);
+    verifyNoMoreInteractions(binaryAsyncCommands);
 
     verify(profiles, times(1)).getAsync(eq(uuid), eq("someversion"));
     verifyNoMoreInteractions(profiles);
@@ -246,8 +230,8 @@ public class ProfilesManagerTest {
 
     profilesManager.set(uuid, profile);
 
-    verify(commands, times(1)).hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), any());
-    verifyNoMoreInteractions(commands);
+    verify(binaryCommands, times(1)).hset(eq(ProfilesManager.getCacheKeyV1(uuid)), aryEq("someversion".getBytes()), any(byte[].class));
+    verifyNoMoreInteractions(binaryCommands);
 
     verify(profiles, times(1)).set(eq(uuid), eq(profile));
     verifyNoMoreInteractions(profiles);
@@ -260,14 +244,11 @@ public class ProfilesManagerTest {
     final VersionedProfile profile = new VersionedProfile("someversion", name, "someavatar", null, null,
         null, null, "somecommitment".getBytes());
 
-    when(asyncCommands.hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), anyString())).thenReturn(MockRedisFuture.completedFuture(null));
     when(binaryAsyncCommands.hset(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()), any(byte[].class))).thenReturn(MockRedisFuture.completedFuture(null));
     when(profiles.setAsync(eq(uuid), eq(profile))).thenReturn(CompletableFuture.completedFuture(null));
 
     profilesManager.setAsync(uuid, profile).join();
 
-    verify(asyncCommands, times(1)).hset(eq(ProfilesManager.getCacheKey(uuid)), eq("someversion"), any());
-    verifyNoMoreInteractions(asyncCommands);
     verify(binaryAsyncCommands, times(1)).hset(eq(ProfilesManager.getCacheKeyV1(uuid)), eq("someversion".getBytes()), any());
     verifyNoMoreInteractions(binaryAsyncCommands);
 
@@ -283,7 +264,6 @@ public class ProfilesManagerTest {
     final String avatarOne = "avatar1";
     final String avatarTwo = "avatar2";
     when(profiles.deleteAll(uuid)).thenReturn(CompletableFuture.completedFuture(List.of(avatarOne, avatarTwo)));
-    when(asyncCommands.del(ProfilesManager.getCacheKey(uuid))).thenReturn(MockRedisFuture.completedFuture(null));
     when(binaryAsyncCommands.del(ProfilesManager.getCacheKeyV1(uuid))).thenReturn(MockRedisFuture.completedFuture(null));
     when(s3Client.deleteObject(any(DeleteObjectRequest.class)))
         .thenReturn(CompletableFuture.completedFuture(null))
@@ -292,7 +272,6 @@ public class ProfilesManagerTest {
     profilesManager.deleteAll(uuid, includeAvatar).join();
 
     verify(profiles).deleteAll(uuid);
-    verify(asyncCommands).del(ProfilesManager.getCacheKey(uuid));
     verify(binaryAsyncCommands).del(ProfilesManager.getCacheKeyV1(uuid));
     if (includeAvatar) {
       verify(s3Client).deleteObject(DeleteObjectRequest.builder()
