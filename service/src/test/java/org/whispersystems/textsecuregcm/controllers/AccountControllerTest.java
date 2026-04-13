@@ -48,6 +48,7 @@ import java.util.stream.Stream;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -780,6 +781,9 @@ class AccountControllerTest {
   @ParameterizedTest
   @MethodSource
   void testSetAccountAttributesUnrestrictedUnidentifiedAccess(final boolean unrestrictedUnidentifiedAccess, final byte[] unidentifiedAccessKey, final int expectedStatus) {
+
+    // This test is only valid when validations are enforced
+    Assumptions.assumeTrue(AccountAttributes.ENFORCE_VALID_UNRESTRICTED_UAK);
 
     try (final Response response = resources.getJerseyTest()
         .target("/v1/accounts/attributes/")
