@@ -1234,6 +1234,18 @@ public class Accounts {
         .build();
   }
 
+  private TransactWriteItem buildConditionalDeleteAccount(final Account account) {
+    return TransactWriteItem.builder()
+        .delete(Delete.builder()
+            .tableName(accountsTableName)
+            .key(Map.of(KEY_ACCOUNT_UUID, AttributeValues.fromUUID(account.getUuid())))
+            .conditionExpression("#version = :version")
+            .expressionAttributeNames(Map.of("#version", ATTR_VERSION))
+            .expressionAttributeValues(Map.of(":version", AttributeValues.fromInt(account.getVersion())))
+            .build())
+        .build();
+  }
+
   @Nonnull
   public CompletableFuture<Optional<Account>> getByAccountIdentifierAsync(final UUID uuid) {
     return AsyncTimerUtil.record(GET_BY_UUID_TIMER, () -> itemByKeyAsync(accountsTableName, KEY_ACCOUNT_UUID, AttributeValues.fromUUID(uuid))
@@ -1274,34 +1286,51 @@ public class Accounts {
 
   public void delete(final UUID uuid, final List<TransactWriteItem> additionalWriteItems) {
     final Timer.Sample sample = Timer.start();
+    int tries = 0;
+    final int maxTries = 3;
 
     try {
-      final Account account;
-      {
-        final Optional<Account> maybeAccount = getByAccountIdentifier(uuid);
+      while (tries < maxTries) {
+        try {
+          final Account account;
+          {
+            final Optional<Account> maybeAccount = getByAccountIdentifier(uuid);
 
-        if (maybeAccount.isEmpty()) {
+            if (maybeAccount.isEmpty()) {
+              return;
+            }
+
+            account = maybeAccount.get();
+          }
+
+          final List<TransactWriteItem> transactWriteItems = new ArrayList<>(List.of(
+              buildConditionalDeleteAccount(account),
+              buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
+              buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
+              buildPutDeletedAccount(uuid, account.getPhoneNumberIdentifier())
+          ));
+
+          account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(
+              buildDelete(usernamesConstraintTableName, UsernameTable.KEY_USERNAME_HASH, usernameHash)));
+
+          transactWriteItems.addAll(additionalWriteItems);
+
+          dynamoDbClient.transactWriteItems(TransactWriteItemsRequest.builder()
+              .transactItems(transactWriteItems)
+              .build());
           return;
+        } catch (final TransactionCanceledException e) {
+          final CancellationReason cancellationReason = e.cancellationReasons().get(0);
+          if (conditionalCheckFailed(cancellationReason) || isTransactionConflict(cancellationReason)) {
+            // This means that either the optimistic delete failed because something else changed the account from under us,
+            // or there is an ongoing transaction for the account item. Either way, retry until the max attempts.
+            tries++;
+          } else {
+            throw new RuntimeException("Account deletion transaction canceled", e);
+          }
         }
-
-        account = maybeAccount.get();
       }
-
-      final List<TransactWriteItem> transactWriteItems = new ArrayList<>(List.of(
-          buildDelete(phoneNumberConstraintTableName, ATTR_ACCOUNT_E164, account.getNumber()),
-          buildDelete(accountsTableName, KEY_ACCOUNT_UUID, uuid),
-          buildDelete(phoneNumberIdentifierConstraintTableName, ATTR_PNI_UUID, account.getPhoneNumberIdentifier()),
-          buildPutDeletedAccount(uuid, account.getPhoneNumberIdentifier())
-      ));
-
-      account.getUsernameHash().ifPresent(usernameHash -> transactWriteItems.add(
-          buildDelete(usernamesConstraintTableName, UsernameTable.KEY_USERNAME_HASH, usernameHash)));
-
-      transactWriteItems.addAll(additionalWriteItems);
-
-      dynamoDbClient.transactWriteItems(TransactWriteItemsRequest.builder()
-          .transactItems(transactWriteItems)
-          .build());
+      throw new OptimisticLockRetryLimitExceededException();
     } finally {
       sample.stop(DELETE_TIMER);
     }
