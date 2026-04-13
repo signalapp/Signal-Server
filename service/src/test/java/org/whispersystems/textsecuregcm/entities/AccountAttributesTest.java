@@ -17,9 +17,8 @@ class AccountAttributesTest {
 
   private static final ObjectMapper mapper = SystemMapper.jsonMapper();
 
-
   @Test
-  void testSerializationDeserialization() throws Exception {
+  void testSerializationDeserializationRoundTrip() throws Exception {
 
     final String originalJson = testJson();
 
@@ -28,31 +27,27 @@ class AccountAttributesTest {
     assertEquals(originalJson, mapper.writerWithDefaultPrettyPrinter().writeValueAsString(attributes));
   }
 
-
   private static String testJson() {
 
     return String.format("""
         {
           "fetchesMessages" : false,
           "registrationId" : 123,
+          "pniRegistrationId" : 456,
           "name" : "%s",
-          "registrationLock" : null,
-          "unidentifiedAccessKey" : "%s",
-          "unrestrictedUnidentifiedAccess" : false,
           "capabilities" : {
             "storage" : true
           },
+          "registrationLock" : null,
+          "unidentifiedAccessKey" : "%s",
+          "unrestrictedUnidentifiedAccess" : false,
           "discoverableByPhoneNumber" : true,
-          "recoveryPassword" : "%s",
-          "pniRegistrationId" : 456
+          "recoveryPassword" : "%s"
         }
         """,
         Base64.getEncoder().withoutPadding().encodeToString(TestRandomUtil.nextBytes(128)), // name
         Base64.getEncoder().encodeToString(TestRandomUtil.nextBytes(16)), // unidentifiedAccessKey
         Base64.getEncoder().encodeToString(TestRandomUtil.nextBytes(32)) // recoveryPassword
     ).trim();
-
   }
-
-
 }
