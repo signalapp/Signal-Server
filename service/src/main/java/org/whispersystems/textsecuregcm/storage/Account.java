@@ -112,6 +112,10 @@ public class Account {
   @Nullable
   private BackupVoucher backupVoucher;
 
+  @JsonProperty("zck")
+  @Nullable
+  private byte[] zkCredentialKey;
+
   @JsonProperty
   private int version;
 
@@ -534,6 +538,15 @@ public class Account {
   public void setUsernameHolds(final List<UsernameHold> usernameHolds) {
     this.requireNotStale();
     this.usernameHolds = usernameHolds;
+  }
+
+  @Nullable
+  public byte[] getZkCredentialKey() {
+    return zkCredentialKey;
+  }
+
+  public void setZkCredentialKey(@Nullable final byte[] zkCredentialKey) {
+    this.zkCredentialKey = zkCredentialKey;
   }
 
   public void markStale() {

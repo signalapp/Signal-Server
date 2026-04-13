@@ -326,6 +326,9 @@ public class Accounts {
       // Carry over the existing backup voucher to the new account
       accountToCreate.setBackupVoucher(existingAccount.getBackupVoucher());
 
+      // Carry over the existing ZK credential key to the new account
+      accountToCreate.setZkCredentialKey(existingAccount.getZkCredentialKey());
+
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 
       // If we're reclaiming an account that already has a username, we'd like to give the re-registering client

@@ -8,11 +8,13 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +56,7 @@ import org.signal.chat.account.SetRegistrationLockResponse;
 import org.signal.chat.account.SetRegistrationRecoveryPasswordRequest;
 import org.signal.chat.account.SetUsernameLinkRequest;
 import org.signal.chat.account.SetUsernameLinkResponse;
+import org.signal.chat.account.SetZkCredentialKeyRequest;
 import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
 import org.signal.chat.errors.FailedPrecondition;
@@ -108,6 +111,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(rateLimiters.getUsernameReserveLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameSetLimiter()).thenReturn(rateLimiter);
     when(rateLimiters.getUsernameLinkOperationLimiter()).thenReturn(rateLimiter);
+
+    when(rateLimiters.getSetZkCredentialKeyLimiter()).thenReturn(rateLimiter);
 
     when(registrationRecoveryPasswordsManager.store(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
@@ -711,5 +716,54 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
         () -> authenticatedServiceStub().setRegistrationRecoveryPassword(
             SetRegistrationRecoveryPasswordRequest.newBuilder().build()));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void setZkCredentialKey(final boolean matchesCurrentZkCredentialKey) {
+
+    final byte[] publicKey = TestRandomUtil.nextBytes(33);
+
+    final Account account = mock(Account.class);
+
+    if (matchesCurrentZkCredentialKey) {
+      when(account.getZkCredentialKey()).thenReturn(publicKey);
+    }
+
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+
+    assertDoesNotThrow(() ->
+        authenticatedServiceStub().setZkCredentialKey(SetZkCredentialKeyRequest.newBuilder()
+                .setPublicKey(ByteString.copyFrom(publicKey))
+            .build()));
+
+    final int updateMethodCalls = matchesCurrentZkCredentialKey ? 0 : 1;
+
+    verify(accountsManager, times(updateMethodCalls)).update(eq(account), any(Consumer.class));
+    verify(account, times(updateMethodCalls)).setZkCredentialKey(aryEq(publicKey));
+  }
+
+  @Test
+  void setZkCredentialKeyRateLimited() throws Exception {
+
+    final byte[] publicKey = TestRandomUtil.nextBytes(33);
+    final Duration retryDuration = Duration.ofDays(1);
+
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
+        .thenReturn(Optional.of(account));
+    doThrow(new RateLimitExceededException(retryDuration))
+        .when(rateLimiter).validate(AUTHENTICATED_ACI);
+
+    GrpcTestUtils.assertRateLimitExceeded(retryDuration, () ->
+        authenticatedServiceStub().setZkCredentialKey(SetZkCredentialKeyRequest.newBuilder()
+            .setPublicKey(ByteString.copyFrom(publicKey))
+            .build()));
+
+    verify(accountsManager, never()).update(any(Account.class), any(Consumer.class));
+    verify(account, never()).setZkCredentialKey(any());
   }
 }

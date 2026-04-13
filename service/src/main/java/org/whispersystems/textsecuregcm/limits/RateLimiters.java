@@ -36,6 +36,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     USERNAME_LINK_LOOKUP_PER_IP("usernameLinkLookupPerIp", new RateLimiterConfig(100, Duration.ofSeconds(15), true)),
     CHECK_ACCOUNT_EXISTENCE("checkAccountExistence", new RateLimiterConfig(1000, Duration.ofSeconds(4), true)),
     REGISTRATION("registration", new RateLimiterConfig(6, Duration.ofSeconds(30), false)),
+    SET_ZK_CREDENTIAL_KEY("setZkCredentialKey", new RateLimiterConfig(5, Duration.ofDays(7), false)),
     VERIFICATION_PUSH_CHALLENGE("verificationPushChallenge", new RateLimiterConfig(5, Duration.ofSeconds(30), false)),
     VERIFICATION_CAPTCHA("verificationCaptcha", new RateLimiterConfig(10, Duration.ofSeconds(30), false)),
     RATE_LIMIT_RESET("rateLimitReset", new RateLimiterConfig(2, Duration.ofHours(12), false)),
@@ -106,8 +107,8 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     return forDescriptor(For.VERIFY_DEVICE);
   }
 
-  public RateLimiter getMessagesLimiter() {
-    return forDescriptor(For.MESSAGES);
+  public RateLimiter getSetZkCredentialKeyLimiter() {
+    return forDescriptor(For.SET_ZK_CREDENTIAL_KEY);
   }
 
   public RateLimiter getPreKeysLimiter() {
@@ -160,6 +161,10 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getRegistrationLimiter() {
     return forDescriptor(For.REGISTRATION);
+  }
+
+  public RateLimiter getMessagesLimiter() {
+    return forDescriptor(For.MESSAGES);
   }
 
   public RateLimiter getRateLimitResetLimiter() {

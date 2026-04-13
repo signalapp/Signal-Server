@@ -57,6 +57,9 @@ service Accounts {
 
   // Sets the registration recovery password for the authenticated account.
   rpc SetRegistrationRecoveryPassword(SetRegistrationRecoveryPasswordRequest) returns (SetRegistrationRecoveryPasswordResponse) {}
+
+  // Store a public key used to issue and verify zero-knowledge (anonymous) credentials for the account.
+  rpc SetZkCredentialKey(SetZkCredentialKeyRequest) returns (SetZkCredentialKeyResponse) {}
 }
 
 // Provides methods for looking up Signal accounts. Callers must not provide
@@ -264,4 +267,12 @@ message LookupUsernameLinkResponse {
     // No username was found for the provided link handle.
     errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
   }
+}
+
+message SetZkCredentialKeyRequest {
+  // A serialized Ristretto key with a one-byte type prefix
+  bytes public_key = 1 [(require.exactlySize) = 33];
+}
+
+message SetZkCredentialKeyResponse {
 }

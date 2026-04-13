@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +35,8 @@ import org.signal.chat.account.SetRegistrationRecoveryPasswordRequest;
 import org.signal.chat.account.SetRegistrationRecoveryPasswordResponse;
 import org.signal.chat.account.SetUsernameLinkRequest;
 import org.signal.chat.account.SetUsernameLinkResponse;
+import org.signal.chat.account.SetZkCredentialKeyRequest;
+import org.signal.chat.account.SetZkCredentialKeyResponse;
 import org.signal.chat.account.SimpleAccountsGrpc;
 import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
@@ -265,6 +268,24 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
         .join();
 
     return SetRegistrationRecoveryPasswordResponse.getDefaultInstance();
+  }
+
+  @Override
+  public SetZkCredentialKeyResponse setZkCredentialKey(final SetZkCredentialKeyRequest request) throws RateLimitExceededException {
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
+
+    final Account authenticatedAccount = getAuthenticatedAccount();
+    final byte[] zkCredentialKey = request.getPublicKey().toByteArray();
+
+    if (Arrays.equals(authenticatedAccount.getZkCredentialKey(), zkCredentialKey)) {
+      return SetZkCredentialKeyResponse.getDefaultInstance();
+    }
+
+    rateLimiters.getSetZkCredentialKeyLimiter().validate(authenticatedDevice.accountIdentifier());
+
+    accountsManager.update(authenticatedAccount, account -> account.setZkCredentialKey(zkCredentialKey));
+
+    return SetZkCredentialKeyResponse.getDefaultInstance();
   }
 
   private Account getAuthenticatedAccount() {

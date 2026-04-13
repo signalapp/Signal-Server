@@ -479,6 +479,7 @@ class AccountsTest {
 
     // the backup credential request and share-set are always preserved across account reclaims
     existingAccount.setBackupCredentialRequests(TestRandomUtil.nextBytes(32), TestRandomUtil.nextBytes(32));
+    existingAccount.setZkCredentialKey(TestRandomUtil.nextBytes(32));
     createAccount(existingAccount);
     final Account secondAccount =
         generateAccount(e164, UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
@@ -490,6 +491,7 @@ class AccountsTest {
         .isEqualTo(existingAccount.getBackupCredentialRequest(BackupCredentialType.MESSAGES).orElseThrow());
     assertThat(reclaimed.getBackupCredentialRequest(BackupCredentialType.MEDIA).orElseThrow())
         .isEqualTo(existingAccount.getBackupCredentialRequest(BackupCredentialType.MEDIA).orElseThrow());
+    assertThat(reclaimed.getZkCredentialKey()).isEqualTo(existingAccount.getZkCredentialKey());
   }
 
   @Test
@@ -500,9 +502,11 @@ class AccountsTest {
     final UUID existingPni = UUID.randomUUID();
     final Account existingAccount = generateAccount(e164, existingUuid, existingPni, List.of(device));
 
-    // Backup vouchers should be carried over accross re-registration
+    // Backup vouchers should be carried over across re-registration
     final Account.BackupVoucher bv = new Account.BackupVoucher(1, Instant.now().plus(Duration.ofDays(1)));
     existingAccount.setBackupVoucher(bv);
+    // ZK credential keys should be carried over across re-registration
+    existingAccount.setZkCredentialKey(TestRandomUtil.nextBytes(32));
 
     createAccount(existingAccount);
 
