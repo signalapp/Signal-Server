@@ -108,14 +108,19 @@ public class PhoneVerificationTokenManager {
     }
   }
 
-  private void verifyByRecoveryPassword(final ContainerRequestContext requestContext, final String number, final byte[] recoveryPassword)
-      throws InterruptedException {
+  private void verifyByRecoveryPassword(final ContainerRequestContext requestContext,
+      final String number,
+      final byte[] recoveryPassword) throws InterruptedException {
+
     if (!registrationRecoveryChecker.checkRegistrationRecoveryAttempt(requestContext, number)) {
       throw new ForbiddenException("recoveryPassword couldn't be verified");
     }
+
     try {
-      final boolean verified = registrationRecoveryPasswordsManager.verify(phoneNumberIdentifiers.getPhoneNumberIdentifier(number).join(), recoveryPassword)
+      final boolean verified = phoneNumberIdentifiers.getPhoneNumberIdentifier(number)
+          .thenCompose(phoneNumberIdentifier -> registrationRecoveryPasswordsManager.verify(phoneNumberIdentifier, recoveryPassword))
           .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
       if (!verified) {
         throw new ForbiddenException("recoveryPassword couldn't be verified");
       }
@@ -123,5 +128,4 @@ public class PhoneVerificationTokenManager {
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
     }
   }
-
 }
