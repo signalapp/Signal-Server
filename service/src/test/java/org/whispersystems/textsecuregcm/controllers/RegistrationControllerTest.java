@@ -441,6 +441,36 @@ class RegistrationControllerTest {
         .argumentsForNextParameter(registrationLockErrors);
   }
 
+  @Test
+  void registrationLockOnAlternatePhoneNumberForm() throws Exception {
+    final String newFormatBeninNumber = PhoneNumberUtil.getInstance()
+        .format(PhoneNumberUtil.getInstance().getExampleNumber("BJ"), PhoneNumberUtil.PhoneNumberFormat.E164);
+    final String oldFormatBeninNumber = newFormatBeninNumber.replaceFirst("01", "");
+
+    when(registrationServiceClient.getSession(any(), any()))
+        .thenReturn(
+            CompletableFuture.completedFuture(
+                Optional.of(new RegistrationServiceSession(new byte[16], newFormatBeninNumber, true, null, null, null,
+                    SESSION_EXPIRATION_SECONDS))));
+
+    final Account account = mock(Account.class);
+    when(accountsManager.getByE164(oldFormatBeninNumber)).thenReturn(Optional.of(account));
+    when(accountsManager.getByE164(newFormatBeninNumber)).thenReturn(Optional.empty());
+    when(account.hasCapability(DeviceCapability.TRANSFER)).thenReturn(false);
+
+    doThrow(new WebApplicationException(RegistrationLockError.MISMATCH.getExpectedStatus()))
+        .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any(), any(), any(), any());
+
+    final Invocation.Builder request = resources.getJerseyTest()
+        .target("/v1/registration")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(newFormatBeninNumber, PASSWORD));
+    try (final Response response = request.post(Entity.json(requestJson("sessionId")))) {
+      assertEquals(RegistrationLockError.MISMATCH.getExpectedStatus(), response.getStatus());
+    }
+
+  }
+
 
   @ParameterizedTest
   @CsvSource({

@@ -136,7 +136,14 @@ public class RegistrationController {
     final PhoneVerificationRequest.VerificationType verificationType =
         phoneVerificationTokenManager.verify(requestContext, number, registrationRequest);
 
-    final Optional<Account> existingAccount = accounts.getByE164(number);
+    // There can be at most one existing account for a set of numbers in the same equivalence class, so it's sufficient
+    // to find the first one.
+    final Optional<Account> existingAccount = Util.getAlternateForms(number)
+        .stream()
+        .map(accounts::getByE164)
+        .filter(Optional::isPresent)
+        .map(Optional::get)
+        .findFirst();
 
     existingAccount.ifPresent(account -> {
       final Instant accountLastSeen = Instant.ofEpochMilli(account.getLastSeen());
