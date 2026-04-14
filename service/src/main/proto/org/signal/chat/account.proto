@@ -197,7 +197,7 @@ message ConfigureUnidentifiedAccessRequest {
   // anonymously (i.e. to retrieve keys or profiles or to send messages) unless
   // unrestricted unidentified access is permitted. Must be present if
   // unrestricted unidentified access is not allowed.
-  bytes unidentified_access_key = 1;
+  bytes unidentified_access_key = 1 [(require.exactlySize) = 0, (require.exactlySize) = 16];
 
   // If `true`, any user may interact with this account anonymously without
   // providing an unidentified access key. Otherwise, users must provide the

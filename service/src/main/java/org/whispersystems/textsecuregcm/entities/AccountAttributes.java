@@ -139,9 +139,8 @@ public class AccountAttributes {
   @Schema(hidden = true)
   public boolean isUnrestrictedUakValid() {
 
-    final boolean valid =
-        (unrestrictedUnidentifiedAccess && (unidentifiedAccessKey == null || unidentifiedAccessKey.length == 0))
-            || (!unrestrictedUnidentifiedAccess && (unidentifiedAccessKey != null
+    final boolean valid = unrestrictedUnidentifiedAccess ||
+        (!unrestrictedUnidentifiedAccess && (unidentifiedAccessKey != null
             && unidentifiedAccessKey.length == 16));
 
     Metrics.counter(UAK_VALIDATION_COUNTER_NAME,

@@ -802,7 +802,7 @@ class AccountControllerTest {
         Arguments.argumentSet("restricted, non-empty UAK", false, new byte[16], 204),
         Arguments.argumentSet("unrestricted, empty UAK", true, new byte[0], 204),
         Arguments.argumentSet("restricted, empty UAK", false, new byte[0], 422),
-        Arguments.argumentSet("unrestricted, non-empty UAK", true, new byte[16], 422)
+        Arguments.argumentSet("unrestricted, non-empty UAK", true, new byte[16], 204)
     );
   }
 
