@@ -25,6 +25,10 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.Invocation;
@@ -44,7 +48,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -74,7 +77,7 @@ import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
-import org.whispersystems.textsecuregcm.entities.RegistrationServiceSession;
+import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
@@ -82,15 +85,11 @@ import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMa
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
-import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
-import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
-import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -99,8 +98,6 @@ import org.whispersystems.textsecuregcm.util.Util;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
 class AccountControllerV2Test {
-
-  private static final long SESSION_EXPIRATION_SECONDS = Duration.ofMinutes(10).toSeconds();
 
   private static final ECKeyPair IDENTITY_KEY_PAIR = ECKeyPair.generate();
   private static final IdentityKey IDENTITY_KEY = new IdentityKey(IDENTITY_KEY_PAIR.getPublicKey());
@@ -111,15 +108,11 @@ class AccountControllerV2Test {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final ChangeNumberManager changeNumberManager = mock(ChangeNumberManager.class);
-  private final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
-  private final RegistrationServiceClient registrationServiceClient = mock(RegistrationServiceClient.class);
-  private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager = mock(
-      RegistrationRecoveryPasswordsManager.class);
+  private final PhoneVerificationTokenManager phoneVerificationTokenManager = mock(PhoneVerificationTokenManager.class);
   private final RegistrationLockVerificationManager registrationLockVerificationManager = mock(
       RegistrationLockVerificationManager.class);
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final RateLimiter registrationLimiter = mock(RateLimiter.class);
-  private final RegistrationRecoveryChecker registrationRecoveryChecker = mock(RegistrationRecoveryChecker.class);
 
   private final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -131,9 +124,7 @@ class AccountControllerV2Test {
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addResource(
-          new AccountControllerV2(accountsManager, changeNumberManager,
-              new PhoneVerificationTokenManager(phoneNumberIdentifiers, registrationServiceClient,
-                  registrationRecoveryPasswordsManager, registrationRecoveryChecker),
+          new AccountControllerV2(accountsManager, changeNumberManager, phoneVerificationTokenManager,
               registrationLockVerificationManager, rateLimiters))
       .build();
 
@@ -142,6 +133,8 @@ class AccountControllerV2Test {
 
     @BeforeEach
     void setUp() throws Exception {
+      reset(changeNumberManager);
+
       when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
 
       when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
@@ -173,15 +166,15 @@ class AccountControllerV2Test {
 
             return updatedAccount;
           });
+
+      when(phoneVerificationTokenManager.verify(any(), any(), any())).thenAnswer(invocation -> {
+        final PhoneVerificationRequest request = invocation.getArgument(2);
+        return request.verificationType();
+      });
     }
 
     @Test
     void changeNumberSuccess() throws Exception {
-
-      when(registrationServiceClient.getSession(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(
-              Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
-                  SESSION_EXPIRATION_SECONDS))));
 
       final AccountIdentityResponse accountIdentityResponse =
           resources.getJerseyTest()
@@ -295,10 +288,6 @@ class AccountControllerV2Test {
     @ParameterizedTest
     @MethodSource
     void invalidRegistrationId(final Integer pniRegistrationId, final int expectedStatusCode) {
-      when(registrationServiceClient.getSession(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(
-              Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
-                  SESSION_EXPIRATION_SECONDS))));
       final ChangeNumberRequest changeNumberRequest = new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", IDENTITY_KEY,
           Collections.emptyList(),
           Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
@@ -341,61 +330,35 @@ class AccountControllerV2Test {
       }
     }
 
-    @Test
-    void registrationServiceTimeout() {
-      when(registrationServiceClient.getSession(any(), any()))
-          .thenReturn(CompletableFuture.failedFuture(new RuntimeException()));
-
-      final Invocation.Builder request = resources.getJerseyTest()
-          .target("/v2/accounts/number")
-          .request()
-          .header(HttpHeaders.AUTHORIZATION,
-              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
-      try (Response response = request.put(Entity.json(requestJson("sessionId", NEW_NUMBER)))) {
-        assertEquals(HttpStatus.SC_SERVICE_UNAVAILABLE, response.getStatus());
-      }
-    }
-
     @ParameterizedTest
     @MethodSource
-    void registrationServiceSessionCheck(@Nullable final RegistrationServiceSession session, final int expectedStatus,
-        final String message) {
-      when(registrationServiceClient.getSession(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.ofNullable(session)));
+    void phoneVerificationException(final Exception exception, final int expectedStatus) throws InterruptedException {
+      doThrow(exception)
+          .when(phoneVerificationTokenManager).verify(any(), any(), any());
 
       final Invocation.Builder request = resources.getJerseyTest()
           .target("/v2/accounts/number")
           .request()
           .header(HttpHeaders.AUTHORIZATION,
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
+
       try (Response response = request.put(Entity.json(requestJson("sessionId", NEW_NUMBER)))) {
-        assertEquals(expectedStatus, response.getStatus(), message);
+        assertEquals(expectedStatus, response.getStatus());
       }
     }
 
-    static Stream<Arguments> registrationServiceSessionCheck() {
-      return Stream.of(
-          Arguments.of(null, 401, "session not found"),
-          Arguments.of(new RegistrationServiceSession(new byte[16], "+18005551234", false, null, null, null,
-                  SESSION_EXPIRATION_SECONDS), 400,
-              "session number mismatch"),
-          Arguments.of(
-              new RegistrationServiceSession(new byte[16], NEW_NUMBER, false, null, null, null,
-                  SESSION_EXPIRATION_SECONDS),
-              401,
-              "session not verified")
+    private static List<Arguments> phoneVerificationException() {
+      return List.of(
+          Arguments.argumentSet("Bad request", new BadRequestException(), HttpStatus.SC_BAD_REQUEST),
+          Arguments.argumentSet("Not authorized", new NotAuthorizedException("test"), HttpStatus.SC_UNAUTHORIZED),
+          Arguments.argumentSet("Forbidden", new ForbiddenException(), HttpStatus.SC_FORBIDDEN),
+          Arguments.argumentSet("Unexpected exception", new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE), HttpStatus.SC_SERVICE_UNAVAILABLE)
       );
     }
 
     @ParameterizedTest
     @EnumSource(RegistrationLockError.class)
     void registrationLock(final RegistrationLockError error) throws Exception {
-      when(registrationServiceClient.getSession(any(), any()))
-          .thenReturn(
-              CompletableFuture.completedFuture(
-                  Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
-                      SESSION_EXPIRATION_SECONDS))));
-
       when(accountsManager.getByE164(any())).thenReturn(Optional.of(mock(Account.class)));
 
       final Exception e = switch (error) {
@@ -417,20 +380,15 @@ class AccountControllerV2Test {
 
     @Test
     void recoveryPasswordManagerVerificationTrue() throws Exception {
-      when(phoneNumberIdentifiers.getPhoneNumberIdentifier(any()))
-          .thenReturn(CompletableFuture.completedFuture(UUID.randomUUID()));
-      when(registrationRecoveryPasswordsManager.verify(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(true));
-      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any()))
-          .thenReturn(true);
-
       final Invocation.Builder request = resources.getJerseyTest()
           .target("/v2/accounts/number")
           .request()
           .header(HttpHeaders.AUTHORIZATION,
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
+
       final byte[] recoveryPassword = new byte[32];
-      try (Response response = request.put(Entity.json(requestJsonRecoveryPassword(recoveryPassword, NEW_NUMBER)))) {
+
+      try (final Response response = request.put(Entity.json(requestJsonRecoveryPassword(recoveryPassword, NEW_NUMBER)))) {
         assertEquals(200, response.getStatus());
 
         final AccountIdentityResponse accountIdentityResponse = response.readEntity(AccountIdentityResponse.class);
@@ -445,67 +403,9 @@ class AccountControllerV2Test {
     }
 
     @Test
-    void recoveryPasswordManagerVerificationFalse() {
-      when(registrationRecoveryPasswordsManager.verify(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(false));
-
-      final Invocation.Builder request = resources.getJerseyTest()
-          .target("/v2/accounts/number")
-          .request()
-          .header(HttpHeaders.AUTHORIZATION,
-              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
-      try (Response response = request.put(Entity.json(requestJsonRecoveryPassword(new byte[32], NEW_NUMBER)))) {
-        assertEquals(403, response.getStatus());
-      }
-    }
-
-    @Test
-    void registrationRecoveryCheckerAllowsAttempt() {
-      when(phoneNumberIdentifiers.getPhoneNumberIdentifier(any()))
-          .thenReturn(CompletableFuture.completedFuture(UUID.randomUUID()));
-      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(true);
-      when(registrationRecoveryPasswordsManager.verify(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(true));
-
-      final Invocation.Builder request = resources.getJerseyTest()
-          .target("/v2/accounts/number")
-          .request()
-          .header(HttpHeaders.AUTHORIZATION,
-              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
-      final byte[] recoveryPassword = new byte[32];
-      try (Response response = request.put(Entity.json(requestJsonRecoveryPassword(recoveryPassword, NEW_NUMBER)))) {
-        assertEquals(200, response.getStatus());
-      }
-    }
-
-    @Test
-    void registrationRecoveryCheckerDisallowsAttempt() {
-      when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(any(), any())).thenReturn(false);
-      when(registrationRecoveryPasswordsManager.verify(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(true));
-
-      final Invocation.Builder request = resources.getJerseyTest()
-          .target("/v2/accounts/number")
-          .request()
-          .header(HttpHeaders.AUTHORIZATION,
-              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
-      final byte[] recoveryPassword = new byte[32];
-      try (Response response = request.put(Entity.json(requestJsonRecoveryPassword(recoveryPassword, NEW_NUMBER)))) {
-        assertEquals(403, response.getStatus());
-      }
-    }
-
-    @Test
     void deviceMessageTooLarge() throws Exception {
-
-      when(registrationServiceClient.getSession(any(), any()))
-          .thenReturn(CompletableFuture.completedFuture(
-              Optional.of(new RegistrationServiceSession(new byte[16], NEW_NUMBER, true, null, null, null,
-                  SESSION_EXPIRATION_SECONDS))));
-
-      reset(changeNumberManager);
-      when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any()))
-          .thenThrow(MessageTooLargeException.class);
+      doThrow(MessageTooLargeException.class)
+          .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any());
 
       try (final Response response = resources.getJerseyTest()
               .target("/v2/accounts/number")
