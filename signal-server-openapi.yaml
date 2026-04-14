@@ -2700,15 +2700,6 @@ paths:
                 properties:
                   error:
                     type: string
-        "409":
-          description: Provided level does not match the currency/amount combination
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
       security:
       - authenticatedAccount: []
       - {}
@@ -2753,11 +2744,6 @@ paths:
       tags:
       - OneTimeDonations
       operationId: createPayPalBoost
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       requestBody:
         content:
           application/json:
@@ -5572,6 +5558,7 @@ components:
       required:
       - amount
       - currency
+      - level
       - payerId
       - paymentId
       - paymentToken
@@ -5587,10 +5574,11 @@ components:
           description: "The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)"
           format: int64
         level:
+          minimum: 1
           type: integer
-          description: The level for the boost payment. Assumed to be the boost level
-            if missing
+          description: The level for the boost payment
           format: int64
+          default: 1
         paymentMethod:
           type: string
           description: The payment method
@@ -5622,6 +5610,7 @@ components:
       required:
       - amount
       - currency
+      - level
       type: object
       properties:
         currency:
@@ -5634,10 +5623,11 @@ components:
           description: "The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)"
           format: int64
         level:
+          minimum: 1
           type: integer
-          description: The level for the boost payment. Assumed to be the boost level
-            if missing
+          description: The level for the boost payment
           format: int64
+          default: 1
         paymentMethod:
           type: string
           description: The payment method
@@ -5674,6 +5664,7 @@ components:
       - amount
       - cancelUrl
       - currency
+      - level
       - returnUrl
       type: object
       properties:
@@ -5687,10 +5678,11 @@ components:
           description: "The amount to pay in the [currency's minor unit](https://docs.stripe.com/currencies#minor-units)"
           format: int64
         level:
+          minimum: 1
           type: integer
-          description: The level for the boost payment. Assumed to be the boost level
-            if missing
+          description: The level for the boost payment
           format: int64
+          default: 1
         paymentMethod:
           type: string
           description: The payment method
