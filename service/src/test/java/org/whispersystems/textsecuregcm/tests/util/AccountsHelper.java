@@ -25,7 +25,6 @@ import org.mockito.MockingDetails;
 import org.mockito.stubbing.Stubbing;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
-import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -120,11 +119,6 @@ public class AccountsHelper {
 
     when(mockAccountsManager.updateDeviceLastSeen(any(), any(), anyLong())).thenAnswer(answer -> {
       answer.getArgument(1, Device.class).setLastSeen(answer.getArgument(2, Long.class));
-      return mockAccountsManager.update(answer.getArgument(0, Account.class), account -> {});
-    });
-
-    when(mockAccountsManager.updateDeviceAuthentication(any(), any(), any())).thenAnswer(answer -> {
-      answer.getArgument(1, Device.class).setAuthTokenHash(answer.getArgument(2, SaltedTokenHash.class));
       return mockAccountsManager.update(answer.getArgument(0, Account.class), account -> {});
     });
   }

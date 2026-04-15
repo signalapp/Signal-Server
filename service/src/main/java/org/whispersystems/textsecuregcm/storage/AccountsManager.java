@@ -11,7 +11,6 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import io.dropwizard.lifecycle.Managed;
 import io.lettuce.core.RedisCommandTimeoutException;
 import io.lettuce.core.RedisException;
@@ -64,7 +63,6 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
-import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.entities.AccountAttributes;
@@ -955,11 +953,6 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
       }).orElse(false);
     });
-  }
-
-  public Account updateDeviceAuthentication(final Account account, final Device device, final SaltedTokenHash credentials) {
-    Preconditions.checkArgument(credentials.getVersion() == SaltedTokenHash.CURRENT_VERSION);
-    return updateDevice(account, device.getId(), device1 -> device1.setAuthTokenHash(credentials));
   }
 
   /**

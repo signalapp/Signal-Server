@@ -10,7 +10,6 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.auth.Authenticator;
 import io.dropwizard.auth.basic.BasicCredentials;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.time.Clock;
@@ -35,9 +34,6 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
 
   private static final String DAYS_SINCE_LAST_SEEN_DISTRIBUTION_NAME = name(AccountAuthenticator.class, "daysSinceLastSeen");
   private static final String IS_PRIMARY_DEVICE_TAG = "isPrimary";
-
-  private static final Counter OLD_TOKEN_VERSION_COUNTER =
-      Metrics.counter(name(AccountAuthenticator.class, "oldTokenVersionCounter"));
 
   @VisibleForTesting
   static final char DEVICE_ID_SEPARATOR = '.';
@@ -104,14 +100,7 @@ public class AccountAuthenticator implements Authenticator<BasicCredentials, Aut
       SaltedTokenHash deviceSaltedTokenHash = device.get().getAuthTokenHash();
       if (deviceSaltedTokenHash.verify(basicCredentials.getPassword())) {
         succeeded = true;
-        Account authenticatedAccount = updateLastSeen(account.get(), device.get());
-        if (deviceSaltedTokenHash.getVersion() != SaltedTokenHash.CURRENT_VERSION) {
-          OLD_TOKEN_VERSION_COUNTER.increment();
-          authenticatedAccount = accountsManager.updateDeviceAuthentication(
-              authenticatedAccount,
-              device.get(),
-              SaltedTokenHash.generateFor(basicCredentials.getPassword()));  // new credentials have current version
-        }
+        final Account authenticatedAccount = updateLastSeen(account.get(), device.get());
         return Optional.of(new AuthenticatedDevice(authenticatedAccount.getIdentifier(IdentityType.ACI),
             device.get().getId(),
             Instant.ofEpochMilli(authenticatedAccount.getPrimaryDevice().getLastSeen())));

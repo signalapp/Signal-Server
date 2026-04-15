@@ -175,7 +175,6 @@ class AccountAuthenticatorTest {
     assertThat(maybeAuthenticatedAccount).isPresent();
     assertThat(maybeAuthenticatedAccount.orElseThrow().accountIdentifier()).isEqualTo(uuid);
     assertThat(maybeAuthenticatedAccount.orElseThrow().deviceId()).isEqualTo(device.getId());
-    verify(accountsManager, never()).updateDeviceAuthentication(any(), any(), any());
   }
 
   @Test
@@ -205,7 +204,6 @@ class AccountAuthenticatorTest {
     assertThat(maybeAuthenticatedAccount).isPresent();
     assertThat(maybeAuthenticatedAccount.orElseThrow().accountIdentifier()).isEqualTo(uuid);
     assertThat(maybeAuthenticatedAccount.orElseThrow().deviceId()).isEqualTo(device.getId());
-    verify(accountsManager, never()).updateDeviceAuthentication(any(), any(), any());
   }
 
   @CartesianTest
@@ -244,37 +242,6 @@ class AccountAuthenticatorTest {
     assertThat(maybeAuthenticatedAccount.orElseThrow().deviceId()).isEqualTo(authenticatedDevice.getId());
   }
 
-  @Test
-  void testAuthenticateV1() {
-    final UUID uuid = UUID.randomUUID();
-    final byte deviceId = 1;
-    final String password = "12345";
-
-    final Account account = mock(Account.class);
-    final Device device = mock(Device.class);
-    final SaltedTokenHash credentials = mock(SaltedTokenHash.class);
-
-    clock.unpin();
-    when(accountsManager.getByAccountIdentifier(uuid)).thenReturn(Optional.of(account));
-    when(account.getUuid()).thenReturn(uuid);
-    when(account.getIdentifier(IdentityType.ACI)).thenReturn(uuid);
-    when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
-    when(account.getPrimaryDevice()).thenReturn(device);
-    when(device.getId()).thenReturn(deviceId);
-    when(device.getAuthTokenHash()).thenReturn(credentials);
-    when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(SaltedTokenHash.Version.V1);
-
-    final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
-        accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password));
-
-    assertThat(maybeAuthenticatedAccount).isPresent();
-    assertThat(maybeAuthenticatedAccount.orElseThrow().accountIdentifier()).isEqualTo(uuid);
-    assertThat(maybeAuthenticatedAccount.orElseThrow().deviceId()).isEqualTo(device.getId());
-    verify(accountsManager, times(1)).updateDeviceAuthentication(
-        any(), // this won't be 'account', because it'll already be updated by updateDeviceLastSeen
-        eq(device), any());
-  }
   @Test
   void testAuthenticateAccountNotFound() {
     assertThat(accountAuthenticator.authenticate(new BasicCredentials(UUID.randomUUID().toString(), "password")))
