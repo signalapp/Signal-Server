@@ -32,7 +32,6 @@ import org.whispersystems.textsecuregcm.configuration.DeviceCheckConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DirectoryV2Configuration;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbClientFactory;
 import org.whispersystems.textsecuregcm.configuration.DynamoDbTables;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicGrpcAllowListConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ExternalRequestFilterConfiguration;
 import org.whispersystems.textsecuregcm.configuration.FaultTolerantRedisClientFactory;
 import org.whispersystems.textsecuregcm.configuration.FaultTolerantRedisClusterFactory;
@@ -355,11 +354,6 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private GrpcConfiguration grpc;
 
-  @NotNull
-  @Valid
-  @JsonProperty
-  private DynamicGrpcAllowListConfiguration grpcAllowList = new DynamicGrpcAllowListConfiguration();
-
   @Valid
   @NotNull
   @JsonProperty
@@ -603,10 +597,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public GrpcConfiguration getGrpc() {
     return grpc;
-  }
-
-  public DynamicGrpcAllowListConfiguration getGrpcAllowList() {
-    return grpcAllowList;
   }
 
   public S3ObjectMonitorFactory getAsnTableConfiguration() {
