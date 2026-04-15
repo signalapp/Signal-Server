@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.Objects;
 import org.whispersystems.textsecuregcm.controllers.MessageController;
 
 public record IncomingMessageList(@NotNull
+                                  @NotEmpty
                                   @Valid
                                   List<@NotNull @Valid IncomingMessage> messages,
 

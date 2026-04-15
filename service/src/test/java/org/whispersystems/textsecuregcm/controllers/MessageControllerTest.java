@@ -426,6 +426,26 @@ class MessageControllerTest {
   }
 
   @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void testSingleDeviceCurrentUnidentifiedEmptyMessages(
+      final boolean story) throws Exception {
+    try (final Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .queryParam("story", story)
+            .request()
+            .header(HeaderUtils.UNIDENTIFIED_ACCESS_KEY, Base64.getEncoder().encodeToString(UNIDENTIFIED_ACCESS_BYTES))
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_empty.json"),
+                    IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertThat("Unprocessable entity", response.getStatus(), is(equalTo(422)));
+
+      verifyNoMoreInteractions(messageSender);
+    }
+  }
+
+  @ParameterizedTest
   @MethodSource
   void testSingleDeviceCurrentGroupSendEndorsement(
       ServiceIdentifier recipient, ServiceIdentifier authorizedRecipient,
@@ -469,32 +489,23 @@ class MessageControllerTest {
 
   private static Stream<Arguments> testSingleDeviceCurrentGroupSendEndorsement() {
     return Stream.of(
-        // valid endorsement
-        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), false, false, 200),
+        Arguments.argumentSet("valid endorsement", SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), false, false, 200),
 
-        // expired endorsement, not authorized
-        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(-1), false, false, 401),
+        Arguments.argumentSet("expired endorsement, not authorized", SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(-1), false, false, 401),
 
-        // endorsement for the wrong recipient, not authorized
-        Arguments.of(SINGLE_DEVICE_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(1), false, false, 401),
+        Arguments.argumentSet("endorsement for the wrong recipient, not authorized", SINGLE_DEVICE_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(1), false, false, 401),
 
-        // expired endorsement for the wrong recipient, not authorized
-        Arguments.of(SINGLE_DEVICE_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(-1), false, false, 401),
+        Arguments.argumentSet("expired endorsement for the wrong recipient, not authorized", SINGLE_DEVICE_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(-1), false, false, 401),
 
-        // valid endorsement for the right recipient but they aren't registered, not found
-        Arguments.of(NONEXISTENT_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(1), false, false, 404),
+        Arguments.argumentSet("valid endorsement for the right recipient but they aren't registered, not found", NONEXISTENT_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(1), false, false, 404),
 
-        // expired endorsement for the right recipient but they aren't registered, not authorized (NOT not found)
-        Arguments.of(NONEXISTENT_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(-1), false, false, 401),
+        Arguments.argumentSet("expired endorsement for the right recipient but they aren't registered, not authorized (NOT not found)", NONEXISTENT_ACI_ID, NONEXISTENT_ACI_ID, Duration.ofHours(-1), false, false, 401),
 
-        // valid endorsement but also a UAK, bad request
-        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), true, false, 400),
+        Arguments.argumentSet("valid endorsement but also a UAK, bad request", SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), true, false, 400),
 
-        // valid endorsement on a story, bad request
-        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), false, true, 400),
+        Arguments.argumentSet("valid endorsement on a story, bad request", SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), false, true, 400),
 
-        // valid endorsement on a story with a UAK, bad request
-        Arguments.of(SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), true, true, 400));
+        Arguments.argumentSet("valid endorsement on a story with a UAK, bad request", SINGLE_DEVICE_ACI_ID, SINGLE_DEVICE_ACI_ID, Duration.ofHours(1), true, true, 400));
   }
 
   @ParameterizedTest
