@@ -2952,6 +2952,11 @@ paths:
       description: Checks identity key fingerprints for multiple accounts. Returns
         accounts where the fingerprint does not match. Should not be authenticated.
       operationId: runBatchIdentityCheck
+      parameters:
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -5473,6 +5478,7 @@ components:
       type: object
       properties:
         messages:
+          minItems: 1
           type: array
           items:
             $ref: "#/components/schemas/IncomingMessage"
