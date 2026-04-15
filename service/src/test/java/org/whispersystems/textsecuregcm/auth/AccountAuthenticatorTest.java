@@ -14,7 +14,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -167,7 +166,6 @@ class AccountAuthenticatorTest {
     when(device.getId()).thenReturn(deviceId);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
         accountAuthenticator.authenticate(new BasicCredentials(uuid.toString(), password));
@@ -196,7 +194,6 @@ class AccountAuthenticatorTest {
     when(device.getId()).thenReturn(deviceId);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
         accountAuthenticator.authenticate(new BasicCredentials(uuid + "." + deviceId, password));
@@ -226,7 +223,6 @@ class AccountAuthenticatorTest {
     when(authenticatedDevice.getId()).thenReturn(deviceId);
     when(authenticatedDevice.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final String identifier;
     if (authenticatedDeviceIsPrimary) {
@@ -267,7 +263,6 @@ class AccountAuthenticatorTest {
     when(device.getId()).thenReturn(deviceId);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final Optional<AuthenticatedDevice> maybeAuthenticatedAccount =
         accountAuthenticator.authenticate(new BasicCredentials(uuid + "." + (deviceId + 1), password));
@@ -295,7 +290,6 @@ class AccountAuthenticatorTest {
     when(device.getId()).thenReturn(deviceId);
     when(device.getAuthTokenHash()).thenReturn(credentials);
     when(credentials.verify(password)).thenReturn(true);
-    when(credentials.getVersion()).thenReturn(SaltedTokenHash.CURRENT_VERSION);
 
     final String incorrectPassword = password + "incorrect";
 
