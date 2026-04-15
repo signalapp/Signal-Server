@@ -576,7 +576,7 @@ class MessageSenderTest {
     when(account.getDevices()).thenReturn(List.of(device));
     when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
 
-    assertThrows(MismatchedDevicesException.class, () -> messageSender.sendMessages(account,
+    assertThrows(IllegalArgumentException.class, () -> messageSender.sendMessages(account,
         serviceIdentifier,
         Collections.emptyMap(),
         Collections.emptyMap(),

@@ -304,8 +304,11 @@ public class MessageSender {
     }
 
     if (messagesByDeviceId.isEmpty()) {
+      if (syncMessageSenderDeviceId.isEmpty()) {
+        throw new IllegalArgumentException("Messages must not be empty for non-sync messages");
+      }
       Metrics.counter(EMPTY_MESSAGE_LIST_COUNTER_NAME,
-          Tags.of(SYNC_MESSAGE_TAG_NAME, String.valueOf(syncMessageSenderDeviceId.isPresent())).and(platformTag)).increment();
+          Tags.of(SYNC_MESSAGE_TAG_NAME, String.valueOf(true)).and(platformTag)).increment();
     }
 
     final byte excludedDeviceId;
