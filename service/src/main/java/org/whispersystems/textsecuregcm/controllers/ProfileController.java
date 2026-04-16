@@ -53,7 +53,6 @@ import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.StringUtils;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
@@ -80,11 +79,11 @@ import org.whispersystems.textsecuregcm.entities.CreateProfileRequest;
 import org.whispersystems.textsecuregcm.entities.ExpiringProfileKeyCredentialProfileResponse;
 import org.whispersystems.textsecuregcm.entities.ProfileAvatarUploadAttributes;
 import org.whispersystems.textsecuregcm.entities.VersionedProfileResponse;
-import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.s3.PolicySigner;
@@ -96,7 +95,6 @@ import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
@@ -125,7 +123,6 @@ public class ProfileController {
 
   private static final String VERSION_NOT_FOUND_COUNTER_NAME = name(ProfileController.class, "versionNotFound");
   private static final String DUPLICATE_AUTHENTICATION_COUNTER_NAME = name(ProfileController.class, "duplicateAuthentication");
-  private static final String BATCH_IDENTITY_CHECK_RATE_LIMITED_COUNTER_NAME = name(ProfileController.class, "batchIdentityCheckRateLimited");
 
   public ProfileController(
       Clock clock,
@@ -368,6 +365,7 @@ public class ProfileController {
   @Path("/identity_check/batch")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RateLimitedByIp(RateLimiters.For.BATCH_IDENTITY_CHECK)
   @Operation(
       summary = "Batch identity key check",
       description = "Checks identity key fingerprints for multiple accounts. Returns accounts where the fingerprint does not match. Should not be authenticated.")
@@ -376,20 +374,8 @@ public class ProfileController {
       description = "Batch check completed successfully. Response may contain accounts with mismatched fingerprints.",
       content = @Content(schema = @Schema(implementation = BatchIdentityCheckResponse.class)))
   @ApiResponse(responseCode = "400", description = "Invalid request format or validation failed.")
-  public CompletableFuture<BatchIdentityCheckResponse> runBatchIdentityCheck(
-      @NotNull @Valid final BatchIdentityCheckRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-      @Context final ContainerRequestContext containerRequestContext) {
-    final String remoteAddress = (String) containerRequestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
-    if (StringUtils.isNotBlank(remoteAddress)) {
-      rateLimiters.getBatchIdentityCheckLimiter().validateAsync(remoteAddress)
-          .whenComplete((_, t) -> {
-            if (t != null && ExceptionUtils.unwrap(t) instanceof RateLimitExceededException) {
-              Metrics.counter(BATCH_IDENTITY_CHECK_RATE_LIMITED_COUNTER_NAME,
-                  Tags.of(UserAgentTagUtil.getPlatformTag(userAgent))).increment();
-            }
-          });
-    }
+  @ApiResponse(responseCode = "429", description = "Rate limit exceeded.")
+  public CompletableFuture<BatchIdentityCheckResponse> runBatchIdentityCheck(@NotNull @Valid final BatchIdentityCheckRequest request) {
     return CompletableFuture.supplyAsync(() -> {
           List<BatchIdentityCheckResponse.Element> responseElements = Collections.synchronizedList(new ArrayList<>());
 
