@@ -8,7 +8,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.annotations.VisibleForTesting;
-import io.micrometer.core.instrument.Metrics;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
@@ -16,14 +15,11 @@ import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
-import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 
 public class AccountAttributes {
-
-  private static final String UAK_VALIDATION_COUNTER_NAME = MetricsUtil.name(AccountAttributes.class, "uakValidation");
 
   @JsonUnwrapped
   @Valid
@@ -132,23 +128,10 @@ public class AccountAttributes {
     return this;
   }
 
-  @VisibleForTesting
-  public static final boolean ENFORCE_VALID_UNRESTRICTED_UAK = false;
-
   @AssertTrue
   @Schema(hidden = true)
   public boolean isUnrestrictedUakValid() {
 
-    final boolean valid = unrestrictedUnidentifiedAccess ||
-        (!unrestrictedUnidentifiedAccess && (unidentifiedAccessKey != null
-            && unidentifiedAccessKey.length == 16));
-
-    Metrics.counter(UAK_VALIDATION_COUNTER_NAME,
-        "valid", String.valueOf(valid),
-        "unrestricted", String.valueOf(unrestrictedUnidentifiedAccess)
-    ).increment();
-
-    // initially, only gather metrics
-    return true;
+    return unrestrictedUnidentifiedAccess || (unidentifiedAccessKey != null && unidentifiedAccessKey.length == 16);
   }
 }
