@@ -1105,7 +1105,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays(), config.getDeliveryCertificate().embedSigner()),
             zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
-        new DeviceController(accountsManager, rateLimiters, persistentTimer, config.getMaxDevices()),
+        new DeviceController(accountsManager, rateLimiters, persistentTimer),
         new DeviceCheckController(clock, accountsManager, backupAuthManager, appleDeviceCheckManager, rateLimiters,
             config.getDeviceCheck().backupRedemptionLevel(),
             config.getDeviceCheck().backupRedemptionDuration()),

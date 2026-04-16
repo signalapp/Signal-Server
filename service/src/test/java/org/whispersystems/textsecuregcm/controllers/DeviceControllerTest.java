@@ -35,9 +35,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -111,7 +109,6 @@ class DeviceControllerTest {
   private static final Account account = mock(Account.class);
   private static final Account maxedAccount = mock(Account.class);
   private static final Device primaryDevice = mock(Device.class);
-  private static final Map<String, Integer> deviceConfiguration = new HashMap<>();
   private static final TestClock testClock = TestClock.now();
 
   private static final byte NEXT_DEVICE_ID = 42;
@@ -119,8 +116,7 @@ class DeviceControllerTest {
   private static final DeviceController deviceController = new DeviceController(
       accountsManager,
       rateLimiters,
-      persistentTimer,
-      deviceConfiguration);
+      persistentTimer);
 
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)

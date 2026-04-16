@@ -93,7 +93,6 @@ public class DeviceController {
   private final AccountsManager accounts;
   private final RateLimiters rateLimiters;
   private final PersistentTimer persistentTimer;
-  private final Map<String, Integer> maxDeviceConfiguration;
 
   private final EnumMap<ClientPlatform, AtomicInteger> linkedDeviceListenersByPlatform;
   private final AtomicInteger linkedDeviceListenersForUnrecognizedPlatforms;
@@ -117,13 +116,11 @@ public class DeviceController {
 
   public DeviceController(final AccountsManager accounts,
       final RateLimiters rateLimiters,
-      final PersistentTimer persistentTimer,
-      final Map<String, Integer> maxDeviceConfiguration) {
+      final PersistentTimer persistentTimer) {
 
     this.accounts = accounts;
     this.rateLimiters = rateLimiters;
     this.persistentTimer = persistentTimer;
-    this.maxDeviceConfiguration = maxDeviceConfiguration;
 
     linkedDeviceListenersByPlatform =
         EnumMapUtil.toEnumMap(ClientPlatform.class, clientPlatform -> buildGauge(clientPlatform.name().toLowerCase()));
@@ -204,14 +201,8 @@ public class DeviceController {
 
     rateLimiters.getAllocateDeviceLimiter().validate(account.getUuid());
 
-    int maxDeviceLimit = MAX_DEVICES;
-
-    if (maxDeviceConfiguration.containsKey(account.getNumber())) {
-      maxDeviceLimit = maxDeviceConfiguration.get(account.getNumber());
-    }
-
-    if (account.getDevices().size() >= maxDeviceLimit) {
-      throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
+    if (account.getDevices().size() >= MAX_DEVICES) {
+      throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
     }
 
     if (auth.deviceId() != Device.PRIMARY_ID) {
@@ -268,10 +259,8 @@ public class DeviceController {
       throw new WebApplicationException(Response.status(422).build());
     }
 
-    final int maxDeviceLimit = maxDeviceConfiguration.getOrDefault(account.getNumber(), MAX_DEVICES);
-
-    if (account.getDevices().size() >= maxDeviceLimit) {
-      throw new DeviceLimitExceededException(account.getDevices().size(), maxDeviceLimit);
+    if (account.getDevices().size() >= MAX_DEVICES) {
+      throw new DeviceLimitExceededException(account.getDevices().size(), MAX_DEVICES);
     }
 
     final Set<DeviceCapability> capabilities = accountAttributes.getCapabilities();

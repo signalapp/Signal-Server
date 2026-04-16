@@ -10,9 +10,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import org.whispersystems.textsecuregcm.attachments.TusConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
@@ -44,7 +41,6 @@ import org.whispersystems.textsecuregcm.configuration.HlrLookupConfiguration;
 import org.whispersystems.textsecuregcm.configuration.IdlePrimaryDeviceReminderConfiguration;
 import org.whispersystems.textsecuregcm.configuration.KeyTransparencyServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.LinkDeviceSecretConfiguration;
-import org.whispersystems.textsecuregcm.configuration.MaxDeviceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageByteLimitCardinalityEstimatorConfiguration;
 import org.whispersystems.textsecuregcm.configuration.MessageCacheConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
@@ -186,11 +182,6 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @JsonProperty
   private MessageCacheConfiguration messageCache;
-
-  @Valid
-  @NotNull
-  @JsonProperty
-  private List<MaxDeviceConfiguration> maxDevices = new LinkedList<>();
 
   @Valid
   @NotNull
@@ -478,17 +469,6 @@ public class WhisperServerConfiguration extends Configuration {
 
   public UnidentifiedDeliveryConfiguration getDeliveryCertificate() {
     return unidentifiedDelivery;
-  }
-
-  public Map<String, Integer> getMaxDevices() {
-    Map<String, Integer> results = new HashMap<>();
-
-    for (MaxDeviceConfiguration maxDeviceConfiguration : maxDevices) {
-      results.put(maxDeviceConfiguration.getNumber(),
-                  maxDeviceConfiguration.getCount());
-    }
-
-    return results;
   }
 
   public PaymentsServiceConfiguration getPaymentsServiceConfiguration() {
