@@ -696,6 +696,9 @@
                   <jvmFlag>-XX:MaxRAMPercentage=75</jvmFlag>
                   <jvmFlag>-XX:+HeapDumpOnOutOfMemoryError</jvmFlag>
                   <jvmFlag>-XX:HeapDumpPath=/tmp/heapdump.bin</jvmFlag>
+                  <!-- This will likely become the default in a future version of Java, and we can remove this flag when
+                  that happens. Please see https://openjdk.org/jeps/534 for details. -->
+                  <jvmFlag>-XX:+UseCompactObjectHeaders</jvmFlag>
                 </jvmFlags>
                 <ports>
                   <port>8080</port>
