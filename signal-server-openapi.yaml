@@ -4091,18 +4091,12 @@ components:
         registrationId:
           type: integer
           format: int32
+        pniRegistrationId:
+          type: integer
+          format: int32
         name:
-          maxLength: 225
-          minLength: 0
           type: string
           format: byte
-        registrationLock:
-          type: string
-        unidentifiedAccessKey:
-          type: string
-          format: byte
-        unrestrictedUnidentifiedAccess:
-          type: boolean
         capabilities:
           uniqueItems: true
           type: array
@@ -4115,15 +4109,50 @@ components:
             - TRANSFER
             - ATTACHMENT_BACKFILL
             - SPARSE_POST_QUANTUM_RATCHET
+        registrationLock:
+          type: string
+        unidentifiedAccessKey:
+          type: string
+          format: byte
+        unrestrictedUnidentifiedAccess:
+          type: boolean
         discoverableByPhoneNumber:
           type: boolean
         recoveryPassword:
           type: string
           format: byte
           nullable: true
+        phoneNumberIdentityRegistrationId:
+          type: integer
+          format: int32
+    DeviceAttributes:
+      type: object
+      properties:
+        fetchesMessages:
+          type: boolean
+        registrationId:
+          type: integer
+          format: int32
         pniRegistrationId:
           type: integer
           format: int32
+        name:
+          maxLength: 225
+          minLength: 0
+          type: string
+          format: byte
+        capabilities:
+          uniqueItems: true
+          type: array
+          nullable: true
+          items:
+            type: string
+            nullable: true
+            enum:
+            - STORAGE
+            - TRANSFER
+            - ATTACHMENT_BACKFILL
+            - SPARSE_POST_QUANTUM_RATCHET
     ApnRegistrationId:
       required:
       - apnRegistrationId
@@ -5066,7 +5095,7 @@ components:
             The verification code associated with this device. Must match the verification code
             provided by the server when provisioning this device.
         accountAttributes:
-          $ref: "#/components/schemas/AccountAttributes"
+          $ref: "#/components/schemas/DeviceAttributes"
         aciSignedPreKey:
           $ref: "#/components/schemas/ECSignedPreKey"
         pniSignedPreKey:
