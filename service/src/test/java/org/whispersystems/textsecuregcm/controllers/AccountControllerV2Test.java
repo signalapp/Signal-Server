@@ -59,6 +59,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
@@ -151,8 +152,11 @@ class AccountControllerV2Test {
           });
     }
 
-    @Test
-    void changeNumberSuccess() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void changeNumberSuccess(final boolean useSessionVerification) throws Exception {
+      @Nullable final String sessionId = useSessionVerification ? encodeSessionId("session") : null;
+      @Nullable final byte[] recoveryPassword = useSessionVerification ? null : "recovery-password".getBytes(StandardCharsets.UTF_8);
 
       final AccountIdentityResponse accountIdentityResponse =
           resources.getJerseyTest()
@@ -161,7 +165,7 @@ class AccountControllerV2Test {
               .header(HttpHeaders.AUTHORIZATION,
                   AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
               .put(Entity.entity(
-                  new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", IDENTITY_KEY,
+                  new ChangeNumberRequest(sessionId, recoveryPassword, NEW_NUMBER, "123", IDENTITY_KEY,
                       Collections.emptyList(),
                       Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
                       Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR)),

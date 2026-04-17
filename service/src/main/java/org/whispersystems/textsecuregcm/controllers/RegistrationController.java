@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Optional;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.BasicAuthorizationHeader;
@@ -134,7 +135,10 @@ public class RegistrationController {
     rateLimiters.getRegistrationLimiter().validate(number);
 
     final PhoneVerificationRequest.VerificationType verificationType =
-        phoneVerificationTokenManager.verify(requestContext, number, registrationRequest.decodeSessionId(), registrationRequest.recoveryPassword());
+        phoneVerificationTokenManager.verify(requestContext,
+            number,
+            StringUtils.isNotBlank(registrationRequest.sessionId()) ? registrationRequest.decodeSessionId() : null,
+            registrationRequest.recoveryPassword());
 
     // There can be at most one existing account for a set of numbers in the same equivalence class, so it's sufficient
     // to find the first one.

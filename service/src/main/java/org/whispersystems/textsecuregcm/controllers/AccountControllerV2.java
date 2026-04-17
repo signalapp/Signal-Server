@@ -29,6 +29,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
 import java.util.UUID;
+import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.ChangesPhoneNumber;
 import org.whispersystems.textsecuregcm.entities.AccountDataReportResponse;
@@ -91,7 +92,7 @@ public class AccountControllerV2 {
     try {
       final Account updatedAccount = changeNumberManager.changeNumber(
           authenticatedDevice.accountIdentifier(),
-          request.decodeSessionId(),
+          StringUtils.isNotBlank(request.sessionId()) ? request.decodeSessionId() : null,
           request.recoveryPassword(),
           request.registrationLock(),
           request.number(),

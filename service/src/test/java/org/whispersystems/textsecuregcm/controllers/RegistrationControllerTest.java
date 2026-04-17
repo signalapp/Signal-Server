@@ -369,8 +369,9 @@ class RegistrationControllerTest {
   }
 
   // this is functionally the same as deviceTransferAvailable(existingAccount=false)
-  @Test
-  void registrationSuccess() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void registrationSuccess(final boolean useSessionVerification) throws Exception {
     final Account account = mock(Account.class);
     when(account.getPrimaryDevice()).thenReturn(mock(Device.class));
 
@@ -382,13 +383,19 @@ class RegistrationControllerTest {
         .request()
         .header(HttpHeaders.AUTHORIZATION, AuthHelper.getProvisioningAuthHeader(NUMBER, PASSWORD));
 
-    try (Response response = request.post(Entity.json(requestJson("sessionId")))) {
+    final String requestJson = useSessionVerification
+        ? requestJson("sessionId")
+        : requestJsonRecoveryPassword("recovery-password".getBytes(StandardCharsets.UTF_8));
+
+    try (Response response = request.post(Entity.json(requestJson))) {
       assertEquals(200, response.getStatus());
     }
 
-    verify(registrationFraudChecker)
-        .handleVerificationCompleted(Base64.getEncoder().encodeToString("sessionId".getBytes(StandardCharsets.UTF_8)),
-            account);
+    if (useSessionVerification) {
+      verify(registrationFraudChecker)
+          .handleVerificationCompleted(Base64.getEncoder().encodeToString("sessionId".getBytes(StandardCharsets.UTF_8)),
+              account);
+    }
   }
 
   @ParameterizedTest
