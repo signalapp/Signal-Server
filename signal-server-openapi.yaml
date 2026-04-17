@@ -2952,11 +2952,6 @@ paths:
       description: Checks identity key fingerprints for multiple accounts. Returns
         accounts where the fingerprint does not match. Should not be authenticated.
       operationId: runBatchIdentityCheck
-      parameters:
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
       requestBody:
         content:
           application/json:
@@ -2973,6 +2968,8 @@ paths:
                 $ref: "#/components/schemas/BatchIdentityCheckResponse"
         "400":
           description: Invalid request format or validation failed.
+        "429":
+          description: Rate limit exceeded.
   /v1/profile:
     put:
       tags:
