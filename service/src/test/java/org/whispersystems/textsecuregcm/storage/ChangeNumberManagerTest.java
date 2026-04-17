@@ -4,17 +4,23 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.protobuf.ByteString;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,21 +33,33 @@ import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
+import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
+import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.push.MessageSender;
-import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
+import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
+import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
 
 public class ChangeNumberManagerTest {
-  private AccountsManager accountsManager;
   private MessageSender messageSender;
+  private AccountsManager accountsManager;
+  private PhoneVerificationTokenManager phoneVerificationTokenManager;
+  private RegistrationLockVerificationManager registrationLockVerificationManager;
+  private RateLimiter rateLimiter;
+
   private ChangeNumberManager changeNumberManager;
 
   private Map<Account, UUID> updatedPhoneNumberIdentifiersByAccount;
@@ -50,15 +68,34 @@ public class ChangeNumberManagerTest {
 
   @BeforeEach
   void setUp() throws Exception {
-    accountsManager = mock(AccountsManager.class);
     messageSender = mock(MessageSender.class);
-    changeNumberManager = new ChangeNumberManager(messageSender, accountsManager, CLOCK);
+    accountsManager = mock(AccountsManager.class);
+    registrationLockVerificationManager = mock(RegistrationLockVerificationManager.class);
+    rateLimiter = mock(RateLimiter.class);
+    phoneVerificationTokenManager = mock(PhoneVerificationTokenManager.class);
+
+    when(phoneVerificationTokenManager.verify(any(), any(), any(), any())).thenAnswer(invocation -> {
+      final byte[] sessionId = invocation.getArgument(2);
+
+      return sessionId != null
+          ? PhoneVerificationRequest.VerificationType.SESSION
+          : PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD;
+    });
+
+    final RateLimiters rateLimiters = mock(RateLimiters.class);
+    when(rateLimiters.getRegistrationLimiter()).thenReturn(rateLimiter);
+
+    changeNumberManager = new ChangeNumberManager(messageSender, accountsManager,
+        phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters, CLOCK);
 
     updatedPhoneNumberIdentifiersByAccount = new HashMap<>();
 
     when(accountsManager.changeNumber(any(), any(), any(), any(), any(), any())).thenAnswer((Answer<Account>)invocation -> {
-      final Account account = accountsManager.getByAccountIdentifier(invocation.getArgument(0)).orElseThrow();
-      final String number = invocation.getArgument(1, String.class);
+      final UUID accountIdentifier = invocation.getArgument(0);
+      final String number = invocation.getArgument(1);
+
+      final Account account =
+          accountsManager.getAccountsForChangeNumber(accountIdentifier, number).first();
 
       final UUID uuid = account.getIdentifier(IdentityType.ACI);
       final List<Device> devices = account.getDevices();
@@ -85,6 +122,9 @@ public class ChangeNumberManagerTest {
 
   @Test
   void changeNumberSingleDevice() throws Exception {
+    final String originalNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
     final String targetNumber = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
 
@@ -100,19 +140,24 @@ public class ChangeNumberManagerTest {
     final UUID accountIdentifier = UUID.randomUUID();
 
     final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(originalNumber);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
 
-    AccountsHelper.setupMockGet(accountsManager, account);
+    when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
+        .thenReturn(new Pair<>(account, Optional.empty()));
 
-    changeNumberManager.changeNumber(account, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), null);
+    changeNumberManager.changeNumber(accountIdentifier, null, null, null, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), mock(ContainerRequestContext.class));
     verify(accountsManager).changeNumber(accountIdentifier, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyMap());
     verify(messageSender, never()).sendMessages(eq(account), any(), any(), any(), any(), any());
   }
 
   @Test
   void changeNumberLinkedDevices() throws Exception {
+    final String originalNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
     final String targetNumber = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
 
@@ -133,6 +178,7 @@ public class ChangeNumberManagerTest {
     when(linkedDevice.getRegistrationId(IdentityType.ACI)).thenReturn(linkedDeviceRegistrationId);
 
     final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(originalNumber);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(aci);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(aci))).thenReturn(true);
@@ -158,16 +204,20 @@ public class ChangeNumberManagerTest {
     final IncomingMessage incomingMessage =
         new IncomingMessage(1, linkedDeviceId, linkedDeviceRegistrationId, new byte[] { 1 });
 
-    AccountsHelper.setupMockGet(accountsManager, account);
+    when(accountsManager.getAccountsForChangeNumber(eq(aci), any()))
+        .thenReturn(new Pair<>(account, Optional.empty()));
 
-    changeNumberManager.changeNumber(account,
+    changeNumberManager.changeNumber(aci,
+        null,
+        null,
+        null,
         targetNumber,
         pniIdentityKey,
         ecSignedPreKeys,
         kemLastResortPreKeys,
         List.of(incomingMessage),
         registrationIds,
-        null);
+        mock(ContainerRequestContext.class));
 
     verify(accountsManager).changeNumber(aci,
         targetNumber,
@@ -195,5 +245,139 @@ public class ChangeNumberManagerTest {
         eq(Map.of(linkedDeviceId, linkedDeviceRegistrationId)),
         eq(Optional.of(primaryDeviceId)),
         any());
+  }
+
+  @Test
+  void changeNumberSameNumber() throws Exception {
+    final String targetNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final IdentityKey pniIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
+
+    final Map<Byte, ECSignedPreKey> ecSignedPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
+
+    final Map<Byte, KEMSignedPreKey> kemLastResortPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair));
+
+    final UUID accountIdentifier = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(targetNumber);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.isIdentifiedBy(any())).thenReturn(false);
+    when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
+
+    when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
+        .thenReturn(new Pair<>(account, Optional.empty()));
+
+    changeNumberManager.changeNumber(accountIdentifier, null, null, null, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), mock(ContainerRequestContext.class));
+
+    verifyNoInteractions(rateLimiter);
+    verifyNoInteractions(phoneVerificationTokenManager);
+    verifyNoInteractions(registrationLockVerificationManager);
+
+    verify(accountsManager).changeNumber(accountIdentifier, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyMap());
+    verify(messageSender, never()).sendMessages(eq(account), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void changeNumberRateLimited()
+      throws MismatchedDevicesException, InterruptedException, MessageTooLargeException, RateLimitExceededException {
+    final String originalNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final String targetNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final IdentityKey pniIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
+
+    final Map<Byte, ECSignedPreKey> ecSignedPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
+
+    final Map<Byte, KEMSignedPreKey> kemLastResortPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair));
+
+    final UUID accountIdentifier = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(originalNumber);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.isIdentifiedBy(any())).thenReturn(false);
+    when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
+
+    when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
+        .thenReturn(new Pair<>(account, Optional.empty()));
+
+    doThrow(new RateLimitExceededException(Duration.ofMinutes(1)))
+        .when(rateLimiter).validate(targetNumber);
+
+    assertThrows(RateLimitExceededException.class, () -> changeNumberManager.changeNumber(accountIdentifier,
+        null,
+        null,
+        null,
+        targetNumber,
+        pniIdentityKey,
+        ecSignedPreKeys,
+        kemLastResortPreKeys,
+        Collections.emptyList(),
+        Collections.emptyMap(),
+        mock(ContainerRequestContext.class)));
+
+    verify(accountsManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
+    verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void changeNumberRegistrationLockFailed()
+      throws MismatchedDevicesException, InterruptedException, MessageTooLargeException, RateLimitExceededException {
+    final String originalNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final String targetNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final IdentityKey pniIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
+
+    final Map<Byte, ECSignedPreKey> ecSignedPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
+
+    final Map<Byte, KEMSignedPreKey> kemLastResortPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair));
+
+    final UUID accountIdentifier = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(originalNumber);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.isIdentifiedBy(any())).thenReturn(false);
+    when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
+
+    final Account existingAccount = mock(Account.class);
+    when(existingAccount.getNumber()).thenReturn(targetNumber);
+
+    when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
+        .thenReturn(new Pair<>(account, Optional.of(existingAccount)));
+
+    doThrow(new WebApplicationException(423))
+        .when(registrationLockVerificationManager).verifyRegistrationLock(eq(existingAccount), any(), any(), any(), any());
+
+    assertThrows(WebApplicationException.class, () -> changeNumberManager.changeNumber(accountIdentifier,
+        null,
+        null,
+        null,
+        targetNumber,
+        pniIdentityKey,
+        ecSignedPreKeys,
+        kemLastResortPreKeys,
+        Collections.emptyList(),
+        Collections.emptyMap(),
+        mock(ContainerRequestContext.class)));
+
+    verify(accountsManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
+    verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
   }
 }

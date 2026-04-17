@@ -27,6 +27,7 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import javax.annotation.Nullable;
 
 public class PhoneVerificationTokenManager {
 
@@ -56,8 +57,10 @@ public class PhoneVerificationTokenManager {
    *
    * @param requestContext the container request context
    * @param number  the e164 presented for verification
-   * @param request the request with exactly one verification token (RegistrationService sessionId or registration
-   *                recovery password)
+   * @param sessionId a verification session ID; exactly one of {@code sessionId} or {@code recoveryPassword} must be
+   *                  non-null
+   * @param recoveryPassword a registration recovery password; exactly one of {@code sessionId} or
+   *                         {@code recoveryPassword} must be non-null
    * @return if verification was successful, returns the verification type
    * @throws BadRequestException    if the number does not match the sessionId’s number, or the remote service rejects
    *                                the session ID as invalid
@@ -65,13 +68,22 @@ public class PhoneVerificationTokenManager {
    * @throws ForbiddenException     if the recovery password is not valid
    * @throws InterruptedException   if verification did not complete before a timeout
    */
-  public PhoneVerificationRequest.VerificationType verify(final ContainerRequestContext requestContext, final String number, final PhoneVerificationRequest request)
-      throws InterruptedException {
+  public PhoneVerificationRequest.VerificationType verify(final ContainerRequestContext requestContext,
+      final String number,
+      @Nullable final byte[] sessionId,
+      @Nullable final byte[] recoveryPassword) throws InterruptedException {
 
-    final PhoneVerificationRequest.VerificationType verificationType = request.verificationType();
+    if ((sessionId == null) == (recoveryPassword == null)) {
+      throw new IllegalArgumentException("Exactly one of session ID or recovery password must non-null");
+    }
+
+    final PhoneVerificationRequest.VerificationType verificationType = sessionId != null
+        ? PhoneVerificationRequest.VerificationType.SESSION
+        : PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD;
+
     switch (verificationType) {
-      case SESSION -> verifyBySessionId(number, request.decodeSessionId());
-      case RECOVERY_PASSWORD -> verifyByRecoveryPassword(requestContext, number, request.recoveryPassword());
+      case SESSION -> verifyBySessionId(number, sessionId);
+      case RECOVERY_PASSWORD -> verifyByRecoveryPassword(requestContext, number, recoveryPassword);
     }
 
     return verificationType;

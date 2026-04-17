@@ -135,9 +135,12 @@ class RegistrationControllerTest {
     reset(registrationFraudChecker);
     reset(phoneVerificationTokenManager);
 
-    when(phoneVerificationTokenManager.verify(any(), any(), any())).thenAnswer(invocation -> {
-      final PhoneVerificationRequest request = invocation.getArgument(2);
-      return request.verificationType();
+    when(phoneVerificationTokenManager.verify(any(), any(), any(), any())).thenAnswer(invocation -> {
+      final byte[] sessionId = invocation.getArgument(2);
+
+      return sessionId != null
+          ? PhoneVerificationRequest.VerificationType.SESSION
+          : PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD;
     });
   }
 
@@ -234,7 +237,7 @@ class RegistrationControllerTest {
   @MethodSource
   void phoneVerificationException(final Exception exception, final int expectedStatus) throws InterruptedException {
     doThrow(exception)
-        .when(phoneVerificationTokenManager).verify(any(), any(), any());
+        .when(phoneVerificationTokenManager).verify(any(), any(), any(), any());
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/registration")

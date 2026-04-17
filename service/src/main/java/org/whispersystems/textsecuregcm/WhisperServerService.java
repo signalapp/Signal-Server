@@ -766,8 +766,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     PushChallengeManager pushChallengeManager = new PushChallengeManager(pushNotificationManager,
         pushChallengeDynamoDb);
 
-    ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager, Clock.systemUTC());
-
     HttpClient currencyClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).connectTimeout(Duration.ofSeconds(10)).build();
     FixerClient fixerClient = config.getPaymentsServiceConfiguration().externalClients()
         .buildFixerClient(currencyClient);
@@ -1090,11 +1088,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
         phoneNumberIdentifiers, registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker);
+
+    final ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager,
+        phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters, Clock.systemUTC());
+
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, registrationRecoveryPasswordsManager,
             usernameHashZkProofVerifier),
-        new AccountControllerV2(accountsManager, changeNumberManager, phoneVerificationTokenManager,
-            registrationLockVerificationManager, rateLimiters),
+        new AccountControllerV2(accountsManager, changeNumberManager),
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
             experimentEnrollmentManager, config.getAttachments().maxUploadSizeInBytes()),
         new ArchiveController(accountsManager, backupAuthManager, backupManager, backupMetrics, config.getAttachments().maxUploadSizeInBytes()),

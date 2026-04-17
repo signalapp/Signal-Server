@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -29,7 +28,6 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.ServerErrorException;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.Invocation;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -60,16 +58,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
-import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
-import org.whispersystems.textsecuregcm.auth.RegistrationLockError;
-import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.entities.AccountDataReportResponse;
 import org.whispersystems.textsecuregcm.entities.AccountIdentityResponse;
@@ -77,10 +71,7 @@ import org.whispersystems.textsecuregcm.entities.ChangeNumberRequest;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.PhoneNumberDiscoverabilityRequest;
-import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
-import org.whispersystems.textsecuregcm.limits.RateLimiter;
-import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.ImpossiblePhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
@@ -108,11 +99,6 @@ class AccountControllerV2Test {
 
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final ChangeNumberManager changeNumberManager = mock(ChangeNumberManager.class);
-  private final PhoneVerificationTokenManager phoneVerificationTokenManager = mock(PhoneVerificationTokenManager.class);
-  private final RegistrationLockVerificationManager registrationLockVerificationManager = mock(
-      RegistrationLockVerificationManager.class);
-  private final RateLimiters rateLimiters = mock(RateLimiters.class);
-  private final RateLimiter registrationLimiter = mock(RateLimiter.class);
 
   private final ResourceExtension resources = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
@@ -123,9 +109,7 @@ class AccountControllerV2Test {
       .addProvider(new NonNormalizedPhoneNumberExceptionMapper())
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(
-          new AccountControllerV2(accountsManager, changeNumberManager, phoneVerificationTokenManager,
-              registrationLockVerificationManager, rateLimiters))
+      .addResource(new AccountControllerV2(accountsManager, changeNumberManager))
       .build();
 
   @Nested
@@ -135,17 +119,16 @@ class AccountControllerV2Test {
     void setUp() throws Exception {
       reset(changeNumberManager);
 
-      when(rateLimiters.getRegistrationLimiter()).thenReturn(registrationLimiter);
-
       when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
-      when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(
+      when(changeNumberManager.changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())).thenAnswer(
           (Answer<Account>) invocation -> {
-            final Account account = invocation.getArgument(0);
-            final String number = invocation.getArgument(1);
-            final IdentityKey pniIdentityKey = invocation.getArgument(2);
+            final UUID uuid = invocation.getArgument(0);
+            final Account account = accountsManager.getByAccountIdentifier(uuid).orElseThrow();
 
-            final UUID uuid = account.getUuid();
+            final String number = invocation.getArgument(4);
+            final IdentityKey pniIdentityKey = invocation.getArgument(5);
+
             final List<Device> devices = account.getDevices();
 
             final Account updatedAccount = mock(Account.class);
@@ -166,11 +149,6 @@ class AccountControllerV2Test {
 
             return updatedAccount;
           });
-
-      when(phoneVerificationTokenManager.verify(any(), any(), any())).thenAnswer(invocation -> {
-        final PhoneVerificationRequest request = invocation.getArgument(2);
-        return request.verificationType();
-      });
     }
 
     @Test
@@ -190,36 +168,12 @@ class AccountControllerV2Test {
                       Map.of(Device.PRIMARY_ID, 17)),
                   MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
 
-      verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(NEW_NUMBER), any(), any(), any(),
-          any(), any(), any());
+      verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_UUID), any(), any(), any(), eq(NEW_NUMBER), any(),
+          any(), any(), any(), any(), any());
 
       assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
       assertEquals(NEW_NUMBER, accountIdentityResponse.number());
       assertNotEquals(AuthHelper.VALID_PNI, accountIdentityResponse.pni());
-    }
-
-    @Test
-    void changeNumberSameNumber() throws Exception {
-      final AccountIdentityResponse accountIdentityResponse =
-          resources.getJerseyTest()
-              .target("/v2/accounts/number")
-              .request()
-              .header(HttpHeaders.AUTHORIZATION,
-                  AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-              .put(Entity.entity(
-                  new ChangeNumberRequest(encodeSessionId("session"), null, AuthHelper.VALID_NUMBER, null, IDENTITY_KEY,
-                      Collections.emptyList(),
-                      Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
-                      Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR)),
-                      Map.of(Device.PRIMARY_ID, 17)),
-                  MediaType.APPLICATION_JSON_TYPE), AccountIdentityResponse.class);
-
-      verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_NUMBER), any(), any(), any(),
-          any(), any(), any());
-
-      assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
-      assertEquals(AuthHelper.VALID_NUMBER, accountIdentityResponse.number());
-      assertEquals(AuthHelper.VALID_PNI, accountIdentityResponse.pni());
     }
 
     @Test
@@ -318,13 +272,14 @@ class AccountControllerV2Test {
     @Test
     void rateLimitedNumber() throws Exception {
       doThrow(new RateLimitExceededException(null))
-          .when(registrationLimiter).validate(anyString());
+          .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
       final Invocation.Builder request = resources.getJerseyTest()
           .target("/v2/accounts/number")
           .request()
           .header(HttpHeaders.AUTHORIZATION,
               AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
+
       try (Response response = request.put(Entity.json(requestJson("sessionId", NEW_NUMBER)))) {
         assertEquals(429, response.getStatus());
       }
@@ -332,9 +287,10 @@ class AccountControllerV2Test {
 
     @ParameterizedTest
     @MethodSource
-    void phoneVerificationException(final Exception exception, final int expectedStatus) throws InterruptedException {
+    void phoneVerificationException(final Exception exception, final int expectedStatus)
+        throws InterruptedException, MessageTooLargeException, MismatchedDevicesException, RateLimitExceededException {
       doThrow(exception)
-          .when(phoneVerificationTokenManager).verify(any(), any(), any());
+          .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
       final Invocation.Builder request = resources.getJerseyTest()
           .target("/v2/accounts/number")
@@ -356,56 +312,10 @@ class AccountControllerV2Test {
       );
     }
 
-    @ParameterizedTest
-    @EnumSource(RegistrationLockError.class)
-    void registrationLock(final RegistrationLockError error) throws Exception {
-      when(accountsManager.getByE164(any())).thenReturn(Optional.of(mock(Account.class)));
-
-      final Exception e = switch (error) {
-        case MISMATCH -> new WebApplicationException(error.getExpectedStatus());
-        case RATE_LIMITED -> new RateLimitExceededException(null);
-      };
-      doThrow(e)
-          .when(registrationLockVerificationManager).verifyRegistrationLock(any(), any(), any(), any(), any());
-
-      final Invocation.Builder request = resources.getJerseyTest()
-          .target("/v2/accounts/number")
-          .request()
-          .header(HttpHeaders.AUTHORIZATION,
-              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
-      try (Response response = request.put(Entity.json(requestJson("sessionId", NEW_NUMBER)))) {
-        assertEquals(error.getExpectedStatus(), response.getStatus());
-      }
-    }
-
-    @Test
-    void recoveryPasswordManagerVerificationTrue() throws Exception {
-      final Invocation.Builder request = resources.getJerseyTest()
-          .target("/v2/accounts/number")
-          .request()
-          .header(HttpHeaders.AUTHORIZATION,
-              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD));
-
-      final byte[] recoveryPassword = new byte[32];
-
-      try (final Response response = request.put(Entity.json(requestJsonRecoveryPassword(recoveryPassword, NEW_NUMBER)))) {
-        assertEquals(200, response.getStatus());
-
-        final AccountIdentityResponse accountIdentityResponse = response.readEntity(AccountIdentityResponse.class);
-
-        verify(changeNumberManager).changeNumber(eq(AuthHelper.VALID_ACCOUNT), eq(NEW_NUMBER), any(), any(), any(),
-            any(), any(), any());
-
-        assertEquals(AuthHelper.VALID_UUID, accountIdentityResponse.uuid());
-        assertEquals(NEW_NUMBER, accountIdentityResponse.number());
-        assertNotEquals(AuthHelper.VALID_PNI, accountIdentityResponse.pni());
-      }
-    }
-
     @Test
     void deviceMessageTooLarge() throws Exception {
       doThrow(MessageTooLargeException.class)
-          .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any());
+          .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
       try (final Response response = resources.getJerseyTest()
               .target("/v2/accounts/number")

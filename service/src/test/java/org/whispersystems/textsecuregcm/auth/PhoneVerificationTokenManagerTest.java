@@ -20,7 +20,6 @@ import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.container.ContainerRequestContext;
-import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -54,16 +53,6 @@ class PhoneVerificationTokenManagerTest {
 
   private static final UUID PHONE_NUMBER_IDENTIFIER = UUID.randomUUID();
 
-  record PhoneVerificationRequest(String sessionId, byte[] recoveryPassword) implements org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest {
-    static PhoneVerificationRequest forSessionId(final byte[] sessionId) {
-      return new PhoneVerificationRequest(Base64.getUrlEncoder().encodeToString(sessionId), null);
-    }
-
-    static PhoneVerificationRequest forRecoveryPassword(final byte[] recoveryPassword) {
-      return new PhoneVerificationRequest(null, recoveryPassword);
-    }
-  }
-
   @BeforeEach
   void setUp() {
     final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
@@ -93,7 +82,8 @@ class PhoneVerificationTokenManagerTest {
 
       assertDoesNotThrow(() -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
-          PhoneVerificationRequest.forSessionId(sessionId)));
+          sessionId,
+          null));
     }
 
     @Test
@@ -105,7 +95,8 @@ class PhoneVerificationTokenManagerTest {
 
       assertThrows(NotAuthorizedException.class, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
-          PhoneVerificationRequest.forSessionId(sessionId)));
+          sessionId,
+          null));
     }
 
     @Test
@@ -118,7 +109,8 @@ class PhoneVerificationTokenManagerTest {
 
       assertThrows(BadRequestException.class, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
-          PhoneVerificationRequest.forSessionId(sessionId)));
+          sessionId,
+          null));
     }
 
     @Test
@@ -131,7 +123,8 @@ class PhoneVerificationTokenManagerTest {
 
       assertThrows(NotAuthorizedException.class, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
-          PhoneVerificationRequest.forSessionId(sessionId)));
+          sessionId,
+          null));
     }
 
     @ParameterizedTest
@@ -147,7 +140,8 @@ class PhoneVerificationTokenManagerTest {
 
       assertThrows(expectedExceptionClass, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
-          PhoneVerificationRequest.forSessionId(TestRandomUtil.nextBytes(16))));
+          TestRandomUtil.nextBytes(16),
+          null));
     }
 
     private static List<Arguments> verifyRegistrationServiceClientException() {
@@ -176,7 +170,8 @@ class PhoneVerificationTokenManagerTest {
 
       assertDoesNotThrow(() -> phoneVerificationTokenManager.verify(containerRequestContext,
           PHONE_NUMBER,
-          PhoneVerificationRequest.forRecoveryPassword(recoveryPassword)));
+          null,
+          recoveryPassword));
     }
 
     @Test
@@ -192,7 +187,8 @@ class PhoneVerificationTokenManagerTest {
 
       assertThrows(ForbiddenException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
           PHONE_NUMBER,
-          PhoneVerificationRequest.forRecoveryPassword(recoveryPassword)));
+          null,
+          recoveryPassword));
     }
 
     @Test
@@ -208,7 +204,8 @@ class PhoneVerificationTokenManagerTest {
 
       assertThrows(ForbiddenException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
           PHONE_NUMBER,
-          PhoneVerificationRequest.forRecoveryPassword(recoveryPassword)));
+          null,
+          recoveryPassword));
     }
 
     @ParameterizedTest
@@ -230,7 +227,8 @@ class PhoneVerificationTokenManagerTest {
 
       assertThrows(ServerErrorException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
           PHONE_NUMBER,
-          PhoneVerificationRequest.forRecoveryPassword(recoveryPassword)));
+          null,
+          recoveryPassword));
     }
 
     private static List<Throwable> verifyRecoveryPasswordManagerException() {

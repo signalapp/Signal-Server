@@ -1098,6 +1098,22 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     );
   }
 
+  /// Returns a fresh, uncached copy of the identified account (the account preparing to change its number) and a fresh,
+  /// uncached copy of the account that holds the target phone number if such an account exists.
+  ///
+  /// @param accountIdentifier the identifier for the account changing its phone number
+  /// @param targetNumber the new phone number for the identified account
+  ///
+  /// @return a fresh, uncached copy of the identified account and a fresh, uncached copy of the account that has
+  /// `targetNumber` if one exists
+  ///
+  /// @throws IllegalArgumentException if no account was found for `accountIdentifier`
+  Pair<Account, Optional<Account>> getAccountsForChangeNumber(final UUID accountIdentifier, final String targetNumber) {
+    return new Pair<>(accounts.getByAccountIdentifier(accountIdentifier)
+            .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier)),
+        accounts.getByE164(targetNumber));
+  }
+
   public UUID getPhoneNumberIdentifier(String e164) {
     return phoneNumberIdentifiers.getPhoneNumberIdentifier(e164).join();
   }
