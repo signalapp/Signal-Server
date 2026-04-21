@@ -5,11 +5,14 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import com.google.protobuf.ByteString;
 import java.time.Clock;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -17,6 +20,8 @@ import java.util.stream.Collectors;
 import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.NotFound;
+import org.signal.chat.profile.GetAvatarCredentialsRequest;
+import org.signal.chat.profile.GetAvatarCredentialsResponse;
 import org.signal.chat.profile.GetUnversionedProfileRequest;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileRequest;
@@ -28,6 +33,14 @@ import org.signal.chat.profile.SetProfileResponse;
 import org.signal.chat.profile.SetProfileResult;
 import org.signal.chat.profile.SetProfileV1Request.AvatarChange;
 import org.signal.chat.profile.SimpleProfileGrpc;
+import org.signal.libsignal.protocol.ServiceId;
+import org.signal.libsignal.zkgroup.GenericServerSecretParams;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialRequest;
+import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
@@ -52,19 +65,17 @@ import org.whispersystems.textsecuregcm.util.ProfileHelper;
 
 public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
 
+  private static final Logger logger = LoggerFactory.getLogger(ProfileGrpcService.class);
+
   private final Clock clock;
   private final AccountsManager accountsManager;
   private final ProfilesManager  profilesManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
   private final PostPolicyGenerator policyGenerator;
+  private final GenericServerSecretParams genericServerSecretParams;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final RateLimiters rateLimiters;
-
-  private static final S3UploadForm PROTOTYPE_AVATAR_UPLOAD_FORM = S3UploadForm.newBuilder()
-      .setAcl(PostPolicyGenerator.ACL)
-      .setAlgorithm(PostPolicyGenerator.ALGORITHM)
-      .build();
 
   private record AvatarData(Optional<String> currentAvatar,
                             Optional<String>  finalAvatar,
@@ -77,6 +88,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final BadgesConfiguration badgesConfiguration,
       final PostPolicyGenerator policyGenerator,
+      final GenericServerSecretParams genericServerSecretParams,
       final ProfileBadgeConverter profileBadgeConverter,
       final RateLimiters rateLimiters) {
     this.clock = clock;
@@ -86,6 +98,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     this.badgeConfigurationMap = badgesConfiguration.getBadges().stream().collect(Collectors.toMap(
         BadgeConfiguration::getId, Function.identity()));
     this.policyGenerator = policyGenerator;
+    this.genericServerSecretParams = genericServerSecretParams;
     this.profileBadgeConverter = profileBadgeConverter;
     this.rateLimiters = rateLimiters;
   }
@@ -136,7 +149,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
       case AVATAR_CHANGE_UPDATE -> {
         final String updateAvatarObjectName = ProfileHelper.generateAvatarObjectName();
         yield new AvatarData(currentAvatar, Optional.of(updateAvatarObjectName),
-            Optional.of(generateAvatarUploadForm(updateAvatarObjectName)));
+            Optional.of(ProfileGrpcHelper.generateAvatarUploadForm(updateAvatarObjectName, ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES, policyGenerator, clock)));
       }
     };
 
@@ -206,6 +219,39 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
   }
 
   @Override
+  public GetAvatarCredentialsResponse getAvatarCredentials(final GetAvatarCredentialsRequest request) {
+
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
+
+    final Account account = accountsManager.getByAccountIdentifier(authenticatedDevice.accountIdentifier())
+        .orElseThrow(() -> GrpcExceptions.invalidCredentials("account not found"));
+
+    if (account.getZkCredentialKey().isEmpty()) {
+      return GetAvatarCredentialsResponse.newBuilder()
+          .setMissingZkCredentialKey(FailedPrecondition.newBuilder().setDescription("account requires ZK credential key"))
+          .build();
+    }
+
+    try {
+      final AvatarUploadCredentialRequest credentialRequest = new AvatarUploadCredentialRequest(
+          request.getAvatarCredentialsRequest().toByteArray());
+
+      final AvatarUploadCredentialResponse credentialResponse = credentialRequest.issueCredential(
+          new ServiceId.Aci(account.getIdentifier(IdentityType.ACI)),
+          account.getZkCredentialKey().get(),
+          Objects.requireNonNull(account.getZkCredentialKeyRotationId()),
+          clock.instant().truncatedTo(ChronoUnit.DAYS),
+          this.genericServerSecretParams);
+
+      return GetAvatarCredentialsResponse.newBuilder()
+          .setAvatarCredentials(ByteString.copyFrom(credentialResponse.serialize()))
+          .build();
+    } catch (InvalidInputException | VerificationFailedException _) {
+      throw GrpcExceptions.invalidArguments("invalid credential request");
+    }
+  }
+
+  @Override
   public GetUnversionedProfileResponse getUnversionedProfile(final GetUnversionedProfileRequest request) throws RateLimitExceededException {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
     final ServiceIdentifier targetIdentifier =
@@ -262,18 +308,5 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     if (request.getCommitment().isEmpty()) {
       throw GrpcExceptions.invalidArguments("Request must include commitment during migration");
     }
-  }
-
-  private S3UploadForm generateAvatarUploadForm(final String objectName) {
-    final PostPolicyGenerator.SignedPostPolicy policy =
-        policyGenerator.createFor(objectName, ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES, clock.instant());
-
-    return PROTOTYPE_AVATAR_UPLOAD_FORM.toBuilder()
-        .setKey(objectName)
-        .setCredential(policy.credential())
-        .setDate(policy.formattedTimestamp())
-        .setPolicy(policy.encodedPolicy())
-        .setSignature(policy.signature())
-        .build();
   }
 }

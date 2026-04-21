@@ -6,6 +6,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -31,7 +32,6 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
 import com.google.protobuf.ByteString;
 import com.google.rpc.BadRequest;
-import io.grpc.ServerInterceptor;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.time.Clock;
@@ -60,6 +60,8 @@ import org.mockito.Mock;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
 import org.signal.chat.profile.DataEtag;
+import org.signal.chat.profile.GetAvatarCredentialsRequest;
+import org.signal.chat.profile.GetAvatarCredentialsResponse;
 import org.signal.chat.profile.GetUnversionedProfileRequest;
 import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetUnversionedProfileResult;
@@ -77,7 +79,12 @@ import org.signal.chat.profile.test.PlaintextProfileData;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ZkCredentialKeyPair;
+import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialRequest;
+import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialRequestContext;
+import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
@@ -106,6 +113,7 @@ import org.whispersystems.textsecuregcm.storage.WriteConflictException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
+import org.whispersystems.textsecuregcm.util.MutableClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
@@ -121,6 +129,8 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
       .setName(ByteString.copyFrom(VALID_NAME))
       .setPhoneNumberSharing(ByteString.copyFrom(TestRandomUtil.nextBytes(29)))
       .build();
+
+  private final GenericServerSecretParams genericServerSecretParams = GenericServerSecretParams.generate();
 
   @Mock
   private AccountsManager accountsManager;
@@ -143,11 +153,11 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   @Mock
   private ProfileBadgeConverter profileBadgeConverter;
 
-  private Clock clock;
+  private MutableClock clock;
 
   @Override
   protected ProfileGrpcService createServiceBeforeEachTest() {
-    clock = Clock.fixed(Instant.ofEpochSecond(42), ZoneId.of("Etc/UTC"));
+    clock = new MutableClock(Clock.fixed(Instant.ofEpochSecond(42), ZoneId.of("Etc/UTC")));
 
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
@@ -208,6 +218,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         dynamicConfigurationManager,
         badgesConfiguration,
         policyGenerator,
+        genericServerSecretParams,
         profileBadgeConverter,
         rateLimiters
     );
@@ -893,13 +904,77 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     assertStatusException(Status.INVALID_ARGUMENT, () -> authenticatedServiceStub().getVersionedProfile(request));
   }
 
-  @Override
-  protected List<ServerInterceptor> customizeInterceptors(List<ServerInterceptor> serverInterceptors) {
-    return serverInterceptors.stream()
-        // For now, don't validate error conformance because the profiles gRPC service has not been converted to the
-        // updated error model
-        .filter(interceptor -> !(interceptor instanceof ErrorConformanceInterceptor))
-        .toList();
+  @Test
+  void getAvatarCredential() {
+    final ZkCredentialKeyPair zkCredentialKeyPair = ZkCredentialKeyPair.generate();
+    final long rotationId = 617L;
+
+    // this test needs a valid clock
+    clock.setTimeMillis(Instant.now().toEpochMilli());
+
+    when(account.getZkCredentialKey()).thenReturn(Optional.of(zkCredentialKeyPair.getPublicKey()));
+    when(account.getZkCredentialKeyRotationId()).thenReturn(rotationId);
+
+    final AvatarUploadCredentialRequestContext avatarUploadCredentialRequestContext = AvatarUploadCredentialRequestContext.create(
+        new ServiceId.Aci(AUTHENTICATED_ACI), zkCredentialKeyPair, rotationId);
+    final AvatarUploadCredentialRequest credentialRequest = avatarUploadCredentialRequestContext.getRequest();
+
+    final GetAvatarCredentialsResponse response = authenticatedServiceStub().getAvatarCredentials(
+        GetAvatarCredentialsRequest.newBuilder()
+            .setAvatarCredentialsRequest(ByteString.copyFrom(credentialRequest.serialize()))
+            .build());
+
+    assertTrue(response.hasAvatarCredentials());
+
+    assertDoesNotThrow(() -> avatarUploadCredentialRequestContext.receiveResponse(
+        new AvatarUploadCredentialResponse(response.getAvatarCredentials().toByteArray()),
+        genericServerSecretParams.getPublicParams()));
+  }
+
+  @Test
+  void getAvatarCredentialAccountNotFound() {
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.empty());
+
+    final StatusRuntimeException statusRuntimeException = assertStatusException(Status.UNAUTHENTICATED,
+        () -> authenticatedServiceStub().getAvatarCredentials(GetAvatarCredentialsRequest.getDefaultInstance()));
+    assertEquals("account not found", statusRuntimeException.getStatus().getDescription());
+  }
+
+  @Test
+  void getAvatarCredentialMissingZkCredentialKey() {
+    when(account.getZkCredentialKey()).thenReturn(Optional.empty());
+
+    final GetAvatarCredentialsResponse response = authenticatedServiceStub().getAvatarCredentials(
+        GetAvatarCredentialsRequest.getDefaultInstance());
+
+    assertTrue(response.hasMissingZkCredentialKey());
+
+    assertEquals("account requires ZK credential key", response.getMissingZkCredentialKey().getDescription());
+  }
+
+  @Test
+  void getAvatarCredentialInvalidCredentialRequest() {
+    final ZkCredentialKeyPair zkCredentialKeyPair = ZkCredentialKeyPair.generate();
+    final long rotationId = 617L;
+    final long incorrectRotationId = rotationId + 1;
+
+    // this test needs a valid clock
+    clock.setTimeMillis(Instant.now().toEpochMilli());
+
+    when(account.getZkCredentialKey()).thenReturn(Optional.of(zkCredentialKeyPair.getPublicKey()));
+    when(account.getZkCredentialKeyRotationId()).thenReturn(rotationId);
+
+    final AvatarUploadCredentialRequestContext avatarUploadCredentialRequestContext = AvatarUploadCredentialRequestContext.create(
+        new ServiceId.Aci(AUTHENTICATED_ACI), zkCredentialKeyPair, incorrectRotationId);
+    final AvatarUploadCredentialRequest credentialRequest = avatarUploadCredentialRequestContext.getRequest();
+
+    final StatusRuntimeException statusRuntimeException = assertStatusInvalidArgument(
+        () -> authenticatedServiceStub().getAvatarCredentials(
+            GetAvatarCredentialsRequest.newBuilder()
+                .setAvatarCredentialsRequest(ByteString.copyFrom(credentialRequest.serialize()))
+                .build()));
+
+    assertEquals("invalid credential request", statusRuntimeException.getStatus().getDescription());
   }
 
   @ParameterizedTest

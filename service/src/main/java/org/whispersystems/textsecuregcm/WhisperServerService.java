@@ -265,6 +265,7 @@ import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.PagedSingleUseKEMPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.PersistentTimer;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
+import org.whispersystems.textsecuregcm.storage.ProfileAvatars;
 import org.whispersystems.textsecuregcm.storage.Profiles;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.ProfilesV2;
@@ -538,6 +539,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     Profiles profilesV1 = new Profiles(dynamoDbClient, dynamoDbAsyncClient,
         config.getDynamoDbTables().getProfilesV1().getTableName());
     ProfilesV2 profiles = new ProfilesV2(dynamoDbClient, dynamoDbAsyncClient, config.getDynamoDbTables().getProfilesV2().getTableName());
+    ProfileAvatars profileAvatars = new ProfileAvatars(dynamoDbClient,
+        config.getDynamoDbTables().getProfileAvatars().getTableName(), RemoveExpiredAccountsCommand.MAX_IDLE_DURATION, clock);
 
     S3AsyncClient asyncKeysS3Client = S3AsyncClient.builder()
         .credentialsProvider(awsCredentialsProvider)
@@ -740,7 +743,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         storageServiceExecutor, retryExecutor, config.getSecureStorageServiceConfiguration());
     DisconnectionRequestManager disconnectionRequestManager = new DisconnectionRequestManager(pubsubClient,
         disconnectionRequestListenerExecutor, retryExecutor);
-    ProfilesManager profilesManager = new ProfilesManager(profilesV1, profiles, cacheCluster, retryExecutor, asyncCdnS3Client,
+    ProfilesManager profilesManager = new ProfilesManager(profilesV1, profiles, profileAvatars, cacheCluster, retryExecutor, asyncCdnS3Client,
         config.getCdnConfiguration().bucket());
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
         messageDeletionAsyncExecutor, retryExecutor, clock);
@@ -911,6 +914,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ServerSecretParams zkSecretParams = new ServerSecretParams(config.getZkConfig().serverSecret().value());
     GenericServerSecretParams callingGenericZkSecretParams = new GenericServerSecretParams(config.getCallingZkConfig().serverSecret().value());
     GenericServerSecretParams backupsGenericZkSecretParams = new GenericServerSecretParams(config.getBackupsZkConfig().serverSecret().value());
+    GenericServerSecretParams profileAvatarsGenericZkSecretParams = new GenericServerSecretParams(config.getProfileAvatarsZkConfig().serverSecret().value());
     ServerZkProfileOperations zkProfileOperations = new ServerZkProfileOperations(zkSecretParams);
     ServerZkAuthOperations zkAuthOperations = new ServerZkAuthOperations(zkSecretParams);
     ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);
@@ -1064,7 +1068,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new CallingGrpcService(cloudflareTurnCredentialsManager, rateLimiters),
             new CredentialsGrpcService(accountsManager, certificateGenerator, zkAuthOperations, callingGenericZkSecretParams, rateLimiters, Clock.systemUTC(), ExternalServiceDefinitions.createExternalServiceList(config, Clock.systemUTC())),
             new KeysGrpcService(accountsManager, keysManager, rateLimiters),
-            new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager, config.getBadges(), profileCdnPolicyGenerator, profileBadgeConverter, rateLimiters),
+            new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager, config.getBadges(), profileCdnPolicyGenerator, profileAvatarsGenericZkSecretParams, profileBadgeConverter, rateLimiters),
             new MessagesGrpcService(accountsManager, rateLimiters, messageSender, messageByteLimitCardinalityEstimator, spamChecker, messageDispatcher, Clock.systemUTC()),
             new BackupsGrpcService(accountsManager, backupAuthManager, backupMetrics),
             new DevicesGrpcService(accountsManager),
@@ -1090,7 +1094,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new AccountsAnonymousGrpcService(accountsManager, rateLimiters),
             new CallQualitySurveyGrpcService(callQualitySurveyManager, rateLimiters),
             new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()),
-            new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkSecretParams),
+            new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, profileCdnPolicyGenerator, profileAvatarsGenericZkSecretParams, zkSecretParams, rateLimiters, clock),
             new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
             new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
             new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC())),
@@ -1371,7 +1375,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     }
   }
 
-  public static void main(String[] args) throws Exception {
+  static void main(String[] args) throws Exception {
     new WhisperServerService().run(args);
   }
 }

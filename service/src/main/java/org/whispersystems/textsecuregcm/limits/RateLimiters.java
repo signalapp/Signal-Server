@@ -28,6 +28,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     ALLOCATE_DEVICE("allocateDevice", new RateLimiterConfig(6, Duration.ofMinutes(2), false)),
     VERIFY_DEVICE("verifyDevice", new RateLimiterConfig(6, Duration.ofMinutes(2), false)),
     PROFILE("profile", new RateLimiterConfig(4320, Duration.ofSeconds(20), true)),
+    PROFILE_AVATAR_BYTES("profileAvatarBytes", new RateLimiterConfig(DataSize.mebibytes(100).toBytes(), Duration.ofNanos(10000), true)),
     STICKER_PACK("stickerPack", new RateLimiterConfig(50, Duration.ofMinutes(72), false)),
     USERNAME_LOOKUP("usernameLookup", new RateLimiterConfig(100, Duration.ofMinutes(15), true)),
     USERNAME_SET("usernameSet", new RateLimiterConfig(100, Duration.ofMinutes(15), false)),
@@ -132,6 +133,10 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
 
   public RateLimiter getProfileLimiter() {
     return forDescriptor(For.PROFILE);
+  }
+
+  public RateLimiter getProfileAvatarBytesLimiter() {
+    return forDescriptor(For.PROFILE_AVATAR_BYTES);
   }
 
   public RateLimiter getStickerPackLimiter() {

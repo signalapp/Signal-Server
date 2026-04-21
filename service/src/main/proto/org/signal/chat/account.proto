@@ -269,7 +269,7 @@ message LookupUsernameLinkResponse {
 }
 
 message SetZkCredentialKeyRequest {
-  // A serialized Ristretto key with a one-byte type prefix
+  // A serialized libsignal ZkCredentialPublicKey
   bytes public_key = 1 [(require.exactlySize) = 33];
 }
 

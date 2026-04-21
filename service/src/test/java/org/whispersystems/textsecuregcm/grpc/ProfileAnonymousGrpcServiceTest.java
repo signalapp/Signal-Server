@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -20,12 +22,15 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimitExceeded;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
+import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusInvalidArgument;
 
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
-import io.grpc.ServerInterceptor;
+import com.google.rpc.BadRequest;
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -38,6 +43,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
@@ -50,6 +56,12 @@ import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
 import org.signal.chat.profile.CredentialType;
 import org.signal.chat.profile.DataEtag;
+import org.signal.chat.profile.DeleteAvatarRequest;
+import org.signal.chat.profile.DeleteAvatarResponse;
+import org.signal.chat.profile.ExtendAvatarTTLRequest;
+import org.signal.chat.profile.ExtendAvatarTTLResponse;
+import org.signal.chat.profile.GetAvatarUploadFormRequest;
+import org.signal.chat.profile.GetAvatarUploadFormResponse;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousResponse;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialRequest;
@@ -66,8 +78,13 @@ import org.signal.chat.profile.ProfileAnonymousGrpc;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
+import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.ZkCredentialKeyPair;
+import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialPresentation;
+import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialRequestContext;
+import org.signal.libsignal.zkgroup.avatars.AvatarUploadCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ClientZkProfileOperations;
 import org.signal.libsignal.zkgroup.profiles.ExpiringProfileKeyCredentialResponse;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
@@ -78,9 +95,13 @@ import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.limits.RateLimiter;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
@@ -89,6 +110,8 @@ import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.storage.VersionedProfileV1;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.ProfileTestHelper;
+import org.whispersystems.textsecuregcm.util.MutableClock;
+import org.whispersystems.textsecuregcm.util.ProfileHelper;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
@@ -108,7 +131,14 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   @Mock
   private ProfileBadgeConverter profileBadgeConverter;
 
+  @Mock
+  private RateLimiter profileAvatarBytesRateLimiter;
+
   private ServerZkProfileOperations zkProfileOperations;
+
+  private final GenericServerSecretParams genericServerSecretParams = GenericServerSecretParams.generate();
+
+  private MutableClock clock;
 
   @Override
   protected ProfileAnonymousGrpcService createServiceBeforeEachTest() {
@@ -118,12 +148,21 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     zkProfileOperations = spy(new ServerZkProfileOperations(SERVER_SECRET_PARAMS));
 
+    final RateLimiters rateLimiters = mock(RateLimiters.class);
+    when(rateLimiters.getProfileAvatarBytesLimiter()).thenReturn(profileAvatarBytesRateLimiter);
+
+    clock = new MutableClock();
+
     return new ProfileAnonymousGrpcService(
         accountsManager,
         profilesManager,
         profileBadgeConverter,
+        new PostPolicyGenerator("us-west-1", "profile-bucket", "accessKey", "accessSecret"),
+        genericServerSecretParams,
+        rateLimiters,
+        clock,
         zkProfileOperations,
-        new GroupSendTokenUtil(SERVER_SECRET_PARAMS, Clock.systemUTC())
+        new GroupSendTokenUtil(SERVER_SECRET_PARAMS, clock)
     );
   }
 
@@ -788,12 +827,182 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     );
   }
 
-  @Override
-  protected List<ServerInterceptor> customizeInterceptors(List<ServerInterceptor> serverInterceptors) {
-    return serverInterceptors.stream()
-        // For now, don't validate error conformance because the profiles gRPC service has not been converted to the
-        // updated error model
-        .filter(interceptor -> !(interceptor instanceof ErrorConformanceInterceptor))
-        .toList();
+  @Test
+  void getAvatarUploadForm() throws Exception {
+    final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
+        genericServerSecretParams, clock);
+
+    final GetAvatarUploadFormRequest request = GetAvatarUploadFormRequest.newBuilder()
+        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setUploadLength(100)
+        .build();
+
+    final GetAvatarUploadFormResponse response = authenticatedServiceStub().getAvatarUploadForm(request);
+
+    assertTrue(response.hasAvatarUploadForm());
+
+    final String avatarPath = response.getAvatarUploadForm().getKey();
+    assertFalse(avatarPath.isEmpty());
+
+    verify(profilesManager).setAvatarForIdentity(aryEq(avatarUploadCredentialPresentation.getCommitment()), eq(avatarPath));
+  }
+
+  @Test
+  void getAvatarUploadFormInvalidUploadLength() throws Exception {
+    final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
+        genericServerSecretParams, clock);
+
+    final GetAvatarUploadFormRequest request = GetAvatarUploadFormRequest.newBuilder()
+        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setUploadLength(Math.toIntExact(ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES + 1))
+        .build();
+
+    final StatusRuntimeException statusRuntimeException = assertStatusInvalidArgument(
+        () -> authenticatedServiceStub().getAvatarUploadForm(request));
+
+    final List<BadRequest.FieldViolation> fieldViolations = GrpcTestUtils.extractDetail(BadRequest.class, statusRuntimeException)
+        .getFieldViolationsList();
+
+    assertEquals(1, fieldViolations.size());
+    assertEquals("upload_length", fieldViolations.getFirst().getField());
+  }
+
+  @Test
+  void getAvatarUploadFormInvalidCredentialsPresentation() throws Exception {
+    final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
+        genericServerSecretParams, clock);
+
+    final GetAvatarUploadFormRequest request = GetAvatarUploadFormRequest.newBuilder()
+        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setUploadLength(100)
+        .build();
+
+    // trigger a verification failure by advancing the clock beyond validity
+    clock.setTimeInstant(clock.instant().plus(Duration.ofDays(3)));
+
+    final GetAvatarUploadFormResponse response = authenticatedServiceStub().getAvatarUploadForm(request);
+
+    assertTrue(response.hasInvalidCredentialsPresentation());
+  }
+
+  @Test
+  void getAvatarUploadFormRateLimited() throws Exception {
+    final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
+        genericServerSecretParams, clock);
+
+    final Duration retryDuration = Duration.ofMinutes(20);
+    doThrow(new RateLimitExceededException(retryDuration))
+        .when(profileAvatarBytesRateLimiter).validate(anyString(), anyLong());
+
+    final GetAvatarUploadFormRequest request = GetAvatarUploadFormRequest.newBuilder()
+        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .setUploadLength(100)
+        .build();
+
+    assertRateLimitExceeded(retryDuration,
+        () -> authenticatedServiceStub().getAvatarUploadForm(request),
+        profilesManager);
+  }
+
+  @Test
+  void extendAvatarTtl() throws Exception {
+    final String path = "somePath";
+    when(profilesManager.extendAvatarTtlForIdentity(any(byte[].class))).thenReturn(Optional.of(path));
+
+    final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
+        genericServerSecretParams, clock);
+
+    final ExtendAvatarTTLRequest request = ExtendAvatarTTLRequest.newBuilder()
+        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .build();
+
+    final ExtendAvatarTTLResponse response = authenticatedServiceStub().extendAvatarTTL(request);
+
+    assertTrue(response.hasPath());
+
+    assertEquals(path, response.getPath());
+  }
+
+  @Test
+  void extendAvatarTtlNoActiveAvatar() throws Exception {
+    when(profilesManager.extendAvatarTtlForIdentity(any(byte[].class))).thenReturn(Optional.empty());
+
+    final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
+        genericServerSecretParams, clock);
+
+    final ExtendAvatarTTLRequest request = ExtendAvatarTTLRequest.newBuilder()
+        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .build();
+
+
+    final ExtendAvatarTTLResponse response = authenticatedServiceStub().extendAvatarTTL(request);
+
+    assertTrue(response.hasNotFound());
+  }
+
+  @Test
+  void extendAvatarTtlInvalidCredentialsPresentation() throws Exception {
+    final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
+        genericServerSecretParams, clock);
+
+    final ExtendAvatarTTLRequest request = ExtendAvatarTTLRequest.newBuilder()
+        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .build();
+
+    // trigger a verification failure by advancing the clock beyond validity
+    clock.setTimeInstant(clock.instant().plus(Duration.ofDays(3)));
+
+    final ExtendAvatarTTLResponse response = authenticatedServiceStub().extendAvatarTTL(request);
+
+    assertTrue(response.hasInvalidCredentialsPresentation());
+  }
+
+  @Test
+  void deleteAvatar() throws Exception {
+    final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
+        genericServerSecretParams, clock);
+
+    final DeleteAvatarRequest request = DeleteAvatarRequest.newBuilder()
+        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .build();
+
+    final DeleteAvatarResponse response = authenticatedServiceStub().deleteAvatar(request);
+
+    assertTrue(response.hasSuccess());
+
+    verify(profilesManager).deleteAvatarForIdentity(aryEq(avatarUploadCredentialPresentation.getCommitment()));
+  }
+
+  @Test
+  void deleteAvatarInvalidCredentialsPresentation() throws Exception {
+    final AvatarUploadCredentialPresentation avatarUploadCredentialPresentation = getAvatarUploadCredentialPresentation(
+        genericServerSecretParams, clock);
+
+    final DeleteAvatarRequest request = DeleteAvatarRequest.newBuilder()
+        .setAvatarCredentialsPresentation(ByteString.copyFrom(avatarUploadCredentialPresentation.serialize()))
+        .build();
+
+    // trigger a verification failure by advancing the clock beyond validity
+    clock.setTimeInstant(clock.instant().plus(Duration.ofDays(3)));
+
+    final DeleteAvatarResponse response = authenticatedServiceStub().deleteAvatar(request);
+
+    assertTrue(response.hasInvalidCredentialsPresentation());
+  }
+
+  static AvatarUploadCredentialPresentation getAvatarUploadCredentialPresentation(final GenericServerSecretParams serverSecretParams, final Clock clock) throws VerificationFailedException {
+    final ServiceId.Aci aci = new ServiceId.Aci(UUID.randomUUID());
+    final ZkCredentialKeyPair zkCredentialKeyPair = ZkCredentialKeyPair.generate();
+    final long rotationId = ThreadLocalRandom.current().nextLong();
+
+    final AvatarUploadCredentialRequestContext context = AvatarUploadCredentialRequestContext.create(
+        aci,
+        zkCredentialKeyPair, rotationId);
+
+    final AvatarUploadCredentialResponse avatarUploadCredentialResponse = context.getRequest()
+        .issueCredential(aci, zkCredentialKeyPair.getPublicKey(), rotationId, clock.instant().truncatedTo(ChronoUnit.DAYS), serverSecretParams);
+
+    return context.receiveResponse(avatarUploadCredentialResponse, clock.instant(),
+        serverSecretParams.getPublicParams()).present(serverSecretParams.getPublicParams());
   }
 }

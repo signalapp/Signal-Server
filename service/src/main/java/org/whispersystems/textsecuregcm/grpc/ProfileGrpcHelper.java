@@ -9,6 +9,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.signal.chat.common.Badge;
 import org.signal.chat.common.BadgeSvg;
+import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.profile.DataEtag;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResult;
 import org.signal.chat.profile.GetUnversionedProfileResult;
@@ -32,6 +34,7 @@ import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
+import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.ProfilesManager;
@@ -40,6 +43,12 @@ import org.whispersystems.textsecuregcm.storage.VersionedProfileV1;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
 
 public class ProfileGrpcHelper {
+
+  private static final S3UploadForm PROTOTYPE_AVATAR_UPLOAD_FORM = S3UploadForm.newBuilder()
+      .setAcl(PostPolicyGenerator.ACL)
+      .setAlgorithm(PostPolicyGenerator.ALGORITHM)
+      .build();
+
   static Optional<GetVersionedProfileResult> getVersionedProfile(final Account account,
       final ProfilesManager profilesManager,
       final byte[] requestVersion,
@@ -215,6 +224,20 @@ public class ProfileGrpcHelper {
               .setProfileKeyCredential(ByteString.copyFrom(profileKeyCredentialResponse.serialize()))
               .build();
         });
+  }
+
+  public static S3UploadForm generateAvatarUploadForm(final String objectName, final int uploadLength,
+      final PostPolicyGenerator policyGenerator, final Clock clock) {
+    final PostPolicyGenerator.SignedPostPolicy policy =
+        policyGenerator.createFor(objectName, uploadLength, clock.instant());
+
+    return PROTOTYPE_AVATAR_UPLOAD_FORM.toBuilder()
+        .setKey(objectName)
+        .setCredential(policy.credential())
+        .setDate(policy.formattedTimestamp())
+        .setPolicy(policy.encodedPolicy())
+        .setSignature(policy.signature())
+        .build();
   }
 
   /**

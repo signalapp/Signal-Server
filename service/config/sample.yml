@@ -128,6 +128,8 @@ dynamoDbTables:
     expiration: P90D
   phoneNumberIdentifiers:
     tableName: Example_PhoneNumberIdentifiers
+  profileAvatars:
+    tableName: Example_ProfileAvatars
   profiles:
     tableName: Example_Profiles
   profilesV2:
@@ -325,6 +327,9 @@ callingZkConfig:
 
 backupsZkConfig:
   serverSecret: secret://backupsZkConfig.serverSecret
+
+profileAvatarsZkConfig:
+  serverSecret: secret://profileAvatarsZkConfig.serverSecret
 
 dynamicConfig:
   s3Region: a-region

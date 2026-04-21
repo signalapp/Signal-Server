@@ -14,7 +14,9 @@ import io.lettuce.core.RedisException;
 import io.lettuce.core.ScriptOutputType;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -29,9 +31,13 @@ import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.MetadataDirective;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 public class ProfilesManager {
 
@@ -44,6 +50,7 @@ public class ProfilesManager {
 
   private final Profiles profilesV1;
   private final ProfilesV2 profilesV2;
+  private final ProfileAvatars profileAvatars;
   private final FaultTolerantRedisClusterClient cacheCluster;
   private final ScheduledExecutorService retryExecutor;
   private final S3AsyncClient s3Client;
@@ -57,17 +64,19 @@ public class ProfilesManager {
 
   public ProfilesManager(final Profiles profilesV1,
       final ProfilesV2 profilesV2,
+      final ProfileAvatars profileAvatars,
       final FaultTolerantRedisClusterClient cacheCluster,
       final ScheduledExecutorService retryExecutor,
       final S3AsyncClient s3Client,
       final String bucket) throws IOException {
-    this(profilesV1, profilesV2, cacheCluster, retryExecutor, s3Client, bucket,
+    this(profilesV1, profilesV2, profileAvatars, cacheCluster, retryExecutor, s3Client, bucket,
         ClusterLuaScript.fromResource(cacheCluster, "lua/profile_set.lua", ScriptOutputType.STATUS));
   }
 
   @VisibleForTesting
   ProfilesManager(final Profiles profilesV1,
       final ProfilesV2 profilesV2,
+      final ProfileAvatars profileAvatars,
       final FaultTolerantRedisClusterClient cacheCluster,
       final ScheduledExecutorService retryExecutor,
       final S3AsyncClient s3Client,
@@ -75,6 +84,7 @@ public class ProfilesManager {
       final ClusterLuaScript setLuaScript) {
     this.profilesV1 = profilesV1;
     this.profilesV2 = profilesV2;
+    this.profileAvatars = profileAvatars;
     this.cacheCluster = cacheCluster;
     this.retryExecutor = retryExecutor;
     this.s3Client = s3Client;
@@ -124,12 +134,10 @@ public class ProfilesManager {
     redisSet(uuid, versionedProfile, versionedProfileV1);
   }
 
-  /**
-   * Delete all profiles for the given uuid.
-   * <p>
-   * Avatars should be included for explicit delete actions, such as API calls and expired accounts. Implicit
-   * deletions, such as registration, should preserve them, so that PIN recovery includes the avatar.
-   */
+  /// Delete all profiles for the given uuid.
+  ///
+  /// Avatars should be included for explicit delete actions, such as API calls and expired accounts. Implicit
+  /// deletions, such as registration, should preserve them, so that PIN recovery includes the avatar.
   public CompletableFuture<Void> deleteAll(UUID uuid, final boolean includeAvatar) {
 
     final CompletableFuture<Void> profilesV1AndAvatars = Mono.fromFuture(profilesV1.deleteAll(uuid))
@@ -149,7 +157,7 @@ public class ProfilesManager {
         .bucket(bucket)
         .key(avatar)
         .build())
-        .handle((ignored, throwable) -> {
+        .whenComplete((_, throwable) -> {
           final String outcome;
           if (throwable != null) {
             logger.warn("Error deleting avatar", throwable);
@@ -159,7 +167,6 @@ public class ProfilesManager {
           }
 
           Metrics.counter(DELETE_AVATAR_COUNTER_NAME, "outcome", outcome).increment();
-          return null;
         })
         .thenRun(Util.NOOP);
   }
@@ -283,5 +290,52 @@ public class ProfilesManager {
   @VisibleForTesting
   static byte[] getCacheKeyV1(UUID uuid) {
     return (CACHE_PREFIX_V1 + '{' + uuid.toString() + '}').getBytes();
+  }
+
+  public void deleteAvatarForIdentity(final byte[] identity) {
+    profileAvatars.deleteAvatarUrl(identity).ifPresent(avatar -> Mono.fromFuture(() ->
+            deleteAvatar(avatar))
+        .retry(3)
+        .onErrorComplete()
+        .block());
+  }
+
+  /// Sets an avatar for the identity. If there was already an avatar, it will be deleted from storage.
+  public void setAvatarForIdentity(byte[] identity, String avatar) {
+    profileAvatars.setAvatarUrl(identity, avatar).map(previousAvatar -> Mono.fromFuture(() ->
+            deleteAvatar(previousAvatar))
+        .retry(3)
+        .onErrorComplete()
+        .block());
+  }
+
+  public Optional<String> extendAvatarTtlForIdentity(final byte[] identity) {
+
+    final Optional<String> maybePath = profileAvatars.updateAvatarTtl(identity);
+
+    return maybePath.map(key -> {
+      try {
+        // copying the object to itself extends the expiration...
+        Mono.fromFuture(() -> s3Client.copyObject(CopyObjectRequest.builder()
+                .sourceBucket(bucket)
+                .sourceKey(key)
+                .destinationBucket(bucket)
+                .destinationKey(key)
+                .metadataDirective(MetadataDirective.REPLACE)
+                // ...but there needs to be a trivial change, otherwise it is rejected
+                .metadata(Map.of("t", String.valueOf(Instant.now().getEpochSecond())))
+                .build()))
+            .retryWhen(Retry.max(3).filter(e -> !(e instanceof NoSuchKeyException)))
+            .block();
+
+        return key;
+      } catch (NoSuchKeyException _) {
+        logger.warn("avatar expected to be present is gone");
+
+        profileAvatars.deleteAvatarUrl(identity);
+
+        return null;
+      }
+    });
   }
 }

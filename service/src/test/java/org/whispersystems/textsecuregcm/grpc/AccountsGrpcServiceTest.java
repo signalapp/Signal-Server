@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -61,6 +60,8 @@ import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.libsignal.usernames.BaseUsernameException;
+import org.signal.libsignal.zkgroup.ZkCredentialKeyPair;
+import org.signal.libsignal.zkgroup.ZkCredentialPublicKey;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.controllers.AccountController;
@@ -707,15 +708,15 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void setZkCredentialKey(final boolean matchesCurrentZkCredentialKey) {
+  void setZkCredentialKey(final boolean matchesCurrentZkCredentialKey) throws Exception {
 
-    final byte[] publicKey = TestRandomUtil.nextBytes(33);
+    final ZkCredentialPublicKey publicKey = ZkCredentialKeyPair.generate().getPublicKey();
     final long rotationId = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
 
     final Account account = mock(Account.class);
 
     if (matchesCurrentZkCredentialKey) {
-      when(account.getZkCredentialKey()).thenReturn(publicKey);
+      when(account.getZkCredentialKey()).thenReturn(Optional.of(publicKey));
       when(account.getZkCredentialKeyRotationId()).thenReturn(rotationId);
     }
 
@@ -724,7 +725,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     final SetZkCredentialKeyResponse response = assertDoesNotThrow(() ->
         authenticatedServiceStub().setZkCredentialKey(SetZkCredentialKeyRequest.newBuilder()
-                .setPublicKey(ByteString.copyFrom(publicKey))
+                .setPublicKey(ByteString.copyFrom(publicKey.serialize()))
             .build()));
 
     if (matchesCurrentZkCredentialKey) {
@@ -736,13 +737,13 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     final int updateMethodCalls = matchesCurrentZkCredentialKey ? 0 : 1;
 
     verify(accountsManager, times(updateMethodCalls)).update(eq(AUTHENTICATED_ACI), any());
-    verify(account, times(updateMethodCalls)).setZkCredentialKey(aryEq(publicKey));
+    verify(account, times(updateMethodCalls)).setZkCredentialKey(publicKey);
   }
 
   @Test
   void setZkCredentialKeyRateLimited() throws Exception {
 
-    final byte[] publicKey = TestRandomUtil.nextBytes(33);
+    final byte[] publicKey = ZkCredentialKeyPair.generate().getPublicKey().serialize();
     final Duration retryDuration = Duration.ofDays(1);
 
     final Account account = mock(Account.class);

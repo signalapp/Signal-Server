@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.util.CompletableFutureTestUtil.assertFailsWithCause;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -49,7 +50,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -59,6 +59,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.signal.libsignal.zkgroup.ZkCredentialKeyPair;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
@@ -471,7 +472,7 @@ class AccountsTest {
   }
 
   @Test
-  void testReclaimAccountPreservesFields() {
+  void testReclaimAccountPreservesFields() throws Exception {
     final String e164 = "+14151112222";
     final UUID existingUuid = UUID.randomUUID();
     final Account existingAccount =
@@ -479,7 +480,7 @@ class AccountsTest {
 
     // the backup credential request and share-set are always preserved across account reclaims
     existingAccount.setBackupCredentialRequests(TestRandomUtil.nextBytes(32), TestRandomUtil.nextBytes(32));
-    existingAccount.setZkCredentialKey(TestRandomUtil.nextBytes(32));
+    existingAccount.setZkCredentialKey(ZkCredentialKeyPair.generate().getPublicKey());
     createAccount(existingAccount);
     final Account secondAccount =
         generateAccount(e164, UUID.randomUUID(), UUID.randomUUID(), List.of(generateDevice(DEVICE_ID_1)));
@@ -491,11 +492,11 @@ class AccountsTest {
         .isEqualTo(existingAccount.getBackupCredentialRequest(BackupCredentialType.MESSAGES).orElseThrow());
     assertThat(reclaimed.getBackupCredentialRequest(BackupCredentialType.MEDIA).orElseThrow())
         .isEqualTo(existingAccount.getBackupCredentialRequest(BackupCredentialType.MEDIA).orElseThrow());
-    assertThat(reclaimed.getZkCredentialKey()).isEqualTo(existingAccount.getZkCredentialKey());
+    assertThat(reclaimed.getZkCredentialKey()).hasValue(existingAccount.getZkCredentialKey().orElseThrow());
   }
 
   @Test
-  void testReclaimAccount() throws UsernameHashNotAvailableException {
+  void testReclaimAccount() throws Exception {
     final String e164 = "+14151112222";
     final Device device = generateDevice(DEVICE_ID_1);
     final UUID existingUuid = UUID.randomUUID();
@@ -506,7 +507,7 @@ class AccountsTest {
     final Account.BackupVoucher bv = new Account.BackupVoucher(1, Instant.now().plus(Duration.ofDays(1)));
     existingAccount.setBackupVoucher(bv);
     // ZK credential keys should be carried over across re-registration
-    existingAccount.setZkCredentialKey(TestRandomUtil.nextBytes(32));
+    existingAccount.setZkCredentialKey(ZkCredentialKeyPair.generate().getPublicKey());
 
     createAccount(existingAccount);
 

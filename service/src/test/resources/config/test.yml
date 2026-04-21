@@ -134,6 +134,8 @@ dynamoDbTables:
     expiration: P90D
   phoneNumberIdentifiers:
     tableName: pni_test
+  profileAvatars:
+    tableName: profileAvatars_test
   profiles:
     tableName: profiles_test
   profilesV2:
@@ -334,6 +336,9 @@ callingZkConfig:
 
 backupsZkConfig:
   serverSecret: secret://backupsZkConfig.serverSecret
+
+profileAvatarsZkConfig:
+  serverSecret: secret://profileAvatarsZkConfig.serverSecret
 
 dynamicConfig:
   type: static

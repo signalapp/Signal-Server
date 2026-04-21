@@ -11,10 +11,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -42,6 +44,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.profiles.ProfileKey;
@@ -56,13 +59,18 @@ import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import software.amazon.awssdk.services.dynamodb.model.DynamoDbException;
 import software.amazon.awssdk.services.dynamodb.model.TransactWriteItem;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
+import software.amazon.awssdk.services.s3.model.CopyObjectResponse;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 @Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 public class ProfilesManagerTest {
 
   private Profiles profilesV1;
   private ProfilesV2 profilesV2;
+  private ProfileAvatars profileAvatars;
   private RedisAdvancedClusterCommands<byte[], byte[]> commands;
   private RedisAdvancedClusterAsyncCommands<byte[], byte[]> asyncCommands;
   private S3AsyncClient s3Client;
@@ -85,10 +93,11 @@ public class ProfilesManagerTest {
 
     profilesV1 = mock(Profiles.class);
     profilesV2 = mock(ProfilesV2.class);
+    profileAvatars = mock(ProfileAvatars.class);
     s3Client = mock(S3AsyncClient.class);
     setLuaScript = mock(ClusterLuaScript.class);
 
-    profilesManager = new ProfilesManager(profilesV1, profilesV2, cacheCluster, mock(ScheduledExecutorService.class),
+    profilesManager = new ProfilesManager(profilesV1, profilesV2, profileAvatars, cacheCluster, mock(ScheduledExecutorService.class),
         s3Client, BUCKET, setLuaScript);
   }
 
@@ -449,6 +458,104 @@ public class ProfilesManagerTest {
     );
   }
 
+  @Test
+  void setAvatarForIdentity() {
+    final byte[] identity = new byte[1];
+    final String url1 = "url1";
+
+    when(profileAvatars.setAvatarUrl(any(byte[].class), anyString()))
+        .thenReturn(Optional.empty());
+
+    profilesManager.setAvatarForIdentity(identity, url1);
+
+    verify(profileAvatars).setAvatarUrl(identity, url1);
+    verifyNoInteractions(s3Client);
+
+    when(profileAvatars.setAvatarUrl(any(byte[].class), anyString()))
+        .thenReturn(Optional.of(url1));
+
+    final String url2 = "url2";
+    profilesManager.setAvatarForIdentity(identity, url2);
+
+    verify(profileAvatars).setAvatarUrl(identity, url2);
+    verify(s3Client).deleteObject(argThat((DeleteObjectRequest r) -> url1.equals(r.key())));
+  }
+
+  @Test
+  void extendAvatarTtlForIdentity() {
+    final String avatarPath = "somePath";
+    when(profileAvatars.updateAvatarTtl(any(byte[].class))).thenReturn(Optional.of(avatarPath));
+
+    assertEquals(Optional.of(avatarPath), profilesManager.extendAvatarTtlForIdentity(new byte[1]));
+
+    final ArgumentCaptor<CopyObjectRequest> copyObjectRequestArgumentCaptor = ArgumentCaptor.forClass(CopyObjectRequest.class);
+    verify(s3Client).copyObject(copyObjectRequestArgumentCaptor.capture());
+
+    assertEquals(avatarPath, copyObjectRequestArgumentCaptor.getValue().sourceKey());
+    assertEquals(avatarPath, copyObjectRequestArgumentCaptor.getValue().destinationKey());
+  }
+
+  @Test
+  void extendAvatarTtlForIdentityNotFound() {
+    when(profileAvatars.updateAvatarTtl(any(byte[].class))).thenReturn(Optional.empty());
+
+    assertTrue(profilesManager.extendAvatarTtlForIdentity(new byte[1]).isEmpty());
+
+    verifyNoInteractions(s3Client);
+  }
+
+  @Test
+  void extendAvatarTtlForIdentityS3NoSuchKey() {
+    final String avatarPath = "somePath";
+    when(profileAvatars.updateAvatarTtl(any(byte[].class))).thenReturn(Optional.of(avatarPath));
+
+    when(s3Client.copyObject(any(CopyObjectRequest.class)))
+        .thenReturn(CompletableFuture.failedFuture(NoSuchKeyException.builder().build()));
+
+    assertTrue(profilesManager.extendAvatarTtlForIdentity(new byte[1]).isEmpty());
+
+    verify(s3Client).copyObject(any(CopyObjectRequest.class));
+    verify(profileAvatars).deleteAvatarUrl(any(byte[].class));
+  }
+
+  @Test
+  void extendAvatarTtlForIdentityS3Retry() {
+    final String avatarPath = "somePath";
+    when(profileAvatars.updateAvatarTtl(any(byte[].class))).thenReturn(Optional.of(avatarPath));
+
+    when(s3Client.copyObject(any(CopyObjectRequest.class)))
+        .thenReturn(CompletableFuture.failedFuture(S3Exception.builder().build()))
+        .thenReturn(CompletableFuture.completedFuture(mock(CopyObjectResponse.class)));
+
+    assertEquals(Optional.of(avatarPath), profilesManager.extendAvatarTtlForIdentity(new byte[1]));
+
+    verify(s3Client, times(2)).copyObject(any(CopyObjectRequest.class));
+
+    verify(profileAvatars, never()).deleteAvatarUrl(any(byte[].class));
+  }
+
+  @Test
+  void deleteAvatarForIdentity() {
+    final String avatarPath = "somePath";
+    when(profileAvatars.deleteAvatarUrl(any(byte[].class))).thenReturn(Optional.of(avatarPath));
+
+    profilesManager.deleteAvatarForIdentity(new byte[1]);
+
+    final ArgumentCaptor<DeleteObjectRequest> deleteObjectRequestArgumentCaptor = ArgumentCaptor.forClass(
+        DeleteObjectRequest.class);
+    verify(s3Client).deleteObject(deleteObjectRequestArgumentCaptor.capture());
+    assertEquals(avatarPath, deleteObjectRequestArgumentCaptor.getValue().key());
+  }
+
+  @Test
+  void deleteAvatarForIdentityNotFound() {
+    when(profileAvatars.deleteAvatarUrl(any(byte[].class))).thenReturn(Optional.empty());
+
+    profilesManager.deleteAvatarForIdentity(new byte[1]);
+
+    verifyNoInteractions(s3Client);
+  }
+
   @Nested
   class Redis {
 
@@ -457,7 +564,7 @@ public class ProfilesManagerTest {
 
     @BeforeEach
     void setUp() throws Exception {
-      profilesManager = new ProfilesManager(profilesV1, profilesV2, REDIS_CLUSTER_EXTENSION.getRedisCluster(), mock(ScheduledExecutorService.class),
+      profilesManager = new ProfilesManager(profilesV1, profilesV2, profileAvatars, REDIS_CLUSTER_EXTENSION.getRedisCluster(), mock(ScheduledExecutorService.class),
           s3Client, BUCKET);
     }
 

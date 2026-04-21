@@ -327,7 +327,8 @@ public class Accounts {
       accountToCreate.setBackupVoucher(existingAccount.getBackupVoucher());
 
       // Carry over the existing ZK credential key to the new account
-      accountToCreate.setZkCredentialKey(existingAccount.getZkCredentialKey());
+      accountToCreate.setZkCredentialKey(existingAccount.getZkCredentialKey().orElse(null));
+      accountToCreate.setZkCredentialKeyRotationId(existingAccount.getZkCredentialKeyRotationId());
 
       final List<TransactWriteItem> writeItems = new ArrayList<>();
 

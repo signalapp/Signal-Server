@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.grpc;
 import com.google.protobuf.ByteString;
 import java.security.SecureRandom;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -44,6 +43,8 @@ import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.libsignal.usernames.BaseUsernameException;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.ZkCredentialPublicKey;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
@@ -271,9 +272,14 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     final Account authenticatedAccount = getAuthenticatedAccount();
-    final byte[] zkCredentialKey = request.getPublicKey().toByteArray();
+    final ZkCredentialPublicKey zkCredentialKey;
+    try {
+      zkCredentialKey = new ZkCredentialPublicKey(request.getPublicKey().toByteArray());
+    } catch (InvalidInputException _) {
+      throw GrpcExceptions.invalidArguments("invalid public key bytes");
+    }
 
-    if (Arrays.equals(authenticatedAccount.getZkCredentialKey(), zkCredentialKey)) {
+    if (authenticatedAccount.getZkCredentialKey().map(zkCredentialKey::equals).orElse(false)) {
       return SetZkCredentialKeyResponse.newBuilder()
           .setRotationId(Objects.requireNonNull(authenticatedAccount.getZkCredentialKeyRotationId()))
           .build();

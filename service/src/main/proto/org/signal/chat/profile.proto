@@ -9,6 +9,8 @@ option java_multiple_files = true;
 
 package org.signal.chat.profile;
 
+import "google/protobuf/empty.proto";
+
 import "org/signal/chat/common.proto";
 import "org/signal/chat/errors.proto";
 import "org/signal/chat/require.proto";
@@ -26,6 +28,11 @@ service Profile {
   // Retrieves unversioned profile data. Callers with an unidentified access key for the account
   // should use the version of this method in `ProfileAnonymous` instead.
   rpc GetUnversionedProfile(GetUnversionedProfileRequest) returns (GetUnversionedProfileResponse) {}
+
+  // Returns anonymous credentials that may be presented with avatar operations in ProfilesAnonymous
+  //
+  // Note: `Accounts.SetZkCredentialKey` is a pre-requisite for this RPC
+  rpc GetAvatarCredentials(GetAvatarCredentialsRequest) returns (GetAvatarCredentialsResponse) {}
 }
 
 // Provides methods for working with profiles and profile-related data using "unidentified access"
@@ -41,6 +48,24 @@ service ProfileAnonymous {
   rpc GetUnversionedProfile(GetUnversionedProfileAnonymousRequest) returns (GetUnversionedProfileAnonymousResponse) {}
   // Retrieves a profile key credential.
   rpc GetExpiringProfileKeyCredential(GetExpiringProfileKeyCredentialAnonymousRequest) returns (GetExpiringProfileKeyCredentialAnonymousResponse) {}
+
+  // Returns credentials to upload a v2 avatar. After uploading the avatar, the client
+  // must call SetProfile with the new avatar URL in the encrypted `data`.
+  //
+  // Because avatars are uploaded anonymously, they have an expiration equal to the
+  // idle account expiration. Clients must periodically (recommended: every 90 days)
+  // call ExtendAvatarTTL to extend the TTl.
+  //
+  // Note: any existing avatar associated with these credentials will be deleted immediately
+  rpc GetAvatarUploadForm(GetAvatarUploadFormRequest) returns (GetAvatarUploadFormResponse) {}
+
+  // Extends the TTL of the avatar currently associated with the request’s avatar auth credential
+  rpc ExtendAvatarTTL(ExtendAvatarTTLRequest) returns (ExtendAvatarTTLResponse) {}
+
+  // Deletes the avatar currently associated with the request’s avatar auth credential.
+  //
+  // Clients must also call SetProfile to remove the avatar from the encrypted `data`.
+  rpc DeleteAvatar(DeleteAvatarRequest) returns (DeleteAvatarResponse) {}
 }
 
 message SetProfileV1Request {
@@ -324,4 +349,60 @@ message GetExpiringProfileKeyCredentialAnonymousResponse {
 enum CredentialType {
   CREDENTIAL_TYPE_UNSPECIFIED = 0;
   CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY = 1;
+}
+
+// avatar auth
+
+message GetAvatarCredentialsRequest {
+  bytes avatar_credentials_request = 1;
+}
+
+message GetAvatarCredentialsResponse {
+  oneof response {
+    bytes avatar_credentials = 1;
+
+    // the client must call Accounts.SetZkCredentialKey to call this method
+    errors.FailedPrecondition missing_zk_credential_key = 2 [(tag.reason) = "missing_zk_credential_key"];
+  }
+}
+
+message GetAvatarUploadFormRequest {
+  bytes avatar_credentials_presentation = 1;
+
+  // The length of the attachment for the requested upload form. Uploads
+  // performed with this form will be limited to the provided length.
+  uint32 upload_length = 2 [(require.range) = {min: 1, max: 10485760 /* 10 MiB */}];
+}
+
+message GetAvatarUploadFormResponse {
+  oneof response {
+    common.S3UploadForm avatar_upload_form = 1;
+
+    errors.FailedZkAuthentication invalid_credentials_presentation = 2 [(tag.reason) = "invalid_credentials_presentation"];
+  }
+}
+
+message ExtendAvatarTTLRequest {
+  bytes avatar_credentials_presentation = 1;
+}
+
+message ExtendAvatarTTLResponse {
+  oneof response {
+    // The avatar that was extended. May be used as a check against state de-synchronization.
+    string path = 1;
+    errors.FailedZkAuthentication invalid_credentials_presentation = 2 [(tag.reason) = "invalid_credentials_presentation"];
+    // the identity does not have an active avatar
+    errors.NotFound not_found = 3 [(tag.reason) = "no_active_avatar"];
+  }
+}
+
+message DeleteAvatarRequest {
+  bytes avatar_credentials_presentation = 1;
+}
+
+message DeleteAvatarResponse {
+  oneof response {
+    google.protobuf.Empty success = 1;
+    errors.FailedZkAuthentication invalid_credentials_presentation = 2 [(tag.reason) = "invalid_credentials_presentation"];
+  }
 }

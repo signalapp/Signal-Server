@@ -9,12 +9,9 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.fasterxml.jackson.annotation.JsonFilter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.micrometer.core.instrument.Metrics;
@@ -33,6 +30,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.IdentityKey;
+import org.signal.libsignal.zkgroup.ZkCredentialPublicKey;
 import org.signal.libsignal.zkgroup.backups.BackupCredentialType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +41,7 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.util.ByteArrayBase64UrlAdapter;
 import org.whispersystems.textsecuregcm.util.IdentityKeyAdapter;
+import org.whispersystems.textsecuregcm.util.ZkCredentialPublicKeyAdapter;
 
 @JsonFilter("Account")
 public class Account {
@@ -128,7 +127,9 @@ public class Account {
 
   @JsonProperty("zck")
   @Nullable
-  private byte[] zkCredentialKey;
+  @JsonSerialize(using = ZkCredentialPublicKeyAdapter.Serializer.class)
+  @JsonDeserialize(using = ZkCredentialPublicKeyAdapter.Deserializer.class)
+  private ZkCredentialPublicKey zkCredentialKey;
 
   @JsonProperty("zckr")
   @Nullable
@@ -560,12 +561,11 @@ public class Account {
     this.usernameHolds = usernameHolds;
   }
 
-  @Nullable
-  public byte[] getZkCredentialKey() {
-    return zkCredentialKey;
+  public Optional<ZkCredentialPublicKey> getZkCredentialKey() {
+    return Optional.ofNullable(zkCredentialKey);
   }
 
-  public void setZkCredentialKey(@Nullable final byte[] zkCredentialKey) {
+  public void setZkCredentialKey(@Nullable final ZkCredentialPublicKey zkCredentialKey) {
     this.zkCredentialKey = zkCredentialKey;
   }
 

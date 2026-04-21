@@ -275,6 +275,15 @@ public final class DynamoDbExtensionSchema {
                 .build()),
         List.of(), List.of()),
 
+    PROFILE_AVATARS("profileAvatars_test",
+        ProfileAvatars.KEY_IDENTITY,
+        null,
+        List.of(AttributeDefinition.builder()
+            .attributeName(ProfileAvatars.KEY_IDENTITY)
+            .attributeType(ScalarAttributeType.B)
+            .build()),
+        List.of(), List.of()),
+
     PROFILES_V2("profilesV2_test",
         ProfilesV2.KEY_ACCOUNT_UUID,
         ProfilesV2.KEY_VERSION,
