@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.util.Conversions;
+import org.whispersystems.textsecuregcm.util.Util;
 
 /// An implementation of a message store backed by FoundationDB.
 ///
@@ -261,16 +262,19 @@ public class FoundationDbMessageStore {
   }
 
   public MessageStream getMessages(final AciServiceIdentifier aci, final Device destinationDevice) {
-    return getMessages(aci, destinationDevice, FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN);
+    return getMessages(aci, destinationDevice, FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
+        Util.NOOP);
   }
 
   @VisibleForTesting
-  MessageStream getMessages(final AciServiceIdentifier aci, final Device destinationDevice, final int maxMessagesPerScan) {
+  MessageStream getMessages(final AciServiceIdentifier aci, final Device destinationDevice,
+      final int maxMessagesPerScan, final Runnable doAfterCleanup) {
     return new FoundationDbMessageStream(getDeviceQueueSubspace(aci, destinationDevice.getId()),
         getMessagesAvailableWatchKey(aci),
         getShardForAci(aci),
         new MessageGuidCodec(aci.uuid(), destinationDevice.getId(), versionstampUUIDCipher),
-        maxMessagesPerScan);
+        maxMessagesPerScan,
+        doAfterCleanup);
   }
 
   static Versionstamp getVersionstamp(final byte[] messageKey) {

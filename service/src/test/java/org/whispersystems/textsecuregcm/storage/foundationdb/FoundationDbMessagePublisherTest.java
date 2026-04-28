@@ -23,7 +23,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -34,7 +36,6 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.test.StepVerifier;
 
 /// NOTE: most of the happy-path test cases are already covered in {@link FoundationDbMessageStoreTest}, this test
@@ -42,7 +43,6 @@ import reactor.test.StepVerifier;
 class FoundationDbMessagePublisherTest {
 
   private Database database;
-  private MessageGuidCodec messageGuidCodec;
   private List<FoundationDbMessagePublisher.State> stateTransitions;
 
   private static final AciServiceIdentifier SERVICE_IDENTIFIER = new AciServiceIdentifier(UUID.randomUUID());
@@ -53,6 +53,8 @@ class FoundationDbMessagePublisherTest {
   private static final byte[] MESSAGES_AVAILABLE_WATCH_KEY =
       FoundationDbMessageStore.getMessagesAvailableWatchKey(SERVICE_IDENTIFIER);
 
+  private static final Supplier<Consumer<Transaction>> NOOP_ON_PAGE_FETCH = () -> _ -> {};
+
   @BeforeEach
   void setUp() {
     database = mock(Database.class);
@@ -60,10 +62,6 @@ class FoundationDbMessagePublisherTest {
 
     final byte[] messageGuidCodecKey = new byte[16];
     new SecureRandom().nextBytes(messageGuidCodecKey);
-
-    messageGuidCodec = new MessageGuidCodec(SERVICE_IDENTIFIER.uuid(),
-        Device.PRIMARY_ID,
-        new VersionstampUUIDCipher(0, messageGuidCodecKey));
   }
 
   @Test
@@ -99,10 +97,10 @@ class FoundationDbMessagePublisherTest {
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),
         database,
-        messageGuidCodec,
         2, // With 3 messages and batch size set to 2, we'll need to grab 2 batches.
         null,
-        (_, newState) -> stateTransitions.add(newState)
+        (_, newState) -> stateTransitions.add(newState),
+        NOOP_ON_PAGE_FETCH
     );
 
     StepVerifier.create(finitePublisher.getMessages())
@@ -125,7 +123,7 @@ class FoundationDbMessagePublisherTest {
 
   @Test
   @SuppressWarnings({"unchecked", "resource"})
-  void infinitePublisher() throws InvalidProtocolBufferException {
+  void infinitePublisher() {
     final MessageProtos.Envelope message1 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message2 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message3 = FoundationDbMessageStoreTest.generateRandomMessage(false);
@@ -170,7 +168,6 @@ class FoundationDbMessagePublisherTest {
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
         database,
-        messageGuidCodec,
         2,
         MESSAGES_AVAILABLE_WATCH_KEY,
         (oldState, newState) -> {
@@ -187,7 +184,8 @@ class FoundationDbMessagePublisherTest {
               watchFuture2.complete(null);
             }
           }
-        }
+        },
+        NOOP_ON_PAGE_FETCH
     );
 
     StepVerifier.create(infinitePublisher.getMessages())
@@ -252,7 +250,6 @@ class FoundationDbMessagePublisherTest {
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
         database,
-        messageGuidCodec,
         2,
         MESSAGES_AVAILABLE_WATCH_KEY,
         (oldState, newState) -> {
@@ -267,7 +264,8 @@ class FoundationDbMessagePublisherTest {
                   .count() == 1) {
             watchFuture1.complete(null);
           }
-        }
+        },
+        NOOP_ON_PAGE_FETCH
     );
 
     StepVerifier.create(infinitePublisher.getMessages())
@@ -298,9 +296,9 @@ class FoundationDbMessagePublisherTest {
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterThan(SUBSPACE_RANGE.end),
         database,
-        messageGuidCodec,
         100,
-        MESSAGES_AVAILABLE_WATCH_KEY);
+        MESSAGES_AVAILABLE_WATCH_KEY,
+        () -> _ -> {});
     final MessageProtos.Envelope message = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final Transaction transaction = mock(Transaction.class);
     final KeyValue keyValue = mockKeyValue((byte) 5, message);
@@ -326,12 +324,8 @@ class FoundationDbMessagePublisherTest {
     verify(watchFuture).cancel(true);
   }
 
-  private MessageStreamEntry.Envelope getExpectedMessageStreamEntry(final KeyValue keyValue)
-      throws InvalidProtocolBufferException {
-    return new MessageStreamEntry.Envelope(MessageProtos.Envelope.parseFrom(keyValue.getValue())
-        .toBuilder()
-        .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(FoundationDbMessageStore.getVersionstamp(keyValue.getKey()))))
-        .build());
+  private FoundationDbMessageStreamEntry.Message getExpectedMessageStreamEntry(final KeyValue keyValue) {
+    return new FoundationDbMessageStreamEntry.Message(FoundationDbMessageStore.getVersionstamp(keyValue.getKey()), keyValue.getValue());
   }
 
   private static KeyValue mockKeyValue(final byte key, final MessageProtos.Envelope message) {
