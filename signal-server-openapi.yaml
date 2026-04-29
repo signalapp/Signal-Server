@@ -4106,6 +4106,7 @@ components:
             - TRANSFER
             - ATTACHMENT_BACKFILL
             - SPARSE_POST_QUANTUM_RATCHET
+            - PROFILES_V2
         registrationLock:
           type: string
         unidentifiedAccessKey:
@@ -4150,6 +4151,7 @@ components:
             - TRANSFER
             - ATTACHMENT_BACKFILL
             - SPARSE_POST_QUANTUM_RATCHET
+            - PROFILES_V2
     ApnRegistrationId:
       required:
       - apnRegistrationId
@@ -4401,7 +4403,7 @@ components:
       type: object
       properties:
         keyId:
-          maximum: 4294967295
+          maximum: 2147483647
           minimum: 0
           type: integer
           description: |
@@ -4450,7 +4452,7 @@ components:
       type: object
       properties:
         keyId:
-          maximum: 4294967295
+          maximum: 2147483647
           minimum: 0
           type: integer
           description: |
@@ -5379,7 +5381,7 @@ components:
       type: object
       properties:
         keyId:
-          maximum: 4294967295
+          maximum: 2147483647
           minimum: 0
           type: integer
           description: |
