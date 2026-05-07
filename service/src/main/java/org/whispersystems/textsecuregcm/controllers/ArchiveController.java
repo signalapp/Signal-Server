@@ -103,19 +103,22 @@ public class ArchiveController {
   private final BackupManager backupManager;
   private final BackupMetrics backupMetrics;
   private final long maxAttachmentSize;
+  private final long maxMessageBackupSize;
 
   public ArchiveController(
       final AccountsManager accountsManager,
       final BackupAuthManager backupAuthManager,
       final BackupManager backupManager,
       final BackupMetrics backupMetrics,
-      final long maxAttachmentSize) {
+      final long maxAttachmentSize,
+      final long maxMessageBackupSize) {
 
     this.accountsManager = accountsManager;
     this.backupAuthManager = backupAuthManager;
     this.backupManager = backupManager;
     this.backupMetrics = backupMetrics;
     this.maxAttachmentSize = maxAttachmentSize;
+    this.maxMessageBackupSize = maxMessageBackupSize;
   }
 
   public record SetBackupIdRequest(
@@ -602,7 +605,7 @@ public class ArchiveController {
         backupManager.authenticateBackupUser(presentation.presentation, signature.signature, userAgent);
 
     final boolean oversize = uploadLength
-        .map(length -> length > maxAttachmentSize)
+        .map(length -> length > maxMessageBackupSize)
         .orElse(false);
 
     backupMetrics.updateMessageBackupSizeDistribution(backupUser, oversize, uploadLength);
@@ -610,7 +613,7 @@ public class ArchiveController {
       throw new ClientErrorException("exceeded maximum uploadLength", Response.Status.REQUEST_ENTITY_TOO_LARGE);
     }
     final BackupUploadDescriptor uploadDescriptor =
-        backupManager.createMessageBackupUploadDescriptor(backupUser, uploadLength.orElse(maxAttachmentSize));
+        backupManager.createMessageBackupUploadDescriptor(backupUser, uploadLength.orElse(maxMessageBackupSize));
     return new UploadDescriptorResponse(
         uploadDescriptor.cdn(),
         uploadDescriptor.key(),

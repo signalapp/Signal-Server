@@ -93,6 +93,7 @@ import reactor.core.publisher.Flux;
 public class ArchiveControllerTest {
 
   private static final long MAX_ATTACHMENT_SIZE = 1000L;
+  private static final long MAX_MESSAGE_BACKUP_SIZE = 2000L;
   private static final AccountsManager accountsManager = mock(AccountsManager.class);
   private static final BackupAuthManager backupAuthManager = mock(BackupAuthManager.class);
   private static final BackupManager backupManager = mock(BackupManager.class);
@@ -108,7 +109,7 @@ public class ArchiveControllerTest {
       .addProvider(new RateLimitExceededExceptionMapper())
       .setMapper(SystemMapper.jsonMapper())
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(new ArchiveController(accountsManager, backupAuthManager, backupManager, new BackupMetrics(), MAX_ATTACHMENT_SIZE))
+      .addResource(new ArchiveController(accountsManager, backupAuthManager, backupManager, new BackupMetrics(), MAX_ATTACHMENT_SIZE, MAX_MESSAGE_BACKUP_SIZE))
       .build();
 
   private final UUID aci = UUID.randomUUID();
@@ -615,8 +616,8 @@ public class ArchiveControllerTest {
   static Stream<Arguments> messagesUploadForm() {
     return Stream.of(
         Arguments.of(Optional.empty(), true),
-        Arguments.of(Optional.of(MAX_ATTACHMENT_SIZE), true),
-        Arguments.of(Optional.of(MAX_ATTACHMENT_SIZE + 1), false)
+        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_SIZE), true),
+        Arguments.of(Optional.of(MAX_MESSAGE_BACKUP_SIZE + 1), false)
     );
   }
 
@@ -643,7 +644,7 @@ public class ArchiveControllerTest {
       ArchiveController.UploadDescriptorResponse desc = response.readEntity(ArchiveController.UploadDescriptorResponse.class);
       assertThat(desc)
           .isEqualTo(new ArchiveController.UploadDescriptorResponse(3, "abc", Map.of("k", "v"), "example.org"));
-      verify(backupManager).createMessageBackupUploadDescriptor(any(), eq(uploadLength.orElse(MAX_ATTACHMENT_SIZE)));
+      verify(backupManager).createMessageBackupUploadDescriptor(any(), eq(uploadLength.orElse(MAX_MESSAGE_BACKUP_SIZE)));
     } else {
       assertThat(response.getStatus()).isEqualTo(413);
     }

@@ -6,5 +6,7 @@ package org.whispersystems.textsecuregcm.configuration;
 
 import jakarta.validation.constraints.Positive;
 
-public record AttachmentsConfiguration(@Positive long maxUploadSizeInBytes) {
+public record AttachmentsConfiguration(
+    @Positive long maxUploadSizeInBytes,
+    @Positive long maxMessageBackupUploadSizeInBytes) {
 }
