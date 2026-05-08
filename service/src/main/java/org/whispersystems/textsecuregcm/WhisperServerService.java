@@ -977,7 +977,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new BackupsGrpcService(accountsManager, backupAuthManager, backupMetrics),
             new DevicesGrpcService(accountsManager),
             new AttachmentsGrpcService(experimentEnrollmentManager, rateLimiters,
-                gcsAttachmentGenerator, tusAttachmentGenerator, config.getAttachments().maxUploadSizeInBytes()))
+                gcsAttachmentGenerator, tusAttachmentGenerator, config.getAttachments().maxAttachmentUploadSizeInBytes()))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
@@ -997,7 +997,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkSecretParams),
             new PaymentsGrpcService(currencyManager),
             new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
-            new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
+            new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
             ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
@@ -1103,8 +1103,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             usernameHashZkProofVerifier),
         new AccountControllerV2(accountsManager, changeNumberManager),
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
-            experimentEnrollmentManager, config.getAttachments().maxUploadSizeInBytes()),
-        new ArchiveController(accountsManager, backupAuthManager, backupManager, backupMetrics, config.getAttachments().maxUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
+            experimentEnrollmentManager, config.getAttachments().maxAttachmentUploadSizeInBytes()),
+        new ArchiveController(accountsManager, backupAuthManager, backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
         new CallRoutingControllerV2(rateLimiters, cloudflareTurnCredentialsManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CallQualitySurveyController(callQualitySurveyManager),

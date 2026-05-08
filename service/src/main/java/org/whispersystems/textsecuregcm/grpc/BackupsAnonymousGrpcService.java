@@ -191,7 +191,7 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
       case MEDIA -> uploadLength > maxAttachmentSize;
       case MESSAGES -> {
         backupMetrics.updateMessageBackupSizeDistribution(backupUser, uploadLength > maxMessageBackupSize, Optional.of(uploadLength));
-        yield  uploadLength > maxAttachmentSize;
+        yield uploadLength > maxMessageBackupSize;
       }
       case UPLOADTYPE_NOT_SET -> throw GrpcExceptions.fieldViolation("upload_type", "Must set upload_type");
     };

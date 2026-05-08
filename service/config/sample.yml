@@ -234,7 +234,7 @@ messageCache: # Redis server configuration for message store cache
     configurationUri: redis://redis.example.com:6379/
 
 attachments:
-  maxUploadSizeInBytes: 1024
+  maxAttachmentUploadSizeInBytes: 1024
   maxMessageBackupUploadSizeInBytes: 1024
 
 gcpAttachments: # GCP Storage configuration

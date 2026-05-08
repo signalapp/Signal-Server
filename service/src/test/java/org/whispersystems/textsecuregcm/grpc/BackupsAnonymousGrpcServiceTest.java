@@ -346,25 +346,27 @@ class BackupsAnonymousGrpcServiceTest extends
   @EnumSource(value = GetUploadFormRequest.UploadTypeCase.class, names = "UPLOADTYPE_NOT_SET", mode = EnumSource.Mode.EXCLUDE)
   public void uploadForm(GetUploadFormRequest.UploadTypeCase uploadType)
       throws BackupException, RateLimitExceededException {
-    final long uploadLength = 100;
     final BackupUploadDescriptor result =
         new BackupUploadDescriptor(3, "abc", Map.of("k", "v"), "example.org");
     final GetUploadFormRequest.Builder builder = switch (uploadType) {
       case MESSAGES -> {
-        when(backupManager.createMessageBackupUploadDescriptor(any(), eq(uploadLength)))
+        when(backupManager.createMessageBackupUploadDescriptor(any(), eq(MAX_MESSAGE_BACKUP_OBJECT_SIZE)))
             .thenReturn(result);
-        yield GetUploadFormRequest.newBuilder().setMessages(GetUploadFormRequest.MessagesUploadType.getDefaultInstance());
+        yield GetUploadFormRequest.newBuilder()
+            .setMessages(GetUploadFormRequest.MessagesUploadType.getDefaultInstance())
+            .setUploadLength(MAX_MESSAGE_BACKUP_OBJECT_SIZE);
       }
       case MEDIA -> {
-        when(backupManager.createTemporaryAttachmentUploadDescriptor(any(), eq(uploadLength)))
+        when(backupManager.createTemporaryAttachmentUploadDescriptor(any(), eq(MAX_ATTACHMENT_OBJECT_SIZE)))
             .thenReturn(result);
-        yield GetUploadFormRequest.newBuilder().setMedia(GetUploadFormRequest.MediaUploadType.getDefaultInstance());
+        yield GetUploadFormRequest.newBuilder()
+            .setMedia(GetUploadFormRequest.MediaUploadType.getDefaultInstance())
+            .setUploadLength(MAX_ATTACHMENT_OBJECT_SIZE);
       }
       default -> throw new IllegalArgumentException("Unknown upload type: " + uploadType);
     };
     final GetUploadFormRequest request = builder
         .setSignedPresentation(signedPresentation(presentation))
-        .setUploadLength(uploadLength)
         .build();
     final GetUploadFormResponse response = unauthenticatedServiceStub().getUploadForm(request);
       assertThat(response.getUploadForm().getCdn()).isEqualTo(3);

@@ -242,7 +242,7 @@ messageCache: # Redis server configuration for message store cache
     type: local
 
 attachments:
-  maxUploadSizeInBytes: 1024
+  maxAttachmentUploadSizeInBytes: 1024
   maxMessageBackupUploadSizeInBytes: 1024
 
 gcpAttachments: # GCP Storage configuration
