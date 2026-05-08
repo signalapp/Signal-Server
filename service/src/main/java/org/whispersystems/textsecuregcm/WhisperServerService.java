@@ -1096,7 +1096,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         phoneNumberIdentifiers, registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker);
 
     final ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager,
-        phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters, Clock.systemUTC());
+        phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters,
+        config.getChangeNumber().postRegistrationWaitingPeriod(), Clock.systemUTC());
 
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, registrationRecoveryPasswordsManager,

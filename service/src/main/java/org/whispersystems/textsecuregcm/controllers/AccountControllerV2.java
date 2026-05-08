@@ -76,7 +76,7 @@ public class AccountControllerV2 {
   @ApiResponse(responseCode = "423", content = @Content(schema = @Schema(implementation = RegistrationLockFailure.class)))
   @ApiResponse(responseCode = "429", description = "Too many attempts", headers = @Header(
       name = "Retry-After",
-      description = "If present, an positive integer indicating the number of seconds before a subsequent attempt could succeed"))
+      description = "If present, a positive integer indicating the number of seconds before a subsequent attempt could succeed"))
   public AccountIdentityResponse changeNumber(@Auth final AuthenticatedDevice authenticatedDevice,
       @NotNull @Valid final ChangeNumberRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgentString,

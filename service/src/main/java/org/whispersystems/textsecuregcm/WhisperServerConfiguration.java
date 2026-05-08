@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.configuration.BraintreeConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CallQualitySurveyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.Cdn3StorageManagerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CdnConfiguration;
+import org.whispersystems.textsecuregcm.configuration.ChangeNumberConfiguration;
 import org.whispersystems.textsecuregcm.configuration.CircuitBreakerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ClientReleaseConfiguration;
 import org.whispersystems.textsecuregcm.configuration.DefaultAwsCredentialsFactory;
@@ -355,6 +356,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private CallQualitySurveyConfiguration callQualitySurvey;
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private ChangeNumberConfiguration changeNumber = new ChangeNumberConfiguration(Duration.ofHours(1));
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -591,4 +597,7 @@ public class WhisperServerConfiguration extends Configuration {
     return hlrLookup;
   }
 
+  public ChangeNumberConfiguration getChangeNumber() {
+    return changeNumber;
+  }
 }

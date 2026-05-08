@@ -4,6 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
@@ -22,6 +23,8 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +33,10 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.stubbing.Answer;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -67,6 +74,14 @@ public class ChangeNumberManagerTest {
 
   private static final TestClock CLOCK = TestClock.pinned(Instant.now());
 
+  private static final Duration POST_REGISTRATION_WAITING_PERIOD = Duration.ofHours(2);
+  private static final Device DEFAULT_PRIMARY_DEVICE;
+  static {
+    DEFAULT_PRIMARY_DEVICE = new Device();
+    DEFAULT_PRIMARY_DEVICE.setId((byte) 1);
+    DEFAULT_PRIMARY_DEVICE.setCreated(CLOCK.instant().minus(POST_REGISTRATION_WAITING_PERIOD).minusSeconds(1).toEpochMilli());
+  }
+
   @BeforeEach
   void setUp() throws Exception {
     messageSender = mock(MessageSender.class);
@@ -87,7 +102,8 @@ public class ChangeNumberManagerTest {
     when(rateLimiters.getRegistrationLimiter()).thenReturn(rateLimiter);
 
     changeNumberManager = new ChangeNumberManager(messageSender, accountsManager,
-        phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters, CLOCK);
+        phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters,
+        POST_REGISTRATION_WAITING_PERIOD, CLOCK);
 
     updatedPhoneNumberIdentifiersByAccount = new HashMap<>();
 
@@ -100,6 +116,7 @@ public class ChangeNumberManagerTest {
 
       final UUID uuid = account.getIdentifier(IdentityType.ACI);
       final List<Device> devices = account.getDevices();
+      final Device primaryDevice = account.getPrimaryDevice();
 
       final UUID updatedPni = UUID.randomUUID();
       updatedPhoneNumberIdentifiersByAccount.put(account, updatedPni);
@@ -113,6 +130,7 @@ public class ChangeNumberManagerTest {
       when(updatedAccount.getNumber()).thenReturn(number);
       when(updatedAccount.getDevices()).thenReturn(devices);
       when(updatedAccount.getDevice(anyByte())).thenReturn(Optional.empty());
+      when(updatedAccount.getPrimaryDevice()).thenReturn(primaryDevice);
 
       account.getDevices().forEach(device ->
           when(updatedAccount.getDevice(device.getId())).thenReturn(Optional.of(device)));
@@ -145,6 +163,7 @@ public class ChangeNumberManagerTest {
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
+    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
@@ -187,6 +206,7 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(primaryDeviceId)).thenReturn(Optional.of(primaryDevice));
     when(account.getDevice(linkedDeviceId)).thenReturn(Optional.of(linkedDevice));
     when(account.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
+    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
@@ -269,6 +289,7 @@ public class ChangeNumberManagerTest {
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
+    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
@@ -308,6 +329,7 @@ public class ChangeNumberManagerTest {
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
+    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
@@ -356,6 +378,7 @@ public class ChangeNumberManagerTest {
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
+    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     final Account existingAccount = mock(Account.class);
     when(existingAccount.getNumber()).thenReturn(targetNumber);
@@ -380,5 +403,76 @@ public class ChangeNumberManagerTest {
 
     verify(accountsManager, never()).changeNumber(any(), any(), any(), any(), any(), any());
     verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testRecentRegistration(final boolean expectRateLimited, final boolean sameNumber, final Instant registrationInstant) throws Throwable {
+
+    final String originalNumber = PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final String targetNumber = sameNumber
+        ? originalNumber
+        : PhoneNumberUtil.getInstance().format(
+        PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
+
+    final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
+    final IdentityKey pniIdentityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
+
+    final Map<Byte, ECSignedPreKey> ecSignedPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, pniIdentityKeyPair));
+
+    final Map<Byte, KEMSignedPreKey> kemLastResortPreKeys =
+        Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, pniIdentityKeyPair));
+
+    final UUID accountIdentifier = UUID.randomUUID();
+
+    final Account account = mock(Account.class);
+    when(account.getNumber()).thenReturn(originalNumber);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.isIdentifiedBy(any())).thenReturn(false);
+    when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
+
+    final Device primaryDevice = mock(Device.class);
+    when(account.getPrimaryDevice()).thenReturn(primaryDevice);
+    when(primaryDevice.getCreated()).thenReturn(registrationInstant.toEpochMilli());
+
+    when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
+        .thenReturn(new Pair<>(account, Optional.empty()));
+
+    final Executable changeNumberOperation = () -> changeNumberManager.changeNumber(accountIdentifier,
+        null,
+        null,
+        null,
+        targetNumber,
+        pniIdentityKey,
+        ecSignedPreKeys,
+        kemLastResortPreKeys,
+        Collections.emptyList(),
+        Collections.emptyMap(),
+        mock(ContainerRequestContext.class));
+    if (expectRateLimited) {
+      final RateLimitExceededException e = assertThrows(RateLimitExceededException.class, changeNumberOperation);
+
+      assertEquals(Duration.between(CLOCK.instant().minus(POST_REGISTRATION_WAITING_PERIOD), registrationInstant), e.getRetryDuration().orElseThrow());
+    } else {
+      changeNumberOperation.execute();
+      verify(accountsManager).changeNumber(accountIdentifier, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyMap());
+    }
+  }
+
+  static Collection<Arguments> testRecentRegistration() {
+    // truncate to millis because that is the resolution for device.created
+    final Instant tooRecent = CLOCK.instant().minus(POST_REGISTRATION_WAITING_PERIOD).plusSeconds(1)
+        .truncatedTo(ChronoUnit.MILLIS);
+    final Instant outsideWaitingPeriod = CLOCK.instant().minus(POST_REGISTRATION_WAITING_PERIOD).minusSeconds(1)
+        .truncatedTo(ChronoUnit.MILLIS);
+    return List.of(
+        // expect exception, same number, registration instant
+        Arguments.argumentSet("waiting period elapsed", false, false, outsideWaitingPeriod),
+        Arguments.argumentSet("waiting period not elapsed", true, false, tooRecent),
+        Arguments.argumentSet("waiting period not elapsed; same number", false, true, tooRecent)
+    );
   }
 }
