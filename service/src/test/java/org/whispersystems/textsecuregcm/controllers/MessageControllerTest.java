@@ -196,7 +196,8 @@ class MessageControllerTest {
       .build();
 
   @BeforeEach
-  void setup() throws MultiRecipientMismatchedDevicesException, MessageTooLargeException {
+  void setup()
+      throws MultiRecipientMismatchedDevicesException, MessageTooLargeException, MessageDeliveryNotAllowedException {
     reset(pushNotificationScheduler);
 
     when(messageSender.sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
@@ -542,6 +543,24 @@ class MessageControllerTest {
             .put(Entity.json(json))) {
 
       assertThat(response.getStatus(), is(equalTo(expectedStatus)));
+    }
+  }
+
+  @Test
+  void testSingleDeviceMessageDeliveryNotAllowed() throws Exception {
+    doThrow(MessageDeliveryNotAllowedException.class)
+        .when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
+
+    try (final Response response =
+        resources.getJerseyTest()
+            .target(String.format("/v1/messages/%s", SINGLE_DEVICE_UUID))
+            .request()
+            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+            .put(Entity.entity(SystemMapper.jsonMapper().readValue(jsonFixture("fixtures/current_message_single_device.json"),
+                    IncomingMessageList.class),
+                MediaType.APPLICATION_JSON_TYPE))) {
+
+      assertThat(response.getStatus(), is(equalTo(503)));
     }
   }
 
@@ -1042,7 +1061,8 @@ class MessageControllerTest {
   }
 
   @Test
-  void testValidateContentLength() throws MismatchedDevicesException, MessageTooLargeException, IOException {
+  void testValidateContentLength()
+      throws MismatchedDevicesException, MessageTooLargeException, IOException, MessageDeliveryNotAllowedException {
     doThrow(new MessageTooLargeException()).when(messageSender).sendMessages(any(), any(), any(), any(), any(), any());
 
     try (final Response response =
@@ -1101,7 +1121,7 @@ class MessageControllerTest {
       final Set<Account> expectedResolvedAccounts,
       final Set<ServiceIdentifier> expectedUuids404,
       @Nullable final MultiRecipientMismatchedDevicesException mismatchedDevicesException)
-      throws MultiRecipientMismatchedDevicesException, MessageTooLargeException {
+      throws MultiRecipientMismatchedDevicesException, MessageTooLargeException, MessageDeliveryNotAllowedException {
 
     clock.pin(START_OF_DAY);
 
@@ -1671,6 +1691,72 @@ class MessageControllerTest {
         .put(Entity.entity(aciMessage, MultiRecipientMessageProvider.MEDIA_TYPE))) {
 
       assertThat(response.getStatus(), is(equalTo(413)));
+    }
+  }
+
+  @Test
+  void sendMultiRecipientMessageMessageDeliveryNotAllowed() throws Exception {
+
+    clock.pin(START_OF_DAY);
+
+    final UUID singleDeviceAccountAci = UUID.randomUUID();
+    final UUID singleDeviceAccountPni = UUID.randomUUID();
+
+    final byte[] singleDeviceAccountUak = TestRandomUtil.nextBytes(UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH);
+
+    final int singleDevicePrimaryRegistrationId = 1;
+
+    final Device singleDeviceAccountPrimary = mock(Device.class);
+    when(singleDeviceAccountPrimary.getId()).thenReturn(Device.PRIMARY_ID);
+    when(singleDeviceAccountPrimary.getRegistrationId(IdentityType.ACI)).thenReturn(singleDevicePrimaryRegistrationId);
+
+    final Account singleDeviceAccount = mock(Account.class);
+    when(singleDeviceAccount.getIdentifier(IdentityType.ACI)).thenReturn(singleDeviceAccountAci);
+    when(singleDeviceAccount.getUnidentifiedAccessKey()).thenReturn(Optional.of(singleDeviceAccountUak));
+    when(singleDeviceAccount.getDevices()).thenReturn(List.of(singleDeviceAccountPrimary));
+    when(singleDeviceAccount.getDevice(anyByte())).thenReturn(Optional.empty());
+    when(singleDeviceAccount.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(singleDeviceAccountPrimary));
+
+    final Map<ServiceIdentifier, Account> accountsByServiceIdentifier = Map.of(
+        new AciServiceIdentifier(singleDeviceAccountAci), singleDeviceAccount,
+        new PniServiceIdentifier(singleDeviceAccountPni), singleDeviceAccount);
+
+    final byte[] aciMessage = MultiRecipientMessageHelper.generateMultiRecipientMessage(List.of(
+        new TestRecipient(new AciServiceIdentifier(singleDeviceAccountAci), Device.PRIMARY_ID, singleDevicePrimaryRegistrationId, new byte[48])));
+
+    when(accountsManager.getByServiceIdentifierAsync(any()))
+        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
+    accountsByServiceIdentifier.forEach(((serviceIdentifier, account) ->
+        when(accountsManager.getByServiceIdentifierAsync(serviceIdentifier))
+            .thenReturn(CompletableFuture.completedFuture(Optional.of(account)))));
+
+    final boolean ephemeral = true;
+    final boolean urgent = false;
+    final boolean story = false;
+
+    final Invocation.Builder invocationBuilder = resources
+        .getJerseyTest()
+        .target("/v1/messages/multi_recipient")
+        .queryParam("ts", clock.millis())
+        .queryParam("online", ephemeral)
+        .queryParam("story", story)
+        .queryParam("urgent", urgent)
+        .request()
+        .header(HeaderUtils.GROUP_SEND_TOKEN, AuthHelper.validGroupSendTokenHeader(serverSecretParams,
+            List.of(new AciServiceIdentifier(singleDeviceAccountAci)),
+            START_OF_DAY.plus(Duration.ofDays(1))));
+
+    when(rateLimiter.validateAsync(any(UUID.class)))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    doThrow(MessageDeliveryNotAllowedException.class)
+        .when(messageSender).sendMultiRecipientMessage(any(), any(), anyLong(), anyBoolean(), anyBoolean(), anyBoolean(), any());
+
+    try (final Response response = invocationBuilder
+        .put(Entity.entity(aciMessage, MultiRecipientMessageProvider.MEDIA_TYPE))) {
+
+      assertThat(response.getStatus(), is(equalTo(503)));
     }
   }
 

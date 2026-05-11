@@ -5,21 +5,24 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import static org.whispersystems.textsecuregcm.grpc.MessagesGrpcHelper.buildMismatchedDevices;
+
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import com.google.protobuf.Empty;
 import org.signal.chat.errors.NotFound;
-import org.signal.chat.messages.SendMessageType;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
 import org.signal.chat.messages.SendAuthenticatedSenderMessageRequest;
 import org.signal.chat.messages.SendMessageAuthenticatedSenderResponse;
+import org.signal.chat.messages.SendMessageType;
 import org.signal.chat.messages.SendSyncMessageRequest;
 import org.signal.chat.messages.SimpleMessagesGrpc;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
+import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -35,8 +38,6 @@ import org.whispersystems.textsecuregcm.spam.SpamCheckResult;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-
-import static org.whispersystems.textsecuregcm.grpc.MessagesGrpcHelper.buildMismatchedDevices;
 
 public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
 
@@ -192,6 +193,8 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
           .build();
     } catch (final MessageTooLargeException e) {
       throw GrpcExceptions.invalidArguments("message too large");
+    } catch (final MessageDeliveryNotAllowedException e) {
+      throw GrpcExceptions.unavailable();
     }
   }
 

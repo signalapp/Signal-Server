@@ -158,6 +158,10 @@ public class GrpcExceptions {
     return StatusProto.toStatusRuntimeException(builder.build());
   }
 
+  public static StatusRuntimeException unavailable() {
+    return unavailable(null);
+  }
+
   /// There was an internal error processing the RPC. The client should retry the request with exponential backoff.
   ///
   /// @return A [StatusRuntimeException] encoding the error

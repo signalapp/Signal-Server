@@ -39,6 +39,9 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.InvalidVersionException;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessageDeliveryConfiguration;
+import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
@@ -51,6 +54,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.spam.MessageDeliveryListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.tests.util.MultiRecipientMessageHelper;
 import org.whispersystems.textsecuregcm.tests.util.TestRecipient;
@@ -62,6 +66,8 @@ class MessageSenderTest {
   private PushNotificationManager pushNotificationManager;
   private MessageDeliveryListener messageDeliveryListener;
 
+  private DynamicMessageDeliveryConfiguration dynamicMessageDeliveryConfiguration;
+
   private MessageSender messageSender;
 
   @BeforeEach
@@ -70,7 +76,17 @@ class MessageSenderTest {
     pushNotificationManager = mock(PushNotificationManager.class);
     messageDeliveryListener = mock(MessageDeliveryListener.class);
 
-    messageSender = new MessageSender(messagesManager, pushNotificationManager);
+    dynamicMessageDeliveryConfiguration = mock(DynamicMessageDeliveryConfiguration.class);
+
+    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
+    when(dynamicConfiguration.getMessageDeliveryConfiguration()).thenReturn(dynamicMessageDeliveryConfiguration);
+
+    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
+        mock(DynamicConfigurationManager.class);
+
+    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
+
+    messageSender = new MessageSender(messagesManager, pushNotificationManager, dynamicConfigurationManager);
     messageSender.addMessageDeliveryListener(messageDeliveryListener);
   }
 
@@ -180,6 +196,36 @@ class MessageSenderTest {
         anyBoolean(),
         anyBoolean(),
         anyBoolean());
+  }
+
+  @Test
+  void sendMessageReadOnlyMode() {
+    final UUID accountIdentifier = UUID.randomUUID();
+    final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(accountIdentifier);
+    final byte deviceId = Device.PRIMARY_ID;
+    final int registrationId = 17;
+
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+    final MessageProtos.Envelope message = MessageProtos.Envelope.newBuilder().build();
+
+    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
+    when(account.getDevices()).thenReturn(List.of(device));
+    when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
+    when(device.getId()).thenReturn(deviceId);
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getApnId()).thenReturn("apns-token");
+
+    when(dynamicMessageDeliveryConfiguration.isReadOnly()).thenReturn(true);
+
+    assertThrows(MessageDeliveryNotAllowedException.class, () -> messageSender.sendMessages(account,
+        serviceIdentifier,
+        Map.of(device.getId(), message),
+        Map.of(device.getId(), registrationId),
+        Optional.empty(),
+        null));
   }
 
   @CartesianTest
@@ -301,6 +347,48 @@ class MessageSenderTest {
         anyBoolean(),
         anyBoolean(),
         anyBoolean());
+  }
+
+  @Test
+  void sendMultiRecipientMessageReadOnlyMode()
+      throws NotPushRegisteredException, InvalidMessageException, InvalidVersionException {
+
+    final UUID accountIdentifier = UUID.randomUUID();
+    final ServiceIdentifier serviceIdentifier = new AciServiceIdentifier(accountIdentifier);
+    final byte deviceId = Device.PRIMARY_ID;
+    final int registrationId = 17;
+
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+
+    when(account.getUuid()).thenReturn(accountIdentifier);
+    when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
+    when(account.isIdentifiedBy(serviceIdentifier)).thenReturn(true);
+    when(account.getDevices()).thenReturn(List.of(device));
+    when(account.getDevice(deviceId)).thenReturn(Optional.of(device));
+    when(device.getId()).thenReturn(deviceId);
+    when(device.getRegistrationId(IdentityType.ACI)).thenReturn(registrationId);
+    when(device.getApnId()).thenReturn("apns-token");
+    when(device.getApnId()).thenReturn("apns-token");
+
+    final SealedSenderMultiRecipientMessage multiRecipientMessage =
+        SealedSenderMultiRecipientMessage.parse(MultiRecipientMessageHelper.generateMultiRecipientMessage(
+            List.of(new TestRecipient(serviceIdentifier, deviceId, registrationId, new byte[48]))));
+
+    final SealedSenderMultiRecipientMessage.Recipient recipient =
+        multiRecipientMessage.getRecipients().values().iterator().next();
+
+    when(dynamicMessageDeliveryConfiguration.isReadOnly()).thenReturn(true);
+
+    assertThrows(MessageDeliveryNotAllowedException.class,
+        () -> messageSender.sendMultiRecipientMessage(multiRecipientMessage,
+                Map.of(recipient, account),
+                System.currentTimeMillis(),
+                false,
+                false,
+                false,
+                null)
+            .join());
   }
 
   @ParameterizedTest

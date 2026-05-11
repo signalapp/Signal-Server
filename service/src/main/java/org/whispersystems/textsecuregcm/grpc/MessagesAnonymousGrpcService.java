@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import com.google.protobuf.Empty;
+import io.grpc.Status;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
@@ -28,6 +29,7 @@ import org.signal.libsignal.protocol.InvalidMessageException;
 import org.signal.libsignal.protocol.InvalidVersionException;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
+import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -229,6 +231,8 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
           .build();
     } catch (final MessageTooLargeException e) {
       throw GrpcExceptions.invalidArguments("message too large");
+    } catch (final MessageDeliveryNotAllowedException e) {
+      throw GrpcExceptions.unavailable();
     }
   }
 
@@ -325,6 +329,8 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
       return SendMultiRecipientMessageResponse.newBuilder()
           .setMismatchedDevices(mismatchedDevicesBuilder)
           .build();
+    } catch (final MessageDeliveryNotAllowedException e) {
+      throw GrpcExceptions.unavailable();
     }
   }
 

@@ -35,6 +35,7 @@ import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
+import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -284,7 +285,7 @@ public class ChangeNumberManagerTest {
 
   @Test
   void changeNumberRateLimited()
-      throws MismatchedDevicesException, InterruptedException, MessageTooLargeException, RateLimitExceededException {
+      throws MismatchedDevicesException, InterruptedException, MessageTooLargeException, RateLimitExceededException, MessageDeliveryNotAllowedException {
     final String originalNumber = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164);
 
@@ -332,7 +333,7 @@ public class ChangeNumberManagerTest {
 
   @Test
   void changeNumberRegistrationLockFailed()
-      throws MismatchedDevicesException, InterruptedException, MessageTooLargeException, RateLimitExceededException {
+      throws MismatchedDevicesException, InterruptedException, MessageTooLargeException, RateLimitExceededException, MessageDeliveryNotAllowedException {
     final String originalNumber = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164);
 

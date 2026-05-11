@@ -33,6 +33,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.ServiceUnavailableException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
@@ -471,6 +472,8 @@ public class MessageController {
       }
     } catch (final MessageTooLargeException e) {
       throw new WebApplicationException(Status.REQUEST_ENTITY_TOO_LARGE);
+    } catch (final MessageDeliveryNotAllowedException e) {
+      throw new ServiceUnavailableException();
     }
   }
 
@@ -724,6 +727,8 @@ public class MessageController {
           .type(MediaType.APPLICATION_JSON)
           .entity(accountStaleDevices)
           .build());
+    } catch (final MessageDeliveryNotAllowedException e) {
+      throw new ServiceUnavailableException();
     }
   }
 

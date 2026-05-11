@@ -292,7 +292,7 @@ class AccountControllerV2Test {
     @ParameterizedTest
     @MethodSource
     void phoneVerificationException(final Exception exception, final int expectedStatus)
-        throws InterruptedException, MessageTooLargeException, MismatchedDevicesException, RateLimitExceededException {
+        throws InterruptedException, MessageTooLargeException, MismatchedDevicesException, RateLimitExceededException, MessageDeliveryNotAllowedException {
       doThrow(exception)
           .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
 
@@ -335,6 +335,28 @@ class AccountControllerV2Test {
                   MediaType.APPLICATION_JSON_TYPE))) {
 
         assertEquals(413, response.getStatus());
+      }
+    }
+
+    @Test
+    void messageDeliveryNotAllowed() throws Exception {
+      doThrow(MessageDeliveryNotAllowedException.class)
+          .when(changeNumberManager).changeNumber(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+
+      try (final Response response = resources.getJerseyTest()
+          .target("/v2/accounts/number")
+          .request()
+          .header(HttpHeaders.AUTHORIZATION,
+              AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
+          .put(Entity.entity(
+              new ChangeNumberRequest(encodeSessionId("session"), null, NEW_NUMBER, "123", IDENTITY_KEY,
+                  Collections.emptyList(),
+                  Map.of(Device.PRIMARY_ID, KeysHelper.signedECPreKey(1, IDENTITY_KEY_PAIR)),
+                  Map.of(Device.PRIMARY_ID, KeysHelper.signedKEMPreKey(2, IDENTITY_KEY_PAIR)),
+                  Map.of(Device.PRIMARY_ID, 17)),
+              MediaType.APPLICATION_JSON_TYPE))) {
+
+        assertEquals(503, response.getStatus());
       }
     }
 

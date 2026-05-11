@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.PhoneVerificationTokenManager;
 import org.whispersystems.textsecuregcm.auth.RegistrationLockVerificationManager;
 import org.whispersystems.textsecuregcm.controllers.AccountControllerV2;
+import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.ECSignedPreKey;
@@ -81,7 +82,7 @@ public class ChangeNumberManager {
       final List<IncomingMessage> deviceMessages,
       final Map<Byte, Integer> pniRegistrationIds,
       final ContainerRequestContext containerRequestContext)
-      throws InterruptedException, MismatchedDevicesException, MessageTooLargeException, RateLimitExceededException {
+      throws InterruptedException, MismatchedDevicesException, MessageTooLargeException, RateLimitExceededException, MessageDeliveryNotAllowedException {
 
     final String senderUserAgent = containerRequestContext.getHeaderString(HttpHeaders.USER_AGENT);
 

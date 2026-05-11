@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.signal.chat.calling.GetTurnCredentialsResponseOrBuilder;
 import org.whispersystems.textsecuregcm.limits.RateLimiterConfig;
 
 public class DynamicConfiguration {
@@ -44,6 +43,10 @@ public class DynamicConfiguration {
   @JsonProperty
   @Valid
   DynamicMessagePersisterConfiguration messagePersister = new DynamicMessagePersisterConfiguration();
+
+  @JsonProperty
+  @Valid
+  DynamicMessageDeliveryConfiguration messageDelivery = new DynamicMessageDeliveryConfiguration();
 
   @JsonProperty
   @Valid
@@ -109,6 +112,10 @@ public class DynamicConfiguration {
 
   public DynamicMessagePersisterConfiguration getMessagePersisterConfiguration() {
     return messagePersister;
+  }
+
+  public DynamicMessageDeliveryConfiguration getMessageDeliveryConfiguration() {
+    return messageDelivery;
   }
 
   public DynamicRegistrationConfiguration getRegistrationConfiguration() {

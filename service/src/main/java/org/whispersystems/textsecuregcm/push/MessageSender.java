@@ -26,6 +26,8 @@ import javax.annotation.Nullable;
 import kotlin.Pair;
 import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
+import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevices;
 import org.whispersystems.textsecuregcm.controllers.MismatchedDevicesException;
 import org.whispersystems.textsecuregcm.controllers.MultiRecipientMismatchedDevicesException;
@@ -36,6 +38,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.spam.MessageDeliveryListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -54,6 +57,7 @@ public class MessageSender {
 
   private final MessagesManager messagesManager;
   private final PushNotificationManager pushNotificationManager;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
 
   private final List<MessageDeliveryListener> messageDeliveryListeners = new ArrayList<>();
 
@@ -80,9 +84,12 @@ public class MessageSender {
   @VisibleForTesting
   static final byte NO_EXCLUDED_DEVICE_ID = -1;
 
-  public MessageSender(final MessagesManager messagesManager, final PushNotificationManager pushNotificationManager) {
+  public MessageSender(final MessagesManager messagesManager,
+      final PushNotificationManager pushNotificationManager,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.messagesManager = messagesManager;
     this.pushNotificationManager = pushNotificationManager;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
   public void addMessageDeliveryListener(final MessageDeliveryListener messageDeliveryListener) {
@@ -112,7 +119,12 @@ public class MessageSender {
       final Map<Byte, Envelope> messagesByDeviceId,
       final Map<Byte, Integer> registrationIdsByDeviceId,
       @SuppressWarnings("OptionalUsedAsFieldOrParameterType") final Optional<Byte> syncMessageSenderDeviceId,
-      @Nullable final String userAgent) throws MismatchedDevicesException, MessageTooLargeException {
+      @Nullable final String userAgent)
+      throws MismatchedDevicesException, MessageTooLargeException, MessageDeliveryNotAllowedException {
+
+    if (dynamicConfigurationManager.getConfiguration().getMessageDeliveryConfiguration().isReadOnly()) {
+      throw new MessageDeliveryNotAllowedException();
+    }
 
     final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
 
@@ -189,7 +201,12 @@ public class MessageSender {
       final boolean isStory,
       final boolean isEphemeral,
       final boolean isUrgent,
-      @Nullable final String userAgent) throws MultiRecipientMismatchedDevicesException, MessageTooLargeException {
+      @Nullable final String userAgent)
+      throws MultiRecipientMismatchedDevicesException, MessageTooLargeException, MessageDeliveryNotAllowedException {
+
+    if (dynamicConfigurationManager.getConfiguration().getMessageDeliveryConfiguration().isReadOnly()) {
+      throw new MessageDeliveryNotAllowedException();
+    }
 
     final Tag platformTag = UserAgentTagUtil.getPlatformTag(userAgent);
 
