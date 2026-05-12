@@ -266,6 +266,99 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   }
 
   @Test
+  void setProfileExpectedDataWriteConflict() throws Exception {
+    final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AUTHENTICATED_ACI)).serialize();
+    final byte[] validAboutEmoji = new byte[60];
+    final byte[] validAbout = new byte[540];
+    final byte[] validPaymentAddress = new byte[582];
+    final byte[] validPhoneNumberSharing = new byte[29];
+
+    doThrow(WriteConflictException.class)
+        .when(profilesManager).set(any(), any(), any(), any());
+
+    final SetProfileRequest request = SetProfileRequest.newBuilder()
+        .setVersion(ByteString.copyFrom(VERSION))
+        .setData(ByteString.copyFrom(VALID_DATA))
+        .setCommitment(ByteString.copyFrom(commitment)) // after v1 -> v2 migration, commitment can be null if expectedDataHash is present
+        .setPaymentAddress(ByteString.copyFrom(validPaymentAddress))
+        .setV1Request(V1_REQUEST.toBuilder()
+            .setAvatarChange(AvatarChange.AVATAR_CHANGE_UNCHANGED)
+            .setAboutEmoji(ByteString.copyFrom(validAboutEmoji))
+            .setAbout(ByteString.copyFrom(validAbout))
+            .setPhoneNumberSharing(ByteString.copyFrom(validPhoneNumberSharing))
+        )
+        .build();
+
+    final SetProfileResponse response = authenticatedServiceStub().setProfile(request);
+
+    assertTrue(response.hasExpectedDataWriteConflict());
+    verify(accountsManager, never()).updateCurrentProfileVersion(any(), any(), any(), any());
+  }
+
+  @Test
+  void setProfileExpectedVersionWriteConflictBeforeUpdates() throws Exception {
+    final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AUTHENTICATED_ACI)).serialize();
+    final byte[] validAboutEmoji = new byte[60];
+    final byte[] validAbout = new byte[540];
+    final byte[] validPaymentAddress = new byte[582];
+    final byte[] validPhoneNumberSharing = new byte[29];
+
+    when(account.getCurrentProfileVersion()).thenReturn(
+        Optional.of(HexFormat.of().formatHex(TestRandomUtil.nextBytes(32))));
+
+    final SetProfileRequest request = SetProfileRequest.newBuilder()
+        .setVersion(ByteString.copyFrom(VERSION))
+        .setData(ByteString.copyFrom(VALID_DATA))
+        .setCommitment(ByteString.copyFrom(commitment)) // after v1 -> v2 migration, commitment can be null if expectedDataHash is present
+        .setPaymentAddress(ByteString.copyFrom(validPaymentAddress))
+        .setExpectedCurrentVersion(ByteString.copyFrom(VERSION))
+        .setV1Request(V1_REQUEST.toBuilder()
+            .setAvatarChange(AvatarChange.AVATAR_CHANGE_UNCHANGED)
+            .setAboutEmoji(ByteString.copyFrom(validAboutEmoji))
+            .setAbout(ByteString.copyFrom(validAbout))
+            .setPhoneNumberSharing(ByteString.copyFrom(validPhoneNumberSharing))
+        )
+        .build();
+
+    final SetProfileResponse response = authenticatedServiceStub().setProfile(request);
+
+    assertTrue(response.hasExpectedVersionWriteConflict());
+    verify(profilesManager, never()).set(any(), any(), any(), any());
+    verify(accountsManager, never()).updateCurrentProfileVersion(any(), any(), any(), any());
+  }
+
+  @Test
+  void setProfileExpectedVersionWriteConflict() throws Exception {
+    final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AUTHENTICATED_ACI)).serialize();
+    final byte[] validAboutEmoji = new byte[60];
+    final byte[] validAbout = new byte[540];
+    final byte[] validPaymentAddress = new byte[582];
+    final byte[] validPhoneNumberSharing = new byte[29];
+
+    doThrow(WriteConflictException.class)
+        .when(accountsManager).updateCurrentProfileVersion(any(), any(), any(), any());
+
+    final SetProfileRequest request = SetProfileRequest.newBuilder()
+        .setVersion(ByteString.copyFrom(VERSION))
+        .setData(ByteString.copyFrom(VALID_DATA))
+        .setCommitment(ByteString.copyFrom(commitment)) // after v1 -> v2 migration, commitment can be null if expectedDataHash is present
+        .setPaymentAddress(ByteString.copyFrom(validPaymentAddress))
+        .setV1Request(V1_REQUEST.toBuilder()
+            .setAvatarChange(AvatarChange.AVATAR_CHANGE_UNCHANGED)
+            .setAboutEmoji(ByteString.copyFrom(validAboutEmoji))
+            .setAbout(ByteString.copyFrom(validAbout))
+            .setPhoneNumberSharing(ByteString.copyFrom(validPhoneNumberSharing))
+        )
+        .build();
+
+    final SetProfileResponse response = authenticatedServiceStub().setProfile(request);
+
+    assertTrue(response.hasExpectedVersionWriteConflict());
+    verify(profilesManager).set(any(), any(), any(), any());
+    verify(accountsManager).updateCurrentProfileVersion(any(), any(), any(), any());
+  }
+
+  @Test
   void setProfileWithoutCapability() {
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(false);
 
@@ -640,7 +733,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     if (expectResponseHasPaymentAddress) {
       expectedResultBuilder.setPaymentAddressDataEtag(
           DataEtag.newBuilder().setData(ByteString.copyFrom(paymentAddress))
-              .setEtag(ByteString.copyFrom(ProfileGrpcHelper.hash(paymentAddress)))
+              .setEtagSha256(ByteString.copyFrom(ProfileGrpcHelper.hash(paymentAddress)))
               .build());
 
     }
@@ -693,10 +786,10 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     assertTrue(result.hasDataEtag());
     assertEquals(ByteString.copyFrom(data), result.getDataEtag().getData());
-    assertEquals(ByteString.copyFrom(v2Profile.dataHash()), result.getDataEtag().getEtag());
+    assertEquals(ByteString.copyFrom(v2Profile.dataHash()), result.getDataEtag().getEtagSha256());
     assertTrue(result.hasPaymentAddressDataEtag());
     assertEquals(ByteString.copyFrom(paymentAddress), result.getPaymentAddressDataEtag().getData());
-    assertEquals(ByteString.copyFrom(v2Profile.paymentAddressHash()), result.getPaymentAddressDataEtag().getEtag());
+    assertEquals(ByteString.copyFrom(v2Profile.paymentAddressHash()), result.getPaymentAddressDataEtag().getEtagSha256());
     assertFalse(result.getDataEtagMatched());
     assertFalse(result.getPaymentAddressEtagMatched());
     assertFalse(result.hasV1Response());

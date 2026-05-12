@@ -114,7 +114,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
         : account.getCurrentProfileVersion().get().equals(expectedCurrentVersionHex);
 
     if (!currentVersionMatchesExpected) {
-      return SetProfileResponse.newBuilder().setWriteConflict(FailedPrecondition.newBuilder()
+      return SetProfileResponse.newBuilder().setExpectedVersionWriteConflict(FailedPrecondition.newBuilder()
           .setDescription("current and expected profile versions must match")
           .build()).build();
     }
@@ -170,7 +170,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
 
     } catch (WriteConflictException _) {
       return SetProfileResponse.newBuilder()
-          .setWriteConflict(FailedPrecondition.newBuilder()
+          .setExpectedDataWriteConflict(FailedPrecondition.newBuilder()
               .setDescription("current and expected data hash mismatch")
               .build())
           .build();
@@ -189,7 +189,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
 
     } catch (final WriteConflictException _) {
       return SetProfileResponse.newBuilder()
-          .setWriteConflict(FailedPrecondition.newBuilder()
+          .setExpectedVersionWriteConflict(FailedPrecondition.newBuilder()
               .setDescription("current and expected version mismatch")
               .build())
           .build();

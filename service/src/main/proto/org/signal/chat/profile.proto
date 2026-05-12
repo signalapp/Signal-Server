@@ -86,8 +86,10 @@ message SetProfileRequest {
   //
   // Optional, if there is no current profile version for the account.
   bytes expected_current_version = 4 [(require.exactlySize) = 0, (require.exactlySize) = 32];
+
   // The ciphertext of the MobileCoin wallet ID on the profile.
   bytes payment_address = 5 [(require.exactlySize) = 0, (require.exactlySize) = 582];
+
   // A list of badge IDs associated with the profile.
   repeated string badge_ids = 6;
 
@@ -128,8 +130,15 @@ message SetProfileResult {
 message SetProfileResponse {
   oneof response {
     SetProfileResult result = 1;
-    errors.FailedPrecondition write_conflict = 2 [(tag.reason) = "write_conflict"];
+    // The current data hash did not match the request's expectation, indicating
+    // another device on the account may have written an update the caller does not know about.
+    errors.FailedPrecondition expected_data_write_conflict = 2 [(tag.reason) = "expected_data_write_conflict"];
+    // Payments are not permitted in the account's region, based on its phone number.
+    // The request should be retried without `payment_address.
     PaymentsForbiddenInRegion payments_forbidden_in_region = 3 [(tag.reason) = "payments_forbidden_in_region"];
+    // The current version did not match the request's expectation, indicating
+    // another device on the account may have created a new version the caller does not know about.
+    errors.FailedPrecondition expected_version_write_conflict = 4 [(tag.reason) = "expected_version_write_conflict"];
 
     // Because this is a temporary field during the migration, it has the highest
     // field number without serialization overhead. This is purely aesthetic.
@@ -167,7 +176,10 @@ message DataEtag {
   bytes data = 1;
   // An entity tag for `data`. This may be used in subsequent requests for
   // this profile version to optimize bandwidth.
-  bytes etag = 2;
+  //
+  // Clients may validate that the value has been correctly calculated by deriving
+  // the SHA-256 digest of `data`.
+  bytes etag_sha256 = 2;
 }
 
 
@@ -299,13 +311,6 @@ message GetExpiringProfileKeyCredentialResult {
   // A zkgroup credential used by a client to prove that it has the profile key
   // of a targeted account.
   bytes profile_key_credential = 1;
-}
-
-message GetExpiringProfileKeyCredentialResponse {
-  oneof response {
-    GetExpiringProfileKeyCredentialResult result = 1;
-    errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
-  }
 }
 
 message GetExpiringProfileKeyCredentialAnonymousResponse {

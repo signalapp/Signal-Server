@@ -104,6 +104,7 @@ public class ProfilesManager {
   /// Transactionally sets v1 and v2 Profile data in DynamoDB.
   ///
   /// Note: writes to the Redis cache are not transactional, and a failed DynamoDB write may leave incorrect data in Redis
+  /// @throws WriteConflictException if the expected data hash does not match the stored data hash
   public void set(UUID uuid, VersionedProfileV1 versionedProfileV1, VersionedProfile versionedProfile, @Nullable byte[] expectedCurrentDataHash) throws WriteConflictException {
 
     final TransactWriteItem v1TransactWriteItem = profilesV1.getTransactWriteItem(uuid, versionedProfileV1);

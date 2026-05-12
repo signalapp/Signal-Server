@@ -72,7 +72,7 @@ public class ProfileGrpcHelper {
       } else {
         responseBuilder.setDataEtag(DataEtag.newBuilder()
             .setData(ByteString.copyFrom(p.data()))
-            .setEtag(ByteString.copyFrom(p.dataHash()))
+            .setEtagSha256(ByteString.copyFrom(p.dataHash()))
             .build());
       }
     });
@@ -110,7 +110,7 @@ public class ProfileGrpcHelper {
         } else {
           responseBuilder.setPaymentAddressDataEtag(DataEtag.newBuilder()
               .setData(ByteString.copyFrom(paymentAddress.get()))
-              .setEtag(ByteString.copyFrom(
+              .setEtagSha256(ByteString.copyFrom(
                   profile.map(VersionedProfile::paymentAddressHash).orElseGet(() -> hash(paymentAddress.get()))))
               .build());
         }

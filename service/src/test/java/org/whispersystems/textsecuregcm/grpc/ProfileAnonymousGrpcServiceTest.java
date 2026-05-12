@@ -404,7 +404,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     if (expectResponseHasPaymentAddress) {
       expectedResultBuilder.setPaymentAddressDataEtag(DataEtag.newBuilder()
           .setData(ByteString.copyFrom(paymentAddress))
-          .setEtag(ByteString.copyFrom(ProfileGrpcHelper.hash(paymentAddress)))
+          .setEtagSha256(ByteString.copyFrom(ProfileGrpcHelper.hash(paymentAddress)))
           .build());
     }
 
@@ -456,10 +456,10 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final GetVersionedProfileResult result = response.getResult();
     assertTrue(result.hasDataEtag());
     assertEquals(ByteString.copyFrom(data), result.getDataEtag().getData());
-    assertEquals(ByteString.copyFrom(v2Profile.dataHash()), result.getDataEtag().getEtag());
+    assertEquals(ByteString.copyFrom(v2Profile.dataHash()), result.getDataEtag().getEtagSha256());
     assertTrue(result.hasPaymentAddressDataEtag());
     assertEquals(ByteString.copyFrom(paymentAddress), result.getPaymentAddressDataEtag().getData());
-    assertEquals(ByteString.copyFrom(Objects.requireNonNull(v2Profile.paymentAddressHash())), result.getPaymentAddressDataEtag().getEtag());
+    assertEquals(ByteString.copyFrom(Objects.requireNonNull(v2Profile.paymentAddressHash())), result.getPaymentAddressDataEtag().getEtagSha256());
     assertFalse(result.getDataEtagMatched());
     assertFalse(result.getPaymentAddressEtagMatched());
     assertFalse(result.hasV1Response());
