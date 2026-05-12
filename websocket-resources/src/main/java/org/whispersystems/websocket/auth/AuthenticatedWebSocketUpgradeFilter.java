@@ -7,8 +7,8 @@ package org.whispersystems.websocket.auth;
 
 import java.security.Principal;
 import java.util.Optional;
-import org.eclipse.jetty.websocket.server.JettyServerUpgradeRequest;
-import org.eclipse.jetty.websocket.server.JettyServerUpgradeResponse;
+import org.eclipse.jetty.ee10.websocket.server.JettyServerUpgradeRequest;
+import org.eclipse.jetty.ee10.websocket.server.JettyServerUpgradeResponse;
 
 public interface AuthenticatedWebSocketUpgradeFilter<T extends Principal> {
 

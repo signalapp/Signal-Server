@@ -19,7 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import org.eclipse.jetty.websocket.api.UpgradeRequest;
+import org.eclipse.jetty.ee10.websocket.server.JettyServerUpgradeRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -44,7 +44,7 @@ class WebSocketAccountAuthenticatorTest {
 
   private AccountAuthenticator accountAuthenticator;
 
-  private UpgradeRequest upgradeRequest;
+  private JettyServerUpgradeRequest upgradeRequest;
 
   @BeforeEach
   void setUp() {
@@ -56,7 +56,7 @@ class WebSocketAccountAuthenticatorTest {
     when(accountAuthenticator.authenticate(eq(new BasicCredentials(INVALID_USER, INVALID_PASSWORD))))
         .thenReturn(Optional.empty());
 
-    upgradeRequest = mock(UpgradeRequest.class);
+    upgradeRequest = mock(JettyServerUpgradeRequest.class);
   }
 
   @ParameterizedTest

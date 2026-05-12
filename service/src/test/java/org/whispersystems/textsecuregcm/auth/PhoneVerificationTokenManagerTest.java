@@ -210,8 +210,7 @@ class PhoneVerificationTokenManagerTest {
 
     @ParameterizedTest
     @MethodSource
-    void verifyRecoveryPasswordManagerException(final Throwable recoveryPasswordManagerException)
-        throws ExecutionException, InterruptedException, TimeoutException {
+    void verifyRecoveryPasswordManagerException(final Throwable recoveryPasswordManagerException) {
 
       final ContainerRequestContext containerRequestContext = mock(ContainerRequestContext.class);
       final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
@@ -219,11 +218,8 @@ class PhoneVerificationTokenManagerTest {
       when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(containerRequestContext, PHONE_NUMBER))
           .thenReturn(true);
 
-      @SuppressWarnings("unchecked") final CompletableFuture<Boolean> mockFuture = mock(CompletableFuture.class);
-      when(mockFuture.get(anyLong(), any())).thenThrow(recoveryPasswordManagerException);
-
       when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
-          .thenReturn(mockFuture);
+          .thenReturn(CompletableFuture.failedFuture(recoveryPasswordManagerException));
 
       assertThrows(ServerErrorException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
           PHONE_NUMBER,

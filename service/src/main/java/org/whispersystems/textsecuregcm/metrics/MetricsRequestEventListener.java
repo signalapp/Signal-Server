@@ -31,7 +31,7 @@ import org.whispersystems.websocket.WebSocketResourceProvider;
 
 /**
  * Gathers and reports request-level metrics for WebSocket traffic only.
- * For HTTP traffic, use {@link MetricsHttpChannelListener}.
+ * For HTTP traffic, use {@link MetricsHttpEventHandler}.
  */
 public class MetricsRequestEventListener implements RequestEventListener {
 
@@ -69,7 +69,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
     this(trafficSource, Metrics.globalRegistry, clientReleaseManager);
 
     if (trafficSource == TrafficSource.HTTP) {
-      logger.warn("Use {} for HTTP traffic", MetricsHttpChannelListener.class.getName());
+      logger.warn("Use {} for HTTP traffic", MetricsHttpEventHandler.class.getName());
     }
   }
 
@@ -107,7 +107,7 @@ public class MetricsRequestEventListener implements RequestEventListener {
 
         final List<Tag> tags = new ArrayList<>();
         tags.add(Tag.of(PATH_TAG, UriInfoUtil.getPathTemplate(event.getUriInfo())));
-        tags.add(Tag.of(METHOD_TAG, MetricsHttpChannelListener.normalizeMethod(event.getContainerRequest().getMethod())));
+        tags.add(Tag.of(METHOD_TAG, MetricsHttpEventHandler.normalizeMethod(event.getContainerRequest().getMethod())));
         tags.add(Tag.of(STATUS_CODE_TAG, String.valueOf(Optional
             .ofNullable(event.getContainerResponse())
             .map(ContainerResponse::getStatus)

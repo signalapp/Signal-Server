@@ -6,12 +6,9 @@
 package org.whispersystems.textsecuregcm.util.jetty;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URI;
-import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Path;
 import java.util.Base64;
 import org.eclipse.jetty.util.resource.Resource;
 
@@ -30,14 +27,15 @@ public class TestResource extends Resource {
   }
 
   @Override
-  public boolean isContainedIn(final Resource r) throws MalformedURLException {
-    return false;
+  public Path getPath() {
+    return null;
   }
 
   @Override
-  public void close() {
-
+  public InputStream newInputStream() {
+    return new ByteArrayInputStream(data);
   }
+
 
   @Override
   public boolean exists() {
@@ -50,22 +48,17 @@ public class TestResource extends Resource {
   }
 
   @Override
-  public long lastModified() {
-    return 0;
+  public boolean isReadable() {
+    return true;
   }
 
   @Override
   public long length() {
-    return 0;
+    return data.length;
   }
 
   @Override
   public URI getURI() {
-    return null;
-  }
-
-  @Override
-  public File getFile() throws IOException {
     return null;
   }
 
@@ -75,32 +68,13 @@ public class TestResource extends Resource {
   }
 
   @Override
-  public InputStream getInputStream() throws IOException {
-    return new ByteArrayInputStream(data);
+  public String getFileName() {
+    return "";
   }
 
   @Override
-  public ReadableByteChannel getReadableByteChannel() throws IOException {
+  public Resource resolve(final String subUriPath) {
     return null;
   }
 
-  @Override
-  public boolean delete() throws SecurityException {
-    return false;
-  }
-
-  @Override
-  public boolean renameTo(final Resource dest) throws SecurityException {
-    return false;
-  }
-
-  @Override
-  public String[] list() {
-    return new String[]{name};
-  }
-
-  @Override
-  public Resource addPath(final String path) throws IOException, MalformedURLException {
-    return this;
-  }
 }

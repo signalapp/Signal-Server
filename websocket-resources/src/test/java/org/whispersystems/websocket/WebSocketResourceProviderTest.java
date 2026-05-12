@@ -47,11 +47,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import org.eclipse.jetty.websocket.api.CloseStatus;
-import org.eclipse.jetty.websocket.api.RemoteEndpoint;
+import org.eclipse.jetty.websocket.api.Callback;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.UpgradeRequest;
-import org.eclipse.jetty.websocket.api.WriteCallback;
 import org.glassfish.jersey.server.ApplicationHandler;
 import org.glassfish.jersey.server.ContainerRequest;
 import org.glassfish.jersey.server.ContainerResponse;
@@ -92,11 +90,10 @@ class WebSocketResourceProviderTest {
 
     when(session.getUpgradeRequest()).thenReturn(request);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
-    verify(session, never()).close(anyInt(), anyString());
+    verify(session, never()).close(anyInt(), anyString(), any(Callback.class));
     verify(session, never()).close();
-    verify(session, never()).close(any(CloseStatus.class));
 
     ArgumentCaptor<WebSocketSessionContext> contextArgumentCaptor = ArgumentCaptor.forClass(
         WebSocketSessionContext.class);
@@ -114,11 +111,9 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
     ContainerResponse response = mock(ContainerResponse.class);
     when(response.getStatus()).thenReturn(200);
@@ -148,16 +143,15 @@ class WebSocketResourceProviderTest {
           return CompletableFuture.completedFuture(response);
         });
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
-    verify(session, never()).close(anyInt(), anyString());
+    verify(session, never()).close(anyInt(), anyString(), any(Callback.class));
     verify(session, never()).close();
-    verify(session, never()).close(any(CloseStatus.class));
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/bar",
         new LinkedList<>(), Optional.of("hello world!".getBytes())).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ContainerRequest> requestCaptor = ArgumentCaptor.forClass(ContainerRequest.class);
     ArgumentCaptor<ByteBuffer> responseCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
@@ -171,7 +165,7 @@ class WebSocketResourceProviderTest {
     assertThat(bundledRequest.getPath(false)).isEqualTo("bar");
 
     verify(requestLog).log(eq("127.0.0.1"), eq(bundledRequest), eq(response));
-    verify(remoteEndpoint).sendBytes(responseCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketMessage responseMessageContainer = SubProtocol.WebSocketMessage.parseFrom(
         responseCaptor.getValue().array());
@@ -191,25 +185,22 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
     when(applicationHandler.apply(any(ContainerRequest.class), any(OutputStream.class))).thenReturn(
         CompletableFuture.failedFuture(new IllegalStateException("foo")));
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
-    verify(session, never()).close(anyInt(), anyString());
+    verify(session, never()).close(anyInt(), anyString(), any(Callback.class));
     verify(session, never()).close();
-    verify(session, never()).close(any(CloseStatus.class));
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/bar",
         new LinkedList<>(), Optional.of("hello world!".getBytes())).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ContainerRequest> requestCaptor = ArgumentCaptor.forClass(ContainerRequest.class);
 
@@ -223,7 +214,7 @@ class WebSocketResourceProviderTest {
 
     ArgumentCaptor<ByteBuffer> responseCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketMessage responseMessageContainer = SubProtocol.WebSocketMessage.parseFrom(
         responseCaptor.getValue().array());
@@ -247,22 +238,20 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/hello",
         new LinkedList<>(), Optional.empty()).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -287,22 +276,20 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET",
         "/v1/test/doesntexist", new LinkedList<>(), Optional.empty()).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -327,22 +314,20 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/world",
         new LinkedList<>(), Optional.empty()).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -367,22 +352,20 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/world",
         new LinkedList<>(), Optional.empty()).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -406,22 +389,20 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/optional",
         new LinkedList<>(), Optional.empty()).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -446,22 +427,20 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/optional",
         new LinkedList<>(), Optional.empty()).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -486,23 +465,21 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "PUT",
         "/v1/test/some/testparam", List.of("Content-Type: application/json"),
         Optional.of(new ObjectMapper().writeValueAsBytes(new TestResource.TestEntity("mykey", 1001)))).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -527,23 +504,21 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "PUT",
         "/v1/test/some/testparam", List.of("Content-Type: application/json"),
         Optional.of(new ObjectMapper().writeValueAsBytes(new TestResource.TestEntity("mykey", 5)))).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -569,22 +544,20 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET",
         "/v1/test/exception/map", List.of("Content-Type: application/json"), Optional.empty()).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
@@ -609,22 +582,20 @@ class WebSocketResourceProviderTest {
         new ProtobufWebSocketMessageFactory(), Optional.empty(), Duration.ofMillis(30000));
 
     Session session = mock(Session.class);
-    RemoteEndpoint remoteEndpoint = mock(RemoteEndpoint.class);
     UpgradeRequest request = mock(UpgradeRequest.class);
 
     when(session.getUpgradeRequest()).thenReturn(request);
-    when(session.getRemote()).thenReturn(remoteEndpoint);
 
-    provider.onWebSocketConnect(session);
+    provider.onWebSocketOpen(session);
 
     byte[] message = new ProtobufWebSocketMessageFactory().createRequest(Optional.of(111L), "GET", "/v1/test/keepalive",
         new LinkedList<>(), Optional.empty()).toByteArray();
 
-    provider.onWebSocketBinary(message, 0, message.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(message), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> requestCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint).sendBytes(requestCaptor.capture(), any(WriteCallback.class));
+    verify(session).sendBinary(requestCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketRequestMessage requestMessage = getRequest(requestCaptor);
     assertThat(requestMessage.getVerb()).isEqualTo("GET");
@@ -634,11 +605,11 @@ class WebSocketResourceProviderTest {
     byte[] clientResponse = new ProtobufWebSocketMessageFactory().createResponse(requestMessage.getId(), 200, "OK",
         new LinkedList<>(), Optional.of("my response".getBytes())).toByteArray();
 
-    provider.onWebSocketBinary(clientResponse, 0, clientResponse.length);
+    provider.onWebSocketBinary(ByteBuffer.wrap(clientResponse), Callback.NOOP);
 
     ArgumentCaptor<ByteBuffer> responseBytesCaptor = ArgumentCaptor.forClass(ByteBuffer.class);
 
-    verify(remoteEndpoint, times(2)).sendBytes(responseBytesCaptor.capture(), any(WriteCallback.class));
+    verify(session, times(2)).sendBinary(responseBytesCaptor.capture(), any(Callback.class));
 
     SubProtocol.WebSocketResponseMessage response = getResponse(responseBytesCaptor);
 
