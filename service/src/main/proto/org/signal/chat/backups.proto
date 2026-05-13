@@ -282,16 +282,20 @@ message GetBackupInfoRequest {
 }
 message GetMessageBackupInfoResponse {
   message MessageBackupInfo {
-    // The base directory of your backup data on the cdn. The message backup can
-    // be found in the returned cdn at /backup_dir/backup_name
+    // The base directory of your backup data on the cdn. Always non-empty, even
+    // if a backup has not actually been stored to the cdn. If a backup was
+    // previously uploaded and has not expired, it can be found in the returned
+    // cdn at /backup_dir/backup_name.
     string backup_dir = 1;
 
     // The CDN type where the message backup is stored. Media may be stored
     // elsewhere.
     uint32 cdn = 2;
 
-    // The location of the message backup on the cdn. If a backup was previously
-    // uploaded and unexpired, it can be found at /backup_dir/backup_name.
+    // The location of the message backup on the cdn. Always non-empty, even
+    // if a backup has not actually been stored to the cdn. If a backup was
+    // previously uploaded and has not expired, it can be found in the returned
+    // cdn at /backup_dir/backup_name.
     string backup_name = 3;
   }
 
@@ -307,12 +311,16 @@ message GetMessageBackupInfoResponse {
 }
 message GetMediaBackupInfoResponse {
   message MediaBackupInfo {
-    // The base directory of your backup data on the cdn.
+    // The base directory of your backup data on the cdn. Always non-empty, even
+    // if no media has been stored to the cdn or the credential is for a tier
+    // that does not support media.
     string backup_dir = 1;
 
     // The prefix path component for media objects on a cdn. Stored media for a
-    // media_id can be found at /backup_dir/media_dir/media_id, where the media_id
-    // is encoded in unpadded url-safe base64.
+    // media_id can be found at /backup_dir/media_dir/media_id, where the
+    // media_id is encoded in unpadded url-safe base64. Always non-empty, even
+    // if no media has been stored to the cdn or the credential is for a tier
+    // that does not support media.
     string media_dir = 2;
 
     // The amount of space used to store media
