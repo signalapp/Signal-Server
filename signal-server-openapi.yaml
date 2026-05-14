@@ -465,8 +465,8 @@ paths:
           description: Too many attempts
           headers:
             Retry-After:
-              description: "If present, an positive integer indicating the number\
-                \ of seconds before a subsequent attempt could succeed"
+              description: "If present, a positive integer indicating the number of\
+                \ seconds before a subsequent attempt could succeed"
               style: simple
       security:
       - authenticatedAccount: []
