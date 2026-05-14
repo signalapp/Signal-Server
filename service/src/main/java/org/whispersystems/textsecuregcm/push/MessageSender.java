@@ -77,7 +77,7 @@ public class MessageSender {
   private static final String SYNC_MESSAGE_TAG_NAME = "sync";
 
   @VisibleForTesting
-  public static final int MAX_MESSAGE_SIZE = (int) DataSize.kibibytes(256).toBytes();
+  public static final int MAX_MESSAGE_SIZE = (int) DataSize.kibibytes(96).toBytes();
 
   private static final int OVERSIZE_MESSAGE_WARNING_THRESHOLD = (int) DataSize.kibibytes(96).toBytes();
 
