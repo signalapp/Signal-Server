@@ -63,7 +63,6 @@ public class MessageSender {
 
   // Note that these names deliberately reference `MessageController` for metric continuity
   private static final String REJECT_OVERSIZE_MESSAGE_COUNTER_NAME = name(MessageSender.class, "rejectOversizeMessage");
-  private static final String OVERSIZE_MESSAGE_WARNING_COUNTER_NAME = name(MessageSender.class, "oversizeMessageWarning");
   private static final String CONTENT_SIZE_DISTRIBUTION_NAME = MetricsUtil.name(MessageSender.class, "messageContentSize");
   private static final String EMPTY_MESSAGE_LIST_COUNTER_NAME = MetricsUtil.name(MessageSender.class, "emptyMessageList");
 
@@ -78,8 +77,6 @@ public class MessageSender {
 
   @VisibleForTesting
   public static final int MAX_MESSAGE_SIZE = (int) DataSize.kibibytes(96).toBytes();
-
-  private static final int OVERSIZE_MESSAGE_WARNING_THRESHOLD = (int) DataSize.kibibytes(96).toBytes();
 
   @VisibleForTesting
   static final byte NO_EXCLUDED_DEVICE_ID = -1;
@@ -374,14 +371,6 @@ public class MessageSender {
             Tag.of("story", String.valueOf(isStory))))
         .register(Metrics.globalRegistry)
         .record(contentLength);
-
-    if (contentLength > OVERSIZE_MESSAGE_WARNING_THRESHOLD) {
-      Metrics.counter(OVERSIZE_MESSAGE_WARNING_COUNTER_NAME, Tags.of(platformTag,
-              Tag.of("multiRecipientMessage", String.valueOf(isMultiRecipientMessage)),
-              Tag.of("syncMessage", String.valueOf(isSyncMessage)),
-              Tag.of("story", String.valueOf(isStory))))
-          .increment();
-    }
 
     if (oversize) {
       Metrics.counter(REJECT_OVERSIZE_MESSAGE_COUNTER_NAME, Tags.of(platformTag,
