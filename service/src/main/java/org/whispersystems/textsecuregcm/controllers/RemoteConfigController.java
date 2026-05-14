@@ -26,13 +26,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Clock;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -61,9 +58,7 @@ public class RemoteConfigController {
     .map(p -> p.name().toLowerCase())
     .collect(Collectors.toSet());
 
-  public RemoteConfigController(RemoteConfigsManager remoteConfigsManager,
-      Map<String, String> globalConfig,
-      final Clock clock) {
+  public RemoteConfigController(RemoteConfigsManager remoteConfigsManager, Map<String, String> globalConfig) {
     this.remoteConfigsManager = remoteConfigsManager;
     this.globalConfig = globalConfig;
   }

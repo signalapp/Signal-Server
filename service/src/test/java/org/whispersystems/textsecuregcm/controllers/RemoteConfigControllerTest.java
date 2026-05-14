@@ -21,7 +21,6 @@ import jakarta.ws.rs.core.EntityTag;
 import jakarta.ws.rs.core.Response;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +44,6 @@ import org.whispersystems.textsecuregcm.mappers.DeviceLimitExceededExceptionMapp
 import org.whispersystems.textsecuregcm.storage.RemoteConfig;
 import org.whispersystems.textsecuregcm.storage.RemoteConfigsManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
-import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -53,16 +51,12 @@ class RemoteConfigControllerTest {
 
   private static final RemoteConfigsManager remoteConfigsManager = mock(RemoteConfigsManager.class);
 
-  private static final long PINNED_EPOCH_SECONDS = 1701287216L;
-  private static final TestClock TEST_CLOCK = TestClock.pinned(Instant.ofEpochSecond(PINNED_EPOCH_SECONDS));
-
-
   private static final ResourceExtension resources = ResourceExtension.builder()
       .addProvider(AuthHelper.getAuthFilter())
       .addProvider(new AuthValueFactoryProvider.Binder<>(AuthenticatedDevice.class))
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
       .addProvider(new DeviceLimitExceededExceptionMapper())
-      .addResource(new RemoteConfigController(remoteConfigsManager, Map.of("maxGroupSize", "42"), TEST_CLOCK))
+      .addResource(new RemoteConfigController(remoteConfigsManager, Map.of("maxGroupSize", "42")))
       .build();
 
 
@@ -167,7 +161,7 @@ class RemoteConfigControllerTest {
           .get(RemoteConfigurationResponse.class);
 
       assertThat(configuration.config().get("linked.config.0")).isEqualTo(configuration.config().get("linked.config.1"));
-      allUnlinkedConfigsMatched &= (configuration.config().get("linked.config.0") == configuration.config().get("unlinked.config"));
+      allUnlinkedConfigsMatched &= (configuration.config().get("linked.config.0").equals(configuration.config().get("unlinked.config")));
     }
 
     // with 20 test accounts, 1 in 2^20 chance that this fails when it shouldn't, but
