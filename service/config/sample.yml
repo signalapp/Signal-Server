@@ -517,7 +517,6 @@ idlePrimaryDeviceReminder:
 
 grpc:
   port: 50051
-  websocketPort: 8080
 
 asnTable:
   s3Region: a-region

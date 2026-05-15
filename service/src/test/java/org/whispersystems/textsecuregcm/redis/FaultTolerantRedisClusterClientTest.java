@@ -420,6 +420,13 @@ class FaultTolerantRedisClusterClientTest {
     }
 
     @Override
+    @Deprecated
+    public ClientResources.Builder dnsResolver(final DnsResolver dnsResolver) {
+      delegate.dnsResolver(dnsResolver);
+      return this;
+    }
+
+    @Override
     public ClientResources.Builder eventBus(final EventBus eventBus) {
       delegate.eventBus(eventBus);
       return this;

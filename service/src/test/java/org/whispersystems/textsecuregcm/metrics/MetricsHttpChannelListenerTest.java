@@ -20,33 +20,24 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.util.Collections;
-import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.eclipse.jetty.http.HttpFields;
-import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpURI;
-import org.eclipse.jetty.io.Content;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
-import org.glassfish.jersey.server.ContainerRequest;
-import org.glassfish.jersey.server.ContainerResponse;
 import org.glassfish.jersey.server.ExtendedUriInfo;
 import org.glassfish.jersey.uri.UriTemplate;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import javax.annotation.Nullable;
 
-class MetricsHttpEventHandlerTest {
-  private final static String USER_AGENT = "Signal-Android/6.53.7 (Android 8.1)";
+class MetricsHttpChannelListenerTest {
 
   private MeterRegistry meterRegistry;
   private Counter requestCounter;
@@ -54,7 +45,7 @@ class MetricsHttpEventHandlerTest {
   private Counter responseBytesCounter;
   private Counter requestBytesCounter;
   private ClientReleaseManager clientReleaseManager;
-  private MetricsHttpEventHandler listener;
+  private MetricsHttpChannelListener listener;
 
   @BeforeEach
   void setup() {
@@ -64,28 +55,27 @@ class MetricsHttpEventHandlerTest {
     responseBytesCounter = mock(Counter.class);
     requestBytesCounter = mock(Counter.class);
 
-    when(meterRegistry.counter(eq(MetricsHttpEventHandler.REQUEST_COUNTER_NAME), any(Iterable.class)))
+    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(requestCounter);
 
-    when(meterRegistry.counter(eq(MetricsHttpEventHandler.REQUESTS_BY_VERSION_COUNTER_NAME), any(Tags.class)))
+    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUESTS_BY_VERSION_COUNTER_NAME), any(Tags.class)))
         .thenReturn(requestsByVersionCounter);
 
-    when(meterRegistry.counter(eq(MetricsHttpEventHandler.RESPONSE_BYTES_COUNTER_NAME), any(Iterable.class)))
+    when(meterRegistry.counter(eq(MetricsHttpChannelListener.RESPONSE_BYTES_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(responseBytesCounter);
 
-    when(meterRegistry.counter(eq(MetricsHttpEventHandler.REQUEST_BYTES_COUNTER_NAME), any(Iterable.class)))
+    when(meterRegistry.counter(eq(MetricsHttpChannelListener.REQUEST_BYTES_COUNTER_NAME), any(Iterable.class)))
         .thenReturn(requestBytesCounter);
 
     clientReleaseManager = mock(ClientReleaseManager.class);
 
-    listener = new MetricsHttpEventHandler(null, meterRegistry, clientReleaseManager, Set.of("/test"));
+    listener = new MetricsHttpChannelListener(meterRegistry, clientReleaseManager, Collections.emptySet());
   }
 
-  @CartesianTest
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
   @SuppressWarnings("unchecked")
-  void testRequests(@CartesianTest.Values(booleans = {true, false}) final boolean pathFromFilter,
-      @CartesianTest.Values(booleans = {true, false}) final boolean versionActive) {
-
+  void testRequests(final boolean versionActive) {
     final String path = "/test";
     final String method = "GET";
     final int statusCode = 200;
@@ -95,40 +85,30 @@ class MetricsHttpEventHandlerTest {
 
     final Request request = mock(Request.class);
     when(request.getMethod()).thenReturn(method);
-
-    final HttpFields.Mutable requestHeaders = HttpFields.build();
-    requestHeaders.put(HttpHeader.USER_AGENT, USER_AGENT);
-    when(request.getHeaders()).thenReturn(requestHeaders);
+    when(request.getHeader(HttpHeaders.USER_AGENT)).thenReturn("Signal-Android/6.53.7 (Android 8.1)");
     when(request.getHttpURI()).thenReturn(httpUri);
-
-    if (pathFromFilter) {
-      when(request.getAttribute(MetricsHttpEventHandler.REQUEST_INFO_PROPERTY_NAME))
-          .thenReturn(new MetricsHttpEventHandler.RequestInfo(path, method, USER_AGENT));
-    } else {
-      when(request.setAttribute(eq(MetricsHttpEventHandler.REQUEST_INFO_PROPERTY_NAME), any())).thenAnswer(invocation -> {
-        when(request.getAttribute(MetricsHttpEventHandler.REQUEST_INFO_PROPERTY_NAME))
-            .thenReturn(invocation.getArgument(1));
-        return null;
-      });
-    }
 
     final Response response = mock(Response.class);
     when(response.getStatus()).thenReturn(statusCode);
-
     when(clientReleaseManager.isVersionActive(any(), any())).thenReturn(versionActive);
+
+    when(response.getContentCount()).thenReturn(1024L);
+    when(request.getResponse()).thenReturn(response);
+    when(request.getContentRead()).thenReturn(512L);
+    final ExtendedUriInfo extendedUriInfo = mock(ExtendedUriInfo.class);
+    when(request.getAttribute(MetricsHttpChannelListener.URI_INFO_PROPERTY_NAME)).thenReturn(extendedUriInfo);
+    when(extendedUriInfo.getMatchedTemplates()).thenReturn(List.of(new UriTemplate(path)));
 
     final ArgumentCaptor<Iterable<Tag>> tagCaptor = ArgumentCaptor.forClass(Iterable.class);
 
-    listener.onRequestRead(request, Content.Chunk.from(ByteBuffer.allocate(512), true));
-    listener.onResponseWrite(request, true, ByteBuffer.allocate(1024));
-    listener.onComplete(request, statusCode, requestHeaders, null);
+    listener.onComplete(request);
 
     verify(requestCounter).increment();
 
     verify(responseBytesCounter).increment(1024L);
     verify(requestBytesCounter).increment(512L);
 
-    verify(meterRegistry).counter(eq(MetricsHttpEventHandler.REQUEST_COUNTER_NAME), tagCaptor.capture());
+    verify(meterRegistry).counter(eq(MetricsHttpChannelListener.REQUEST_COUNTER_NAME), tagCaptor.capture());
 
     final Set<Tag> tags = new HashSet<>();
     for (final Tag tag : tagCaptor.getValue()) {
@@ -136,10 +116,10 @@ class MetricsHttpEventHandlerTest {
     }
 
     final Set<Tag> expectedTags = new HashSet<>(Set.of(
-        Tag.of(MetricsHttpEventHandler.PATH_TAG, path),
-        Tag.of(MetricsHttpEventHandler.METHOD_TAG, method),
-        Tag.of(MetricsHttpEventHandler.STATUS_CODE_TAG, String.valueOf(statusCode)),
-        Tag.of(MetricsHttpEventHandler.TRAFFIC_SOURCE_TAG, TrafficSource.HTTP.name().toLowerCase()),
+        Tag.of(MetricsHttpChannelListener.PATH_TAG, path),
+        Tag.of(MetricsHttpChannelListener.METHOD_TAG, method),
+        Tag.of(MetricsHttpChannelListener.STATUS_CODE_TAG, String.valueOf(statusCode)),
+        Tag.of(MetricsHttpChannelListener.TRAFFIC_SOURCE_TAG, TrafficSource.HTTP.name().toLowerCase()),
         Tag.of(UserAgentTagUtil.PLATFORM_TAG, "android")));
 
     if (versionActive) {
@@ -163,22 +143,23 @@ class MetricsHttpEventHandlerTest {
 
     final Request request = mock(Request.class);
     when(request.getMethod()).thenReturn(method);
-    final HttpFields.Mutable requestHeaders = HttpFields.build();
-    requestHeaders.put(HttpHeader.USER_AGENT, USER_AGENT);
-    when(request.getHeaders()).thenReturn(requestHeaders);
+    when(request.getHeader(HttpHeaders.USER_AGENT)).thenReturn("Signal-Android/6.53.7 (Android 8.1)");
     when(request.getHttpURI()).thenReturn(httpUri);
-    when(request.getAttribute(MetricsHttpEventHandler.REQUEST_INFO_PROPERTY_NAME))
-        .thenReturn(new MetricsHttpEventHandler.RequestInfo(path, method, USER_AGENT));
 
     final Response response = mock(Response.class);
     when(response.getStatus()).thenReturn(statusCode);
-    listener.onRequestRead(request, Content.Chunk.from(ByteBuffer.allocate(512), true));
-    listener.onResponseWrite(request, true, ByteBuffer.allocate(1024));
-    listener.onComplete(request, statusCode, requestHeaders, null);
+    when(response.getContentCount()).thenReturn(1024L);
+    when(request.getResponse()).thenReturn(response);
+    when(request.getContentRead()).thenReturn(512L);
+    final ExtendedUriInfo extendedUriInfo = mock(ExtendedUriInfo.class);
+    when(request.getAttribute(MetricsHttpChannelListener.URI_INFO_PROPERTY_NAME)).thenReturn(extendedUriInfo);
+    when(extendedUriInfo.getMatchedTemplates()).thenReturn(List.of(new UriTemplate(path)));
+
+    listener.onComplete(request);
 
     if (versionActive) {
       final ArgumentCaptor<Tags> tagCaptor = ArgumentCaptor.forClass(Tags.class);
-      verify(meterRegistry).counter(eq(MetricsHttpEventHandler.REQUESTS_BY_VERSION_COUNTER_NAME),
+      verify(meterRegistry).counter(eq(MetricsHttpChannelListener.REQUESTS_BY_VERSION_COUNTER_NAME),
           tagCaptor.capture());
       final Set<Tag> tags = new HashSet<>();
       tags.clear();
@@ -197,7 +178,7 @@ class MetricsHttpEventHandlerTest {
   @ParameterizedTest
   @MethodSource
   void normalizeMethod(@Nullable final String originalMethod, final String expectedMethod) {
-    assertEquals(expectedMethod, MetricsHttpEventHandler.normalizeMethod(originalMethod));
+    assertEquals(expectedMethod, MetricsHttpChannelListener.normalizeMethod(originalMethod));
   }
 
   private static List<Arguments> normalizeMethod() {
@@ -208,38 +189,5 @@ class MetricsHttpEventHandlerTest {
         Arguments.arguments("GET", "GET"),
         Arguments.arguments("get", "get")
     );
-  }
-
-  @Test
-  void testResponseFilterSetsRequestInfo() {
-    final ContainerRequest request = mock(ContainerRequest.class);
-
-    final ExtendedUriInfo extendedUriInfo = mock(ExtendedUriInfo.class);
-    when(extendedUriInfo.getMatchedTemplates()).thenReturn(List.of(new UriTemplate("/test")));
-    when(request.getMethod()).thenReturn("GET");
-    when(request.getHeaders()).thenReturn(null);
-    when(request.getUriInfo()).thenReturn(extendedUriInfo);
-    when(request.getHeaderString(HttpHeaders.USER_AGENT)).thenReturn(USER_AGENT);
-
-    new MetricsHttpEventHandler.SetInfoRequestFilter().filter(request, mock(ContainerResponse.class));
-
-    verify(request).setProperty(
-        eq(MetricsHttpEventHandler.REQUEST_INFO_PROPERTY_NAME),
-        eq(new MetricsHttpEventHandler.RequestInfo("/test", "GET", USER_AGENT)));
-  }
-
-  @Test
-  void testResponseFilterModifiesRequestInfo() {
-    final MetricsHttpEventHandler.RequestInfo requestInfo =
-        new MetricsHttpEventHandler.RequestInfo("unknown", "POST", USER_AGENT);
-
-    final ContainerRequest request = mock(ContainerRequest.class);
-    when(request.getProperty(MetricsHttpEventHandler.REQUEST_INFO_PROPERTY_NAME)).thenReturn(requestInfo);
-    final ExtendedUriInfo extendedUriInfo = mock(ExtendedUriInfo.class);
-    when(extendedUriInfo.getMatchedTemplates()).thenReturn(List.of(new UriTemplate("/test")));
-    when(request.getUriInfo()).thenReturn(extendedUriInfo);
-    new MetricsHttpEventHandler.SetInfoRequestFilter().filter(request, mock(ContainerResponse.class));
-
-    assertEquals(new MetricsHttpEventHandler.RequestInfo("/test", "POST", USER_AGENT), requestInfo);
   }
 }

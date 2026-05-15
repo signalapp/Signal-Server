@@ -4,6 +4,14 @@
  */
 package org.whispersystems.textsecuregcm.tests.util;
 
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketListener;
+import org.whispersystems.websocket.messages.WebSocketMessage;
+import org.whispersystems.websocket.messages.WebSocketMessageFactory;
+import org.whispersystems.websocket.messages.WebSocketResponseMessage;
+import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
+
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Objects;
@@ -11,14 +19,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import org.eclipse.jetty.websocket.api.Callback;
-import org.eclipse.jetty.websocket.api.Session;
-import org.whispersystems.websocket.messages.WebSocketMessage;
-import org.whispersystems.websocket.messages.WebSocketMessageFactory;
-import org.whispersystems.websocket.messages.WebSocketResponseMessage;
-import org.whispersystems.websocket.messages.protobuf.ProtobufWebSocketMessageFactory;
 
-public class TestWebsocketListener implements Session.Listener.AutoDemanding {
+public class TestWebsocketListener implements WebSocketListener {
 
   private final AtomicLong requestId = new AtomicLong();
   private final CompletableFuture<Session> started = new CompletableFuture<>();
@@ -32,7 +34,7 @@ public class TestWebsocketListener implements Session.Listener.AutoDemanding {
 
 
   @Override
-  public void onWebSocketOpen(final Session session) {
+  public void onWebSocketConnect(final Session session) {
     started.complete(session);
 
   }
@@ -61,15 +63,19 @@ public class TestWebsocketListener implements Session.Listener.AutoDemanding {
       responseFutures.put(id, future);
       final byte[] requestBytes = messageFactory.createRequest(
           Optional.of(id), verb, requestPath, headers, body).toByteArray();
-      session.sendBinary(ByteBuffer.wrap(requestBytes), Callback.NOOP);
+      try {
+        session.getRemote().sendBytes(ByteBuffer.wrap(requestBytes));
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
       return future;
     });
   }
 
   @Override
-  public void onWebSocketBinary(final ByteBuffer payload, final Callback callback) {
+  public void onWebSocketBinary(final byte[] payload, final int offset, final int length) {
     try {
-      WebSocketMessage webSocketMessage = messageFactory.parseMessage(payload);
+      WebSocketMessage webSocketMessage = messageFactory.parseMessage(payload, offset, length);
       if (Objects.requireNonNull(webSocketMessage.getType()) == WebSocketMessage.Type.RESPONSE_MESSAGE) {
         responseFutures.get(webSocketMessage.getResponseMessage().getRequestId())
             .complete(webSocketMessage.getResponseMessage());

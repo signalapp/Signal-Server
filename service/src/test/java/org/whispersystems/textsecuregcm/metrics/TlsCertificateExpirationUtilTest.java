@@ -149,13 +149,15 @@ class TlsCertificateExpirationUtilTest {
 
   @Test
   void test() throws Exception {
-    final Resource keystore = TestResource.fromBase64Mime("keystore", KEYSTORE_BASE64);
-    final KeyStore keyStore = CertificateUtils.getKeyStore(keystore, "PKCS12", null, KEYSTORE_PASSWORD);
+    try (Resource keystore = TestResource.fromBase64Mime("keystore", KEYSTORE_BASE64)) {
 
-    final Map<String, Instant> expected = Map.of(
-        "localhost:EdDSA", EDDSA_EXPIRATION,
-        "localhost:RSA", RSA_EXPIRATION);
-    assertEquals(expected, TlsCertificateExpirationUtil.getIdentifiersAndExpirations(keyStore, KEYSTORE_PASSWORD));
+      final KeyStore keyStore = CertificateUtils.getKeyStore(keystore, "PKCS12", null, KEYSTORE_PASSWORD);
+
+      final Map<String, Instant> expected = Map.of(
+          "localhost:EdDSA", EDDSA_EXPIRATION,
+          "localhost:RSA", RSA_EXPIRATION);
+      assertEquals(expected, TlsCertificateExpirationUtil.getIdentifiersAndExpirations(keyStore, KEYSTORE_PASSWORD));
+    }
   }
 
 }

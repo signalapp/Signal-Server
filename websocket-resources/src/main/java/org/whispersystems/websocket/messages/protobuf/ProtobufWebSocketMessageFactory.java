@@ -9,17 +9,16 @@ import org.whispersystems.websocket.messages.InvalidMessageException;
 import org.whispersystems.websocket.messages.WebSocketMessage;
 import org.whispersystems.websocket.messages.WebSocketMessageFactory;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
 
 public class ProtobufWebSocketMessageFactory implements WebSocketMessageFactory {
 
   @Override
-  public WebSocketMessage parseMessage(ByteBuffer serialized)
+  public WebSocketMessage parseMessage(byte[] serialized, int offset, int len)
       throws InvalidMessageException
   {
-    return new ProtobufWebSocketMessage(serialized);
+    return new ProtobufWebSocketMessage(serialized, offset, len);
   }
 
   @Override
