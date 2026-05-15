@@ -16,6 +16,7 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.security.Principal;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -24,9 +25,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.websocket.api.RemoteEndpoint;
 import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.UpgradeRequest;
 import org.eclipse.jetty.websocket.api.WebSocketListener;
 import org.eclipse.jetty.websocket.api.WriteCallback;
 import org.eclipse.jetty.websocket.api.exceptions.MessageTooLargeException;
@@ -191,7 +194,7 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
     ContainerRequest containerRequest = new ContainerRequest(null, URI.create(requestMessage.getPath()),
         requestMessage.getVerb(), new WebSocketSecurityContext(new ContextPrincipal(context)),
         new MapPropertiesDelegate(new HashMap<>()), jerseyHandler.getConfiguration());
-    containerRequest.headers(getCombinedHeaders(session.getUpgradeRequest().getHeaders(), requestMessage.getHeaders()));
+    containerRequest.headers(getCombinedHeaders(toLowerCaseHeaders(session.getUpgradeRequest().getHeaders()), requestMessage.getHeaders()));
 
     final int requestBytes = requestMessage.getBody().map(body -> body.length).orElse(0);
 
@@ -235,17 +238,32 @@ public class WebSocketResourceProvider<T extends Principal> implements WebSocket
         });
   }
 
+  private static Map<String, List<String>> toLowerCaseHeaders(Map<String, List<String>> headers) {
+    return headers.entrySet().stream().collect(Collectors.toMap(
+        entry -> entry.getKey().trim().toLowerCase(),
+        Map.Entry::getValue));
+  }
+
   @VisibleForTesting
-  static Map<String, List<String>> getCombinedHeaders(final Map<String, List<String>> upgradeRequestHeaders, final Map<String, String> requestMessageHeaders) {
+  static Map<String, List<String>> getCombinedHeaders(
+      final Map<String, List<String>> lowerCaseUpgradeRequestHeaders,
+      final Map<String, String> lowerCaseRequestMessageHeaders) {
     final Map<String, List<String>> combinedHeaders = new HashMap<>();
 
-    upgradeRequestHeaders.entrySet().stream()
+    lowerCaseUpgradeRequestHeaders.entrySet().stream()
         .filter(entry -> shouldIncludeUpgradeRequestHeader(entry.getKey()))
         .forEach(entry -> combinedHeaders.put(entry.getKey(), entry.getValue()));
 
-    requestMessageHeaders.entrySet().stream()
+    lowerCaseRequestMessageHeaders.entrySet().stream()
         .filter(entry -> shouldIncludeRequestMessageHeader(entry.getKey()))
         .forEach(entry -> combinedHeaders.put(entry.getKey(), List.of(entry.getValue())));
+
+    // 5/15/26: Typically, request-level headers should overwrite connection level headers, however some clients
+    // errantly supply a User-Agent header on their inner request. Once clients are updated this can be removed.
+    final List<String> userAgentFromUpgradeRequest = lowerCaseUpgradeRequestHeaders.get(HttpHeaders.USER_AGENT.toLowerCase());
+    if (userAgentFromUpgradeRequest != null) {
+      combinedHeaders.put(HttpHeaders.USER_AGENT.toLowerCase(), userAgentFromUpgradeRequest);
+    }
 
     return combinedHeaders;
   }

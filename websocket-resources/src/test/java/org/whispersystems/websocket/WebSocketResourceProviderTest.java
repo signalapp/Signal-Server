@@ -701,8 +701,17 @@ class WebSocketResourceProviderTest {
         HttpHeaders.X_FORWARDED_FOR, List.of("127.0.0.1"),
         HttpHeaders.USER_AGENT, List.of("Request message user agent"));
 
+
     assertThat(WebSocketResourceProvider.getCombinedHeaders(upgradeRequestHeaders, requestMessageHeaders)).isEqualTo(
         expectedHeaders);
+  }
+
+  @Test
+  void testGetCombinedHeadersUpgradeUserAgentWins() {
+    final Map<String, String> requestMessageHeaders = Map.of(HttpHeaders.USER_AGENT.toLowerCase(), "request-user-agent");
+    final Map<String, List<String>> upgradeRequestHeaders = Map.of(HttpHeaders.USER_AGENT.toLowerCase(), List.of("upgrade-user-agent"));
+    assertThat(WebSocketResourceProvider.getCombinedHeaders(upgradeRequestHeaders, requestMessageHeaders))
+        .containsExactlyEntriesOf(upgradeRequestHeaders);
   }
 
   private SubProtocol.WebSocketResponseMessage getResponse(ArgumentCaptor<ByteBuffer> responseCaptor)
