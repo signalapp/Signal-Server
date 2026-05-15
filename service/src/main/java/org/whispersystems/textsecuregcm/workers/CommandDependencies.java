@@ -52,6 +52,7 @@ import org.whispersystems.textsecuregcm.securevaluerecovery.SecureValueRecoveryC
 import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriodManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbRecoveryManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
@@ -281,9 +282,11 @@ public record CommandDependencies(
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
+    final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = new ChangeNumberWaitingPeriodManager(
+        rateLimitersCluster, configuration.getChangeNumber().postRegistrationWaitingPeriod());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keys, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
+        changeNumberWaitingPeriodManager, secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, accountLockExecutor, messagePollExecutor,
         retryExecutor, clock, configuration.getLinkDeviceSecretConfiguration().secret().value());
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster, retryExecutor);

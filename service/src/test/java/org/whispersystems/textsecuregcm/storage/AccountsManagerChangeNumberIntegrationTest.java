@@ -138,6 +138,7 @@ class AccountsManagerChangeNumberIntegrationTest {
           keysManager,
           messagesManager,
           profilesManager,
+          mock(ChangeNumberWaitingPeriodManager.class),
           secureStorageClient,
           svr2Client,
           disconnectionRequestManager,

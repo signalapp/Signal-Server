@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -23,7 +24,6 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -66,6 +66,7 @@ public class ChangeNumberManagerTest {
   private AccountsManager accountsManager;
   private PhoneVerificationTokenManager phoneVerificationTokenManager;
   private RegistrationLockVerificationManager registrationLockVerificationManager;
+  private ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager;
   private RateLimiter rateLimiter;
 
   private ChangeNumberManager changeNumberManager;
@@ -74,21 +75,14 @@ public class ChangeNumberManagerTest {
 
   private static final TestClock CLOCK = TestClock.pinned(Instant.now());
 
-  private static final Duration POST_REGISTRATION_WAITING_PERIOD = Duration.ofHours(2);
-  private static final Device DEFAULT_PRIMARY_DEVICE;
-  static {
-    DEFAULT_PRIMARY_DEVICE = new Device();
-    DEFAULT_PRIMARY_DEVICE.setId((byte) 1);
-    DEFAULT_PRIMARY_DEVICE.setCreated(CLOCK.instant().minus(POST_REGISTRATION_WAITING_PERIOD).minusSeconds(1).toEpochMilli());
-  }
-
   @BeforeEach
   void setUp() throws Exception {
     messageSender = mock(MessageSender.class);
     accountsManager = mock(AccountsManager.class);
     registrationLockVerificationManager = mock(RegistrationLockVerificationManager.class);
-    rateLimiter = mock(RateLimiter.class);
     phoneVerificationTokenManager = mock(PhoneVerificationTokenManager.class);
+    changeNumberWaitingPeriodManager = mock(ChangeNumberWaitingPeriodManager.class);
+    rateLimiter = mock(RateLimiter.class);
 
     when(phoneVerificationTokenManager.verify(any(), any(), any(), any())).thenAnswer(invocation -> {
       final byte[] sessionId = invocation.getArgument(2);
@@ -98,12 +92,14 @@ public class ChangeNumberManagerTest {
           : PhoneVerificationRequest.VerificationType.RECOVERY_PASSWORD;
     });
 
+    when(changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(any())).thenReturn(Optional.empty());
+
     final RateLimiters rateLimiters = mock(RateLimiters.class);
     when(rateLimiters.getRegistrationLimiter()).thenReturn(rateLimiter);
 
     changeNumberManager = new ChangeNumberManager(messageSender, accountsManager,
         phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters,
-        POST_REGISTRATION_WAITING_PERIOD, CLOCK);
+        changeNumberWaitingPeriodManager, CLOCK);
 
     updatedPhoneNumberIdentifiersByAccount = new HashMap<>();
 
@@ -163,7 +159,6 @@ public class ChangeNumberManagerTest {
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
-    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
@@ -206,7 +201,6 @@ public class ChangeNumberManagerTest {
     when(account.getDevice(primaryDeviceId)).thenReturn(Optional.of(primaryDevice));
     when(account.getDevice(linkedDeviceId)).thenReturn(Optional.of(linkedDevice));
     when(account.getDevices()).thenReturn(List.of(primaryDevice, linkedDevice));
-    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     final ECKeyPair pniIdentityKeyPair = ECKeyPair.generate();
     final IdentityKey pniIdentityKey = new IdentityKey(pniIdentityKeyPair.getPublicKey());
@@ -289,7 +283,6 @@ public class ChangeNumberManagerTest {
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
-    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
@@ -329,7 +322,6 @@ public class ChangeNumberManagerTest {
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
-    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
@@ -378,7 +370,6 @@ public class ChangeNumberManagerTest {
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(accountIdentifier);
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
-    when(account.getPrimaryDevice()).thenReturn(DEFAULT_PRIMARY_DEVICE);
 
     final Account existingAccount = mock(Account.class);
     when(existingAccount.getNumber()).thenReturn(targetNumber);
@@ -407,7 +398,13 @@ public class ChangeNumberManagerTest {
 
   @ParameterizedTest
   @MethodSource
-  void testRecentRegistration(final boolean expectRateLimited, final boolean sameNumber, final Instant registrationInstant) throws Throwable {
+  void testRecentRegistration(final boolean expectRateLimited, final boolean sameNumber, final boolean waitingPeriodMet) throws Throwable {
+
+    final Duration waitingPeriod = Duration.ofMinutes(30);
+
+    reset(changeNumberWaitingPeriodManager);
+    when(changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(any()))
+        .thenReturn(waitingPeriodMet ? Optional.empty() : Optional.of(waitingPeriod));
 
     final String originalNumber = PhoneNumberUtil.getInstance().format(
         PhoneNumberUtil.getInstance().getExampleNumber("DE"), PhoneNumberUtil.PhoneNumberFormat.E164);
@@ -434,10 +431,6 @@ public class ChangeNumberManagerTest {
     when(account.isIdentifiedBy(any())).thenReturn(false);
     when(account.isIdentifiedBy(new AciServiceIdentifier(accountIdentifier))).thenReturn(true);
 
-    final Device primaryDevice = mock(Device.class);
-    when(account.getPrimaryDevice()).thenReturn(primaryDevice);
-    when(primaryDevice.getCreated()).thenReturn(registrationInstant.toEpochMilli());
-
     when(accountsManager.getAccountsForChangeNumber(eq(accountIdentifier), any()))
         .thenReturn(new Pair<>(account, Optional.empty()));
 
@@ -454,8 +447,7 @@ public class ChangeNumberManagerTest {
         mock(ContainerRequestContext.class));
     if (expectRateLimited) {
       final RateLimitExceededException e = assertThrows(RateLimitExceededException.class, changeNumberOperation);
-
-      assertEquals(Duration.between(CLOCK.instant().minus(POST_REGISTRATION_WAITING_PERIOD), registrationInstant), e.getRetryDuration().orElseThrow());
+      assertEquals(waitingPeriod, e.getRetryDuration().orElseThrow());
     } else {
       changeNumberOperation.execute();
       verify(accountsManager).changeNumber(accountIdentifier, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyMap());
@@ -463,16 +455,11 @@ public class ChangeNumberManagerTest {
   }
 
   static Collection<Arguments> testRecentRegistration() {
-    // truncate to millis because that is the resolution for device.created
-    final Instant tooRecent = CLOCK.instant().minus(POST_REGISTRATION_WAITING_PERIOD).plusSeconds(1)
-        .truncatedTo(ChronoUnit.MILLIS);
-    final Instant outsideWaitingPeriod = CLOCK.instant().minus(POST_REGISTRATION_WAITING_PERIOD).minusSeconds(1)
-        .truncatedTo(ChronoUnit.MILLIS);
     return List.of(
         // expect exception, same number, registration instant
-        Arguments.argumentSet("waiting period elapsed", false, false, outsideWaitingPeriod),
-        Arguments.argumentSet("waiting period not elapsed", true, false, tooRecent),
-        Arguments.argumentSet("waiting period not elapsed; same number", false, true, tooRecent)
+        Arguments.argumentSet("waiting period elapsed", false, false, true),
+        Arguments.argumentSet("waiting period not elapsed", true, false, false),
+        Arguments.argumentSet("waiting period not elapsed; same number", false, true, false)
     );
   }
 }

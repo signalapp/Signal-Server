@@ -147,6 +147,7 @@ class AccountsManagerTest {
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
+    final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = mock(ChangeNumberWaitingPeriodManager.class);
 
     //noinspection unchecked
     asyncCommands = mock(RedisAsyncCommands.class);
@@ -183,7 +184,7 @@ class AccountsManagerTest {
 
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString())).thenAnswer((Answer<CompletableFuture<UUID>>) invocation -> {
       final String number = invocation.getArgument(0, String.class);
-      return CompletableFuture.completedFuture(phoneNumberIdentifiersByE164.computeIfAbsent(number, n -> UUID.randomUUID()));
+      return CompletableFuture.completedFuture(phoneNumberIdentifiersByE164.computeIfAbsent(number, _ -> UUID.randomUUID()));
     });
 
     final AccountLockManager accountLockManager = mock(AccountLockManager.class);
@@ -214,6 +215,8 @@ class AccountsManagerTest {
         .build();
 
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(changeNumberWaitingPeriodManager.handleAccountCreated(any(UUID.class), any(Instant.class)))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     accountsManager = new AccountsManager(
         accounts,
@@ -224,6 +227,7 @@ class AccountsManagerTest {
         keysManager,
         messagesManager,
         profilesManager,
+        changeNumberWaitingPeriodManager,
         storageClient,
         svr2Client,
         disconnectionRequestManager,

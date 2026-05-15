@@ -129,6 +129,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   private final KeysManager keysManager;
   private final MessagesManager messagesManager;
   private final ProfilesManager profilesManager;
+  private final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager;
   private final SecureStorageClient secureStorageClient;
   private final SecureValueRecoveryClient secureValueRecovery2Client;
   private final DisconnectionRequestManager disconnectionRequestManager;
@@ -210,7 +211,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
       final AccountLockManager accountLockManager,
       final KeysManager keysManager,
       final MessagesManager messagesManager,
-      final ProfilesManager profilesManager,
+      final ProfilesManager profilesManager, final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager,
       final SecureStorageClient secureStorageClient,
       final SecureValueRecoveryClient secureValueRecovery2Client,
       final DisconnectionRequestManager disconnectionRequestManager,
@@ -227,6 +228,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     this.keysManager = keysManager;
     this.messagesManager = messagesManager;
     this.profilesManager = profilesManager;
+    this.changeNumberWaitingPeriodManager = changeNumberWaitingPeriodManager;
     this.secureStorageClient = secureStorageClient;
     this.secureValueRecovery2Client = secureValueRecovery2Client;
     this.disconnectionRequestManager = disconnectionRequestManager;
@@ -403,7 +405,8 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             return CompletableFuture.allOf(keysManager.deleteSingleUsePreKeys(aci),
                 keysManager.deleteSingleUsePreKeys(pni),
                 messagesManager.clear(aci),
-                profilesManager.deleteAll(aci, false));
+                profilesManager.deleteAll(aci, false),
+                changeNumberWaitingPeriodManager.handleAccountCreated(aci, clock.instant()));
           })
           .join();
     }

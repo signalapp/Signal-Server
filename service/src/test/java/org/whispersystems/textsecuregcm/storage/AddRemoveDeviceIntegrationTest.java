@@ -148,6 +148,7 @@ public class AddRemoveDeviceIntegrationTest {
         keysManager,
         messagesManager,
         profilesManager,
+        mock(ChangeNumberWaitingPeriodManager.class),
         secureStorageClient,
         svr2Client,
         mock(DisconnectionRequestManager.class),

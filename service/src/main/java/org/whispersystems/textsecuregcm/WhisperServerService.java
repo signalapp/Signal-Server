@@ -235,6 +235,7 @@ import org.whispersystems.textsecuregcm.storage.AccountLockManager;
 import org.whispersystems.textsecuregcm.storage.Accounts;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
+import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriodManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleases;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
@@ -705,11 +706,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RedisMessageAvailabilityManager(messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
         reportMessageManager, messageDeletionAsyncExecutor, Clock.systemUTC());
+    final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = new ChangeNumberWaitingPeriodManager(
+        rateLimitersCluster, config.getChangeNumber().postRegistrationWaitingPeriod());
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         config.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,
         pubsubClient, accountLockManager, keysManager, messagesManager, profilesManager,
-        secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
+        changeNumberWaitingPeriodManager, secureStorageClient, secureValueRecovery2Client, disconnectionRequestManager,
         registrationRecoveryPasswordsManager, accountLockExecutor, messagePollExecutor,
         retryExecutor, clock, config.getLinkDeviceSecretConfiguration().secret().value());
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
@@ -1118,7 +1121,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final ChangeNumberManager changeNumberManager = new ChangeNumberManager(messageSender, accountsManager,
         phoneVerificationTokenManager, registrationLockVerificationManager, rateLimiters,
-        config.getChangeNumber().postRegistrationWaitingPeriod(), Clock.systemUTC());
+        changeNumberWaitingPeriodManager, Clock.systemUTC());
 
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, registrationRecoveryPasswordsManager,

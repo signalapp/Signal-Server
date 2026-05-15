@@ -13,7 +13,6 @@ import io.micrometer.core.instrument.Tags;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,7 +47,7 @@ public class ChangeNumberManager {
   private final AccountsManager accountsManager;
   private final PhoneVerificationTokenManager phoneVerificationTokenManager;
   private final RegistrationLockVerificationManager registrationLockVerificationManager;
-  private final Duration postRegistrationWaitingPeriod;
+  private final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager;
   private final RateLimiters rateLimiters;
   private final Clock clock;
 
@@ -66,7 +65,7 @@ public class ChangeNumberManager {
       final PhoneVerificationTokenManager phoneVerificationTokenManager,
       final RegistrationLockVerificationManager registrationLockVerificationManager,
       final RateLimiters rateLimiters,
-      final Duration postRegistrationWaitingPeriod,
+      final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager,
       final Clock clock) {
 
     this.messageSender = messageSender;
@@ -74,7 +73,7 @@ public class ChangeNumberManager {
     this.phoneVerificationTokenManager = phoneVerificationTokenManager;
     this.registrationLockVerificationManager = registrationLockVerificationManager;
     this.rateLimiters = rateLimiters;
-    this.postRegistrationWaitingPeriod = postRegistrationWaitingPeriod;
+    this.changeNumberWaitingPeriodManager = changeNumberWaitingPeriodManager;
     this.clock = clock;
   }
 
@@ -101,11 +100,10 @@ public class ChangeNumberManager {
     // Only verify and check reglock if there's a data change to be made...
     if (!account.getNumber().equals(number)) {
 
-      final Instant registration = Instant.ofEpochMilli(account.getPrimaryDevice().getCreated());
-      final Duration waitingPeriodRemaining = Duration.between(clock.instant().minus(postRegistrationWaitingPeriod), registration);
-      if (waitingPeriodRemaining.isPositive()) {
+      final Optional<Duration> waitingPeriodRemaining = changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(account.getUuid());
+      if (waitingPeriodRemaining.isPresent()) {
         Metrics.counter(POST_REGISTRATION_WAITING_PERIOD_NOT_MET_COUNTER_NAME).increment();
-        throw new RateLimitExceededException(waitingPeriodRemaining);
+        throw new RateLimitExceededException(waitingPeriodRemaining.get());
       }
 
       rateLimiters.getRegistrationLimiter().validate(number);
