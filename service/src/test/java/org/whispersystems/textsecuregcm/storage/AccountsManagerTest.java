@@ -1460,22 +1460,22 @@ class AccountsManagerTest {
     final UUID accountIdentifier = account.getIdentifier(IdentityType.ACI);
     addRetrievableAccount(account);
 
-    account.setCurrentProfileVersion(HexFormat.of().formatHex(currentVersion));
+    account.setCurrentProfileVersion(currentVersion);
 
     final AccountBadge badge = new AccountBadge("test", CLOCK.instant().plusSeconds(60), true);
 
     assertTrue(account.getBadges().isEmpty());
 
     if (expectException) {
-      assertThrows(WriteConflictException.class, () -> accountsManager.updateCurrentProfileVersion(accountIdentifier, newVersion, HexFormat.of().formatHex(expectedVersion), _ -> {}));
+      assertThrows(WriteConflictException.class, () -> accountsManager.updateCurrentProfileVersion(accountIdentifier, newVersion, expectedVersion, _ -> {}));
     } else {
       final Account updatedAccount = accountsManager.updateCurrentProfileVersion(accountIdentifier, newVersion,
-          HexFormat.of().formatHex(expectedVersion), a -> {
+          expectedVersion, a -> {
 
               a.setBadges(CLOCK, new ArrayList<>(List.of(badge)));
           });
 
-      assertArrayEquals(newVersion, HexFormat.of().parseHex(updatedAccount.getCurrentProfileVersion().orElseThrow()));
+      assertArrayEquals(newVersion, updatedAccount.getCurrentProfileVersion().orElseThrow());
       assertEquals(List.of(badge), updatedAccount.getBadges());
     }
   }

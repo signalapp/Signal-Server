@@ -304,7 +304,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final byte[] validPhoneNumberSharing = new byte[29];
 
     when(account.getCurrentProfileVersion()).thenReturn(
-        Optional.of(HexFormat.of().formatHex(TestRandomUtil.nextBytes(32))));
+        Optional.of(TestRandomUtil.nextBytes(32)));
 
     final SetProfileRequest request = SetProfileRequest.newBuilder()
         .setVersion(ByteString.copyFrom(VERSION))
@@ -715,7 +715,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setVersion(ByteString.copyFrom(requestVersion))
         .build();
 
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.ofNullable(accountVersion).map(v -> HexFormat.of().formatHex(v)));
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.ofNullable(accountVersion));
     when(accountsManager.getByServiceIdentifier(any())).thenReturn(Optional.of(account));
     when(profilesManager.getV1(any(), any())).thenReturn(profile);
 
@@ -757,7 +757,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     final byte[] commitment = TestRandomUtil.nextBytes(97);
     final byte[] version = TestRandomUtil.nextBytes(32);
-    final String versionHex = HexFormat.of().formatHex(version);
 
     final UUID targetAci = UUID.randomUUID();
     final VersionedProfile v2Profile = new VersionedProfile(version, data, paymentAddress, commitment);
@@ -766,7 +765,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAci)))
         .thenReturn(Optional.of(targetAccount));
     when(targetAccount.getUuid()).thenReturn(targetAci);
-    when(targetAccount.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex));
+    when(targetAccount.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(targetAccount.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
 
     when(profilesManager.get(eq(targetAci), aryEq(version))).thenReturn(Optional.of(v2Profile));
@@ -801,7 +800,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     final byte[] commitment = TestRandomUtil.nextBytes(97);
     final byte[] version = TestRandomUtil.nextBytes(32);
-    final String versionHex = HexFormat.of().formatHex(version);
     final VersionedProfile v2Profile = new VersionedProfile(version, data, paymentAddress, commitment);
 
     final UUID targetAci = UUID.randomUUID();
@@ -810,7 +808,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     when(targetAccount.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(targetAci))).thenReturn(Optional.of(targetAccount));
 
-    when(targetAccount.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex));
+    when(targetAccount.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(profilesManager.get(targetAci, version)).thenReturn(Optional.of(v2Profile));
     when(profilesManager.getV1(any(), any())).thenReturn(Optional.empty());
 

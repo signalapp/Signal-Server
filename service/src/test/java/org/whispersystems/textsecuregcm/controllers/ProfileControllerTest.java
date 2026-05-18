@@ -950,13 +950,14 @@ class ProfileControllerTest {
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
 
-    final String version = versionHex("someversion");
+    final byte[] version = version("someversion");
+    final String versionHex = HexFormat.of().formatHex(version);
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(
-            new CreateProfileRequest(commitment, version, name, null, null, paymentAddress, false, false,
+            new CreateProfileRequest(commitment, versionHex, name, null, null, paymentAddress, false, false,
                 Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -969,13 +970,14 @@ class ProfileControllerTest {
   @Test
   void testGetProfileReturnsNoPaymentAddressIfCurrentVersionMismatch() {
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
-    final String version = versionHex("validversion");
-    when(profilesManager.getV1(AuthHelper.VALID_UUID_TWO, version)).thenReturn(
-        Optional.of(new VersionedProfileV1(version, null, null, null, null, paymentAddress, null, null)));
+    final byte[] version = version("validversion");
+    final String versionHex = HexFormat.of().formatHex(version);
+    when(profilesManager.getV1(AuthHelper.VALID_UUID_TWO, versionHex)).thenReturn(
+        Optional.of(new VersionedProfileV1(versionHex, null, null, null, null, paymentAddress, null, null)));
 
     {
       final VersionedProfileResponse profile = resources.getJerseyTest()
-          .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/" + version)
+          .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/" + versionHex)
           .request()
           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
           .get(VersionedProfileResponse.class);
@@ -987,7 +989,7 @@ class ProfileControllerTest {
 
     {
       final VersionedProfileResponse profile = resources.getJerseyTest()
-          .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/" + version)
+          .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/" + versionHex)
           .request()
           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
           .get(VersionedProfileResponse.class);
@@ -995,11 +997,11 @@ class ProfileControllerTest {
       assertThat(profile.paymentAddress()).containsExactly(paymentAddress);
     }
 
-    when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex("someotherversion")));
+    when(profileAccount.getCurrentProfileVersion()).thenReturn(Optional.of(version("someotherversion")));
 
     {
       final VersionedProfileResponse profile = resources.getJerseyTest()
-          .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/" + version)
+          .target("/v1/profile/" + AuthHelper.VALID_UUID_TWO + "/" + versionHex)
           .request()
           .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
           .get(VersionedProfileResponse.class);
@@ -1013,13 +1015,13 @@ class ProfileControllerTest {
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getIdentifier(IdentityType.ACI)).thenReturn(AuthHelper.VALID_UUID);
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex("version")));
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version("version")));
 
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(account));
     when(profilesManager.getV1(any(), any())).thenReturn(Optional.empty());
 
     final ExpiringProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, versionHex("version-that-does-not-exist"), "credential-request"))
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, HexFormat.of().formatHex(version("version-that-does-not-exist")), "credential-request"))
         .queryParam("credentialType", "expiringProfileKey")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
@@ -1043,12 +1045,13 @@ class ProfileControllerTest {
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
 
-    final String version = versionHex("anotherversion");
+    final byte[] version = version("anotherversion");
+    final String versionHex = HexFormat.of().formatHex(version);
     try (final Response response = resources.getJerseyTest()
         .target("/v1/profile/")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, version, name, emoji, about, null, false, false,
+        .put(Entity.entity(new CreateProfileRequest(commitment, versionHex, name, emoji, about, null, false, false,
             Optional.of(List.of("TEST2")), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -1071,7 +1074,7 @@ class ProfileControllerTest {
         .target("/v1/profile/")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, version, name, emoji, about, null, false, false,
+        .put(Entity.entity(new CreateProfileRequest(commitment, versionHex, name, emoji, about, null, false, false,
             Optional.of(List.of("TEST3", "TEST2")), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -1097,7 +1100,7 @@ class ProfileControllerTest {
         .target("/v1/profile/")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, version, name, emoji, about, null, false, false,
+        .put(Entity.entity(new CreateProfileRequest(commitment, versionHex, name, emoji, about, null, false, false,
             Optional.of(List.of("TEST2", "TEST3")), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -1123,7 +1126,7 @@ class ProfileControllerTest {
         .target("/v1/profile/")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, version, name, emoji, about, null, false, false,
+        .put(Entity.entity(new CreateProfileRequest(commitment, versionHex, name, emoji, about, null, false, false,
             Optional.of(List.of("TEST1")), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -1150,7 +1153,8 @@ class ProfileControllerTest {
     final byte[] name = TestRandomUtil.nextBytes(81);
     final byte[] emoji = TestRandomUtil.nextBytes(60);
     final byte[] about = TestRandomUtil.nextBytes(156);
-    final String version = versionHex("anotherversion");
+    final byte[] version = version("anotherversion");
+    final String versionHex = HexFormat.of().formatHex(version);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
     reset(accountsManager);
@@ -1173,7 +1177,7 @@ class ProfileControllerTest {
         .target("/v1/profile/")
         .request()
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
-        .put(Entity.entity(new CreateProfileRequest(commitment, version, name, emoji, about, null, false, false,
+        .put(Entity.entity(new CreateProfileRequest(commitment, versionHex, name, emoji, about, null, false, false,
             Optional.of(List.of("TEST1")), null), MediaType.APPLICATION_JSON_TYPE))) {
 
       assertThat(response.getStatus()).isEqualTo(200);
@@ -1198,7 +1202,8 @@ class ProfileControllerTest {
   @MethodSource
   void testGetProfileWithExpiringProfileKeyCredential(final MultivaluedMap<String, Object> authHeaders)
       throws VerificationFailedException, InvalidInputException {
-    final String version = versionHex("version");
+    final byte[] version = version("version");
+    final String versionHex = HexFormat.of().formatHex(version);
 
     final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
     final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
@@ -1233,12 +1238,12 @@ class ProfileControllerTest {
         serverZkProfile.issueExpiringProfileKeyCredential(credentialRequest, new ServiceId.Aci(AuthHelper.VALID_UUID), profileKeyCommitment, expiration);
 
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(account));
-    when(profilesManager.getV1(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
+    when(profilesManager.getV1(AuthHelper.VALID_UUID, versionHex)).thenReturn(Optional.of(versionedProfile));
     when(zkProfileOperations.issueExpiringProfileKeyCredential(eq(credentialRequest), eq(new ServiceId.Aci(AuthHelper.VALID_UUID)), eq(profileKeyCommitment), any()))
         .thenReturn(credentialResponse);
 
     final ExpiringProfileKeyCredentialProfileResponse profile = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, versionHex,
             HexFormat.of().formatHex(credentialRequest.serialize())))
         .queryParam("credentialType", "expiringProfileKey")
         .request()
@@ -1267,7 +1272,8 @@ class ProfileControllerTest {
   @Test
   void testGetProfileWithExpiringProfileKeyCredentialBadRequest()
       throws VerificationFailedException, InvalidInputException {
-    final String version = versionHex("version");
+    final byte[] version = version("version");
+    final String versionHex = HexFormat.of().formatHex(version);
 
     final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
     final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
@@ -1294,12 +1300,12 @@ class ProfileControllerTest {
     when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
 
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(account));
-    when(profilesManager.getV1(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
+    when(profilesManager.getV1(AuthHelper.VALID_UUID, versionHex)).thenReturn(Optional.of(versionedProfile));
     when(zkProfileOperations.issueExpiringProfileKeyCredential(any(), any(), any(), any()))
         .thenThrow(new VerificationFailedException());
 
     final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, versionHex,
             HexFormat.of().formatHex(credentialRequest.serialize())))
         .queryParam("credentialType", "expiringProfileKey")
         .request()
@@ -1312,7 +1318,8 @@ class ProfileControllerTest {
   @Test
   void testGetProfileWithExpiringProfileKeyCredentialNonCurrentVersion()
       throws VerificationFailedException, InvalidInputException {
-    final String version = versionHex("version");
+    final byte[] version = version("version");
+    final String versionHex = HexFormat.of().formatHex(version);
 
     final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
     final ServerPublicParams serverPublicParams = serverSecretParams.getPublicParams();
@@ -1338,13 +1345,13 @@ class ProfileControllerTest {
     when(account.getUuid()).thenReturn(AuthHelper.VALID_UUID);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(UNIDENTIFIED_ACCESS_KEY));
     when(account.isIdentifiedBy(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(true);
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex("the-current-version")));
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version("the-current-version")));
 
     when(accountsManager.getByServiceIdentifier(new AciServiceIdentifier(AuthHelper.VALID_UUID))).thenReturn(Optional.of(account));
-    when(profilesManager.getV1(AuthHelper.VALID_UUID, version)).thenReturn(Optional.of(versionedProfile));
+    when(profilesManager.getV1(AuthHelper.VALID_UUID, versionHex)).thenReturn(Optional.of(versionedProfile));
 
     final Response response = resources.getJerseyTest()
-        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, version,
+        .target(String.format("/v1/profile/%s/%s/%s", AuthHelper.VALID_UUID, versionHex,
             HexFormat.of().formatHex(credentialRequest.serialize())))
         .queryParam("credentialType", "expiringProfileKey")
         .request()
@@ -1580,11 +1587,15 @@ class ProfileControllerTest {
     }
   }
 
-  private static String versionHex(final String versionString) {
+  private static byte[] version(final String versionString) {
     try {
-      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(versionString.getBytes(StandardCharsets.UTF_8)));
+      return MessageDigest.getInstance("SHA-256").digest(versionString.getBytes(StandardCharsets.UTF_8));
     } catch (NoSuchAlgorithmException e) {
       throw new AssertionError(e);
     }
+  }
+
+  private static String versionHex(final String versionString) {
+    return HexFormat.of().formatHex(version(versionString));
   }
 }

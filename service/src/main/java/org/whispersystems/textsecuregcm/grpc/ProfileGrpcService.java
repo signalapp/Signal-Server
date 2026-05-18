@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.grpc;
 import com.google.protobuf.ByteString;
 import java.time.Clock;
 import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -107,11 +108,8 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
 
     validateRequest(request);
 
-    final String expectedCurrentVersionHex = HexFormat.of().formatHex(request.getExpectedCurrentVersion().toByteArray());
-
-    final boolean currentVersionMatchesExpected = account.getCurrentProfileVersion().isEmpty()
-        ? request.getExpectedCurrentVersion().isEmpty()
-        : account.getCurrentProfileVersion().get().equals(expectedCurrentVersionHex);
+    final byte[] expectedCurrentVersion = request.getExpectedCurrentVersion().toByteArray();
+    final boolean currentVersionMatchesExpected = Arrays.equals(account.getCurrentProfileVersion().orElse(new byte[0]), expectedCurrentVersion);
 
     if (!currentVersionMatchesExpected) {
       return SetProfileResponse.newBuilder().setExpectedVersionWriteConflict(FailedPrecondition.newBuilder()
@@ -177,7 +175,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     }
 
     try {
-      accountsManager.updateCurrentProfileVersion(account.getIdentifier(IdentityType.ACI), version, expectedCurrentVersionHex, a -> {
+      accountsManager.updateCurrentProfileVersion(account.getIdentifier(IdentityType.ACI), version, expectedCurrentVersion, a -> {
 
         final List<AccountBadge> updatedBadges = Optional.of(request.getBadgeIdsList())
             .map(badges -> ProfileHelper.mergeBadgeIdsWithExistingAccountBadges(clock, badgeConfigurationMap, badges,

@@ -372,7 +372,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
 
     final Optional<VersionedProfileV1> profile = Optional.of(new VersionedProfileV1(HexFormat.of().formatHex(requestVersion), name, avatar, emoji, about, paymentAddress, phoneNumberSharing, new byte[0]));
 
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.ofNullable(accountVersion).map(v -> HexFormat.of().formatHex(v)));
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.ofNullable(accountVersion));
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
 
@@ -428,10 +428,9 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     final byte[] commitment = TestRandomUtil.nextBytes(97);
     final byte[] version = TestRandomUtil.nextBytes(32);
-    final String versionHex = HexFormat.of().formatHex(version);
     final VersionedProfile v2Profile = new VersionedProfile(version, data, paymentAddress, commitment);
 
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex));
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);
@@ -472,10 +471,9 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     final byte[] commitment = TestRandomUtil.nextBytes(97);
     final byte[] version = TestRandomUtil.nextBytes(32);
-    final String versionHex = HexFormat.of().formatHex(version);
     final VersionedProfile v2Profile = new VersionedProfile(version, data, paymentAddress, commitment);
 
-    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(versionHex));
+    when(account.getCurrentProfileVersion()).thenReturn(Optional.of(version));
     when(account.isUnrestrictedUnidentifiedAccess()).thenReturn(false);
     when(account.getUnidentifiedAccessKey()).thenReturn(Optional.of(unidentifiedAccessKey));
     when(account.hasCapability(DeviceCapability.PROFILES_V2)).thenReturn(true);

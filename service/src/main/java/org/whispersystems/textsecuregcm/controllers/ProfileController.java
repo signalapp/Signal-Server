@@ -216,7 +216,7 @@ public class ProfileController {
           .orElseGet(a::getBadges);
 
       a.setBadges(clock, updatedBadges);
-      a.setCurrentProfileVersion(request.version());
+      a.setCurrentProfileVersion(HexFormat.of().parseHex(request.version()));
     });
 
     if (request.getAvatarChange() == CreateProfileRequest.AvatarChange.UPDATE) {
@@ -436,7 +436,7 @@ public class ProfileController {
 
     final ExpiringProfileKeyCredentialResponse expiringProfileKeyCredentialResponse;
 
-    if (account.getCurrentProfileVersion().map(version::equals).orElse(false)) {
+    if (account.getCurrentProfileVersion().map(v -> HexFormat.of().formatHex(v).equals(version)).orElse(false)) {
       expiringProfileKeyCredentialResponse = profilesManager.getV1(account.getUuid(), version)
           .map(profile -> {
             final ExpiringProfileKeyCredentialResponse profileKeyCredentialResponse;
@@ -488,7 +488,7 @@ public class ProfileController {
     // Allow requests where either the version matches the latest version on Account or the latest version on Account
     // is empty to read the payment address.
     final byte[] paymentAddress = maybeProfile
-        .filter(p -> account.getCurrentProfileVersion().map(v -> v.equals(p.version())).orElse(true))
+        .filter(p -> account.getCurrentProfileVersion().map(v -> HexFormat.of().formatHex(v).equals(p.version())).orElse(true))
         .map(VersionedProfileV1::paymentAddress)
         .orElse(null);
 

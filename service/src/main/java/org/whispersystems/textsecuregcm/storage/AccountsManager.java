@@ -967,7 +967,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   ///
   /// @throws WriteConflictException if the expected current version does not match the current version
   public Account updateCurrentProfileVersion(final UUID accountIdentifier, final byte[] newVersion,
-      final String expectedCurrentVersion, final Consumer<Account> updater) throws WriteConflictException {
+      final byte[] expectedCurrentVersion, final Consumer<Account> updater) throws WriteConflictException {
 
     Objects.requireNonNull(expectedCurrentVersion, "expectedCurrentVersion");
 
@@ -975,22 +975,20 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
     final Account account = accounts.getByAccountIdentifier(accountIdentifier)
         .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier));
 
-    final String newVersionHex = HexFormat.of().formatHex(newVersion);
-
     return accountLockManager.withLock(Set.of(account.getPhoneNumberIdentifier()), () -> {
       final Account maybeUpdatedAccount = update(accountIdentifier, a -> {
-        if (!a.getCurrentProfileVersion().orElse("").equals(expectedCurrentVersion)) {
+        if (!a.getCurrentProfileVersion().orElse(new byte[0]).equals(expectedCurrentVersion)) {
           return false;
         }
 
-        a.setCurrentProfileVersion(newVersionHex);
+        a.setCurrentProfileVersion(newVersion);
 
         updater.accept(a);
 
         return true;
       });
 
-      if (!maybeUpdatedAccount.getCurrentProfileVersion().map(v -> v.equals(newVersionHex)).orElse(false)) {
+      if (!maybeUpdatedAccount.getCurrentProfileVersion().map(v -> v.equals(newVersion)).orElse(false)) {
         throw new WriteConflictException();
       }
 

@@ -171,7 +171,7 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     }
 
     final boolean discoverableByPhoneNumber = false;
-    final String currentProfileVersion = "cpv";
+    final byte[] currentProfileVersion = new byte[32];
     final IdentityKey identityKey = new IdentityKey(ECKeyPair.generate().getPublicKey());
     final byte[] unidentifiedAccessKey = new byte[]{1};
     final String pin = "1234";
@@ -214,11 +214,11 @@ class AccountsManagerConcurrentModificationIntegrationTest {
     return JsonHelpers.fromJson(redisSetArgumentCapture.getValue(), Account.class);
   }
 
-  private void verifyAccount(final String name, final Account account, final boolean discoverableByPhoneNumber, final String currentProfileVersion, final IdentityKey identityKey, final byte[] unidentifiedAccessKey, final String pin, final String clientRegistrationLock, final boolean unrestrictedUnidentifiedAccess, final long lastSeen) {
+  private void verifyAccount(final String name, final Account account, final boolean discoverableByPhoneNumber, final byte[] currentProfileVersion, final IdentityKey identityKey, final byte[] unidentifiedAccessKey, final String pin, final String clientRegistrationLock, final boolean unrestrictedUnidentifiedAccess, final long lastSeen) {
 
     assertAll(name,
         () -> assertEquals(discoverableByPhoneNumber, account.isDiscoverableByPhoneNumber()),
-        () -> assertEquals(currentProfileVersion, account.getCurrentProfileVersion().orElseThrow()),
+        () -> assertArrayEquals(currentProfileVersion, account.getCurrentProfileVersion().orElseThrow()),
         () -> assertEquals(identityKey, account.getIdentityKey(IdentityType.ACI)),
         () -> assertArrayEquals(unidentifiedAccessKey, account.getUnidentifiedAccessKey().orElseThrow()),
         () -> assertTrue(account.getRegistrationLock().verify(clientRegistrationLock)),

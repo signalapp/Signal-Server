@@ -95,7 +95,7 @@ public class ProfileGrpcHelper {
 
     // Include payment address if the version matches the latest version on Account or the latest version on Account
     // is empty
-    if (account.getCurrentProfileVersion().map(v -> v.equals(HexFormat.of().formatHex(requestVersion))).orElse(true)) {
+    if (account.getCurrentProfileVersion().map(v -> Arrays.equals(v, requestVersion)).orElse(true)) {
       final Optional<byte []> paymentAddress = profile.map(VersionedProfile::paymentAddress).or(() -> v1Profile.map(VersionedProfileV1::paymentAddress));
 
       if (paymentAddress.isPresent()) {

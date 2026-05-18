@@ -1146,7 +1146,7 @@ class AccountsTest {
     final Account secondAccountInstance = accounts.getByAccountIdentifier(firstAccountInstance.getUuid()).orElseThrow();
 
     // update via the first instance, which will update the version
-    firstAccountInstance.setCurrentProfileVersion("1");
+    firstAccountInstance.setCurrentProfileVersion(new byte[32]);
     accounts.update(firstAccountInstance);
 
     assertThrows(ContestedOptimisticLockException.class,

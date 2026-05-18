@@ -8,12 +8,21 @@ package org.whispersystems.textsecuregcm.storage;
 import com.fasterxml.jackson.annotation.JsonFilter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -80,7 +89,9 @@ public class Account {
   private IdentityKey phoneNumberIdentityKey;
 
   @JsonProperty("cpv")
-  private String currentProfileVersion;
+  @JsonSerialize(using = ProfileKeyAdapter.Serializing.class)
+  @JsonDeserialize(using = ProfileKeyAdapter.Deserializing.class)
+  private byte[] currentProfileVersion;
 
   @JsonProperty
   private List<AccountBadge> badges = new ArrayList<>();
@@ -323,13 +334,13 @@ public class Account {
         .orElse(0L);
   }
 
-  public Optional<String> getCurrentProfileVersion() {
+  public Optional<byte[]> getCurrentProfileVersion() {
     requireNotStale();
 
     return Optional.ofNullable(currentProfileVersion);
   }
 
-  public void setCurrentProfileVersion(final String currentProfileVersion) {
+  public void setCurrentProfileVersion(final byte[] currentProfileVersion) {
     requireNotStale();
 
     this.currentProfileVersion = currentProfileVersion;
@@ -562,6 +573,28 @@ public class Account {
     //noinspection ConstantConditions
     if (stale) {
       logger.error("Accessor called on stale account", new RuntimeException());
+    }
+  }
+
+  private static class ProfileKeyAdapter {
+    private static class Deserializing extends JsonDeserializer<byte[]> {
+      @Override
+      public byte[] deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
+        final String val = jsonParser.getValueAsString();
+        if (val.length() == 64) {
+          return HexFormat.of().parseHex(val);
+        } else {
+          return Base64.getDecoder().decode(val);
+        }
+      }
+    }
+
+    // after deploying this once we can get rid of it in favor of the default base64
+    private static class Serializing extends JsonSerializer<byte[]> {
+      @Override
+      public void serialize(byte[] bytes, JsonGenerator jsonGenerator, SerializerProvider serializaterProvider) throws IOException {
+        jsonGenerator.writeString(HexFormat.of().formatHex(bytes));
+      }
     }
   }
 }
