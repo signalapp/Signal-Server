@@ -15,5 +15,6 @@ public record Config(@NotBlank String domain,
                      @NotNull @Valid DynamoDbClientFactory dynamoDbClient,
                      @NotNull @Valid DynamoDbTables dynamoDbTables,
                      @NotBlank String prescribedRegistrationNumber,
-                     @NotBlank String prescribedRegistrationCode) {
+                     @NotBlank String prescribedRegistrationCode,
+                     @NotNull @Valid Redis redis) {
 }

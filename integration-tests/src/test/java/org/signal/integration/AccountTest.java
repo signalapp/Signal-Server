@@ -62,14 +62,20 @@ public class AccountTest {
         Map.of(Device.PRIMARY_ID, Operations.generateSignedKEMPreKey(2, pniIdentityKeyPair)),
         Map.of(Device.PRIMARY_ID, 17));
 
-    final AccountIdentityResponse accountIdentityResponse =
-        Operations.apiPut("/v2/accounts/number", changeNumberRequest)
-            .authorized(user)
-            .executeExpectSuccess(AccountIdentityResponse.class);
+    try {
+      Operations.clearChangeNumberWaitingPeriod(user);
 
-    assertEquals(user.aciUuid(), accountIdentityResponse.uuid());
-    assertNotEquals(user.pniUuid(), accountIdentityResponse.pni());
-    assertEquals(targetNumber, accountIdentityResponse.number());
+      final AccountIdentityResponse accountIdentityResponse =
+          Operations.apiPut("/v2/accounts/number", changeNumberRequest)
+              .authorized(user)
+              .executeExpectSuccess(AccountIdentityResponse.class);
+
+      assertEquals(user.aciUuid(), accountIdentityResponse.uuid());
+      assertNotEquals(user.pniUuid(), accountIdentityResponse.pni());
+      assertEquals(targetNumber, accountIdentityResponse.number());
+    } finally {
+      Operations.deleteUser(user);
+    }
   }
 
   @Test

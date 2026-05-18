@@ -128,6 +128,10 @@ public final class Operations {
     return recoveryPassword;
   }
 
+  public static void clearChangeNumberWaitingPeriod(final TestUser user) {
+    INTEGRATION_TOOLS.clearChangeNumberWaitingPeriod(user);
+  }
+
   public static <T> T sendEmptyRequestAuthenticated(
       final String endpoint,
       final String method,
