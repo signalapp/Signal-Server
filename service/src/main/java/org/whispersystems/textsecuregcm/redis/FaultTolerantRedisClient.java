@@ -3,6 +3,7 @@ package org.whispersystems.textsecuregcm.redis;
 import com.google.common.annotations.VisibleForTesting;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.lettuce.core.ClientOptions;
+import io.lettuce.core.MaintNotificationsConfig;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisException;
 import io.lettuce.core.RedisURI;
@@ -57,20 +58,10 @@ public class FaultTolerantRedisClient {
 
     this.name = name;
 
-    // Lettuce will issue a CLIENT SETINFO command unconditionally if these fields are set (and they are by default),
-    // which can generate a bunch of spurious warnings in versions of Redis before 7.2.0.
-    //
-    // See:
-    //
-    // - https://github.com/redis/lettuce/pull/2823
-    // - https://github.com/redis/lettuce/issues/2817
-    redisUri.setClientName(null);
-    redisUri.setLibraryName(null);
-    redisUri.setLibraryVersion(null);
-
     this.redisClient = RedisClient.create(clientResourcesBuilder.build(), redisUri);
     final ClientOptions.Builder clientOptionsBuilder = ClientOptions.builder()
         .disconnectedBehavior(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS)
+        .maintNotificationsConfig(MaintNotificationsConfig.disabled())
         // for asynchronous commands
         .timeoutOptions(TimeoutOptions.builder()
             .fixedTimeout(commandTimeout)

@@ -23,6 +23,7 @@
     <opentelemetry-logback-appender-1.0.version>2.22.0-alpha</opentelemetry-logback-appender-1.0.version>
     <storekit.version>4.0.0</storekit.version>
     <webauthn4j.version>0.30.2.RELEASE</webauthn4j.version>
+    <jetty.http2-client.version>12.1.5</jetty.http2-client.version>
   </properties>
 
   <dependencies>
@@ -138,6 +139,12 @@
       <artifactId>dropwizard-jetty</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.eclipse.jetty.http2</groupId>
+      <artifactId>jetty-http2-client-transport</artifactId>
+      <scope>test</scope>
+      <version>${jetty.http2-client.version}</version>
+    </dependency>
+    <dependency>
       <groupId>io.dropwizard</groupId>
       <artifactId>dropwizard-validation</artifactId>
     </dependency>
@@ -242,15 +249,15 @@
 
     <dependency>
       <groupId>org.eclipse.jetty.websocket</groupId>
-      <artifactId>websocket-jetty-api</artifactId>
+      <artifactId>jetty-websocket-jetty-api</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.eclipse.jetty</groupId>
-      <artifactId>jetty-servlets</artifactId>
+      <groupId>org.eclipse.jetty.ee10</groupId>
+      <artifactId>jetty-ee10-servlets</artifactId>
     </dependency>
     <dependency>
       <groupId>org.eclipse.jetty.websocket</groupId>
-      <artifactId>websocket-jetty-client</artifactId>
+      <artifactId>jetty-websocket-jetty-client</artifactId>
       <scope>test</scope>
     </dependency>
 

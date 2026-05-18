@@ -9,8 +9,6 @@ import io.dropwizard.core.Configuration;
 import io.dropwizard.core.setup.Environment;
 import io.dropwizard.testing.junit5.DropwizardAppExtension;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
-import jakarta.servlet.DispatcherType;
-import jakarta.servlet.ServletRegistration;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
@@ -20,19 +18,20 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import java.io.IOException;
 import java.net.URI;
-import java.util.EnumSet;
 import java.util.Optional;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.eclipse.jetty.ee10.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
-import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.glassfish.jersey.server.ServerProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.filters.PriorityFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.tests.util.TestWebsocketListener;
 import org.whispersystems.websocket.WebSocketResourceProviderFactory;
@@ -41,6 +40,7 @@ import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import org.whispersystems.websocket.setup.WebSocketEnvironment;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
+@Timeout(value = 10, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 public class WebsocketResourceProviderIntegrationTest {
   private static final DropwizardAppExtension<Configuration> DROPWIZARD_APP_EXTENSION =
       new DropwizardAppExtension<>(TestApplication.class);
@@ -72,9 +72,6 @@ public class WebsocketResourceProviderIntegrationTest {
           new WebSocketEnvironment<>(environment, webSocketConfiguration);
 
       environment.jersey().register(testController);
-      environment.servlets()
-          .addFilter("RemoteAddressFilter", new RemoteAddressFilter())
-          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
       webSocketEnvironment.jersey().register(testController);
       webSocketEnvironment.jersey().register(new RemoteAddressFilter());
       webSocketEnvironment.setAuthenticator(upgradeRequest -> Optional.of(mock(AuthenticatedDevice.class)));
@@ -85,15 +82,13 @@ public class WebsocketResourceProviderIntegrationTest {
 
       final WebSocketResourceProviderFactory<AuthenticatedDevice> webSocketServlet =
           new WebSocketResourceProviderFactory<>(webSocketEnvironment, AuthenticatedDevice.class,
-              webSocketConfiguration, REMOTE_ADDRESS_ATTRIBUTE_NAME);
+              REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
-      JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), null);
+      JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), (servletContext, container) -> {
+        container.addMapping("/websocket", webSocketServlet);
+        PriorityFilter.ensureFilter(servletContext, new RemoteAddressFilter());
+      });
 
-      final ServletRegistration.Dynamic websocketServlet =
-          environment.servlets().addServlet("WebSocket", webSocketServlet);
-
-      websocketServlet.addMapping("/websocket");
-      websocketServlet.setAsyncSupported(true);
     }
   }
 

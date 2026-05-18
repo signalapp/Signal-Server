@@ -6,7 +6,7 @@ package org.whispersystems.websocket.auth;
 
 import java.security.Principal;
 import java.util.Optional;
-import org.eclipse.jetty.websocket.api.UpgradeRequest;
+import org.eclipse.jetty.ee10.websocket.server.JettyServerUpgradeRequest;
 
 public interface WebSocketAuthenticator<T extends Principal> {
 
@@ -20,5 +20,5 @@ public interface WebSocketAuthenticator<T extends Principal> {
    *
    * @throws InvalidCredentialsException if credentials were provided, but could not be authenticated
    */
-  Optional<T> authenticate(UpgradeRequest request) throws InvalidCredentialsException;
+  Optional<T> authenticate(JettyServerUpgradeRequest request) throws InvalidCredentialsException;
 }

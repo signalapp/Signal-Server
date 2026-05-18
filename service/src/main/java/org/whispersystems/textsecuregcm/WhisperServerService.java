@@ -31,21 +31,25 @@ import io.lettuce.core.metrics.MicrometerOptions;
 import io.lettuce.core.resource.ClientResources;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jvm.ExecutorServiceMetrics;
+import io.netty.channel.DefaultEventLoopGroup;
+import io.netty.channel.local.LocalAddress;
+import io.netty.channel.local.LocalServerChannel;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.ssl.SslContext;
 import io.netty.resolver.ResolvedAddressTypes;
 import io.netty.resolver.dns.DnsNameResolver;
 import io.netty.resolver.dns.DnsNameResolverBuilder;
+import io.netty.util.Mapping;
 import jakarta.servlet.DispatcherType;
-import jakarta.servlet.Filter;
-import jakarta.servlet.ServletRegistration;
 import java.io.ByteArrayInputStream;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -60,9 +64,9 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.eclipse.jetty.ee10.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.eclipse.jetty.websocket.core.WebSocketExtensionRegistry;
 import org.eclipse.jetty.websocket.core.server.WebSocketServerComponents;
-import org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.glassfish.jersey.server.ServerProperties;
 import org.signal.i18n.HeaderControlledResourceBundleLookup;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
@@ -135,10 +139,12 @@ import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.currency.FixerClient;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.ExternalRequestFilter;
+import org.whispersystems.textsecuregcm.filters.PriorityFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
 import org.whispersystems.textsecuregcm.filters.RemoteDeprecationFilter;
 import org.whispersystems.textsecuregcm.filters.RequestStatisticsFilter;
 import org.whispersystems.textsecuregcm.filters.RestDeprecationFilter;
+import org.whispersystems.textsecuregcm.filters.StripContentLengthOnConnectFilter;
 import org.whispersystems.textsecuregcm.filters.TimestampResponseFilter;
 import org.whispersystems.textsecuregcm.grpc.AccountsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.AccountsGrpcService;
@@ -164,7 +170,10 @@ import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ValidatingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedGrpcServer;
-import org.whispersystems.textsecuregcm.grpc.net.ManagedNioEventLoopGroup;
+import org.whispersystems.textsecuregcm.grpc.net.ManagedEventLoopGroup;
+import org.whispersystems.textsecuregcm.grpc.net.OmnibusH2Server;
+import org.whispersystems.textsecuregcm.grpc.net.OmnibusRouter;
+import org.whispersystems.textsecuregcm.grpc.net.SniMapper;
 import org.whispersystems.textsecuregcm.jetty.JettyHttpConfigurationCustomizer;
 import org.whispersystems.textsecuregcm.keytransparency.KeyTransparencyServiceClient;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
@@ -193,7 +202,7 @@ import org.whispersystems.textsecuregcm.metrics.BackupMetrics;
 import org.whispersystems.textsecuregcm.metrics.CallQualitySurveyManager;
 import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsApplicationEventListener;
-import org.whispersystems.textsecuregcm.metrics.MetricsHttpChannelListener;
+import org.whispersystems.textsecuregcm.metrics.MetricsHttpEventHandler;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.MicrometerAwsSdkMetricPublisher;
 import org.whispersystems.textsecuregcm.metrics.ReportedMessageMetricsListener;
@@ -314,6 +323,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import javax.annotation.Nullable;
 
 public class WhisperServerService extends Application<WhisperServerConfiguration> {
 
@@ -617,10 +627,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     ScheduledExecutorService cloudflareTurnRetryExecutor = ScheduledExecutorServiceBuilder.of(environment, "cloudflareTurnRetry").threads(1).build();
     ScheduledExecutorService messagePollExecutor = ScheduledExecutorServiceBuilder.of(environment, "messagePollExecutor").threads(1).build();
     ScheduledExecutorService provisioningWebsocketTimeoutExecutor = ScheduledExecutorServiceBuilder.of(environment, "provisioningWebsocketTimeout").threads(1).build();
-    ScheduledExecutorService jmxDumper = ScheduledExecutorServiceBuilder.of(environment, "jmxDumper").threads(1).build();
 
-    final ManagedNioEventLoopGroup dnsResolutionEventLoopGroup = new ManagedNioEventLoopGroup();
-    final DnsNameResolver cloudflareDnsResolver = new DnsNameResolverBuilder(dnsResolutionEventLoopGroup.next())
+    final ManagedEventLoopGroup<NioEventLoopGroup> dnsResolutionEventLoopGroup = new ManagedEventLoopGroup<>(new NioEventLoopGroup());
+    final DnsNameResolver cloudflareDnsResolver = new DnsNameResolverBuilder(dnsResolutionEventLoopGroup.getEventLoopGroup().next())
             .resolvedAddressTypes(ResolvedAddressTypes.IPV6_PREFERRED)
             .completeOncePreferredResolved(false)
             .channelType(NioDatagramChannel.class)
@@ -1013,24 +1022,38 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             prohibitAuthenticationInterceptor))
         .toList();
 
-    final ServerBuilder<?> serverBuilder =
-        NettyServerBuilder.forAddress(new InetSocketAddress(config.getGrpc().bindAddress(), config.getGrpc().port()));
+    final ManagedEventLoopGroup<DefaultEventLoopGroup> omnibusLocalEventLoopGroup = new ManagedEventLoopGroup<>(new DefaultEventLoopGroup());
+    final ManagedEventLoopGroup<NioEventLoopGroup> omnibusNioEventLoopGroup = new ManagedEventLoopGroup<>(new NioEventLoopGroup());
+    final LocalAddress grpcLocalAddress = new LocalAddress("grpc");
+    final ServerBuilder<?> serverBuilder = NettyServerBuilder
+        .forAddress(grpcLocalAddress)
+        .channelType(LocalServerChannel.class)
+        .bossEventLoopGroup(omnibusLocalEventLoopGroup.getEventLoopGroup())
+        .workerEventLoopGroup(omnibusLocalEventLoopGroup.getEventLoopGroup());
     authenticatedServices.forEach(serverBuilder::addService);
     unauthenticatedServices.forEach(serverBuilder::addService);
-    final ManagedGrpcServer exposedGrpcServer = new ManagedGrpcServer(serverBuilder.build());
+    final ManagedGrpcServer localGrpcServer = new ManagedGrpcServer(serverBuilder.build());
 
-    environment.lifecycle().manage(exposedGrpcServer);
+    final SocketAddress websocketAddress =
+        new InetSocketAddress(config.getGrpc().websocketAddress(), config.getGrpc().websocketPort());
+    final OmnibusRouter omnibusRouter = new OmnibusRouter(List.of(
+        new OmnibusRouter.OmnibusRoute("/v1/websocket", websocketAddress),
+        new OmnibusRouter.OmnibusRoute("/v1/provisioning", websocketAddress)),
+        grpcLocalAddress);
+    @Nullable final Mapping<String, SslContext> sniMapping = config.getGrpc().h2c()
+        ? null
+        : SniMapper.buildSniMapping(config.getTlsKeyStoreConfiguration().path(), config.getTlsKeyStoreConfiguration().password().value());
+    final OmnibusH2Server omnibusH2Server = new OmnibusH2Server(
+        sniMapping,
+        omnibusNioEventLoopGroup.getEventLoopGroup(),
+        omnibusLocalEventLoopGroup.getEventLoopGroup(),
+        new InetSocketAddress(config.getGrpc().bindAddress(), config.getGrpc().port()), omnibusRouter,
+        config.getGrpc().idleTimeout());
 
-    final List<Filter> filters = new ArrayList<>();
-    filters.add(remoteDeprecationFilter);
-    filters.add(new RemoteAddressFilter());
-    filters.add(new TimestampResponseFilter());
-
-    for (Filter filter : filters) {
-      environment.servlets()
-          .addFilter(filter.getClass().getSimpleName(), filter)
-          .addMappingForUrlPatterns(EnumSet.of(DispatcherType.REQUEST), false, "/*");
-    }
+    environment.lifecycle().manage(omnibusLocalEventLoopGroup);
+    environment.lifecycle().manage(omnibusNioEventLoopGroup);
+    environment.lifecycle().manage(localGrpcServer);
+    environment.lifecycle().manage(omnibusH2Server);
 
     if (!config.getExternalRequestFilterConfiguration().paths().isEmpty()) {
       environment.servlets().addFilter(ExternalRequestFilter.class.getSimpleName(),
@@ -1048,9 +1071,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final String websocketServletPath = "/v1/websocket/";
     final String provisioningWebsocketServletPath = "/v1/websocket/provisioning/";
 
-    final MetricsHttpChannelListener metricsHttpChannelListener = new MetricsHttpChannelListener(clientReleaseManager,
-        Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
-    metricsHttpChannelListener.configure(environment);
+    MetricsHttpEventHandler.configure(environment, Metrics.globalRegistry, clientReleaseManager, Set.of(websocketServletPath, provisioningWebsocketServletPath, "/health-check"));
     final MessageMetrics messageMetrics = new MessageMetrics();
 
     // BufferingInterceptor is needed on the base environment but not the WebSocketEnvironment,
@@ -1174,36 +1195,36 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     webSocketEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
     provisioningEnvironment.jersey().property(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE);
 
-    JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(), (context, container) -> {
-      final WebSocketExtensionRegistry extensionRegistry = WebSocketServerComponents
-          .getWebSocketComponents(environment.getApplicationContext().getServletContext())
-          .getExtensionRegistry();
-      if (config.getWebSocketConfiguration().isDisablePerMessageDeflate()) {
-        extensionRegistry.unregister("permessage-deflate");
-      } else if (config.getWebSocketConfiguration().isDisableCrossMessageOutgoingCompression()) {
-        extensionRegistry.unregister("permessage-deflate");
-        extensionRegistry.register("permessage-deflate", NoContextTakeoverPerMessageDeflateExtension.class);
-      }
-    });
-
     WebSocketResourceProviderFactory<AuthenticatedDevice> webSocketServlet = new WebSocketResourceProviderFactory<>(
-        webSocketEnvironment, AuthenticatedDevice.class, config.getWebSocketConfiguration(),
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
+        webSocketEnvironment, AuthenticatedDevice.class, RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
     WebSocketResourceProviderFactory<AuthenticatedDevice> provisioningServlet = new WebSocketResourceProviderFactory<>(
-        provisioningEnvironment, AuthenticatedDevice.class, config.getWebSocketConfiguration(),
-        RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
+        provisioningEnvironment, AuthenticatedDevice.class, RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
 
-    ServletRegistration.Dynamic websocket = environment.servlets().addServlet("WebSocket", webSocketServlet);
-    ServletRegistration.Dynamic provisioning = environment.servlets().addServlet("Provisioning", provisioningServlet);
+    JettyWebSocketServletContainerInitializer.configure(environment.getApplicationContext(),
+        (servletContext, container) -> {
+          container.addMapping(websocketServletPath, webSocketServlet);
+          container.addMapping(provisioningWebsocketServletPath, provisioningServlet);
 
-    websocket.addMapping(websocketServletPath);
-    websocket.setAsyncSupported(true);
+          PriorityFilter.ensureFilter(servletContext, new StripContentLengthOnConnectFilter());
+          PriorityFilter.ensureFilter(servletContext, new TimestampResponseFilter());
+          PriorityFilter.ensureFilter(servletContext, new RemoteAddressFilter());
+          PriorityFilter.ensureFilter(servletContext, remoteDeprecationFilter);
 
-    provisioning.addMapping(provisioningWebsocketServletPath);
-    provisioning.setAsyncSupported(true);
+          container.setMaxBinaryMessageSize(config.getWebSocketConfiguration().getMaxBinaryMessageSize());
+          container.setMaxTextMessageSize(config.getWebSocketConfiguration().getMaxTextMessageSize());
+
+          final WebSocketExtensionRegistry extensionRegistry = WebSocketServerComponents
+              .getWebSocketComponents(environment.getApplicationContext())
+              .getExtensionRegistry();
+          if (config.getWebSocketConfiguration().isDisablePerMessageDeflate()) {
+            extensionRegistry.unregister("permessage-deflate");
+          } else if (config.getWebSocketConfiguration().isDisableCrossMessageOutgoingCompression()) {
+            extensionRegistry.unregister("permessage-deflate");
+            extensionRegistry.register("permessage-deflate", NoContextTakeoverPerMessageDeflateExtension.class);
+          }
+        });
 
     environment.admin().addTask(new SetRequestLoggingEnabledTask());
-
   }
 
   private void registerExceptionMappers(Environment environment,
