@@ -4,6 +4,7 @@
  */
 package org.whispersystems.textsecuregcm.storage;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.fasterxml.jackson.annotation.JsonFilter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -16,6 +17,9 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
@@ -89,8 +93,8 @@ public class Account {
   private IdentityKey phoneNumberIdentityKey;
 
   @JsonProperty("cpv")
-  @JsonSerialize(using = ProfileKeyAdapter.Serializing.class)
-  @JsonDeserialize(using = ProfileKeyAdapter.Deserializing.class)
+  @JsonSerialize(using = ProfileVersionAdapter.Serializing.class)
+  @JsonDeserialize(using = ProfileVersionAdapter.Deserializing.class)
   private byte[] currentProfileVersion;
 
   @JsonProperty
@@ -576,11 +580,14 @@ public class Account {
     }
   }
 
-  private static class ProfileKeyAdapter {
+  private static class ProfileVersionAdapter {
     private static class Deserializing extends JsonDeserializer<byte[]> {
+      private static final String CURRENT_PROFILE_VERSION_FORMAT_COUNTER_NAME = name(Account.class, "currentProfileMetricDeserialized");
+
       @Override
       public byte[] deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
         final String val = jsonParser.getValueAsString();
+        Metrics.counter(CURRENT_PROFILE_VERSION_FORMAT_COUNTER_NAME, Tags.of("format", val.length() == 64 ? "hex" : "base64")).increment();
         if (val.length() == 64) {
           return HexFormat.of().parseHex(val);
         } else {
