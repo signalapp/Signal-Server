@@ -98,6 +98,8 @@ dynamoDbTables:
     tableName: apple_device_check_public_keys_test
   backups:
     tableName: backups_test
+  changeNumberWaitingPeriods:
+    tableName: change_number_waiting_periods_test
   clientReleases:
     tableName: client_releases_test
   deletedAccounts:

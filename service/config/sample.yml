@@ -92,6 +92,8 @@ dynamoDbTables:
     tableName: Example_AppleDeviceCheckPublicKeys
   backups:
     tableName: Example_Backups
+  changeNumberWaitingPeriods:
+    tableName: Example_ChangeNumberWaitingPeriods
   clientReleases:
     tableName: Example_ClientReleases
   deletedAccounts:

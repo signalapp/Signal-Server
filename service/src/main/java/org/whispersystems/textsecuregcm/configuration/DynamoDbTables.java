@@ -49,6 +49,7 @@ public class DynamoDbTables {
   private final AccountsTableConfiguration accounts;
 
   private final Table appleDeviceChecks;
+  private final Table changeNumberWaitingPeriods;
   private final Table appleDeviceCheckPublicKeys;
   private final Table backups;
   private final Table clientPublicKeys;
@@ -78,6 +79,7 @@ public class DynamoDbTables {
   public DynamoDbTables(
       @JsonProperty("accounts") final AccountsTableConfiguration accounts,
       @JsonProperty("appleDeviceChecks") final Table appleDeviceChecks,
+      @JsonProperty("changeNumberWaitingPeriods") final Table changeNumberWaitingPeriods,
       @JsonProperty("appleDeviceCheckPublicKeys") final Table appleDeviceCheckPublicKeys,
       @JsonProperty("backups") final Table backups,
       @JsonProperty("clientPublicKeys") final Table clientPublicKeys,
@@ -106,6 +108,7 @@ public class DynamoDbTables {
 
     this.accounts = accounts;
     this.appleDeviceChecks = appleDeviceChecks;
+    this.changeNumberWaitingPeriods = changeNumberWaitingPeriods;
     this.appleDeviceCheckPublicKeys = appleDeviceCheckPublicKeys;
     this.backups = backups;
     this.clientPublicKeys = clientPublicKeys;
@@ -143,6 +146,12 @@ public class DynamoDbTables {
   @Valid
   public Table getAppleDeviceChecks() {
     return appleDeviceChecks;
+  }
+
+  @NotNull
+  @Valid
+  public Table getChangeNumberWaitingPeriods() {
+    return changeNumberWaitingPeriods;
   }
 
   @NotNull

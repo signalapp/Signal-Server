@@ -5,20 +5,14 @@
 
 package org.signal.integration;
 
-import io.lettuce.core.resource.ClientResources;
 import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import org.signal.integration.config.Config;
 import org.whispersystems.textsecuregcm.metrics.NoopAwsSdkMetricPublisher;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
-import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriodManager;
+import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriods;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswords;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
@@ -28,6 +22,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 
 public class IntegrationTools {
 
@@ -37,7 +32,7 @@ public class IntegrationTools {
 
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
 
-  private final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager;
+  private final ChangeNumberWaitingPeriods changeNumberWaitingPeriods;
 
   public static IntegrationTools create(final Config config) {
     final AwsCredentialsProvider credentialsProvider = DefaultCredentialsProvider.builder().build();
@@ -45,22 +40,20 @@ public class IntegrationTools {
     final DynamoDbAsyncClient dynamoDbAsyncClient =
         config.dynamoDbClient().buildAsyncClient(credentialsProvider, new NoopAwsSdkMetricPublisher());
 
+    final DynamoDbClient dynamoDbClient =
+        config.dynamoDbClient().buildSyncClient(credentialsProvider, new NoopAwsSdkMetricPublisher());
+
     final RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         config.dynamoDbTables().registrationRecovery(), Duration.ofDays(1), dynamoDbAsyncClient, Clock.systemUTC());
 
     final VerificationSessions verificationSessions = new VerificationSessions(
         dynamoDbAsyncClient, config.dynamoDbTables().verificationSessions(), Clock.systemUTC());
 
-    final FaultTolerantRedisClusterClient rateLimitersClient = new FaultTolerantRedisClusterClient(
-        "rateLimiters",
-        config.redis().rateLimiters(),
-        ClientResources.builder());
-
     return new IntegrationTools(
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords),
         new VerificationSessionManager(verificationSessions),
         new PhoneNumberIdentifiers(dynamoDbAsyncClient, config.dynamoDbTables().phoneNumberIdentifiers()),
-        new ChangeNumberWaitingPeriodManager(rateLimitersClient, Duration.ZERO)
+        new ChangeNumberWaitingPeriods(config.dynamoDbTables().changeNumberWaitingPeriods(), dynamoDbAsyncClient, dynamoDbClient)
     );
   }
 
@@ -68,11 +61,11 @@ public class IntegrationTools {
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
       final VerificationSessionManager verificationSessionManager,
       final PhoneNumberIdentifiers phoneNumberIdentifiers,
-      final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager) {
+      final ChangeNumberWaitingPeriods changeNumberWaitingPeriods) {
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.verificationSessionManager = verificationSessionManager;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
-    this.changeNumberWaitingPeriodManager = changeNumberWaitingPeriodManager;
+    this.changeNumberWaitingPeriods = changeNumberWaitingPeriods;
   }
 
   public CompletableFuture<Void> populateRecoveryPassword(final String phoneNumber, final byte[] password) {
@@ -88,11 +81,6 @@ public class IntegrationTools {
   }
 
   public void clearChangeNumberWaitingPeriod(TestUser user) {
-    try {
-      changeNumberWaitingPeriodManager.handleAccountCreated(user.aciUuid(), Instant.now().minus(Duration.ofDays(1)))
-          .get(5, TimeUnit.SECONDS);
-    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-      throw new RuntimeException(e);
-    }
+    changeNumberWaitingPeriods.delete(user.aciUuid());
   }
 }

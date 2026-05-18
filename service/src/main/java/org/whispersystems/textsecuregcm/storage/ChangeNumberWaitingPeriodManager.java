@@ -6,59 +6,39 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.lettuce.core.SetArgs;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 
 /// Manages post-registration change number waiting period expiration data
 public class ChangeNumberWaitingPeriodManager {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(ChangeNumberWaitingPeriodManager.class);
-
-  private final FaultTolerantRedisClusterClient redisCluster;
+  private final ChangeNumberWaitingPeriods changeNumberWaitingPeriods;
   private final Duration waitingPeriod;
+  private final Clock clock;
 
-  public ChangeNumberWaitingPeriodManager(final FaultTolerantRedisClusterClient redisCluster, final Duration waitingPeriod) {
-    this.redisCluster = redisCluster;
+  public ChangeNumberWaitingPeriodManager(final ChangeNumberWaitingPeriods changeNumberWaitingPeriods,
+      final Duration waitingPeriod, final Clock clock) {
+    this.changeNumberWaitingPeriods = changeNumberWaitingPeriods;
     this.waitingPeriod = waitingPeriod;
+    this.clock = clock;
   }
 
   /// Must be called when an account is created, including re-registration
   @VisibleForTesting
   public CompletableFuture<Void> handleAccountCreated(final UUID aci, final Instant created) {
-    return redisCluster.withCluster(conn -> conn.async().set(key(aci), "", SetArgs.Builder.exAt(created.plus(waitingPeriod))))
-        .toCompletableFuture()
-        .thenApply(_ -> null);
+    return changeNumberWaitingPeriods.setExpiration(aci, created.plus(waitingPeriod));
   }
 
   /// Returns the waiting period duration remaining, if any. If present, {@code duration} will always be positive.
   Optional<Duration> getWaitingPeriodRemaining(final UUID aci) {
-    final long ttlMillis = redisCluster.withCluster(conn -> conn.sync().ttl(key(aci)));
-
-    if (ttlMillis == -1) {
-      // key present without TTL. This should never happen.
-      LOGGER.error("No expiration for {}", aci);
-      throw new RuntimeException("No expiration for key that must always have a expiration");
-    }
-
-    if (ttlMillis == -2) {
-      // key did not exist
-      return Optional.empty();
-    }
-
-    final Duration remaining = Duration.ofMillis(ttlMillis);
-
-    return remaining.isPositive() ? Optional.of(remaining) : Optional.empty();
-  }
-
-  @VisibleForTesting
-  static String key(final UUID aci) {
-    return "changeNumberWaiting::{" + aci + "}";
+    return changeNumberWaitingPeriods.getExpiration(aci)
+        .flatMap(expiration -> {
+          final Duration remaining = Duration.between(clock.instant(), expiration);
+          return remaining.isPositive() ? Optional.of(remaining) : Optional.empty();
+        });
   }
 }
