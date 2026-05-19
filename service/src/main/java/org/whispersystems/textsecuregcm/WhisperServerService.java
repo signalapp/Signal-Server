@@ -719,7 +719,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         registrationRecoveryPasswordsManager, accountLockExecutor, messagePollExecutor,
         retryExecutor, clock, config.getLinkDeviceSecretConfiguration().secret().value());
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs);
-    APNSender apnSender = new APNSender(apnSenderExecutor, config.getApnConfiguration());
+    APNSender apnSender = new APNSender(apnSenderExecutor, Clock.systemUTC(), config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
         apnSender, fcmSender, accountsManager, 0, 0, retryExecutor);

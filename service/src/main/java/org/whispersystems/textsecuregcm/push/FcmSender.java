@@ -23,6 +23,7 @@ import io.micrometer.core.instrument.Timer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -36,6 +37,9 @@ public class FcmSender implements PushNotificationSender {
 
   private final ExecutorService executor;
   private final FirebaseMessaging firebaseMessagingClient;
+
+  // See https://firebase.google.com/docs/cloud-messaging/customize-messages/setting-message-lifespan
+  private static final long DEFAULT_TTL_MILLIS = Duration.ofDays(28).toMillis();
 
   private static final Timer SEND_NOTIFICATION_TIMER = Metrics.timer(name(FcmSender.class, "sendNotification"));
 
@@ -82,6 +86,7 @@ public class FcmSender implements PushNotificationSender {
         .setToken(pushNotification.deviceToken())
         .setAndroidConfig(AndroidConfig.builder()
             .setPriority(pushNotification.urgent() ? AndroidConfig.Priority.HIGH : AndroidConfig.Priority.NORMAL)
+            .setTtl(pushNotification.ttl() != null ? pushNotification.ttl().toMillis() : DEFAULT_TTL_MILLIS)
             .build());
 
     final String key = switch (pushNotification.notificationType()) {

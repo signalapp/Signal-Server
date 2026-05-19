@@ -52,11 +52,12 @@ public class PushNotificationManager {
     final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
 
     return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
-        PushNotification.NotificationType.NOTIFICATION, null, destination, device, urgent));
+        PushNotification.NotificationType.NOTIFICATION, null, destination, device, urgent, null));
   }
 
   public CompletableFuture<SendPushNotificationResult> sendRegistrationChallengeNotification(final String deviceToken, final PushNotification.TokenType tokenType, final String challengeToken) {
-    return sendNotification(new PushNotification(deviceToken, tokenType, PushNotification.NotificationType.CHALLENGE, challengeToken, null, null, true))
+    return sendNotification(new PushNotification(deviceToken, tokenType, PushNotification.NotificationType.CHALLENGE, challengeToken, null, null, true,
+        null))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
   }
 
@@ -67,7 +68,7 @@ public class PushNotificationManager {
     final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
 
     return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
-        PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, destination, device, true))
+        PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, destination, device, true, null))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
   }
 
@@ -77,7 +78,7 @@ public class PushNotificationManager {
 
     return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
         PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY,
-        context, destination, device, true))
+        context, destination, device, true, null))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
   }
 

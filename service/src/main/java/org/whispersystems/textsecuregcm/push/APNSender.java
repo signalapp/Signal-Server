@@ -21,6 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -31,6 +32,8 @@ import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
 public class APNSender implements Managed, PushNotificationSender {
 
   private final ExecutorService executor;
+  private final Clock clock;
+
   private final String bundleId;
   private final ApnsClient apnsClient;
 
@@ -45,17 +48,19 @@ public class APNSender implements Managed, PushNotificationSender {
       .setContentAvailable(true)
       .build();
 
+  // See https://developer.apple.com/documentation/usernotifications/sending-notification-requests-to-apns
   @VisibleForTesting
-  static final Instant MAX_EXPIRATION = Instant.ofEpochMilli(Integer.MAX_VALUE * 1000L);
+  static final Duration DEFAULT_TTL = Duration.ofDays(30);
 
   private static final String APNS_CA_FILENAME = "apns-certificates.pem";
 
   private static final Timer SEND_NOTIFICATION_TIMER = Metrics.timer(name(APNSender.class, "sendNotification"));
 
-  public APNSender(ExecutorService executor, ApnConfiguration configuration)
+  public APNSender(final ExecutorService executor, final Clock clock, final ApnConfiguration configuration)
       throws IOException, NoSuchAlgorithmException, InvalidKeyException
   {
     this.executor = executor;
+    this.clock = clock;
     this.bundleId = configuration.bundleId();
     this.apnsClient = new ApnsClientBuilder().setSigningKey(
             ApnsSigningKey.loadFromInputStream(new ByteArrayInputStream(configuration.signingKey().value().getBytes()),
@@ -66,8 +71,9 @@ public class APNSender implements Managed, PushNotificationSender {
   }
 
   @VisibleForTesting
-  public APNSender(ExecutorService executor, ApnsClient apnsClient, String bundleId) {
+  public APNSender(final ExecutorService executor, final ApnsClient apnsClient, final String bundleId, final Clock clock) {
     this.executor = executor;
+    this.clock = clock;
     this.apnsClient = apnsClient;
     this.bundleId = bundleId;
   }
@@ -117,7 +123,7 @@ public class APNSender implements Managed, PushNotificationSender {
     return apnsClient.sendNotification(new SimpleApnsPushNotification(notification.deviceToken(),
         bundleId,
         payload,
-        MAX_EXPIRATION,
+        clock.instant().plus(notification.ttl() != null ? notification.ttl() : DEFAULT_TTL),
         deliveryPriority,
         pushType,
         collapseId))
