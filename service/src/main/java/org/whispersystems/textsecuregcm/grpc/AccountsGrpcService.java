@@ -263,8 +263,7 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   @Override
   public SetRegistrationRecoveryPasswordResponse setRegistrationRecoveryPassword(final SetRegistrationRecoveryPasswordRequest request) {
     registrationRecoveryPasswordsManager.store(getAuthenticatedAccount().getIdentifier(IdentityType.PNI),
-            request.getRegistrationRecoveryPassword().toByteArray())
-        .join();
+            request.getRegistrationRecoveryPassword().toByteArray());
 
     return SetRegistrationRecoveryPasswordResponse.getDefaultInstance();
   }

@@ -126,9 +126,6 @@ class AccountsManagerChangeNumberIntegrationTest {
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
           mock(RegistrationRecoveryPasswordsManager.class);
 
-      when(registrationRecoveryPasswordsManager.remove(any()))
-          .thenReturn(CompletableFuture.completedFuture(null));
-
       accountsManager = new AccountsManager(
           accounts,
           phoneNumberIdentifiers,

@@ -244,8 +244,7 @@ public class AccountController {
     // if registration recovery password was sent to us, store it (or refresh its expiration)
     attributes.recoveryPassword().ifPresent(registrationRecoveryPassword -> {
       final boolean rrpCreated = registrationRecoveryPasswordsManager
-          .store(updatedAccount.getIdentifier(IdentityType.PNI), registrationRecoveryPassword)
-          .join();
+          .store(updatedAccount.getIdentifier(IdentityType.PNI), registrationRecoveryPassword);
       Metrics.counter(RECOVERY_PASSWORD_SET_COUNTER_NAME, Tags.of(
               UserAgentTagUtil.getPlatformTag(userAgent),
               Tag.of("outcome", rrpCreated ? "created" : "updated")))

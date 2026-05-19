@@ -45,6 +45,7 @@ class PhoneVerificationTokenManagerTest {
   private RegistrationServiceClient registrationServiceClient;
   private RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private RegistrationRecoveryChecker registrationRecoveryChecker;
+  private PhoneNumberIdentifiers phoneNumberIdentifiers;
 
   private PhoneVerificationTokenManager phoneVerificationTokenManager;
 
@@ -55,7 +56,7 @@ class PhoneVerificationTokenManagerTest {
 
   @BeforeEach
   void setUp() {
-    final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
+    phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(PHONE_NUMBER))
         .thenReturn(CompletableFuture.completedFuture(PHONE_NUMBER_IDENTIFIER));
 
@@ -166,7 +167,7 @@ class PhoneVerificationTokenManagerTest {
           .thenReturn(true);
 
       when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
-          .thenReturn(CompletableFuture.completedFuture(true));
+          .thenReturn(true);
 
       assertDoesNotThrow(() -> phoneVerificationTokenManager.verify(containerRequestContext,
           PHONE_NUMBER,
@@ -183,7 +184,7 @@ class PhoneVerificationTokenManagerTest {
           .thenReturn(false);
 
       when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
-          .thenReturn(CompletableFuture.completedFuture(true));
+          .thenReturn(true);
 
       assertThrows(ForbiddenException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
           PHONE_NUMBER,
@@ -200,7 +201,7 @@ class PhoneVerificationTokenManagerTest {
           .thenReturn(true);
 
       when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
-          .thenReturn(CompletableFuture.completedFuture(false));
+          .thenReturn(false);
 
       assertThrows(ForbiddenException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
           PHONE_NUMBER,
@@ -210,7 +211,7 @@ class PhoneVerificationTokenManagerTest {
 
     @ParameterizedTest
     @MethodSource
-    void verifyRecoveryPasswordManagerException(final Throwable recoveryPasswordManagerException) {
+    void verifyPhoneNumberIdentifiersException(final Throwable phoneNumberIdentifiersException) {
 
       final ContainerRequestContext containerRequestContext = mock(ContainerRequestContext.class);
       final byte[] recoveryPassword = TestRandomUtil.nextBytes(16);
@@ -218,8 +219,8 @@ class PhoneVerificationTokenManagerTest {
       when(registrationRecoveryChecker.checkRegistrationRecoveryAttempt(containerRequestContext, PHONE_NUMBER))
           .thenReturn(true);
 
-      when(registrationRecoveryPasswordsManager.verify(PHONE_NUMBER_IDENTIFIER, recoveryPassword))
-          .thenReturn(CompletableFuture.failedFuture(recoveryPasswordManagerException));
+      when(phoneNumberIdentifiers.getPhoneNumberIdentifier(PHONE_NUMBER))
+          .thenReturn(CompletableFuture.failedFuture(phoneNumberIdentifiersException));
 
       assertThrows(ServerErrorException.class, () -> phoneVerificationTokenManager.verify(containerRequestContext,
           PHONE_NUMBER,
@@ -227,7 +228,7 @@ class PhoneVerificationTokenManagerTest {
           recoveryPassword));
     }
 
-    private static List<Throwable> verifyRecoveryPasswordManagerException() {
+    private static List<Throwable> verifyPhoneNumberIdentifiersException() {
       return List.of(new ExecutionException(new RuntimeException()), new TimeoutException());
     }
   }

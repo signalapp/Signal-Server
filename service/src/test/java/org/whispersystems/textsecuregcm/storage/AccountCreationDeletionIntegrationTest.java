@@ -134,9 +134,6 @@ public class AccountCreationDeletionIntegrationTest {
     final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         mock(RegistrationRecoveryPasswordsManager.class);
 
-    when(registrationRecoveryPasswordsManager.remove(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
 
@@ -513,7 +510,7 @@ public class AccountCreationDeletionIntegrationTest {
         () -> assertNull(primaryDevice.getApnId()));
 
     maybeGcmRegistrationId.ifPresentOrElse(
-        gcmRegistrationId -> assertEquals(deliveryChannels.fcmToken(), primaryDevice.getGcmId()),
+        _ -> assertEquals(deliveryChannels.fcmToken(), primaryDevice.getGcmId()),
         () -> assertNull(primaryDevice.getGcmId()));
 
     assertTrue(account.getRegistrationLock().verify(registrationLockSecret));

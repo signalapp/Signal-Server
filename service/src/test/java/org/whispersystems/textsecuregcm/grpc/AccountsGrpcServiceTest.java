@@ -26,7 +26,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -105,9 +104,6 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     when(rateLimiters.getUsernameLinkOperationLimiter()).thenReturn(rateLimiter);
 
     when(rateLimiters.getSetZkCredentialKeyLimiter()).thenReturn(rateLimiter);
-
-    when(registrationRecoveryPasswordsManager.store(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     return new AccountsGrpcService(accountsManager,
         rateLimiters,

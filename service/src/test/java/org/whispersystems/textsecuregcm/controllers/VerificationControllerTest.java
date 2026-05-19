@@ -618,9 +618,6 @@ class VerificationControllerTest {
         .thenReturn(Optional.of(new VerificationSession(encodedSessionId, "challenge", null, List.of(), List.of(), null, null, true,
                 clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
-    when(registrationRecoveryPasswordsManager.remove(PNI))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
         .request()
@@ -918,8 +915,6 @@ class VerificationControllerTest {
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
         .thenReturn(Optional.of(mock(VerificationSession.class)));
-    when(registrationRecoveryPasswordsManager.remove(PNI))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -945,7 +940,6 @@ class VerificationControllerTest {
                 clock.millis(), clock.millis(), registrationServiceSession.expiration())));
     when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(registrationServiceSession));
-    when(registrationRecoveryPasswordsManager.remove(PNI)).thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId + "/code")
@@ -1247,8 +1241,6 @@ class VerificationControllerTest {
     when(verificationSessionManager.findForId(any()))
         .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
                 clock.millis(), clock.millis(), registrationServiceSession.expiration())));
-    when(registrationRecoveryPasswordsManager.remove(PNI))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId + "/code")
@@ -1375,8 +1367,6 @@ class VerificationControllerTest {
     when(verificationSessionManager.findForId(any()))
         .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
                 clock.millis(), clock.millis(), registrationServiceSession.expiration())));
-    when(registrationRecoveryPasswordsManager.remove(any()))
-        .thenReturn(CompletableFuture.completedFuture(true));
 
     final RegistrationServiceSession verifiedSession = new RegistrationServiceSession(SESSION_ID, NUMBER, true, null,
         null, 0L,

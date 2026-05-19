@@ -13,15 +13,16 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
-import org.whispersystems.textsecuregcm.util.Util;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 
 public class RegistrationRecoveryPasswords {
@@ -36,31 +37,32 @@ public class RegistrationRecoveryPasswords {
 
   private final Duration expiration;
 
-  private final DynamoDbAsyncClient asyncClient;
+  private final DynamoDbClient dynamoDbClient;
 
   private final Clock clock;
 
   public RegistrationRecoveryPasswords(
       final String tableName,
       final Duration expiration,
-      final DynamoDbAsyncClient asyncClient,
+      final DynamoDbClient dynamoDbClient,
       final Clock clock) {
     this.tableName = requireNonNull(tableName);
     this.expiration = requireNonNull(expiration);
-    this.asyncClient = requireNonNull(asyncClient);
+    this.dynamoDbClient = requireNonNull(dynamoDbClient);
     this.clock = requireNonNull(clock);
   }
 
-  public CompletableFuture<Optional<SaltedTokenHash>> lookup(final UUID phoneNumberIdentifier) {
-    return asyncClient.getItem(GetItemRequest.builder()
-            .tableName(tableName)
-            .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
-            .consistentRead(true)
-            .build())
-        .thenApply(getItemResponse -> Optional.ofNullable(getItemResponse.item())
-            .filter(item -> item.containsKey(ATTR_SALT))
-            .filter(item -> item.containsKey(ATTR_HASH))
-            .map(RegistrationRecoveryPasswords::saltedTokenHashFromItem));
+  public Optional<SaltedTokenHash> lookup(final UUID phoneNumberIdentifier) {
+    final GetItemResponse getItemResponse = dynamoDbClient.getItem(GetItemRequest.builder()
+        .tableName(tableName)
+        .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
+        .consistentRead(true)
+        .build());
+
+    return Optional.ofNullable(getItemResponse.item())
+        .filter(item -> item.containsKey(ATTR_SALT))
+        .filter(item -> item.containsKey(ATTR_HASH))
+        .map(RegistrationRecoveryPasswords::saltedTokenHashFromItem);
   }
 
   ///  Add a PNI -> RRP mapping, or replace the current one if it already exists
@@ -68,31 +70,33 @@ public class RegistrationRecoveryPasswords {
   /// @param phoneNumberIdentifier The PNI to associate the salted RRP with
   /// @param data The salted registration recovery password
   /// @return true if a new mapping was added, false if an existing mapping was updated
-  public CompletableFuture<Boolean> addOrReplace(final UUID phoneNumberIdentifier, final SaltedTokenHash data) {
+  public boolean addOrReplace(final UUID phoneNumberIdentifier, final SaltedTokenHash data) {
     final long expirationSeconds = expirationSeconds();
 
-    return asyncClient.putItem(PutItemRequest.builder()
-            .tableName(tableName)
-            .returnValues(ReturnValue.ALL_OLD)
-            .item(Map.of(
-                KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString()),
-                ATTR_EXP, AttributeValues.fromLong(expirationSeconds),
-                ATTR_SALT, AttributeValues.fromString(data.salt()),
-                ATTR_HASH, AttributeValues.fromString(data.hash())))
-            .build())
-        .thenApply(response -> response.attributes() == null || response.attributes().isEmpty());
+    final PutItemResponse response = dynamoDbClient.putItem(PutItemRequest.builder()
+        .tableName(tableName)
+        .returnValues(ReturnValue.ALL_OLD)
+        .item(Map.of(
+            KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString()),
+            ATTR_EXP, AttributeValues.fromLong(expirationSeconds),
+            ATTR_SALT, AttributeValues.fromString(data.salt()),
+            ATTR_HASH, AttributeValues.fromString(data.hash())))
+        .build());
+
+    return response.attributes() == null || response.attributes().isEmpty();
   }
 
   ///  Remove the entry associated with the provided PNI
   ///
   /// @return true if an entry was removed, false if no entry existed
-  public CompletableFuture<Boolean> removeEntry(final UUID phoneNumberIdentifier) {
-    return asyncClient.deleteItem(DeleteItemRequest.builder()
-            .tableName(tableName)
-            .returnValues(ReturnValue.ALL_OLD)
-            .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
-            .build())
-        .thenApply(response -> response.attributes() != null && !response.attributes().isEmpty());
+  public boolean removeEntry(final UUID phoneNumberIdentifier) {
+    final DeleteItemResponse response = dynamoDbClient.deleteItem(DeleteItemRequest.builder()
+        .tableName(tableName)
+        .returnValues(ReturnValue.ALL_OLD)
+        .key(Map.of(KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
+        .build());
+
+    return response.attributes() != null && !response.attributes().isEmpty();
   }
 
   @VisibleForTesting

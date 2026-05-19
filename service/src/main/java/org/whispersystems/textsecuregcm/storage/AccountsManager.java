@@ -413,8 +413,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
 
     final boolean rrpCreated = accountAttributes.recoveryPassword().map(registrationRecoveryPassword ->
             registrationRecoveryPasswordsManager
-                .store(account.getIdentifier(IdentityType.PNI), registrationRecoveryPassword)
-                .join())
+                .store(account.getIdentifier(IdentityType.PNI), registrationRecoveryPassword))
         .orElse(false);
 
     changeNumberWaitingPeriodManager.handleAccountCreated(account.getUuid(), clock.instant());
@@ -1214,9 +1213,10 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             keysManager.deleteSingleUsePreKeys(account.getUuid()),
             keysManager.deleteSingleUsePreKeys(account.getPhoneNumberIdentifier()),
             messagesManager.clear(account.getUuid()),
-            profilesManager.deleteAll(account.getUuid(), true),
-            registrationRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI)))
+            profilesManager.deleteAll(account.getUuid(), true))
         .join();
+
+    registrationRecoveryPasswordsManager.remove(account.getIdentifier(IdentityType.PNI));
 
     accounts.delete(account.getUuid(), additionalWriteItems);
     redisDelete(account);

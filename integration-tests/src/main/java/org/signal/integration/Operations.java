@@ -123,7 +123,7 @@ public final class Operations {
 
   public static byte[] populateRandomRecoveryPassword(final String number) {
     final byte[] recoveryPassword = randomBytes(32);
-    INTEGRATION_TOOLS.populateRecoveryPassword(number, recoveryPassword).join();
+    INTEGRATION_TOOLS.populateRecoveryPassword(number, recoveryPassword);
 
     return recoveryPassword;
   }

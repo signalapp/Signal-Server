@@ -516,7 +516,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     RegistrationRecoveryPasswords registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         config.getDynamoDbTables().getRegistrationRecovery().getTableName(),
         config.getDynamoDbTables().getRegistrationRecovery().getExpiration(),
-        dynamoDbAsyncClient,
+        dynamoDbClient,
         clock);
 
     final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbClient,

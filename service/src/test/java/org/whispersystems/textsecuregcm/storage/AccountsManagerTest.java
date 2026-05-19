@@ -197,8 +197,6 @@ class AccountsManagerTest {
     final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         mock(RegistrationRecoveryPasswordsManager.class);
 
-    when(registrationRecoveryPasswordsManager.remove(any())).thenReturn(CompletableFuture.completedFuture(null));
-
     when(keysManager.deleteSingleUsePreKeys(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(messagesManager.clear(any())).thenReturn(CompletableFuture.completedFuture(null));
     when(profilesManager.deleteAll(any(), anyBoolean())).thenReturn(CompletableFuture.completedFuture(null));

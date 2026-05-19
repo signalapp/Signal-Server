@@ -15,7 +15,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +26,7 @@ import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 
 public class RegistrationRecoveryTest {
 
@@ -51,7 +51,7 @@ public class RegistrationRecoveryTest {
     registrationRecoveryPasswords = new RegistrationRecoveryPasswords(
         Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName(),
         EXPIRATION,
-        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         CLOCK
     );
 
@@ -60,12 +60,12 @@ public class RegistrationRecoveryTest {
 
   @Test
   public void testLookupAfterWrite() throws Exception {
-    assertTrue(registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get());
+    assertTrue(registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH));
     final long initialExp = fetchTimestamp(PNI);
     final long expectedExpiration = CLOCK.instant().getEpochSecond() + EXPIRATION.getSeconds();
     assertEquals(expectedExpiration, initialExp);
 
-    final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI).get();
+    final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI);
     assertTrue(saltedTokenHashByPni.isPresent());
     assertEquals(ORIGINAL_HASH.salt(), saltedTokenHashByPni.get().salt());
     assertEquals(ORIGINAL_HASH.hash(), saltedTokenHashByPni.get().hash());
@@ -73,83 +73,81 @@ public class RegistrationRecoveryTest {
 
   @Test
   public void testLookupAfterRefresh() throws Exception {
-    registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get();
+    registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH);
 
     CLOCK.increment(50, TimeUnit.SECONDS);
-    registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get();
+    registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH);
     final long updatedExp = fetchTimestamp(PNI);
     final long expectedExp = CLOCK.instant().getEpochSecond() + EXPIRATION.getSeconds();
     assertEquals(expectedExp, updatedExp);
 
-    final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI).get();
+    final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI);
     assertTrue(saltedTokenHashByPni.isPresent());
     assertEquals(ORIGINAL_HASH.salt(), saltedTokenHashByPni.get().salt());
     assertEquals(ORIGINAL_HASH.hash(), saltedTokenHashByPni.get().hash());
   }
 
   @Test
-  public void testReplace() throws Exception {
-    assertTrue(registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get());
-    assertFalse(registrationRecoveryPasswords.addOrReplace(PNI, ANOTHER_HASH).get());
+  public void testReplace() {
+    assertTrue(registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH));
+    assertFalse(registrationRecoveryPasswords.addOrReplace(PNI, ANOTHER_HASH));
 
-    final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI).get();
+    final Optional<SaltedTokenHash> saltedTokenHashByPni = registrationRecoveryPasswords.lookup(PNI);
     assertTrue(saltedTokenHashByPni.isPresent());
     assertEquals(ANOTHER_HASH.salt(), saltedTokenHashByPni.get().salt());
     assertEquals(ANOTHER_HASH.hash(), saltedTokenHashByPni.get().hash());
   }
 
   @Test
-  public void testRemove() throws Exception {
-    assertFalse(registrationRecoveryPasswords.removeEntry(PNI).join());
+  public void testRemove() {
+    assertFalse(registrationRecoveryPasswords.removeEntry(PNI));
 
-    registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH).get();
-    assertTrue(registrationRecoveryPasswords.lookup(PNI).get().isPresent());
+    registrationRecoveryPasswords.addOrReplace(PNI, ORIGINAL_HASH);
+    assertTrue(registrationRecoveryPasswords.lookup(PNI).isPresent());
 
-    assertTrue(registrationRecoveryPasswords.removeEntry(PNI).get());
-    assertTrue(registrationRecoveryPasswords.lookup(PNI).get().isEmpty());
+    assertTrue(registrationRecoveryPasswords.removeEntry(PNI));
+    assertTrue(registrationRecoveryPasswords.lookup(PNI).isEmpty());
   }
 
   @Test
-  public void testManagerFlow() throws Exception {
+  public void testManagerFlow() {
     final byte[] password = "password".getBytes(StandardCharsets.UTF_8);
     final byte[] updatedPassword = "udpate".getBytes(StandardCharsets.UTF_8);
     final byte[] wrongPassword = "qwerty123".getBytes(StandardCharsets.UTF_8);
 
     // initial store
-    manager.store(PNI, password).get();
-    assertTrue(manager.verify(PNI, password).get());
-    assertFalse(manager.verify(PNI, wrongPassword).get());
+    manager.store(PNI, password);
+    assertTrue(manager.verify(PNI, password));
+    assertFalse(manager.verify(PNI, wrongPassword));
 
     // update
-    manager.store(PNI, password).get();
-    assertTrue(manager.verify(PNI, password).get());
-    assertFalse(manager.verify(PNI, wrongPassword).get());
+    manager.store(PNI, password);
+    assertTrue(manager.verify(PNI, password));
+    assertFalse(manager.verify(PNI, wrongPassword));
 
     // replace
-    manager.store(PNI, updatedPassword).get();
-    assertTrue(manager.verify(PNI, updatedPassword).get());
-    assertFalse(manager.verify(PNI, password).get());
-    assertFalse(manager.verify(PNI, wrongPassword).get());
+    manager.store(PNI, updatedPassword);
+    assertTrue(manager.verify(PNI, updatedPassword));
+    assertFalse(manager.verify(PNI, password));
+    assertFalse(manager.verify(PNI, wrongPassword));
 
-    manager.remove(PNI).get();
-    assertFalse(manager.verify(PNI, updatedPassword).get());
-    assertFalse(manager.verify(PNI, password).get());
-    assertFalse(manager.verify(PNI, wrongPassword).get());
+    manager.remove(PNI);
+    assertFalse(manager.verify(PNI, updatedPassword));
+    assertFalse(manager.verify(PNI, password));
+    assertFalse(manager.verify(PNI, wrongPassword));
   }
 
-  private static long fetchTimestamp(final UUID phoneNumberIdentifier) throws ExecutionException, InterruptedException {
-    return DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient().getItem(GetItemRequest.builder()
+  private static long fetchTimestamp(final UUID phoneNumberIdentifier) {
+    final GetItemResponse getItemResponse = DYNAMO_DB_EXTENSION.getDynamoDbClient().getItem(GetItemRequest.builder()
             .tableName(Tables.REGISTRATION_RECOVERY_PASSWORDS.tableName())
             .key(Map.of(RegistrationRecoveryPasswords.KEY_PNI, AttributeValues.fromString(phoneNumberIdentifier.toString())))
-            .build())
-        .thenApply(getItemResponse -> {
-          final Map<String, AttributeValue> item = getItemResponse.item();
-          if (item == null || !item.containsKey(RegistrationRecoveryPasswords.ATTR_EXP)) {
-            throw new RuntimeException("Data not found");
-          }
-          final String exp = item.get(RegistrationRecoveryPasswords.ATTR_EXP).n();
-          return Long.parseLong(exp);
-        })
-        .get();
+            .build());
+
+    final Map<String, AttributeValue> item = getItemResponse.item();
+    if (item == null || !item.containsKey(RegistrationRecoveryPasswords.ATTR_EXP)) {
+      throw new RuntimeException("Data not found");
+    }
+    final String exp = item.get(RegistrationRecoveryPasswords.ATTR_EXP).n();
+    return Long.parseLong(exp);
   }
 }

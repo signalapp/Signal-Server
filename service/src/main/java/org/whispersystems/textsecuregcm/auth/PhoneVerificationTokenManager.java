@@ -15,6 +15,7 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 import java.security.MessageDigest;
 import java.time.Duration;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -129,9 +130,10 @@ public class PhoneVerificationTokenManager {
     }
 
     try {
-      final boolean verified = phoneNumberIdentifiers.getPhoneNumberIdentifier(number)
-          .thenCompose(phoneNumberIdentifier -> registrationRecoveryPasswordsManager.verify(phoneNumberIdentifier, recoveryPassword))
+      final UUID phoneNumberIdentifier = phoneNumberIdentifiers.getPhoneNumberIdentifier(number)
           .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+      final boolean verified = registrationRecoveryPasswordsManager.verify(phoneNumberIdentifier, recoveryPassword);
 
       if (!verified) {
         throw new ForbiddenException("recoveryPassword couldn't be verified");
