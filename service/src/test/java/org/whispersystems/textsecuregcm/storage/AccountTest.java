@@ -21,7 +21,9 @@ import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,7 +31,9 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
 class AccountTest {
 
@@ -228,5 +232,29 @@ class AccountTest {
     assertTrue(maybeJsonFilterAnnotation.isPresent());
     final JsonFilter jsonFilterAnnotation = (JsonFilter) maybeJsonFilterAnnotation.get();
     assertEquals(Account.class.getSimpleName(), jsonFilterAnnotation.value());
+  }
+
+  @Test
+  public void testProfileVersionRoundTrip() throws Exception {
+    final Account account = AccountsHelper.generateTestAccount("+12345678901", UUID.randomUUID(), UUID.randomUUID(), List.of(createDevice(Device.PRIMARY_ID)), new byte[0]);
+    final byte[] version = TestRandomUtil.nextBytes(32);
+    account.setCurrentProfileVersion(version);
+
+    final String json = SystemMapper.jsonMapper().writeValueAsString(account);
+    final Account deserialized = SystemMapper.jsonMapper().readValue(json, Account.class);
+    assertThat(deserialized.getCurrentProfileVersion()).isPresent().hasValue(version);
+  }
+
+  @Test
+  public void testProfileVersionDeserialization() throws Exception {
+      final byte[] version = TestRandomUtil.nextBytes(32);
+      final String jsonTemplate = """
+          {"cpv": "%s"}
+      """;
+
+      final Account deserializedHexCpv = SystemMapper.jsonMapper().readValue(String.format(jsonTemplate, HexFormat.of().formatHex(version)), Account.class);
+      assertThat(deserializedHexCpv.getCurrentProfileVersion()).isPresent().hasValue(version);
+      final Account deserializedBase64Cpv = SystemMapper.jsonMapper().readValue(String.format(jsonTemplate, Base64.getEncoder().encodeToString(version)), Account.class);
+      assertThat(deserializedBase64Cpv.getCurrentProfileVersion()).isPresent().hasValue(version);
   }
 }

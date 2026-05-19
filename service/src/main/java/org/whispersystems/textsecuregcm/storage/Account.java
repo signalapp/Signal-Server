@@ -93,7 +93,6 @@ public class Account {
   private IdentityKey phoneNumberIdentityKey;
 
   @JsonProperty("cpv")
-  @JsonSerialize(using = ProfileVersionAdapter.Serializing.class)
   @JsonDeserialize(using = ProfileVersionAdapter.Deserializing.class)
   private byte[] currentProfileVersion;
 
@@ -593,14 +592,6 @@ public class Account {
         } else {
           return Base64.getDecoder().decode(val);
         }
-      }
-    }
-
-    // after deploying this once we can get rid of it in favor of the default base64
-    private static class Serializing extends JsonSerializer<byte[]> {
-      @Override
-      public void serialize(byte[] bytes, JsonGenerator jsonGenerator, SerializerProvider serializaterProvider) throws IOException {
-        jsonGenerator.writeString(HexFormat.of().formatHex(bytes));
       }
     }
   }
