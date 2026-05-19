@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.redis;
 import io.lettuce.core.FlushMode;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
+import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.internal.HostAndPort;
 import io.lettuce.core.resource.ClientResources;
 import io.lettuce.core.resource.DnsResolvers;
@@ -197,7 +198,10 @@ public class RedisClusterExtension implements BeforeAllCallback, BeforeEachCallb
         timeout,
         CIRCUIT_BREAKER_CONFIGURATION_NAME);
 
-    redisClusterClient.useCluster(connection -> connection.sync().flushall(FlushMode.SYNC));
+    // Bypass circuit breakers and configured timeouts for initial setup operations
+    try (final RedisClusterClient flushClusterClient = RedisClusterClient.create(redisClientResources, getRedisURIs())) {
+      flushClusterClient.connect().sync().flushall(FlushMode.SYNC);
+    }
   }
 
   @Override
