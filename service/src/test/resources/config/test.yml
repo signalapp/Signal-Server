@@ -154,8 +154,6 @@ dynamoDbTables:
     expiration: P7D
   subscriptions:
     tableName: subscriptions_test
-  clientPublicKeys:
-    tableName: client_public_keys_test
   verificationSessions:
     tableName: verification_sessions_test
 
