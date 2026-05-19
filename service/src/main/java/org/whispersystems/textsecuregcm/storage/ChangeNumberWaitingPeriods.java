@@ -10,10 +10,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
-import org.whispersystems.textsecuregcm.util.Util;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
@@ -29,23 +26,20 @@ public class ChangeNumberWaitingPeriods {
   static final String ATTR_TTL = "E";
 
   private final String tableName;
-  private final DynamoDbAsyncClient dynamoDbAsyncClient;
   private final DynamoDbClient dynamoDbClient;
 
-  public ChangeNumberWaitingPeriods(final String tableName, final DynamoDbAsyncClient dynamoDbAsyncClient, final DynamoDbClient dynamoDbClient) {
+  public ChangeNumberWaitingPeriods(final String tableName, final DynamoDbClient dynamoDbClient) {
     this.tableName = tableName;
-    this.dynamoDbAsyncClient = dynamoDbAsyncClient;
     this.dynamoDbClient = dynamoDbClient;
   }
 
-  public CompletableFuture<Void> setExpiration(final UUID aci, final Instant expiration) {
-    return dynamoDbAsyncClient.putItem(PutItemRequest.builder()
+  public void setExpiration(final UUID aci, final Instant expiration) {
+    dynamoDbClient.putItem(PutItemRequest.builder()
             .tableName(tableName)
             .item(Map.of(
                 KEY_ACCOUNT_UUID, AttributeValues.fromUUID(aci),
                 ATTR_TTL, AttributeValues.fromLong(expiration.getEpochSecond())))
-            .build())
-        .thenRun(Util.NOOP);
+            .build());
   }
 
   public Optional<Instant> getExpiration(final UUID aci) {

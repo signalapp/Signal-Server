@@ -49,7 +49,6 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -123,6 +122,7 @@ class AccountsManagerTest {
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
   private DisconnectionRequestManager disconnectionRequestManager;
+  private ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager;
 
   private Map<String, UUID> phoneNumberIdentifiersByE164;
 
@@ -147,7 +147,7 @@ class AccountsManagerTest {
     messagesManager = mock(MessagesManager.class);
     profilesManager = mock(ProfilesManager.class);
     disconnectionRequestManager = mock(DisconnectionRequestManager.class);
-    final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = mock(ChangeNumberWaitingPeriodManager.class);
+    changeNumberWaitingPeriodManager = mock(ChangeNumberWaitingPeriodManager.class);
 
     //noinspection unchecked
     asyncCommands = mock(RedisAsyncCommands.class);
@@ -215,8 +215,6 @@ class AccountsManagerTest {
         .build();
 
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
-    when(changeNumberWaitingPeriodManager.handleAccountCreated(any(UUID.class), any(Instant.class)))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     accountsManager = new AccountsManager(
         accounts,
@@ -725,6 +723,8 @@ class AccountsManagerTest {
         notNull(),
         notNull());
 
+    verify(changeNumberWaitingPeriodManager).handleAccountCreated(eq(createdAccount.getUuid()), any(Instant.class));
+
     verifyNoInteractions(messagesManager);
     verifyNoInteractions(profilesManager);
   }
@@ -782,6 +782,7 @@ class AccountsManagerTest {
     verify(profilesManager, times(2)).deleteAll(existingUuid, false);
     verify(disconnectionRequestManager).requestDisconnection(argThat(account ->
         account.getIdentifier(IdentityType.ACI).equals(existingUuid) && account != reregisteredAccount));
+    verify(changeNumberWaitingPeriodManager).handleAccountCreated(eq(existingUuid), any(Instant.class));
   }
 
   @Test

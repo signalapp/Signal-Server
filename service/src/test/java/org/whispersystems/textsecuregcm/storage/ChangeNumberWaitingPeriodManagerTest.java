@@ -11,7 +11,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -31,31 +30,27 @@ class ChangeNumberWaitingPeriodManagerTest {
   void setUp() {
     changeNumberWaitingPeriodManager = new ChangeNumberWaitingPeriodManager(
         new ChangeNumberWaitingPeriods(Tables.CHANGE_NUMBER_WAITING_PERIODS.tableName(),
-            DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
             DYNAMO_DB_EXTENSION.getDynamoDbClient()),
         WAITING_PERIOD,
         Clock.systemUTC());
   }
 
   @Test
-  void testNewAccount() throws Exception {
+  void testNewAccount() {
     final UUID aci = UUID.randomUUID();
 
     assertTrue(changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(aci).isEmpty());
 
-    changeNumberWaitingPeriodManager.handleAccountCreated(aci, Instant.now())
-        .get(5, TimeUnit.SECONDS);
+    changeNumberWaitingPeriodManager.handleAccountCreated(aci, Instant.now());
 
     assertTrue(changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(aci).isPresent());
   }
 
   @Test
-  void testOldAccount() throws Exception {
+  void testOldAccount() {
     final UUID aci = UUID.randomUUID();
 
-    changeNumberWaitingPeriodManager.handleAccountCreated(aci,
-        Instant.now().minus(WAITING_PERIOD).minus(Duration.ofHours(1)))
-        .get(5, TimeUnit.SECONDS);
+    changeNumberWaitingPeriodManager.handleAccountCreated(aci, Instant.now().minus(WAITING_PERIOD).minus(Duration.ofHours(1)));
 
     assertTrue(changeNumberWaitingPeriodManager.getWaitingPeriodRemaining(aci).isEmpty());
   }

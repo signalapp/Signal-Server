@@ -11,7 +11,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 /// Manages post-registration change number waiting period expiration data
 public class ChangeNumberWaitingPeriodManager {
@@ -29,8 +28,8 @@ public class ChangeNumberWaitingPeriodManager {
 
   /// Must be called when an account is created, including re-registration
   @VisibleForTesting
-  public CompletableFuture<Void> handleAccountCreated(final UUID aci, final Instant created) {
-    return changeNumberWaitingPeriods.setExpiration(aci, created.plus(waitingPeriod));
+  public void handleAccountCreated(final UUID aci, final Instant created) {
+    changeNumberWaitingPeriods.setExpiration(aci, created.plus(waitingPeriod));
   }
 
   /// Returns the waiting period duration remaining, if any. If present, {@code duration} will always be positive.

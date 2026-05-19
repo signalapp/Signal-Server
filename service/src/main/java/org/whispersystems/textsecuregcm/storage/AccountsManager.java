@@ -37,7 +37,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -405,8 +404,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
             return CompletableFuture.allOf(keysManager.deleteSingleUsePreKeys(aci),
                 keysManager.deleteSingleUsePreKeys(pni),
                 messagesManager.clear(aci),
-                profilesManager.deleteAll(aci, false),
-                changeNumberWaitingPeriodManager.handleAccountCreated(aci, clock.instant()));
+                profilesManager.deleteAll(aci, false));
           })
           .join();
     }
@@ -419,6 +417,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
                 .join())
         .orElse(false);
 
+    changeNumberWaitingPeriodManager.handleAccountCreated(account.getUuid(), clock.instant());
 
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
         Tag.of("type", accountCreationType),

@@ -53,7 +53,7 @@ public class IntegrationTools {
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords),
         new VerificationSessionManager(verificationSessions),
         new PhoneNumberIdentifiers(dynamoDbAsyncClient, config.dynamoDbTables().phoneNumberIdentifiers()),
-        new ChangeNumberWaitingPeriods(config.dynamoDbTables().changeNumberWaitingPeriods(), dynamoDbAsyncClient, dynamoDbClient)
+        new ChangeNumberWaitingPeriods(config.dynamoDbTables().changeNumberWaitingPeriods(), dynamoDbClient)
     );
   }
 

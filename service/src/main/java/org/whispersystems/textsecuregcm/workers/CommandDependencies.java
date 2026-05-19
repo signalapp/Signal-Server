@@ -284,7 +284,7 @@ public record CommandDependencies(
     RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords);
     final ChangeNumberWaitingPeriods changeNumberWaitingPeriods = new ChangeNumberWaitingPeriods(
-        configuration.getDynamoDbTables().getChangeNumberWaitingPeriods().getTableName(), dynamoDbAsyncClient, dynamoDbClient);
+        configuration.getDynamoDbTables().getChangeNumberWaitingPeriods().getTableName(), dynamoDbClient);
     final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = new ChangeNumberWaitingPeriodManager(
         changeNumberWaitingPeriods, configuration.getChangeNumber().postRegistrationWaitingPeriod(), clock);
     AccountsManager accountsManager = new AccountsManager(accounts, phoneNumberIdentifiers, cacheCluster,

@@ -134,10 +134,6 @@ class AccountsManagerUsernameIntegrationTest {
     final DisconnectionRequestManager disconnectionRequestManager = mock(DisconnectionRequestManager.class);
     when(disconnectionRequestManager.requestDisconnection(any())).thenReturn(CompletableFuture.completedFuture(null));
 
-    final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = mock(ChangeNumberWaitingPeriodManager.class);
-    when(changeNumberWaitingPeriodManager.handleAccountCreated(any(UUID.class), any(Instant.class)))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
     accountsManager = new AccountsManager(
         accounts,
         phoneNumberIdentifiers,
@@ -147,7 +143,7 @@ class AccountsManagerUsernameIntegrationTest {
         keysManager,
         messageManager,
         profileManager,
-        changeNumberWaitingPeriodManager,
+        mock(ChangeNumberWaitingPeriodManager.class),
         mock(SecureStorageClient.class),
         mock(SecureValueRecoveryClient.class),
         disconnectionRequestManager,

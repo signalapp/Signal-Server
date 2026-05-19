@@ -30,22 +30,21 @@ class ChangeNumberWaitingPeriodsTest {
   void setUp() {
     changeNumberWaitingPeriods = new ChangeNumberWaitingPeriods(
         Tables.CHANGE_NUMBER_WAITING_PERIODS.tableName(),
-        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbClient());
   }
 
   @Test
-  void getExpiration_unknownAci() throws Exception {
+  void getExpiration_unknownAci() {
     assertTrue(changeNumberWaitingPeriods.getExpiration(UUID.randomUUID()).isEmpty());
   }
 
   @Test
-  void setAndGetExpiration() throws Exception {
+  void setAndGetExpiration() {
     final UUID aci = UUID.randomUUID();
     // truncate to seconds because the TTL attribute stores epoch seconds
     final Instant expiration = Instant.now().plusSeconds(3600).truncatedTo(ChronoUnit.SECONDS);
 
-    changeNumberWaitingPeriods.setExpiration(aci, expiration).get();
+    changeNumberWaitingPeriods.setExpiration(aci, expiration);
 
     final Optional<Instant> result = changeNumberWaitingPeriods.getExpiration(aci);
     assertTrue(result.isPresent());
@@ -55,12 +54,12 @@ class ChangeNumberWaitingPeriodsTest {
   }
 
   @Test
-  void setExpiration_overwritesExistingEntry() throws Exception {
+  void setExpiration_overwritesExistingEntry() {
     final UUID aci = UUID.randomUUID();
     final Instant first = Instant.now().plusSeconds(3600).truncatedTo(ChronoUnit.SECONDS);
     final Instant second = Instant.now().plusSeconds(7200).truncatedTo(ChronoUnit.SECONDS);
 
-    changeNumberWaitingPeriods.setExpiration(aci, first).get();
+    changeNumberWaitingPeriods.setExpiration(aci, first);
 
     {
       final Optional<Instant> result = changeNumberWaitingPeriods.getExpiration(aci);
@@ -68,7 +67,7 @@ class ChangeNumberWaitingPeriodsTest {
       assertEquals(first, result.get());
     }
 
-    changeNumberWaitingPeriods.setExpiration(aci, second).get();
+    changeNumberWaitingPeriods.setExpiration(aci, second);
 
     {
       final Optional<Instant> result = changeNumberWaitingPeriods.getExpiration(aci);
@@ -78,9 +77,9 @@ class ChangeNumberWaitingPeriodsTest {
   }
 
   @Test
-  void delete_removesExisting() throws Exception {
+  void delete_removesExisting() {
     final UUID aci = UUID.randomUUID();
-    changeNumberWaitingPeriods.setExpiration(aci, Instant.now().plusSeconds(3600)).get();
+    changeNumberWaitingPeriods.setExpiration(aci, Instant.now().plusSeconds(3600));
 
     assertTrue( changeNumberWaitingPeriods.getExpiration(aci).isPresent());
 

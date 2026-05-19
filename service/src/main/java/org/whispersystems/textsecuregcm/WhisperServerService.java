@@ -708,7 +708,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
         reportMessageManager, messageDeletionAsyncExecutor, Clock.systemUTC());
     final ChangeNumberWaitingPeriods changeNumberWaitingPeriods = new ChangeNumberWaitingPeriods(
-        config.getDynamoDbTables().getChangeNumberWaitingPeriods().getTableName(), dynamoDbAsyncClient, dynamoDbClient);
+        config.getDynamoDbTables().getChangeNumberWaitingPeriods().getTableName(), dynamoDbClient);
     final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = new ChangeNumberWaitingPeriodManager(
         changeNumberWaitingPeriods, config.getChangeNumber().postRegistrationWaitingPeriod(), clock);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
