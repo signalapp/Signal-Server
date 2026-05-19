@@ -24,6 +24,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -98,11 +99,23 @@ public class APNSender implements Managed, PushNotificationSender {
           .setContentAvailable(true)
           .addCustomProperty("rateLimitChallenge", notification.data())
           .build();
+
+      case VERIFICATION_CODE_REQUESTED -> {
+        if (!(notification.data() instanceof VerificationCodeRequestData(long timestamp))) {
+          throw new IllegalArgumentException("Notification did not have VerificationCodeRequestData");
+        }
+
+        yield new SimpleApnsPayloadBuilder()
+          .setMutableContent(true)
+          .setLocalizedAlertMessage("APN_Message")
+          .addCustomProperty("verificationCodeRequested", Map.of("timestamp", timestamp))
+          .build();
+      }
     };
 
     final PushType pushType = switch (notification.notificationType()) {
       case NOTIFICATION -> notification.urgent() ? PushType.ALERT : PushType.BACKGROUND;
-      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> PushType.ALERT;
+      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, VERIFICATION_CODE_REQUESTED -> PushType.ALERT;
       case CHALLENGE, RATE_LIMIT_CHALLENGE -> PushType.BACKGROUND;
     };
 

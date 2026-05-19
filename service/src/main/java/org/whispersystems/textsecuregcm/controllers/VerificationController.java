@@ -656,6 +656,9 @@ public class VerificationController {
           acceptLanguage.orElse(null),
           senderOverride,
           REGISTRATION_RPC_TIMEOUT).join();
+
+      accountsManager.getByE164(registrationServiceSession.number()).ifPresent(existingAccount ->
+          pushNotificationManager.trySendVerificationCodeRequestedNotifications(existingAccount, clock.instant()));
     } catch (final CancellationException e) {
       throw new ServerErrorException("registration service unavailable", Response.Status.SERVICE_UNAVAILABLE);
     } catch (final CompletionException e) {

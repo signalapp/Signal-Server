@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -35,6 +36,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
@@ -86,6 +88,7 @@ import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsMan
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -109,7 +112,7 @@ class VerificationControllerTest {
   private final RateLimiters rateLimiters = mock(RateLimiters.class);
   private final AccountsManager accountsManager = mock(AccountsManager.class);
   private final CarrierDataProvider carrierDataProvider = mock(CarrierDataProvider.class);
-  private final Clock clock = Clock.systemUTC();
+  private final Clock clock = TestClock.pinned(Instant.now());
 
   private final RateLimiter captchaLimiter = mock(RateLimiter.class);
   private final RateLimiter pushChallengeLimiter = mock(RateLimiter.class);
@@ -1123,8 +1126,9 @@ class VerificationControllerTest {
     }
   }
 
-  @Test
-  void requestVerificationCodeSuccess() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void requestVerificationCodeSuccess(final boolean accountExistsWithNumber) {
     final String encodedSessionId = encodeSessionId(SESSION_ID);
     final RegistrationServiceSession registrationServiceSession = new RegistrationServiceSession(SESSION_ID, NUMBER,
         false, null, null,
@@ -1138,6 +1142,11 @@ class VerificationControllerTest {
     when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(registrationServiceSession));
 
+    final Account existingAccount = mock(Account.class);
+
+    when(accountsManager.getByE164(any()))
+        .thenReturn(accountExistsWithNumber ? Optional.of(existingAccount) : Optional.empty());
+
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId + "/code")
         .request()
@@ -1150,6 +1159,12 @@ class VerificationControllerTest {
 
       assertTrue(verificationSessionResponse.allowedToRequestCode());
       assertTrue(verificationSessionResponse.requestedInformation().isEmpty());
+
+      if (accountExistsWithNumber) {
+        verify(pushNotificationManager).trySendVerificationCodeRequestedNotifications(existingAccount, clock.instant());
+      } else {
+        verify(pushNotificationManager, never()).trySendVerificationCodeRequestedNotifications(any(), any());
+      }
     }
   }
 

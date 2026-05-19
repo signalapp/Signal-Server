@@ -10,7 +10,10 @@ import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
@@ -29,6 +32,8 @@ public class PushNotificationManager {
   private final APNSender apnSender;
   private final FcmSender fcmSender;
   private final PushNotificationScheduler pushNotificationScheduler;
+
+  private static final Duration VERIFICATION_CODE_TTL = Duration.ofMinutes(10);
 
   private static final String SENT_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "sentPushNotification");
   private static final String FAILED_NOTIFICATION_COUNTER_NAME = name(PushNotificationManager.class, "failedPushNotification");
@@ -80,6 +85,28 @@ public class PushNotificationManager {
         PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY,
         context, destination, device, true, null))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
+  }
+
+  public CompletableFuture<Void> trySendVerificationCodeRequestedNotifications(final Account destination, final Instant requestTimestamp) {
+    final List<CompletableFuture<?>> sendNotificationFutures = new ArrayList<>();
+
+    for (final Device device : destination.getDevices()) {
+      try {
+        final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
+
+        sendNotificationFutures.add(sendNotification(new PushNotification(tokenAndType.first(),
+            tokenAndType.second(),
+            PushNotification.NotificationType.VERIFICATION_CODE_REQUESTED,
+            new VerificationCodeRequestData(requestTimestamp.toEpochMilli()),
+            destination,
+            device,
+            true,
+            VERIFICATION_CODE_TTL)));
+      } catch (final NotPushRegisteredException _) {
+      }
+    }
+
+    return CompletableFuture.allOf(sendNotificationFutures.toArray(CompletableFuture[]::new));
   }
 
   public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {

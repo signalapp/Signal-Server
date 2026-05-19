@@ -29,7 +29,8 @@ public record PushNotification(String deviceToken,
     NOTIFICATION,
     ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY,
     CHALLENGE,
-    RATE_LIMIT_CHALLENGE
+    RATE_LIMIT_CHALLENGE,
+    VERIFICATION_CODE_REQUESTED
   }
 
   public enum TokenType {
