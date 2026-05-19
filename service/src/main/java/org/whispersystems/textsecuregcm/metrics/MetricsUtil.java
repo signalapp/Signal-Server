@@ -14,11 +14,14 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.binder.jetty.JettySslHandshakeMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics;
 import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics;
+import io.micrometer.core.instrument.binder.netty4.NettyAllocatorMetrics;
 import io.micrometer.core.instrument.binder.system.FileDescriptorMetrics;
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
 import io.micrometer.registry.otlp.OtlpMeterRegistry;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.ByteBufAllocatorMetricProvider;
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter;
 import io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -170,6 +173,10 @@ public class MetricsUtil {
 
     new JvmMemoryMetrics().bindTo(Metrics.globalRegistry);
     new JvmThreadMetrics().bindTo(Metrics.globalRegistry);
+
+    if (ByteBufAllocator.DEFAULT instanceof ByteBufAllocatorMetricProvider alloc) {
+      new NettyAllocatorMetrics(alloc).bindTo(Metrics.globalRegistry);
+    }
 
     GarbageCollectionGauges.registerMetrics();
   }

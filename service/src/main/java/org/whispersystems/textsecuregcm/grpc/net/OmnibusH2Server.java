@@ -95,15 +95,6 @@ public class OmnibusH2Server implements Managed {
       logger.warn("No SSL configuration provided for OmnibusH2Server, serving h2c");
     }
 
-    if (ByteBufAllocator.DEFAULT instanceof ByteBufAllocatorMetricProvider alloc) {
-      Metrics.gauge(MetricsUtil.name(OmnibusH2Server.class, "nettyUsedDirectMemory"),
-          alloc,
-          allocator -> allocator.metric().usedDirectMemory());
-      Metrics.gauge(MetricsUtil.name(OmnibusH2Server.class, "nettyUsedHeapMemory"),
-          alloc,
-          allocator -> allocator.metric().usedHeapMemory());
-    }
-
     final ServerBootstrap bootstrap = new ServerBootstrap()
         .group(nioEventLoopGroup)
         .channel(NioServerSocketChannel.class)

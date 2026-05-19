@@ -5,6 +5,8 @@
 package org.whispersystems.textsecuregcm.grpc.net;
 
 import io.dropwizard.lifecycle.Managed;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.binder.netty4.NettyEventExecutorMetrics;
 import io.netty.channel.EventLoopGroup;
 
 /**
@@ -17,6 +19,11 @@ public class ManagedEventLoopGroup<T extends EventLoopGroup> implements Managed 
 
   public ManagedEventLoopGroup(final T eventLoopGroup) {
     this.eventLoopGroup = eventLoopGroup;
+  }
+
+  @Override
+  public void start() {
+    new NettyEventExecutorMetrics(eventLoopGroup).bindTo(Metrics.globalRegistry);
   }
 
   @Override
