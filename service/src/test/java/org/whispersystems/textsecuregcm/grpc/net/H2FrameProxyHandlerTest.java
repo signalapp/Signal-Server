@@ -11,9 +11,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.nio.charset.StandardCharsets;
+import io.netty.util.test.LeakPresenceExtension;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-class H2FrameProxyHandlerTest extends AbstractLeakDetectionTest {
+@ExtendWith(LeakPresenceExtension.class)
+class H2FrameProxyHandlerTest {
   @Test
   void proxyWritabilityChanged() {
     final EmbeddedChannel target = new EmbeddedChannel();

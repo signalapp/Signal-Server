@@ -49,6 +49,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.util.ReferenceCountUtil;
+import io.netty.util.test.LeakPresenceExtension;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -68,11 +69,13 @@ import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 
-class OmnibusH2ServerTest extends AbstractLeakDetectionTest {
+@ExtendWith(LeakPresenceExtension.class)
+class OmnibusH2ServerTest {
   private static final String KEYSTORE_PASSWORD = "password";
 
   // Paths that start with PREFIX should go to the prefix backend, everything else to default.
