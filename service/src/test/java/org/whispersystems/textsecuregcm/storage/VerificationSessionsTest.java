@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,14 +16,12 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.telephony.CarrierData;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 
 class VerificationSessionsTest {
@@ -39,7 +36,7 @@ class VerificationSessionsTest {
   @BeforeEach
   void setUp() {
     verificationSessions = new VerificationSessions(
-        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.VERIFICATION_SESSIONS.tableName(), clock);
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(), Tables.VERIFICATION_SESSIONS.tableName(), clock);
   }
 
   @Test
@@ -62,30 +59,26 @@ class VerificationSessionsTest {
 
       final String sessionId = "sessionId";
 
-      final Optional<VerificationSession> absentSession = verificationSessions.findForKey(sessionId).join();
+      final Optional<VerificationSession> absentSession = verificationSessions.findForKey(sessionId);
       assertTrue(absentSession.isEmpty());
 
       final VerificationSession session = new VerificationSession(sessionId, null, new CarrierData("Test", CarrierData.LineType.MOBILE, Optional.of("123"), Optional.empty(), Optional.empty(), Optional.empty()),
           List.of(VerificationSession.Information.PUSH_CHALLENGE), Collections.emptyList(), null, null, true,
           clock.millis(), clock.millis(), Duration.ofMinutes(1).toSeconds());
 
-      verificationSessions.insert(sessionId, session).join();
+      verificationSessions.insert(sessionId, session);
 
-      assertEquals(session, verificationSessions.findForKey(sessionId).join().orElseThrow());
+      assertEquals(session, verificationSessions.findForKey(sessionId).orElseThrow());
 
-      final CompletionException ce = assertThrows(CompletionException.class,
-          () -> verificationSessions.insert(sessionId, session).join());
-
-      final Throwable t = ExceptionUtils.unwrap(ce);
-      assertInstanceOf(ConditionalCheckFailedException.class, t,
+      assertThrows(ConditionalCheckFailedException.class, () -> verificationSessions.insert(sessionId, session),
           "inserting with the same key should fail conditional checks");
 
       final VerificationSession updatedSession = new VerificationSession(sessionId, null, new CarrierData("Test", CarrierData.LineType.MOBILE, Optional.of("123"), Optional.empty(), Optional.empty(), Optional.empty()), Collections.emptyList(),
           List.of(VerificationSession.Information.PUSH_CHALLENGE), null, null, true, clock.millis(), clock.millis(),
           Duration.ofMinutes(2).toSeconds());
-      verificationSessions.update(sessionId, updatedSession).join();
+      verificationSessions.update(sessionId, updatedSession);
 
-      assertEquals(updatedSession, verificationSessions.findForKey(sessionId).join().orElseThrow());
+      assertEquals(updatedSession, verificationSessions.findForKey(sessionId).orElseThrow());
     });
   }
 

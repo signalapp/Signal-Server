@@ -519,7 +519,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         dynamoDbAsyncClient,
         clock);
 
-    final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbAsyncClient,
+    final VerificationSessions verificationSessions = new VerificationSessions(dynamoDbClient,
         config.getDynamoDbTables().getVerificationSessions().getTableName(), clock);
 
     final ClientResources sharedClientResources = ClientResources.builder()

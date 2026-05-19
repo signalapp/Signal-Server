@@ -117,7 +117,7 @@ public final class Operations {
   }
 
   public static String peekVerificationSessionPushChallenge(final String sessionId) {
-    return INTEGRATION_TOOLS.peekVerificationSessionPushChallenge(sessionId).join()
+    return INTEGRATION_TOOLS.peekVerificationSessionPushChallenge(sessionId)
         .orElseThrow(() -> new RuntimeException("push challenge not found for the verification session"));
   }
 

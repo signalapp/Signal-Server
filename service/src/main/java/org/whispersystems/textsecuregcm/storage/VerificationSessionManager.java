@@ -6,7 +6,6 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 
 public class VerificationSessionManager {
@@ -17,15 +16,15 @@ public class VerificationSessionManager {
     this.verificationSessions = verificationSessions;
   }
 
-  public CompletableFuture<Void> insert(final VerificationSession verificationSession) {
-    return verificationSessions.insert(verificationSession.sessionId(), verificationSession);
+  public void insert(final VerificationSession verificationSession) {
+    verificationSessions.insert(verificationSession.sessionId(), verificationSession);
   }
 
-  public CompletableFuture<Void> update(final VerificationSession verificationSession) {
-    return verificationSessions.update(verificationSession.sessionId(), verificationSession);
+  public void update(final VerificationSession verificationSession) {
+    verificationSessions.update(verificationSession.sessionId(), verificationSession);
   }
 
-  public CompletableFuture<Optional<VerificationSession>> findForId(final String encodedSessionId) {
+  public Optional<VerificationSession> findForId(final String encodedSessionId) {
     return verificationSessions.findForKey(encodedSessionId);
   }
 

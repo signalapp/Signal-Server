@@ -61,7 +61,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.Strings;
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
@@ -116,7 +115,6 @@ public class VerificationController {
 
   private static final Logger logger = LoggerFactory.getLogger(VerificationController.class);
   private static final Duration REGISTRATION_RPC_TIMEOUT = Duration.ofSeconds(15);
-  private static final Duration DYNAMODB_TIMEOUT = Duration.ofSeconds(5);
 
   private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -264,7 +262,7 @@ public class VerificationController {
     // if a push challenge sent in `handlePushToken` doesn't arrive in time
     verificationSession.requestedInformation().add(VerificationSession.Information.CAPTCHA);
 
-    storeVerificationSession(verificationSession);
+    verificationSessionManager.insert(verificationSession);
 
     return buildResponse(registrationServiceSession, verificationSession);
   }
@@ -337,22 +335,10 @@ public class VerificationController {
     } finally {
       // Each of the handle* methods may update requestedInformation, submittedInformation, and allowedToRequestCode,
       // and we want to be sure to store a changes, even if a later method throws
-      updateStoredVerificationSession(verificationSession);
+      verificationSessionManager.update(verificationSession);
     }
 
     return buildResponse(registrationServiceSession, verificationSession);
-  }
-
-  private void storeVerificationSession(final VerificationSession verificationSession) {
-    verificationSessionManager.insert(verificationSession)
-        .orTimeout(DYNAMODB_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
-        .join();
-  }
-
-  private void updateStoredVerificationSession(final VerificationSession verificationSession) {
-    verificationSessionManager.update(verificationSession)
-        .orTimeout(DYNAMODB_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
-        .join();
   }
 
   /**
@@ -907,8 +893,7 @@ public class VerificationController {
   private VerificationSession retrieveVerificationSession(final RegistrationServiceSession registrationServiceSession) {
 
     return verificationSessionManager.findForId(registrationServiceSession.encodedSessionId())
-        .orTimeout(5, TimeUnit.SECONDS)
-        .join().orElseThrow(NotFoundException::new);
+        .orElseThrow(NotFoundException::new);
   }
 
   /**

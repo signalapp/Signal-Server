@@ -47,7 +47,7 @@ public class IntegrationTools {
         config.dynamoDbTables().registrationRecovery(), Duration.ofDays(1), dynamoDbAsyncClient, Clock.systemUTC());
 
     final VerificationSessions verificationSessions = new VerificationSessions(
-        dynamoDbAsyncClient, config.dynamoDbTables().verificationSessions(), Clock.systemUTC());
+        dynamoDbClient, config.dynamoDbTables().verificationSessions(), Clock.systemUTC());
 
     return new IntegrationTools(
         new RegistrationRecoveryPasswordsManager(registrationRecoveryPasswords),
@@ -75,9 +75,8 @@ public class IntegrationTools {
         .thenRun(Util.NOOP);
   }
 
-  public CompletableFuture<Optional<String>> peekVerificationSessionPushChallenge(final String sessionId) {
-    return verificationSessionManager.findForId(sessionId)
-        .thenApply(maybeSession -> maybeSession.map(VerificationSession::pushChallenge));
+  public Optional<String> peekVerificationSessionPushChallenge(final String sessionId) {
+    return verificationSessionManager.findForId(sessionId).map(VerificationSession::pushChallenge);
   }
 
   public void clearChangeNumberWaitingPeriod(TestUser user) {

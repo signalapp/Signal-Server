@@ -16,12 +16,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
 import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 
@@ -54,7 +53,7 @@ class SerializedExpireableJsonDynamoStoreTest {
 
     private SerializedExpireableJsonDynamoStore<T> store;
 
-    abstract SerializedExpireableJsonDynamoStore<T> getStore(final DynamoDbAsyncClient dynamoDbClient,
+    abstract SerializedExpireableJsonDynamoStore<T> getStore(final DynamoDbClient dynamoDbClient,
         final String tableName);
 
     abstract T testValue(final String v);
@@ -63,29 +62,29 @@ class SerializedExpireableJsonDynamoStoreTest {
 
     @BeforeEach
     void setUp() {
-      store = getStore(DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), TABLE_NAME);
+      store = getStore(DYNAMO_DB_EXTENSION.getDynamoDbClient(), TABLE_NAME);
     }
 
     @Test
-    void testStoreAndFind() throws Exception {
-      assertEquals(Optional.empty(), store.findForKey(KEY).get(1, TimeUnit.SECONDS));
+    void testStoreAndFind() {
+      assertEquals(Optional.empty(), store.findForKey(KEY));
 
       final T original = testValue("1234");
       final T second = testValue("5678");
 
-      store.insert(KEY, original).get(1, TimeUnit.SECONDS);
+      store.insert(KEY, original);
       {
-        final Optional<T> maybeValue = store.findForKey(KEY).get(1, TimeUnit.SECONDS);
+        final Optional<T> maybeValue = store.findForKey(KEY);
 
         assertTrue(maybeValue.isPresent());
         assertEquals(original, maybeValue.get());
       }
 
-      assertThrows(Exception.class, () -> store.insert(KEY, second).get(1, TimeUnit.SECONDS));
-
-      assertDoesNotThrow(() -> store.update(KEY, second).get(1, TimeUnit.SECONDS));
+      assertThrows(Exception.class, () -> store.insert(KEY, second));
+      
+      assertDoesNotThrow(() -> store.update(KEY, second));
       {
-        final Optional<T> maybeValue = store.findForKey(KEY).get(1, TimeUnit.SECONDS);
+        final Optional<T> maybeValue = store.findForKey(KEY);
 
         assertTrue(maybeValue.isPresent());
         assertEquals(second, maybeValue.get());
@@ -93,20 +92,20 @@ class SerializedExpireableJsonDynamoStoreTest {
     }
 
     @Test
-    void testRemove() throws Exception {
-      assertEquals(Optional.empty(), store.findForKey(KEY).get(1, TimeUnit.SECONDS));
+    void testRemove() {
+      assertEquals(Optional.empty(), store.findForKey(KEY));
 
-      store.insert(KEY, testValue("1234")).get(1, TimeUnit.SECONDS);
-      assertTrue(store.findForKey(KEY).get(1, TimeUnit.SECONDS).isPresent());
+      store.insert(KEY, testValue("1234"));
+      assertTrue(store.findForKey(KEY).isPresent());
 
-      store.remove(KEY).get(1, TimeUnit.SECONDS);
-      assertFalse(store.findForKey(KEY).get(1, TimeUnit.SECONDS).isPresent());
+      store.remove(KEY);
+      assertFalse(store.findForKey(KEY).isPresent());
 
       final T v = maybeExpiredTestValue("1234");
-      store.insert(KEY, v).get(1, TimeUnit.SECONDS);
+      store.insert(KEY, v);
 
       assertEquals(v instanceof SerializedExpireableJsonDynamoStore.Expireable,
-          store.findForKey(KEY).get(1, TimeUnit.SECONDS).isEmpty());
+          store.findForKey(KEY).isEmpty());
     }
 
   }
@@ -126,7 +125,7 @@ class SerializedExpireableJsonDynamoStoreTest {
 
     class ExpiresStore extends SerializedExpireableJsonDynamoStore<Expires> {
 
-      public ExpiresStore(final DynamoDbAsyncClient dynamoDbClient, final String tableName) {
+      public ExpiresStore(final DynamoDbClient dynamoDbClient, final String tableName) {
         super(dynamoDbClient, tableName, clock);
       }
     }
@@ -136,7 +135,7 @@ class SerializedExpireableJsonDynamoStoreTest {
         Duration.ofHours(1)).toEpochMilli();
 
     @Override
-    SerializedExpireableJsonDynamoStore<Expires> getStore(final DynamoDbAsyncClient dynamoDbClient,
+    SerializedExpireableJsonDynamoStore<Expires> getStore(final DynamoDbClient dynamoDbClient,
         final String tableName) {
       return new ExpiresStore(dynamoDbClient, tableName);
     }
@@ -162,13 +161,13 @@ class SerializedExpireableJsonDynamoStoreTest {
 
     class DoesNotExpireStore extends SerializedExpireableJsonDynamoStore<DoesNotExpire> {
 
-      public DoesNotExpireStore(final DynamoDbAsyncClient dynamoDbClient, final String tableName) {
+      public DoesNotExpireStore(final DynamoDbClient dynamoDbClient, final String tableName) {
         super(dynamoDbClient, tableName, clock);
       }
     }
 
     @Override
-    SerializedExpireableJsonDynamoStore<DoesNotExpire> getStore(final DynamoDbAsyncClient dynamoDbClient,
+    SerializedExpireableJsonDynamoStore<DoesNotExpire> getStore(final DynamoDbClient dynamoDbClient,
         final String tableName) {
       return new DoesNotExpireStore(dynamoDbClient, tableName);
     }

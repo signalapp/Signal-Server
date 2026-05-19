@@ -240,8 +240,6 @@ class VerificationControllerTest {
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, requestedNumber, false, null, null, null,
                     SESSION_EXPIRATION_SECONDS)));
-    when(verificationSessionManager.insert(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session")
@@ -281,8 +279,6 @@ class VerificationControllerTest {
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
                     SESSION_EXPIRATION_SECONDS)));
-    when(verificationSessionManager.insert(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session")
@@ -302,8 +298,6 @@ class VerificationControllerTest {
             CompletableFuture.completedFuture(
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
                     SESSION_EXPIRATION_SECONDS)));
-    when(verificationSessionManager.insert(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session")
@@ -337,8 +331,6 @@ class VerificationControllerTest {
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
                     SESSION_EXPIRATION_SECONDS)));
 
-    when(verificationSessionManager.insert(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     when(accountsManager.getByE164(NUMBER))
         .thenReturn(isReregistration ? Optional.of(mock(Account.class)) : Optional.empty());
@@ -400,13 +392,9 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(
+        .thenReturn(Optional.of(
                 new VerificationSession(encodedSessionId, null, null, List.of(VerificationSession.Information.CAPTCHA), Collections.emptyList(),
-                    null, null, false, clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
-
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
+                    null, null, false, clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -445,12 +433,8 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, false,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
-
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, false,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
     doThrow(RateLimitExceededException.class)
         .when(captchaLimiter).validate(anyString());
@@ -481,12 +465,8 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, false,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
-
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, false,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
     doThrow(RateLimitExceededException.class)
         .when(pushChallengeLimiter).validate(anyString());
@@ -517,12 +497,9 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, "challenge", null, List.of(VerificationSession.Information.PUSH_CHALLENGE),
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, "challenge", null, List.of(VerificationSession.Information.PUSH_CHALLENGE),
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
-                registrationServiceSession.expiration()))));
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
+                registrationServiceSession.expiration())));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -551,16 +528,12 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, List.of(VerificationSession.Information.CAPTCHA),
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, List.of(VerificationSession.Information.CAPTCHA),
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
-                registrationServiceSession.expiration()))));
+                registrationServiceSession.expiration())));
 
     when(registrationCaptchaManager.assessCaptcha(any(), any(), any(), any()))
         .thenReturn(Optional.of(AssessmentResult.invalid()));
-
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -598,17 +571,14 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId,
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId,
                 "challenge",
                 null,
                 List.of(VerificationSession.Information.CAPTCHA),
                 List.of(VerificationSession.Information.PUSH_CHALLENGE),
                 null, null, false,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
+    
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
         .request()
@@ -645,12 +615,9 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, "challenge", null, List.of(), List.of(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, "challenge", null, List.of(), List.of(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
     when(registrationRecoveryPasswordsManager.remove(PNI))
         .thenReturn(CompletableFuture.completedFuture(null));
 
@@ -683,15 +650,12 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId,
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId,
                 "challenge",
                 null,
                 List.of(VerificationSession.Information.PUSH_CHALLENGE, VerificationSession.Information.CAPTCHA),
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
-                registrationServiceSession.expiration()))));
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
+                registrationServiceSession.expiration())));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -729,16 +693,13 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, List.of(VerificationSession.Information.CAPTCHA),
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, List.of(VerificationSession.Information.CAPTCHA),
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
-                registrationServiceSession.expiration()))));
+                registrationServiceSession.expiration())));
 
     when(registrationCaptchaManager.assessCaptcha(any(), any(), any(), any()))
         .thenReturn(Optional.of(AssessmentResult.alwaysValid()));
 
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -776,19 +737,16 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId,
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId,
                 "challenge",
                 null,
                 List.of(VerificationSession.Information.CAPTCHA, VerificationSession.Information.CAPTCHA),
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
-                registrationServiceSession.expiration()))));
+                registrationServiceSession.expiration())));
 
     when(registrationCaptchaManager.assessCaptcha(any(), any(), any(), any()))
         .thenReturn(Optional.of(AssessmentResult.alwaysValid()));
 
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -825,19 +783,16 @@ class VerificationControllerTest {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId,
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId,
                 null,
                 null,
                 List.of(VerificationSession.Information.CAPTCHA),
                 Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
-                registrationServiceSession.expiration()))));
+                registrationServiceSession.expiration())));
 
     when(registrationCaptchaManager.assessCaptcha(any(), any(), any(), any()))
         .thenThrow(new IOException("expected service error"));
 
-    when(verificationSessionManager.update(any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -892,7 +847,7 @@ class VerificationControllerTest {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
     when(verificationSessionManager.findForId(encodeSessionId(SESSION_ID)))
-        .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+        .thenReturn(Optional.empty());
 
     Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodeSessionId(SESSION_ID))
@@ -940,7 +895,7 @@ class VerificationControllerTest {
                 new RegistrationServiceSession(SESSION_ID, NUMBER, false, null, null, null,
                     SESSION_EXPIRATION_SECONDS))));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(mock(VerificationSession.class))));
+        .thenReturn(Optional.of(mock(VerificationSession.class)));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId)
@@ -962,7 +917,7 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(mock(VerificationSession.class))));
+        .thenReturn(Optional.of(mock(VerificationSession.class)));
     when(registrationRecoveryPasswordsManager.remove(PNI))
         .thenReturn(CompletableFuture.completedFuture(null));
 
@@ -986,9 +941,8 @@ class VerificationControllerTest {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
     when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(registrationServiceSession));
     when(registrationRecoveryPasswordsManager.remove(PNI)).thenReturn(CompletableFuture.completedFuture(null));
@@ -1018,9 +972,9 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(Optional.of(new VerificationSession(encodedSessionId, null, null,
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null,
             List.of(VerificationSession.Information.CAPTCHA), Collections.emptyList(), null, null, false, clock.millis(), clock.millis(),
-            registrationServiceSession.expiration()))));
+            registrationServiceSession.expiration())));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId + "/code")
@@ -1049,9 +1003,8 @@ class VerificationControllerTest {
             Optional.of(
                 registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, false,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, false,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/verification/session/" + encodedSessionId + "/code")
@@ -1077,9 +1030,8 @@ class VerificationControllerTest {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
     when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(
             new CompletionException(new VerificationSessionRateLimitExceededException(registrationServiceSession,
@@ -1109,9 +1061,8 @@ class VerificationControllerTest {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
     when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(
             new CompletionException(new TransportNotAllowedException(registrationServiceSession))));
@@ -1142,9 +1093,8 @@ class VerificationControllerTest {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
     when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(registrationServiceSession));
 
@@ -1193,9 +1143,8 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
     when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any(), any()))
         .thenReturn(
@@ -1237,9 +1186,8 @@ class VerificationControllerTest {
     when(registrationServiceClient.getSession(any(), any()))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
     when(registrationServiceClient.sendVerificationCode(any(), any(), any(), any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new CompletionException(
@@ -1271,9 +1219,8 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new CompletionException(new RuntimeException())));
@@ -1298,9 +1245,8 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
     when(registrationRecoveryPasswordsManager.remove(PNI))
         .thenReturn(CompletableFuture.completedFuture(null));
 
@@ -1335,9 +1281,8 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
     // There is no explicit indication in the exception that no code has been sent, but we treat all RegistrationServiceExceptions
     // in which the response has a session object as conflicted state
@@ -1372,9 +1317,8 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
 
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new CompletionException(new RegistrationServiceException(null))));
@@ -1398,9 +1342,8 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
     when(registrationServiceClient.checkVerificationCode(any(), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(
             new CompletionException(new VerificationSessionRateLimitExceededException(registrationServiceSession,
@@ -1430,9 +1373,8 @@ class VerificationControllerTest {
         .thenReturn(CompletableFuture.completedFuture(
             Optional.of(registrationServiceSession)));
     when(verificationSessionManager.findForId(any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
-                clock.millis(), clock.millis(), registrationServiceSession.expiration()))));
+        .thenReturn(Optional.of(new VerificationSession(encodedSessionId, null, null, Collections.emptyList(), Collections.emptyList(), null, null, true,
+                clock.millis(), clock.millis(), registrationServiceSession.expiration())));
     when(registrationRecoveryPasswordsManager.remove(any()))
         .thenReturn(CompletableFuture.completedFuture(true));
 
