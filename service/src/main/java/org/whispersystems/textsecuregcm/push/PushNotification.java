@@ -12,7 +12,7 @@ import javax.annotation.Nullable;
 public record PushNotification(String deviceToken,
                                TokenType tokenType,
                                NotificationType notificationType,
-                               @Nullable String data,
+                               @Nullable Object data,
                                @Nullable Account destination,
                                @Nullable Device destinationDevice,
                                boolean urgent) {

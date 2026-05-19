@@ -91,7 +91,7 @@ public class FcmSender implements PushNotificationSender {
       case RATE_LIMIT_CHALLENGE -> "rateLimitChallenge";
     };
 
-    builder.putData(key, pushNotification.data() != null ? pushNotification.data() : "");
+    builder.putData(key, pushNotification.data() != null ? pushNotification.data().toString() : "");
 
     final Timer.Sample sample = Timer.start();
 
