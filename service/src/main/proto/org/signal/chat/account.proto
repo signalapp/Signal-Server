@@ -275,4 +275,9 @@ message SetZkCredentialKeyRequest {
 }
 
 message SetZkCredentialKeyResponse {
+  // A random, non-zero, value that must be included in credential requests using the key.
+  //
+  // This value allows the server to ratchet the resulting binding identity,
+  // as reverting to the previous key will result in a new rotation ID.
+  uint64 rotation_id = 1;
 }

@@ -17,7 +17,6 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
@@ -130,6 +129,10 @@ public class Account {
   @JsonProperty("zck")
   @Nullable
   private byte[] zkCredentialKey;
+
+  @JsonProperty("zckr")
+  @Nullable
+  private Long zkCredentialKeyRotationId;
 
   @JsonProperty
   private int version;
@@ -564,6 +567,15 @@ public class Account {
 
   public void setZkCredentialKey(@Nullable final byte[] zkCredentialKey) {
     this.zkCredentialKey = zkCredentialKey;
+  }
+
+  @Nullable
+  public Long getZkCredentialKeyRotationId() {
+    return zkCredentialKeyRotationId;
+  }
+
+  public void setZkCredentialKeyRotationId(@Nullable final Long zkCredentialKeyRotationId) {
+    this.zkCredentialKeyRotationId = zkCredentialKeyRotationId;
   }
 
   public void markStale() {

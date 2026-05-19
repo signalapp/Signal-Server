@@ -26,6 +26,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -55,6 +56,7 @@ import org.signal.chat.account.SetRegistrationRecoveryPasswordRequest;
 import org.signal.chat.account.SetUsernameLinkRequest;
 import org.signal.chat.account.SetUsernameLinkResponse;
 import org.signal.chat.account.SetZkCredentialKeyRequest;
+import org.signal.chat.account.SetZkCredentialKeyResponse;
 import org.signal.chat.account.UsernameNotAvailable;
 import org.signal.chat.common.AccountIdentifiers;
 import org.signal.chat.errors.FailedPrecondition;
@@ -708,20 +710,28 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   void setZkCredentialKey(final boolean matchesCurrentZkCredentialKey) {
 
     final byte[] publicKey = TestRandomUtil.nextBytes(33);
+    final long rotationId = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
 
     final Account account = mock(Account.class);
 
     if (matchesCurrentZkCredentialKey) {
       when(account.getZkCredentialKey()).thenReturn(publicKey);
+      when(account.getZkCredentialKeyRotationId()).thenReturn(rotationId);
     }
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
 
-    assertDoesNotThrow(() ->
+    final SetZkCredentialKeyResponse response = assertDoesNotThrow(() ->
         authenticatedServiceStub().setZkCredentialKey(SetZkCredentialKeyRequest.newBuilder()
                 .setPublicKey(ByteString.copyFrom(publicKey))
             .build()));
+
+    if (matchesCurrentZkCredentialKey) {
+      assertEquals(rotationId, response.getRotationId());
+    } else {
+      assertTrue(response.getRotationId() != 0);
+    }
 
     final int updateMethodCalls = matchesCurrentZkCredentialKey ? 0 : 1;
 

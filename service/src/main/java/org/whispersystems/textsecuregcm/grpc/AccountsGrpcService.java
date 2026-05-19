@@ -6,11 +6,14 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import org.signal.chat.account.ClearRegistrationLockRequest;
 import org.signal.chat.account.ClearRegistrationLockResponse;
 import org.signal.chat.account.ConfigureUnidentifiedAccessRequest;
@@ -61,6 +64,8 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
 
 public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
+
+  private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
   private final AccountsManager accountsManager;
   private final RateLimiters rateLimiters;
@@ -276,14 +281,24 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final byte[] zkCredentialKey = request.getPublicKey().toByteArray();
 
     if (Arrays.equals(authenticatedAccount.getZkCredentialKey(), zkCredentialKey)) {
-      return SetZkCredentialKeyResponse.getDefaultInstance();
+      return SetZkCredentialKeyResponse.newBuilder()
+          .setRotationId(Objects.requireNonNull(authenticatedAccount.getZkCredentialKeyRotationId()))
+          .build();
     }
 
     rateLimiters.getSetZkCredentialKeyLimiter().validate(authenticatedDevice.accountIdentifier());
 
-    accountsManager.update(authenticatedDevice.accountIdentifier(), account -> account.setZkCredentialKey(zkCredentialKey));
+    // It is technically fine from the credential's perspective if it is zero, but it's clearer to never have the default value
+    final long rotationId = SECURE_RANDOM.nextLong(1, Long.MAX_VALUE);
 
-    return SetZkCredentialKeyResponse.getDefaultInstance();
+    accountsManager.update(authenticatedDevice.accountIdentifier(), account -> {
+      account.setZkCredentialKey(zkCredentialKey);
+      account.setZkCredentialKeyRotationId(rotationId);
+    });
+
+    return SetZkCredentialKeyResponse.newBuilder()
+        .setRotationId(rotationId)
+        .build();
   }
 
   private Account getAuthenticatedAccount() {
