@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.controllers;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -74,7 +75,9 @@ import org.whispersystems.textsecuregcm.entities.SubmitVerificationCodeRequest;
 import org.whispersystems.textsecuregcm.entities.UpdateVerificationSessionRequest;
 import org.whispersystems.textsecuregcm.entities.VerificationCodeRequest;
 import org.whispersystems.textsecuregcm.entities.VerificationSessionResponse;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.filters.RemoteAddressFilter;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.CaptchaMetrics;
@@ -133,6 +136,9 @@ public class VerificationController {
   private static final String EXISTING_ACCOUNT_PLATFORM = "existingAccountPlatform";
   private static final String EXISTING_ACCOUNT_RECENTLY_SEEN_TAG_NAME = "existingAccountRecentlySeen";
 
+  @VisibleForTesting
+  static final String VERIFICATION_CODE_PUSH_NOTIFICATION_EXPERIMENT_NAME = "verificationCodePushNotification";
+
   private final RegistrationServiceClient registrationServiceClient;
   private final VerificationSessionManager verificationSessionManager;
   private final PushNotificationManager pushNotificationManager;
@@ -144,6 +150,7 @@ public class VerificationController {
   private final CarrierDataProvider carrierDataProvider;
   private final RegistrationFraudChecker registrationFraudChecker;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
   private final Clock clock;
 
   public VerificationController(final RegistrationServiceClient registrationServiceClient,
@@ -157,6 +164,7 @@ public class VerificationController {
       final CarrierDataProvider carrierDataProvider,
       final RegistrationFraudChecker registrationFraudChecker,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
+      final ExperimentEnrollmentManager experimentEnrollmentManager,
       final Clock clock) {
     this.registrationServiceClient = registrationServiceClient;
     this.verificationSessionManager = verificationSessionManager;
@@ -169,6 +177,7 @@ public class VerificationController {
     this.carrierDataProvider = carrierDataProvider;
     this.registrationFraudChecker = registrationFraudChecker;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
     this.clock = clock;
   }
 
@@ -657,8 +666,11 @@ public class VerificationController {
           senderOverride,
           REGISTRATION_RPC_TIMEOUT).join();
 
-      accountsManager.getByE164(registrationServiceSession.number()).ifPresent(existingAccount ->
-          pushNotificationManager.trySendVerificationCodeRequestedNotifications(existingAccount, clock.instant()));
+      accountsManager.getByE164(registrationServiceSession.number())
+          .filter(existingAccount ->
+              experimentEnrollmentManager.isEnrolled(existingAccount.getIdentifier(IdentityType.ACI), VERIFICATION_CODE_PUSH_NOTIFICATION_EXPERIMENT_NAME))
+          .ifPresent(existingAccount ->
+              pushNotificationManager.trySendVerificationCodeRequestedNotifications(existingAccount, clock.instant()));
     } catch (final CancellationException e) {
       throw new ServerErrorException("registration service unavailable", Response.Status.SERVICE_UNAVAILABLE);
     } catch (final CompletionException e) {
