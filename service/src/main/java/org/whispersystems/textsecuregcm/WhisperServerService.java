@@ -740,7 +740,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         dynamoDbClient,
         config.getDynamoDbTables().getRedeemedReceipts().getExpiration());
     Subscriptions subscriptions = new Subscriptions(
-        config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient);
+        config.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbClient);
     MessageDeliveryLoopMonitor messageDeliveryLoopMonitor =
         config.logMessageDeliveryLoops() ? new RedisMessageDeliveryLoopMonitor(rateLimitersCluster) : new NoopMessageDeliveryLoopMonitor();
     CallQualitySurveyManager callQualitySurveyManager = new CallQualitySurveyManager(asnInfoProviderSupplier,

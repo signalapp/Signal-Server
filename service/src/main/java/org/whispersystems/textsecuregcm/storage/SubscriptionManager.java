@@ -79,7 +79,7 @@ public class SubscriptionManager {
   public void deleteSubscriber(final SubscriberCredentials subscriberCredentials)
       throws SubscriptionNotFoundException, SubscriptionInvalidArgumentsException, RateLimitExceededException {
     final Subscriptions.GetResult getResult =
-        subscriptions.get(subscriberCredentials.subscriberUser(), subscriberCredentials.hmac()).join();
+        subscriptions.get(subscriberCredentials.subscriberUser(), subscriberCredentials.hmac());
     if (getResult == Subscriptions.GetResult.NOT_STORED
         || getResult == Subscriptions.GetResult.PASSWORD_MISMATCH) {
       throw new SubscriptionNotFoundException();
@@ -90,7 +90,7 @@ public class SubscriptionManager {
       final ProcessorCustomer processorCustomer = getResult.record.getProcessorCustomer().get();
       getProcessor(processorCustomer.processor()).cancelAllActiveSubscriptions(processorCustomer.customerId());
     }
-    subscriptions.setCanceledAt(subscriberCredentials.subscriberUser(), subscriberCredentials.now()).join();
+    subscriptions.setCanceledAt(subscriberCredentials.subscriberUser(), subscriberCredentials.now());
   }
 
   /**
@@ -105,7 +105,7 @@ public class SubscriptionManager {
   public void updateSubscriber(final SubscriberCredentials subscriberCredentials)
       throws SubscriptionForbiddenException {
     final Subscriptions.GetResult getResult =
-        subscriptions.get(subscriberCredentials.subscriberUser(), subscriberCredentials.hmac()).join();
+        subscriptions.get(subscriberCredentials.subscriberUser(), subscriberCredentials.hmac());
 
     if (getResult == Subscriptions.GetResult.PASSWORD_MISMATCH) {
       throw new SubscriptionForbiddenException("subscriberId mismatch");
@@ -113,13 +113,13 @@ public class SubscriptionManager {
       // create a customer and write it to ddb
       final Subscriptions.Record updatedRecord = subscriptions.create(subscriberCredentials.subscriberUser(),
           subscriberCredentials.hmac(),
-          subscriberCredentials.now()).join();
+          subscriberCredentials.now());
       if (updatedRecord == null) {
         throw new SubscriptionForbiddenException("subscriberId mismatch");
       }
     } else {
       // already exists so just touch access time and return
-      subscriptions.accessedAt(subscriberCredentials.subscriberUser(), subscriberCredentials.now()).join();
+      subscriptions.accessedAt(subscriberCredentials.subscriberUser(), subscriberCredentials.now());
     }
   }
 
@@ -144,7 +144,7 @@ public class SubscriptionManager {
   public Subscriptions.Record getSubscriber(final SubscriberCredentials subscriberCredentials)
       throws SubscriptionForbiddenException, SubscriptionNotFoundException {
     final Subscriptions.GetResult getResult =
-        subscriptions.get(subscriberCredentials.subscriberUser(), subscriberCredentials.hmac()).join();
+        subscriptions.get(subscriberCredentials.subscriberUser(), subscriberCredentials.hmac());
     if (getResult == Subscriptions.GetResult.PASSWORD_MISMATCH) {
       throw new SubscriptionForbiddenException("subscriberId mismatch");
     } else if (getResult == Subscriptions.GetResult.NOT_STORED) {
@@ -198,8 +198,7 @@ public class SubscriptionManager {
     final SubscriptionPaymentProcessor manager = getProcessor(processor);
     final SubscriptionPaymentProcessor.ReceiptItem receipt = manager.getReceiptItem(record.subscriptionId);
     issuedReceiptsManager
-        .recordIssuance(receipt.itemId(), manager.getProvider(), receiptCredentialRequest, subscriberCredentials.now())
-        .join();
+        .recordIssuance(receipt.itemId(), manager.getProvider(), receiptCredentialRequest, subscriberCredentials.now());
     ReceiptCredentialResponse receiptCredentialResponse;
     try {
       receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
@@ -250,7 +249,7 @@ public class SubscriptionManager {
           .createCustomer(subscriberCredentials.subscriberUser(), clientPlatform);
       record = subscriptions.setProcessorAndCustomerId(record,
           new ProcessorCustomer(pc.customerId(), subscriptionPaymentProcessor.getProvider()),
-          Instant.now()).join();
+          Instant.now());
     }
     final ProcessorCustomer processorCustomer = record.getProcessorCustomer()
         .orElseThrow(() -> new UncheckedIOException(new IOException("processor must now exist")));
@@ -330,7 +329,7 @@ public class SubscriptionManager {
       subscriptions.subscriptionLevelChanged(subscriberCredentials.subscriberUser(),
           subscriberCredentials.now(),
           level,
-          updatedSubscriptionId.id()).join();
+          updatedSubscriptionId.id());
     } else {
       // Otherwise, we don't have a subscription yet so create it and then record the subscription id
       long lastSubscriptionCreatedAt = record.subscriptionCreatedAt != null
@@ -437,7 +436,7 @@ public class SubscriptionManager {
     final ProcessorCustomer pc = new ProcessorCustomer(originalTransactionId, PaymentProvider.APPLE_APP_STORE);
 
     final Long level = appleAppStoreManager.validateTransaction(originalTransactionId);
-    subscriptions.setIapPurchase(record, pc, originalTransactionId, level, subscriberCredentials.now()).join();
+    subscriptions.setIapPurchase(record, pc, originalTransactionId, level, subscriberCredentials.now());
     return level;
   }
 

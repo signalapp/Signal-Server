@@ -175,10 +175,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
       final Subscriptions.Record record = Subscriptions.Record.from(
           Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
       when(SUBSCRIPTIONS.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
-          .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
-
-      when(SUBSCRIPTIONS.subscriptionCreated(any(), any(), any(), anyLong()))
-          .thenReturn(CompletableFuture.completedFuture(null));
+          .thenReturn(Subscriptions.GetResult.found(record));
     }
 
     @Test
@@ -233,7 +230,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
       final Subscriptions.Record record = Subscriptions.Record.from(
           Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
       when(SUBSCRIPTIONS.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
-          .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+          .thenReturn(Subscriptions.GetResult.found(record));
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
@@ -260,7 +257,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
       final Subscriptions.Record record = Subscriptions.Record.from(
           Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
       when(SUBSCRIPTIONS.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
-          .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+          .thenReturn(Subscriptions.GetResult.found(record));
 
       final Response response = RESOURCE_EXTENSION
           .target(String.format("/v1/subscription/%s/create_payment_method", subscriberId))
@@ -305,8 +302,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     Arrays.fill(subscriberUserAndKey, (byte) 1);
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
-    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        Subscriptions.GetResult.NOT_STORED));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.NOT_STORED);
 
     final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
         Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
@@ -314,7 +310,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     );
     final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-    when(SUBSCRIPTIONS.create(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(record));
+    when(SUBSCRIPTIONS.create(any(), any(), any())).thenReturn(record);
 
     final Response createResponse = RESOURCE_EXTENSION.target(String.format("/v1/subscription/%s", subscriberId))
         .request()
@@ -322,9 +318,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     assertThat(createResponse.getStatus()).isEqualTo(200);
 
     // creating should be idempotent
-    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        Subscriptions.GetResult.found(record)));
-    when(SUBSCRIPTIONS.accessedAt(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.found(record));
 
     final Response idempotentCreateResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", subscriberId))
@@ -334,9 +328,8 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
     // when the manager returns `null`, it means there was a password mismatch from the storage layer `create`.
     // this could happen if there is a race between two concurrent `create` requests for the same user ID
-    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        Subscriptions.GetResult.NOT_STORED));
-    when(SUBSCRIPTIONS.create(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.NOT_STORED);
+    when(SUBSCRIPTIONS.create(any(), any(), any())).thenReturn(null);
 
     final Response managerCreateNullResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", subscriberId))
@@ -350,8 +343,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final String mismatchedSubscriberId = Base64.getEncoder().encodeToString(subscriberUserAndMismatchedKey);
 
     // a password mismatch for an existing record
-    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        Subscriptions.GetResult.PASSWORD_MISMATCH));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.PASSWORD_MISMATCH);
 
     final Response passwordMismatchResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", mismatchedSubscriberId))
@@ -380,8 +372,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
     when(CLOCK.instant()).thenReturn(Instant.now());
-    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(CompletableFuture.completedFuture(
-        Subscriptions.GetResult.NOT_STORED));
+    when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.NOT_STORED);
 
     final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
         Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
@@ -389,8 +380,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     );
     final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
-    when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
-        .thenReturn(CompletableFuture.completedFuture(record));
+    when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class))).thenReturn(record);
 
     final Response createSubscriberResponse = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s", subscriberId))
@@ -400,7 +390,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     assertThat(createSubscriberResponse.getStatus()).isEqualTo(200);
 
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+        .thenReturn(Subscriptions.GetResult.found(record));
 
     final String customerId = "some-customer-id";
     final ProcessorCustomer customer = new ProcessorCustomer(
@@ -414,9 +404,8 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final Subscriptions.Record recordWithCustomerId = Subscriptions.Record.from(record.user,
         dynamoItemWithProcessorCustomer);
 
-    when(SUBSCRIPTIONS.setProcessorAndCustomerId(any(Subscriptions.Record.class), any(),
-        any(Instant.class)))
-        .thenReturn(CompletableFuture.completedFuture(recordWithCustomerId));
+    when(SUBSCRIPTIONS.setProcessorAndCustomerId(any(Subscriptions.Record.class), any(), any(Instant.class)))
+        .thenReturn(recordWithCustomerId);
 
     final String clientSecret = "some-client-secret";
     when(STRIPE_MANAGER.createPaymentMethodSetupToken(customerId))
@@ -447,12 +436,12 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
     when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
-        .thenReturn(CompletableFuture.completedFuture(record));
+        .thenReturn(record);
 
     // set up mocks
     when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+        .thenReturn(Subscriptions.GetResult.found(record));
 
     final Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, 5, "usd", "abcd"))
@@ -486,17 +475,15 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
     when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
-        .thenReturn(CompletableFuture.completedFuture(record));
+        .thenReturn(record);
 
     // set up mocks
     when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+        .thenReturn(Subscriptions.GetResult.found(record));
 
     when(BRAINTREE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
         .thenReturn(new CustomerAwareSubscriptionPaymentProcessor.SubscriptionId("subscription"));
-    when(SUBSCRIPTIONS.subscriptionCreated(any(), any(), any(), anyLong()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, levelId, "usd", "abcd"))
@@ -536,12 +523,12 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
     when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
-        .thenReturn(CompletableFuture.completedFuture(record));
+        .thenReturn(record);
 
     // set up mocks
     when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+        .thenReturn(Subscriptions.GetResult.found(record));
 
     final Object subscriptionObj = new Object();
     when(BRAINTREE_MANAGER.getSubscription(any())).thenReturn(subscriptionObj);
@@ -552,8 +539,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     if (expectUpdate) {
       when(BRAINTREE_MANAGER.updateSubscription(any(), any(), anyLong(), anyString()))
           .thenReturn(new CustomerAwareSubscriptionPaymentProcessor.SubscriptionId(updatedSubscriptionId));
-      when(SUBSCRIPTIONS.subscriptionLevelChanged(any(), any(), anyLong(), anyString()))
-          .thenReturn(CompletableFuture.completedFuture(null));
     }
 
     final String idempotencyKey = "abcd";
@@ -609,11 +594,11 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final Subscriptions.Record record = Subscriptions.Record.from(
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
     when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
-        .thenReturn(CompletableFuture.completedFuture(record));
+        .thenReturn(record);
 
     when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+        .thenReturn(Subscriptions.GetResult.found(record));
 
     final Object subscriptionObj = new Object();
     when(BRAINTREE_MANAGER.getSubscription(any())).thenReturn(subscriptionObj);
@@ -653,14 +638,11 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final Subscriptions.Record record = Subscriptions.Record.from(user, dynamoItem);
 
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+        .thenReturn(Subscriptions.GetResult.found(record));
 
     when(APPSTORE_MANAGER.validateTransaction(eq(originalTxId)))
         .thenReturn(99L);
-
-    when(SUBSCRIPTIONS.setIapPurchase(any(), any(), anyString(), anyLong(), any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
-
+    
     final Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/appstore/%s", subscriberId, originalTxId))
         .request()
@@ -695,14 +677,11 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     );
     final Subscriptions.Record record = Subscriptions.Record.from(user, dynamoItem);
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+        .thenReturn(Subscriptions.GetResult.found(record));
 
     final GooglePlayBillingManager.ValidatedToken validatedToken = mock(GooglePlayBillingManager.ValidatedToken.class);
     when(validatedToken.getLevel()).thenReturn(99L);
     when(PLAY_MANAGER.validateToken(eq(purchaseToken))).thenReturn(validatedToken);
-
-    when(SUBSCRIPTIONS.setIapPurchase(any(), any(), anyString(), anyLong(), any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/playbilling/%s", subscriberId, purchaseToken))
@@ -739,15 +718,12 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID, b(oldPc.toDynamoBytes()));
     final Subscriptions.Record record = Subscriptions.Record.from(user, dynamoItem);
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+        .thenReturn(Subscriptions.GetResult.found(record));
 
     final GooglePlayBillingManager.ValidatedToken validatedToken = mock(GooglePlayBillingManager.ValidatedToken.class);
     when(validatedToken.getLevel()).thenReturn(99L);
 
     when(PLAY_MANAGER.validateToken(eq(newPurchaseToken))).thenReturn(validatedToken);
-
-    when(SUBSCRIPTIONS.setIapPurchase(any(), any(), anyString(), anyLong(), any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     final Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/playbilling/%s", subscriberId, newPurchaseToken))
@@ -776,14 +752,14 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
     when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(Subscriptions.Record.from(
+        .thenReturn(Subscriptions.GetResult.found(Subscriptions.Record.from(
             Arrays.copyOfRange(subscriberUserAndKey, 0, 16),
             Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
                 Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
                 Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
                 Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID,
                 b(new ProcessorCustomer("customer", PaymentProvider.STRIPE).toDynamoBytes()),
-                Subscriptions.KEY_SUBSCRIPTION_ID, s("subscriptionId"))))));
+                Subscriptions.KEY_SUBSCRIPTION_ID, s("subscriptionId")))));
     when(STRIPE_MANAGER.getReceiptItem(any()))
         .thenThrow(new SubscriptionChargeFailurePaymentRequiredException(
             PaymentProvider.STRIPE,
@@ -831,7 +807,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
     when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(Subscriptions.GetResult.found(record)));
+        .thenReturn(Subscriptions.GetResult.found(record));
     when(BRAINTREE_MANAGER.getReceiptItem(subscriptionId)).thenReturn(
         new CustomerAwareSubscriptionPaymentProcessor.ReceiptItem(
             "itemId",

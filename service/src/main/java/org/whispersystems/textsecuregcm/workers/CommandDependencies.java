@@ -344,7 +344,7 @@ public record CommandDependencies(
         configuration.getAppleAppStore().subscriptionGroupId(),
         configuration.getAppleAppStore().productIdToLevel());
     final SubscriptionManager subscriptionManager = new SubscriptionManager(
-        new Subscriptions(configuration.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbAsyncClient),
+        new Subscriptions(configuration.getDynamoDbTables().getSubscriptions().getTableName(), dynamoDbClient),
         List.of(googlePlayBillingManager, appleAppStoreManager),
         zkReceiptOperations,
         issuedReceiptsManager);

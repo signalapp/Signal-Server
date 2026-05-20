@@ -10,7 +10,6 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
@@ -19,8 +18,6 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
@@ -28,15 +25,16 @@ import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.textsecuregcm.util.Util;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 public class Subscriptions {
 
@@ -161,11 +159,11 @@ public class Subscriptions {
   }
 
   private final String table;
-  private final DynamoDbAsyncClient client;
+  private final DynamoDbClient client;
 
   public Subscriptions(
       @Nonnull String table,
-      @Nonnull DynamoDbAsyncClient client) {
+      @Nonnull DynamoDbClient client) {
     this.table = Objects.requireNonNull(table);
     this.client = Objects.requireNonNull(client);
   }
@@ -173,7 +171,7 @@ public class Subscriptions {
   /**
    * Looks in the GSI for a record with the given customer id and returns the user id.
    */
-  public CompletableFuture<byte[]> getSubscriberUserByProcessorCustomer(ProcessorCustomer processorCustomer) {
+  public byte[] getSubscriberUserByProcessorCustomer(ProcessorCustomer processorCustomer) {
     QueryRequest query = QueryRequest.builder()
         .tableName(table)
         .indexName(INDEX_NAME)
@@ -185,20 +183,20 @@ public class Subscriptions {
         .expressionAttributeValues(Map.of(
             ":processor_customer_id", b(processorCustomer.toDynamoBytes())))
         .build();
-    return client.query(query).thenApply(queryResponse -> {
-      int count = queryResponse.count();
-      if (count == 0) {
-        return null;
-      } else if (count > 1) {
-        logger.error("expected invariant of 1-1 subscriber-customer violated for customer {} ({})",
-            processorCustomer.customerId(), processorCustomer.processor());
-        throw new IllegalStateException(
-            "expected invariant of 1-1 subscriber-customer violated for customer " + processorCustomer);
-      } else {
-        Map<String, AttributeValue> result = queryResponse.items().getFirst();
-        return result.get(KEY_USER).b().asByteArray();
-      }
-    });
+    final QueryResponse queryResponse = client.query(query);
+
+    int count = queryResponse.count();
+    if (count == 0) {
+      return null;
+    } else if (count > 1) {
+      logger.error("expected invariant of 1-1 subscriber-customer violated for customer {} ({})",
+          processorCustomer.customerId(), processorCustomer.processor());
+      throw new IllegalStateException(
+          "expected invariant of 1-1 subscriber-customer violated for customer " + processorCustomer);
+    } else {
+      Map<String, AttributeValue> result = queryResponse.items().getFirst();
+      return result.get(KEY_USER).b().asByteArray();
+    }
   }
 
   public static class GetResult {
@@ -228,21 +226,22 @@ public class Subscriptions {
   /**
    * Looks up a record with the given {@code user} and validates the {@code hmac} before returning it.
    */
-  public CompletableFuture<GetResult> get(byte[] user, byte[] hmac) {
-    return getUser(user).thenApply(getItemResponse -> {
-      if (!getItemResponse.hasItem()) {
-        return GetResult.NOT_STORED;
-      }
+  public GetResult get(byte[] user, byte[] hmac) {
+    final GetItemResponse getItemResponse =  getUser(user);
 
-      Record record = Record.from(user, getItemResponse.item());
-      if (!MessageDigest.isEqual(hmac, record.password)) {
-        return GetResult.PASSWORD_MISMATCH;
-      }
-      return GetResult.found(record);
-    });
+    if (!getItemResponse.hasItem()) {
+
+      return GetResult.NOT_STORED;
+    }
+
+    Record record = Record.from(user, getItemResponse.item());
+    if (!MessageDigest.isEqual(hmac, record.password)) {
+      return GetResult.PASSWORD_MISMATCH;
+    }
+    return GetResult.found(record);
   }
 
-  private CompletableFuture<GetItemResponse> getUser(byte[] user) {
+  private GetItemResponse getUser(byte[] user) {
     checkUserLength(user);
 
     GetItemRequest request = GetItemRequest.builder()
@@ -254,10 +253,11 @@ public class Subscriptions {
     return client.getItem(request);
   }
 
-  public CompletableFuture<Record> create(byte[] user, byte[] password, Instant createdAt) {
+  @Nullable
+  public Record create(byte[] user, byte[] password, Instant createdAt) {
     checkUserLength(user);
 
-    UpdateItemRequest request = UpdateItemRequest.builder()
+    final UpdateItemRequest request = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_USER, b(user)))
         .returnValues(ReturnValue.ALL_NEW)
@@ -279,17 +279,13 @@ public class Subscriptions {
             ":accessed_at", n(createdAt.getEpochSecond()))
         )
         .build();
-    return client.updateItem(request).handle((updateItemResponse, throwable) -> {
-      if (throwable != null) {
-        if (Throwables.getRootCause(throwable) instanceof ConditionalCheckFailedException) {
-          return null;
-        }
-        Throwables.throwIfUnchecked(throwable);
-        throw new CompletionException(throwable);
-      }
+    try {
+      final UpdateItemResponse updateItemResponse = client.updateItem(request);
 
       return Record.from(user, updateItemResponse.attributes());
-    });
+    } catch (ConditionalCheckFailedException _) {
+      return null;
+    }
   }
 
   /**
@@ -297,10 +293,10 @@ public class Subscriptions {
    *
    * @return the user record.
    */
-  public CompletableFuture<Record> setProcessorAndCustomerId(Record userRecord,
+  public Record setProcessorAndCustomerId(Record userRecord,
       ProcessorCustomer activeProcessorCustomer, Instant updatedAt) {
 
-    UpdateItemRequest request = UpdateItemRequest.builder()
+    final UpdateItemRequest request = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_USER, b(userRecord.user)))
         .returnValues(ReturnValue.ALL_NEW)
@@ -318,15 +314,13 @@ public class Subscriptions {
             ":processor_customer_id", b(activeProcessorCustomer.toDynamoBytes())
         )).build();
 
-    return client.updateItem(request)
-        .thenApply(updateItemResponse -> Record.from(userRecord.user, updateItemResponse.attributes()))
-        .exceptionallyCompose(throwable -> {
-          if (Throwables.getRootCause(throwable) instanceof ConditionalCheckFailedException) {
-            throw new ClientErrorException(Response.Status.CONFLICT);
-          }
-          Throwables.throwIfUnchecked(throwable);
-          throw new CompletionException(throwable);
-        });
+    try {
+      final UpdateItemResponse updateItemResponse = client.updateItem(request);
+
+      return Record.from(userRecord.user, updateItemResponse.attributes());
+    } catch (ConditionalCheckFailedException _) {
+      throw new ClientErrorException(Response.Status.CONFLICT);
+    }
   }
 
   /**
@@ -345,7 +339,7 @@ public class Subscriptions {
    * @param updatedAt         The time of this update
    * @return A stage that completes once the record has been updated
    */
-  public CompletableFuture<Void> setIapPurchase(
+  public void setIapPurchase(
       final Record record,
       final ProcessorCustomer processorCustomer,
       final String subscriptionId,
@@ -390,21 +384,17 @@ public class Subscriptions {
             ":subscription_level_changed_at", n(updatedAt.getEpochSecond())))
         .build();
 
-    return client.updateItem(request)
-        .exceptionallyCompose(throwable -> {
-          if (Throwables.getRootCause(throwable) instanceof ConditionalCheckFailedException) {
-            throw new ClientErrorException(Response.Status.CONFLICT);
-          }
-          Throwables.throwIfUnchecked(throwable);
-          throw new CompletionException(throwable);
-        })
-        .thenRun(Util.NOOP);
+    try {
+      client.updateItem(request);
+    } catch (ConditionalCheckFailedException _) {
+      throw new ClientErrorException(Response.Status.CONFLICT);
+    }
   }
 
-  public CompletableFuture<Void> accessedAt(byte[] user, Instant accessedAt) {
+  public void accessedAt(byte[] user, Instant accessedAt) {
     checkUserLength(user);
 
-    UpdateItemRequest request = UpdateItemRequest.builder()
+    final UpdateItemRequest request = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_USER, b(user)))
         .returnValues(ReturnValue.NONE)
@@ -412,13 +402,13 @@ public class Subscriptions {
         .expressionAttributeNames(Map.of("#accessed_at", KEY_ACCESSED_AT))
         .expressionAttributeValues(Map.of(":accessed_at", n(accessedAt.getEpochSecond())))
         .build();
-    return client.updateItem(request).thenApply(updateItemResponse -> null);
+    client.updateItem(request);
   }
 
-  public CompletableFuture<Void> setCanceledAt(byte[] user, Instant canceledAt) {
+  public void setCanceledAt(byte[] user, Instant canceledAt) {
     checkUserLength(user);
 
-    UpdateItemRequest request = UpdateItemRequest.builder()
+    final UpdateItemRequest request = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_USER, b(user)))
         .returnValues(ReturnValue.NONE)
@@ -434,14 +424,14 @@ public class Subscriptions {
             ":accessed_at", n(canceledAt.getEpochSecond()),
             ":canceled_at", n(canceledAt.getEpochSecond())))
         .build();
-    return client.updateItem(request).thenApply(updateItemResponse -> null);
+    client.updateItem(request);
   }
 
-  public CompletableFuture<Void> subscriptionCreated(
+  public void subscriptionCreated(
       byte[] user, String subscriptionId, Instant subscriptionCreatedAt, long level) {
     checkUserLength(user);
 
-    UpdateItemRequest request = UpdateItemRequest.builder()
+    final UpdateItemRequest request = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_USER, b(user)))
         .returnValues(ReturnValue.NONE)
@@ -466,14 +456,14 @@ public class Subscriptions {
             ":subscription_level", n(level),
             ":subscription_level_changed_at", n(subscriptionCreatedAt.getEpochSecond())))
         .build();
-    return client.updateItem(request).thenApply(updateItemResponse -> null);
+    client.updateItem(request);
   }
 
-  public CompletableFuture<Void> subscriptionLevelChanged(
+  public void subscriptionLevelChanged(
       byte[] user, Instant subscriptionLevelChangedAt, long level, String subscriptionId) {
     checkUserLength(user);
 
-    UpdateItemRequest request = UpdateItemRequest.builder()
+    final UpdateItemRequest request = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_USER, b(user)))
         .returnValues(ReturnValue.NONE)
@@ -495,7 +485,7 @@ public class Subscriptions {
             ":subscription_level", n(level),
             ":subscription_level_changed_at", n(subscriptionLevelChangedAt.getEpochSecond())))
         .build();
-    return client.updateItem(request).thenApply(updateItemResponse -> null);
+    client.updateItem(request);
   }
 
   private static byte[] checkUserLength(final byte[] user) {
