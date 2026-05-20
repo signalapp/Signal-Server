@@ -117,7 +117,7 @@ public class DonationController {
     }
 
     final boolean receiptMatched = redeemedReceiptsManager.put(
-        receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.accountIdentifier()).join();
+        receiptSerial, receiptExpiration.getEpochSecond(), receiptLevel, auth.accountIdentifier());
     if (!receiptMatched) {
       return Response.status(Status.BAD_REQUEST)
           .entity("receipt serial is already redeemed")

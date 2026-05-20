@@ -23,7 +23,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -114,8 +113,7 @@ class DonationControllerTest {
     when(receiptCredentialPresentation.getReceiptLevel()).thenReturn(receiptLevel);
     final long receiptExpiration = nowEpochSeconds + 86400 * 30;
     when(receiptCredentialPresentation.getReceiptExpirationTime()).thenReturn(receiptExpiration);
-    when(redeemedReceiptsManager.put(same(receiptSerial), eq(receiptExpiration), eq(receiptLevel), eq(AuthHelper.VALID_UUID))).thenReturn(
-        CompletableFuture.completedFuture(Boolean.TRUE));
+    when(redeemedReceiptsManager.put(same(receiptSerial), eq(receiptExpiration), eq(receiptLevel), eq(AuthHelper.VALID_UUID))).thenReturn(true);
     when(accountsManager.getByAccountIdentifier(eq(AuthHelper.VALID_UUID)))
         .thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 
@@ -138,8 +136,7 @@ class DonationControllerTest {
     when(receiptCredentialPresentation.getReceiptLevel()).thenReturn(receiptLevel);
     final long receiptExpiration = nowEpochSeconds + 86400 * 30;
     when(receiptCredentialPresentation.getReceiptExpirationTime()).thenReturn(receiptExpiration);
-    when(redeemedReceiptsManager.put(same(receiptSerial), eq(receiptExpiration), eq(receiptLevel), eq(AuthHelper.VALID_UUID))).thenReturn(
-        CompletableFuture.completedFuture(Boolean.FALSE));
+    when(redeemedReceiptsManager.put(same(receiptSerial), eq(receiptExpiration), eq(receiptLevel), eq(AuthHelper.VALID_UUID))).thenReturn(false);
     when(accountsManager.getByAccountIdentifier(eq(AuthHelper.VALID_UUID)))
         .thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
 

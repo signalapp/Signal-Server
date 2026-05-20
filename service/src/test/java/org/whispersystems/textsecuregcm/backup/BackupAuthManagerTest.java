@@ -341,7 +341,7 @@ public class BackupAuthManagerTest {
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
     when(accountsManager.update(any(Account.class), any())).thenReturn(account);
     when(redeemedReceiptsManager.put(any(), eq(expirationTime.getEpochSecond()), eq(201L), eq(aci)))
-        .thenReturn(CompletableFuture.completedFuture(true));
+        .thenReturn(true);
     authManager.redeemReceipt(account, receiptPresentation(201, expirationTime));
     verify(accountsManager, times(1)).update(any(Account.class), any());
   }
@@ -354,7 +354,7 @@ public class BackupAuthManagerTest {
 
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
     when(redeemedReceiptsManager.put(any(), eq(expirationTime.getEpochSecond()), eq(201L), eq(aci)))
-        .thenReturn(CompletableFuture.completedFuture(true));
+        .thenReturn(true);
     assertThatExceptionOfType(BackupMissingIdCommitmentException.class)
         .isThrownBy(() -> authManager.redeemReceipt(account, receiptPresentation(201, expirationTime)));
   }
@@ -375,7 +375,7 @@ public class BackupAuthManagerTest {
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
     when(accountsManager.update(any(Account.class), any())).thenReturn(account);
     when(redeemedReceiptsManager.put(any(), eq(newExpirationTime.getEpochSecond()), eq(201L), eq(aci)))
-        .thenReturn(CompletableFuture.completedFuture(true));
+        .thenReturn(true);
     authManager.redeemReceipt(account, receiptPresentation(201, newExpirationTime));
 
     final ArgumentCaptor<Consumer<Account>> updaterCaptor = ArgumentCaptor.captor();
@@ -430,7 +430,7 @@ public class BackupAuthManagerTest {
     clock.pin(Instant.EPOCH.plus(Duration.ofDays(1)));
     when(accountsManager.update(any(Account.class), any())).thenReturn(account);
     when(redeemedReceiptsManager.put(any(), eq(expirationTime.getEpochSecond()), eq(201L), eq(aci)))
-        .thenReturn(CompletableFuture.completedFuture(false));
+        .thenReturn(false);
 
     assertThatExceptionOfType(BackupBadReceiptException.class)
         .isThrownBy(() -> authManager.redeemReceipt(account, receiptPresentation(201, expirationTime)));

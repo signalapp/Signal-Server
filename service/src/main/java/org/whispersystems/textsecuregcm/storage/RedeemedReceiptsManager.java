@@ -11,15 +11,15 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 public class RedeemedReceiptsManager {
 
@@ -32,13 +32,13 @@ public class RedeemedReceiptsManager {
 
   private final Clock clock;
   private final String table;
-  private final DynamoDbAsyncClient client;
+  private final DynamoDbClient client;
   private final Duration expirationTime;
 
   public RedeemedReceiptsManager(
       @Nonnull final Clock clock,
       @Nonnull final String table,
-      @Nonnull final DynamoDbAsyncClient client,
+      @Nonnull final DynamoDbClient client,
       @Nonnull final Duration expirationTime) {
     this.clock = Objects.requireNonNull(clock);
     this.table = Objects.requireNonNull(table);
@@ -51,7 +51,7 @@ public class RedeemedReceiptsManager {
    * receiptLevel}, and {@code accountUuid} provided or if an existing entry already exists with the same values thereby
    * allowing idempotent request processing.
    */
-  public CompletableFuture<Boolean> put(
+  public boolean put(
       @Nonnull final ReceiptSerial receiptSerial,
       final long receiptExpiration,
       final long receiptLevel,
@@ -87,13 +87,13 @@ public class RedeemedReceiptsManager {
             ":account_uuid", AttributeValues.b(accountUuid),
             ":redemption_time", AttributeValues.n(now.getEpochSecond())))
         .build();
-    return client.updateItem(updateItemRequest).thenApply(updateItemResponse -> {
+    final UpdateItemResponse updateItemResponse = client.updateItem(updateItemRequest);
+
       final Map<String, AttributeValue> attributes = updateItemResponse.attributes();
       final long ddbReceiptExpiration = Long.parseLong(attributes.get(KEY_RECEIPT_EXPIRATION).n());
       final long ddbReceiptLevel = Long.parseLong(attributes.get(KEY_RECEIPT_LEVEL).n());
       final UUID ddbAccountUuid = UUIDUtil.fromByteBuffer(attributes.get(KEY_ACCOUNT_UUID).b().asByteBuffer());
       return ddbReceiptExpiration == receiptExpiration && ddbReceiptLevel == receiptLevel &&
           Objects.equals(ddbAccountUuid, accountUuid);
-    });
   }
 }

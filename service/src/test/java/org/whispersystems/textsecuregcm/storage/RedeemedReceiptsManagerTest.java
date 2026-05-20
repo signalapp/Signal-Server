@@ -10,7 +10,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +38,7 @@ class RedeemedReceiptsManagerTest {
     redeemedReceiptsManager = new RedeemedReceiptsManager(
         clock,
         Tables.REDEEMED_RECEIPTS.tableName(),
-        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         Duration.ofDays(90));
   }
 
@@ -47,22 +46,22 @@ class RedeemedReceiptsManagerTest {
   void testPut() throws ExecutionException, InterruptedException {
     final long receiptExpiration = 42;
     final long receiptLevel = 3;
-    CompletableFuture<Boolean> put;
+    boolean put;
 
     // initial insert should return true
     put = redeemedReceiptsManager.put(receiptSerial, receiptExpiration, receiptLevel, AuthHelper.VALID_UUID);
-    assertThat(put.get()).isTrue();
+    assertThat(put).isTrue();
 
     // subsequent attempted inserts with modified parameters should return false
     put = redeemedReceiptsManager.put(receiptSerial, receiptExpiration + 1, receiptLevel, AuthHelper.VALID_UUID);
-    assertThat(put.get()).isFalse();
+    assertThat(put).isFalse();
     put = redeemedReceiptsManager.put(receiptSerial, receiptExpiration, receiptLevel + 1, AuthHelper.VALID_UUID);
-    assertThat(put.get()).isFalse();
+    assertThat(put).isFalse();
     put = redeemedReceiptsManager.put(receiptSerial, receiptExpiration, receiptLevel, AuthHelper.VALID_UUID_TWO);
-    assertThat(put.get()).isFalse();
+    assertThat(put).isFalse();
 
     // repeated insert attempt of the original parameters should return true
     put = redeemedReceiptsManager.put(receiptSerial, receiptExpiration, receiptLevel, AuthHelper.VALID_UUID);
-    assertThat(put.get()).isTrue();
+    assertThat(put).isTrue();
   }
 }
