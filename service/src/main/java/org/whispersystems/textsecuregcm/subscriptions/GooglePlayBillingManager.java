@@ -14,7 +14,6 @@ import com.google.api.services.androidpublisher.AndroidPublisherRequest;
 import com.google.api.services.androidpublisher.AndroidPublisherScopes;
 import com.google.api.services.androidpublisher.model.AutoRenewingPlan;
 import com.google.api.services.androidpublisher.model.Money;
-import com.google.api.services.androidpublisher.model.OfferDetails;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseLineItem;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchaseV2;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchasesAcknowledgeRequest;
@@ -335,9 +334,14 @@ public class GooglePlayBillingManager implements SubscriptionPaymentProcessor {
       if (e.getStatusCode() == Response.Status.TOO_MANY_REQUESTS.getStatusCode()) {
         throw new RateLimitExceededException(null);
       }
-      final String details = e instanceof GoogleJsonResponseException
-          ? ((GoogleJsonResponseException) e).getDetails().toString()
-          : "";
+
+      final String details;
+
+      if (e instanceof GoogleJsonResponseException googleJsonResponseException && googleJsonResponseException.getDetails() != null) {
+        details = googleJsonResponseException.getDetails().toString();
+      } else {
+        details = "";
+      }
 
       final String message =
           String.format("Unexpected HTTP status code %s from androidpublisher: %s", e.getStatusCode(), details);
