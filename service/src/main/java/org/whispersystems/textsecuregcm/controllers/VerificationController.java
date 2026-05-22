@@ -82,6 +82,7 @@ import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExcepti
 import org.whispersystems.textsecuregcm.metrics.CaptchaMetrics;
 import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotification;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.registration.ClientType;
@@ -655,8 +656,12 @@ public class VerificationController {
       accountsManager.getByE164(registrationServiceSession.number())
           .filter(existingAccount ->
               experimentEnrollmentManager.isEnrolled(existingAccount.getIdentifier(IdentityType.ACI), VERIFICATION_CODE_PUSH_NOTIFICATION_EXPERIMENT_NAME))
-          .ifPresent(existingAccount ->
-              pushNotificationManager.trySendVerificationCodeRequestedNotifications(existingAccount, clock.instant()));
+          .ifPresent(existingAccount -> {
+            try {
+              pushNotificationManager.sendVerificationCodeRequestedNotifications(existingAccount, clock.instant());
+            } catch (final NotPushRegisteredException _) {
+            }
+          });
     } catch (final CancellationException e) {
       throw new ServerErrorException("registration service unavailable", Response.Status.SERVICE_UNAVAILABLE);
     } catch (final CompletionException e) {

@@ -87,26 +87,21 @@ public class PushNotificationManager {
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
   }
 
-  public CompletableFuture<Void> trySendVerificationCodeRequestedNotifications(final Account destination, final Instant requestTimestamp) {
-    final List<CompletableFuture<?>> sendNotificationFutures = new ArrayList<>();
+  public CompletableFuture<SendPushNotificationResult> sendVerificationCodeRequestedNotifications(final Account destination, final Instant requestTimestamp)
+      throws NotPushRegisteredException {
 
-    for (final Device device : destination.getDevices()) {
-      try {
-        final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
+    final Pair<String, PushNotification.TokenType> tokenAndType = getToken(destination.getPrimaryDevice());
 
-        sendNotificationFutures.add(sendNotification(new PushNotification(tokenAndType.first(),
-            tokenAndType.second(),
-            PushNotification.NotificationType.VERIFICATION_CODE_REQUESTED,
-            new VerificationCodeRequestData(requestTimestamp.toEpochMilli()),
-            destination,
-            device,
-            true,
-            VERIFICATION_CODE_TTL)));
-      } catch (final NotPushRegisteredException _) {
-      }
-    }
-
-    return CompletableFuture.allOf(sendNotificationFutures.toArray(CompletableFuture[]::new));
+    return sendNotification(new PushNotification(tokenAndType.first(),
+        tokenAndType.second(),
+        PushNotification.NotificationType.VERIFICATION_CODE_REQUESTED,
+        new VerificationCodeRequestData(requestTimestamp.toEpochMilli()),
+        destination,
+        destination.getPrimaryDevice(),
+        true,
+        VERIFICATION_CODE_TTL))
+        .thenApply(maybeResponse -> maybeResponse.orElseThrow(
+            () -> new AssertionError("Responses must be present for urgent notifications")));
   }
 
   public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {

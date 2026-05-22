@@ -75,6 +75,7 @@ import org.whispersystems.textsecuregcm.mappers.NonNormalizedPhoneNumberExceptio
 import org.whispersystems.textsecuregcm.mappers.ObsoletePhoneNumberFormatExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RegistrationServiceSenderExceptionMapper;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
 import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.registration.RegistrationFraudException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
@@ -1079,7 +1080,8 @@ class VerificationControllerTest {
 
   @CartesianTest
   void requestVerificationCodeSuccess(@CartesianTest.Values(booleans = {true, false}) final boolean accountExistsWithNumber,
-      @CartesianTest.Values(booleans = {true, false}) final boolean enrolledInExperiment) {
+      @CartesianTest.Values(booleans = {true, false}) final boolean enrolledInExperiment)
+      throws NotPushRegisteredException {
     final String encodedSessionId = encodeSessionId(SESSION_ID);
     final RegistrationServiceSession registrationServiceSession = new RegistrationServiceSession(SESSION_ID, NUMBER,
         false, null, null,
@@ -1118,9 +1120,9 @@ class VerificationControllerTest {
       assertTrue(verificationSessionResponse.requestedInformation().isEmpty());
 
       if (accountExistsWithNumber && enrolledInExperiment) {
-        verify(pushNotificationManager).trySendVerificationCodeRequestedNotifications(existingAccount, clock.instant());
+        verify(pushNotificationManager).sendVerificationCodeRequestedNotifications(existingAccount, clock.instant());
       } else {
-        verify(pushNotificationManager, never()).trySendVerificationCodeRequestedNotifications(any(), any());
+        verify(pushNotificationManager, never()).sendVerificationCodeRequestedNotifications(any(), any());
       }
     }
   }
