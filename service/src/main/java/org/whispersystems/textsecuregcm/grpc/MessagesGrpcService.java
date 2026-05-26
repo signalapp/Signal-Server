@@ -12,8 +12,13 @@ import com.google.protobuf.Empty;
 import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.Flow;
 import java.util.stream.Collectors;
+import io.grpc.StatusRuntimeException;
 import org.signal.chat.errors.NotFound;
+import org.signal.chat.messages.GetMessagesRequest;
+import org.signal.chat.messages.GetMessagesResponse;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
 import org.signal.chat.messages.SendAuthenticatedSenderMessageRequest;
 import org.signal.chat.messages.SendMessageAuthenticatedSenderResponse;
@@ -38,6 +43,11 @@ import org.whispersystems.textsecuregcm.spam.SpamCheckResult;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import reactor.adapter.JdkFlowAdapter;
+import reactor.core.publisher.Flux;
+import javax.annotation.Nullable;
 
 public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
 
@@ -46,6 +56,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
   private final MessageSender messageSender;
   private final CardinalityEstimator messageByteLimitEstimator;
   private final SpamChecker spamChecker;
+  private final MessageDispatcher messageDispatcher;
   private final Clock clock;
 
   private static final SendMessageAuthenticatedSenderResponse SEND_MESSAGE_SUCCESS_RESPONSE =
@@ -56,6 +67,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
       final MessageSender messageSender,
       final CardinalityEstimator messageByteLimitEstimator,
       final SpamChecker spamChecker,
+      final MessageDispatcher messageDispatcher,
       final Clock clock) {
 
     this.accountsManager = accountsManager;
@@ -63,8 +75,48 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
     this.messageSender = messageSender;
     this.messageByteLimitEstimator = messageByteLimitEstimator;
     this.spamChecker = spamChecker;
+    this.messageDispatcher = messageDispatcher;
     this.clock = clock;
   }
+
+  @Override
+  public Flow.Publisher<GetMessagesResponse> getMessages(final Flow.Publisher<GetMessagesRequest> request) throws Exception {
+    final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
+    final Account account = accountsManager
+        .getByAccountIdentifier(authenticatedDevice.accountIdentifier())
+        .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
+    final Device device = account.getDevice(authenticatedDevice.deviceId())
+        .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
+    final String userAgent = RequestAttributesUtil.getUserAgent().orElse(null);
+
+    final Flux<GetMessagesRequest> requestFlux = JdkFlowAdapter.flowPublisherToFlux(request);
+
+    return JdkFlowAdapter.publisherToFlowPublisher(requestFlux.switchOnFirst((firstSignal, flux) -> {
+      @Nullable final GetMessagesRequest streamRequest = firstSignal.get();
+      if (streamRequest == null) {
+        // Just forward the error or completion signal
+        return flux.then().cast(GetMessagesResponse.class);
+      }
+      if (!streamRequest.hasOptions()) {
+        throw GrpcExceptions.fieldViolation("request", "the first request must be GetMessageOptions");
+      }
+      final boolean dropStories = streamRequest.getOptions().getDropStories();
+      return messageDispatcher.getMessages(dropStories, userAgent, account, device,
+          flux.skip(1).map(MessagesGrpcService::extractAckGuid));
+    }));
+  }
+
+  private static UUID extractAckGuid(final GetMessagesRequest ack) throws StatusRuntimeException {
+    if (!ack.hasServerGuidAck()) {
+      throw GrpcExceptions.fieldViolation("request", "All non-initial GetMessageRequests must contain a server_guid_ack");
+    }
+    try {
+      return UUIDUtil.fromByteString(ack.getServerGuidAck());
+    } catch (final IllegalArgumentException e) {
+      throw GrpcExceptions.fieldViolation("server_guid_ack", "invalid server_guid_ack");
+    }
+  }
+
 
   @Override
   public SendMessageAuthenticatedSenderResponse sendMessage(final SendAuthenticatedSenderMessageRequest request)

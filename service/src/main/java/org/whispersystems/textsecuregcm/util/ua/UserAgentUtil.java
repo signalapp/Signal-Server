@@ -6,9 +6,11 @@
 package org.whispersystems.textsecuregcm.util.ua;
 
 import com.vdurmont.semver4j.Semver;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
+import javax.annotation.Nullable;
 
 public class UserAgentUtil {
 
@@ -30,5 +32,13 @@ public class UserAgentUtil {
     }
 
     throw new UnrecognizedUserAgentException();
+  }
+
+  public static @Nullable UserAgent maybeParseUserAgentString(final String userAgentString) {
+    try {
+      return parseUserAgentString(userAgentString);
+    } catch (UnrecognizedUserAgentException e) {
+      return null;
+    }
   }
 }

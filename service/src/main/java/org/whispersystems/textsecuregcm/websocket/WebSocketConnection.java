@@ -24,6 +24,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.util.StaticException;
 import org.slf4j.Logger;
@@ -50,6 +51,8 @@ import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
+import org.whispersystems.textsecuregcm.util.ua.UserAgent;
+import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.WebSocketResourceProvider;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
@@ -58,7 +61,6 @@ import reactor.core.Disposable;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
-import javax.annotation.Nullable;
 
 public class WebSocketConnection implements DisconnectionRequestListener {
 
@@ -98,7 +100,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
   private final Device authenticatedDevice;
   private final MessageStream messageStream;
   private final WebSocketClient client;
-  private final Tags platformTag;
+  private final @Nullable UserAgent userAgent;
 
   private final LongAdder sentMessageCounter = new LongAdder();
   private final AtomicReference<Disposable> messageSubscription = new AtomicReference<>();
@@ -137,7 +139,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
     this.messageStream =
         messagesManager.getMessages(authenticatedAccount.getIdentifier(IdentityType.ACI), authenticatedDevice);
 
-    this.platformTag = Tags.of(UserAgentTagUtil.getPlatformTag(client.getUserAgent()));
+    this.userAgent = UserAgentUtil.maybeParseUserAgentString(client.getUserAgent());
   }
 
   public void start() {
@@ -155,7 +157,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
         // process messages before sending the "connected elsewhere" signal, and while that's ultimately not harmful,
         // it's also not ideal.
         .doOnError(ConflictingMessageConsumerException.class, _ -> {
-          messageMetrics.measureMessageStreamDisplaced("websocket", platformTag, true);
+          messageMetrics.measureMessageStreamDisplaced(MessageMetrics.WEBSOCKET_CHANNEL, userAgent, true);
           client.close(4409, "Connected elsewhere");
         })
         .doOnNext(entry -> {
@@ -165,7 +167,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
                   authenticatedDevice.getId(),
                   UUIDUtil.fromByteString(message.getServerGuid()),
                   client.getUserAgent(),
-                  "websocket");
+                  MessageMetrics.WEBSOCKET_CHANNEL);
             }
           }
         })
@@ -177,7 +179,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
         .subscribe(
             entry -> {
               if (entry instanceof MessageStreamEntry.QueueEmpty) {
-                messageMetrics.measureQueueDrain("websocket", platformTag, sentMessageCounter.sum(), queueDrainStart);
+                messageMetrics.measureQueueDrain(MessageMetrics.WEBSOCKET_CHANNEL, userAgent, sentMessageCounter.sum(), queueDrainStart);
                 client.sendRequest("PUT", "/api/v1/queue/empty",
                     Collections.singletonList(HeaderUtils.getTimestampHeader()), Optional.empty());
               }
@@ -259,11 +261,11 @@ public class WebSocketConnection implements DisconnectionRequestListener {
             sendFailuresCounter.increment();
           } else {
             messageMetrics.measureOutgoingMessageLatency(serverTimestamp,
-                "websocket",
+                MessageMetrics.WEBSOCKET_CHANNEL,
                 authenticatedDevice.isPrimary(),
                 isUrgent,
                 isEphemeral,
-                client.getUserAgent(),
+                userAgent,
                 clientReleaseManager);
           }
         }).thenCompose(response -> {
@@ -283,7 +285,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
               }
             }
           } else {
-            Tags tags = platformTag.and(STATUS_CODE_TAG, String.valueOf(response.getStatus()));
+            Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of(STATUS_CODE_TAG, String.valueOf(response.getStatus())));
 
             // TODO Remove this once we've identified the cause of message rejections from desktop clients
             if (StringUtils.isNotBlank(response.getMessage())) {
@@ -297,7 +299,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
 
           return result;
         })
-        .thenRun(() -> messageMetrics.measureSendMessageDuration("websocket", platformTag, sample));
+        .thenRun(() -> messageMetrics.measureSendMessageDuration(MessageMetrics.WEBSOCKET_CHANNEL, userAgent, sample));
   }
 
   @VisibleForTesting
@@ -321,8 +323,10 @@ public class WebSocketConnection implements DisconnectionRequestListener {
       errorType = "other";
     }
 
-    Metrics.counter(SEND_MESSAGE_ERROR_COUNTER,
-            platformTag.and(ERROR_TYPE_TAG, errorType, EXCEPTION_TYPE_TAG, e.getClass().getSimpleName()))
+    Metrics.counter(SEND_MESSAGE_ERROR_COUNTER, Tags.of(
+            UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of(ERROR_TYPE_TAG, errorType),
+            Tag.of(EXCEPTION_TYPE_TAG, e.getClass().getSimpleName())))
         .increment();
   }
 
@@ -336,7 +340,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
 
   @Override
   public void handleDisconnectionRequest() {
-    messageMetrics.measureMessageStreamDisplaced("websocket", platformTag, false);
+    messageMetrics.measureMessageStreamDisplaced(MessageMetrics.WEBSOCKET_CHANNEL, userAgent, false);
     client.close(4401, "Reauthentication required");
   }
 }

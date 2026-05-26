@@ -273,7 +273,7 @@ class WebSocketConnectionIntegrationTest {
       when(successResponse.getStatus()).thenReturn(200);
       when(webSocketClient.sendRequest(eq("PUT"), eq("/api/v1/message"), anyList(), any()))
           .thenAnswer(_ -> {
-            if (remainingMessages.addAndGet(-1) == 60) {
+            if (remainingMessages.decrementAndGet() == 60) {
               sharedExecutorService.submit(() -> {
                 for (int i = 0; i < additionalMessageCount; i++) {
                   final UUID messageGuid = UUID.randomUUID();

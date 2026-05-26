@@ -19,24 +19,31 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
+import org.whispersystems.textsecuregcm.util.ua.UserAgent;
 import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 
 public final class MessageMetrics {
 
   private static final Logger logger = LoggerFactory.getLogger(MessageMetrics.class);
 
+  public static String GRPC_CHANNEL = "grpc";
+  public static String WEBSOCKET_CHANNEL = "websocket";
+
+  @VisibleForTesting
   static final String MISMATCHED_ACCOUNT_ENVELOPE_UUID_COUNTER_NAME = name(MessageMetrics.class,
       "mismatchedAccountEnvelopeUuid");
 
   public static final String DELIVERY_LATENCY_TIMER_NAME = name(MessageMetrics.class, "deliveryLatency");
-  private static final String SEND_MESSAGE_DURATION_TIMER_NAME = name(WebSocketConnection.class, "sendMessageDuration");
 
+  // Uses [WebSocketConnection] for backwards compatibility
+  private static final String SEND_MESSAGE_DURATION_TIMER_NAME = name(WebSocketConnection.class, "sendMessageDuration");
   private static final String INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME = name(WebSocketConnection.class, "initialQueueLength");
   private static final String INITIAL_QUEUE_DRAIN_TIMER_NAME = name(WebSocketConnection.class, "drainInitialQueue");
   private static final String SLOW_QUEUE_DRAIN_COUNTER_NAME = name(WebSocketConnection.class, "slowQueueDrain");
@@ -84,7 +91,7 @@ public final class MessageMetrics {
       final boolean isPrimaryDevice,
       final boolean isUrgent,
       final boolean isEphemeral,
-      final String userAgent,
+      @Nullable final UserAgent userAgent,
       final ClientReleaseManager clientReleaseManager) {
 
     final List<Tag> tags = new ArrayList<>();
@@ -104,25 +111,26 @@ public final class MessageMetrics {
 
   public void measureMessageStreamDisplaced(
       final String channel,
-      final Tags platformTag,
+      @Nullable final UserAgent userAgent,
       final boolean connectedElsewhere) {
     metricRegistry.counter(
         DISPLACEMENT_COUNTER_NAME,
-        platformTag
-            .and("connectedElsewhere", Boolean.toString(connectedElsewhere))
-            .and("channel", channel))
+        Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of("connectedElsewhere", Boolean.toString(connectedElsewhere)),
+            Tag.of("channel", channel)))
         .increment();
   }
 
   public void measureQueueDrain(
       final String channel,
-      final Tags platformTag,
+      @Nullable final UserAgent userAgent,
       final long messagesDrained,
       final Timer.Sample drainStart) {
-    metricRegistry.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, platformTag.and("channel", channel)).record(messagesDrained);
-    final long drainDurationNanos = drainStart.stop(metricRegistry.timer(INITIAL_QUEUE_DRAIN_TIMER_NAME, platformTag));
+    final Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("channel", channel));
+    metricRegistry.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, tags).record(messagesDrained);
+    final long drainDurationNanos = drainStart.stop(metricRegistry.timer(INITIAL_QUEUE_DRAIN_TIMER_NAME, tags));
     if (Duration.ofNanos(drainDurationNanos).compareTo(SLOW_DRAIN_THRESHOLD) > 0) {
-      metricRegistry.counter(SLOW_QUEUE_DRAIN_COUNTER_NAME, platformTag.and("channel", channel)).increment();
+      metricRegistry.counter(SLOW_QUEUE_DRAIN_COUNTER_NAME, tags).increment();
     }
   }
 
@@ -131,9 +139,9 @@ public final class MessageMetrics {
     bytesSentCounter.increment(messageByteLength);
   }
 
-  public void measureSendMessageDuration(final String channel, final Tags platformTag, final Timer.Sample sample) {
+  public void measureSendMessageDuration(final String channel, @Nullable final UserAgent userAgent, final Timer.Sample sample) {
     sample.stop(Timer.builder(SEND_MESSAGE_DURATION_TIMER_NAME)
-        .tags(platformTag.and("channel", channel))
+        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent), Tag.of("channel", channel)))
         .register(metricRegistry));
   }
 }
