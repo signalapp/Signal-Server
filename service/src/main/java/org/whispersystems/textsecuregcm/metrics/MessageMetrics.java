@@ -8,9 +8,11 @@ package org.whispersystems.textsecuregcm.metrics;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,6 +25,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
+import org.whispersystems.textsecuregcm.websocket.WebSocketConnection;
 
 public final class MessageMetrics {
 
@@ -32,11 +35,23 @@ public final class MessageMetrics {
       "mismatchedAccountEnvelopeUuid");
 
   public static final String DELIVERY_LATENCY_TIMER_NAME = name(MessageMetrics.class, "deliveryLatency");
+  private static final String SEND_MESSAGE_DURATION_TIMER_NAME = name(WebSocketConnection.class, "sendMessageDuration");
+
+  private static final String INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME = name(WebSocketConnection.class, "initialQueueLength");
+  private static final String INITIAL_QUEUE_DRAIN_TIMER_NAME = name(WebSocketConnection.class, "drainInitialQueue");
+  private static final String SLOW_QUEUE_DRAIN_COUNTER_NAME = name(WebSocketConnection.class, "slowQueueDrain");
+  private static final String DISPLACEMENT_COUNTER_NAME = name(WebSocketConnection.class, "displacement");
+  private static final Duration SLOW_DRAIN_THRESHOLD = Duration.ofSeconds(10);
+
   private final MeterRegistry metricRegistry;
+  private final Counter sendMessageCounter;
+  private final Counter bytesSentCounter;
 
   @VisibleForTesting
   MessageMetrics(final MeterRegistry metricRegistry) {
     this.metricRegistry = metricRegistry;
+    sendMessageCounter = metricRegistry.counter(name(WebSocketConnection.class, "sendMessage"));
+    bytesSentCounter = metricRegistry.counter(name(WebSocketConnection.class, "bytesSent"));
   }
 
   public MessageMetrics() {
@@ -85,5 +100,40 @@ public final class MessageMetrics {
         .tags(tags)
         .register(metricRegistry)
         .record(Duration.between(Instant.ofEpochMilli(serverTimestamp), Instant.now()));
+  }
+
+  public void measureMessageStreamDisplaced(
+      final String channel,
+      final Tags platformTag,
+      final boolean connectedElsewhere) {
+    metricRegistry.counter(
+        DISPLACEMENT_COUNTER_NAME,
+        platformTag
+            .and("connectedElsewhere", Boolean.toString(connectedElsewhere))
+            .and("channel", channel))
+        .increment();
+  }
+
+  public void measureQueueDrain(
+      final String channel,
+      final Tags platformTag,
+      final long messagesDrained,
+      final Timer.Sample drainStart) {
+    metricRegistry.summary(INITIAL_QUEUE_LENGTH_DISTRIBUTION_NAME, platformTag.and("channel", channel)).record(messagesDrained);
+    final long drainDurationNanos = drainStart.stop(metricRegistry.timer(INITIAL_QUEUE_DRAIN_TIMER_NAME, platformTag));
+    if (Duration.ofNanos(drainDurationNanos).compareTo(SLOW_DRAIN_THRESHOLD) > 0) {
+      metricRegistry.counter(SLOW_QUEUE_DRAIN_COUNTER_NAME, platformTag.and("channel", channel)).increment();
+    }
+  }
+
+  public void measureMessageSent(long messageByteLength) {
+    sendMessageCounter.increment();
+    bytesSentCounter.increment(messageByteLength);
+  }
+
+  public void measureSendMessageDuration(final String channel, final Tags platformTag, final Timer.Sample sample) {
+    sample.stop(Timer.builder(SEND_MESSAGE_DURATION_TIMER_NAME)
+        .tags(platformTag.and("channel", channel))
+        .register(metricRegistry));
   }
 }
