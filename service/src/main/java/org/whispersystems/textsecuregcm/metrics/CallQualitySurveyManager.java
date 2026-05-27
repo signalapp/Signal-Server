@@ -138,6 +138,10 @@ public class CallQualitySurveyManager {
       pubSubMessageBuilder.setCallTelemetry(submitCallQualitySurveyRequest.getCallTelemetry());
     }
 
+    if (submitCallQualitySurveyRequest.hasCallIdHash()) {
+      pubSubMessageBuilder.setCallIdHash(submitCallQualitySurveyRequest.getCallIdHash());
+    }
+
     GoogleApiUtil.toCompletableFuture(pubSubPublisher.publish(PubsubMessage.newBuilder()
             .setData(pubSubMessageBuilder.build().toByteString())
             .build()), pubSubCallbackExecutor)

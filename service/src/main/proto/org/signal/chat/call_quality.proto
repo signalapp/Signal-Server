@@ -104,6 +104,11 @@ message SubmitCallQualitySurveyRequest {
   // entity generated (and, critically, explained to the user!) by the calling
   // library
   optional bytes call_telemetry = 21;
+
+  // A hash of a call ID (shared between clients and never sent to the calling
+  // server) that can be used to correlate survey responses from multiple
+  // participants in a call
+  optional bytes call_id_hash = 22;
 }
 
 message SubmitCallQualitySurveyResponse {

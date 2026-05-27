@@ -67,6 +67,7 @@ class CallQualitySurveyManagerTest {
     final String asnRegion = "US";
 
     final byte[] telemetryBytes = TestRandomUtil.nextBytes(32);
+    final byte[] callIdHashBytes = TestRandomUtil.nextBytes(16);
 
     final float connectionRttMedian = ThreadLocalRandom.current().nextFloat();
     final float audioRttMedian = ThreadLocalRandom.current().nextFloat();
@@ -105,6 +106,7 @@ class CallQualitySurveyManagerTest {
         .setAudioSendPacketLossFraction(audioSendPacketLossFraction)
         .setVideoSendPacketLossFraction(videoSendPacketLossFraction)
         .setCallTelemetry(ByteString.copyFrom(telemetryBytes))
+        .setCallIdHash(ByteString.copyFrom(callIdHashBytes))
         .build();
 
     //noinspection unchecked
@@ -145,6 +147,7 @@ class CallQualitySurveyManagerTest {
     assertEquals(audioSendPacketLossFraction, callQualitySurveyResponsePubSubMessage.getAudioSendPacketLossFraction());
     assertEquals(videoSendPacketLossFraction, callQualitySurveyResponsePubSubMessage.getVideoSendPacketLossFraction());
     assertArrayEquals(telemetryBytes, callQualitySurveyResponsePubSubMessage.getCallTelemetry().toByteArray());
+    assertArrayEquals(callIdHashBytes, callQualitySurveyResponsePubSubMessage.getCallIdHash().toByteArray());
   }
 
   @ParameterizedTest
