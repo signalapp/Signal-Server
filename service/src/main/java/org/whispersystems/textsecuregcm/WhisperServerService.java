@@ -992,7 +992,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new BackupsGrpcService(accountsManager, backupAuthManager, backupMetrics),
             new DevicesGrpcService(accountsManager),
             new AttachmentsGrpcService(experimentEnrollmentManager, rateLimiters,
-                gcsAttachmentGenerator, tusAttachmentGenerator, config.getAttachments().maxAttachmentUploadSizeInBytes()))
+                gcsAttachmentGenerator, tusAttachmentGenerator, config.getAttachments().maxAttachmentUploadSizeInBytes()),
+            new PaymentsGrpcService(currencyManager))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
@@ -1010,7 +1011,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new CallQualitySurveyGrpcService(callQualitySurveyManager, rateLimiters),
             new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()),
             new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkSecretParams),
-            new PaymentsGrpcService(currencyManager),
             new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
             new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
             ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
