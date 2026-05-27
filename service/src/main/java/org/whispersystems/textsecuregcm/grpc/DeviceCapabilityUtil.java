@@ -19,6 +19,7 @@ public class DeviceCapabilityUtil {
       case DEVICE_CAPABILITY_ATTACHMENT_BACKFILL -> DeviceCapability.ATTACHMENT_BACKFILL;
       case DEVICE_CAPABILITY_SPARSE_POST_QUANTUM_RATCHET -> DeviceCapability.SPARSE_POST_QUANTUM_RATCHET;
       case DEVICE_CAPABILITY_PROFILES_V2 -> DeviceCapability.PROFILES_V2;
+      case DEVICE_CAPABILITY_USERNAME_CHANGE_SYNC_MESSAGE ->  DeviceCapability.USERNAME_CHANGE_SYNC_MESSAGE;
       case DEVICE_CAPABILITY_UNSPECIFIED, UNRECOGNIZED ->
           throw GrpcExceptions.invalidArguments("unrecognized device capability");
     };
@@ -31,6 +32,7 @@ public class DeviceCapabilityUtil {
       case ATTACHMENT_BACKFILL -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_ATTACHMENT_BACKFILL;
       case SPARSE_POST_QUANTUM_RATCHET -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_SPARSE_POST_QUANTUM_RATCHET;
       case PROFILES_V2 -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_PROFILES_V2;
+      case USERNAME_CHANGE_SYNC_MESSAGE -> org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_USERNAME_CHANGE_SYNC_MESSAGE;
     };
   }
 }

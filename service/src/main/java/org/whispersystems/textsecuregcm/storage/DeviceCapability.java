@@ -16,7 +16,8 @@ public enum DeviceCapability {
   TRANSFER("transfer", AccountCapabilityMode.PRIMARY_DEVICE, false, false, false),
   ATTACHMENT_BACKFILL("attachmentBackfill", AccountCapabilityMode.PRIMARY_DEVICE, false, true, false),
   SPARSE_POST_QUANTUM_RATCHET("spqr", AccountCapabilityMode.ALL_DEVICES, true, true, true),
-  PROFILES_V2("profiles_v2", AccountCapabilityMode.ALL_DEVICES, false, true, false);
+  PROFILES_V2("profiles_v2", AccountCapabilityMode.ALL_DEVICES, false, true, false),
+  USERNAME_CHANGE_SYNC_MESSAGE("usernameChangeSyncMessage", AccountCapabilityMode.ALL_DEVICES, true, true, false);
 
   public enum AccountCapabilityMode {
     /**
