@@ -14,7 +14,6 @@ import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
@@ -40,13 +39,18 @@ public class FoundationDbMessageStream implements MessageStream {
   private final MessageGuidCodec messageGuidCodec;
   /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
   private final int maxMessagesPerScan;
+  /// The maximum number of unacknowledged messages we will send before closing the stream with an error
+  private final int maxUnacknowledgedMessages;
   private final Flow.Publisher<MessageStreamEntry> messageStreamPublisher;
   private final Runnable doAfterCleanup;
 
   /// Map of versionstamp -> acknowledged? to keep track of acknowledged versionstamp ranges to clear
   private final NavigableMap<Versionstamp, Boolean> sentVersionstamps = new TreeMap<>();
+  private int unacknowledgedMessages = 0;
 
   static final int DEFAULT_MAX_MESSAGES_PER_SCAN = 1024;
+  @VisibleForTesting
+  static final int DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES = 16_384;
 
   private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessageStream.class);
 
@@ -55,6 +59,7 @@ public class FoundationDbMessageStream implements MessageStream {
       final Database database,
       final MessageGuidCodec messageGuidCodec,
       final int maxMessagesPerScan,
+      final int maxUnacknowledgedMessages,
       final Runnable doAfterCleanup) {
 
     this.deviceQueueSubspace = deviceQueueSubspace;
@@ -62,6 +67,7 @@ public class FoundationDbMessageStream implements MessageStream {
     this.database = database;
     this.messageGuidCodec = messageGuidCodec;
     this.maxMessagesPerScan = maxMessagesPerScan;
+    this.maxUnacknowledgedMessages = maxUnacknowledgedMessages;
     this.messageStreamPublisher = JdkFlowAdapter.publisherToFlowPublisher(createMessagePublisher());
     this.doAfterCleanup = doAfterCleanup;
   }
@@ -78,10 +84,15 @@ public class FoundationDbMessageStream implements MessageStream {
   /// first to keep track of versionstamps sent to the client.
   private Flux<MessageStreamEntry> createMessagePublisher() {
     return createFoundationDbMessagePublisher()
-        .doOnNext(messageStreamEntry -> {
+        .<FoundationDbMessageStreamEntry>handle((messageStreamEntry, sink) -> {
           if (messageStreamEntry instanceof final FoundationDbMessageStreamEntry.Message message) {
-            onVersionstampSent(message.versionstamp());
+            final int numUnacknowledgedMessages = onVersionstampSent(message.versionstamp());
+            if (numUnacknowledgedMessages > maxUnacknowledgedMessages) {
+              sink.error(new TooManyUnacknowledgedMessagesException());
+              return;
+            }
           }
+          sink.next(messageStreamEntry);
         })
         .map(fdbMessageStreamEntry -> fdbMessageStreamEntry.toMessageStreamEntry(messageGuidCodec))
         .doFinally(_ -> flushAllAcknowledgedMessages().thenRun(doAfterCleanup));
@@ -151,12 +162,17 @@ public class FoundationDbMessageStream implements MessageStream {
       return;
     }
 
+    unacknowledgedMessages--;
     sentVersionstamps.put(versionstamp, true);
   }
 
+  /// Returns the number of unacknowledged messages after sending the provided versionstamp
+  ///
+  /// @param versionstamp The versionstamp being sent
   @VisibleForTesting
-  synchronized void onVersionstampSent(final Versionstamp versionstamp) {
+  synchronized int onVersionstampSent(final Versionstamp versionstamp) {
     sentVersionstamps.put(versionstamp, false);
+    return ++unacknowledgedMessages;
   }
 
   /// Clear the versionstamp range (startInclusive, endInclusive) in a single FoundationDB operation.

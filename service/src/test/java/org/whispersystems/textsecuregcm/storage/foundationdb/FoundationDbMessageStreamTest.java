@@ -29,6 +29,7 @@ class FoundationDbMessageStreamTest {
         mock(Database.class),
         mock(MessageGuidCodec.class),
         100,
+        FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
         Util.NOOP
     );
 

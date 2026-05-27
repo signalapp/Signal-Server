@@ -409,7 +409,7 @@ class FoundationDbMessageStoreTest {
 
     final Device device = new Device();
     device.setId(Device.PRIMARY_ID);
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device, batchSize,
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device, batchSize, numMessages,
         Util.NOOP);
     final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
@@ -578,6 +578,7 @@ class FoundationDbMessageStoreTest {
     final CountDownLatch latch = new CountDownLatch(1);
     final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device,
         FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
+        FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
         latch::countDown);
     final List<CompletableFuture<Void>> acknowledgeFutures = new ArrayList<>();
     final AtomicInteger messageCounter = new AtomicInteger(0);
@@ -630,6 +631,35 @@ class FoundationDbMessageStoreTest {
         Arguments.argumentSet("Multiple messages, single unacknowledged", 16, Set.of(3)),
         Arguments.argumentSet("Multiple messages with range-breakers", 16, Set.of(3, 7, 8, 9, 12))
     );
+  }
+
+  @Test
+  void outstandingUnacknowledgedMessages() {
+    final int numMessages = 5;
+    final int maxUnacknowledgedMessages = 3;
+
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
+
+    final List<Versionstamp> versionstamps = IntStream.range(0, numMessages)
+        .mapToObj(
+            _ -> foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join()
+                .get(Device.PRIMARY_ID)
+                .versionstamp()
+                .orElseThrow())
+        .toList();
+
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device,
+        FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
+        maxUnacknowledgedMessages,
+        Util.NOOP);
+
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()), numMessages)
+        .expectNextCount(maxUnacknowledgedMessages)
+        .expectError(TooManyUnacknowledgedMessagesException.class)
+        .verify();
   }
 
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral) {
