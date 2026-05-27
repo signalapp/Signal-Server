@@ -462,20 +462,19 @@ class FoundationDbMessageStoreTest {
 
     final CountDownLatch latch = new CountDownLatch(1);
     final MessageProtos.Envelope message3 = generateRandomMessage(false);
-    final AtomicReference<Versionstamp> versionstamp3 = new AtomicReference<>();
+    final CompletableFuture<Versionstamp> versionstamp3 = new CompletableFuture<>();
     Thread.ofVirtual().start(() -> {
       try {
         // Wait until queue is empty
         assertTrue(latch.await(1000, TimeUnit.MILLISECONDS));
         // Then publish more messages
-        synchronized (versionstamp3) {
-          versionstamp3.set(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message3)).join()
-              .get(Device.PRIMARY_ID)
-              .versionstamp()
-              .orElseThrow());
-
-          versionstamp3.notifyAll();
-        }
+        foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message3))
+            .thenAccept(result -> {
+              result.get(Device.PRIMARY_ID)
+                  .versionstamp()
+                  .ifPresentOrElse(versionstamp3::complete,
+                      () -> versionstamp3.completeExceptionally(new RuntimeException("versionstamp absent")));
+            });
       } catch (final InterruptedException e) {
         fail(e);
       }
@@ -494,24 +493,11 @@ class FoundationDbMessageStoreTest {
             .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp2)))
             .build()))
         .expectNext(new MessageStreamEntry.QueueEmpty())
-        .then(() -> {
-          // Trigger insertion of another message
-          latch.countDown();
-
-          // …but then wait for its versionstamp so we can verify that we have the right payload
-          synchronized (versionstamp3) {
-            while (versionstamp3.get() == null) {
-              try {
-                versionstamp3.wait();
-              } catch (final InterruptedException e) {
-                throw new RuntimeException(e);
-              }
-            }
-          }
-        })
+        // Trigger insertion of another message
+        .then(latch::countDown)
         .expectNextMatches(entry -> entry.equals(new MessageStreamEntry.Envelope(message3
             .toBuilder()
-            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp3.get())))
+            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp3.join())))
             .build())))
         .verifyTimeout(Duration.ofSeconds(3));
   }
