@@ -121,8 +121,8 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
   /**
    * Adds a listener for disconnection requests for a specific authenticated device.
    *
-   * @param accountIdentifier TODO
-   * @param deviceId TODO
+   * @param accountIdentifier the identifier of the account associated with the authenticated device
+   * @param deviceId the identifier of the authenticated device
    * @param listener the listener to register
    */
   public void addListener(final UUID accountIdentifier, final byte deviceId, final DisconnectionRequestListener listener) {
@@ -139,8 +139,8 @@ public class DisconnectionRequestManager extends RedisPubSubAdapter<byte[], byte
   /**
    * Removes a listener for disconnection requests for a specific authenticated device.
    *
-   * @param accountIdentifier TODO
-   * @param deviceId TODO
+   * @param accountIdentifier the identifier of the account associated with the authenticated device
+   * @param deviceId the identifier of the authenticated device
    * @param listener the listener to remove
    */
   public void removeListener(final UUID accountIdentifier, final byte deviceId, final DisconnectionRequestListener listener) {
