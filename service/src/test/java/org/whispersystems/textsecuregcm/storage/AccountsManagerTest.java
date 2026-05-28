@@ -118,6 +118,7 @@ class AccountsManagerTest {
   private static TestClock CLOCK;
 
   private Accounts accounts;
+  private PhoneNumberIdentifiers phoneNumberIdentifiers;
   private KeysManager keysManager;
   private MessagesManager messagesManager;
   private ProfilesManager profilesManager;
@@ -179,7 +180,7 @@ class AccountsManagerTest {
     svr2Client = mock(SecureValueRecoveryClient.class);
     when(svr2Client.removeData(any(UUID.class))).thenReturn(CompletableFuture.completedFuture(null));
 
-    final PhoneNumberIdentifiers phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
+    phoneNumberIdentifiers = mock(PhoneNumberIdentifiers.class);
     phoneNumberIdentifiersByE164 = new HashMap<>();
 
     when(phoneNumberIdentifiers.getPhoneNumberIdentifier(anyString())).thenAnswer((Answer<CompletableFuture<UUID>>) invocation -> {
@@ -1477,6 +1478,25 @@ class AccountsManagerTest {
       assertArrayEquals(newVersion, updatedAccount.getCurrentProfileVersion().orElseThrow());
       assertEquals(List.of(badge), updatedAccount.getBadges());
     }
+  }
+
+  @Test
+  void getAccountsForChangeNumber() {
+    final Account account = AccountsHelper.generateTestAccount("+14152222222", UUID.randomUUID(), UUID.randomUUID(), new ArrayList<>(), new byte[UnidentifiedAccessUtil.UNIDENTIFIED_ACCESS_KEY_LENGTH]);
+    final UUID accountIdentifier = account.getIdentifier(IdentityType.ACI);
+    addRetrievableAccount(account);
+
+    final String targetNumber = "+13102222222";
+
+    assertFalse(phoneNumberIdentifiersByE164.containsKey(targetNumber));
+
+    final Pair<Account, Optional<Account>> accountsForChangeNumber = accountsManager.getAccountsForChangeNumber(
+        accountIdentifier, targetNumber);
+
+    assertEquals(account, accountsForChangeNumber.first());
+    verify(accounts).getByAccountIdentifier(accountIdentifier);
+    // getPhoneNumberIdentifier handles alternate forms
+    verify(phoneNumberIdentifiers).getPhoneNumberIdentifier(targetNumber);
   }
 
   static Collection<Arguments> updateCurrentProfileVersion() {

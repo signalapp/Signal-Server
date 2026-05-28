@@ -1148,7 +1148,7 @@ public class AccountsManager extends RedisPubSubAdapter<String, String> implemen
   Pair<Account, Optional<Account>> getAccountsForChangeNumber(final UUID accountIdentifier, final String targetNumber) {
     return new Pair<>(accounts.getByAccountIdentifier(accountIdentifier)
             .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountIdentifier)),
-        accounts.getByE164(targetNumber));
+        accounts.getByPhoneNumberIdentifier(getPhoneNumberIdentifier(targetNumber)));
   }
 
   public UUID getPhoneNumberIdentifier(String e164) {
