@@ -12,9 +12,7 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
-import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.ShortBufferException;
@@ -247,17 +245,10 @@ public class VersionstampUUIDCipher {
           .putLong(8, b)
           .put(9, round);
 
-      // Again, overwrite the input buffer to avoid an extra buffer allocation…
+      // Again, overwrite the input buffer to avoid an extra buffer allocation
       cipher.update(bufferArray, 0, bufferArray.length, bufferArray);
 
-      // …and then overwrite the buffer once more with the cipher's finished output, which is the only AES-CBC output we
-      // actually use directly.
-      final int bytesWritten = cipher.doFinal(bufferArray, 0);
-      assert bytesWritten == 16;
-
       return byteBuffer.getLong(0) & LEAST_SIGNIFICANT_SIX_BYTES_MASK;
-    } catch (final IllegalBlockSizeException | BadPaddingException e) {
-      throw new AssertionError("Every implementation of the Java platform is required to support AES/CBC/PKCS5Padding", e);
     } catch (final ShortBufferException e) {
       throw new AssertionError("Buffer with known length of 16 too short", e);
     } catch (final InvalidAlgorithmParameterException e) {
@@ -272,9 +263,9 @@ public class VersionstampUUIDCipher {
   /// @return a `Cipher` instance suitable for use in the core NIST/FF1 loop
   private static Cipher getCipher() {
     try {
-      return Cipher.getInstance("AES/CBC/PKCS5Padding");
+      return Cipher.getInstance("AES/CBC/NoPadding");
     } catch (final NoSuchAlgorithmException | NoSuchPaddingException e) {
-      throw new AssertionError("Every implementation of the Java platform is required to support AES/CBC/PKCS5Padding", e);
+      throw new AssertionError("Every implementation of the Java platform is required to support AES/CBC/NoPadding", e);
     }
   }
 
