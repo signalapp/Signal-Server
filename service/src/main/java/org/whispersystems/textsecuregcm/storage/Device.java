@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
+import jakarta.validation.Valid;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -20,6 +21,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
+import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.push.WebPushSubscription;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
 import org.whispersystems.textsecuregcm.util.DeviceNameByteArrayAdapter;
@@ -60,6 +63,10 @@ public class Device {
 
   @JsonProperty
   private String  apnId;
+
+  @Valid
+  @JsonProperty
+  private WebPushSubscription webPush;
 
   @JsonProperty
   private long pushTimestamp;
@@ -132,6 +139,18 @@ public class Device {
     this.gcmId = gcmId;
 
     if (gcmId != null) {
+      this.pushTimestamp = System.currentTimeMillis();
+    }
+  }
+
+  public WebPushSubscription getWebPush() {
+    return webPush;
+  }
+
+  public void setWebPush(WebPushSubscription webPush) {
+    this.webPush = webPush;
+
+    if (webPush != null) {
       this.pushTimestamp = System.currentTimeMillis();
     }
   }
