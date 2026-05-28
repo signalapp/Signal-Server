@@ -69,7 +69,9 @@ public class VersionstampUUIDCipher {
   private static final int TWEAK_LENGTH = 17; // bytes
   private static final byte ROUNDS = 10; // from FF1 specification
 
-  private static final IvParameterSpec IV_PARAMETERS = new IvParameterSpec(new byte[] {
+  private static final IvParameterSpec IV_PARAMETERS = new IvParameterSpec(new byte[16]);
+
+  private static final byte[] PARAMETERS_BLOCK = new byte[] {
       0x01, // static value from FF1 specification
       0x02, // static value from FF1 specification
       0x01, // static value from FF1 specification
@@ -78,7 +80,7 @@ public class VersionstampUUIDCipher {
       (VERSIONSTAMP_LENGTH * 8) / 2,
       0x00, 0x00, 0x00, VERSIONSTAMP_LENGTH * 8, // for radix = 2, plaintext/ciphertext length in bits
       0x00, 0x00, 0x00, TWEAK_LENGTH, // tweak length in bytes (not bits)
-  });
+  };
 
   private static final long LEAST_SIGNIFICANT_SIX_BYTES_MASK = 0x0000_ffff_ffff_ffffL;
   private static final byte FORMAT_VERSION_MASK = 0x0f;
@@ -213,26 +215,23 @@ public class VersionstampUUIDCipher {
       final long b,
       final byte[] bufferArray) {
 
-    try {
-      cipher.init(Cipher.ENCRYPT_MODE, key, IV_PARAMETERS);
-    } catch (final InvalidKeyException e) {
-      throw new AssertionError("Previously-valid key now invalid", e);
-    } catch (final InvalidAlgorithmParameterException e) {
-      throw new AssertionError("Previously-valid IV now invalid", e);
-    }
-
     assert (b & ~LEAST_SIGNIFICANT_SIX_BYTES_MASK) == 0;
 
-    final ByteBuffer byteBuffer = ByteBuffer.wrap(bufferArray);
-
-    // Write the first part of cryptographic "tweak" into the buffer. We have one more byte (the device ID) that will
-    // "spill" over into the next block, but that's okay! That extra byte falls into the "padding zone" of the next
-    // block, and doesn't increase the overall block count per round.
-    byteBuffer
-        .putLong(0, accountIdentifier.getMostSignificantBits())
-        .putLong(8, accountIdentifier.getLeastSignificantBits());
-
     try {
+      cipher.init(Cipher.ENCRYPT_MODE, key, IV_PARAMETERS);
+
+      // Every round begins with the parameters block. We haven't written any round-specific input into the provided
+      // buffer yet, so we can write the output of this update into the buffer without clobbering anything important.
+      cipher.update(PARAMETERS_BLOCK, 0, bufferArray.length, bufferArray);
+
+      // Write the first part of cryptographic "tweak" into the buffer, overwriting the output of the previous block (we
+      // don't need the output). We have one more byte (the device ID) that will "spill" over into the next block, but
+      // that's okay! That extra byte falls into the "padding zone" of the next block, and doesn't increase the overall
+      // block count per round.
+      final ByteBuffer byteBuffer = ByteBuffer.wrap(bufferArray)
+          .putLong(0, accountIdentifier.getMostSignificantBits())
+          .putLong(8, accountIdentifier.getLeastSignificantBits());
+
       // We can overwrite the input buffer here to avoid allocating an additional 16-byte buffer that we'd just
       // discard immediately
       cipher.update(bufferArray, 0, bufferArray.length, bufferArray);
@@ -261,6 +260,10 @@ public class VersionstampUUIDCipher {
       throw new AssertionError("Every implementation of the Java platform is required to support AES/CBC/PKCS5Padding", e);
     } catch (final ShortBufferException e) {
       throw new AssertionError("Buffer with known length of 16 too short", e);
+    } catch (final InvalidAlgorithmParameterException e) {
+      throw new AssertionError("Previously-valid IV now invalid", e);
+    } catch (final InvalidKeyException e) {
+      throw new AssertionError("Previously-valid key now invalid", e);
     }
   }
 
