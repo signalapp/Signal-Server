@@ -329,6 +329,41 @@ class AccountControllerTest {
     }
   }
 
+
+  @Test
+  void testSetWebPush() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/webpush/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION,
+            AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json("""
+        {
+            "endpoint": "https://domain.tld/random1",
+            "auth": "BTBZMqHH6r4Tts7J_aSIgg",
+            "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
+        }
+        """))) {
+      assertThat(response.getStatus()).isEqualTo(204);
+
+      verify(AuthHelper.VALID_DEVICE_3_PRIMARY, times(1)).setWebPush(any());
+      verify(accountsManager, times(1)).updateDevice(eq(AuthHelper.VALID_ACCOUNT_3), anyByte(), any());
+    }
+  }
+
+  @Test
+  void testSetWebPushInvalidrequest() {
+    try (final Response response = resources.getJerseyTest()
+        .target("/v1/accounts/webpush/")
+        .request()
+        .header(HttpHeaders.AUTHORIZATION,
+            AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_3, AuthHelper.VALID_PASSWORD_3_PRIMARY))
+        .put(Entity.json("{}"))) {
+
+      assertThat(response.getStatus()).isEqualTo(422);
+    }
+  }
+
   @Test
   void testSetApnId() {
     try (final Response response = resources.getJerseyTest()
