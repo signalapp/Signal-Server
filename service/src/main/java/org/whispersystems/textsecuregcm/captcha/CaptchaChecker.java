@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import javax.annotation.Nullable;
 
 public class CaptchaChecker {
   private static final Logger logger = LoggerFactory.getLogger(CaptchaChecker.class);
@@ -60,7 +61,7 @@ public class CaptchaChecker {
       final Action expectedAction,
       final String input,
       final String ip,
-      final String userAgent) throws IOException {
+      @Nullable final String userAgent) throws IOException {
     final String[] parts = input.split("\\" + SEPARATOR, 4);
 
     // we allow missing actions, if we're missing 1 part, assume it's the action

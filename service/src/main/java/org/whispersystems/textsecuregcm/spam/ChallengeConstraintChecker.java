@@ -10,7 +10,9 @@ import org.whispersystems.textsecuregcm.storage.Account;
 
 public interface ChallengeConstraintChecker {
 
-  record ChallengeConstraints(boolean pushPermitted, Optional<Float> captchaScoreThreshold) {}
+  record ChallengeConstraints(boolean pushPermitted, Optional<Float> captchaScoreThreshold) {
+    static final ChallengeConstraints ALL_PERMITTED = new ChallengeConstraints(true, Optional.empty());
+  }
 
   /**
    * Retrieve constraints for captcha and push challenges
@@ -18,9 +20,29 @@ public interface ChallengeConstraintChecker {
    * @param authenticatedAccount The authenticated account attempting to request or solve a challenge
    * @return ChallengeConstraints indicating what constraints should be applied to challenges
    */
-  ChallengeConstraints challengeConstraints(ContainerRequestContext requestContext, Account authenticatedAccount);
+  ChallengeConstraints challengeConstraintsHttp(ContainerRequestContext requestContext, Account authenticatedAccount);
+
+  /**
+   * Retrieve constraints for captcha and push challenges
+   *
+   * @param authenticatedAccount The authenticated account attempting to request or solve a challenge
+   * @return ChallengeConstraints indicating what constraints should be applied to challenges
+   */
+  ChallengeConstraints challengeConstraintsGrpc(Account authenticatedAccount);
 
   static ChallengeConstraintChecker noop() {
-    return (account, ctx) -> new ChallengeConstraints(true, Optional.empty());
+    return new ChallengeConstraintChecker() {
+
+      @Override
+      public ChallengeConstraints challengeConstraintsHttp(final ContainerRequestContext requestContext,
+          final Account authenticatedAccount) {
+        return ChallengeConstraints.ALL_PERMITTED;
+      }
+
+      @Override
+      public ChallengeConstraints challengeConstraintsGrpc(final Account authenticatedAccount) {
+        return ChallengeConstraints.ALL_PERMITTED;
+      }
+    };
   }
 }

@@ -97,7 +97,7 @@ public class ChallengeController {
 
     Tags tags = Tags.of(UserAgentTagUtil.getPlatformTag(userAgent));
 
-    final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraints(
+    final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraintsHttp(
         requestContext, account);
     try {
       if (answerRequest instanceof final AnswerPushChallengeRequest pushChallengeRequest) {
@@ -185,7 +185,7 @@ public class ChallengeController {
     final Account account = accountsManager.getByAccountIdentifier(auth.accountIdentifier())
         .orElseThrow(() -> new WebApplicationException(Response.Status.UNAUTHORIZED));
 
-    final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraints(requestContext, account);
+    final ChallengeConstraints constraints = challengeConstraintChecker.challengeConstraintsHttp(requestContext, account);
     if (!constraints.pushPermitted()) {
       return Response.status(429).build();
     }

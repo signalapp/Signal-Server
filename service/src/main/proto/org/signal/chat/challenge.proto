@@ -1,0 +1,52 @@
+/*
+ * Copyright 2026 Signal Messenger, LLC
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+
+package org.signal.chat.challenge;
+
+import "org/signal/chat/require.proto";
+
+service Challenge {
+  option (require.auth) = AUTH_ONLY_AUTHENTICATED;
+  // Submit proof of a challenge completion
+
+  //  Some server endpoints (the "send message" endpoint, for example) may return
+  //  a response indicating the client must complete a challenge before continuing.
+  //  Clients may use this endpoint to provide proof of a completed challenge.
+  //  If successful, the client may then continue their original operation.
+  rpc HandleChallengeResponse(AnswerChallengeRequest) returns (AnswerChallengeResponse) {}
+}
+
+message AnswerChallengeRequest {
+
+  message AnswerPushChallengeRequest {
+    // The challenge string provided to the client via a push payload
+    string challenge = 1  [(require.nonEmpty) = true];
+  }
+
+  message AnswerCaptchaChallengeRequest {
+    // A string representing a solved captcha
+    // Example: signal-hcaptcha.30b01b46-d8c9-4c30-bbd7-9719acfe0c10.challenge.abcdefg1345
+    string captcha = 1  [(require.nonEmpty) = true];
+  }
+
+  // The opaque token id from the ChallengeRequired response returned by the
+  // server endpoint that requested the challenge
+  string token = 1  [(require.nonEmpty) = true];
+
+  oneof request {
+    AnswerPushChallengeRequest push = 2;
+    AnswerCaptchaChallengeRequest captcha = 3;
+  }
+
+}
+
+message AnswerChallengeResponse {
+  // Whether the challenge proof was accepted
+  bool success = 1;
+}

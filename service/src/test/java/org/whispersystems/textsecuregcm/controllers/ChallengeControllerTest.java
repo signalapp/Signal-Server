@@ -68,7 +68,7 @@ class ChallengeControllerTest {
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT));
     when(accountsManager.getByAccountIdentifier(AuthHelper.VALID_UUID_TWO)).thenReturn(Optional.of(AuthHelper.VALID_ACCOUNT_TWO));
 
-    when(challengeConstraintChecker.challengeConstraints(any(), any()))
+    when(challengeConstraintChecker.challengeConstraintsHttp(any(), any()))
         .thenReturn(new ChallengeConstraints(true, Optional.empty()));
   }
 
@@ -133,7 +133,7 @@ class ChallengeControllerTest {
 
 
     if (hasThreshold) {
-      when(challengeConstraintChecker.challengeConstraints(any(), any()))
+      when(challengeConstraintChecker.challengeConstraintsHttp(any(), any()))
           .thenReturn(new ChallengeConstraints(true, Optional.of(0.5F)));
     }
     final Response response = EXTENSION.target("/v1/challenge")
@@ -236,7 +236,7 @@ class ChallengeControllerTest {
 
   @Test
   void testRequestPushChallengeNotPermitted() {
-    when(challengeConstraintChecker.challengeConstraints(any(), any()))
+    when(challengeConstraintChecker.challengeConstraintsHttp(any(), any()))
         .thenReturn(new ChallengeConstraints(false, Optional.empty()));
 
     final Response response = EXTENSION.target("/v1/challenge/push")
@@ -249,7 +249,7 @@ class ChallengeControllerTest {
 
   @Test
   void testAnswerPushChallengeNotPermitted() {
-    when(challengeConstraintChecker.challengeConstraints(any(), any()))
+    when(challengeConstraintChecker.challengeConstraintsHttp(any(), any()))
         .thenReturn(new ChallengeConstraints(false, Optional.empty()));
 
     final String pushChallengeJson = """

@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.captcha;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
@@ -42,7 +43,7 @@ public interface CaptchaClient {
       final Action action,
       final String token,
       final String ip,
-      final String userAgent) throws IOException;
+      @Nullable final String userAgent) throws IOException;
 
   static CaptchaClient noop() {
     return new CaptchaClient() {
@@ -58,7 +59,7 @@ public interface CaptchaClient {
 
       @Override
       public AssessmentResult verify(final Optional<UUID> maybeAci, final String siteKey, final Action action, final String token, final String ip,
-          final String userAgent) throws IOException {
+          @Nullable final String userAgent) throws IOException {
         return AssessmentResult.alwaysValid();
       }
     };

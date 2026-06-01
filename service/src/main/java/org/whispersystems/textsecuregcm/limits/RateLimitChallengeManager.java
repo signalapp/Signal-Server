@@ -24,6 +24,7 @@ import org.whispersystems.textsecuregcm.spam.ChallengeType;
 import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.util.Util;
+import javax.annotation.Nullable;
 
 public class RateLimitChallengeManager {
 
@@ -52,7 +53,7 @@ public class RateLimitChallengeManager {
     this.rateLimitChallengeListeners = rateLimitChallengeListeners;
   }
 
-  public void answerPushChallenge(final Account account, final String challenge) throws RateLimitExceededException {
+  public boolean answerPushChallenge(final Account account, final String challenge) throws RateLimitExceededException {
     rateLimiters.getPushChallengeAttemptLimiter().validate(account.getUuid());
 
     final boolean challengeSuccess = pushChallengeManager.answerChallenge(account, challenge);
@@ -61,12 +62,13 @@ public class RateLimitChallengeManager {
       rateLimiters.getPushChallengeSuccessLimiter().validate(account.getUuid());
       resetRateLimits(account, ChallengeType.PUSH);
     }
+    return challengeSuccess;
   }
 
   public boolean answerCaptchaChallenge(final Account account,
       final String captcha,
       final String mostRecentProxyIp,
-      final String userAgent,
+      @Nullable final String userAgent,
       final Optional<Float> scoreThreshold) throws RateLimitExceededException, IOException {
 
     rateLimiters.getCaptchaChallengeAttemptLimiter().validate(account.getUuid());
