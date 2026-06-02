@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import com.google.protobuf.ByteString;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -114,6 +115,30 @@ class EnvelopeUtilTest {
       assertTrue(expanded.hasUpdatedPniBinary());
       assertEquals(UUID.fromString(expanded.getUpdatedPni()), UUIDUtil.fromByteString(expanded.getUpdatedPniBinary()));
     }
+  }
+
+  @Test
+  void compressExpandSkipExpansion() {
+    final ExperimentEnrollmentManager experimentEnrollmentManager = mock(ExperimentEnrollmentManager.class);
+    when(experimentEnrollmentManager.isEnrolled(any(UUID.class), eq(EnvelopeUtil.SKIP_EXPANSION_EXPERIMENT_NAME)))
+        .thenReturn(true);
+
+    final ServiceIdentifier sourceServiceId = generateRandomServiceIdentifier();
+    final ServiceIdentifier destinationServiceId = generateRandomServiceIdentifier();
+    final UUID serverGuid = UUID.randomUUID();
+    final UUID updatedPni = UUID.randomUUID();
+
+    final MessageProtos.Envelope compressed = generateRandomMessageBuilder()
+        .setSourceServiceIdBinary(ServiceIdentifierUtil.toCompactByteString(sourceServiceId))
+        .setDestinationServiceIdBinary(ServiceIdentifierUtil.toCompactByteString(destinationServiceId))
+        .setServerGuidBinary(UUIDUtil.toByteString(serverGuid))
+        .setUpdatedPniBinary(UUIDUtil.toByteString(updatedPni))
+        .build();
+
+    final MessageProtos.Envelope expanded = EnvelopeUtil.expand(compressed, experimentEnrollmentManager);
+
+    assertEquals(compressed, expanded,
+        "Compressed message should be returned unchanged when enrolled in 'skip expansion' experiment");
   }
 
   private static ServiceIdentifier generateRandomServiceIdentifier() {
