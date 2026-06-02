@@ -5,6 +5,8 @@ import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,11 +45,14 @@ public class FoundationDbMessageStream implements MessageStream {
   private final int maxUnacknowledgedMessages;
   private final Flow.Publisher<MessageStreamEntry> messageStreamPublisher;
   private final Runnable doAfterCleanup;
+  private final Clock clock;
 
   /// Map of versionstamp -> acknowledged? to keep track of acknowledged versionstamp ranges to clear
   private final NavigableMap<Versionstamp, Boolean> sentVersionstamps = new TreeMap<>();
   private int unacknowledgedMessages = 0;
 
+  @VisibleForTesting
+  static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
   static final int DEFAULT_MAX_MESSAGES_PER_SCAN = 1024;
   @VisibleForTesting
   static final int DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES = 16_384;
@@ -60,14 +65,15 @@ public class FoundationDbMessageStream implements MessageStream {
       final MessageGuidCodec messageGuidCodec,
       final int maxMessagesPerScan,
       final int maxUnacknowledgedMessages,
-      final Runnable doAfterCleanup) {
-
+      final Runnable doAfterCleanup,
+      final Clock clock) {
     this.deviceQueueSubspace = deviceQueueSubspace;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
     this.database = database;
     this.messageGuidCodec = messageGuidCodec;
     this.maxMessagesPerScan = maxMessagesPerScan;
     this.maxUnacknowledgedMessages = maxUnacknowledgedMessages;
+    this.clock = clock;
     this.messageStreamPublisher = JdkFlowAdapter.publisherToFlowPublisher(createMessagePublisher());
     this.doAfterCleanup = doAfterCleanup;
   }
@@ -83,6 +89,7 @@ public class FoundationDbMessageStream implements MessageStream {
   /// @implNote turns the stream of [FoundationDbMessageStreamEntry] into [MessageStreamEntry], but taps into the stream
   /// first to keep track of versionstamps sent to the client.
   private Flux<MessageStreamEntry> createMessagePublisher() {
+    final long earliestAllowedEphemeralTimestamp = clock.instant().minus(MAX_EPHEMERAL_MESSAGE_DELAY).toEpochMilli();
     return createFoundationDbMessagePublisher()
         .<FoundationDbMessageStreamEntry>handle((messageStreamEntry, sink) -> {
           if (messageStreamEntry instanceof final FoundationDbMessageStreamEntry.Message message) {
@@ -95,6 +102,14 @@ public class FoundationDbMessageStream implements MessageStream {
           sink.next(messageStreamEntry);
         })
         .map(fdbMessageStreamEntry -> fdbMessageStreamEntry.toMessageStreamEntry(messageGuidCodec))
+        .<MessageStreamEntry>handle((messageStreamEntry, sink) -> {
+          if (messageStreamEntry instanceof MessageStreamEntry.Envelope(MessageProtos.Envelope message)
+              && isStaleEphemeralMessage(message, earliestAllowedEphemeralTimestamp)) {
+            acknowledgeMessage(message);
+            return;
+          }
+          sink.next(messageStreamEntry);
+        })
         .doFinally(_ -> flushAllAcknowledgedMessages().thenRun(doAfterCleanup));
   }
 
@@ -241,5 +256,10 @@ public class FoundationDbMessageStream implements MessageStream {
       }
 
     return flushableRanges;
+  }
+
+  private static boolean isStaleEphemeralMessage(final MessageProtos.Envelope message,
+      long earliestAllowableTimestamp) {
+    return message.getEphemeral() && message.getClientTimestamp() < earliestAllowableTimestamp;
   }
 }

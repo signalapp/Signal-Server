@@ -50,6 +50,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -648,12 +649,71 @@ class FoundationDbMessageStoreTest {
         .verify();
   }
 
-  static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral) {
-    return generateRandomMessage(ephemeral, 16);
+  @CartesianTest
+  void discardStaleEphemeralMessages(
+      @CartesianTest.Values(booleans = {true, false}) final boolean isStale,
+      @CartesianTest.Values(booleans = {true, false}) final boolean ephemeral) {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
+
+    final long messageTimestamp;
+    if (isStale) {
+      messageTimestamp = CLOCK.instant().minus(FoundationDbMessageStream.MAX_EPHEMERAL_MESSAGE_DELAY.plus(Duration.ofMillis(1))).toEpochMilli();
+    } else {
+      messageTimestamp = CLOCK.instant().toEpochMilli();
+    }
+
+    final Versionstamp expectedVersionstamp = foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(ephemeral, messageTimestamp)))
+        .join()
+        .get(Device.PRIMARY_ID)
+        .versionstamp()
+        .orElseThrow();
+
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
+    final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
+
+    if (isStale && ephemeral) {
+      StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
+          .recordWith(() -> retrievedEntries)
+          .expectNext(new MessageStreamEntry.QueueEmpty())
+          .verifyTimeout(Duration.ofSeconds(1));
+      assertEquals(1, retrievedEntries.size());
+    } else {
+      StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
+          .recordWith(() -> retrievedEntries)
+          .expectNextCount(1)
+          .expectNext(new MessageStreamEntry.QueueEmpty())
+          .verifyTimeout(Duration.ofSeconds(1));
+
+      assertEquals(2, retrievedEntries.size());
+
+      final MessageGuidCodec messageGuidCodec =
+          new MessageGuidCodec(aci.uuid(), Device.PRIMARY_ID, versionstampUUIDCipher);
+      final MessageStreamEntry.Envelope envelopeEntry =
+          assertInstanceOf(MessageStreamEntry.Envelope.class, retrievedEntries.getFirst());
+      assertEquals(expectedVersionstamp,
+          messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(envelopeEntry.message().getServerGuidBinary())));
+    }
+  }
+
+  static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final long timestamp) {
+    return generateRandomMessage(ephemeral, 16, timestamp);
   }
 
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
+    return generateRandomMessage(ephemeral, contentSize, CLOCK.millis());
+  }
+
+  static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral) {
+    return generateRandomMessage(ephemeral, 16, CLOCK.millis());
+  }
+
+  static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize, final long timestamp) {
     return MessageProtos.Envelope.newBuilder()
+        .setClientTimestamp(timestamp)
+        .setServerTimestamp(timestamp)
         .setContent(ByteString.copyFrom(TestRandomUtil.nextBytes(contentSize)))
         .setEphemeral(ephemeral)
         .build();

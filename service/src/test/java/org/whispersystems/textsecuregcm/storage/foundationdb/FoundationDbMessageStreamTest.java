@@ -8,6 +8,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Versionstamp;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.time.Clock;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
@@ -30,7 +31,8 @@ class FoundationDbMessageStreamTest {
         mock(MessageGuidCodec.class),
         100,
         FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
-        Util.NOOP
+        Util.NOOP,
+        Clock.systemUTC()
     );
 
     versionstampsSent.forEach(
