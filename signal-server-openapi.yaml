@@ -4107,6 +4107,7 @@ components:
             - ATTACHMENT_BACKFILL
             - SPARSE_POST_QUANTUM_RATCHET
             - PROFILES_V2
+            - USERNAME_CHANGE_SYNC_MESSAGE
         registrationLock:
           type: string
         unidentifiedAccessKey:
@@ -4152,6 +4153,7 @@ components:
             - ATTACHMENT_BACKFILL
             - SPARSE_POST_QUANTUM_RATCHET
             - PROFILES_V2
+            - USERNAME_CHANGE_SYNC_MESSAGE
     ApnRegistrationId:
       required:
       - apnRegistrationId
