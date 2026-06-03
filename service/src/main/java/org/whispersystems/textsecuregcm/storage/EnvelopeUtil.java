@@ -24,9 +24,6 @@ public class EnvelopeUtil {
   @VisibleForTesting
   static final String INCLUDE_BINARY_SERVICE_ID_EXPERIMENT_NAME = "envelopeIncludeBinaryServiceIdentifier";
 
-  @VisibleForTesting
-  static final String SKIP_EXPANSION_EXPERIMENT_NAME = "skipEnvelopeExpansion";
-
   /**
    * Converts all "compressible" UUID-like fields in the given envelope to more compact binary representations.
    *
@@ -80,7 +77,6 @@ public class EnvelopeUtil {
       final ExperimentEnrollmentManager experimentEnrollmentManager) {
 
     final boolean includeBinaryServiceIdentifiers;
-    final boolean skipEnvelopeExpansion;
 
     if (envelope.hasDestinationServiceIdBinary() || envelope.hasDestinationServiceId()) {
       final ServiceIdentifier destinationIdentifier = envelope.hasDestinationServiceIdBinary()
@@ -89,16 +85,8 @@ public class EnvelopeUtil {
 
       includeBinaryServiceIdentifiers =
           experimentEnrollmentManager.isEnrolled(destinationIdentifier.uuid(), INCLUDE_BINARY_SERVICE_ID_EXPERIMENT_NAME);
-
-      skipEnvelopeExpansion =
-          experimentEnrollmentManager.isEnrolled(destinationIdentifier.uuid(), SKIP_EXPANSION_EXPERIMENT_NAME);
     } else {
       includeBinaryServiceIdentifiers = false;
-      skipEnvelopeExpansion = false;
-    }
-
-    if (skipEnvelopeExpansion) {
-      return envelope;
     }
 
     final MessageProtos.Envelope.Builder builder = envelope.toBuilder();
