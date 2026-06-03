@@ -34,14 +34,11 @@ import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
 
 @Path("/v1/donation")
 @Tag(name = "Donations")
 public class DonationController {
-
-  public interface ReceiptCredentialPresentationFactory {
-    ReceiptCredentialPresentation build(byte[] bytes) throws InvalidInputException;
-  }
 
   private final Clock clock;
   private final ServerZkReceiptOperations serverZkReceiptOperations;

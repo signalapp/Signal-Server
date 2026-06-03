@@ -39,6 +39,7 @@ import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
+import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
@@ -70,7 +71,7 @@ class DonationControllerTest {
   byte[] receiptSerialBytes;
   ReceiptSerial receiptSerial;
   byte[] presentation;
-  DonationController.ReceiptCredentialPresentationFactory receiptCredentialPresentationFactory;
+  ReceiptCredentialPresentationFactory receiptCredentialPresentationFactory;
   ReceiptCredentialPresentation receiptCredentialPresentation;
   ResourceExtension resources;
 
@@ -82,7 +83,7 @@ class DonationControllerTest {
     AccountsHelper.setupMockUpdate(accountsManager);
     receiptSerial = new ReceiptSerial(TestRandomUtil.nextBytes(ReceiptSerial.SIZE));
     presentation = TestRandomUtil.nextBytes(25);
-    receiptCredentialPresentationFactory = mock(DonationController.ReceiptCredentialPresentationFactory.class);
+    receiptCredentialPresentationFactory = mock(ReceiptCredentialPresentationFactory.class);
     receiptCredentialPresentation = mock(ReceiptCredentialPresentation.class);
 
     try {

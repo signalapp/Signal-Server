@@ -156,6 +156,7 @@ import org.whispersystems.textsecuregcm.grpc.ChallengeGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CredentialsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CredentialsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.DevicesGrpcService;
+import org.whispersystems.textsecuregcm.grpc.DonationsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ErrorConformanceInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ExternalServiceDefinitions;
@@ -1004,7 +1005,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new AttachmentsGrpcService(experimentEnrollmentManager, rateLimiters,
                 gcsAttachmentGenerator, tusAttachmentGenerator, config.getAttachments().maxAttachmentUploadSizeInBytes()),
             new PaymentsGrpcService(currencyManager),
-            new ChallengeGrpcService(accountsManager, rateLimitChallengeManager, challengeConstraintChecker))
+            new ChallengeGrpcService(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
+            new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
