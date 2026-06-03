@@ -4,8 +4,6 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
-
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
@@ -22,7 +20,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
-import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotAuthorizedException;
@@ -41,7 +38,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import java.time.Clock;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -52,7 +48,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
@@ -75,8 +70,6 @@ import org.whispersystems.textsecuregcm.entities.IncomingMessage;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevicesResponse;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SendMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SpamReport;
@@ -85,31 +78,22 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
-import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.push.MessageUtil;
-import org.whispersystems.textsecuregcm.push.PushNotificationManager;
-import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.spam.MessageType;
 import org.whispersystems.textsecuregcm.spam.SpamCheckResult;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
-import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.Util;
-import org.whispersystems.websocket.WebsocketHeaders;
-import reactor.core.scheduler.Scheduler;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Path("/v1/messages")
@@ -122,22 +106,13 @@ public class MessageController {
   private final CardinalityEstimator messageByteLimitEstimator;
   private final MessageSender messageSender;
   private final AccountsManager accountsManager;
-  private final MessagesManager messagesManager;
   private final PhoneNumberIdentifiers phoneNumberIdentifiers;
-  private final PushNotificationManager pushNotificationManager;
-  private final PushNotificationScheduler pushNotificationScheduler;
   private final ReportMessageManager reportMessageManager;
-  private final Scheduler messageDeliveryScheduler;
-  private final ClientReleaseManager clientReleaseManager;
   private final ServerSecretParams serverSecretParams;
   private final SpamChecker spamChecker;
-  private final MessageMetrics messageMetrics;
-  private final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor;
   private final Clock clock;
 
   private static final CompletableFuture<?>[] EMPTY_FUTURE_ARRAY = new CompletableFuture<?>[0];
-
-  private static final String OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME = name(MessageController.class, "outgoingMessageListSizeBytes");
 
   private static final Timer INDIVIDUAL_MESSAGE_LATENCY_TIMER;
   private static final Timer MULTI_RECIPIENT_MESSAGE_LATENCY_TIMER;
@@ -166,8 +141,6 @@ public class MessageController {
   // for additional details.
   public static final long MAX_TIMESTAMP = 86_400_000L * 100_000_000L;
 
-  private static final Duration NOTIFY_FOR_REMAINING_MESSAGES_DELAY = Duration.ofMinutes(1);
-
   private static final SendMultiRecipientMessageResponse SEND_STORY_RESPONSE =
       new SendMultiRecipientMessageResponse(Collections.emptyList());
 
@@ -176,33 +149,19 @@ public class MessageController {
       CardinalityEstimator messageByteLimitEstimator,
       MessageSender messageSender,
       AccountsManager accountsManager,
-      MessagesManager messagesManager,
       PhoneNumberIdentifiers phoneNumberIdentifiers,
-      PushNotificationManager pushNotificationManager,
-      PushNotificationScheduler pushNotificationScheduler,
       ReportMessageManager reportMessageManager,
-      Scheduler messageDeliveryScheduler,
-      final ClientReleaseManager clientReleaseManager,
       final ServerSecretParams serverSecretParams,
       final SpamChecker spamChecker,
-      final MessageMetrics messageMetrics,
-      final MessageDeliveryLoopMonitor messageDeliveryLoopMonitor,
       final Clock clock) {
     this.rateLimiters = rateLimiters;
     this.messageByteLimitEstimator = messageByteLimitEstimator;
     this.messageSender = messageSender;
     this.accountsManager = accountsManager;
-    this.messagesManager = messagesManager;
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
-    this.pushNotificationManager = pushNotificationManager;
-    this.pushNotificationScheduler = pushNotificationScheduler;
     this.reportMessageManager = reportMessageManager;
-    this.messageDeliveryScheduler = messageDeliveryScheduler;
-    this.clientReleaseManager = clientReleaseManager;
     this.serverSecretParams = serverSecretParams;
     this.spamChecker = spamChecker;
-    this.messageMetrics = messageMetrics;
-    this.messageDeliveryLoopMonitor = messageDeliveryLoopMonitor;
     this.clock = clock;
   }
 
@@ -765,84 +724,6 @@ public class MessageController {
     } catch (final IllegalArgumentException ignored) {
       throw new WebApplicationException(Status.UNAUTHORIZED);
     }
-  }
-
-  @GET
-  @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<OutgoingMessageEntityList> getPendingMessages(@Auth AuthenticatedDevice auth,
-      @HeaderParam(WebsocketHeaders.X_SIGNAL_RECEIVE_STORIES) String receiveStoriesHeader,
-      @HeaderParam(HttpHeaders.USER_AGENT) String userAgent) {
-
-    return accountsManager.getByAccountIdentifierAsync(auth.accountIdentifier())
-        .thenCompose(maybeAccount -> {
-          final Account account = maybeAccount.orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-          final Device device = account.getDevice(auth.deviceId())
-              .orElseThrow(() -> new WebApplicationException(Status.UNAUTHORIZED));
-
-          final boolean shouldReceiveStories = WebsocketHeaders.parseReceiveStoriesHeader(receiveStoriesHeader);
-
-          pushNotificationManager.handleMessagesRetrieved(account, device, userAgent);
-
-          return messagesManager.getMessagesForDevice(
-                  auth.accountIdentifier(),
-                  device,
-                  false)
-              .map(messagesAndHasMore -> {
-                Stream<Envelope> envelopes = messagesAndHasMore.first().stream();
-                if (!shouldReceiveStories) {
-                  envelopes = envelopes.filter(e -> !e.getStory());
-                }
-
-          final OutgoingMessageEntityList messages = new OutgoingMessageEntityList(envelopes
-              .map(OutgoingMessageEntity::fromEnvelope)
-              .peek(outgoingMessageEntity -> {
-                messageMetrics.measureAccountOutgoingMessageUuidMismatches(account, outgoingMessageEntity);
-                messageMetrics.measureOutgoingMessageLatency(outgoingMessageEntity.serverTimestamp(),
-                    "rest",
-                    auth.deviceId() == Device.PRIMARY_ID,
-                    outgoingMessageEntity.urgent(),
-                    // Messages fetched via this endpoint (as opposed to WebSocketConnection) are never ephemeral
-                    // because, by definition, the client doesn't have a "live" connection via which to receive
-                    // ephemeral messages.
-                    false,
-                    userAgent,
-                    clientReleaseManager);
-              })
-              .collect(Collectors.toList()),
-              messagesAndHasMore.second());
-
-                Metrics.summary(OUTGOING_MESSAGE_LIST_SIZE_BYTES_DISTRIBUTION_NAME, Tags.of(UserAgentTagUtil.getPlatformTag(userAgent)))
-                    .record(estimateMessageListSizeBytes(messages));
-
-                if (!messages.messages().isEmpty()) {
-                  messageDeliveryLoopMonitor.recordDeliveryAttempt(auth.accountIdentifier(),
-                      auth.deviceId(),
-                      messages.messages().getFirst().guid(),
-                      userAgent,
-                      "rest");
-                }
-
-                if (messagesAndHasMore.second()) {
-                  pushNotificationScheduler.scheduleDelayedNotification(account, device, NOTIFY_FOR_REMAINING_MESSAGES_DELAY);
-                }
-
-                return messages;
-              })
-              .timeout(Duration.ofSeconds(5))
-              .subscribeOn(messageDeliveryScheduler)
-              .toFuture();
-        });
-  }
-
-  private static long estimateMessageListSizeBytes(final OutgoingMessageEntityList messageList) {
-    long size = 0;
-
-    for (final OutgoingMessageEntity message : messageList.messages()) {
-      size += message.content() == null ? 0 : message.content().length;
-      size += message.sourceUuid() == null ? 0 : 36;
-    }
-
-    return size;
   }
 
   @POST

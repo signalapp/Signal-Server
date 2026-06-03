@@ -11,8 +11,6 @@ import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyByte;
@@ -30,7 +28,6 @@ import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.asJson;
 import static org.whispersystems.textsecuregcm.tests.util.JsonHelpers.jsonFixture;
 
-import com.google.protobuf.ByteString;
 import io.dropwizard.auth.AuthValueFactoryProvider;
 import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
@@ -76,11 +73,8 @@ import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.entities.IncomingMessageList;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.entities.MismatchedDevicesResponse;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntityList;
 import org.whispersystems.textsecuregcm.entities.SendMultiRecipientMessageResponse;
 import org.whispersystems.textsecuregcm.entities.SpamReport;
 import org.whispersystems.textsecuregcm.entities.StaleDevicesResponse;
@@ -89,12 +83,10 @@ import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.CardinalityEstimator;
-import org.whispersystems.textsecuregcm.limits.MessageDeliveryLoopMonitor;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.CompletionExceptionMapper;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.providers.MultiRecipientMessageProvider;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
@@ -103,7 +95,6 @@ import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.spam.SpamChecker;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
-import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
@@ -113,12 +104,9 @@ import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.MultiRecipientMessageHelper;
 import org.whispersystems.textsecuregcm.tests.util.TestRecipient;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
-import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
-import org.whispersystems.websocket.WebsocketHeaders;
-import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
 
@@ -187,12 +175,8 @@ class MessageControllerTest {
       .addProvider(CompletionExceptionMapper.class)
       .addProvider(MultiRecipientMessageProvider.class)
       .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
-      .addResource(
-          new MessageController(rateLimiters, cardinalityEstimator, messageSender, accountsManager,
-              messagesManager, phoneNumberIdentifiers, pushNotificationManager, pushNotificationScheduler,
-              reportMessageManager, messageDeliveryScheduler, mock(ClientReleaseManager.class),
-              serverSecretParams, SpamChecker.noop(), new MessageMetrics(), mock(MessageDeliveryLoopMonitor.class),
-              clock))
+      .addResource(new MessageController(rateLimiters, cardinalityEstimator, messageSender, accountsManager,
+              phoneNumberIdentifiers, reportMessageManager, serverSecretParams, SpamChecker.noop(), clock))
       .build();
 
   @BeforeEach
@@ -727,100 +711,6 @@ class MessageControllerTest {
           asJson(response.readEntity(StaleDevicesResponse.class)),
           is(equalTo(jsonFixture("fixtures/mismatched_registration_id.json"))));
     }
-  }
-
-  @ParameterizedTest
-  @CsvSource({
-      "false, false",
-      "false, true",
-      "true, false",
-      "true, true"
-  })
-  void testGetMessages(final boolean receiveStories, final boolean hasMore) {
-
-    final long timestampOne = 313377;
-    final long timestampTwo = 313388;
-
-    final UUID messageGuidOne = UUID.randomUUID();
-    final UUID messageGuidTwo = UUID.randomUUID();
-    final UUID sourceUuid = UUID.randomUUID();
-
-    final UUID updatedPniOne = UUID.randomUUID();
-
-    List<Envelope> envelopes = List.of(
-        generateEnvelope(messageGuidOne, Envelope.Type.CIPHERTEXT_VALUE, timestampOne, sourceUuid, (byte) 2,
-            AuthHelper.VALID_UUID, updatedPniOne, "hi there".getBytes(), 0, false),
-        generateEnvelope(messageGuidTwo, Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo, sourceUuid,
-            (byte) 2,
-            AuthHelper.VALID_UUID, null, null, 0, true)
-    );
-
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), anyBoolean()))
-        .thenReturn(Mono.just(new Pair<>(envelopes, hasMore)));
-
-    final String userAgent = "Test-UA";
-
-    OutgoingMessageEntityList response =
-        resources.getJerseyTest().target("/v1/messages/")
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.VALID_PASSWORD))
-            .header(WebsocketHeaders.X_SIGNAL_RECEIVE_STORIES, receiveStories ? "true" : "false")
-            .header(HttpHeaders.USER_AGENT, userAgent)
-            .accept(MediaType.APPLICATION_JSON_TYPE)
-            .get(OutgoingMessageEntityList.class);
-
-    List<OutgoingMessageEntity> messages = response.messages();
-    int expectedSize = receiveStories ? 2 : 1;
-    assertEquals(expectedSize, messages.size());
-
-    OutgoingMessageEntity first = messages.getFirst();
-    assertEquals(first.timestamp(), timestampOne);
-    assertEquals(first.guid(), messageGuidOne);
-    assertNotNull(first.sourceUuid());
-    assertEquals(first.sourceUuid().uuid(), sourceUuid);
-    assertEquals(updatedPniOne, first.updatedPni());
-
-    if (receiveStories) {
-      OutgoingMessageEntity second = messages.get(1);
-      assertEquals(second.timestamp(), timestampTwo);
-      assertEquals(second.guid(), messageGuidTwo);
-      assertNotNull(second.sourceUuid());
-      assertEquals(second.sourceUuid().uuid(), sourceUuid);
-      assertNull(second.updatedPni());
-    }
-
-    verify(pushNotificationManager).handleMessagesRetrieved(AuthHelper.VALID_ACCOUNT, AuthHelper.VALID_DEVICE, userAgent);
-
-    if (hasMore) {
-      verify(pushNotificationScheduler).scheduleDelayedNotification(eq(AuthHelper.VALID_ACCOUNT), eq(AuthHelper.VALID_DEVICE), any());
-    } else {
-      verify(pushNotificationScheduler, never()).scheduleDelayedNotification(any(), any(), any());
-    }
-  }
-
-  @Test
-  void testGetMessagesBadAuth() {
-    final long timestampOne = 313377;
-    final long timestampTwo = 313388;
-
-    final List<Envelope> messages = List.of(
-        generateEnvelope(UUID.randomUUID(), Envelope.Type.CIPHERTEXT_VALUE, timestampOne, UUID.randomUUID(), (byte) 2,
-            AuthHelper.VALID_UUID, null, "hi there".getBytes(), 0),
-        generateEnvelope(UUID.randomUUID(), Envelope.Type.SERVER_DELIVERY_RECEIPT_VALUE, timestampTwo,
-            UUID.randomUUID(), (byte) 2, AuthHelper.VALID_UUID, null, null, 0)
-    );
-
-    when(messagesManager.getMessagesForDevice(eq(AuthHelper.VALID_UUID), eq(AuthHelper.VALID_DEVICE), anyBoolean()))
-        .thenReturn(Mono.just(new Pair<>(messages, false)));
-
-    Response response =
-        resources.getJerseyTest().target("/v1/messages/")
-            .request()
-            .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID, AuthHelper.INVALID_PASSWORD))
-            .accept(MediaType.APPLICATION_JSON_TYPE)
-            .get();
-
-    assertThat("Unauthorized response", response.getStatus(), is(equalTo(401)));
   }
 
   @Test
@@ -1758,38 +1648,5 @@ class MessageControllerTest {
 
       assertThat(response.getStatus(), is(equalTo(503)));
     }
-  }
-
-  @SuppressWarnings("SameParameterValue")
-  private static Envelope generateEnvelope(UUID guid, int type, long timestamp, UUID sourceUuid,
-      byte sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content, long serverTimestamp) {
-    return generateEnvelope(guid, type, timestamp, sourceUuid, sourceDevice, destinationUuid, updatedPni, content, serverTimestamp, false);
-  }
-
-  private static Envelope generateEnvelope(UUID guid, int type, long timestamp, UUID sourceUuid,
-      byte sourceDevice, UUID destinationUuid, UUID updatedPni, byte[] content, long serverTimestamp, boolean story) {
-
-    final MessageProtos.Envelope.Builder builder = MessageProtos.Envelope.newBuilder()
-        .setType(MessageProtos.Envelope.Type.forNumber(type))
-        .setClientTimestamp(timestamp)
-        .setServerTimestamp(serverTimestamp)
-        .setDestinationServiceId(destinationUuid.toString())
-        .setStory(story)
-        .setServerGuid(guid.toString());
-
-    if (sourceUuid != null) {
-      builder.setSourceServiceId(sourceUuid.toString());
-      builder.setSourceDevice(sourceDevice);
-    }
-
-    if (content != null) {
-      builder.setContent(ByteString.copyFrom(content));
-    }
-
-    if (updatedPni != null) {
-      builder.setUpdatedPni(updatedPni.toString());
-    }
-
-    return builder.build();
   }
 }
