@@ -44,6 +44,7 @@ import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.ConflictingMessageConsumerException;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.EnvelopeUtil;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
@@ -91,6 +92,8 @@ public class WebSocketConnection implements DisconnectionRequestListener {
   static final int MESSAGE_SENDER_MAX_CONCURRENCY = 256;
 
   private static final Duration CLOSE_WITH_PENDING_MESSAGES_NOTIFICATION_DELAY = Duration.ofMinutes(1);
+
+  private static final String RECOMPRESS_ENVELOPE_EXPERIMENT_NAME = "recompressEnvelopes";
 
   private static final Logger logger = LoggerFactory.getLogger(WebSocketConnection.class);
 
@@ -238,7 +241,11 @@ public class WebSocketConnection implements DisconnectionRequestListener {
       return messageStream.acknowledgeMessage(message);
     }
 
-    final Optional<byte[]> body = Optional.of(serializeMessage(message));
+    final boolean recompressEnvelope =
+        experimentEnrollmentManager.isEnrolled(authenticatedAccount.getIdentifier(IdentityType.ACI), RECOMPRESS_ENVELOPE_EXPERIMENT_NAME);
+
+    final Optional<byte[]> body =
+        Optional.of(serializeMessage(recompressEnvelope ? EnvelopeUtil.compress(message) : message));
 
     sendMessageCounter.increment();
     sentMessageCounter.increment();
