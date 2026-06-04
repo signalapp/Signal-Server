@@ -2394,39 +2394,6 @@ paths:
           description: Invalid request format.
       security:
       - authenticatedAccount: []
-  /v1/messages:
-    get:
-      tags:
-      - Messages
-      operationId: getPendingMessages
-      parameters:
-      - name: X-Signal-Receive-Stories
-        in: header
-        schema:
-          type: string
-      - name: User-Agent
-        in: header
-        schema:
-          type: string
-      responses:
-        default:
-          description: default response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
-      security:
-      - authenticatedAccount: []
   /v1/messages/report/{source}/{messageGuid}:
     post:
       tags:
