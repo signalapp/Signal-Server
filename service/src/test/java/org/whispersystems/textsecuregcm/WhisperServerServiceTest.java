@@ -108,19 +108,20 @@ class WhisperServerServiceTest {
 
     Client client = EXTENSION.client();
 
-    final Response ping = client.target(
+    try (final Response ping = client.target(
             String.format("http://localhost:%d%s", EXTENSION.getAdminPort(), "/ping"))
         .request("application/json")
-        .get();
+        .get()) {
+      assertEquals(200, ping.getStatus());
+    }
 
-    assertEquals(200, ping.getStatus());
 
-    final Response healthCheck = client.target(
+    try (final Response healthCheck = client.target(
             String.format("http://localhost:%d%s", EXTENSION.getLocalPort(), "/health-check"))
         .request("application/json")
-        .get();
-
-    assertEquals(200, healthCheck.getStatus());
+        .get()) {
+      assertEquals(200, healthCheck.getStatus());
+    }
   }
 
   @ParameterizedTest
@@ -164,15 +165,15 @@ class WhisperServerServiceTest {
     // test unauthenticated rest
     final long start = System.currentTimeMillis();
 
-    final Response whoami = EXTENSION.client().target(
-        "http://localhost:%d/v1/accounts/whoami".formatted(EXTENSION.getLocalPort())).request().get();
+    try (final Response whoami = EXTENSION.client().target(
+        "http://localhost:%d/v1/accounts/whoami".formatted(EXTENSION.getLocalPort())).request().get()) {
+      assertEquals(401, whoami.getStatus());
+      final List<Object> timestampValues = whoami.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase());
+      assertEquals(1, timestampValues.size());
+      final long whoamiTimestamp = Long.parseLong(timestampValues.getFirst().toString());
+      assertTrue(whoamiTimestamp >= start);
+    }
 
-    assertEquals(401, whoami.getStatus());
-    final List<Object> timestampValues = whoami.getHeaders().get(HeaderUtils.TIMESTAMP_HEADER.toLowerCase());
-    assertEquals(1, timestampValues.size());
-
-    final long whoamiTimestamp = Long.parseLong(timestampValues.getFirst().toString());
-    assertTrue(whoamiTimestamp >= start);
   }
 
   @Test
