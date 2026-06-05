@@ -44,7 +44,7 @@ class MessagesCacheGetItemsScriptTest {
         .setServerGuid(serverGuid)
         .build();
 
-    insertScript.executeAsync(destinationUuid, deviceId, envelope1);
+    insertScript.executeAsync(destinationUuid, deviceId, envelope1).toCompletableFuture().join();
 
     final MessagesCacheGetItemsScript getItemsScript = new MessagesCacheGetItemsScript(
         REDIS_CLUSTER_EXTENSION.getRedisCluster());
