@@ -43,7 +43,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
@@ -71,9 +70,8 @@ import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
+
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientPlatform;
 
 
 /**
@@ -425,14 +423,5 @@ public class OneTimeDonationController {
               new CreateBoostReceiptCredentialsSuccessResponse(receiptCredentialResponse.serialize()))
           .build();
     });
-  }
-
-  @Nullable
-  private static ClientPlatform getClientPlatform(@Nullable final String userAgentString) {
-    try {
-      return UserAgentUtil.parseUserAgentString(userAgentString).platform();
-    } catch (final UnrecognizedUserAgentException e) {
-      return null;
-    }
   }
 }

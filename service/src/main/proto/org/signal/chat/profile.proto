@@ -268,7 +268,7 @@ message GetUnversionedProfileResult {
   // A list of capabilities enabled on the account.
   repeated common.DeviceCapability capabilities = 4;
   // A list of badges associated with the account.
-  repeated Badge badges = 5;
+  repeated common.Badge badges = 5;
 }
 
 message GetUnversionedProfileResponse {
@@ -336,30 +336,6 @@ message ProfileAvatarUploadAttributes {
   string policy = 6;
   // A digital signature on the S3 policy.
   bytes signature = 7;
-}
-
-message Badge {
-  // An ID that uniquely identifies the badge.
-  string id = 1;
-  // The category the badge falls in ("donor" or "other").
-  string category = 2;
-  // The badge name.
-  string name = 3;
-  // The badge description.
-  string description = 4;
-  // Different size badge SVG files.
-  repeated string sprites6 = 5;
-  // File name of the scalable vector graphic representing this badge.
-  string svg = 6;
-  // Pairs of light/dark SVG files designed for display at different sizes.
-  repeated BadgeSvg svgs = 7;
-}
-
-message BadgeSvg {
-  // File name of the scalable vector graphic for light mode.
-  string light = 1;
-  // File name of the scalable vector graphic for dark mode.
-  string dark = 2;
 }
 
 enum CredentialType {

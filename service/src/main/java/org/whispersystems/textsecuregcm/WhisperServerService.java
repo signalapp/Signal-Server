@@ -180,6 +180,7 @@ import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
+import org.whispersystems.textsecuregcm.grpc.SubscriptionsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ValidatingInterceptor;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedEventLoopGroup;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedGrpcServer;
@@ -949,6 +950,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAppleDeviceCheck().teamId(),
         config.getAppleDeviceCheck().bundleId());
 
+    final SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,
+        List.of(stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager),
+        zkReceiptOperations, issuedReceiptsManager);
+
     final List<SpamFilter> spamFilters = ServiceLoader.load(SpamFilter.class)
         .stream()
         .map(ServiceLoader.Provider::get)
@@ -1080,7 +1085,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkSecretParams),
             new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
             new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
-            new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC())))
+            new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC())),
+            new SubscriptionsGrpcService(clock, config.getSubscription(), config.getOneTimeDonations(), subscriptionManager,
+                stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager, profileBadgeConverter,
+                bankMandateTranslator, dynamicConfigurationManager))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
@@ -1231,18 +1239,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
             pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager,
             phoneNumberIdentifiers, rateLimiters, accountsManager, carrierDataProvider, registrationFraudChecker,
-            dynamicConfigurationManager, experimentEnrollmentManager, clock)
+            dynamicConfigurationManager, experimentEnrollmentManager, clock),
+        new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
+            subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
+            profileBadgeConverter, bankMandateTranslator, dynamicConfigurationManager),
+        new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
+            payPalDonationsTranslator, zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager)
     );
-    if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
-      SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,
-          List.of(stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager),
-          zkReceiptOperations, issuedReceiptsManager);
-      commonControllers.add(new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
-          subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
-          profileBadgeConverter, bankMandateTranslator, dynamicConfigurationManager));
-      commonControllers.add(new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
-          payPalDonationsTranslator, zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager));
-    }
 
     for (Object controller : commonControllers) {
       environment.jersey().register(controller);

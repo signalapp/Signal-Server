@@ -79,6 +79,7 @@ import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
+import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
@@ -91,7 +92,9 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequire
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConflictException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.storage.WriteConflictException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.tests.util.SubscriptionConfigTestHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -100,7 +103,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
   private static final long MAX_TOTAL_BACKUP_MEDIA_BYTES = 1234L;
-  private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = ConfigHelper.getSubscriptionConfig();
+  private static final SubscriptionConfiguration SUBSCRIPTION_CONFIG = SubscriptionConfigTestHelper.getSubscriptionConfig();
   private static final Subscriptions SUBSCRIPTIONS = mock(Subscriptions.class);
   private static final GooglePlayBillingManager PLAY_MANAGER = MockUtils.buildMock(GooglePlayBillingManager.class,
       mgr -> when(mgr.getProvider()).thenReturn(PaymentProvider.GOOGLE_PLAY_BILLING));
@@ -913,95 +916,95 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         assertThat(currency.minimum()).isEqualByComparingTo(
             BigDecimal.valueOf(2.5).setScale(2, RoundingMode.HALF_EVEN));
         assertThat(currency.oneTime()).isEqualTo(
-            Map.of("1",
+            Map.of(1L,
                 List.of(BigDecimal.valueOf(5.5).setScale(2, RoundingMode.HALF_EVEN), BigDecimal.valueOf(6),
                     BigDecimal.valueOf(7), BigDecimal.valueOf(8),
-                    BigDecimal.valueOf(9), BigDecimal.valueOf(10)), "100",
+                    BigDecimal.valueOf(9), BigDecimal.valueOf(10)), 100L,
                 List.of(BigDecimal.valueOf(20))));
         assertThat(currency.subscription()).isEqualTo(
-            Map.of("5", BigDecimal.valueOf(5), "15", BigDecimal.valueOf(15), "35", BigDecimal.valueOf(35)));
-        assertThat(currency.backupSubscription()).isEqualTo(Map.of("201", BigDecimal.valueOf(5)));
-        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD", "PAYPAL"));
+            Map.of(5L, BigDecimal.valueOf(5), 15L, BigDecimal.valueOf(15), 35L, BigDecimal.valueOf(35)));
+        assertThat(currency.backupSubscription()).isEqualTo(Map.of(201L, BigDecimal.valueOf(5)));
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of(PaymentMethod.CARD, PaymentMethod.PAYPAL));
       });
 
       assertThat(currencyMap).extractingByKey("jpy").satisfies(currency -> {
         assertThat(currency.minimum()).isEqualByComparingTo(
             BigDecimal.valueOf(250));
         assertThat(currency.oneTime()).isEqualTo(
-            Map.of("1",
+            Map.of(1L,
                 List.of(BigDecimal.valueOf(550), BigDecimal.valueOf(600),
                     BigDecimal.valueOf(700), BigDecimal.valueOf(800),
-                    BigDecimal.valueOf(900), BigDecimal.valueOf(1000)), "100",
+                    BigDecimal.valueOf(900), BigDecimal.valueOf(1000)), 100L,
                 List.of(BigDecimal.valueOf(2000))));
         assertThat(currency.subscription()).isEqualTo(
-            Map.of("5", BigDecimal.valueOf(500), "15", BigDecimal.valueOf(1500), "35", BigDecimal.valueOf(3500)));
-        assertThat(currency.backupSubscription()).isEqualTo(Map.of("201", BigDecimal.valueOf(500)));
-        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD", "PAYPAL"));
+            Map.of(5L, BigDecimal.valueOf(500), 15L, BigDecimal.valueOf(1500), 35L, BigDecimal.valueOf(3500)));
+        assertThat(currency.backupSubscription()).isEqualTo(Map.of(201L, BigDecimal.valueOf(500)));
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of(PaymentMethod.CARD, PaymentMethod.PAYPAL));
       });
 
       assertThat(currencyMap).extractingByKey("bif").satisfies(currency -> {
         assertThat(currency.minimum()).isEqualByComparingTo(
             BigDecimal.valueOf(2500));
         assertThat(currency.oneTime()).isEqualTo(
-            Map.of("1",
+            Map.of(1L,
                 List.of(BigDecimal.valueOf(5500), BigDecimal.valueOf(6000),
                     BigDecimal.valueOf(7000), BigDecimal.valueOf(8000),
-                    BigDecimal.valueOf(9000), BigDecimal.valueOf(10000)), "100",
+                    BigDecimal.valueOf(9000), BigDecimal.valueOf(10000)), 100L,
                 List.of(BigDecimal.valueOf(20000))));
         assertThat(currency.subscription()).isEqualTo(
-            Map.of("5", BigDecimal.valueOf(5000), "15", BigDecimal.valueOf(15000), "35", BigDecimal.valueOf(35000)));
-        assertThat(currency.backupSubscription()).isEqualTo(Map.of("201", BigDecimal.valueOf(5000)));
-        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of("CARD"));
+            Map.of(5L, BigDecimal.valueOf(5000), 15L, BigDecimal.valueOf(15000), 35L, BigDecimal.valueOf(35000)));
+        assertThat(currency.backupSubscription()).isEqualTo(Map.of(201L, BigDecimal.valueOf(5000)));
+        assertThat(currency.supportedPaymentMethods()).isEqualTo(List.of(PaymentMethod.CARD));
       });
 
       assertThat(currencyMap).extractingByKey("eur").satisfies(currency -> {
         assertThat(currency.minimum()).isEqualByComparingTo(
             BigDecimal.valueOf(3));
         assertThat(currency.oneTime()).isEqualTo(
-            Map.of("1",
+            Map.of(1L,
                 List.of(BigDecimal.valueOf(5), BigDecimal.valueOf(10),
-                    BigDecimal.valueOf(20), BigDecimal.valueOf(30), BigDecimal.valueOf(50), BigDecimal.valueOf(100)), "100",
+                    BigDecimal.valueOf(20), BigDecimal.valueOf(30), BigDecimal.valueOf(50), BigDecimal.valueOf(100)), 100L,
                 List.of(BigDecimal.valueOf(5))));
         assertThat(currency.subscription()).isEqualTo(
-            Map.of("5", BigDecimal.valueOf(5), "15", BigDecimal.valueOf(15), "35", BigDecimal.valueOf(35)));
-        assertThat(currency.backupSubscription()).isEqualTo(Map.of("201", BigDecimal.valueOf(5)));
-        final List<String> expectedPaymentMethods = List.of("CARD", "SEPA_DEBIT", "IDEAL");
+            Map.of(5L, BigDecimal.valueOf(5), 15L, BigDecimal.valueOf(15), 35L, BigDecimal.valueOf(35)));
+        assertThat(currency.backupSubscription()).isEqualTo(Map.of(201L, BigDecimal.valueOf(5)));
+        final List<PaymentMethod> expectedPaymentMethods = List.of(PaymentMethod.CARD, PaymentMethod.SEPA_DEBIT, PaymentMethod.IDEAL);
         assertThat(currency.supportedPaymentMethods()).isEqualTo(expectedPaymentMethods);
       });
     });
 
-    assertThat(response.levels()).containsKeys("1", "5", "15", "35", "100").satisfies(levelsMap -> {
-      assertThat(levelsMap).extractingByKey("1").satisfies(
-          level -> assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+    assertThat(response.levels()).containsKeys(1L, 5L, 15L, 35L, 100L).satisfies(levelsMap -> {
+      assertThat(levelsMap).extractingByKey(1L).satisfies(
+          level -> assertThat(level).extracting(LevelConfiguration::badge)
               .satisfies(badge -> {
                 assertThat(badge.getId()).isEqualTo("BOOST");
                 assertThat(badge.getName()).isEqualTo("boost1");
               }));
 
-      assertThat(levelsMap).extractingByKey("100").satisfies(
-          level -> assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+      assertThat(levelsMap).extractingByKey(100L).satisfies(
+          level -> assertThat(level).extracting(LevelConfiguration::badge)
               .satisfies(badge -> {
                 assertThat(badge.getId()).isEqualTo("GIFT");
                 assertThat(badge.getName()).isEqualTo("gift1");
               }));
 
-      assertThat(levelsMap).extractingByKey("5").satisfies(level -> {
-        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+      assertThat(levelsMap).extractingByKey(5L).satisfies(level -> {
+        assertThat(level).extracting(LevelConfiguration::badge)
             .satisfies(badge -> {
               assertThat(badge.getId()).isEqualTo("B1");
               assertThat(badge.getName()).isEqualTo("name1");
             });
       });
 
-      assertThat(levelsMap).extractingByKey("15").satisfies(level ->
-          assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+      assertThat(levelsMap).extractingByKey(15L).satisfies(level ->
+          assertThat(level).extracting(LevelConfiguration::badge)
               .satisfies(badge -> {
                 assertThat(badge.getId()).isEqualTo("B2");
                 assertThat(badge.getName()).isEqualTo("name2");
               }));
 
-      assertThat(levelsMap).extractingByKey("35").satisfies(level -> {
-        assertThat(level).extracting(SubscriptionController.LevelConfiguration::badge)
+      assertThat(levelsMap).extractingByKey(35L).satisfies(level -> {
+        assertThat(level).extracting(LevelConfiguration::badge)
             .satisfies(badge -> {
               assertThat(badge.getId()).isEqualTo("B3");
               assertThat(badge.getName()).isEqualTo("name3");

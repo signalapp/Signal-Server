@@ -44,15 +44,11 @@ import jakarta.ws.rs.core.Response.Status;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,19 +57,16 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
-import org.whispersystems.textsecuregcm.configuration.OneTimeDonationCurrencyConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.entities.Badge;
-import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
+import org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.storage.PaymentTime;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
@@ -82,8 +75,10 @@ import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
+import org.whispersystems.textsecuregcm.subscriptions.CurrencyConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
+import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
@@ -94,9 +89,10 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidLevelEx
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiresActionException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
-import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
-import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
-import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
+
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.buildCurrencyConfiguration;
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.buildDonationLevelsConfiguration;
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientPlatform;
 
 @Path("/v1/subscription")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Subscriptions")
@@ -143,75 +139,10 @@ public class SubscriptionController {
     this.dynamicConfigurationManager = dynamicConfigurationManager;
   }
 
-  private Map<String, CurrencyConfiguration> buildCurrencyConfiguration() {
-    final List<CustomerAwareSubscriptionPaymentProcessor> subscriptionPaymentProcessors = List.of(stripeManager, braintreeManager);
-    return oneTimeDonationConfiguration.currencies()
-        .entrySet().stream()
-        .collect(Collectors.toMap(Entry::getKey, currencyAndConfig -> {
-          final String currency = currencyAndConfig.getKey();
-          final OneTimeDonationCurrencyConfiguration currencyConfig = currencyAndConfig.getValue();
-
-          final Map<String, List<BigDecimal>> oneTimeLevelsToSuggestedAmounts = Map.of(
-              String.valueOf(oneTimeDonationConfiguration.boost().level()), currencyConfig.boosts(),
-              String.valueOf(oneTimeDonationConfiguration.gift().level()), List.of(currencyConfig.gift())
-          );
-
-          final Function<Map<Long, ? extends SubscriptionLevelConfiguration>, Map<String, BigDecimal>> extractSubscriptionAmounts = levels ->
-              levels.entrySet().stream()
-                  .filter(levelIdAndConfig -> levelIdAndConfig.getValue().prices().containsKey(currency))
-                  .collect(Collectors.toMap(
-                      levelIdAndConfig -> String.valueOf(levelIdAndConfig.getKey()),
-                      levelIdAndConfig -> levelIdAndConfig.getValue().prices().get(currency).amount()));
-
-          final List<String> supportedPaymentMethods = Arrays.stream(PaymentMethod.values())
-              .filter(paymentMethod -> subscriptionPaymentProcessors.stream()
-                  .anyMatch(manager -> manager.supportsPaymentMethod(paymentMethod)
-                      && manager.getSupportedCurrenciesForPaymentMethod(paymentMethod).contains(currency)))
-              .map(PaymentMethod::name)
-              .collect(Collectors.toList());
-
-          if (supportedPaymentMethods.isEmpty()) {
-            throw new RuntimeException("Configuration has currency with no processor support: " + currency);
-          }
-
-          return new CurrencyConfiguration(
-              currencyConfig.minimum(),
-              oneTimeLevelsToSuggestedAmounts,
-              extractSubscriptionAmounts.apply(subscriptionConfiguration.getDonationLevels()),
-              extractSubscriptionAmounts.apply(subscriptionConfiguration.getBackupLevels()),
-              supportedPaymentMethods);
-        }));
-  }
 
   @VisibleForTesting
   GetSubscriptionConfigurationResponse buildGetSubscriptionConfigurationResponse(
       final List<Locale> acceptableLanguages) {
-    final Map<String, LevelConfiguration> donationLevels = new HashMap<>();
-
-    subscriptionConfiguration.getDonationLevels().forEach((levelId, levelConfig) -> {
-      final LevelConfiguration levelConfiguration = new LevelConfiguration(
-          "" /* deprecated and unused */,
-          badgeTranslator.translate(acceptableLanguages, levelConfig.badge()));
-      donationLevels.put(String.valueOf(levelId), levelConfiguration);
-    });
-
-    final Badge boostBadge = badgeTranslator.translate(acceptableLanguages,
-        oneTimeDonationConfiguration.boost().badge());
-    donationLevels.put(String.valueOf(oneTimeDonationConfiguration.boost().level()),
-        new LevelConfiguration(
-            "" /* deprecated and unused */,
-            // NB: the one-time badges are PurchasableBadge, which has a `duration` field
-            new PurchasableBadge(
-                boostBadge,
-                oneTimeDonationConfiguration.boost().expiration())));
-
-    final Badge giftBadge = badgeTranslator.translate(acceptableLanguages, oneTimeDonationConfiguration.gift().badge());
-    donationLevels.put(String.valueOf(oneTimeDonationConfiguration.gift().level()),
-        new LevelConfiguration(
-            "" /* deprecated and unused */,
-            new PurchasableBadge(
-                giftBadge,
-                oneTimeDonationConfiguration.gift().expiration())));
 
     final long maxTotalBackupMediaBytes =
         dynamicConfigurationManager.getConfiguration().getBackupConfiguration().maxTotalMediaSize();
@@ -224,7 +155,11 @@ public class SubscriptionController {
                 e.getValue().playProductId(),
                 e.getValue().mediaTtl().toDays())));
 
-    return new GetSubscriptionConfigurationResponse(buildCurrencyConfiguration(), donationLevels,
+    return new GetSubscriptionConfigurationResponse(
+        buildCurrencyConfiguration(List.of(stripeManager, braintreeManager), oneTimeDonationConfiguration,
+            subscriptionConfiguration),
+        buildDonationLevelsConfiguration(subscriptionConfiguration, oneTimeDonationConfiguration, badgeTranslator,
+            acceptableLanguages),
         new BackupConfiguration(backupLevels, subscriptionConfiguration.getbackupFreeTierMediaDuration().toDays()),
         oneTimeDonationConfiguration.sepaMaximumEuros());
   }
@@ -542,32 +477,11 @@ public class SubscriptionController {
       @Schema(description = "A map of lower-cased ISO 3 currency codes to minimums and level-specific scalar amounts")
       Map<String, CurrencyConfiguration> currencies,
       @Schema(description = "A map of numeric donation level IDs to level-specific badge configuration")
-      Map<String, LevelConfiguration> levels,
+      Map<Long, LevelConfiguration> levels,
       @Schema(description = "Backup specific configuration")
       BackupConfiguration backup,
       @Schema(description = "The maximum value of a one-time donation SEPA transaction")
       BigDecimal sepaMaximumEuros) {}
-
-  @Schema(description = "Configuration for a currency - use to present appropriate client interfaces")
-  public record CurrencyConfiguration(
-      @Schema(description = "The minimum amount that may be submitted for a one-time donation in the currency")
-      BigDecimal minimum,
-      @Schema(description = "A map of numeric one-time donation level IDs to the list of default amounts to be presented")
-      Map<String, List<BigDecimal>> oneTime,
-      @Schema(description = "A map of numeric subscription level IDs to the amount charged for that level")
-      Map<String, BigDecimal> subscription,
-      @Schema(description = "A map of numeric backup level IDs to the amount charged for that level")
-      Map<String, BigDecimal> backupSubscription,
-      @Schema(description = "The payment methods that support the given currency")
-      List<String> supportedPaymentMethods) {}
-
-  @Schema(description = "Configuration for a donation level - use to present appropriate client interfaces")
-  public record LevelConfiguration(
-      @Deprecated(forRemoval = true) // may be removed after 2025-01-28
-      @Schema(description = "The localized name for the level")
-      String name,
-      @Schema(description = "The displayable badge associated with the level")
-      Badge badge) {}
 
   public record BackupConfiguration(
       @Schema(description = "A map of numeric backup level IDs to level-specific backup configuration")
@@ -768,7 +682,8 @@ public class SubscriptionController {
     SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
     try {
       final SubscriptionManager.ReceiptResult receiptCredential = subscriptionManager.createReceiptCredentials(
-          subscriberCredentials, request, this::receiptExpirationWithGracePeriod);
+          subscriberCredentials, request.receiptCredentialRequest(),
+          r -> SubscriptionsUtil.receiptExpirationWithGracePeriod(subscriptionConfiguration, r));
 
       final ReceiptCredentialResponse receiptCredentialResponse = receiptCredential.receiptCredentialResponse();
       final CustomerAwareSubscriptionPaymentProcessor.ReceiptItem receipt = receiptCredential.receiptItem();
@@ -823,19 +738,6 @@ public class SubscriptionController {
     }
   }
 
-  private Instant receiptExpirationWithGracePeriod(CustomerAwareSubscriptionPaymentProcessor.ReceiptItem receiptItem) {
-    final PaymentTime paymentTime = receiptItem.paymentTime();
-    return switch (subscriptionConfiguration.getSubscriptionLevel(receiptItem.level()).type()) {
-      case DONATION -> paymentTime.receiptExpiration(
-          subscriptionConfiguration.getBadgeExpiration(),
-          subscriptionConfiguration.getBadgeGracePeriod());
-      case BACKUP -> paymentTime.receiptExpiration(
-          subscriptionConfiguration.getBackupExpiration(),
-          subscriptionConfiguration.getBackupGracePeriod());
-    };
-  }
-
-
   private String getSubscriptionTemplateId(long level, String currency, PaymentProvider processor) {
     final SubscriptionLevelConfiguration config = subscriptionConfiguration.getSubscriptionLevel(level);
     if (config == null) {
@@ -853,14 +755,5 @@ public class SubscriptionController {
             new SetSubscriptionLevelErrorResponse.Error(
                 SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_CURRENCY, null))))
         .build()));
-  }
-
-  @Nullable
-  private static ClientPlatform getClientPlatform(@Nullable final String userAgentString) {
-    try {
-      return UserAgentUtil.parseUserAgentString(userAgentString).platform();
-    } catch (final UnrecognizedUserAgentException e) {
-      return null;
-    }
   }
 }

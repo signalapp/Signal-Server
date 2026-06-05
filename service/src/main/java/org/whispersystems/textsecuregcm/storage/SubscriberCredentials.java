@@ -26,17 +26,23 @@ public record SubscriberCredentials(@Nonnull byte[] subscriberBytes,
                              @Nonnull Instant now) {
 
   public static SubscriberCredentials process(
-      Optional<AuthenticatedDevice> authenticatedAccount,
-      String subscriberId,
-      Clock clock) throws SubscriptionException {
-    Instant now = clock.instant();
+      final Optional<AuthenticatedDevice> authenticatedAccount,
+      final String subscriberId,
+      final Clock clock) throws SubscriptionException {
     if (authenticatedAccount.isPresent()) {
       throw new SubscriptionForbiddenException("must not use authenticated connection for subscriber operations");
     }
-    byte[] subscriberBytes = convertSubscriberIdStringToBytes(subscriberId);
-    byte[] subscriberUser = getUser(subscriberBytes);
-    byte[] subscriberKey = getKey(subscriberBytes);
-    byte[] hmac = computeHmac(subscriberUser, subscriberKey);
+    final byte[] subscriberBytes = convertSubscriberIdStringToBytes(subscriberId);
+    return process(subscriberBytes, clock);
+  }
+
+  public static SubscriberCredentials process(
+      final byte[] subscriberBytes,
+      final Clock clock) {
+    final Instant now = clock.instant();
+    final byte[] subscriberUser = getUser(subscriberBytes);
+    final byte[] subscriberKey = getKey(subscriberBytes);
+    final byte[] hmac = computeHmac(subscriberUser, subscriberKey);
     return new SubscriberCredentials(subscriberBytes, subscriberUser, subscriberKey, hmac, now);
   }
 

@@ -285,7 +285,8 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
   @Override
   public SubscriptionId createSubscription(String customerId, String priceId, long level,
       long lastSubscriptionCreatedAt)
-      throws SubscriptionProcessorException, SubscriptionInvalidArgumentsException {
+      throws SubscriptionProcessorException, SubscriptionInvalidIdempotencyKeyException,
+      SubscriptionPaymentRequiresActionException {
     // this relies on Stripe's idempotency key to avoid creating more than one subscription if the client
     // retries this request
     SubscriptionCreateParams params = SubscriptionCreateParams.builder()
@@ -307,7 +308,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           commonOptions(generateIdempotencyKeyForCreateSubscription(customerId, lastSubscriptionCreatedAt)));
       return new SubscriptionId(subscription.getId());
     } catch (IdempotencyException e) {
-      throw new SubscriptionInvalidArgumentsException(e.getStripeError().getMessage());
+      throw new SubscriptionInvalidIdempotencyKeyException(e.getStripeError().getMessage());
     } catch (CardException e) {
       throw new SubscriptionProcessorException(getProvider(), createChargeFailureFromCardException(e));
     } catch (StripeException e) {
@@ -320,7 +321,8 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
 
   @Override
   public SubscriptionId updateSubscription(Object subscriptionObj, String priceId, long level, String idempotencyKey)
-      throws SubscriptionInvalidArgumentsException, SubscriptionProcessorException {
+      throws SubscriptionInvalidIdempotencyKeyException, SubscriptionPaymentRequiresActionException,
+      SubscriptionProcessorException {
 
     final Subscription subscription = getSubscription(subscriptionObj);
 
@@ -359,7 +361,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           commonOptions(generateIdempotencyKeyForSubscriptionUpdate(subscription.getCustomer(), idempotencyKey)));
       return new SubscriptionId(subscription1.getId());
     } catch (IdempotencyException e) {
-      throw new SubscriptionInvalidArgumentsException(e.getStripeError().getMessage());
+      throw new SubscriptionInvalidIdempotencyKeyException(e.getStripeError().getMessage());
     } catch (CardException e) {
       throw new SubscriptionProcessorException(getProvider(), createChargeFailureFromCardException(e));
     } catch (StripeException e) {

@@ -30,12 +30,14 @@ import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInformation;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidIdempotencyKeyException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionForbiddenException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidLevelException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiresActionException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConflictException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptAlreadyRedeemedException;
@@ -165,10 +167,11 @@ public class SubscriptionManager {
   /**
    * Create a ZK receipt credential for a subscription that can be used to obtain the user entitlement
    *
-   * @param subscriberCredentials Subscriber credentials derived from the subscriberId
-   * @param request               The ZK Receipt credential request
-   * @param expiration            A function that takes a {@link CustomerAwareSubscriptionPaymentProcessor.ReceiptItem}
-   *                              and returns the expiration time of the receipt
+   * @param subscriberCredentials         Subscriber credentials derived from the subscriberId
+   * @param receiptCredentialRequestBytes The raw bytes of the ZK Receipt credential request
+   * @param expiration                    A function that takes a
+   *                                      {@link CustomerAwareSubscriptionPaymentProcessor.ReceiptItem} and returns the
+   *                                      expiration time of the receipt
    * @return the requested ZK receipt credential
    * @throws SubscriptionForbiddenException                      if the subscriber credentials were incorrect
    * @throws SubscriptionNotFoundException                       if the subscriber did not exist or did not have a
@@ -178,12 +181,13 @@ public class SubscriptionManager {
    *                                                             user an entitlement
    * @throws SubscriptionReceiptRequestedForOpenPaymentException if a receipt was requested while a payment transaction
    *                                                             was still open
-   * @throws SubscriptionReceiptAlreadyRedeemedException         if the receipt was already redeemed by a different request
+   * @throws SubscriptionReceiptAlreadyRedeemedException         if the receipt was already redeemed by a different
+   *                                                             request
    * @throws RateLimitExceededException                          if rate-limited
    */
   public ReceiptResult createReceiptCredentials(
       final SubscriberCredentials subscriberCredentials,
-      final SubscriptionController.GetReceiptCredentialsRequest request,
+      final byte[] receiptCredentialRequestBytes,
       final Function<CustomerAwareSubscriptionPaymentProcessor.ReceiptItem, Instant> expiration)
       throws SubscriptionForbiddenException, SubscriptionNotFoundException, SubscriptionInvalidArgumentsException, SubscriptionPaymentRequiredException, RateLimitExceededException, SubscriptionReceiptRequestedForOpenPaymentException, SubscriptionReceiptAlreadyRedeemedException {
     final Subscriptions.Record record = getSubscriber(subscriberCredentials);
@@ -193,7 +197,7 @@ public class SubscriptionManager {
 
     final ReceiptCredentialRequest receiptCredentialRequest;
     try {
-      receiptCredentialRequest = new ReceiptCredentialRequest(request.receiptCredentialRequest());
+      receiptCredentialRequest = new ReceiptCredentialRequest(receiptCredentialRequestBytes);
     } catch (final InvalidInputException e) {
       throw new SubscriptionInvalidArgumentsException("invalid receipt credential request", e);
     }
@@ -239,7 +243,7 @@ public class SubscriptionManager {
    * @throws SubscriptionForbiddenException         if the subscriber credentials were incorrect
    * @throws SubscriptionNotFoundException          if the subscriber did not exist or did not have a subscription
    *                                                attached
-   * @throws SubscriptionProcessorConflictException if the new payment processor the existing processor associated with
+   * @throws SubscriptionProcessorConflictException if the new payment processor does not match the existing processor associated with
    *                                                the subscriberId
    */
   public <T extends CustomerAwareSubscriptionPaymentProcessor, R> R addPaymentMethodToCustomer(
@@ -313,7 +317,7 @@ public class SubscriptionManager {
       final String idempotencyKey,
       final String subscriptionTemplateId,
       final LevelTransitionValidator transitionValidator)
-      throws SubscriptionInvalidArgumentsException, SubscriptionProcessorConflictException, SubscriptionProcessorException {
+      throws SubscriptionInvalidLevelException, SubscriptionInvalidIdempotencyKeyException, SubscriptionPaymentRequiresActionException, SubscriptionProcessorConflictException, SubscriptionProcessorException {
 
     if (record.subscriptionId != null) {
       // we already have a subscription in our records so let's check the level and currency,
@@ -364,7 +368,7 @@ public class SubscriptionManager {
    * @throws SubscriptionForbiddenException         if the subscriber credentials were incorrect
    * @throws SubscriptionNotFoundException          if the subscriber did not exist or did not have a subscription
    *                                                attached
-   * @throws SubscriptionProcessorConflictException if the new payment processor the existing processor associated with
+   * @throws SubscriptionProcessorConflictException if the new payment processor does not match the existing processor associated with
    *                                                the subscriberId
    * @throws SubscriptionPaymentRequiredException   if the subscription is not in a state that grants the user an
    *                                                entitlement
@@ -416,7 +420,7 @@ public class SubscriptionManager {
    * @return the subscription level for the accepted subscription
    * @throws SubscriptionForbiddenException         if the subscriber credentials are incorrect
    * @throws SubscriptionNotFoundException          if the originalTransactionId does not exist
-   * @throws SubscriptionProcessorConflictException if the new payment processor the existing processor associated with
+   * @throws SubscriptionProcessorConflictException if the new payment processor does not match the existing processor associated with
    *                                                the subscriber
    * @throws SubscriptionInvalidArgumentsException  if the originalTransactionId is malformed or does not represent a
    *                                                valid subscription

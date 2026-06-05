@@ -47,4 +47,13 @@ public enum PaymentProvider {
   public byte getId() {
     return id;
   }
+
+  public org.signal.chat.subscriptions.PaymentProvider toProto() {
+    return switch (this) {
+      case STRIPE -> org.signal.chat.subscriptions.PaymentProvider.PAYMENT_PROVIDER_STRIPE;
+      case BRAINTREE -> org.signal.chat.subscriptions.PaymentProvider.PAYMENT_PROVIDER_BRAINTREE;
+      case GOOGLE_PLAY_BILLING -> org.signal.chat.subscriptions.PaymentProvider.PAYMENT_PROVIDER_GOOGLE_PLAY_BILLING;
+      case APPLE_APP_STORE -> org.signal.chat.subscriptions.PaymentProvider.PAYMENT_PROVIDER_APPLE_APP_STORE;
+    };
+  }
 }

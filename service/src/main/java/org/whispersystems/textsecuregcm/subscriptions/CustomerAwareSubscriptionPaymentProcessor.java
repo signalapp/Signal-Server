@@ -56,14 +56,13 @@ public interface CustomerAwareSubscriptionPaymentProcessor extends SubscriptionP
    * @param level                     The level of the subscription
    * @param lastSubscriptionCreatedAt The timestamp of the last successfully created subscription
    * @return A subscription identifier
-   * @throws SubscriptionProcessorException If there was a failure processing the charge
-   * @throws SubscriptionInvalidArgumentsException   If there was a failure because an idempotency key was reused on a
-   *                                                  modified request, or if the payment requires additional steps
-   *                                                  before charging
-   * @throws SubscriptionProcessorConflictException  If there was no payment method on the customer
+   * @throws SubscriptionProcessorException             If there was a failure processing the charge
+   * @throws SubscriptionPaymentRequiresActionException If the payment requires additional steps before charging
+   * @throws SubscriptionInvalidIdempotencyKeyException If the idempotency key was reused on a modified request
+   * @throws SubscriptionProcessorConflictException     If there was no payment method on the customer
    */
   SubscriptionId createSubscription(String customerId, String templateId, long level, long lastSubscriptionCreatedAt)
-      throws SubscriptionProcessorException, SubscriptionInvalidArgumentsException, SubscriptionProcessorConflictException;
+      throws SubscriptionProcessorException, SubscriptionPaymentRequiresActionException, SubscriptionInvalidIdempotencyKeyException, SubscriptionProcessorConflictException;
 
   /**
    * Update an existing subscription on a customer
@@ -73,14 +72,15 @@ public interface CustomerAwareSubscriptionPaymentProcessor extends SubscriptionP
    * @param level                     The target level of the subscription
    * @param idempotencyKey            An idempotency key to prevent retries of successful requests
    * @return A subscription identifier
-   * @throws SubscriptionProcessorException If there was a failure processing the charge
-   * @throws SubscriptionInvalidArgumentsException   If there was a failure because an idempotency key was reused on a
-   *                                                  modified request, or if the payment requires additional steps
-   *                                                  before charging
-   * @throws SubscriptionProcessorConflictException  If there was no payment method on the customer
+   * @throws SubscriptionProcessorException              If there was a failure processing the charge
+   * @throws SubscriptionInvalidIdempotencyKeyException  If the idempotency key was reused on a modified request
+   * @throws SubscriptionInvalidLevelException           If the level transition is not permitted
+   * @throws SubscriptionPaymentRequiresActionException  If the payment requires additional steps before charging
+   * @throws SubscriptionProcessorConflictException      If there was no payment method on the customer
    */
   SubscriptionId updateSubscription(Object subscription, String templateId, long level, String idempotencyKey)
-      throws SubscriptionInvalidArgumentsException, SubscriptionProcessorException, SubscriptionProcessorConflictException;
+      throws SubscriptionInvalidIdempotencyKeyException, SubscriptionInvalidLevelException,
+      SubscriptionPaymentRequiresActionException, SubscriptionProcessorException, SubscriptionProcessorConflictException;
 
   /**
    * @param subscription
