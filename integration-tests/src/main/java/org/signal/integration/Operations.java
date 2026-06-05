@@ -20,18 +20,28 @@ import java.net.URL;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.http2.client.HTTP2Client;
+import org.eclipse.jetty.http2.client.transport.HttpClientTransportOverHTTP2;
+import org.eclipse.jetty.io.ClientConnector;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
+import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.signal.integration.config.Config;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -49,6 +59,7 @@ import org.whispersystems.textsecuregcm.entities.KEMSignedPreKey;
 import org.whispersystems.textsecuregcm.entities.RegistrationRequest;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.CertificateUtil;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.HttpUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -64,6 +75,8 @@ public final class Operations {
   private static final String USER_AGENT = "integration-test";
 
   private static final FaultTolerantHttpClient CLIENT = buildClient();
+
+  private static final WebSocketClient WEB_SOCKET_CLIENT = buildWebSocketClient();
 
 
   private Operations() {
@@ -218,14 +231,10 @@ public final class Operations {
     }
 
     private static <R> RequestBuilder withJsonBody(final String endpoint, final String method, final R input) {
-      try {
-        final byte[] body = SystemMapper.jsonMapper().writeValueAsBytes(input);
-        return new RequestBuilder(HttpRequest.newBuilder()
-            .header(HttpHeaders.CONTENT_TYPE, "application/json")
-            .method(method, HttpRequest.BodyPublishers.ofByteArray(body)), endpoint);
-      } catch (final JsonProcessingException e) {
-        throw new RuntimeException(e);
-      }
+      final byte[] body = encodeJsonBody(input);
+      return new RequestBuilder(HttpRequest.newBuilder()
+          .header(HttpHeaders.CONTENT_TYPE, "application/json")
+          .method(method, HttpRequest.BodyPublishers.ofByteArray(body)), endpoint);
     }
 
     public RequestBuilder authorized(final TestUser user) {
@@ -305,6 +314,7 @@ public final class Operations {
           })
           .join();
     }
+
   }
 
   private static FaultTolerantHttpClient buildClient() {
@@ -315,6 +325,53 @@ public final class Operations {
     } catch (final CertificateException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static WebSocketClient buildWebSocketClient() {
+    try {
+      final KeyStore trustStore = CertificateUtil.buildKeyStoreForPem(CONFIG.rootCert());
+      final SslContextFactory.Client sslContextFactory = new SslContextFactory.Client();
+      sslContextFactory.setTrustStore(trustStore);
+
+      final ClientConnector connector = new ClientConnector();
+      connector.setSslContextFactory(sslContextFactory);
+
+      final HTTP2Client http2Client = new HTTP2Client(connector);
+      final HttpClient httpClient = new HttpClient(new HttpClientTransportOverHTTP2(http2Client));
+
+      final WebSocketClient wsClient = new WebSocketClient(httpClient);
+      wsClient.start();
+      return wsClient;
+    } catch (Exception e) {
+      throw new  RuntimeException(e);
+    }
+  }
+
+  public static WebsocketClientSession authenticatedWebsocket(final TestUser user, final byte deviceId) throws IOException {
+    final String username = "%s.%d".formatted(user.aciUuid().toString(), deviceId);
+    return connect("/v1/websocket/", Map.of(HttpHeaders.AUTHORIZATION, HeaderUtils.basicAuthHeader(username, user.accountPassword())));
+  }
+
+  public static WebsocketClientSession anonymousWebsocket() throws IOException {
+    return connect("/v1/websocket/", Collections.emptyMap());
+  }
+
+  private static WebsocketClientSession connect(
+      final String path,
+      final Map<String, String> headers) throws IOException {
+
+    final URI uri = URI.create("wss://grpc." + CONFIG.domain() + path);
+    final ClientUpgradeRequest request = new ClientUpgradeRequest(uri);
+    headers.forEach(request::setHeader);
+
+    final WebsocketClientSession listener = new WebsocketClientSession();
+    try {
+      WEB_SOCKET_CLIENT.connect(listener, request).get(5, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      throw new IOException(e);
+    }
+    logger.info("Successfully connected to websocket on {}", uri);
+    return listener;
   }
 
   private static Config loadConfigFromClasspath(final String filename) {
@@ -344,5 +401,13 @@ public final class Operations {
     final KEMPublicKey pubKey = KEMKeyPair.generate(KEMKeyType.KYBER_1024).getPublicKey();
     final byte[] signature = identityKeyPair.getPrivateKey().calculateSignature(pubKey.serialize());
     return new KEMSignedPreKey(id, pubKey, signature);
+  }
+
+  public static <R> byte[] encodeJsonBody(final R input) {
+    try {
+     return SystemMapper.jsonMapper().writeValueAsBytes(input);
+    } catch (final JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
   }
 }
