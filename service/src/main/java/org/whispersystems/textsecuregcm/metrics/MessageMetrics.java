@@ -19,7 +19,6 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.entities.OutgoingMessageEntity;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -41,11 +40,6 @@ public final class MessageMetrics {
 
   public MessageMetrics() {
     this(Metrics.globalRegistry);
-  }
-
-  public void measureAccountOutgoingMessageUuidMismatches(final Account account,
-      final OutgoingMessageEntity outgoingMessage) {
-    measureAccountDestinationUuidMismatches(account, outgoingMessage.destinationUuid());
   }
 
   public void measureAccountEnvelopeUuidMismatches(final Account account,
