@@ -20,7 +20,7 @@ import org.whispersystems.textsecuregcm.configuration.DirectoryV2ClientConfigura
 import org.whispersystems.textsecuregcm.configuration.PaymentsServiceConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SecureValueRecoveryConfiguration;
 
-enum ExternalServiceDefinitions {
+public enum ExternalServiceDefinitions {
   DIRECTORY(ExternalServiceType.EXTERNAL_SERVICE_TYPE_DIRECTORY, (chatConfig, clock) -> {
     final DirectoryV2ClientConfiguration cfg = chatConfig.getDirectoryV2Configuration().getDirectoryV2ClientConfiguration();
     return ExternalServiceCredentialsGenerator
@@ -30,7 +30,7 @@ enum ExternalServiceDefinitions {
         .withClock(clock)
         .build();
   }),
-  PAYMENTS(ExternalServiceType.EXTERNAL_SERVICE_TYPE_PAYMENTS, (chatConfig, clock) -> {
+  PAYMENTS(ExternalServiceType.EXTERNAL_SERVICE_TYPE_PAYMENTS, (chatConfig, _) -> {
     final PaymentsServiceConfiguration cfg = chatConfig.getPaymentsServiceConfiguration();
     return ExternalServiceCredentialsGenerator
         .builder(cfg.userAuthenticationTokenSharedSecret())
@@ -47,7 +47,7 @@ enum ExternalServiceDefinitions {
         .withClock(clock)
         .build();
   }),
-  STORAGE(ExternalServiceType.EXTERNAL_SERVICE_TYPE_STORAGE, (chatConfig, clock) -> {
+  STORAGE(ExternalServiceType.EXTERNAL_SERVICE_TYPE_STORAGE, (chatConfig, _) -> {
     final PaymentsServiceConfiguration cfg = chatConfig.getPaymentsServiceConfiguration();
     return ExternalServiceCredentialsGenerator
         .builder(cfg.userAuthenticationTokenSharedSecret())

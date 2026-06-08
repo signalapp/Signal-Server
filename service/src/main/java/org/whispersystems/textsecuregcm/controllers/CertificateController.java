@@ -20,7 +20,6 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.security.InvalidKeyException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -76,8 +75,7 @@ public class CertificateController {
   @Produces(MediaType.APPLICATION_JSON)
   @Path("/delivery")
   public DeliveryCertificate getDeliveryCertificate(@Auth AuthenticatedDevice auth,
-      @QueryParam("includeE164") @DefaultValue("true") boolean includeE164)
-      throws InvalidKeyException {
+      @QueryParam("includeE164") @DefaultValue("true") boolean includeE164) {
 
     Metrics.counter(GENERATE_DELIVERY_CERTIFICATE_COUNTER_NAME, INCLUDE_E164_TAG_NAME, String.valueOf(includeE164))
         .increment();

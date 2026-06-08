@@ -153,11 +153,12 @@ import org.whispersystems.textsecuregcm.grpc.BackupsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.BackupsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CallQualitySurveyGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ChallengeGrpcService;
+import org.whispersystems.textsecuregcm.grpc.CredentialsAnonymousGrpcService;
+import org.whispersystems.textsecuregcm.grpc.CredentialsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.DevicesGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ErrorConformanceInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ErrorMappingInterceptor;
-import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsAnonymousGrpcService;
-import org.whispersystems.textsecuregcm.grpc.ExternalServiceCredentialsGrpcService;
+import org.whispersystems.textsecuregcm.grpc.ExternalServiceDefinitions;
 import org.whispersystems.textsecuregcm.grpc.GroupSendTokenUtil;
 import org.whispersystems.textsecuregcm.grpc.GrpcAllowListInterceptor;
 import org.whispersystems.textsecuregcm.grpc.KeysAnonymousGrpcService;
@@ -986,9 +987,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final ProhibitAuthenticationInterceptor prohibitAuthenticationInterceptor = new ProhibitAuthenticationInterceptor();
     final GroupSendTokenUtil groupSendTokenUtil = new GroupSendTokenUtil(zkSecretParams, Clock.systemUTC());
 
+    final CertificateGenerator certificateGenerator =
+        new CertificateGenerator(config.getDeliveryCertificate().certificate(),
+            config.getDeliveryCertificate().ecPrivateKey(),
+            config.getDeliveryCertificate().expiresDays(),
+            config.getDeliveryCertificate().embedSigner());
+
     final List<ServerServiceDefinition> authenticatedServices = Stream.of(
             new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager),
-            ExternalServiceCredentialsGrpcService.createForAllExternalServices(config, rateLimiters),
+            new CredentialsGrpcService(accountsManager, certificateGenerator, zkAuthOperations, callingGenericZkSecretParams, rateLimiters, Clock.systemUTC(), ExternalServiceDefinitions.createExternalServiceList(config, Clock.systemUTC())),
             new KeysGrpcService(accountsManager, keysManager, rateLimiters),
             new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager, config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters),
             new MessagesGrpcService(accountsManager, rateLimiters, messageSender, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
@@ -1017,7 +1024,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, zkSecretParams),
             new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
             new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
-            ExternalServiceCredentialsAnonymousGrpcService.create(accountsManager, config))
+            new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC())))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
@@ -1140,9 +1147,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new CallRoutingControllerV2(rateLimiters, cloudflareTurnCredentialsManager),
         new CallLinkController(rateLimiters, callingGenericZkSecretParams),
         new CallQualitySurveyController(callQualitySurveyManager),
-        new CertificateController(accountsManager, new CertificateGenerator(config.getDeliveryCertificate().certificate(),
-            config.getDeliveryCertificate().ecPrivateKey(), config.getDeliveryCertificate().expiresDays(), config.getDeliveryCertificate().embedSigner()),
-            zkAuthOperations, callingGenericZkSecretParams, clock),
+        new CertificateController(accountsManager, certificateGenerator, zkAuthOperations, callingGenericZkSecretParams, clock),
         new ChallengeController(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
         new DeviceController(accountsManager, rateLimiters, persistentTimer),
         new DeviceCheckController(clock, accountsManager, backupAuthManager, appleDeviceCheckManager, rateLimiters,

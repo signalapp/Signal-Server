@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import io.grpc.Status;
@@ -25,7 +27,7 @@ import org.mockito.Mockito;
 import org.signal.chat.credentials.AuthCheckResult;
 import org.signal.chat.credentials.CheckSvrCredentialsRequest;
 import org.signal.chat.credentials.CheckSvrCredentialsResponse;
-import org.signal.chat.credentials.ExternalServiceCredentialsAnonymousGrpc;
+import org.signal.chat.credentials.CredentialsAnonymousGrpc;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -34,8 +36,8 @@ import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.MutableClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
-class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
-    SimpleBaseGrpcTest<ExternalServiceCredentialsAnonymousGrpcService, ExternalServiceCredentialsAnonymousGrpc.ExternalServiceCredentialsAnonymousBlockingStub> {
+class CredentialsAnonymousGrpcServiceTest extends
+    SimpleBaseGrpcTest<CredentialsAnonymousGrpcService, CredentialsAnonymousGrpc.CredentialsAnonymousBlockingStub> {
 
   private static final UUID USER_UUID = UUID.randomUUID();
 
@@ -46,29 +48,33 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
 
   private static final MutableClock CLOCK = MockUtils.mutableClock(0);
 
-  private static final ExternalServiceCredentialsGenerator SVR_CREDENTIALS_GENERATOR = Mockito.spy(ExternalServiceCredentialsGenerator
-      .builder(TestRandomUtil.nextBytes(32))
-      .withUserDerivationKey(TestRandomUtil.nextBytes(32))
-      .prependUsername(false)
-      .withDerivedUsernameTruncateLength(16)
-      .withClock(CLOCK)
-      .build());
+  private static final ExternalServiceCredentialsGenerator SVR_CREDENTIALS_GENERATOR =
+      Mockito.spy(ExternalServiceCredentialsGenerator
+          .builder(TestRandomUtil.nextBytes(32))
+          .withUserDerivationKey(TestRandomUtil.nextBytes(32))
+          .prependUsername(false)
+          .withDerivedUsernameTruncateLength(16)
+          .withClock(CLOCK)
+          .build());
 
   @Mock
   private AccountsManager accountsManager;
 
   @Override
-  protected ExternalServiceCredentialsAnonymousGrpcService createServiceBeforeEachTest() {
-    return new ExternalServiceCredentialsAnonymousGrpcService(accountsManager, SVR_CREDENTIALS_GENERATOR);
+  protected CredentialsAnonymousGrpcService createServiceBeforeEachTest() {
+    return new CredentialsAnonymousGrpcService(accountsManager, SVR_CREDENTIALS_GENERATOR);
   }
 
   @BeforeEach
   public void setup() {
-    Mockito.when(accountsManager.getByE164(USER_E164)).thenReturn(Optional.of(account(USER_UUID)));
+    final Account account = mock(Account.class);
+    when(account.getUuid()).thenReturn(USER_UUID);
+
+    when(accountsManager.getByE164(USER_E164)).thenReturn(Optional.of(account));
   }
 
   @Test
-  public void testOneMatch() throws Exception {
+  public void testOneMatch() {
     final UUID user2 = UUID.randomUUID();
     final UUID user3 = UUID.randomUUID();
     assertExpectedCredentialCheckResponse(Map.of(
@@ -79,7 +85,7 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  public void testNoMatch() throws Exception {
+  public void testNoMatch() {
     final UUID user2 = UUID.randomUUID();
     final UUID user3 = UUID.randomUUID();
     assertExpectedCredentialCheckResponse(Map.of(
@@ -89,7 +95,7 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  public void testSomeInvalid() throws Exception {
+  public void testSomeInvalid() {
     final UUID user2 = UUID.randomUUID();
     final UUID user3 = UUID.randomUUID();
     final ExternalServiceCredentials user1Cred = credentials(USER_UUID, day(1));
@@ -105,7 +111,7 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  public void testSomeExpired() throws Exception {
+  public void testSomeExpired() {
     final UUID user2 = UUID.randomUUID();
     final UUID user3 = UUID.randomUUID();
     assertExpectedCredentialCheckResponse(Map.of(
@@ -117,7 +123,7 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
   }
 
   @Test
-  public void testSomeHaveNewerVersions() throws Exception {
+  public void testSomeHaveNewerVersions() {
     final UUID user2 = UUID.randomUUID();
     final UUID user3 = UUID.randomUUID();
     assertExpectedCredentialCheckResponse(Map.of(
@@ -134,7 +140,7 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
   public void testInvalidPasswordCount(int count) {
     final CheckSvrCredentialsRequest request = CheckSvrCredentialsRequest.newBuilder()
         .setNumber(USER_E164)
-        .addAllPasswords(IntStream.range(0, count).mapToObj(i -> token(UUID.randomUUID(), day(10))).toList())
+        .addAllPasswords(IntStream.range(0, count).mapToObj(_ -> token(UUID.randomUUID(), day(10))).toList())
         .build();
     final StatusRuntimeException status = assertThrows(StatusRuntimeException.class,
         () -> unauthenticatedServiceStub().checkSvrCredentials(request));
@@ -143,7 +149,7 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
 
   private void assertExpectedCredentialCheckResponse(
       final Map<String, AuthCheckResult> expected,
-      final long nowMillis) throws Exception {
+      final long nowMillis) {
     CLOCK.setTimeMillis(nowMillis);
     final CheckSvrCredentialsRequest request = CheckSvrCredentialsRequest.newBuilder()
         .setNumber(USER_E164)
@@ -169,11 +175,5 @@ class ExternalServiceCredentialsAnonymousGrpcServiceTest extends
 
   private static long day(final int n) {
     return Duration.ofDays(n).toMillis();
-  }
-
-  private static Account account(final UUID uuid) {
-    final Account a = new Account();
-    a.setUuid(uuid);
-    return a;
   }
 }
