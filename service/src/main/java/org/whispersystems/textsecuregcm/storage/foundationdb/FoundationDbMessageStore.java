@@ -275,8 +275,7 @@ public class FoundationDbMessageStore {
         new MessageGuidCodec(aci.uuid(), destinationDevice.getId(), versionstampUUIDCipher),
         maxMessagesPerScan,
         maxUnacknowledgedMessages,
-        doAfterCleanup,
-        clock);
+        doAfterCleanup);
   }
 
   static Versionstamp getVersionstamp(final byte[] messageKey) {

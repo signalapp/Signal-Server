@@ -99,4 +99,15 @@ class AcknowledgedMessageBuffer {
 
     return flushableRanges;
   }
+
+
+  /// Acknowledges a stale ephemeral message for cleanup from FoundationDB.
+  /// Ephemeral messages are only delivered when the recipient has an active message stream, so any ephemeral message
+  /// read from the finite publisher is stale by definition and can be immediately acknowledged and discarded.
+  ///
+  /// @param versionstamp  The versionstamp to acknowledge
+  public synchronized void acknowledgeStaleEphemeralMessage(final Versionstamp versionstamp) {
+    sentVersionstamps.put(versionstamp, true);
+  }
+
 }

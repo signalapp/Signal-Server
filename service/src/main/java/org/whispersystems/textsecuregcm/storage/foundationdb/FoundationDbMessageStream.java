@@ -16,6 +16,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -26,6 +28,8 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 /// A [MessageStream] implementation that fetches messages from FoundationDB
 public class FoundationDbMessageStream implements MessageStream {
@@ -38,12 +42,9 @@ public class FoundationDbMessageStream implements MessageStream {
   private final int maxMessagesPerScan;
   private final Flow.Publisher<MessageStreamEntry> messageStreamPublisher;
   private final Runnable doAfterCleanup;
-  private final Clock clock;
-
   private final AcknowledgedMessageBuffer acknowledgedMessageBuffer;
-
-  @VisibleForTesting
-  static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
+  private final Counter staleEphemeralMessagesCounter = Metrics.counter(
+      name(FoundationDbMessageStream.class, "staleEphemeralMessages"));
   static final int DEFAULT_MAX_MESSAGES_PER_SCAN = 1024;
   @VisibleForTesting
   static final int DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES = 16_384;
@@ -56,14 +57,12 @@ public class FoundationDbMessageStream implements MessageStream {
       final MessageGuidCodec messageGuidCodec,
       final int maxMessagesPerScan,
       final int maxUnacknowledgedMessages,
-      final Runnable doAfterCleanup,
-      final Clock clock) {
+      final Runnable doAfterCleanup) {
     this.deviceQueueSubspace = deviceQueueSubspace;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
     this.database = database;
     this.messageGuidCodec = messageGuidCodec;
     this.maxMessagesPerScan = maxMessagesPerScan;
-    this.clock = clock;
     this.messageStreamPublisher = JdkFlowAdapter.publisherToFlowPublisher(createMessagePublisher());
     this.doAfterCleanup = doAfterCleanup;
 
@@ -81,7 +80,6 @@ public class FoundationDbMessageStream implements MessageStream {
   /// @implNote turns the stream of [FoundationDbMessageStreamEntry] into [MessageStreamEntry], but taps into the stream
   /// first to keep track of versionstamps sent to the client.
   private Flux<MessageStreamEntry> createMessagePublisher() {
-    final long earliestAllowedEphemeralTimestamp = clock.instant().minus(MAX_EPHEMERAL_MESSAGE_DELAY).toEpochMilli();
     return createFoundationDbMessagePublisher()
         .<FoundationDbMessageStreamEntry>handle((messageStreamEntry, sink) -> {
           if (messageStreamEntry instanceof final FoundationDbMessageStreamEntry.Message message) {
@@ -96,14 +94,6 @@ public class FoundationDbMessageStream implements MessageStream {
           sink.next(messageStreamEntry);
         })
         .map(fdbMessageStreamEntry -> fdbMessageStreamEntry.toMessageStreamEntry(messageGuidCodec))
-        .<MessageStreamEntry>handle((messageStreamEntry, sink) -> {
-          if (messageStreamEntry instanceof MessageStreamEntry.Envelope(MessageProtos.Envelope message)
-              && isStaleEphemeralMessage(message, earliestAllowedEphemeralTimestamp)) {
-            acknowledgeMessage(message);
-            return;
-          }
-          sink.next(messageStreamEntry);
-        })
         .doFinally(_ -> flushAllAcknowledgedMessages().thenRun(doAfterCleanup));
   }
 
@@ -126,7 +116,16 @@ public class FoundationDbMessageStream implements MessageStream {
               .map(endOfQueueKeyExclusive -> FoundationDbMessagePublisher.createFinitePublisher(
                   KeySelector.firstGreaterOrEqual(deviceQueueSubspace.range().begin),
                   endOfQueueKeyExclusive, database, maxMessagesPerScan, this::clearAcknowledgedMessages).getMessages())
-              .orElseGet(Flux::empty);
+              .orElseGet(Flux::empty)
+              .handle((fdbMessageStreamEntry, sink) -> {
+                // Ephemeral messages from the finite stream are considered stale and automatically discarded
+                if (fdbMessageStreamEntry.partialEnvelope().getEphemeral()) {
+                  acknowledgedMessageBuffer.acknowledgeStaleEphemeralMessage(fdbMessageStreamEntry.versionstamp());
+                  staleEphemeralMessagesCounter.increment();
+                  return;
+                }
+                sink.next(fdbMessageStreamEntry);
+              });
           final KeySelector infinitePublisherBeginKey = maybeEndOfQueueKeyExclusive.orElseGet(
               () -> KeySelector.firstGreaterOrEqual(deviceQueueSubspace.range().begin));
           final Flux<FoundationDbMessageStreamEntry.Message> infinitePublisher = FoundationDbMessagePublisher.createInfinitePublisher(
@@ -195,10 +194,5 @@ public class FoundationDbMessageStream implements MessageStream {
     final List<Pair<Versionstamp, Versionstamp>> flushableRanges = acknowledgedMessageBuffer.takeFlushableRanges();
 
     return transaction -> flushableRanges.forEach(range -> clearRange(transaction, range.first(), range.second()));
-  }
-
-  private static boolean isStaleEphemeralMessage(final MessageProtos.Envelope message,
-      final long earliestAllowableTimestamp) {
-    return message.getEphemeral() && message.getClientTimestamp() < earliestAllowableTimestamp;
   }
 }

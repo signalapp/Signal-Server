@@ -37,7 +37,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -649,57 +648,60 @@ class FoundationDbMessageStoreTest {
         .verify();
   }
 
-  @CartesianTest
-  void discardStaleEphemeralMessages(
-      @CartesianTest.Values(booleans = {true, false}) final boolean isStale,
-      @CartesianTest.Values(booleans = {true, false}) final boolean ephemeral) {
+  @Test
+  void discardStaleEphemeralMessages() throws InterruptedException {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+    final MessageGuidCodec messageGuidCodec =
+        new MessageGuidCodec(aci.uuid(), Device.PRIMARY_ID, versionstampUUIDCipher);
     writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
 
-    final long messageTimestamp;
-    if (isStale) {
-      messageTimestamp = CLOCK.instant().minus(FoundationDbMessageStream.MAX_EPHEMERAL_MESSAGE_DELAY.plus(Duration.ofMillis(1))).toEpochMilli();
-    } else {
-      messageTimestamp = CLOCK.instant().toEpochMilli();
-    }
-
-    final Versionstamp expectedVersionstamp = foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(ephemeral, messageTimestamp)))
+    // Insert an ephemeral message that will be read by the finite publisher and immediately acknowledged and discarded
+    final Versionstamp acknowledgedVersionstamp = foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(true)))
         .join()
         .get(Device.PRIMARY_ID)
         .versionstamp()
         .orElseThrow();
 
+    final CountDownLatch cleanUpLatch = new CountDownLatch(1);
+    final CountDownLatch queueEmptyLatch = new CountDownLatch(1);
+    final MessageProtos.Envelope freshEphemeralMessage = generateRandomMessage(true);
+    final CompletableFuture<Versionstamp> deliveredUnacknowledgedVersionstamp = new CompletableFuture<>();
+    Thread.ofVirtual().start(() -> {
+      try {
+        // Wait until queue is empty to publish a "fresh" ephemeral message
+        assertTrue(queueEmptyLatch.await(1000, TimeUnit.MILLISECONDS));
+        foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, freshEphemeralMessage))
+            .thenAccept(result -> {
+              result.get(Device.PRIMARY_ID)
+                  .versionstamp()
+                  .ifPresentOrElse(deliveredUnacknowledgedVersionstamp::complete,
+                      () -> deliveredUnacknowledgedVersionstamp.completeExceptionally(new RuntimeException("versionstamp absent")));
+            });
+      } catch (final InterruptedException e) {
+        fail(e);
+      }
+    });
+
     final Device device = new Device();
     device.setId(Device.PRIMARY_ID);
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
-    final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
 
-    if (isStale && ephemeral) {
-      StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
-          .recordWith(() -> retrievedEntries)
-          .expectNext(new MessageStreamEntry.QueueEmpty())
-          .verifyTimeout(Duration.ofSeconds(1));
-      assertEquals(1, retrievedEntries.size());
-    } else {
-      StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
-          .recordWith(() -> retrievedEntries)
-          .expectNextCount(1)
-          .expectNext(new MessageStreamEntry.QueueEmpty())
-          .verifyTimeout(Duration.ofSeconds(1));
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device,
+        FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
+        FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
+        cleanUpLatch::countDown);
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
+        // We should have discarded the already-inserted ephemeral message
+        .expectNext(new MessageStreamEntry.QueueEmpty())
+        .then(queueEmptyLatch::countDown)
+        .expectNextMatches(entry -> entry.equals(new MessageStreamEntry.Envelope(freshEphemeralMessage
+            .toBuilder()
+            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(deliveredUnacknowledgedVersionstamp.join())))
+            .build())))
+        .verifyTimeout(Duration.ofSeconds(3));
 
-      assertEquals(2, retrievedEntries.size());
-
-      final MessageGuidCodec messageGuidCodec =
-          new MessageGuidCodec(aci.uuid(), Device.PRIMARY_ID, versionstampUUIDCipher);
-      final MessageStreamEntry.Envelope envelopeEntry =
-          assertInstanceOf(MessageStreamEntry.Envelope.class, retrievedEntries.getFirst());
-      assertEquals(expectedVersionstamp,
-          messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(envelopeEntry.message().getServerGuidBinary())));
-    }
-  }
-
-  static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final long timestamp) {
-    return generateRandomMessage(ephemeral, 16, timestamp);
+    assertTrue(cleanUpLatch.await(1, TimeUnit.SECONDS));
+    assertNull(getMessageByVersionstamp(aci, Device.PRIMARY_ID, acknowledgedVersionstamp));
+    assertNotNull(getMessageByVersionstamp(aci, Device.PRIMARY_ID, deliveredUnacknowledgedVersionstamp.join()));
   }
 
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {
