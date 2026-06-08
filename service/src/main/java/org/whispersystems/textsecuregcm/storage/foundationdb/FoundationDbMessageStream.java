@@ -5,22 +5,17 @@ import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
-import java.time.Clock;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.Optional;
-import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Flow;
-import java.util.function.Consumer;
-
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.common.annotations.VisibleForTesting;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -41,15 +36,11 @@ public class FoundationDbMessageStream implements MessageStream {
   private final MessageGuidCodec messageGuidCodec;
   /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
   private final int maxMessagesPerScan;
-  /// The maximum number of unacknowledged messages we will send before closing the stream with an error
-  private final int maxUnacknowledgedMessages;
   private final Flow.Publisher<MessageStreamEntry> messageStreamPublisher;
   private final Runnable doAfterCleanup;
   private final Clock clock;
 
-  /// Map of versionstamp -> acknowledged? to keep track of acknowledged versionstamp ranges to clear
-  private final NavigableMap<Versionstamp, Boolean> sentVersionstamps = new TreeMap<>();
-  private int unacknowledgedMessages = 0;
+  private final AcknowledgedMessageBuffer acknowledgedMessageBuffer;
 
   @VisibleForTesting
   static final Duration MAX_EPHEMERAL_MESSAGE_DELAY = Duration.ofSeconds(10);
@@ -72,10 +63,11 @@ public class FoundationDbMessageStream implements MessageStream {
     this.database = database;
     this.messageGuidCodec = messageGuidCodec;
     this.maxMessagesPerScan = maxMessagesPerScan;
-    this.maxUnacknowledgedMessages = maxUnacknowledgedMessages;
     this.clock = clock;
     this.messageStreamPublisher = JdkFlowAdapter.publisherToFlowPublisher(createMessagePublisher());
     this.doAfterCleanup = doAfterCleanup;
+
+    this.acknowledgedMessageBuffer = new AcknowledgedMessageBuffer(maxUnacknowledgedMessages);
   }
 
   @Override
@@ -93,12 +85,14 @@ public class FoundationDbMessageStream implements MessageStream {
     return createFoundationDbMessagePublisher()
         .<FoundationDbMessageStreamEntry>handle((messageStreamEntry, sink) -> {
           if (messageStreamEntry instanceof final FoundationDbMessageStreamEntry.Message message) {
-            final int numUnacknowledgedMessages = onVersionstampSent(message.versionstamp());
-            if (numUnacknowledgedMessages > maxUnacknowledgedMessages) {
-              sink.error(new TooManyUnacknowledgedMessagesException());
+            try {
+              acknowledgedMessageBuffer.addUnacknowledgedMessage(message.versionstamp());
+            } catch (final TooManyUnacknowledgedMessagesException e) {
+              sink.error(e);
               return;
             }
           }
+
           sink.next(messageStreamEntry);
         })
         .map(fdbMessageStreamEntry -> fdbMessageStreamEntry.toMessageStreamEntry(messageGuidCodec))
@@ -166,28 +160,10 @@ public class FoundationDbMessageStream implements MessageStream {
 
   @Override
   public CompletableFuture<Void> acknowledgeMessage(final MessageProtos.Envelope message) {
-    handleAcknowledged(messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(message.getServerGuidBinary())));
+    acknowledgedMessageBuffer.acknowledgeMessage(
+        messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(message.getServerGuidBinary())));
+
     return CompletableFuture.completedFuture(null);
-  }
-
-  @VisibleForTesting
-  synchronized void handleAcknowledged(final Versionstamp versionstamp) {
-    // If we don't know about this versionstamp, or it's already acknowledged, there's nothing to do
-    if (!sentVersionstamps.containsKey(versionstamp) || sentVersionstamps.get(versionstamp)) {
-      return;
-    }
-
-    unacknowledgedMessages--;
-    sentVersionstamps.put(versionstamp, true);
-  }
-
-  /// Returns the number of unacknowledged messages after sending the provided versionstamp
-  ///
-  /// @param versionstamp The versionstamp being sent
-  @VisibleForTesting
-  synchronized int onVersionstampSent(final Versionstamp versionstamp) {
-    sentVersionstamps.put(versionstamp, false);
-    return ++unacknowledgedMessages;
   }
 
   /// Clear the versionstamp range (startInclusive, endInclusive) in a single FoundationDB operation.
@@ -216,50 +192,13 @@ public class FoundationDbMessageStream implements MessageStream {
   }
 
   private synchronized Consumer<Transaction> clearAcknowledgedMessages() {
-    final List<Pair<Versionstamp, Versionstamp>> flushableRanges = computeFlushableRanges();
-    flushableRanges.forEach(range -> sentVersionstamps.subMap(range.first(), true, range.second(), true).clear());
+    final List<Pair<Versionstamp, Versionstamp>> flushableRanges = acknowledgedMessageBuffer.takeFlushableRanges();
+
     return transaction -> flushableRanges.forEach(range -> clearRange(transaction, range.first(), range.second()));
   }
 
-  /// Computes a list of acknowledged contiguous versionstamp ranges that can be cleared from the database.
-  ///
-  /// @return a list of acknowledged contiguous versionstamp ranges that can be cleared from the database.
-  @VisibleForTesting
-  synchronized List<Pair<Versionstamp, Versionstamp>> computeFlushableRanges() {
-    final List<Pair<Versionstamp, Versionstamp>> flushableRanges = new ArrayList<>();
-      Versionstamp startInclusive = null;
-      Versionstamp endInclusive = null;
-
-      for (final Map.Entry<Versionstamp, Boolean> entry : sentVersionstamps.entrySet()) {
-        if (entry.getValue()) {
-          // Message is acknowledged, so we can either start tracking a new range if we aren't already, or extend our
-          // current range
-          if (startInclusive == null) {
-            startInclusive = entry.getKey();
-          }
-          endInclusive = entry.getKey();
-        } else {
-          // Message is un-acknowledged, which means either it is a "range-breaker" or we never started tracking an
-          // acknowledged range. Mark the currently tracked range flushable, if it exists.
-          if (startInclusive != null) {
-            assert endInclusive != null;
-            flushableRanges.add(new Pair<>(startInclusive, endInclusive));
-            startInclusive = null;
-          }
-        }
-
-      }
-
-      if (startInclusive != null) {
-        assert endInclusive != null;
-        flushableRanges.add(new Pair<>(startInclusive, endInclusive));
-      }
-
-    return flushableRanges;
-  }
-
   private static boolean isStaleEphemeralMessage(final MessageProtos.Envelope message,
-      long earliestAllowableTimestamp) {
+      final long earliestAllowableTimestamp) {
     return message.getEphemeral() && message.getClientTimestamp() < earliestAllowableTimestamp;
   }
 }

@@ -5,5 +5,7 @@
 
 package org.whispersystems.textsecuregcm.storage.foundationdb;
 
-public class TooManyUnacknowledgedMessagesException extends RuntimeException {
+import org.whispersystems.textsecuregcm.util.NoStackTraceException;
+
+class TooManyUnacknowledgedMessagesException extends NoStackTraceException {
 }
