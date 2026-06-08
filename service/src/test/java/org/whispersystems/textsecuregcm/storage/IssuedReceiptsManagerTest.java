@@ -6,20 +6,18 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import jakarta.ws.rs.ClientErrorException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.assertj.core.api.Condition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -42,7 +40,7 @@ class IssuedReceiptsManagerTest {
   @RegisterExtension
   static final DynamoDbExtension DYNAMO_DB_EXTENSION = new DynamoDbExtension(Tables.ISSUED_RECEIPTS);
 
-  private static EnumMap<PaymentProvider, Integer> MAX_TAGS_MAP = new EnumMap<>(Map.of(
+  private static final EnumMap<PaymentProvider, Integer> MAX_TAGS_MAP = new EnumMap<>(Map.of(
       PaymentProvider.STRIPE, 1,
       PaymentProvider.BRAINTREE, 2,
       PaymentProvider.GOOGLE_PLAY_BILLING, 3,
@@ -55,18 +53,17 @@ class IssuedReceiptsManagerTest {
     issuedReceiptsManager = new IssuedReceiptsManager(
         Tables.ISSUED_RECEIPTS.tableName(),
         Duration.ofDays(90),
-        DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
+        DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         TestRandomUtil.nextBytes(16),
         MAX_TAGS_MAP);
   }
 
   @Test
-  void testRecordIssuance() {
-    Instant now = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
+  void testRecordIssuance() throws WriteConflictException {
+    final Instant now = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
     final ReceiptCredentialRequest receiptCredentialRequest = randomReceiptCredentialRequest();
-    CompletableFuture<Void> future = issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE,
+    issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE,
         receiptCredentialRequest, now);
-    assertThat(future).succeedsWithin(Duration.ofSeconds(3));
 
     final Map<String, AttributeValue> item = getItem(PaymentProvider.STRIPE, "item-1").item();
     final Set<byte[]> tagSet = item.get(IssuedReceiptsManager.KEY_ISSUED_RECEIPT_TAG_SET).bs()
@@ -76,32 +73,25 @@ class IssuedReceiptsManagerTest {
     assertThat(tagSet).containsExactly(issuedReceiptsManager.generateIssuedReceiptTag(receiptCredentialRequest));
 
     // same request should succeed
-    future = issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE, receiptCredentialRequest,
+    issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE, receiptCredentialRequest,
         now);
-    assertThat(future).succeedsWithin(Duration.ofSeconds(3));
 
     // same item with new request should fail
-    byte[] request2 = TestRandomUtil.nextBytes(20);
+    final byte[] request2 = TestRandomUtil.nextBytes(20);
     when(receiptCredentialRequest.serialize()).thenReturn(request2);
-    future = issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE, receiptCredentialRequest,
-        now);
-    assertThat(future).failsWithin(Duration.ofSeconds(3)).
-        withThrowableOfType(Throwable.class).
-        havingCause().
-        isExactlyInstanceOf(ClientErrorException.class).
-        has(new Condition<>(
-            e -> e instanceof ClientErrorException && ((ClientErrorException) e).getResponse().getStatus() == 409,
-            "status 409"));
+    assertThatThrownBy(
+        () -> issuedReceiptsManager.recordIssuance("item-1", PaymentProvider.STRIPE, receiptCredentialRequest,
+            now))
+        .isExactlyInstanceOf(WriteConflictException.class);
 
     // different item with new request should be okay though
-    future = issuedReceiptsManager.recordIssuance("item-2", PaymentProvider.STRIPE, receiptCredentialRequest,
+    issuedReceiptsManager.recordIssuance("item-2", PaymentProvider.STRIPE, receiptCredentialRequest,
         now);
-    assertThat(future).succeedsWithin(Duration.ofSeconds(3));
   }
 
   @ParameterizedTest
   @EnumSource(PaymentProvider.class)
-  void testIssueMax(PaymentProvider processor) {
+  void testIssueMax(final PaymentProvider processor) throws WriteConflictException {
     final Instant now = Instant.ofEpochSecond(NOW_EPOCH_SECONDS);
 
     final int maxTags = MAX_TAGS_MAP.get(processor);
@@ -110,12 +100,10 @@ class IssuedReceiptsManagerTest {
         .toList();
     for (int i = 0; i < maxTags; i++) {
       // Should be allowed to insert up to maxTags
-        assertThat(issuedReceiptsManager.recordIssuance("item-1", processor, requests.get(i), now))
-            .succeedsWithin(Duration.ofSeconds(3));
+        issuedReceiptsManager.recordIssuance("item-1", processor, requests.get(i), now);
       for (int j = 0; j < i; j++) {
         // Also should be allowed to repeat any previous tag
-        assertThat(issuedReceiptsManager.recordIssuance("item-1", processor, requests.get(j), now))
-            .succeedsWithin(Duration.ofSeconds(3));
+        issuedReceiptsManager.recordIssuance("item-1", processor, requests.get(j), now);
       }
     }
 
@@ -128,14 +116,8 @@ class IssuedReceiptsManagerTest {
             .toArray(byte[][]::new));
 
     // Should not be allowed to insert past maxTags
-    assertThat(issuedReceiptsManager.recordIssuance("item-1", processor, randomReceiptCredentialRequest(), now))
-        .failsWithin(Duration.ofSeconds(3))
-        .withThrowableOfType(Throwable.class)
-        .havingCause()
-        .isExactlyInstanceOf(ClientErrorException.class)
-        .has(new Condition<>(
-            e -> e instanceof ClientErrorException && ((ClientErrorException) e).getResponse().getStatus() == 409,
-            "status 409"));
+    assertThatThrownBy(() -> issuedReceiptsManager.recordIssuance("item-1", processor, randomReceiptCredentialRequest(), now))
+        .isExactlyInstanceOf(WriteConflictException.class);
   }
 
 

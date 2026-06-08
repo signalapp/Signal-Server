@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -90,6 +91,7 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequire
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConflictException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.storage.WriteConflictException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -782,6 +784,41 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         .isEqualTo("card_declined");
   }
 
+  @Test
+  void createReceiptCredentialAlreadyRedeemed()
+      throws InvalidInputException, VerificationFailedException, SubscriptionException, WriteConflictException {
+    final byte[] subscriberUserAndKey = new byte[32];
+    Arrays.fill(subscriberUserAndKey, (byte) 1);
+    final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
+
+    when(CLOCK.instant()).thenReturn(Instant.now());
+    when(SUBSCRIPTIONS.get(any(), any()))
+        .thenReturn(Subscriptions.GetResult.found(Subscriptions.Record.from(
+            Arrays.copyOfRange(subscriberUserAndKey, 0, 16),
+            Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
+                Subscriptions.KEY_CREATED_AT, n(Instant.now().getEpochSecond()),
+                Subscriptions.KEY_ACCESSED_AT, n(Instant.now().getEpochSecond()),
+                Subscriptions.KEY_PROCESSOR_ID_CUSTOMER_ID,
+                b(new ProcessorCustomer("customer", PaymentProvider.STRIPE).toDynamoBytes()),
+                Subscriptions.KEY_SUBSCRIPTION_ID, s("subscriptionId")))));
+    when(STRIPE_MANAGER.getReceiptItem(any()))
+        .thenReturn(new CustomerAwareSubscriptionPaymentProcessor.ReceiptItem(
+            "itemId",
+            PaymentTime.periodStart(Instant.ofEpochSecond(10).plus(Duration.ofDays(1))),
+            5L));
+    doThrow(WriteConflictException.class).when(ISSUED_RECEIPTS_MANAGER).recordIssuance(any(), any(), any(), any());
+
+    final ReceiptCredentialRequest receiptRequest = new ClientZkReceiptOperations(
+        ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
+        new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
+    final Response response = RESOURCE_EXTENSION
+        .target(String.format("/v1/subscription/%s/receipt_credentials", subscriberId))
+        .request()
+        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())));
+
+    assertThat(response.getStatus()).isEqualTo(409);
+  }
+
   @ParameterizedTest
   @CsvSource({"5, P45D", "201, P13D"})
   public void createReceiptCredential(long level, Duration expectedExpirationWindow)
@@ -813,8 +850,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
             "itemId",
             PaymentTime.periodStart(Instant.ofEpochSecond(10).plus(Duration.ofDays(1))),
             level));
-    when(ISSUED_RECEIPTS_MANAGER.recordIssuance(eq("itemId"), eq(PaymentProvider.BRAINTREE), eq(receiptRequest), any()))
-        .thenReturn(CompletableFuture.completedFuture(null));
     when(ZK_OPS.issueReceiptCredential(any(), anyLong(), eq(level))).thenReturn(receiptCredentialResponse);
     when(receiptCredentialResponse.serialize()).thenReturn(new byte[0]);
     final Response response = RESOURCE_EXTENSION

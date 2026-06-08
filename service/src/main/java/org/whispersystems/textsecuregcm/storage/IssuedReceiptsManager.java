@@ -10,9 +10,6 @@ import static org.whispersystems.textsecuregcm.util.AttributeValues.n;
 import static org.whispersystems.textsecuregcm.util.AttributeValues.s;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
-import jakarta.ws.rs.ClientErrorException;
-import jakarta.ws.rs.core.Response.Status;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -22,8 +19,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.crypto.Mac;
@@ -31,10 +26,11 @@ import javax.crypto.spec.SecretKeySpec;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import software.amazon.awssdk.core.SdkBytes;
-import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
 
@@ -46,42 +42,40 @@ public class IssuedReceiptsManager {
 
   private final String table;
   private final Duration expiration;
-  private final DynamoDbAsyncClient dynamoDbAsyncClient;
+  private final DynamoDbClient dynamoDbClient;
   private final byte[] receiptTagGenerator;
   private final EnumMap<PaymentProvider, Integer> maxIssuedReceiptsPerPaymentId;
 
   public IssuedReceiptsManager(
-      @Nonnull String table,
-      @Nonnull Duration expiration,
-      @Nonnull DynamoDbAsyncClient dynamoDbAsyncClient,
-      @Nonnull byte[] receiptTagGenerator,
-      @Nonnull EnumMap<PaymentProvider, Integer> maxIssuedReceiptsPerPaymentId) {
+      @Nonnull final String table,
+      @Nonnull final Duration expiration,
+      @Nonnull final DynamoDbClient dynamoDbClient,
+      @Nonnull final byte[] receiptTagGenerator,
+      @Nonnull final EnumMap<PaymentProvider, Integer> maxIssuedReceiptsPerPaymentId) {
     this.table = Objects.requireNonNull(table);
     this.expiration = Objects.requireNonNull(expiration);
-    this.dynamoDbAsyncClient = Objects.requireNonNull(dynamoDbAsyncClient);
+    this.dynamoDbClient = Objects.requireNonNull(dynamoDbClient);
     this.receiptTagGenerator = Objects.requireNonNull(receiptTagGenerator);
     this.maxIssuedReceiptsPerPaymentId = Objects.requireNonNull(maxIssuedReceiptsPerPaymentId);
   }
 
-  /**
-   * Returns a future that completes normally if either this processor item was never issued a receipt credential
-   * previously OR if it was issued a receipt credential previously for the exact same receipt credential request
-   * enabling clients to retry in case they missed the original response.
-   * <p>
-   * If this item has already been used to issue another receipt, throws a 409 conflict web application exception.
-   * <p>
-   * For {@link PaymentProvider#STRIPE}, item is expected to refer to an invoice line item (subscriptions) or a
-   * payment intent (one-time).
-   */
-  public CompletableFuture<Void> recordIssuance(
-      String processorItemId,
-      PaymentProvider processor,
-      ReceiptCredentialRequest request,
-      Instant now) {
+  /// Returns normally if either this processor item was never issued a receipt credential
+  /// previously OR if it was issued a receipt credential previously for the exact same receipt credential request
+  /// enabling clients to retry in case they missed the original response.
+  ///
+  /// If this item has already been used to issue another receipt, throws [WriteConflictException].
+  ///
+  /// For [PaymentProvider#STRIPE], item is expected to refer to an invoice line item (subscriptions) or a
+  /// payment intent (one-time).
+  public void recordIssuance(
+      final String processorItemId,
+      final PaymentProvider processor,
+      final ReceiptCredentialRequest request,
+      final Instant now) throws WriteConflictException {
 
     final AttributeValue key = dynamoDbKey(processor, processorItemId);
     final byte[] tag = generateIssuedReceiptTag(request);
-    UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
+    final UpdateItemRequest updateItemRequest = UpdateItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_PROCESSOR_ITEM_ID, key))
         .conditionExpression("attribute_not_exists(#key) OR contains(#tags, :tag) OR size(#tags) < :maxTags")
@@ -97,39 +91,31 @@ public class IssuedReceiptsManager {
             ":exp", n(now.plus(expiration).getEpochSecond()),
             ":maxTags", n(maxIssuedReceiptsPerPaymentId.get(processor))))
         .build();
-    return dynamoDbAsyncClient.updateItem(updateItemRequest).handle((updateItemResponse, throwable) -> {
-      if (throwable != null) {
-        Throwable rootCause = Throwables.getRootCause(throwable);
-        if (rootCause instanceof ConditionalCheckFailedException) {
-          throw new ClientErrorException(Status.CONFLICT, rootCause);
-        }
-        Throwables.throwIfUnchecked(throwable);
-        throw new CompletionException(throwable);
-      }
-      return null;
-    });
+    try {
+      dynamoDbClient.updateItem(updateItemRequest);
+    } catch (final ConditionalCheckFailedException _) {
+      throw new WriteConflictException();
+    }
   }
 
-  /**
-   * Clear the recorded issuances for a particular item
-   *
-   * @param processorItemId The itemId within the processor to clear
-   * @param processor The processor
-   * @return a future that yields true if the item was deleted, false if the item already did not exist
-   */
-  public CompletableFuture<Boolean> clearIssuance(String processorItemId, PaymentProvider processor) {
+  /// Clear the recorded issuances for a particular item
+  ///
+  /// @param processorItemId The itemId within the processor to clear
+  /// @param processor The processor
+  /// @return true if the item was deleted, false if the item did not exist
+  public boolean clearIssuance(final String processorItemId, final PaymentProvider processor) {
     final AttributeValue key = dynamoDbKey(processor, processorItemId);
     final DeleteItemRequest deleteItemRequest = DeleteItemRequest.builder()
         .tableName(table)
         .key(Map.of(KEY_PROCESSOR_ITEM_ID, key))
         .returnValues(ReturnValue.ALL_OLD)
         .build();
-    return dynamoDbAsyncClient.deleteItem(deleteItemRequest)
-        .thenApply(item -> item.hasAttributes() && !item.attributes().isEmpty());
+    final DeleteItemResponse item = dynamoDbClient.deleteItem(deleteItemRequest);
+    return item.hasAttributes() && !item.attributes().isEmpty();
   }
 
   @VisibleForTesting
-  static AttributeValue dynamoDbKey(final PaymentProvider processor, String processorItemId) {
+  static AttributeValue dynamoDbKey(final PaymentProvider processor, final String processorItemId) {
     if (processor == PaymentProvider.STRIPE) {
       // As the first processor, Stripe’s IDs were not prefixed. Its item IDs have documented prefixes (`il_`, `pi_`)
       // that will not collide with `SubscriptionProcessor` names
@@ -141,18 +127,18 @@ public class IssuedReceiptsManager {
 
 
   @VisibleForTesting
-  byte[] generateIssuedReceiptTag(ReceiptCredentialRequest request) {
+  byte[] generateIssuedReceiptTag(final ReceiptCredentialRequest request) {
     return generateHmac("issuedReceiptTag", mac -> mac.update(request.serialize()));
   }
 
-  private byte[] generateHmac(String type, Consumer<Mac> byteConsumer) {
+  private byte[] generateHmac(final String type, final Consumer<Mac> byteConsumer) {
     try {
-      Mac mac = Mac.getInstance("HmacSHA256");
+      final Mac mac = Mac.getInstance("HmacSHA256");
       mac.init(new SecretKeySpec(receiptTagGenerator, "HmacSHA256"));
       mac.update(type.getBytes(StandardCharsets.UTF_8));
       byteConsumer.accept(mac);
       return mac.doFinal();
-    } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+    } catch (final NoSuchAlgorithmException | InvalidKeyException e) {
       throw new AssertionError(e);
     }
   }

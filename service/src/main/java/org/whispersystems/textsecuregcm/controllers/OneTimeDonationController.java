@@ -58,6 +58,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
+import org.whispersystems.textsecuregcm.storage.WriteConflictException;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
 import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
@@ -309,10 +310,11 @@ public class OneTimeDonationController {
             validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager))
         .thenCompose(_ -> braintreeManager.captureOneTimePayment(request.payerId, request.paymentId,
             request.paymentToken, request.currency, request.amount, request.level, getClientPlatform(userAgent)))
-        .thenCompose(
-            chargeSuccessDetails -> oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), Instant.now()))
-        .thenApply(paymentId -> Response.ok(
-            new ConfirmPayPalBoostResponse(paymentId)).build());
+        .thenApply(chargeSuccessDetails -> {
+          oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), Instant.now());
+          return Response.ok(
+              new ConfirmPayPalBoostResponse(chargeSuccessDetails.paymentId())).build();
+        });
   }
 
   public static class CreateBoostReceiptCredentialsRequest {
@@ -355,11 +357,11 @@ public class OneTimeDonationController {
       case APPLE_APP_STORE -> throw new BadRequestException("cannot use app store purchases for one-time donations");
     };
 
-    return paymentDetailsFut.thenCompose(paymentDetails -> {
+    return paymentDetailsFut.thenApply(paymentDetails -> {
       if (paymentDetails == null) {
         throw new WebApplicationException(Response.Status.NOT_FOUND);
       } else if (paymentDetails.status() == PaymentStatus.PROCESSING) {
-        return CompletableFuture.completedFuture(Response.noContent().build());
+        return Response.noContent().build();
       } else if (paymentDetails.status() != PaymentStatus.SUCCEEDED) {
         throw new WebApplicationException(Response.status(Response.Status.PAYMENT_REQUIRED)
             .entity(new CreateBoostReceiptCredentialsErrorResponse(paymentDetails.chargeFailure())).build());
@@ -395,31 +397,33 @@ public class OneTimeDonationController {
         throw new BadRequestException("invalid receipt credential request", e);
       }
       final long finalLevel = level;
-      return issuedReceiptsManager.recordIssuance(paymentDetails.id(), request.processor,
-              receiptCredentialRequest, clock.instant())
-          .thenCompose(_ -> oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created()))
-          .thenApply(paidAt -> {
-            Instant expiration = paidAt
-                .plus(levelExpiration)
-                .truncatedTo(ChronoUnit.DAYS)
-                .plus(1, ChronoUnit.DAYS);
-            ReceiptCredentialResponse receiptCredentialResponse;
-            try {
-              receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-                  receiptCredentialRequest, expiration.getEpochSecond(), finalLevel);
-            } catch (VerificationFailedException e) {
-              throw new BadRequestException("receipt credential request failed verification", e);
-            }
-            Metrics.counter(SubscriptionController.RECEIPT_ISSUED_COUNTER_NAME,
-                    Tags.of(
-                        Tag.of(SubscriptionController.PROCESSOR_TAG_NAME, request.processor.toString()),
-                        Tag.of(SubscriptionController.TYPE_TAG_NAME, "boost"),
-                        UserAgentTagUtil.getPlatformTag(userAgent)))
-                .increment();
-            return Response.ok(
-                    new CreateBoostReceiptCredentialsSuccessResponse(receiptCredentialResponse.serialize()))
-                .build();
-          });
+      try {
+        issuedReceiptsManager.recordIssuance(paymentDetails.id(), request.processor,
+            receiptCredentialRequest, clock.instant());
+      } catch (final WriteConflictException _) {
+        throw new WebApplicationException(Response.Status.CONFLICT);
+      }
+      final Instant paidAt = oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created());
+      final Instant expiration = paidAt
+          .plus(levelExpiration)
+          .truncatedTo(ChronoUnit.DAYS)
+          .plus(1, ChronoUnit.DAYS);
+      final ReceiptCredentialResponse receiptCredentialResponse;
+      try {
+        receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
+            receiptCredentialRequest, expiration.getEpochSecond(), finalLevel);
+      } catch (final VerificationFailedException e) {
+        throw new BadRequestException("receipt credential request failed verification", e);
+      }
+      Metrics.counter(SubscriptionController.RECEIPT_ISSUED_COUNTER_NAME,
+              Tags.of(
+                  Tag.of(SubscriptionController.PROCESSOR_TAG_NAME, request.processor.toString()),
+                  Tag.of(SubscriptionController.TYPE_TAG_NAME, "boost"),
+                  UserAgentTagUtil.getPlatformTag(userAgent)))
+          .increment();
+      return Response.ok(
+              new CreateBoostReceiptCredentialsSuccessResponse(receiptCredentialResponse.serialize()))
+          .build();
     });
   }
 

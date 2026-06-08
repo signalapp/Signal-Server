@@ -68,7 +68,7 @@ public class ClearIssuedReceiptRedemptionsCommand extends AbstractCommandWithDep
             throw new IllegalStateException("Cannot clear issued receipts for a non-IAP processor: " + processorType);
       };
       final SubscriptionPaymentProcessor.ReceiptItem receiptItem = processor.getReceiptItem(subscriber.subscriptionId);
-      final boolean deleted = issuedReceiptsManager.clearIssuance(receiptItem.itemId(), processorType).join();
+      final boolean deleted = issuedReceiptsManager.clearIssuance(receiptItem.itemId(), processorType);
       logger.info("Deleted issuances for receiptItem: {}, subscriberId: {}, hadExistingIssuances: {}",
           receiptItem.itemId(), subscriberId, deleted);
     } catch (Exception ex) {

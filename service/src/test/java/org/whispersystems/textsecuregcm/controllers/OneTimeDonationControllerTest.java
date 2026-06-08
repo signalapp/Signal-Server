@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
@@ -20,12 +21,17 @@ import io.dropwizard.testing.junit5.ResourceExtension;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.Response;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.receipts.ClientZkReceiptOperations;
+import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
+import org.signal.libsignal.zkgroup.receipts.ReceiptSerial;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -48,6 +54,7 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
+import org.whispersystems.textsecuregcm.storage.WriteConflictException;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 @ExtendWith(DropwizardExtensionsSupport.class)
@@ -282,6 +289,30 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
         .request()
         .post(Entity.json(""));
     assertThat(response.getStatus()).isEqualTo(422);
+  }
+
+  @Test
+  void createBoostReceiptAlreadyRedeemed() throws Exception {
+    final ReceiptCredentialRequest receiptCredentialRequest = new ClientZkReceiptOperations(
+        ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
+        new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
+
+    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(new PaymentDetails(
+        "id",
+        Collections.emptyMap(),
+        PaymentStatus.SUCCEEDED,
+        Instant.now(),
+        null)));
+    doThrow(WriteConflictException.class).when(ISSUED_RECEIPTS_MANAGER).recordIssuance(any(), any(), any(), any());
+
+    final Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
+        .request()
+        .post(Entity.json(Map.of(
+            "paymentIntentId", "foo",
+            "receiptCredentialRequest", Base64.getEncoder().encodeToString(receiptCredentialRequest.serialize()),
+            "processor", "STRIPE"
+        )));
+    assertThat(response.getStatus()).isEqualTo(409);
   }
 
 }

@@ -22,6 +22,7 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundExcept
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConflictException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptAlreadyRedeemedException;
 
 public class SubscriptionExceptionMapper implements ExceptionMapper<SubscriptionException> {
   @VisibleForTesting
@@ -56,11 +57,12 @@ public class SubscriptionExceptionMapper implements ExceptionMapper<Subscription
 
     // Otherwise, we'll return a generic error message WebApplicationException, with a detailed error if one is provided
     final Response.Status status = (switch (exception) {
-      case SubscriptionNotFoundException e -> Response.Status.NOT_FOUND;
-      case SubscriptionForbiddenException e -> Response.Status.FORBIDDEN;
-      case SubscriptionInvalidArgumentsException e -> Response.Status.BAD_REQUEST;
-      case SubscriptionProcessorConflictException e -> Response.Status.CONFLICT;
-      case SubscriptionPaymentRequiredException e -> Response.Status.PAYMENT_REQUIRED;
+      case SubscriptionNotFoundException _ -> Response.Status.NOT_FOUND;
+      case SubscriptionForbiddenException _ -> Response.Status.FORBIDDEN;
+      case SubscriptionInvalidArgumentsException _ -> Response.Status.BAD_REQUEST;
+      case SubscriptionProcessorConflictException _ -> Response.Status.CONFLICT;
+      case SubscriptionPaymentRequiredException _ -> Response.Status.PAYMENT_REQUIRED;
+      case SubscriptionReceiptAlreadyRedeemedException _ -> Response.Status.CONFLICT;
       default -> Response.Status.INTERNAL_SERVER_ERROR;
     });
 

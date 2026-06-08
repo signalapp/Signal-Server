@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -37,7 +38,9 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundExcept
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConflictException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptAlreadyRedeemedException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 /**
@@ -175,38 +178,41 @@ public class SubscriptionManager {
    *                                                             user an entitlement
    * @throws SubscriptionReceiptRequestedForOpenPaymentException if a receipt was requested while a payment transaction
    *                                                             was still open
+   * @throws SubscriptionReceiptAlreadyRedeemedException         if the receipt was already redeemed by a different request
    * @throws RateLimitExceededException                          if rate-limited
    */
   public ReceiptResult createReceiptCredentials(
       final SubscriberCredentials subscriberCredentials,
       final SubscriptionController.GetReceiptCredentialsRequest request,
       final Function<CustomerAwareSubscriptionPaymentProcessor.ReceiptItem, Instant> expiration)
-      throws SubscriptionForbiddenException, SubscriptionNotFoundException, SubscriptionInvalidArgumentsException, SubscriptionPaymentRequiredException, RateLimitExceededException, SubscriptionReceiptRequestedForOpenPaymentException {
+      throws SubscriptionForbiddenException, SubscriptionNotFoundException, SubscriptionInvalidArgumentsException, SubscriptionPaymentRequiredException, RateLimitExceededException, SubscriptionReceiptRequestedForOpenPaymentException, SubscriptionReceiptAlreadyRedeemedException {
     final Subscriptions.Record record = getSubscriber(subscriberCredentials);
     if (record.subscriptionId == null) {
       throw new SubscriptionNotFoundException();
     }
 
-    ReceiptCredentialRequest receiptCredentialRequest;
+    final ReceiptCredentialRequest receiptCredentialRequest;
     try {
       receiptCredentialRequest = new ReceiptCredentialRequest(request.receiptCredentialRequest());
-    } catch (InvalidInputException e) {
+    } catch (final InvalidInputException e) {
       throw new SubscriptionInvalidArgumentsException("invalid receipt credential request", e);
     }
 
     final PaymentProvider processor = record.getProcessorCustomer().orElseThrow().processor();
     final SubscriptionPaymentProcessor manager = getProcessor(processor);
     final SubscriptionPaymentProcessor.ReceiptItem receipt = manager.getReceiptItem(record.subscriptionId);
-    issuedReceiptsManager
-        .recordIssuance(receipt.itemId(), manager.getProvider(), receiptCredentialRequest, subscriberCredentials.now());
-    ReceiptCredentialResponse receiptCredentialResponse;
+    final ReceiptCredentialResponse receiptCredentialResponse;
     try {
+      issuedReceiptsManager
+          .recordIssuance(receipt.itemId(), manager.getProvider(), receiptCredentialRequest, subscriberCredentials.now());
       receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
           receiptCredentialRequest,
           expiration.apply(receipt).getEpochSecond(),
           receipt.level());
-    } catch (VerificationFailedException e) {
+    } catch (final VerificationFailedException e) {
       throw new SubscriptionInvalidArgumentsException("receipt credential request failed verification", e);
+    } catch (final WriteConflictException _) {
+      throw new SubscriptionReceiptAlreadyRedeemedException();
     }
     return new ReceiptResult(receiptCredentialResponse, receipt, processor);
   }
