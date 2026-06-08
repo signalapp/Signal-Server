@@ -5,13 +5,16 @@ import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
 import javax.annotation.Nullable;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -287,7 +290,12 @@ class FoundationDbMessagePublisher {
           final List<FoundationDbMessageStreamEntry.Message> messages = keyValues.stream()
               .map(keyValue -> {
                 final Versionstamp versionstamp = FoundationDbMessageStore.getVersionstamp(keyValue.getKey());
-                return new FoundationDbMessageStreamEntry.Message(versionstamp, keyValue.getValue());
+
+                try {
+                  return new FoundationDbMessageStreamEntry.Message(versionstamp, MessageProtos.Envelope.parseFrom(keyValue.getValue()));
+                } catch (final InvalidProtocolBufferException e) {
+                  throw new UncheckedIOException(e);
+                }
               })
               .toList();
           return new Pair<>(lastKeyRead, messages);

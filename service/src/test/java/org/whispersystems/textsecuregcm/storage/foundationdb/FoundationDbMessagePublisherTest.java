@@ -16,6 +16,7 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -325,7 +326,12 @@ class FoundationDbMessagePublisherTest {
   }
 
   private FoundationDbMessageStreamEntry.Message getExpectedMessageStreamEntry(final KeyValue keyValue) {
-    return new FoundationDbMessageStreamEntry.Message(FoundationDbMessageStore.getVersionstamp(keyValue.getKey()), keyValue.getValue());
+    try {
+      return new FoundationDbMessageStreamEntry.Message(FoundationDbMessageStore.getVersionstamp(keyValue.getKey()),
+          MessageProtos.Envelope.parseFrom(keyValue.getValue()));
+    } catch (final InvalidProtocolBufferException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   private static KeyValue mockKeyValue(final byte key, final MessageProtos.Envelope message) {
