@@ -208,7 +208,7 @@ public class ProfileGrpcHelper {
             profileKeyCredentialResponse = ProfileHelper.getExpiringProfileKeyCredential(new ProfileKeyCredentialRequest(encodedCredentialRequest),
                 new ProfileKeyCommitment(commitment), new ServiceId.Aci(account.getUuid()), zkProfileOperations);
           } catch (VerificationFailedException | InvalidInputException e) {
-            throw GrpcExceptions.constraintViolation("invalid credential request");
+            throw GrpcExceptions.invalidArguments("invalid credential request");
           }
 
           return GetExpiringProfileKeyCredentialResult.newBuilder()

@@ -257,12 +257,12 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
 
   private void validateRequest(final SetProfileRequest request) {
     if (request.getExpectedCurrentDataHash().isEmpty() && request.getCommitment().isEmpty()) {
-      throw GrpcExceptions.constraintViolation("At least one of expected current data hash and commitment is required");
+      throw GrpcExceptions.invalidArguments("At least one of expected current data hash and commitment is required");
     }
 
     // v1 -> v2 migration
     if (request.getCommitment().isEmpty()) {
-      throw GrpcExceptions.constraintViolation("Request must include commitment during migration");
+      throw GrpcExceptions.invalidArguments("Request must include commitment during migration");
     }
   }
 

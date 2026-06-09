@@ -77,7 +77,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
       case UNIDENTIFIED_ACCESS_KEY ->
           targetAccount.map(a -> UnidentifiedAccessUtil.checkUnidentifiedAccess(a, request.getUnidentifiedAccessKey().toByteArray()))
               .orElse(false);
-      default -> throw GrpcExceptions.constraintViolation("invalid authentication");
+      default -> throw GrpcExceptions.invalidArguments("invalid authentication");
     };
 
     if (!authorized) {
@@ -126,7 +126,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
     final ServiceIdentifier targetIdentifier = GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
 
     if (request.getRequest().getCredentialType() != CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY) {
-      throw GrpcExceptions.constraintViolation("invalid credential type");
+      throw GrpcExceptions.invalidArguments("invalid credential type");
     }
 
     final Optional<Account> maybeAccount = getTargetAccountAndValidateUnidentifiedAccess(
