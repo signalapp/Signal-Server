@@ -192,7 +192,7 @@ public class RedisMessageAvailabilityManager extends RedisClusterPubSubAdapter<b
   }
 
   /**
-   * Removes the "presence" and event listener for the given device. Callers should call this method when the client's
+   * Removes a "presence" and event listener for the given device if it is still the active listener. Callers should call this method when the client's
    * underlying network connection has closed.
    *
    * @param accountIdentifier the identifier of the account for the disconnected device
@@ -200,12 +200,12 @@ public class RedisMessageAvailabilityManager extends RedisClusterPubSubAdapter<b
    *
    * @return a future that completes when the presence and event listener have been removed
    */
-  public CompletionStage<Void> handleClientDisconnected(final UUID accountIdentifier, final byte deviceId) {
+  public CompletionStage<Void> handleClientDisconnected(final UUID accountIdentifier, final byte deviceId, final MessageAvailabilityListener listener) {
     if (pubSubConnection == null) {
       throw new IllegalStateException("WebSocket connection event manager not started");
     }
 
-    final AtomicReference<CompletionStage<Void>> unsubscribeFuture = new AtomicReference<>();
+    final AtomicReference<CompletionStage<Void>> unsubscribeFuture = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     // Note that we're relying on some specific implementation details of `ConcurrentHashMap#compute(...)`. In
     // particular, the behavioral contract for `ConcurrentHashMap#compute(...)` says:
@@ -219,6 +219,11 @@ public class RedisMessageAvailabilityManager extends RedisClusterPubSubAdapter<b
     // operation is asynchronous; we're not blocking on it in the scope of the `compute` operation.
     listenersByAccountAndDeviceIdentifier.compute(new AccountAndDeviceIdentifier(accountIdentifier, deviceId),
         (ignored, existingListener) -> {
+          if (listener != existingListener) {
+            // the listener was already replaced, ignore this event completely
+            return existingListener;
+          }
+
           unsubscribeFuture.set(CompletableFuture.supplyAsync(() -> pubSubConnection.withPubSubConnection(connection ->
                       connection.async().sunsubscribe(getClientEventChannel(accountIdentifier, deviceId)))
                   .thenRun(Util.NOOP), asyncOperationQueueingExecutor)

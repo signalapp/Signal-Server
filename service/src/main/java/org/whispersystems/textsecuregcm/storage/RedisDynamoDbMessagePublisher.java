@@ -368,7 +368,7 @@ class RedisDynamoDbMessagePublisher implements MessageAvailabilityListener, Flow
       }
 
       // Stop receiving signals about new messages/conflicting consumers
-      redisMessageAvailabilityManager.handleClientDisconnected(accountIdentifier, device.getId());
+      redisMessageAvailabilityManager.handleClientDisconnected(accountIdentifier, device.getId(), this);
     }
   }
 }
