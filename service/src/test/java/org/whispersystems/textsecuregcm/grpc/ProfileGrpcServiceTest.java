@@ -496,20 +496,17 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void setPaymentAddressDisallowedCountry(final boolean hasExistingPaymentAddress) throws InvalidInputException {
+  @MethodSource
+  void setPaymentAddressDisallowedCountry(@Nullable final byte[] existingPaymentAddress, final byte[] requestPaymentAddress, final boolean expectAllowed) throws InvalidInputException {
     final Phonenumber.PhoneNumber disallowedPhoneNumber = PhoneNumberUtil.getInstance().getExampleNumber("CU");
     final byte[] commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AUTHENTICATED_ACI)).serialize();
 
-    final byte[] validPaymentAddress = new byte[582];
-    if (hasExistingPaymentAddress) {
-      when(profile.paymentAddress()).thenReturn(validPaymentAddress);
-    }
+    when(profile.paymentAddress()).thenReturn(existingPaymentAddress);
 
     final SetProfileRequest request = SetProfileRequest.newBuilder()
         .setVersion(ByteString.copyFrom(VERSION))
         .setData(ByteString.copyFrom(VALID_DATA))
-        .setPaymentAddress(ByteString.copyFrom(validPaymentAddress))
+        .setPaymentAddress(ByteString.copyFrom(requestPaymentAddress))
         .setCommitment(ByteString.copyFrom(commitment))
         .setV1Request(V1_REQUEST)
         .build();
@@ -522,11 +519,21 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     final SetProfileResponse response = authenticatedServiceStub().setProfile(request);
 
-    if (hasExistingPaymentAddress) {
-      assertTrue(response.hasResult(), "Payment address changes in disallowed countries should still be allowed if the account already has a valid payment address");
+    if (expectAllowed) {
+      assertTrue(response.hasResult());
     } else {
       assertTrue(response.hasPaymentsForbiddenInRegion());
     }
+  }
+
+  static Collection<Arguments> setPaymentAddressDisallowedCountry() {
+    return List.of(
+        Arguments.argumentSet("null existing address, zero-length new", null, new byte[0], true),
+        Arguments.argumentSet("null existing address", null, TestRandomUtil.nextBytes(582), false),
+        Arguments.argumentSet("zero-length existing address, zero-length new", new byte[0], new byte[0], true),
+        Arguments.argumentSet("zero-length existing address", new byte[0], TestRandomUtil.nextBytes(582), false),
+        Arguments.argumentSet("valid existing address", TestRandomUtil.nextBytes(582), TestRandomUtil.nextBytes(582), true)
+    );
   }
 
   @Test

@@ -152,7 +152,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
         avatarData.finalAvatar().orElse(null),
         request.getV1Request().getAboutEmoji().toByteArray(),
         request.getV1Request().getAbout().toByteArray(),
-        request.getPaymentAddress().toByteArray(),
+        request.getPaymentAddress().isEmpty() ? null : request.getPaymentAddress().toByteArray(),
         request.getV1Request().getPhoneNumberSharing().toByteArray(),
         commitment);
 

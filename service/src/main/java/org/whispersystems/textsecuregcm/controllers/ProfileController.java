@@ -181,14 +181,8 @@ public class ProfileController {
     final Optional<VersionedProfileV1> currentProfile =
         profilesManager.getV1(auth.accountIdentifier(), request.version());
 
-    if (request.paymentAddress() != null && request.paymentAddress().length != 0) {
-      final boolean hasDisallowedPrefix =
-          dynamicConfigurationManager.getConfiguration().getPaymentsConfiguration().getDisallowedPrefixes().stream()
-              .anyMatch(prefix -> account.getNumber().startsWith(prefix));
-
-      if (hasDisallowedPrefix && currentProfile.map(VersionedProfileV1::paymentAddress).isEmpty()) {
-        return Response.status(Response.Status.FORBIDDEN).build();
-      }
+    if (request.paymentAddress() != null && request.paymentAddress().length != 0 && ProfileHelper.isPaymentAddressUpdateForbidden(account, Optional.empty(), currentProfile, dynamicConfigurationManager)) {
+      return Response.status(Response.Status.FORBIDDEN).build();
     }
 
     final Optional<String> currentAvatar = ProfileHelper.getCurrentAvatar(currentProfile);

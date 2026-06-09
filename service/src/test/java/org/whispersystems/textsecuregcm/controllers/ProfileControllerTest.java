@@ -41,6 +41,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
@@ -50,6 +51,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.assertj.core.api.Condition;
 import org.glassfish.jersey.server.ServerProperties;
 import org.glassfish.jersey.test.grizzly.GrizzlyWebTestContainerFactory;
@@ -818,15 +820,14 @@ class ProfileControllerTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
+  @MethodSource
   void testSetProfilePaymentAddressCountryNotAllowedExistingPaymentAddress(
-      final boolean existingPaymentAddressOnProfile) throws InvalidInputException {
+      @Nullable final byte[] existingPaymentAddressOnProfile, final byte[] requestPaymentAddress, final boolean expectAllowed) throws InvalidInputException {
     when(dynamicPaymentsConfiguration.getDisallowedPrefixes())
         .thenReturn(List.of(AuthHelper.VALID_NUMBER_TWO.substring(0, 3)));
 
     final ProfileKeyCommitment commitment = new ProfileKey(new byte[32]).getCommitment(new ServiceId.Aci(AuthHelper.VALID_UUID));
     final byte[] name = TestRandomUtil.nextBytes(81);
-    final byte[] paymentAddress = TestRandomUtil.nextBytes(582);
     final byte[] phoneNumberSharing = TestRandomUtil.nextBytes(29);
 
     clearInvocations(AuthHelper.VALID_ACCOUNT_TWO);
@@ -834,7 +835,7 @@ class ProfileControllerTest {
     when(profilesManager.getV1(eq(AuthHelper.VALID_UUID_TWO), any()))
         .thenReturn(Optional.of(
             new VersionedProfileV1("1", name, null, null, null,
-                existingPaymentAddressOnProfile ? TestRandomUtil.nextBytes(582) : null,
+                existingPaymentAddressOnProfile,
                 phoneNumberSharing,
                 commitment.serialize())));
 
@@ -845,10 +846,10 @@ class ProfileControllerTest {
         .header("Authorization", AuthHelper.getAuthHeader(AuthHelper.VALID_UUID_TWO, AuthHelper.VALID_PASSWORD_TWO))
         .put(Entity.entity(
             new CreateProfileRequest(commitment, version, name,
-                null, null, paymentAddress, false, false,
+                null, null, requestPaymentAddress, false, false,
                 Optional.of(List.of()), null), MediaType.APPLICATION_JSON_TYPE))) {
 
-      if (existingPaymentAddressOnProfile) {
+      if (expectAllowed) {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.hasEntity()).isFalse();
 
@@ -866,7 +867,7 @@ class ProfileControllerTest {
         assertThat(profile.name()).isEqualTo(name);
         assertThat(profile.aboutEmoji()).isNull();
         assertThat(profile.about()).isNull();
-        assertThat(profile.paymentAddress()).isEqualTo(paymentAddress);
+        assertThat(profile.paymentAddress()).isEqualTo(requestPaymentAddress);
       } else {
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.hasEntity()).isFalse();
@@ -874,6 +875,16 @@ class ProfileControllerTest {
         verify(profilesManager, never()).setV1(any(), any());
       }
     }
+  }
+
+  static Collection<Arguments> testSetProfilePaymentAddressCountryNotAllowedExistingPaymentAddress() {
+    return List.of(
+        Arguments.argumentSet("null existing payment address, empty new", null, new byte[0], true),
+        Arguments.argumentSet("null existing payment address", null, TestRandomUtil.nextBytes(582), false),
+        Arguments.argumentSet("empty existing payment address, empty new", new byte[0], new byte[0], true),
+        Arguments.argumentSet("empty existing payment address", new byte[0], TestRandomUtil.nextBytes(582), false),
+        Arguments.argumentSet("valid existing payment address", TestRandomUtil.nextBytes(582), TestRandomUtil.nextBytes(582), true)
+    );
   }
 
   @Test

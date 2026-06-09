@@ -114,7 +114,7 @@ public class ProfileHelper {
         .getDisallowedPrefixes().stream()
         .anyMatch(prefix -> account.getNumber().startsWith(prefix));
 
-    return hasDisallowedPrefix && currentPaymentAddress.isEmpty();
+    return hasDisallowedPrefix && currentPaymentAddress.filter(a -> a.length != 0).isEmpty();
   }
 
   @Nullable
