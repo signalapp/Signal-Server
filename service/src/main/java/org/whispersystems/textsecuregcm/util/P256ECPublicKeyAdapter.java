@@ -79,7 +79,7 @@ public class P256ECPublicKeyAdapter {
       }
     }
 
-    private ECPublicKey deserializePublicKey(final byte[] publicKeyBytes) throws GeneralSecurityException {
+    private static ECPublicKey deserializePublicKey(final byte[] publicKeyBytes) throws GeneralSecurityException {
       ECPoint point = EllipticCurves.pointDecode(
         EllipticCurves.CurveType.NIST_P256,
         EllipticCurves.PointFormatType.UNCOMPRESSED,
@@ -88,6 +88,11 @@ public class P256ECPublicKeyAdapter {
       ECParameterSpec spec = EllipticCurves.getCurveSpec(EllipticCurves.CurveType.NIST_P256);
       KeyFactory factory = KeyFactory.getInstance("EC");
       return (ECPublicKey) factory.generatePublic(new ECPublicKeySpec(point, spec));
+    }
+
+    public static ECPublicKey deserializePublicKey(final String b64PublicKey) throws GeneralSecurityException {
+      byte[] publicKeyBytes = Base64.getUrlDecoder().decode(b64PublicKey);
+      return deserializePublicKey(publicKeyBytes);
     }
   }
 }

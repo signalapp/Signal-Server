@@ -114,6 +114,23 @@ message SetPushTokenRequest {
     string fcm_token = 1 [(require.nonEmpty) = true];
   }
 
+  message WebPushRequest {
+    /**
+     * The URL to send push notifications to, defined as a *push resource* in RFC8030
+     */
+    string endpoint = 1;
+
+    /**
+     * Device's P-256 public key, URL-safe base64 encoded, to encrypt push notification. Defined in RFC8291
+     */
+    string publicKey = 2;
+
+    /**
+     * Device's authentication pre-shared secret, URL-safe base64 encoded, to encrypt push notification. Defined in RFC8291
+     */
+    string auth = 3;
+  }
+
   oneof token_request {
     // If present, specifies the APNs device token(s) the server will use to
     // send new message notifications to the authenticated device.
@@ -122,6 +139,12 @@ message SetPushTokenRequest {
     // If present, specifies the FCM push token the server will use to send new
     // message notifications to the authenticated device.
     FcmTokenRequest fcm_token_request = 2;
+
+    /**
+     * If present, specifies the Web Push subscription the server will use to send new
+     * message notifications to the authenticated device.
+     */
+    WebPushRequest web_push_request = 3;
   }
 }
 

@@ -7,6 +7,14 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
+
+import io.dropwizard.jersey.validation.Validators;
+import io.grpc.Status;
+import jakarta.validation.ConstraintViolation;
+
+import java.net.URI;
+import java.security.interfaces.ECPublicKey;
+import java.util.Base64;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -29,10 +37,12 @@ import org.signal.chat.errors.NotFound;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.push.WebPushSubscription;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.DeviceCapability;
+import org.whispersystems.textsecuregcm.util.P256ECPublicKeyAdapter;
 
 public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
 
@@ -115,6 +125,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
 
     @Nullable final String apnsToken;
     @Nullable final String fcmToken;
+    @Nullable final WebPushSubscription webPush;
 
     switch (request.getTokenRequestCase()) {
 
@@ -122,12 +133,51 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
         final SetPushTokenRequest.ApnsTokenRequest apnsTokenRequest = request.getApnsTokenRequest();
         apnsToken = StringUtils.stripToNull(apnsTokenRequest.getApnsToken());
         fcmToken = null;
+        webPush = null;
       }
 
       case FCM_TOKEN_REQUEST -> {
         final SetPushTokenRequest.FcmTokenRequest fcmTokenRequest = request.getFcmTokenRequest();
         apnsToken = null;
         fcmToken = StringUtils.stripToNull(fcmTokenRequest.getFcmToken());
+        webPush = null;
+      }
+
+      case WEB_PUSH_REQUEST -> {
+        final SetPushTokenRequest.WebPushRequest webPushRequest = request.getWebPushRequest();
+
+        if (StringUtils.isBlank(webPushRequest.getEndpoint())) {
+          throw Status.INVALID_ARGUMENT.withDescription("WebPush endpoint must not be blank").asRuntimeException();
+        }
+        if (StringUtils.isBlank(webPushRequest.getPublicKey())) {
+          throw Status.INVALID_ARGUMENT.withDescription("WebPush publicKey must not be blank").asRuntimeException();
+        }
+        if (StringUtils.isBlank(webPushRequest.getAuth())) {
+          throw Status.INVALID_ARGUMENT.withDescription("WebPush auth must not be blank").asRuntimeException();
+        }
+
+        final Set<ConstraintViolation<WebPushSubscription>> constraintViolations;
+
+        try {
+          URI endpoint = new URI(webPushRequest.getEndpoint());
+          ECPublicKey userPublicKey = P256ECPublicKeyAdapter.Deserializer.deserializePublicKey(
+            webPushRequest.getPublicKey()
+          );
+          byte[] userAuth = Base64.getUrlDecoder().decode(webPushRequest.getAuth());
+
+          webPush = new WebPushSubscription(endpoint, userPublicKey, userAuth);
+
+          constraintViolations = Validators.newValidator().validate(webPush);
+        } catch (Exception e) {
+          throw Status.INVALID_ARGUMENT.withDescription("Cannot parse webpush argument").asRuntimeException();
+        }
+
+        if (!constraintViolations.isEmpty()) {
+          throw Status.INVALID_ARGUMENT.withDescription("WebPush doesn't follow constraints").asRuntimeException();
+        }
+
+        apnsToken = null;
+        fcmToken = null;
       }
 
       default -> throw GrpcExceptions.fieldViolation("token_request", "No tokens specified");
@@ -140,10 +190,13 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
 
     // Unlike FCM tokens, we need current "last updated" timestamps for APNs tokens and so update device records
     // unconditionally if it's an APNS request
-    if (request.hasApnsTokenRequest() || !Objects.equals(device.getGcmId(), fcmToken)) {
+    if (request.hasApnsTokenRequest() ||
+        !Objects.equals(device.getGcmId(), fcmToken) ||
+        !Objects.equals(device.getWebPush(), webPush)) {
       accountsManager.updateDevice(account.getAccountIdentifier(), authenticatedDevice.deviceId(), d -> {
         d.setApnId(apnsToken);
         d.setGcmId(fcmToken);
+        d.setWebPush(webPush);
         d.setFetchesMessages(false);
       });
     }
@@ -164,6 +217,7 @@ public class DevicesGrpcService extends SimpleDevicesGrpc.DevicesImplBase {
 
       device.setApnId(null);
       device.setGcmId(null);
+      device.setWebPush(null);
       device.setFetchesMessages(true);
     });
 

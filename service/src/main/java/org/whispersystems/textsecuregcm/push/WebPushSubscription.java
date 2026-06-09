@@ -18,6 +18,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.security.interfaces.ECPublicKey;
+import java.util.Arrays;
 
 public record WebPushSubscription(
                                 @NotNull
@@ -34,4 +35,20 @@ public record WebPushSubscription(
                                 @JsonProperty(value = "auth", required = true)
                                 @JsonSerialize(using = ByteArrayBase64UrlAdapter.Serializing.class)
                                 @JsonDeserialize(using = ByteArrayBase64UrlAdapter.Deserializing.class)
-                                byte[] userAuth) {}
+                                byte[] userAuth) {
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+        return true;
+    }
+    if (other == null) {
+        return false;
+    }
+    if (!(other instanceof WebPushSubscription)) {
+        return false;
+    }
+    return endpoint.equals(((WebPushSubscription) other).endpoint) &&
+      userPublicKey.equals(((WebPushSubscription) other).userPublicKey) &&
+      Arrays.equals(userAuth, ((WebPushSubscription) other).userAuth);
+  }
+}
