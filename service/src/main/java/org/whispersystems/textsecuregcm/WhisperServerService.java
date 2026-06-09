@@ -152,6 +152,7 @@ import org.whispersystems.textsecuregcm.grpc.AttachmentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.BackupsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.BackupsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CallQualitySurveyGrpcService;
+import org.whispersystems.textsecuregcm.grpc.CallingGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ChallengeGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CredentialsAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.CredentialsGrpcService;
@@ -996,6 +997,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final List<ServerServiceDefinition> authenticatedServices = Stream.of(
             new AccountsGrpcService(accountsManager, rateLimiters, usernameHashZkProofVerifier, registrationRecoveryPasswordsManager),
+            new CallingGrpcService(cloudflareTurnCredentialsManager, rateLimiters),
             new CredentialsGrpcService(accountsManager, certificateGenerator, zkAuthOperations, callingGenericZkSecretParams, rateLimiters, Clock.systemUTC(), ExternalServiceDefinitions.createExternalServiceList(config, Clock.systemUTC())),
             new KeysGrpcService(accountsManager, keysManager, rateLimiters),
             new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager, config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters),
