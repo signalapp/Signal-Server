@@ -96,7 +96,7 @@ public class KeysGrpcService extends SimpleKeysGrpc.KeysImplBase {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
 
     final ServiceIdentifier targetIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier());
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier());
 
 
     final Optional<Account> maybeTargetAccount = accountsManager.getByServiceIdentifier(targetIdentifier);

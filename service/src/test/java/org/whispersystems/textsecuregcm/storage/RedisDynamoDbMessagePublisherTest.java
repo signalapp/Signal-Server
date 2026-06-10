@@ -37,11 +37,11 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.Disposable;
 import reactor.core.scheduler.Scheduler;
@@ -82,11 +82,10 @@ class RedisDynamoDbMessagePublisherTest {
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(),
         DynamoDbExtensionSchema.Tables.MESSAGES.tableName(),
         Duration.ofDays(14),
-        sharedExecutorService,
-        mock(ExperimentEnrollmentManager.class));
+        sharedExecutorService);
 
     messagesCache = new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, sharedExecutorService, mock(ScheduledExecutorService.class), Clock.systemUTC(), mock(ExperimentEnrollmentManager.class));
+        messageDeliveryScheduler, sharedExecutorService, mock(ScheduledExecutorService.class), Clock.systemUTC());
 
     redisMessageAvailabilityManager = mock(RedisMessageAvailabilityManager.class);
 
@@ -398,7 +397,7 @@ class RedisDynamoDbMessagePublisherTest {
   }
 
   private MessageProtos.Envelope insertRedisMessage(final MessageProtos.Envelope message) {
-    messagesCache.insert(UUID.fromString(message.getServerGuid()),
+    messagesCache.insert(UUIDUtil.fromByteString(message.getServerGuid()),
         DESTINATION_SERVICE_IDENTIFIER.uuid(),
         destinationDevice.getId(),
         message)
@@ -408,7 +407,7 @@ class RedisDynamoDbMessagePublisherTest {
   }
 
   private void deleteRedisMessage(final MessageProtos.Envelope message) {
-    messagesCache.remove(DESTINATION_SERVICE_IDENTIFIER.uuid(), destinationDevice.getId(), UUID.fromString(message.getServerGuid())).join();
+    messagesCache.remove(DESTINATION_SERVICE_IDENTIFIER.uuid(), destinationDevice.getId(), UUIDUtil.fromByteString(message.getServerGuid())).join();
   }
 
   private MessageProtos.Envelope insertDynamoDbMessage(final MessageProtos.Envelope message) {
@@ -420,7 +419,7 @@ class RedisDynamoDbMessagePublisherTest {
   private void deleteDynamoDbMessage(final MessageProtos.Envelope message) {
     messagesDynamoDb.deleteMessage(DESTINATION_SERVICE_IDENTIFIER.uuid(),
         destinationDevice,
-        UUID.fromString(message.getServerGuid()),
+        UUIDUtil.fromByteString(message.getServerGuid()),
         message.getServerTimestamp())
         .join();
   }
@@ -434,8 +433,8 @@ class RedisDynamoDbMessagePublisherTest {
         .setServerTimestamp(timestamp)
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.secure().nextAlphanumeric(256)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
-        .setServerGuid(UUID.randomUUID().toString())
-        .setDestinationServiceId(DESTINATION_SERVICE_IDENTIFIER.toServiceIdentifierString());
+        .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
+        .setDestinationServiceId(DESTINATION_SERVICE_IDENTIFIER.toCompactByteString());
 
     return envelopeBuilder.build();
   }

@@ -423,7 +423,7 @@ class FoundationDbMessageStoreTest {
           assertInstanceOf(MessageStreamEntry.Envelope.class, retrievedEntries.get(i));
 
       assertEquals(expectedVersionstamps.get(i),
-          messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(envelopeEntry.message().getServerGuidBinary())));
+          messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(envelopeEntry.message().getServerGuid())));
     }
   }
 
@@ -483,18 +483,18 @@ class FoundationDbMessageStoreTest {
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
         .expectNext(new MessageStreamEntry.Envelope(message1
             .toBuilder()
-            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp1)))
+            .setServerGuid(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp1)))
             .build()))
         .expectNext(new MessageStreamEntry.Envelope(message2
             .toBuilder()
-            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp2)))
+            .setServerGuid(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp2)))
             .build()))
         .expectNext(new MessageStreamEntry.QueueEmpty())
         // Trigger insertion of another message
         .then(latch::countDown)
         .expectNextMatches(entry -> entry.equals(new MessageStreamEntry.Envelope(message3
             .toBuilder()
-            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp3.join())))
+            .setServerGuid(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp3.join())))
             .build())))
         .verifyTimeout(Duration.ofSeconds(3));
   }
@@ -602,7 +602,7 @@ class FoundationDbMessageStoreTest {
 
     assertEquals(expectedRedeliveredVersionstamps, retrievedEntries.stream()
         .filter(e -> e instanceof MessageStreamEntry.Envelope)
-        .map(e -> messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(((MessageStreamEntry.Envelope) e).message().getServerGuidBinary())))
+        .map(e -> messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(((MessageStreamEntry.Envelope) e).message().getServerGuid())))
         .toList());
 
   }
@@ -692,7 +692,7 @@ class FoundationDbMessageStoreTest {
         .then(queueEmptyLatch::countDown)
         .expectNextMatches(entry -> entry.equals(new MessageStreamEntry.Envelope(freshEphemeralMessage
             .toBuilder()
-            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(deliveredUnacknowledgedVersionstamp.join())))
+            .setServerGuid(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(deliveredUnacknowledgedVersionstamp.join())))
             .build())))
         .verifyTimeout(Duration.ofSeconds(3));
 

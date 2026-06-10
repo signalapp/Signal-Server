@@ -50,7 +50,7 @@ public record IncomingMessage(int type,
         .setType(MessageProtos.Envelope.Type.forNumber(type))
         .setClientTimestamp(timestamp)
         .setServerTimestamp(clock.millis())
-        .setDestinationServiceId(destinationIdentifier.toServiceIdentifierString())
+        .setDestinationServiceId(destinationIdentifier.toCompactByteString())
         .setEphemeral(ephemeral)
         .setUrgent(urgent);
 
@@ -61,7 +61,7 @@ public record IncomingMessage(int type,
 
     if (sourceServiceIdentifier != null && sourceDeviceId != null) {
       envelopeBuilder
-          .setSourceServiceId(sourceServiceIdentifier.toServiceIdentifierString())
+          .setSourceServiceId(sourceServiceIdentifier.toCompactByteString())
           .setSourceDevice(sourceDeviceId.intValue());
     }
 

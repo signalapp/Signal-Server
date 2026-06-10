@@ -221,7 +221,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         .setGroupSendToken(ByteString.copyFrom(token))
         .setRequest(GetUnversionedProfileRequest.newBuilder()
             .setServiceIdentifier(
-                ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+                GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
             .build())
         .build();
 
@@ -243,7 +243,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
   void getUnversionedProfileNoAuth() {
     final GetUnversionedProfileAnonymousRequest request = GetUnversionedProfileAnonymousRequest.newBuilder()
         .setRequest(GetUnversionedProfileRequest.newBuilder()
-            .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID()))))
+            .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID()))))
         .build();
 
     assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().getUnversionedProfile(request));
@@ -303,7 +303,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         .setGroupSendToken(ByteString.copyFrom(token))
         .setRequest(GetUnversionedProfileRequest.newBuilder()
             .setServiceIdentifier(
-                ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier)))
+                GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier)))
         .build();
 
     final GetUnversionedProfileAnonymousResponse response = unauthenticatedServiceStub().getUnversionedProfile(
@@ -327,7 +327,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
         .setGroupSendToken(ByteString.copyFrom(token))
         .setRequest(GetUnversionedProfileRequest.newBuilder()
             .setServiceIdentifier(
-                ServiceIdentifierUtil.toGrpcServiceIdentifier(targetServiceIdentifier)))
+                GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(targetServiceIdentifier)))
         .build();
 
     final GetUnversionedProfileAnonymousResponse response = unauthenticatedServiceStub().getUnversionedProfile(request);
@@ -347,7 +347,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
     final GetUnversionedProfileAnonymousRequest request = GetUnversionedProfileAnonymousRequest.newBuilder()
         .setGroupSendToken(ByteString.copyFrom(token))
         .setRequest(GetUnversionedProfileRequest.newBuilder()
-            .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier)))
+            .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier)))
         .build();
 
     final GetUnversionedProfileAnonymousResponse response = unauthenticatedServiceStub().getUnversionedProfile(

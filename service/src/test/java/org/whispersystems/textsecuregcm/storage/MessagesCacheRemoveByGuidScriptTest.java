@@ -35,7 +35,7 @@ class MessagesCacheRemoveByGuidScriptTest {
     final UUID serverGuid = UUID.randomUUID();
     final MessageProtos.Envelope envelope1 = MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())
-        .setServerGuid(serverGuid.toString())
+        .setServerGuid(UUIDUtil.toByteString(serverGuid))
         .build();
 
     insertScript.executeAsync(destinationUuid, deviceId, envelope1).toCompletableFuture().join();
@@ -52,6 +52,6 @@ class MessagesCacheRemoveByGuidScriptTest {
 
     final MessageProtos.Envelope resultMessage = MessageProtos.Envelope.parseFrom(removedMessages.getFirst());
 
-    assertEquals(serverGuid, UUIDUtil.fromByteString(resultMessage.getServerGuidBinary()));
+    assertEquals(serverGuid, UUIDUtil.fromByteString(resultMessage.getServerGuid()));
   }
 }

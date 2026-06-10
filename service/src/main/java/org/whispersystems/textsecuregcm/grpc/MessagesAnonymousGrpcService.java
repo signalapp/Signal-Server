@@ -6,19 +6,18 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import com.google.protobuf.Empty;
-import io.grpc.Status;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.messages.IndividualRecipientMessageBundle;
-import org.signal.chat.messages.SendMessageType;
 import org.signal.chat.messages.MultiRecipientMismatchedDevices;
 import org.signal.chat.messages.MultiRecipientSuccess;
 import org.signal.chat.messages.SendMessageResponse;
+import org.signal.chat.messages.SendMessageType;
 import org.signal.chat.messages.SendMultiRecipientMessageRequest;
 import org.signal.chat.messages.SendMultiRecipientMessageResponse;
 import org.signal.chat.messages.SendMultiRecipientStoryRequest;
@@ -85,7 +84,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
       throws RateLimitExceededException {
 
     final ServiceIdentifier destinationServiceIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getDestination());
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getDestination());
 
     final Optional<Account> maybeDestination = accountsManager.getByServiceIdentifier(destinationServiceIdentifier);
 
@@ -133,7 +132,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
       throws RateLimitExceededException {
 
     final ServiceIdentifier destinationServiceIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getDestination());
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getDestination());
 
     final Optional<Account> maybeDestination = accountsManager.getByServiceIdentifier(destinationServiceIdentifier);
 
@@ -194,7 +193,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
                   .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
                   .setClientTimestamp(messages.getTimestamp())
                   .setServerTimestamp(clock.millis())
-                  .setDestinationServiceId(destinationServiceIdentifier.toServiceIdentifierString())
+                  .setDestinationServiceId(destinationServiceIdentifier.toCompactByteString())
                   .setEphemeral(ephemeral)
                   .setUrgent(urgent)
                   .setContent(entry.getValue().getPayload());
@@ -313,7 +312,7 @@ public class MessagesAnonymousGrpcService extends SimpleMessagesAnonymousGrpc.Me
       final MultiRecipientSuccess.Builder responseBuilder = MultiRecipientSuccess.newBuilder();
 
       MessageUtil.getUnresolvedRecipients(multiRecipientMessage, resolvedRecipients).stream()
-          .map(ServiceIdentifierUtil::toGrpcServiceIdentifier)
+          .map(GrpcServiceIdentifierUtil::toGrpcServiceIdentifier)
           .forEach(responseBuilder::addUnresolvedRecipients);
 
       return SendMultiRecipientMessageResponse.newBuilder().setSuccess(responseBuilder).build();

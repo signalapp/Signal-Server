@@ -34,6 +34,7 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -102,10 +103,14 @@ public class MessagesManager {
 
               return messagesCache.insert(messageGuid, accountIdentifier, deviceId, message)
                   .thenAccept(present -> {
-                    if (message.hasSourceServiceId() && !accountIdentifier.toString()
-                        .equals(message.getSourceServiceId())) {
-                      // Note that this is an asynchronous, best-effort, fire-and-forget operation
-                      reportMessageManager.store(message.getSourceServiceId(), messageGuid);
+                    if (message.hasSourceServiceId()) {
+                      final ServiceIdentifier sourceServiceIdentifier =
+                          ServiceIdentifier.fromByteString(message.getSourceServiceId());
+
+                      if (!accountIdentifier.equals(sourceServiceIdentifier.uuid())) {
+                        // Note that this is an asynchronous, best-effort, fire-and-forget operation
+                        reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
+                      }
                     }
 
                     devicePresenceById.put(deviceId, present);
@@ -170,8 +175,8 @@ public class MessagesManager {
 
                     return insertAsync(resolvedRecipients.get(recipient).getIdentifier(IdentityType.ACI),
                         IntStream.range(0, devices.length).mapToObj(i -> devices[i])
-                            .collect(Collectors.toMap(deviceId -> deviceId, deviceId -> prototypeMessage.toBuilder()
-                                .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+                            .collect(Collectors.toMap(deviceId -> deviceId, _ -> prototypeMessage.toBuilder()
+                                .setDestinationServiceId(serviceIdentifier.toCompactByteString())
                                 .build())))
                         .thenAccept(clientPresenceByDeviceId ->
                             clientPresenceByAccountAndDevice.put(resolvedRecipients.get(recipient),
@@ -275,7 +280,7 @@ public class MessagesManager {
 
     messagesDynamoDb.store(messages, destinationUuid, destinationDevice);
 
-    final List<UUID> messageGuids = messages.stream().map(message -> UUID.fromString(message.getServerGuid()))
+    final List<UUID> messageGuids = messages.stream().map(message -> UUIDUtil.fromByteString(message.getServerGuid()))
         .collect(Collectors.toList());
     int messagesRemovedFromCache = 0;
     try {

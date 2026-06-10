@@ -15,6 +15,7 @@ import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,9 +47,10 @@ public final class MessageMetrics {
       final MessageProtos.Envelope envelope) {
     if (envelope.hasDestinationServiceId()) {
       try {
-        measureAccountDestinationUuidMismatches(account, ServiceIdentifier.valueOf(envelope.getDestinationServiceId()));
+        measureAccountDestinationUuidMismatches(account, ServiceIdentifier.fromByteString(envelope.getDestinationServiceId()));
       } catch (final IllegalArgumentException ignored) {
-        logger.warn("Envelope had invalid destination UUID: {}", envelope.getDestinationServiceId());
+        logger.warn("Envelope had invalid destination service ID: {}",
+            HexFormat.of().formatHex(envelope.getDestinationServiceId().toByteArray()));
       }
     }
   }

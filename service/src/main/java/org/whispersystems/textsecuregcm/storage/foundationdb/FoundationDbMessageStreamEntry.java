@@ -16,7 +16,7 @@ sealed interface FoundationDbMessageStreamEntry permits FoundationDbMessageStrea
     return switch (this) {
       case Message(final Versionstamp versionstamp, final MessageProtos.Envelope partialEnvelope): {
         yield new MessageStreamEntry.Envelope(partialEnvelope.toBuilder()
-            .setServerGuidBinary(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp)))
+            .setServerGuid(UUIDUtil.toByteString(messageGuidCodec.encodeMessageGuid(versionstamp)))
             .build());
       }
       case QueueEmpty():

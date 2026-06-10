@@ -160,7 +160,7 @@ public class FoundationDbMessageStream implements MessageStream {
   @Override
   public CompletableFuture<Void> acknowledgeMessage(final MessageProtos.Envelope message) {
     acknowledgedMessageBuffer.acknowledgeMessage(
-        messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(message.getServerGuidBinary())));
+        messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(message.getServerGuid())));
 
     return CompletableFuture.completedFuture(null);
   }

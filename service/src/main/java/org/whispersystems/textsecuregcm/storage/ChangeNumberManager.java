@@ -40,6 +40,7 @@ import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.push.MessageSender;
 import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.util.Pair;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class ChangeNumberManager {
 
@@ -159,10 +160,9 @@ public class ChangeNumberManager {
 
     try {
       // Now that we've actually updated the account, populate the "updated PNI" field on all envelopes
-      final String updatedPniString = updatedAccount.getIdentifier(IdentityType.PNI).toString();
-
       messagesByDeviceId.replaceAll((_, envelope) ->
-          envelope.toBuilder().setUpdatedPni(updatedPniString).build());
+          envelope.toBuilder().setUpdatedPni(UUIDUtil.toByteString(updatedAccount.getIdentifier(IdentityType.PNI)))
+              .build());
 
       messageSender.sendMessages(updatedAccount,
           serviceIdentifier,

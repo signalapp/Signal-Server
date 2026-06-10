@@ -27,8 +27,8 @@ import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.util.AttributeValues;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Flux;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
@@ -63,13 +63,11 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   private final String tableName;
   private final Duration timeToLive;
   private final ExecutorService messageDeletionExecutor;
-  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   private static final Logger logger = LoggerFactory.getLogger(MessagesDynamoDb.class);
 
   public MessagesDynamoDb(DynamoDbClient dynamoDb, DynamoDbAsyncClient dynamoDbAsyncClient, String tableName,
-      Duration timeToLive, ExecutorService messageDeletionExecutor,
-      final ExperimentEnrollmentManager experimentEnrollmentManager) {
+      Duration timeToLive, ExecutorService messageDeletionExecutor) {
     super(dynamoDb);
 
     this.dbAsyncClient = dynamoDbAsyncClient;
@@ -77,7 +75,6 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     this.timeToLive = timeToLive;
 
     this.messageDeletionExecutor = messageDeletionExecutor;
-    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   public void store(final List<MessageProtos.Envelope> messages, final UUID destinationAccountUuid,
@@ -94,14 +91,14 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     final AttributeValue partitionKey = convertPartitionKey(destinationAccountUuid, destinationDevice);
     List<WriteRequest> writeItems = new ArrayList<>();
     for (MessageProtos.Envelope message : messages) {
-      final UUID messageUuid = UUID.fromString(message.getServerGuid());
+      final UUID messageUuid = UUIDUtil.fromByteString(message.getServerGuid());
 
       final ImmutableMap.Builder<String, AttributeValue> item = ImmutableMap.<String, AttributeValue>builder()
           .put(KEY_PARTITION, partitionKey)
           .put(KEY_SORT, convertSortKey(message.getServerTimestamp(), messageUuid))
           .put(LOCAL_INDEX_MESSAGE_UUID_KEY_SORT, convertLocalIndexMessageUuidSortKey(messageUuid))
           .put(KEY_TTL, AttributeValues.fromLong(getTtlForMessage(message)))
-          .put(KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(EnvelopeUtil.compress(message).toByteArray())).build());
+          .put(KEY_ENVELOPE_BYTES, AttributeValue.builder().b(SdkBytes.fromByteArray(message.toByteArray())).build());
 
       writeItems.add(WriteRequest.builder().putRequest(PutRequest.builder()
           .item(item.build())
@@ -147,7 +144,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
     return dbAsyncClient.queryPaginator(queryRequest).items()
         .map(message -> {
           try {
-            return convertItemToEnvelope(message, experimentEnrollmentManager);
+            return convertItemToEnvelope(message);
           } catch (final InvalidProtocolBufferException e) {
             logger.error("Failed to parse envelope", e);
             return null;
@@ -167,7 +164,7 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
         .thenApplyAsync(deleteItemResponse -> {
           if (deleteItemResponse.attributes() != null && deleteItemResponse.attributes().containsKey(KEY_PARTITION)) {
             try {
-              return Optional.of(convertItemToEnvelope(deleteItemResponse.attributes(), experimentEnrollmentManager));
+              return Optional.of(convertItemToEnvelope(deleteItemResponse.attributes()));
             } catch (final InvalidProtocolBufferException e) {
               logger.error("Failed to parse envelope", e);
             }
@@ -178,11 +175,10 @@ public class MessagesDynamoDb extends AbstractDynamoDbStore {
   }
 
   @VisibleForTesting
-  static MessageProtos.Envelope convertItemToEnvelope(final Map<String, AttributeValue> item,
-      final ExperimentEnrollmentManager experimentEnrollmentManager) throws InvalidProtocolBufferException {
+  static MessageProtos.Envelope convertItemToEnvelope(final Map<String, AttributeValue> item)
+      throws InvalidProtocolBufferException {
 
-    return EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(item.get(KEY_ENVELOPE_BYTES).b().asByteArray()),
-        experimentEnrollmentManager);
+    return MessageProtos.Envelope.parseFrom(item.get(KEY_ENVELOPE_BYTES).b().asByteArray());
   }
 
   private long getTtlForMessage(MessageProtos.Envelope message) {

@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.identity;
 
+import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Metrics;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.nio.ByteBuffer;
@@ -60,6 +61,10 @@ public record AciServiceIdentifier(UUID uuid) implements ServiceIdentifier {
 
   public static AciServiceIdentifier valueOf(final String string) {
     return new AciServiceIdentifier(UUID.fromString(string));
+  }
+
+  public static AciServiceIdentifier fromByteString(final ByteString byteString) {
+    return fromBytes(byteString.toByteArray());
   }
 
   public static AciServiceIdentifier fromBytes(final byte[] bytes) {

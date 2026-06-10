@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 class RedisDynamoDbMessageStreamTest {
 
@@ -57,7 +58,7 @@ class RedisDynamoDbMessageStreamTest {
   @Test
   void acknowledgeMessageDynamoDb() {
     final MessageProtos.Envelope message = generateMessage();
-    final UUID messageGuid = UUID.fromString(message.getServerGuid());
+    final UUID messageGuid = UUIDUtil.fromByteString(message.getServerGuid());
     final long serverTimestamp = message.getServerTimestamp();
 
     when(messagesDynamoDb.deleteMessage(ACCOUNT_IDENTIFIER, device, messageGuid, serverTimestamp))
@@ -72,7 +73,7 @@ class RedisDynamoDbMessageStreamTest {
   @Test
   void acknowledgeMessageRedis() {
     final MessageProtos.Envelope message = generateMessage();
-    final UUID messageGuid = UUID.fromString(message.getServerGuid());
+    final UUID messageGuid = UUIDUtil.fromByteString(message.getServerGuid());
 
     when(messagesCache.remove(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(RemovedMessage.fromEnvelope(message))));
@@ -85,8 +86,8 @@ class RedisDynamoDbMessageStreamTest {
 
   private static MessageProtos.Envelope generateMessage() {
     return MessageProtos.Envelope.newBuilder()
-        .setServerGuid(UUID.randomUUID().toString())
-        .setDestinationServiceId(new AciServiceIdentifier(ACCOUNT_IDENTIFIER).toServiceIdentifierString())
+        .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
+        .setDestinationServiceId(new AciServiceIdentifier(ACCOUNT_IDENTIFIER).toCompactByteString())
         .setServerTimestamp(System.currentTimeMillis())
         .setClientTimestamp(System.currentTimeMillis())
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)

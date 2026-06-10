@@ -6,9 +6,9 @@
 package org.whispersystems.textsecuregcm.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 
 import com.google.protobuf.ByteString;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,10 +26,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.reactivestreams.Publisher;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
-import org.whispersystems.textsecuregcm.tests.util.MessageHelper;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
@@ -47,19 +47,19 @@ class MessagesDynamoDbTest {
     builder.setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER);
     builder.setClientTimestamp(123456789L);
     builder.setContent(ByteString.copyFrom(new byte[]{(byte) 0xDE, (byte) 0xAD, (byte) 0xBE, (byte) 0xEF}));
-    builder.setServerGuid(UUID.randomUUID().toString());
+    builder.setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()));
     builder.setServerTimestamp(serverTimestamp);
-    builder.setDestinationServiceId(UUID.randomUUID().toString());
+    builder.setDestinationServiceId(UUIDUtil.toByteString(UUID.randomUUID()));
 
     MESSAGE1 = builder.build();
 
     builder.setType(MessageProtos.Envelope.Type.CIPHERTEXT);
-    builder.setSourceServiceId(UUID.randomUUID().toString());
+    builder.setSourceServiceId(UUIDUtil.toByteString(UUID.randomUUID()));
     builder.setSourceDevice(1);
     builder.setContent(ByteString.copyFromUtf8("MOO"));
-    builder.setServerGuid(UUID.randomUUID().toString());
+    builder.setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()));
     builder.setServerTimestamp(serverTimestamp + 1);
-    builder.setDestinationServiceId(UUID.randomUUID().toString());
+    builder.setDestinationServiceId(UUIDUtil.toByteString(UUID.randomUUID()));
 
     MESSAGE2 = builder.build();
 
@@ -67,9 +67,9 @@ class MessagesDynamoDbTest {
     builder.clearSourceDevice();
     builder.clearSourceDevice();
     builder.setContent(ByteString.copyFromUtf8("COW"));
-    builder.setServerGuid(UUID.randomUUID().toString());
+    builder.setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()));
     builder.setServerTimestamp(serverTimestamp);  // Test same millisecond arrival for two different messages
-    builder.setDestinationServiceId(UUID.randomUUID().toString());
+    builder.setDestinationServiceId(UUIDUtil.toByteString(UUID.randomUUID()));
 
     MESSAGE3 = builder.build();
   }
@@ -85,7 +85,7 @@ class MessagesDynamoDbTest {
     messageDeletionExecutorService = Executors.newSingleThreadExecutor();
     messagesDynamoDb = new MessagesDynamoDb(DYNAMO_DB_EXTENSION.getDynamoDbClient(),
         DYNAMO_DB_EXTENSION.getDynamoDbAsyncClient(), Tables.MESSAGES.tableName(), Duration.ofDays(14),
-        messageDeletionExecutorService, mock(ExperimentEnrollmentManager.class));
+        messageDeletionExecutorService);
   }
 
   @AfterEach
@@ -107,8 +107,14 @@ class MessagesDynamoDbTest {
     final List<MessageProtos.Envelope> messagesStored = load(destinationUuid, destinationDevice,
         MessagesDynamoDb.RESULT_SET_CHUNK_SIZE);
     assertThat(messagesStored).isNotNull().hasSize(3);
+
+    // Danger: `UUID#compareTo` does NOT do what you might expect because it uses
+    // `Long.compare(a.mostSignificantBits(), b.mostSignificantBits())`, which means that a UUID whose binary
+    // representation is lexicographically "greater than" another UUID might wind up "less than" the other UUID if its
+    // most significant bit is `1`, which would cause `UUID#compareTo` to treat it as a negative number. To avoid that
+    // surprise (and match DynamoDB's lexicographical sorting), we just do string ordering.
     final MessageProtos.Envelope firstMessage =
-        MESSAGE1.getServerGuid().compareTo(MESSAGE3.getServerGuid()) < 0 ? MESSAGE1 : MESSAGE3;
+        UUIDUtil.fromByteString(MESSAGE1.getServerGuid()).toString().compareTo(UUIDUtil.fromByteString(MESSAGE3.getServerGuid()).toString()) < 0 ? MESSAGE1 : MESSAGE3;
     final MessageProtos.Envelope secondMessage = firstMessage == MESSAGE1 ? MESSAGE3 : MESSAGE1;
     assertThat(messagesStored).element(0).isEqualTo(firstMessage);
     assertThat(messagesStored).element(1).isEqualTo(secondMessage);
@@ -124,8 +130,7 @@ class MessagesDynamoDbTest {
 
     final List<MessageProtos.Envelope> messages = new ArrayList<>(messageCount);
     for (int i = 0; i < messageCount; i++) {
-      messages.add(MessageHelper.createMessage(UUID.randomUUID(), Device.PRIMARY_ID, destinationUuid, (i + 1L) * 1000,
-          "message " + i));
+      messages.add(createMessage(UUID.randomUUID(), Device.PRIMARY_ID, destinationUuid, (i + 1L) * 1000, "message " + i));
     }
 
     messagesDynamoDb.store(messages, destinationUuid, destinationDevice);
@@ -158,8 +163,7 @@ class MessagesDynamoDbTest {
 
     final List<MessageProtos.Envelope> messages = new ArrayList<>(messageCount);
     for (int i = 0; i < messageCount; i++) {
-      messages.add(MessageHelper.createMessage(UUID.randomUUID(), Device.PRIMARY_ID, destinationUuid, (i + 1L) * 1000,
-          "message " + i));
+      messages.add(createMessage(UUID.randomUUID(), Device.PRIMARY_ID, destinationUuid, (i + 1L) * 1000, "message " + i));
     }
 
     messagesDynamoDb.store(messages, destinationUuid, destinationDevice);
@@ -207,7 +211,7 @@ class MessagesDynamoDbTest {
         .hasSize(1).element(0).isEqualTo(MESSAGE2);
 
     messagesDynamoDb.deleteMessage(secondDestinationUuid, primary,
-        UUID.fromString(MESSAGE2.getServerGuid()), MESSAGE2.getServerTimestamp()).get(1, TimeUnit.SECONDS);
+        UUIDUtil.fromByteString(MESSAGE2.getServerGuid()), MESSAGE2.getServerTimestamp()).get(1, TimeUnit.SECONDS);
 
     assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE)).isNotNull().hasSize(1)
         .element(0).isEqualTo(MESSAGE1);
@@ -236,7 +240,7 @@ class MessagesDynamoDbTest {
     assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE))
         .as("load should return all messages stored").containsOnly(MESSAGE1, MESSAGE2);
 
-    messagesDynamoDb.deleteMessage(destinationUuid, primary, UUID.fromString(MESSAGE1.getServerGuid()), MESSAGE1.getServerTimestamp())
+    messagesDynamoDb.deleteMessage(destinationUuid, primary, UUIDUtil.fromByteString(MESSAGE1.getServerGuid()), MESSAGE1.getServerTimestamp())
         .get(1, TimeUnit.SECONDS);
     assertThat(load(destinationUuid, primary, MessagesDynamoDb.RESULT_SET_CHUNK_SIZE))
         .as("deleting message by guid and timestamp should work").containsExactly(MESSAGE2);
@@ -273,8 +277,8 @@ class MessagesDynamoDbTest {
     {
       final MessageProtos.Envelope nonUrgentMessage = MessageProtos.Envelope.newBuilder()
           .setUrgent(false)
-          .setServerGuid(UUID.randomUUID().toString())
-          .setDestinationServiceId(destinationUuid.toString())
+          .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
+          .setDestinationServiceId(new AciServiceIdentifier(destinationUuid).toCompactByteString())
           .setServerTimestamp(serverTimestamp++)
           .build();
 
@@ -289,17 +293,17 @@ class MessagesDynamoDbTest {
       for (int i = 0; i < MessagesDynamoDb.MAY_HAVE_URGENT_MESSAGES_QUERY_LIMIT * 5; i++) {
         messages.add(MessageProtos.Envelope.newBuilder()
             .setUrgent(false)
-            .setServerGuid(UUID.randomUUID().toString())
-            .setDestinationServiceId(destinationUuid.toString())
-                .setServerTimestamp(serverTimestamp++)
+            .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
+            .setDestinationServiceId(new AciServiceIdentifier(destinationUuid).toCompactByteString())
+            .setServerTimestamp(serverTimestamp++)
             .build());
       }
 
       // and one urgent message
       messages.add(MessageProtos.Envelope.newBuilder()
           .setUrgent(true)
-          .setServerGuid(UUID.randomUUID().toString())
-          .setDestinationServiceId(destinationUuid.toString())
+          .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
+          .setDestinationServiceId(new AciServiceIdentifier(destinationUuid).toCompactByteString())
           .setServerTimestamp(serverTimestamp++)
           .build());
 
@@ -307,5 +311,23 @@ class MessagesDynamoDbTest {
     }
 
     assertThat(messagesDynamoDb.mayHaveUrgentMessages(destinationUuid, destinationDevice).join()).isTrue();
+  }
+
+  private static MessageProtos.Envelope createMessage(final UUID senderUuid,
+      final byte senderDeviceId,
+      final UUID destinationUuid,
+      long timestamp,
+      final String content) {
+
+    return MessageProtos.Envelope.newBuilder()
+        .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
+        .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
+        .setClientTimestamp(timestamp)
+        .setServerTimestamp(0)
+        .setSourceServiceId(new AciServiceIdentifier(senderUuid).toCompactByteString())
+        .setSourceDevice(senderDeviceId)
+        .setDestinationServiceId(new AciServiceIdentifier(destinationUuid).toCompactByteString())
+        .setContent(ByteString.copyFrom(content.getBytes(StandardCharsets.UTF_8)))
+        .build();
   }
 }

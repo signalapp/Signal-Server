@@ -60,6 +60,7 @@ import org.whispersystems.textsecuregcm.push.MessageTooLargeException;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 public class ChangeNumberManagerTest {
   private MessageSender messageSender;
@@ -245,11 +246,11 @@ public class ChangeNumberManagerTest {
         .setType(MessageProtos.Envelope.Type.forNumber(incomingMessage.type()))
         .setClientTimestamp(CLOCK.millis())
         .setServerTimestamp(CLOCK.millis())
-        .setDestinationServiceId(new AciServiceIdentifier(aci).toServiceIdentifierString())
+        .setDestinationServiceId(new AciServiceIdentifier(aci).toCompactByteString())
         .setContent(ByteString.copyFrom(incomingMessage.content()))
-        .setSourceServiceId(new AciServiceIdentifier(aci).toServiceIdentifierString())
+        .setSourceServiceId(new AciServiceIdentifier(aci).toCompactByteString())
         .setSourceDevice(primaryDeviceId)
-        .setUpdatedPni(updatedPhoneNumberIdentifiersByAccount.get(account).toString())
+        .setUpdatedPni(UUIDUtil.toByteString(updatedPhoneNumberIdentifiersByAccount.get(account)))
         .setUrgent(true)
         .setEphemeral(false)
         .build();

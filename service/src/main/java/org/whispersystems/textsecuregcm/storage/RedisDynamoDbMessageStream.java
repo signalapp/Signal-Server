@@ -11,6 +11,7 @@ import java.util.concurrent.Flow;
 import com.google.common.annotations.VisibleForTesting;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 
 /// A [MessageStream] implementation that produces message from a joint DynamoDB/Redis message store.
@@ -58,7 +59,7 @@ public class RedisDynamoDbMessageStream implements MessageStream {
 
   @Override
   public CompletableFuture<Void> acknowledgeMessage(final MessageProtos.Envelope message) {
-    final UUID guid = UUID.fromString(message.getServerGuid());
+    final UUID guid = UUIDUtil.fromByteString(message.getServerGuid());
 
     return messagesCache.remove(accountIdentifier, device.getId(), guid)
         .thenCompose(removed -> removed.map(_ -> CompletableFuture.<Void>completedFuture(null))

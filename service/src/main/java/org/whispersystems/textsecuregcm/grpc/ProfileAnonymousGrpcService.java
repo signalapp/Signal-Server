@@ -63,7 +63,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
   @Override
   public GetUnversionedProfileAnonymousResponse getUnversionedProfile(final GetUnversionedProfileAnonymousRequest request) {
     final ServiceIdentifier targetIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getServiceIdentifier());
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getServiceIdentifier());
 
     // Callers must be authenticated to request unversioned profiles by PNI
     if (targetIdentifier.identityType() == IdentityType.PNI) {
@@ -100,7 +100,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
 
   @Override
   public GetVersionedProfileAnonymousResponse getVersionedProfile(final GetVersionedProfileAnonymousRequest request) {
-    final ServiceIdentifier targetIdentifier = ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
+    final ServiceIdentifier targetIdentifier = GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
 
     final Optional<Account> targetAccount = getTargetAccountAndValidateUnidentifiedAccess(targetIdentifier, request.getUnidentifiedAccessKey().toByteArray());
 
@@ -123,7 +123,7 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
   @Override
   public GetExpiringProfileKeyCredentialAnonymousResponse getExpiringProfileKeyCredential(
       final GetExpiringProfileKeyCredentialAnonymousRequest request) {
-    final ServiceIdentifier targetIdentifier = ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
+    final ServiceIdentifier targetIdentifier = GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getAccountIdentifier());
 
     if (request.getRequest().getCredentialType() != CredentialType.CREDENTIAL_TYPE_EXPIRING_PROFILE_KEY) {
       throw GrpcExceptions.constraintViolation("invalid credential type");

@@ -90,11 +90,11 @@ class AccountsAnonymousGrpcServiceTest extends
         .thenReturn(Optional.of(mock(Account.class)));
 
     assertTrue(unauthenticatedServiceStub().checkAccountExistence(CheckAccountExistenceRequest.newBuilder()
-        .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+        .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
         .build()).getAccountExists());
 
     assertFalse(unauthenticatedServiceStub().checkAccountExistence(CheckAccountExistenceRequest.newBuilder()
-        .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID())))
+        .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID())))
         .build()).getAccountExists());
   }
 
@@ -131,7 +131,7 @@ class AccountsAnonymousGrpcServiceTest extends
     //noinspection ResultOfMethodCallIgnored
     GrpcTestUtils.assertRateLimitExceeded(retryAfter,
         () -> unauthenticatedServiceStub().checkAccountExistence(CheckAccountExistenceRequest.newBuilder()
-            .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID())))
+            .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID())))
             .build()),
         accountsManager);
   }
@@ -148,7 +148,7 @@ class AccountsAnonymousGrpcServiceTest extends
     when(accountsManager.getByUsernameHash(usernameHash))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
-    assertEquals(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(accountIdentifier)),
+    assertEquals(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(accountIdentifier)),
         unauthenticatedServiceStub().lookupUsernameHash(LookupUsernameHashRequest.newBuilder()
                 .setUsernameHash(ByteString.copyFrom(usernameHash))
                 .build())

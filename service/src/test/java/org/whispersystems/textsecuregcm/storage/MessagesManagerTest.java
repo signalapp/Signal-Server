@@ -66,7 +66,7 @@ class MessagesManagerTest {
   void insert() {
     final UUID sourceAci = UUID.randomUUID();
     final Envelope message = Envelope.newBuilder()
-        .setSourceServiceId(sourceAci.toString())
+        .setSourceServiceId(new AciServiceIdentifier(sourceAci).toCompactByteString())
         .build();
 
     final UUID destinationUuid = UUID.randomUUID();
@@ -76,7 +76,7 @@ class MessagesManagerTest {
     verify(reportMessageManager).store(eq(sourceAci.toString()), any(UUID.class));
 
     final Envelope syncMessage = Envelope.newBuilder(message)
-        .setSourceServiceId(destinationUuid.toString())
+        .setSourceServiceId(new AciServiceIdentifier(destinationUuid).toCompactByteString())
         .build();
 
     messagesManager.insert(destinationUuid, Map.of(Device.PRIMARY_ID, syncMessage));
@@ -170,17 +170,17 @@ class MessagesManagerTest {
     verify(messagesCache).insert(any(),
         eq(singleDeviceAccountAciServiceIdentifier.uuid()),
         eq(Device.PRIMARY_ID),
-        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountAciServiceIdentifier.toServiceIdentifierString()).build()));
+        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountAciServiceIdentifier.toCompactByteString()).build()));
 
     verify(messagesCache).insert(any(),
         eq(singleDeviceAccountAciServiceIdentifier.uuid()),
         eq(Device.PRIMARY_ID),
-        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountPniServiceIdentifier.toServiceIdentifierString()).build()));
+        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(singleDeviceAccountPniServiceIdentifier.toCompactByteString()).build()));
 
     verify(messagesCache).insert(any(),
         eq(multiDeviceAccountAciServiceIdentifier.uuid()),
         eq((byte) (Device.PRIMARY_ID + 1)),
-        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toServiceIdentifierString()).build()));
+        eq(prototypeExpectedMessage.toBuilder().setDestinationServiceId(multiDeviceAccountAciServiceIdentifier.toCompactByteString()).build()));
 
     verify(messagesCache, never()).insert(any(),
         eq(unresolvedAccountAciServiceIdentifier.uuid()),

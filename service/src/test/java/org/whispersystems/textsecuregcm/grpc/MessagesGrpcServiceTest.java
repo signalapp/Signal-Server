@@ -201,9 +201,9 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
 
       final MessageProtos.Envelope.Builder expectedEnvelopeBuilder = MessageProtos.Envelope.newBuilder()
           .setType(expectedEnvelopeType)
-          .setSourceServiceId(new AciServiceIdentifier(AUTHENTICATED_ACI).toServiceIdentifierString())
+          .setSourceServiceId(new AciServiceIdentifier(AUTHENTICATED_ACI).toCompactByteString())
           .setSourceDevice(AUTHENTICATED_DEVICE_ID)
-          .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+          .setDestinationServiceId(serviceIdentifier.toCompactByteString())
           .setClientTimestamp(CLOCK.millis())
           .setServerTimestamp(CLOCK.millis())
           .setEphemeral(ephemeral)
@@ -286,7 +286,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
 
       final SendMessageAuthenticatedSenderResponse expectedResponse = SendMessageAuthenticatedSenderResponse.newBuilder()
           .setMismatchedDevices(MismatchedDevices.newBuilder()
-              .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+              .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
               .addMissingDevices(missingDeviceId)
               .addStaleDevices(staleDeviceId)
               .addExtraDevices(extraDeviceId)
@@ -504,7 +504,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       messages.forEach(messageBundleBuilder::putMessages);
 
       final SendAuthenticatedSenderMessageRequest.Builder requestBuilder = SendAuthenticatedSenderMessageRequest.newBuilder()
-          .setDestination(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+          .setDestination(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
           .setMessages(messageBundleBuilder)
           .setEphemeral(ephemeral)
           .setUrgent(urgent);
@@ -560,9 +560,9 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
       final Map<Byte, MessageProtos.Envelope> expectedEnvelopes = new HashMap<>(Map.of(
           LINKED_DEVICE_ID, MessageProtos.Envelope.newBuilder()
               .setType(expectedEnvelopeType)
-              .setSourceServiceId(serviceIdentifier.toServiceIdentifierString())
+              .setSourceServiceId(serviceIdentifier.toCompactByteString())
               .setSourceDevice(AUTHENTICATED_DEVICE_ID)
-              .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+              .setDestinationServiceId(serviceIdentifier.toCompactByteString())
               .setClientTimestamp(CLOCK.millis())
               .setServerTimestamp(CLOCK.millis())
               .setEphemeral(false)
@@ -572,9 +572,9 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
 
           SECOND_LINKED_DEVICE_ID, MessageProtos.Envelope.newBuilder()
               .setType(expectedEnvelopeType)
-              .setSourceServiceId(serviceIdentifier.toServiceIdentifierString())
+              .setSourceServiceId(serviceIdentifier.toCompactByteString())
               .setSourceDevice(AUTHENTICATED_DEVICE_ID)
-              .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+              .setDestinationServiceId(serviceIdentifier.toCompactByteString())
               .setClientTimestamp(CLOCK.millis())
               .setServerTimestamp(CLOCK.millis())
               .setEphemeral(false)
@@ -625,7 +625,7 @@ class MessagesGrpcServiceTest extends SimpleBaseGrpcTest<MessagesGrpcService, Me
 
       final SendMessageAuthenticatedSenderResponse expectedResponse = SendMessageAuthenticatedSenderResponse.newBuilder()
           .setMismatchedDevices(MismatchedDevices.newBuilder()
-              .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(AUTHENTICATED_ACI)))
+              .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(AUTHENTICATED_ACI)))
               .addMissingDevices(missingDeviceId)
               .addStaleDevices(staleDeviceId)
               .addExtraDevices(extraDeviceId)

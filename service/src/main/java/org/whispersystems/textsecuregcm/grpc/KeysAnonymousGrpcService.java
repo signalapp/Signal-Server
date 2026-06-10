@@ -13,7 +13,6 @@ import java.util.Arrays;
 import java.util.concurrent.Flow;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.NotFound;
-import org.signal.chat.keys.AccountPreKeyBundles;
 import org.signal.chat.keys.CheckIdentityKeyRequest;
 import org.signal.chat.keys.CheckIdentityKeyResponse;
 import org.signal.chat.keys.GetPreKeysAnonymousRequest;
@@ -46,7 +45,7 @@ public class KeysAnonymousGrpcService extends SimpleKeysAnonymousGrpc.KeysAnonym
   @Override
   public GetPreKeysAnonymousResponse getPreKeys(final GetPreKeysAnonymousRequest request) {
     final ServiceIdentifier serviceIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getTargetIdentifier());
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getRequest().getTargetIdentifier());
 
     final byte deviceId = request.getRequest().hasDeviceId()
         ? DeviceIdUtil.validate(request.getRequest().getDeviceId())
@@ -91,7 +90,7 @@ public class KeysAnonymousGrpcService extends SimpleKeysAnonymousGrpc.KeysAnonym
   @Override
   public Flow.Publisher<CheckIdentityKeyResponse> checkIdentityKeys(final Flow.Publisher<CheckIdentityKeyRequest> requests) {
     return JdkFlowAdapter.publisherToFlowPublisher(JdkFlowAdapter.flowPublisherToFlux(requests)
-        .map(request -> Tuples.of(ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier()),
+        .map(request -> Tuples.of(GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getTargetIdentifier()),
             request.getFingerprint().toByteArray()))
         .flatMap(serviceIdentifierAndFingerprint -> Mono.fromFuture(
                 () -> accountsManager.getByServiceIdentifierAsync(serviceIdentifierAndFingerprint.getT1()))
@@ -100,7 +99,7 @@ public class KeysAnonymousGrpcService extends SimpleKeysAnonymousGrpc.KeysAnonym
                 .identityType()), serviceIdentifierAndFingerprint.getT2()))
             .map(account -> CheckIdentityKeyResponse.newBuilder()
                 .setTargetIdentifier(
-                    ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifierAndFingerprint.getT1()))
+                    GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifierAndFingerprint.getT1()))
                 .setIdentityKey(ByteString.copyFrom(account.getIdentityKey(serviceIdentifierAndFingerprint.getT1()
                     .identityType()).serialize()))
                 .build())));

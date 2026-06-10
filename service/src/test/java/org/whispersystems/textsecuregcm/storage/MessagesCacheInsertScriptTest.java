@@ -25,6 +25,7 @@ import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantPubSubClusterConnection;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 class MessagesCacheInsertScriptTest {
 
@@ -40,26 +41,25 @@ class MessagesCacheInsertScriptTest {
     final byte deviceId = 1;
     final MessageProtos.Envelope envelope1 = MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())
-        .setServerGuid(UUID.randomUUID().toString())
+        .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
         .build();
 
     insertScript.executeAsync(destinationUuid, deviceId, envelope1).toCompletableFuture().join();
 
-    assertEquals(List.of(EnvelopeUtil.compress(envelope1)), getStoredMessages(destinationUuid, deviceId));
+    assertEquals(List.of(envelope1), getStoredMessages(destinationUuid, deviceId));
 
     final MessageProtos.Envelope envelope2 = MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())
-        .setServerGuid(UUID.randomUUID().toString())
+        .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
         .build();
 
     insertScript.executeAsync(destinationUuid, deviceId, envelope2).toCompletableFuture().join();
 
-    assertEquals(List.of(EnvelopeUtil.compress(envelope1), EnvelopeUtil.compress(envelope2)),
-        getStoredMessages(destinationUuid, deviceId));
+    assertEquals(List.of(envelope1, envelope2), getStoredMessages(destinationUuid, deviceId));
 
     insertScript.executeAsync(destinationUuid, deviceId, envelope1).toCompletableFuture().join();
 
-    assertEquals(List.of(EnvelopeUtil.compress(envelope1), EnvelopeUtil.compress(envelope2)),
+    assertEquals(List.of(envelope1, envelope2),
         getStoredMessages(destinationUuid, deviceId),
         "Messages with same GUID should be deduplicated");
   }
@@ -95,7 +95,7 @@ class MessagesCacheInsertScriptTest {
 
     assertFalse(insertScript.executeAsync(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
             .setServerTimestamp(Instant.now().getEpochSecond())
-            .setServerGuid(UUID.randomUUID().toString())
+            .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
             .build())
         .toCompletableFuture()
         .join());
@@ -108,7 +108,7 @@ class MessagesCacheInsertScriptTest {
 
     assertTrue(insertScript.executeAsync(destinationUuid, deviceId, MessageProtos.Envelope.newBuilder()
             .setServerTimestamp(Instant.now().getEpochSecond())
-            .setServerGuid(UUID.randomUUID().toString())
+            .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
             .build())
         .toCompletableFuture()
         .join());

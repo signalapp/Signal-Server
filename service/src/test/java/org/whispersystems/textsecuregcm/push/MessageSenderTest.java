@@ -555,7 +555,7 @@ class MessageSenderTest {
         .setContent(ByteString.copyFrom(TestRandomUtil.nextBytes(contentLength)));
 
     if (sourceIdentifier != null) {
-      envelopeBuilder.setSourceServiceId(sourceIdentifier.toServiceIdentifierString());
+      envelopeBuilder.setSourceServiceId(sourceIdentifier.toCompactByteString());
     }
 
     return envelopeBuilder.build();
@@ -704,7 +704,7 @@ class MessageSenderTest {
     assertThrows(IllegalArgumentException.class, () -> messageSender.sendMessages(account,
         serviceIdentifier,
         Map.of(deviceId, MessageProtos.Envelope.newBuilder()
-            .setSourceServiceId(serviceIdentifier.toServiceIdentifierString())
+            .setSourceServiceId(serviceIdentifier.toCompactByteString())
             .setSourceDevice(deviceId)
             .build()),
         Map.of(deviceId, 17),

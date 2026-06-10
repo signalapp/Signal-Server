@@ -21,6 +21,7 @@ import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 /**
  * Inserts an envelope into the message queue for a destination device and publishes a "new message available" event.
@@ -62,8 +63,8 @@ class MessagesCacheInsertScript {
     );
 
     final List<byte[]> args = new ArrayList<>(Arrays.asList(
-        EnvelopeUtil.compress(envelope).toByteArray(), // message
-        envelope.getServerGuid().getBytes(StandardCharsets.UTF_8), // guid
+        envelope.toByteArray(), // message
+        UUIDUtil.fromByteString(envelope.getServerGuid()).toString().getBytes(StandardCharsets.UTF_8), // guid
         NEW_MESSAGE_EVENT_BYTES // eventPayload
     ));
 

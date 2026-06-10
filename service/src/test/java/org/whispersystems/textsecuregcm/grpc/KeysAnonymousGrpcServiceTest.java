@@ -37,7 +37,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.mockito.Mock;
 import org.signal.chat.common.EcPreKey;
@@ -123,7 +122,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
         .setUnidentifiedAccessKey(ByteString.copyFrom(unidentifiedAccessKey))
         .setRequest(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
+            .setTargetIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
             .setDeviceId(Device.PRIMARY_ID))
         .build());
 
@@ -176,7 +175,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
     final GetPreKeysAnonymousResponse response = unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
         .setGroupSendToken(ByteString.copyFrom(token))
         .setRequest(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
+            .setTargetIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
             .setDeviceId(Device.PRIMARY_ID))
         .build());
 
@@ -223,7 +222,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
         .thenReturn(CompletableFuture.completedFuture(Optional.of(devicePreKeys)));
     final GetPreKeysAnonymousRequest.Builder request = GetPreKeysAnonymousRequest.newBuilder()
         .setRequest(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
+            .setTargetIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
             .setDeviceId(Device.PRIMARY_ID));
 
     if (includeUak) {
@@ -251,7 +250,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
   void getPreKeysNoAuth() {
     assertGetKeysFailure(Status.INVALID_ARGUMENT, GetPreKeysAnonymousRequest.newBuilder()
         .setRequest(GetPreKeysRequest.newBuilder()
-            .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID())))
+            .setTargetIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(UUID.randomUUID())))
             .setDeviceId(Device.PRIMARY_ID))
         .build());
 
@@ -275,7 +274,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
         GetPreKeysAnonymousRequest.newBuilder()
             .setUnidentifiedAccessKey(UUIDUtil.toByteString(UUID.randomUUID()))
             .setRequest(GetPreKeysRequest.newBuilder()
-                .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
+                .setTargetIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
                 .setDeviceId(Device.PRIMARY_ID))
             .build());
 
@@ -298,7 +297,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
         unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
             .setGroupSendToken(ByteString.copyFrom(token))
             .setRequest(GetPreKeysRequest.newBuilder()
-                .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
+                .setTargetIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(identifier))
                 .setDeviceId(Device.PRIMARY_ID))
             .build());
     assertTrue(preKeysResponse.hasFailedUnidentifiedAuthorization());
@@ -322,7 +321,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
         GetPreKeysAnonymousRequest.newBuilder()
             .setGroupSendToken(ByteString.copyFrom(token))
             .setRequest(GetPreKeysRequest.newBuilder()
-                .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(targetIdentifier))
+                .setTargetIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(targetIdentifier))
                 .setDeviceId(Device.PRIMARY_ID))
             .build());
     assertTrue(response.hasFailedUnidentifiedAuthorization());
@@ -340,7 +339,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
         unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
             .setUnidentifiedAccessKey(UUIDUtil.toByteString(UUID.randomUUID()))
             .setRequest(GetPreKeysRequest.newBuilder()
-                .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(nonexistentAci)))
+                .setTargetIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(nonexistentAci)))
             .build());
     assertTrue(preKeysResponse.hasFailedUnidentifiedAuthorization());
     verifyNoInteractions(keysManager);
@@ -363,7 +362,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
         unauthenticatedServiceStub().getPreKeys(GetPreKeysAnonymousRequest.newBuilder()
             .setGroupSendToken(ByteString.copyFrom(token))
             .setRequest(GetPreKeysRequest.newBuilder()
-                .setTargetIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(nonexistentAci)))
+                .setTargetIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(nonexistentAci)))
         .build());
     assertTrue(preKeysResponse.hasTargetNotFound());
     verifyNoInteractions(keysManager);
@@ -444,7 +443,7 @@ class KeysAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<KeysAnonymousGrpcS
           public void onNext(final CheckIdentityKeyResponse checkIdentityKeyResponse) {
             try {
               responses.put(
-                  ServiceIdentifierUtil.fromGrpcServiceIdentifier(checkIdentityKeyResponse.getTargetIdentifier()).uuid(),
+                  GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(checkIdentityKeyResponse.getTargetIdentifier()).uuid(),
                   new IdentityKey(checkIdentityKeyResponse.getIdentityKey().toByteArray()));
             } catch (final InvalidKeyException e) {
               throw new RuntimeException(e);

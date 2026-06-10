@@ -32,6 +32,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.metrics.DevicePlatformUtil;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -366,7 +367,7 @@ public class MessagePersister implements Managed {
                 TRIMMED_MESSAGE_BYTES_COUNTER.increment(envelope.getSerializedSize());
                 return Mono
                     .fromCompletionStage(() -> messagesManager
-                        .delete(aci, device, UUID.fromString(envelope.getServerGuid()), envelope.getServerTimestamp()))
+                        .delete(aci, device, UUIDUtil.fromByteString(envelope.getServerGuid()), envelope.getServerTimestamp()))
                     .retryWhen(retryBackoffSpec)
                     .map(Optional::isPresent);
               })

@@ -76,7 +76,7 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
         .orElseThrow(() -> GrpcExceptions.invalidCredentials("invalid credentials"));
 
     final ServiceIdentifier destinationServiceIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getDestination());
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getDestination());
 
     if (sender.isIdentifiedBy(destinationServiceIdentifier)) {
       throw GrpcExceptions.invalidArguments("use `sendSyncMessage` to send messages to own account");
@@ -159,8 +159,8 @@ public class MessagesGrpcService extends SimpleMessagesGrpc.MessagesImplBase {
                   .setType(getEnvelopeType(entry.getValue().getType()))
                   .setClientTimestamp(messages.getTimestamp())
                   .setServerTimestamp(clock.millis())
-                  .setDestinationServiceId(destinationServiceIdentifier.toServiceIdentifierString())
-                  .setSourceServiceId(new AciServiceIdentifier(sender.accountIdentifier()).toServiceIdentifierString())
+                  .setDestinationServiceId(destinationServiceIdentifier.toCompactByteString())
+                  .setSourceServiceId(new AciServiceIdentifier(sender.accountIdentifier()).toCompactByteString())
                   .setSourceDevice(sender.deviceId())
                   .setEphemeral(ephemeral)
                   .setUrgent(urgent)

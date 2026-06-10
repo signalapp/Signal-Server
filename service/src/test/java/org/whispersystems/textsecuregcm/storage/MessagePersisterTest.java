@@ -55,11 +55,12 @@ import org.mockito.stubbing.Answer;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagePersisterConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -132,7 +133,7 @@ class MessagePersisterTest {
     messageDeliveryScheduler = Schedulers.newBoundedElastic(10, 10_000, "messageDelivery");
     persistQueueScheduler = Schedulers.newBoundedElastic(10, 10_000, "persistQueue");
     messagesCache = spy(new MessagesCache(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        messageDeliveryScheduler, sharedExecutorService, mock(ScheduledExecutorService.class), CLOCK, mock(ExperimentEnrollmentManager.class)));
+        messageDeliveryScheduler, sharedExecutorService, mock(ScheduledExecutorService.class), CLOCK));
     messagePersister = new MessagePersister(messagesCache,
         messagesManager,
         accountsManager,
@@ -154,7 +155,7 @@ class MessagePersisterTest {
       messagesDynamoDb.store(messages, destinationUuid, destinationDevice);
 
       for (final MessageProtos.Envelope message : messages) {
-        messagesCache.remove(destinationUuid, destinationDevice.getId(), UUID.fromString(message.getServerGuid())).get();
+        messagesCache.remove(destinationUuid, destinationDevice.getId(), UUIDUtil.fromByteString(message.getServerGuid())).get();
       }
 
       return messages.size();
@@ -476,7 +477,7 @@ class MessagePersisterTest {
         .toList();
     final long cacheSize = cachedMessages.stream().mapToLong(MessageProtos.Envelope::getSerializedSize).sum();
     for (final MessageProtos.Envelope envelope : cachedMessages) {
-      messagesCache.insert(UUID.fromString(envelope.getServerGuid()), DESTINATION_ACCOUNT_UUID, Device.PRIMARY_ID, envelope).join();
+      messagesCache.insert(UUIDUtil.fromByteString(envelope.getServerGuid()), DESTINATION_ACCOUNT_UUID, Device.PRIMARY_ID, envelope).join();
     }
 
     final long expectedClearedBytes = (long) (cacheSize * EXTRA_ROOM_RATIO);
@@ -575,12 +576,12 @@ class MessagePersisterTest {
 
   private MessageProtos.Envelope generateMessage(UUID accountUuid, UUID messageGuid, long messageTimestamp, int contentSize) {
     return MessageProtos.Envelope.newBuilder()
-        .setDestinationServiceId(accountUuid.toString())
+        .setDestinationServiceId(new AciServiceIdentifier(accountUuid).toCompactByteString())
         .setClientTimestamp(messageTimestamp)
         .setServerTimestamp(messageTimestamp)
         .setContent(ByteString.copyFromUtf8(RandomStringUtils.secure().nextAlphanumeric(contentSize)))
         .setType(MessageProtos.Envelope.Type.CIPHERTEXT)
-        .setServerGuid(messageGuid.toString())
+        .setServerGuid(UUIDUtil.toByteString(messageGuid))
         .build();
   }
 }

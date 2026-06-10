@@ -211,7 +211,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
   public GetUnversionedProfileResponse getUnversionedProfile(final GetUnversionedProfileRequest request) throws RateLimitExceededException {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
     final ServiceIdentifier targetIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getServiceIdentifier());
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getServiceIdentifier());
     final Optional<Account> maybeAccount = validateRateLimitAndGetAccount(authenticatedDevice.accountIdentifier(), targetIdentifier);
 
     return maybeAccount.map(account -> GetUnversionedProfileResponse.newBuilder()
@@ -228,7 +228,7 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
   public GetVersionedProfileResponse getVersionedProfile(final GetVersionedProfileRequest request) throws RateLimitExceededException {
     final AuthenticatedDevice authenticatedDevice = AuthenticationUtil.requireAuthenticatedDevice();
     final ServiceIdentifier targetIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getAccountIdentifier());
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getAccountIdentifier());
 
     final Optional<Account> maybeAccount = validateRateLimitAndGetAccount(authenticatedDevice.accountIdentifier(), targetIdentifier);
 

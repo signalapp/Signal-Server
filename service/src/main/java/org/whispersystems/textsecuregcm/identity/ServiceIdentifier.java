@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.identity;
 
+import com.google.protobuf.ByteString;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 import org.signal.libsignal.protocol.ServiceId;
@@ -50,6 +51,15 @@ public sealed interface ServiceIdentifier permits AciServiceIdentifier, PniServi
   byte[] toCompactByteArray();
 
   /**
+   * Returns a compact binary representation of this account identifier as a {@link ByteString}.
+   *
+   * @return a binary representation of this account identifier
+   */
+  default ByteString toCompactByteString() {
+    return ByteString.copyFrom(toCompactByteArray());
+  }
+
+  /**
    * Returns a fixed-width binary representation of this account identifier.
    *
    * @return a binary representation of this account identifier
@@ -57,10 +67,19 @@ public sealed interface ServiceIdentifier permits AciServiceIdentifier, PniServi
   byte[] toFixedWidthByteArray();
 
   /**
+   * Returns a fixed-width binary representation of this account identifier as a {@link ByteString}.
+   *
+   * @return a binary representation of this account identifier
+   */
+  default ByteString toFixedWidthByteString() {
+    return ByteString.copyFrom(toFixedWidthByteArray());
+  }
+
+  /**
    * Parse a service identifier string, which should be a plain UUID string for ACIs and a prefixed UUID string for PNIs
    *
-   * @param string A service identifier string
-   * @return The parsed {@link ServiceIdentifier}
+   * @param string a service identifier string
+   * @return the parsed service identifier
    */
   static ServiceIdentifier valueOf(final String string) {
     try {
@@ -70,12 +89,28 @@ public sealed interface ServiceIdentifier permits AciServiceIdentifier, PniServi
     }
   }
 
+  /**
+   * Parse a service identifier from a byte array.
+   *
+   * @param bytes the byte array from which to parse a service identifier
+   * @return the parsed service identifier
+   */
   static ServiceIdentifier fromBytes(final byte[] bytes) {
     try {
       return AciServiceIdentifier.fromBytes(bytes);
     } catch (final IllegalArgumentException e) {
       return PniServiceIdentifier.fromBytes(bytes);
     }
+  }
+
+  /**
+   * Parse a service identifier from a byte string.
+   *
+   * @param byteString the byte string from which to parse a service identifier
+   * @return the parsed service identifier
+   */
+  static ServiceIdentifier fromByteString(final ByteString byteString) {
+    return fromBytes(byteString.toByteArray());
   }
 
   static ServiceIdentifier fromLibsignal(final ServiceId libsignalServiceId) {

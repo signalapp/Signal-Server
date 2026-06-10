@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 class MessagesCacheRemoveQueueScriptTest {
 
@@ -35,7 +36,7 @@ class MessagesCacheRemoveQueueScriptTest {
     final byte deviceId = 1;
     final MessageProtos.Envelope envelope1 = MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())
-        .setServerGuid(UUID.randomUUID().toString())
+        .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
         .build();
 
     insertScript.executeAsync(destinationUuid, deviceId, envelope1).toCompletableFuture().join();

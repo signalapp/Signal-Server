@@ -197,7 +197,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       final MessageProtos.Envelope.Builder expectedEnvelopeBuilder = MessageProtos.Envelope.newBuilder()
           .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
-          .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+          .setDestinationServiceId(serviceIdentifier.toCompactByteString())
           .setClientTimestamp(CLOCK.millis())
           .setServerTimestamp(CLOCK.millis())
           .setEphemeral(ephemeral)
@@ -318,7 +318,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       final SendMessageResponse expectedResponse = SendMessageResponse.newBuilder()
           .setMismatchedDevices(MismatchedDevices.newBuilder()
-              .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+              .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
               .addMissingDevices(missingDeviceId)
               .addStaleDevices(staleDeviceId)
               .addExtraDevices(extraDeviceId)
@@ -615,7 +615,7 @@ class MessagesAnonymousGrpcServiceTest extends
       messages.forEach(messageBundleBuilder::putMessages);
 
       final SendSealedSenderMessageRequest.Builder requestBuilder = SendSealedSenderMessageRequest.newBuilder()
-          .setDestination(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+          .setDestination(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
           .setMessages(messageBundleBuilder)
           .setEphemeral(ephemeral)
           .setUrgent(urgent);
@@ -687,7 +687,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       final SendMultiRecipientMessageResponse expectedResponse = SendMultiRecipientMessageResponse.newBuilder()
           .setSuccess(MultiRecipientSuccess.newBuilder()
-              .addUnresolvedRecipients(ServiceIdentifierUtil.toGrpcServiceIdentifier(unresolvedServiceIdentifier))
+              .addUnresolvedRecipients(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(unresolvedServiceIdentifier))
               .build())
           .build();
 
@@ -740,7 +740,7 @@ class MessagesAnonymousGrpcServiceTest extends
       final SendMultiRecipientMessageResponse expectedResponse = SendMultiRecipientMessageResponse.newBuilder()
           .setMismatchedDevices(MultiRecipientMismatchedDevices.newBuilder()
               .addMismatchedDevices(MismatchedDevices.newBuilder()
-                  .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+                  .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
                   .addMissingDevices(missingDeviceId)
                   .addExtraDevices(extraDeviceId)
                   .addStaleDevices(staleDeviceId)
@@ -1061,7 +1061,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       final MessageProtos.Envelope.Builder expectedEnvelopeBuilder = MessageProtos.Envelope.newBuilder()
           .setType(MessageProtos.Envelope.Type.UNIDENTIFIED_SENDER)
-          .setDestinationServiceId(serviceIdentifier.toServiceIdentifierString())
+          .setDestinationServiceId(serviceIdentifier.toCompactByteString())
           .setClientTimestamp(CLOCK.millis())
           .setServerTimestamp(CLOCK.millis())
           .setEphemeral(false)
@@ -1115,7 +1115,7 @@ class MessagesAnonymousGrpcServiceTest extends
 
       final SendMessageResponse expectedResponse = SendMessageResponse.newBuilder()
           .setMismatchedDevices(MismatchedDevices.newBuilder()
-              .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+              .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
               .addMissingDevices(missingDeviceId)
               .addStaleDevices(staleDeviceId)
               .addExtraDevices(extraDeviceId)
@@ -1323,7 +1323,7 @@ class MessagesAnonymousGrpcServiceTest extends
       messages.forEach(messageBundleBuilder::putMessages);
 
       return SendStoryMessageRequest.newBuilder()
-          .setDestination(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+          .setDestination(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
           .setMessages(messageBundleBuilder)
           .setUrgent(urgent)
           .build();
@@ -1424,7 +1424,7 @@ class MessagesAnonymousGrpcServiceTest extends
       final SendMultiRecipientMessageResponse expectedResponse = SendMultiRecipientMessageResponse.newBuilder()
           .setMismatchedDevices(MultiRecipientMismatchedDevices.newBuilder()
               .addMismatchedDevices(MismatchedDevices.newBuilder()
-                  .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
+                  .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier))
                   .addMissingDevices(missingDeviceId)
                   .addExtraDevices(extraDeviceId)
                   .addStaleDevices(staleDeviceId)

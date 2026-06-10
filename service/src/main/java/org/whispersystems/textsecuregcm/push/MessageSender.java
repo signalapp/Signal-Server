@@ -4,8 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.push;
 
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 import static org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.util.DataSize;
@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import kotlin.Pair;
-import org.apache.commons.lang3.StringUtils;
 import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.controllers.MessageDeliveryNotAllowedException;
@@ -327,15 +326,15 @@ public class MessageSender {
 
     final byte excludedDeviceId;
     if (syncMessageSenderDeviceId.isPresent()) {
-      if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isBlank(message.getSourceServiceId()) ||
-          !destination.isIdentifiedBy(ServiceIdentifier.valueOf(message.getSourceServiceId())))) {
+      if (messagesByDeviceId.values().stream().anyMatch(message -> !message.hasSourceServiceId() ||
+          !destination.isIdentifiedBy(ServiceIdentifier.fromByteString(message.getSourceServiceId())))) {
 
         throw new IllegalArgumentException("Sync message sender device ID specified, but one or more messages are not addressed to sender");
       }
       excludedDeviceId = syncMessageSenderDeviceId.get();
     } else {
-      if (messagesByDeviceId.values().stream().anyMatch(message -> StringUtils.isNotBlank(message.getSourceServiceId()) &&
-          destination.isIdentifiedBy(ServiceIdentifier.valueOf(message.getSourceServiceId())))) {
+      if (messagesByDeviceId.values().stream().anyMatch(message -> message.hasSourceServiceId() &&
+          destination.isIdentifiedBy(ServiceIdentifier.fromByteString(message.getSourceServiceId())))) {
 
         throw new IllegalArgumentException("Sync message sender device ID not specified, but one or more messages are addressed to sender");
       }

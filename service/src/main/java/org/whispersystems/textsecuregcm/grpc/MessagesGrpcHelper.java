@@ -23,7 +23,7 @@ public class MessagesGrpcHelper {
       final org.whispersystems.textsecuregcm.controllers.MismatchedDevices mismatchedDevices) {
 
     final MismatchedDevices.Builder mismatchedDevicesBuilder = MismatchedDevices.newBuilder()
-        .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier));
+        .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(serviceIdentifier));
 
     mismatchedDevices.missingDeviceIds().forEach(mismatchedDevicesBuilder::addMissingDevices);
     mismatchedDevices.extraDeviceIds().forEach(mismatchedDevicesBuilder::addExtraDevices);

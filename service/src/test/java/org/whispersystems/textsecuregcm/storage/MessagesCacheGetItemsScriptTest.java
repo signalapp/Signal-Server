@@ -21,9 +21,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
-import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 
 class MessagesCacheGetItemsScriptTest {
 
@@ -38,10 +38,10 @@ class MessagesCacheGetItemsScriptTest {
 
     final UUID destinationUuid = UUID.randomUUID();
     final byte deviceId = 1;
-    final String serverGuid = UUID.randomUUID().toString();
+    final UUID serverGuid = UUID.randomUUID();
     final MessageProtos.Envelope envelope1 = MessageProtos.Envelope.newBuilder()
         .setServerTimestamp(Instant.now().getEpochSecond())
-        .setServerGuid(serverGuid)
+        .setServerGuid(UUIDUtil.toByteString(serverGuid))
         .build();
 
     insertScript.executeAsync(destinationUuid, deviceId, envelope1).toCompletableFuture().join();
@@ -54,11 +54,9 @@ class MessagesCacheGetItemsScriptTest {
 
     assertNotNull(messageAndScores);
     assertEquals(2, messageAndScores.size());
-    final MessageProtos.Envelope resultEnvelope =
-        EnvelopeUtil.expand(MessageProtos.Envelope.parseFrom(messageAndScores.getFirst()),
-            mock(ExperimentEnrollmentManager.class));
+    final MessageProtos.Envelope resultEnvelope = MessageProtos.Envelope.parseFrom(messageAndScores.getFirst());
 
-    assertEquals(serverGuid, resultEnvelope.getServerGuid());
+    assertEquals(serverGuid, UUIDUtil.fromByteString(resultEnvelope.getServerGuid()));
   }
 
   @Test

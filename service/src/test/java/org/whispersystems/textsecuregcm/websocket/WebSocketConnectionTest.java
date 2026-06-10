@@ -56,6 +56,7 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.storage.MessagesManager;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.websocket.WebSocketClient;
 import org.whispersystems.websocket.messages.WebSocketResponseMessage;
 import reactor.adapter.JdkFlowAdapter;
@@ -177,13 +178,13 @@ class WebSocketConnectionTest {
     verify(receiptSender)
         .sendReceipt(new AciServiceIdentifier(destinationAccountIdentifier),
             deviceId,
-            AciServiceIdentifier.valueOf(successfulMessage.getSourceServiceId()),
+            AciServiceIdentifier.fromByteString(successfulMessage.getSourceServiceId()),
             successfulMessage.getClientTimestamp());
 
     verify(receiptSender)
         .sendReceipt(new AciServiceIdentifier(destinationAccountIdentifier),
             deviceId,
-            AciServiceIdentifier.valueOf(secondSuccessfulMessage.getSourceServiceId()),
+            AciServiceIdentifier.fromByteString(secondSuccessfulMessage.getSourceServiceId()),
             secondSuccessfulMessage.getClientTimestamp());
 
     webSocketConnection.stop();
@@ -253,19 +254,19 @@ class WebSocketConnectionTest {
     verify(receiptSender)
         .sendReceipt(new AciServiceIdentifier(destinationAccountIdentifier),
             deviceId,
-            AciServiceIdentifier.valueOf(successfulMessage.getSourceServiceId()),
+            AciServiceIdentifier.fromByteString(successfulMessage.getSourceServiceId()),
             successfulMessage.getClientTimestamp());
 
     verify(receiptSender, never())
         .sendReceipt(new AciServiceIdentifier(destinationAccountIdentifier),
             deviceId,
-            AciServiceIdentifier.valueOf(failedMessage.getSourceServiceId()),
+            AciServiceIdentifier.fromByteString(failedMessage.getSourceServiceId()),
             failedMessage.getClientTimestamp());
 
     verify(receiptSender, never())
         .sendReceipt(new AciServiceIdentifier(destinationAccountIdentifier),
             deviceId,
-            AciServiceIdentifier.valueOf(secondSuccessfulMessage.getSourceServiceId()),
+            AciServiceIdentifier.fromByteString(secondSuccessfulMessage.getSourceServiceId()),
             secondSuccessfulMessage.getClientTimestamp());
 
     verify(client, timeout(500)).close(eq(1011), anyString());
@@ -572,13 +573,13 @@ class WebSocketConnectionTest {
       final String content) {
 
     return Envelope.newBuilder()
-        .setServerGuid(UUID.randomUUID().toString())
+        .setServerGuid(UUIDUtil.toByteString(UUID.randomUUID()))
         .setType(Envelope.Type.CIPHERTEXT)
         .setClientTimestamp(timestamp)
         .setServerTimestamp(0)
-        .setSourceServiceId(senderUuid.toString())
+        .setSourceServiceId(new AciServiceIdentifier(senderUuid).toCompactByteString())
         .setSourceDevice(SOURCE_DEVICE_ID)
-        .setDestinationServiceId(destinationUuid.toString())
+        .setDestinationServiceId(new AciServiceIdentifier(destinationUuid).toCompactByteString())
         .setContent(ByteString.copyFrom(content.getBytes(StandardCharsets.UTF_8)))
         .build();
   }

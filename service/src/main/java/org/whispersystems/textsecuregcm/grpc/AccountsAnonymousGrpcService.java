@@ -38,7 +38,7 @@ public class AccountsAnonymousGrpcService extends SimpleAccountsAnonymousGrpc.Ac
       throws RateLimitExceededException {
 
     final ServiceIdentifier serviceIdentifier =
-        ServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getServiceIdentifier());
+        GrpcServiceIdentifierUtil.fromGrpcServiceIdentifier(request.getServiceIdentifier());
 
     RateLimitUtil.rateLimitByRemoteAddress(rateLimiters.getCheckAccountExistenceLimiter());
 
@@ -55,7 +55,7 @@ public class AccountsAnonymousGrpcService extends SimpleAccountsAnonymousGrpc.Ac
 
     return accountsManager.getByUsernameHash(request.getUsernameHash().toByteArray()).join()
         .map(account -> LookupUsernameHashResponse.newBuilder()
-            .setServiceIdentifier(ServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(account.getUuid())))
+            .setServiceIdentifier(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new AciServiceIdentifier(account.getUuid())))
             .build())
         .orElseGet(() -> LookupUsernameHashResponse.newBuilder().setNotFound(NotFound.getDefaultInstance()).build());
   }
