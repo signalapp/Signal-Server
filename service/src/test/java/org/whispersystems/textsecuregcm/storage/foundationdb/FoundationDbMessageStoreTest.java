@@ -34,13 +34,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -49,7 +49,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device;
@@ -62,7 +61,6 @@ import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.test.StepVerifier;
-import javax.annotation.Nullable;
 
 @Timeout(value = 5, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
 class FoundationDbMessageStoreTest {
@@ -85,7 +83,6 @@ class FoundationDbMessageStoreTest {
     foundationDbMessageStore = new FoundationDbMessageStore(
         FOUNDATION_DB_EXTENSION.getDatabases(),
         versionstampUUIDCipher,
-        Executors.newVirtualThreadPerTaskExecutor(),
         CLOCK);
   }
 

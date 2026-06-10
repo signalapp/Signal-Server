@@ -42,7 +42,6 @@ public class FoundationDbMessageStore {
 
   private final Database[] databases;
   private final VersionstampUUIDCipher versionstampUUIDCipher;
-  private final Executor executor;
   private final Clock clock;
 
   private static final Subspace MESSAGES_SUBSPACE = new Subspace(Tuple.from("M"));
@@ -64,12 +63,10 @@ public class FoundationDbMessageStore {
 
   public FoundationDbMessageStore(final Database[] databases,
       final VersionstampUUIDCipher versionstampUUIDCipher,
-      final Executor executor,
       final Clock clock) {
 
     this.databases = databases;
     this.versionstampUUIDCipher = versionstampUUIDCipher;
-    this.executor = executor;
     this.clock = clock;
   }
 
@@ -243,7 +240,7 @@ public class FoundationDbMessageStore {
         }));
 
     return CompletableFuture.allOf(messageInsertFuturesByDeviceId.values().toArray(CompletableFuture[]::new))
-        .thenApplyAsync(_ -> {
+        .thenApply(_ -> {
           final Map<Byte, Boolean> presenceByDeviceId = messageInsertFuturesByDeviceId.entrySet().stream()
               .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
                 assert entry.getValue().isDone();
@@ -258,7 +255,7 @@ public class FoundationDbMessageStore {
           }
 
           return presenceByDeviceId;
-        }, executor);
+        });
   }
 
   public MessageStream getMessages(final AciServiceIdentifier aci, final Device destinationDevice) {
