@@ -53,6 +53,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
+import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
@@ -161,6 +163,7 @@ public class OneTimeDonationController {
           properties = {
               @StringToClassMapItem(key = "error", value = String.class)
           })))
+  @RateLimitedByIp(RateLimiters.For.ONE_TIME_DONATION)
   public CompletableFuture<Response> createBoostPaymentIntent(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid CreateBoostRequest request,
