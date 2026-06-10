@@ -16,6 +16,7 @@ import java.util.Optional;
 import org.whispersystems.textsecuregcm.captcha.Action;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
+import org.whispersystems.textsecuregcm.captcha.InvalidCaptchaArgumentException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.metrics.CaptchaMetrics;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -69,7 +70,8 @@ public class RateLimitChallengeManager {
       final String captcha,
       final String mostRecentProxyIp,
       @Nullable final String userAgent,
-      final Optional<Float> scoreThreshold) throws RateLimitExceededException, IOException {
+      final Optional<Float> scoreThreshold)
+      throws RateLimitExceededException, IOException, InvalidCaptchaArgumentException {
 
     rateLimiters.getCaptchaChallengeAttemptLimiter().validate(account.getUuid());
 

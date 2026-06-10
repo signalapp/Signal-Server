@@ -19,7 +19,7 @@ public class RegistrationCaptchaManager {
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public Optional<AssessmentResult> assessCaptcha(final Optional<UUID> aci, final Optional<String> captcha, final String sourceHost, final String userAgent)
-      throws IOException {
+      throws IOException, InvalidCaptchaArgumentException{
     return captcha.isPresent()
         ? Optional.of(captchaChecker.verify(aci, Action.REGISTRATION, captcha.get(), sourceHost, userAgent))
         : Optional.empty();

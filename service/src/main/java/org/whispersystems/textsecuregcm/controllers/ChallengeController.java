@@ -34,6 +34,7 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.captcha.InvalidCaptchaArgumentException;
 import org.whispersystems.textsecuregcm.entities.AnswerCaptchaChallengeRequest;
 import org.whispersystems.textsecuregcm.entities.AnswerChallengeRequest;
 import org.whispersystems.textsecuregcm.entities.AnswerPushChallengeRequest;
@@ -126,6 +127,8 @@ public class ChallengeController {
       } else {
         tags = tags.and(CHALLENGE_TYPE_TAG, "unrecognized");
       }
+    } catch (final InvalidCaptchaArgumentException e) {
+      return Response.status(Response.Status.BAD_REQUEST.getStatusCode(), e.getMessage()).build();
     } catch (final IOException e) {
       logger.error("error assessing captcha during challenge response handling", e);
       return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();

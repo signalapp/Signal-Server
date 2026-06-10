@@ -16,9 +16,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import javax.annotation.Nullable;
 
 public class CaptchaChecker {
   private static final Logger logger = LoggerFactory.getLogger(CaptchaChecker.class);
@@ -53,20 +53,20 @@ public class CaptchaChecker {
    * @param userAgent      User-Agent of the solver
    * @return An {@link AssessmentResult} indicating whether the solution should be accepted, and a score that can be
    * used for metrics
-   * @throws IOException         if there is an error validating the captcha with the underlying service
-   * @throws BadRequestException if input is not in the expected format
+   * @throws IOException                     if there is an error validating the captcha with the underlying service
+   * @throws InvalidCaptchaArgumentException if input is not in the expected format
    */
   public AssessmentResult verify(
       final Optional<UUID> maybeAci,
       final Action expectedAction,
       final String input,
       final String ip,
-      @Nullable final String userAgent) throws IOException {
+      @Nullable final String userAgent) throws IOException, InvalidCaptchaArgumentException {
     final String[] parts = input.split("\\" + SEPARATOR, 4);
 
     // we allow missing actions, if we're missing 1 part, assume it's the action
     if (parts.length < 4) {
-      throw new BadRequestException("too few parts");
+      throw new InvalidCaptchaArgumentException("too few parts");
     }
 
     final String prefix = parts[0];
@@ -79,30 +79,30 @@ public class CaptchaChecker {
       // This is a "short" solution that points to the actual solution. We need to fetch the
       // full solution before proceeding
       provider = prefix.substring(0, prefix.length() - SHORT_SUFFIX.length());
-      token = shortCodeExpander.retrieve(token).orElseThrow(() -> new BadRequestException("invalid shortcode"));
+      token = shortCodeExpander.retrieve(token).orElseThrow(() -> new InvalidCaptchaArgumentException("invalid shortcode"));
     }
 
     final CaptchaClient client = this.captchaClientSupplier.apply(provider);
     if (client == null) {
-      throw new BadRequestException("invalid captcha scheme");
+      throw new InvalidCaptchaArgumentException("invalid captcha scheme");
     }
 
     final Action parsedAction = Action.parse(action)
         .orElseThrow(() -> {
-          Metrics.counter(INVALID_ACTION_COUNTER_NAME, "action", action).increment();
-          return new BadRequestException("invalid captcha action");
+          Metrics.counter(INVALID_ACTION_COUNTER_NAME).increment();
+          return new InvalidCaptchaArgumentException("invalid captcha action");
         });
 
     if (!parsedAction.equals(expectedAction)) {
       Metrics.counter(INVALID_ACTION_COUNTER_NAME, "action", action).increment();
-      throw new BadRequestException("invalid captcha action");
+      throw new InvalidCaptchaArgumentException("invalid captcha action");
     }
 
     final Set<String> allowedSiteKeys = client.validSiteKeys(parsedAction);
     if (!allowedSiteKeys.contains(siteKey)) {
       logger.debug("invalid site-key {}, action={}, token={}", siteKey, action, token);
       Metrics.counter(INVALID_SITEKEY_COUNTER_NAME, "action", action).increment();
-      throw new BadRequestException("invalid captcha site-key");
+      throw new InvalidCaptchaArgumentException("invalid captcha site-key");
     }
 
     final AssessmentResult result = client.verify(maybeAci, siteKey, parsedAction, token, ip, userAgent);

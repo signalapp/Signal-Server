@@ -66,6 +66,7 @@ import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
+import org.whispersystems.textsecuregcm.captcha.InvalidCaptchaArgumentException;
 import org.whispersystems.textsecuregcm.captcha.RegistrationCaptchaManager;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.CreateVerificationSessionRequest;
@@ -497,6 +498,8 @@ public class VerificationController {
     } catch (final IOException e) {
       logger.error("error assessing captcha during registration verification", e);
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, e);
+    } catch (InvalidCaptchaArgumentException e) {
+      throw new BadRequestException(e);
     }
 
     if (assessmentResult.isValid(captchaScoreThreshold)) {

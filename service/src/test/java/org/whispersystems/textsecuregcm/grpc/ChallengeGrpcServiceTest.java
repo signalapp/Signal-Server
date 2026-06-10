@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.signal.chat.challenge.AnswerChallengeRequest;
 import org.signal.chat.challenge.AnswerChallengeResponse;
 import org.signal.chat.challenge.ChallengeGrpc;
+import org.whispersystems.textsecuregcm.captcha.InvalidCaptchaArgumentException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
@@ -84,7 +85,8 @@ public class ChallengeGrpcServiceTest extends
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void handleCaptchaChallengeResponse(final boolean captchaSuccess) throws RateLimitExceededException, IOException {
+  void handleCaptchaChallengeResponse(final boolean captchaSuccess)
+      throws RateLimitExceededException, IOException, InvalidCaptchaArgumentException {
     when(challengeConstraintChecker.challengeConstraintsGrpc(account)).thenReturn(
         new ChallengeConstraintChecker.ChallengeConstraints(true, Optional.empty()));
     when(rateLimitChallengeManager.answerCaptchaChallenge(any(), any(), any(), any(), any())).thenReturn(
@@ -100,7 +102,8 @@ public class ChallengeGrpcServiceTest extends
   }
 
   @Test
-  void handleCaptchaChallengeResponseRateLimitExceeded() throws RateLimitExceededException, IOException {
+  void handleCaptchaChallengeResponseRateLimitExceeded()
+      throws RateLimitExceededException, IOException, InvalidCaptchaArgumentException {
     when(challengeConstraintChecker.challengeConstraintsGrpc(account)).thenReturn(
         new ChallengeConstraintChecker.ChallengeConstraints(true, Optional.empty()));
     final Duration retryAfter = Duration.ofMinutes(1);

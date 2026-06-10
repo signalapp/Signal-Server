@@ -79,7 +79,7 @@ public class CaptchaCheckerTest {
       final String input,
       final String expectedToken,
       final String siteKey,
-      final Action expectedAction) throws IOException {
+      final Action expectedAction) throws IOException, InvalidCaptchaArgumentException {
     final CaptchaClient captchaClient = mockClient(PREFIX);
     new CaptchaChecker(null, PREFIX -> captchaClient).verify(Optional.empty(), expectedAction, input, null, USER_AGENT);
     verify(captchaClient, times(1)).verify(any(), eq(siteKey), eq(expectedAction), eq(expectedToken), any(), eq(USER_AGENT));
@@ -103,7 +103,7 @@ public class CaptchaCheckerTest {
   }
 
   @Test
-  public void choose() throws IOException {
+  public void choose() throws IOException, InvalidCaptchaArgumentException {
     String ainput = String.join(SEPARATOR, PREFIX_A, CHALLENGE_SITE_KEY, "challenge", TOKEN);
     String binput = String.join(SEPARATOR, PREFIX_B, CHALLENGE_SITE_KEY, "challenge", TOKEN);
     final CaptchaClient a = mockClient(PREFIX_A);
@@ -134,13 +134,13 @@ public class CaptchaCheckerTest {
   @MethodSource
   public void badArgs(final String input) throws IOException {
     final CaptchaClient cc = mockClient(PREFIX);
-    assertThrows(BadRequestException.class,
+    assertThrows(InvalidCaptchaArgumentException.class,
         () -> new CaptchaChecker(null, prefix -> PREFIX.equals(prefix) ? cc : null).verify(Optional.of(ACI), Action.CHALLENGE, input, null, USER_AGENT));
 
   }
 
   @Test
-  public void testShortened() throws IOException {
+  public void testShortened() throws IOException, InvalidCaptchaArgumentException {
     final CaptchaClient captchaClient = mockClient(PREFIX);
     final ShortCodeExpander retriever = mock(ShortCodeExpander.class);
     when(retriever.retrieve("abc")).thenReturn(Optional.of(TOKEN));

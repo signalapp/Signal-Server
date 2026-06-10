@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.whispersystems.textsecuregcm.captcha.Action;
 import org.whispersystems.textsecuregcm.captcha.AssessmentResult;
 import org.whispersystems.textsecuregcm.captcha.CaptchaChecker;
+import org.whispersystems.textsecuregcm.captcha.InvalidCaptchaArgumentException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.spam.ChallengeType;
 import org.whispersystems.textsecuregcm.spam.RateLimitChallengeListener;
@@ -80,7 +81,7 @@ class RateLimitChallengeManagerTest {
   @ParameterizedTest
   @MethodSource
   void answerCaptchaChallenge(Optional<Float> scoreThreshold, float actualScore, boolean expectSuccess)
-    throws RateLimitExceededException, IOException {
+      throws RateLimitExceededException, IOException, InvalidCaptchaArgumentException {
     final Account account = mock(Account.class);
     when(account.getNumber()).thenReturn("+18005551234");
     when(account.getUuid()).thenReturn(UUID.randomUUID());

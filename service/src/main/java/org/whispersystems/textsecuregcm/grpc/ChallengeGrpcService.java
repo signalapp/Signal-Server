@@ -6,6 +6,7 @@ import org.signal.chat.challenge.AnswerChallengeResponse;
 import org.signal.chat.challenge.SimpleChallengeGrpc;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
+import org.whispersystems.textsecuregcm.captcha.InvalidCaptchaArgumentException;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.limits.RateLimitChallengeManager;
 import org.whispersystems.textsecuregcm.spam.ChallengeConstraintChecker;
@@ -40,12 +41,18 @@ public class ChallengeGrpcService extends SimpleChallengeGrpc.ChallengeImplBase 
     final boolean success = switch (request.getRequestCase()) {
       case PUSH -> constraints.pushPermitted() && rateLimitChallengeManager.answerPushChallenge(account,
           request.getPush().getChallenge());
-      case CAPTCHA -> rateLimitChallengeManager.answerCaptchaChallenge(
-          account,
-          request.getCaptcha().getCaptcha(),
-          RequestAttributesUtil.getRemoteAddress().getHostAddress(),
-          RequestAttributesUtil.getUserAgent().orElse(null),
-          constraints.captchaScoreThreshold());
+      case CAPTCHA -> {
+        try {
+          yield rateLimitChallengeManager.answerCaptchaChallenge(
+              account,
+              request.getCaptcha().getCaptcha(),
+              RequestAttributesUtil.getRemoteAddress().getHostAddress(),
+              RequestAttributesUtil.getUserAgent().orElse(null),
+              constraints.captchaScoreThreshold());
+        } catch (InvalidCaptchaArgumentException e) {
+          throw GrpcExceptions.invalidArguments(e.getMessage());
+        }
+      }
       case REQUEST_NOT_SET -> throw GrpcExceptions.fieldViolation("request", "Must set request type");
     };
 
