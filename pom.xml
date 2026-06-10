@@ -315,6 +315,11 @@
         <version>1.21.0</version>
       </dependency>
       <dependency>
+        <groupId>com.google.crypto.tink</groupId>
+        <artifactId>apps-webpush</artifactId>
+        <version>1.14.0</version>
+      </dependency>
+      <dependency>
         <groupId>com.redis</groupId>
         <artifactId>testcontainers-redis</artifactId>
         <version>2.2.4</version>

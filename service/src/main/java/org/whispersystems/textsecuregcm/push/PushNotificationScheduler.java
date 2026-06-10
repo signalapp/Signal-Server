@@ -30,6 +30,7 @@ import java.util.function.BiFunction;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.push.PushNotification.PushToken;
 import org.whispersystems.textsecuregcm.redis.ClusterLuaScript;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -47,6 +48,7 @@ public class PushNotificationScheduler implements Managed {
 
   private static final String PENDING_BACKGROUND_APN_NOTIFICATIONS_KEY_PREFIX = "PENDING_BACKGROUND_APN";
   private static final String PENDING_BACKGROUND_FCM_NOTIFICATIONS_KEY_PREFIX = "PENDING_BACKGROUND_FCM";
+  private static final String PENDING_BACKGROUND_WEBPUSH_NOTIFICATIONS_KEY_PREFIX = "PENDING_BACKGROUND_WEBPUSH";
   private static final String LAST_BACKGROUND_NOTIFICATION_TIMESTAMP_KEY_PREFIX = "LAST_BACKGROUND_NOTIFICATION";
   private static final String PENDING_DELAYED_NOTIFICATIONS_KEY_PREFIX = "DELAYED";
 
@@ -65,6 +67,7 @@ public class PushNotificationScheduler implements Managed {
 
   private final APNSender apnSender;
   private final FcmSender fcmSender;
+  private final WebPushSender webPushSender;
   private final AccountsManager accountsManager;
   private final FaultTolerantRedisClusterClient pushSchedulingCluster;
   private final ScheduledExecutorService retryExecutor;
@@ -157,6 +160,7 @@ public class PushNotificationScheduler implements Managed {
   public PushNotificationScheduler(final FaultTolerantRedisClusterClient pushSchedulingCluster,
       final APNSender apnSender,
       final FcmSender fcmSender,
+      final WebPushSender webPushSender,
       final AccountsManager accountsManager,
       final int dedicatedProcessWorkerThreadCount,
       final int workerMaxConcurrency,
@@ -165,6 +169,7 @@ public class PushNotificationScheduler implements Managed {
     this(pushSchedulingCluster,
         apnSender,
         fcmSender,
+        webPushSender,
         accountsManager,
         Clock.systemUTC(),
         dedicatedProcessWorkerThreadCount,
@@ -176,6 +181,7 @@ public class PushNotificationScheduler implements Managed {
   PushNotificationScheduler(final FaultTolerantRedisClusterClient pushSchedulingCluster,
       final APNSender apnSender,
       final FcmSender fcmSender,
+      final WebPushSender webPushSender,
       final AccountsManager accountsManager,
       final Clock clock,
       final int dedicatedProcessThreadCount,
@@ -184,6 +190,7 @@ public class PushNotificationScheduler implements Managed {
 
     this.apnSender = apnSender;
     this.fcmSender = fcmSender;
+    this.webPushSender = webPushSender;
     this.accountsManager = accountsManager;
     this.pushSchedulingCluster = pushSchedulingCluster;
     this.clock = clock;
@@ -207,7 +214,8 @@ public class PushNotificationScheduler implements Managed {
    * @throws IllegalArgumentException if the given device does not have a push token
    */
   public CompletionStage<Void> scheduleBackgroundNotification(final PushNotification.TokenType tokenType, final Account account, final Device device) {
-    if (StringUtils.isBlank(getPushToken(tokenType, device))) {
+    final PushToken<?> pushToken = Device.getPushToken(device, tokenType);
+    if (pushToken.isBlank()) {
       throw new IllegalArgumentException("Device must have an " + tokenType + " token");
     }
     Metrics.counter(BACKGROUND_NOTIFICATION_SCHEDULED_COUNTER_NAME, "type", tokenType.name()).increment();
@@ -296,14 +304,15 @@ public class PushNotificationScheduler implements Managed {
 
   @VisibleForTesting
   CompletableFuture<Void> sendBackgroundNotification(PushNotification.TokenType tokenType, final Account account, final Device device) {
-    final String pushToken = getPushToken(tokenType, device);
-    if (StringUtils.isBlank(pushToken)) {
+    final PushToken<?> pushToken = Device.getPushToken(device, tokenType);
+    if (pushToken.isBlank()) {
       return CompletableFuture.completedFuture(null);
     }
 
     final PushNotificationSender sender = switch (tokenType) {
       case FCM -> fcmSender;
       case APN -> apnSender;
+      case WEBPUSH -> webPushSender;
     };
 
     // It's okay for the "last notification" timestamp to expire after the "cooldown" period has elapsed; a missing
@@ -311,7 +320,7 @@ public class PushNotificationScheduler implements Managed {
     return pushSchedulingCluster.withCluster(connection -> connection.async().set(
         getLastBackgroundNotificationTimestampKey(account, device),
         String.valueOf(clock.millis()), new SetArgs().ex(BACKGROUND_NOTIFICATION_PERIOD)))
-        .thenCompose(ignored -> sender.sendNotification(new PushNotification(pushToken, tokenType, PushNotification.NotificationType.NOTIFICATION, null, account, device, false, null)))
+        .thenCompose(ignored -> sender.sendNotification(new PushNotification(pushToken, PushNotification.NotificationType.NOTIFICATION, null, account, device, false, null)))
         .thenAccept(response -> Metrics.counter(BACKGROUND_NOTIFICATION_SENT_COUNTER_NAME,
                 ACCEPTED_TAG, String.valueOf(response.accepted()))
             .increment())
@@ -320,22 +329,26 @@ public class PushNotificationScheduler implements Managed {
 
   @VisibleForTesting
   CompletableFuture<Void> sendDelayedNotification(final Account account, final Device device) {
-    if (StringUtils.isAllBlank(device.getApnId(), device.getGcmId())) {
+    final PushToken<?> pushToken;
+    try {
+      pushToken = Device.getPushToken(device);
+    } catch (NotPushRegisteredException e) {
       return CompletableFuture.completedFuture(null);
     }
 
-    final boolean isApnsDevice = StringUtils.isNotBlank(device.getApnId());
-
     final PushNotification pushNotification = new PushNotification(
-        isApnsDevice ? device.getApnId() : device.getGcmId(),
-        isApnsDevice ? PushNotification.TokenType.APN : PushNotification.TokenType.FCM,
+        pushToken,
         PushNotification.NotificationType.NOTIFICATION,
         null,
         account,
         device,
         true, null);
 
-    final PushNotificationSender pushNotificationSender = isApnsDevice ? apnSender : fcmSender;
+    final PushNotificationSender pushNotificationSender = switch(pushToken.type()) {
+      case PushNotification.TokenType.FCM -> fcmSender;
+      case PushNotification.TokenType.APN -> apnSender;
+      case PushNotification.TokenType.WEBPUSH -> webPushSender;
+    };
 
     return pushNotificationSender.sendNotification(pushNotification)
         .thenAccept(response -> Metrics.counter(DELAYED_NOTIFICATION_SENT_COUNTER_NAME,
@@ -388,6 +401,7 @@ public class PushNotificationScheduler implements Managed {
     final String prefix = switch (tokenType) {
       case APN -> PENDING_BACKGROUND_APN_NOTIFICATIONS_KEY_PREFIX;
       case FCM -> PENDING_BACKGROUND_FCM_NOTIFICATIONS_KEY_PREFIX;
+      case WEBPUSH -> PENDING_BACKGROUND_WEBPUSH_NOTIFICATIONS_KEY_PREFIX;
     };
     return prefix + "::{" + RedisClusterUtil.getMinimalHashTag(slot) + "}";
   }
@@ -439,12 +453,5 @@ public class PushNotificationScheduler implements Managed {
     } else {
       return "unknown";
     }
-  }
-
-  private static String getPushToken(final PushNotification.TokenType tokenType, final Device device) {
-    return switch (tokenType) {
-      case FCM -> device.getGcmId();
-      case APN -> device.getApnId();
-    };
   }
 }

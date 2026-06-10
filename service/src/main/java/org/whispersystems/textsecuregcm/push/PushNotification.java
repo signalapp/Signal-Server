@@ -7,11 +7,11 @@ package org.whispersystems.textsecuregcm.push;
 
 import java.time.Duration;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 
-public record PushNotification(String deviceToken,
-                               TokenType tokenType,
+public record PushNotification(PushToken<?> pushToken,
                                NotificationType notificationType,
                                @Nullable Object data,
                                @Nullable Account destination,
@@ -34,6 +34,7 @@ public record PushNotification(String deviceToken,
   }
 
   public enum TokenType {
+    WEBPUSH,
     FCM,
     APN
   }
@@ -42,5 +43,32 @@ public record PushNotification(String deviceToken,
     if (ttl != null && ttl.compareTo(MAX_TTL) > 0) {
       throw new IllegalArgumentException("TTL must not be longer than " + MAX_TTL);
     }
+  }
+
+  public sealed interface PushToken<T> permits PushToken.FCM, PushToken.APN, PushToken.WEBPUSH {
+    T value();
+    TokenType type();
+
+    default boolean isBlank() {
+      if (value() == null) return true;
+      return switch(value()) {
+        case String s -> StringUtils.isBlank(s);
+        default -> false;
+      };
+    }
+
+    public record FCM(String value) implements PushToken<String> {
+      public TokenType type() { return TokenType.FCM; }
+    }
+    public record APN(String value) implements PushToken<String> {
+      public TokenType type() { return TokenType.APN; }
+    }
+    public record WEBPUSH(WebPushSubscription value) implements PushToken<WebPushSubscription> {
+      public TokenType type() { return TokenType.WEBPUSH; }
+    }
+  }
+
+  public TokenType tokenType() {
+    return pushToken().type();
   }
 }

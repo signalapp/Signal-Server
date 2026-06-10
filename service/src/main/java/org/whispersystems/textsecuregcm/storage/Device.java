@@ -20,8 +20,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
+
+import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.push.PushNotification.PushToken;
+import org.whispersystems.textsecuregcm.push.PushNotification.TokenType;
 import org.whispersystems.textsecuregcm.push.WebPushSubscription;
 import org.whispersystems.textsecuregcm.util.ByteArrayAdapter;
 import org.whispersystems.textsecuregcm.util.DeviceCapabilityAdapter;
@@ -277,5 +282,28 @@ public class Device {
 
   public String getUserAgent() {
     return this.userAgent;
+  }
+
+  public static PushToken<?> getPushToken(final Device device) throws NotPushRegisteredException {
+    final String gcmId = device.getGcmId();
+    final String apnId = device.getApnId();
+    final WebPushSubscription webPushSub = device.getWebPush();
+    if (StringUtils.isNotBlank(gcmId)) {
+      return new PushToken.FCM(gcmId);
+    } else if (StringUtils.isNotBlank(apnId)) {
+      return new PushToken.APN(apnId);
+    } else if (webPushSub != null) {
+      return new PushToken.WEBPUSH(webPushSub);
+    } else {
+      throw new NotPushRegisteredException();
+    }
+  }
+
+  public static @Nullable PushToken<?> getPushToken(final Device device, final TokenType tokenType) {
+    return switch (tokenType) {
+      case TokenType.WEBPUSH -> new PushToken.WEBPUSH(device.getWebPush());
+      case TokenType.FCM -> new PushToken.FCM(device.getGcmId());
+      case TokenType.APN -> new PushToken.APN(device.getApnId());
+    };
   }
 }

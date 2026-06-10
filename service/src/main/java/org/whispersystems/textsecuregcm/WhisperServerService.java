@@ -238,6 +238,7 @@ import org.whispersystems.textsecuregcm.push.PushNotificationManager;
 import org.whispersystems.textsecuregcm.push.PushNotificationScheduler;
 import org.whispersystems.textsecuregcm.push.ReceiptSender;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
+import org.whispersystems.textsecuregcm.push.WebPushSender;
 import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -642,6 +643,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final BlockingQueue<Runnable> receiptSenderQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "receiptSenderQueue"), Collections.emptyList(), receiptSenderQueue);
     final BlockingQueue<Runnable> fcmSenderQueue = new LinkedBlockingQueue<>();
+    final BlockingQueue<Runnable> webPushSenderQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(name(getClass(), "fcmSenderQueue"), Collections.emptyList(), fcmSenderQueue);
     final BlockingQueue<Runnable> messageDeliveryQueue = new LinkedBlockingQueue<>();
     Metrics.gaugeCollectionSize(MetricsUtil.name(getClass(), "messageDeliveryQueue"), Collections.emptyList(),
@@ -652,6 +654,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .maxThreads(1).minThreads(1).build();
     ExecutorService fcmSenderExecutor = ExecutorServiceBuilder.of(environment, "fcmSender")
         .maxThreads(32).minThreads(32).workQueue(fcmSenderQueue).build();
+    ExecutorService webPushSenderExecutor = ExecutorServiceBuilder.of(environment, "webPushSender")
+        .maxThreads(32).minThreads(32).workQueue(webPushSenderQueue).build();
     ExecutorService secureValueRecoveryServiceExecutor = ExecutorServiceBuilder.of(environment, "secureValueRecoveryService")
         .maxThreads(1).minThreads(1).build();
     ExecutorService storageServiceExecutor = ExecutorServiceBuilder.of(environment, "storageService")
@@ -828,12 +832,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getRegistrationTotpConfiguration().maxValidationDelay(),
             webAuthnCeremonyManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs, config.getRemoteConfigConfiguration().globalConfig());
+    WebPushSender webPushSender = new WebPushSender(webPushSenderExecutor);
     APNSender apnSender = new APNSender(apnSenderExecutor, Clock.systemUTC(), config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
-        apnSender, fcmSender, accountsManager, 0, 0, retryExecutor);
+        apnSender, fcmSender, webPushSender, accountsManager, 0, 0, retryExecutor);
     PushNotificationManager pushNotificationManager =
-        new PushNotificationManager(accountsManager, apnSender, fcmSender, pushNotificationScheduler);
+        new PushNotificationManager(accountsManager, apnSender, fcmSender, webPushSender, pushNotificationScheduler);
     RateLimiters rateLimiters = RateLimiters.create(dynamicConfigurationManager, rateLimitersCluster, retryExecutor);
     ProvisioningManager provisioningManager = new ProvisioningManager(pubsubClient);
     IssuedReceiptsManager issuedReceiptsManager = new IssuedReceiptsManager(

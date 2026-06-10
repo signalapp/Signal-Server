@@ -15,20 +15,19 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.util.Pair;
 
 public class PushNotificationManager {
 
   private final AccountsManager accountsManager;
   private final APNSender apnSender;
   private final FcmSender fcmSender;
+  private final WebPushSender webPushSender;
   private final PushNotificationScheduler pushNotificationScheduler;
 
   private static final Duration VERIFICATION_CODE_TTL = Duration.ofMinutes(10);
@@ -42,19 +41,21 @@ public class PushNotificationManager {
   public PushNotificationManager(final AccountsManager accountsManager,
       final APNSender apnSender,
       final FcmSender fcmSender,
+      final WebPushSender webPushSender,
       final PushNotificationScheduler pushNotificationScheduler) {
 
     this.accountsManager = accountsManager;
     this.apnSender = apnSender;
     this.fcmSender = fcmSender;
+    this.webPushSender = webPushSender;
     this.pushNotificationScheduler = pushNotificationScheduler;
   }
 
   public CompletableFuture<Optional<SendPushNotificationResult>> sendNewMessageNotification(final Account destination, final byte destinationDeviceId, final boolean urgent) throws NotPushRegisteredException {
     final Device device = destination.getDevice(destinationDeviceId).orElseThrow(NotPushRegisteredException::new);
-    final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
+    final PushNotification.PushToken<?> token = Device.getPushToken(device);
 
-    return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
+    return sendNotification(new PushNotification(token,
         PushNotification.NotificationType.NOTIFICATION, null, destination, device, urgent, null));
   }
 
@@ -68,18 +69,17 @@ public class PushNotificationManager {
       throws NotPushRegisteredException {
 
     final Device device = destination.getPrimaryDevice();
-    final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
+    final PushNotification.PushToken<?> token = Device.getPushToken(device);
 
-    return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
+    return sendNotification(new PushNotification(token,
         PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, destination, device, true, null))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
   }
 
   public CompletableFuture<SendPushNotificationResult> sendAttemptLoginNotification(final Account destination, final String context) throws NotPushRegisteredException {
     final Device device = destination.getDevice(Device.PRIMARY_ID).orElseThrow(NotPushRegisteredException::new);
-    final Pair<String, PushNotification.TokenType> tokenAndType = getToken(device);
-
-    return sendNotification(new PushNotification(tokenAndType.first(), tokenAndType.second(),
+    final PushNotification.PushToken<?> token = Device.getPushToken(device);
+    return sendNotification(new PushNotification(token,
         PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY,
         context, destination, device, true, null))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
@@ -88,10 +88,8 @@ public class PushNotificationManager {
   public CompletableFuture<SendPushNotificationResult> sendVerificationCodeRequestedNotifications(final Account destination, final Instant requestTimestamp)
       throws NotPushRegisteredException {
 
-    final Pair<String, PushNotification.TokenType> tokenAndType = getToken(destination.getPrimaryDevice());
-
-    return sendNotification(new PushNotification(tokenAndType.first(),
-        tokenAndType.second(),
+    final PushNotification.PushToken<?> token = Device.getPushToken(destination.getPrimaryDevice());
+    return sendNotification(new PushNotification(token,
         PushNotification.NotificationType.VERIFICATION_CODE_REQUESTED,
         new VerificationCodeRequestData(requestTimestamp.toEpochMilli()),
         destination,
@@ -104,21 +102,6 @@ public class PushNotificationManager {
 
   public void handleMessagesRetrieved(final Account account, final Device device, final String userAgent) {
     pushNotificationScheduler.cancelScheduledNotifications(account, device).whenComplete(logErrors());
-  }
-
-  @VisibleForTesting
-  Pair<String, PushNotification.TokenType> getToken(final Device device) throws NotPushRegisteredException {
-    final Pair<String, PushNotification.TokenType> tokenAndType;
-
-    if (StringUtils.isNotBlank(device.getGcmId())) {
-      tokenAndType = new Pair<>(device.getGcmId(), PushNotification.TokenType.FCM);
-    } else if (StringUtils.isNotBlank(device.getApnId())) {
-      tokenAndType = new Pair<>(device.getApnId(), PushNotification.TokenType.APN);
-    } else {
-      throw new NotPushRegisteredException();
-    }
-
-    return tokenAndType;
   }
 
   @VisibleForTesting
@@ -136,6 +119,7 @@ public class PushNotificationManager {
     final PushNotificationSender sender = switch (pushNotification.tokenType()) {
       case FCM -> fcmSender;
       case APN -> apnSender;
+      case WEBPUSH -> webPushSender;
     };
 
     return sender.sendNotification(pushNotification).whenComplete((result, throwable) -> {
@@ -206,9 +190,9 @@ public class PushNotificationManager {
   }
 
   private void clearPushToken(final Account account, final Device device, final PushNotification.TokenType tokenType) {
-    final String originalToken = getPushToken(device, tokenType);
+    final PushNotification.PushToken<?> originalToken = Device.getPushToken(device, tokenType);
 
-    if (originalToken == null) {
+    if (originalToken.isBlank()) {
       return;
     }
 
@@ -219,19 +203,13 @@ public class PushNotificationManager {
         rereadAccount.getDevice(device.getId()).ifPresent(rereadDevice ->
             accountsManager.updateDevice(rereadAccount.getAccountIdentifier(), device.getId(), d -> {
               // Don't clear the token if it's already changed
-              if (originalToken.equals(getPushToken(d, tokenType))) {
+              if (originalToken.equals(Device.getPushToken(d, tokenType))) {
                 switch (tokenType) {
+                  case WEBPUSH -> d.setWebPush(null);
                   case FCM -> d.setGcmId(null);
                   case APN -> d.setApnId(null);
                 }
               }
             })));
-  }
-
-  private static String getPushToken(final Device device, final PushNotification.TokenType tokenType) {
-    return switch (tokenType) {
-      case FCM -> device.getGcmId();
-      case APN -> device.getApnId();
-    };
   }
 }

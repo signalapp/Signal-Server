@@ -33,6 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.stubbing.Answer;
+import org.whispersystems.textsecuregcm.push.PushNotification.PushToken;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
@@ -73,7 +74,7 @@ class APNSenderTest {
         .thenAnswer(
             (Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
-    PushNotification pushNotification = new PushNotification(DESTINATION_DEVICE_TOKEN, PushNotification.TokenType.APN,
+    PushNotification pushNotification = new PushNotification(new PushToken.APN(DESTINATION_DEVICE_TOKEN),
         PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, urgent, null);
 
     final SendPushNotificationResult result = apnSender.sendNotification(pushNotification).join();
@@ -117,7 +118,7 @@ class APNSenderTest {
         .thenAnswer(
             (Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
-    PushNotification pushNotification = new PushNotification(DESTINATION_DEVICE_TOKEN, PushNotification.TokenType.APN,
+    PushNotification pushNotification = new PushNotification(new PushToken.APN(DESTINATION_DEVICE_TOKEN),
         PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, true, null);
 
     when(destinationDevice.getApnId()).thenReturn(DESTINATION_DEVICE_TOKEN);
@@ -148,7 +149,7 @@ class APNSenderTest {
         .thenAnswer(
             (Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0), response));
 
-    PushNotification pushNotification = new PushNotification(DESTINATION_DEVICE_TOKEN, PushNotification.TokenType.APN,
+    PushNotification pushNotification = new PushNotification(new PushToken.APN(DESTINATION_DEVICE_TOKEN),
         PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, true, null);
 
     final SendPushNotificationResult result = apnSender.sendNotification(pushNotification).join();
@@ -175,7 +176,7 @@ class APNSenderTest {
         .thenAnswer((Answer) invocationOnMock -> new MockPushNotificationFuture<>(invocationOnMock.getArgument(0),
             new IOException("lost connection")));
 
-    PushNotification pushNotification = new PushNotification(DESTINATION_DEVICE_TOKEN, PushNotification.TokenType.APN,
+    PushNotification pushNotification = new PushNotification(new PushToken.APN(DESTINATION_DEVICE_TOKEN),
         PushNotification.NotificationType.NOTIFICATION, null, destinationAccount, destinationDevice, true, null);
 
     assertThatThrownBy(() -> apnSender.sendNotification(pushNotification).join())

@@ -304,6 +304,10 @@
       <groupId>com.google.crypto.tink</groupId>
       <artifactId>tink</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.google.crypto.tink</groupId>
+      <artifactId>apps-webpush</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>com.google.firebase</groupId>

@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.whispersystems.textsecuregcm.push.PushNotification.PushToken;
 import org.whispersystems.textsecuregcm.tests.util.SynchronousExecutorService;
 
 class FcmSenderTest {
@@ -54,7 +55,7 @@ class FcmSenderTest {
 
   @Test
   void testSendMessage() {
-    final PushNotification pushNotification = new PushNotification("foo", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, null, null, true,
+    final PushNotification pushNotification = new PushNotification(new PushToken.FCM("foo"), PushNotification.NotificationType.NOTIFICATION, null, null, null, true,
         null);
 
     final SettableApiFuture<String> sendFuture = SettableApiFuture.create();
@@ -72,7 +73,7 @@ class FcmSenderTest {
 
   @Test
   void testSendMessageRejected() {
-    final PushNotification pushNotification = new PushNotification("foo", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, null, null, true,
+    final PushNotification pushNotification = new PushNotification(new PushToken.FCM("foo"), PushNotification.NotificationType.NOTIFICATION, null, null, null, true,
         null);
 
     final FirebaseMessagingException invalidArgumentException = mock(FirebaseMessagingException.class);
@@ -93,7 +94,7 @@ class FcmSenderTest {
 
   @Test
   void testSendMessageUnregistered() {
-    final PushNotification pushNotification = new PushNotification("foo", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, null, null, true,
+    final PushNotification pushNotification = new PushNotification(new PushToken.FCM("foo"), PushNotification.NotificationType.NOTIFICATION, null, null, null, true,
         null);
 
     final FirebaseMessagingException unregisteredException = mock(FirebaseMessagingException.class);
@@ -114,7 +115,7 @@ class FcmSenderTest {
 
   @Test
   void testSendMessageException() {
-    final PushNotification pushNotification = new PushNotification("foo", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, null, null, true,
+    final PushNotification pushNotification = new PushNotification(new PushToken.FCM("foo"), PushNotification.NotificationType.NOTIFICATION, null, null, null, true,
         null);
 
     final SettableApiFuture<String> sendFuture = SettableApiFuture.create();

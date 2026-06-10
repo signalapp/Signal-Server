@@ -86,7 +86,7 @@ public class FcmSender implements PushNotificationSender {
   @Override
   public CompletableFuture<SendPushNotificationResult> sendNotification(PushNotification pushNotification) {
     Message.Builder builder = Message.builder()
-        .setToken(pushNotification.deviceToken())
+        .setToken((String) pushNotification.pushToken().value())
         .setAndroidConfig(AndroidConfig.builder()
             .setPriority(pushNotification.urgent() ? AndroidConfig.Priority.HIGH : AndroidConfig.Priority.NORMAL)
             .setTtl(pushNotification.ttl() != null ? pushNotification.ttl().toMillis() : DEFAULT_TTL_MILLIS)

@@ -88,6 +88,7 @@ public class ScheduledApnPushNotificationSenderServiceCommand extends ServerComm
         deps.pushSchedulerCluster(),
         deps.apnSender(),
         deps.fcmSender(),
+        deps.webPushSender(),
         deps.accountsManager(),
         namespace.getInt(WORKER_COUNT),
         namespace.getInt(MAX_CONCURRENCY),

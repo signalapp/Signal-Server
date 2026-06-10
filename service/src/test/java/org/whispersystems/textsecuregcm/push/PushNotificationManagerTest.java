@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.net.HttpHeaders;
 import java.time.Instant;
 import java.util.Optional;
@@ -25,16 +26,20 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.push.PushNotification.PushToken;
+import org.whispersystems.textsecuregcm.push.PushNotification.TokenType;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 
 class PushNotificationManagerTest {
 
   private AccountsManager accountsManager;
   private APNSender apnSender;
   private FcmSender fcmSender;
+  private WebPushSender webPushSender;
   private PushNotificationScheduler pushNotificationScheduler;
 
   private PushNotificationManager pushNotificationManager;
@@ -44,11 +49,12 @@ class PushNotificationManagerTest {
     accountsManager = mock(AccountsManager.class);
     apnSender = mock(APNSender.class);
     fcmSender = mock(FcmSender.class);
+    webPushSender = mock(WebPushSender.class);
     pushNotificationScheduler = mock(PushNotificationScheduler.class);
 
     AccountsHelper.setupMockUpdate(accountsManager);
 
-    pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender,
+    pushNotificationManager = new PushNotificationManager(accountsManager, apnSender, fcmSender, webPushSender,
         pushNotificationScheduler);
   }
 
@@ -57,16 +63,16 @@ class PushNotificationManagerTest {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
 
-    final String deviceToken = "token";
+    final PushToken<?> deviceToken = new PushToken.FCM("token");
 
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
-    when(device.getGcmId()).thenReturn(deviceToken);
+    when(device.getGcmId()).thenReturn((String) deviceToken.value());
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
 
       when(fcmSender.sendNotification(any()))
           .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
     pushNotificationManager.sendNewMessageNotification(account, Device.PRIMARY_ID, true);
-    verify(fcmSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null));
+    verify(fcmSender).sendNotification(new PushNotification(deviceToken, PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null));
   }
 
   @Test
@@ -74,10 +80,10 @@ class PushNotificationManagerTest {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
 
-    final String deviceToken = "token";
+    final PushToken<?> deviceToken = new PushToken.FCM("token");
 
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
-    when(device.getGcmId()).thenReturn(deviceToken);
+    when(device.getGcmId()).thenReturn((String) deviceToken.value());
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
 
     when(pushNotificationScheduler.scheduleBackgroundNotification(any(), any(), any()))
@@ -89,14 +95,14 @@ class PushNotificationManagerTest {
 
   @Test
   void sendRegistrationChallengeNotification() {
-    final String deviceToken = "token";
+    final PushToken<?> deviceToken = new PushToken.APN("token");
     final String challengeToken = "challenge";
 
     when(apnSender.sendNotification(any()))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
 
     pushNotificationManager.sendRegistrationChallengeNotification(deviceToken, PushNotification.TokenType.APN, challengeToken);
-    verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.APN, PushNotification.NotificationType.CHALLENGE, challengeToken, null, null, true, null));
+    verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.NotificationType.CHALLENGE, challengeToken, null, null, true, null));
   }
 
   @Test
@@ -104,48 +110,76 @@ class PushNotificationManagerTest {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
 
-    final String deviceToken = "token";
+    final PushToken<?> deviceToken = new PushToken.APN("token");
     final String challengeToken = "challenge";
 
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
-    when(device.getApnId()).thenReturn(deviceToken);
+    when(device.getApnId()).thenReturn((String) deviceToken.value());
     when(account.getPrimaryDevice()).thenReturn(device);
 
     when(apnSender.sendNotification(any()))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
 
     pushNotificationManager.sendRateLimitChallengeNotification(account, challengeToken);
-    verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.APN, PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, account, device, true, null));
+    verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.NotificationType.RATE_LIMIT_CHALLENGE, challengeToken, account, device, true, null));
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {true, false})
-  void sendAttemptLoginNotification(final boolean isApn) throws NotPushRegisteredException {
+  @ValueSource(ints = {0, 1, 2})
+  void sendAttemptLoginNotification(final int tokenTypeOrd) throws NotPushRegisteredException, JsonProcessingException {
     final Account account = mock(Account.class);
     final Device device = mock(Device.class);
+    final TokenType tokenType = TokenType.values()[tokenTypeOrd];
+    final WebPushSubscription webPushSub = SystemMapper.jsonMapper().readValue("""
+        {
+          "endpoint": "https://domain.tld/random1",
+          "auth": "BTBZMqHH6r4Tts7J_aSIgg",
+          "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
+        }
+      """, WebPushSubscription.class);
 
-    final String deviceToken = "token";
+    final PushToken<?> deviceToken = switch(tokenType) {
+      case TokenType.APN -> new PushToken.APN("token");
+      case TokenType.FCM -> new PushToken.FCM("token");
+      case TokenType.WEBPUSH -> new PushToken.WEBPUSH(webPushSub);
+    };
 
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
-    if (isApn) {
-      when(device.getApnId()).thenReturn(deviceToken);
-      when(apnSender.sendNotification(any()))
-          .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
-    } else {
-      when(device.getGcmId()).thenReturn(deviceToken);
-      when(fcmSender.sendNotification(any()))
-          .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
+    switch (tokenType) {
+      case TokenType.APN -> {
+        when(device.getApnId()).thenReturn((String) deviceToken.value());
+        when(apnSender.sendNotification(any()))
+            .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
+      }
+      case TokenType.FCM -> {
+        when(device.getGcmId()).thenReturn((String) deviceToken.value());
+        when(fcmSender.sendNotification(any()))
+            .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
+      }
+      case TokenType.WEBPUSH -> {
+        when(device.getWebPush()).thenReturn((WebPushSubscription) deviceToken.value());
+        when(webPushSender.sendNotification(any()))
+            .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
+      }
     }
+
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
 
     pushNotificationManager.sendAttemptLoginNotification(account, "someContext");
 
-    if (isApn){
-      verify(apnSender).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.APN,
-          PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, "someContext", account, device, true, null));
-    } else {
-      verify(fcmSender, times(1)).sendNotification(new PushNotification(deviceToken, PushNotification.TokenType.FCM,
-          PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, "someContext", account, device, true, null));
+    switch (tokenType) {
+      case TokenType.APN -> {
+        verify(apnSender).sendNotification(new PushNotification(deviceToken,
+            PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, "someContext", account, device, true, null));
+      }
+      case TokenType.FCM -> {
+        verify(fcmSender, times(1)).sendNotification(new PushNotification(deviceToken,
+            PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, "someContext", account, device, true, null));
+      }
+      case TokenType.WEBPUSH -> {
+        verify(webPushSender, times(1)).sendNotification(new PushNotification(deviceToken,
+            PushNotification.NotificationType.ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, "someContext", account, device, true, null));
+      }
     }
   }
 
@@ -163,7 +197,7 @@ class PushNotificationManagerTest {
     AccountsHelper.setupMockGet(accountsManager, account);
 
     final PushNotification pushNotification = new PushNotification(
-        "token", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
+        new PushToken.FCM("token"), PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
 
     when(fcmSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
@@ -172,6 +206,7 @@ class PushNotificationManagerTest {
 
     verify(fcmSender).sendNotification(pushNotification);
     verifyNoInteractions(apnSender);
+    verifyNoInteractions(webPushSender);
     verify(accountsManager, never()).updateDevice(eq(accountIdentifier), eq(Device.PRIMARY_ID), any());
     verify(device, never()).setGcmId(any());
     verifyNoInteractions(pushNotificationScheduler);
@@ -180,7 +215,8 @@ class PushNotificationManagerTest {
   @CartesianTest
   void testSendOrScheduleNotification(
       @CartesianTest.Enum(PushNotification.TokenType.class) PushNotification.TokenType tokenType,
-      @CartesianTest.Values(booleans = {false, true}) final boolean urgent) {
+      @CartesianTest.Values(booleans = {false, true}) final boolean urgent
+    ) throws JsonProcessingException {
 
     final boolean expectSchedule = !urgent;
 
@@ -192,12 +228,26 @@ class PushNotificationManagerTest {
     when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
     when(account.getAccountIdentifier()).thenReturn(aci);
 
+    final WebPushSubscription webPushSub = SystemMapper.jsonMapper().readValue("""
+        {
+          "endpoint": "https://domain.tld/random1",
+          "auth": "BTBZMqHH6r4Tts7J_aSIgg",
+          "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
+        }
+      """, WebPushSubscription.class);
+    final PushToken<?> deviceToken = switch(tokenType) {
+      case TokenType.APN -> new PushToken.APN("token");
+      case TokenType.FCM -> new PushToken.FCM("token");
+      case TokenType.WEBPUSH -> new PushToken.WEBPUSH(webPushSub);
+    };
+
     final PushNotification pushNotification = new PushNotification(
-        "token", tokenType, PushNotification.NotificationType.NOTIFICATION, null, account, device, urgent, null);
+       deviceToken, PushNotification.NotificationType.NOTIFICATION, null, account, device, urgent, null);
 
     final PushNotificationSender sender = switch (tokenType) {
       case FCM -> fcmSender;
       case APN -> apnSender;
+      case WEBPUSH -> webPushSender;
     };
     when(sender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
@@ -231,7 +281,7 @@ class PushNotificationManagerTest {
     when(accountsManager.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
 
     final PushNotification pushNotification = new PushNotification(
-        "token", PushNotification.TokenType.FCM, PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
+        new PushToken.FCM("token"), PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
 
     when(fcmSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.empty(), true, Optional.empty())));
@@ -241,6 +291,7 @@ class PushNotificationManagerTest {
     verify(accountsManager).updateDevice(eq(aci), eq(Device.PRIMARY_ID), any());
     verify(device).setGcmId(null);
     verifyNoInteractions(apnSender);
+    verifyNoInteractions(webPushSender);
     verifyNoInteractions(pushNotificationScheduler);
   }
 
@@ -257,7 +308,7 @@ class PushNotificationManagerTest {
     when(accountsManager.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
 
     final PushNotification pushNotification = new PushNotification(
-        "token", PushNotification.TokenType.APN, PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
+        new PushToken.APN("token"), PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
 
     when(apnSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.empty(), true, Optional.empty())));
@@ -268,9 +319,44 @@ class PushNotificationManagerTest {
     pushNotificationManager.sendNotification(pushNotification);
 
     verifyNoInteractions(fcmSender);
+    verifyNoInteractions(webPushSender);
     verify(accountsManager).updateDevice(eq(aci), eq(Device.PRIMARY_ID), any());
     verify(device).setApnId(null);
     verify(pushNotificationScheduler).cancelScheduledNotifications(account, device);
+  }
+
+  @Test
+  void testSendNotificationUnregisteredWebPush() throws JsonProcessingException {
+    final Account account = mock(Account.class);
+    final Device device = mock(Device.class);
+    final UUID aci = UUID.randomUUID();
+    final WebPushSubscription webPushSub = SystemMapper.jsonMapper().readValue("""
+        {
+          "endpoint": "https://domain.tld/random1",
+          "auth": "BTBZMqHH6r4Tts7J_aSIgg",
+          "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
+        }
+      """, WebPushSubscription.class);
+
+    when(device.getId()).thenReturn(Device.PRIMARY_ID);
+    when(device.getWebPush()).thenReturn(webPushSub);
+    when(account.getDevice(Device.PRIMARY_ID)).thenReturn(Optional.of(device));
+    when(account.getUuid()).thenReturn(aci);
+    when(accountsManager.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
+
+    final PushNotification pushNotification = new PushNotification(
+        new PushToken.WEBPUSH(webPushSub), PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
+
+    when(webPushSender.sendNotification(pushNotification))
+        .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.empty(), true, Optional.empty())));
+
+    pushNotificationManager.sendNotification(pushNotification);
+
+    verify(accountsManager).updateDevice(eq(account), eq(Device.PRIMARY_ID), any());
+    verify(device).setWebPush(null);
+    verifyNoInteractions(fcmSender);
+    verifyNoInteractions(apnSender);
+    verifyNoInteractions(pushNotificationScheduler);
   }
 
   @Test
@@ -288,7 +374,7 @@ class PushNotificationManagerTest {
     when(accountsManager.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
 
     final PushNotification pushNotification = new PushNotification(
-        "token", PushNotification.TokenType.APN, PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
+        new PushToken.APN("token"), PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
 
     when(apnSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.empty(), true, Optional.of(tokenTimestamp.minusSeconds(60)))));
@@ -299,6 +385,7 @@ class PushNotificationManagerTest {
     pushNotificationManager.sendNotification(pushNotification);
 
     verifyNoInteractions(fcmSender);
+    verifyNoInteractions(webPushSender);
     verify(accountsManager, never()).updateDevice(eq(aci), eq(Device.PRIMARY_ID), any());
     verify(device, never()).setApnId(any());
     verify(pushNotificationScheduler, never()).cancelScheduledNotifications(account, device);

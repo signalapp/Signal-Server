@@ -37,6 +37,7 @@ import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 
 class PushNotificationSchedulerTest {
@@ -49,6 +50,7 @@ class PushNotificationSchedulerTest {
 
   private APNSender apnSender;
   private FcmSender fcmSender;
+  private WebPushSender webPushSender;
   private TestClock clock;
 
   private PushNotificationScheduler pushNotificationScheduler;
@@ -58,6 +60,7 @@ class PushNotificationSchedulerTest {
   private static final byte DEVICE_ID = 1;
   private static final String APN_ID = RandomStringUtils.secure().nextAlphanumeric(32);
   private static final String GCM_ID = RandomStringUtils.secure().nextAlphanumeric(32);
+  private WebPushSubscription WEB_PUSH_SUB;
 
   @BeforeEach
   void setUp() throws Exception {
@@ -78,8 +81,17 @@ class PushNotificationSchedulerTest {
     when(accountsManager.getByAccountIdentifierAsync(ACCOUNT_UUID))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(account)));
 
+    WEB_PUSH_SUB =  SystemMapper.jsonMapper().readValue("""
+      {
+        "endpoint": "https://domain.tld/random1",
+        "auth": "BTBZMqHH6r4Tts7J_aSIgg",
+        "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
+      }
+    """, WebPushSubscription.class);
     apnSender = mock(APNSender.class);
     fcmSender = mock(FcmSender.class);
+    webPushSender = mock(WebPushSender.class);
+
     clock = TestClock.now();
 
     when(apnSender.sendNotification(any()))
@@ -89,7 +101,7 @@ class PushNotificationSchedulerTest {
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
 
     pushNotificationScheduler = new PushNotificationScheduler(REDIS_CLUSTER_EXTENSION.getRedisCluster(),
-        apnSender, fcmSender, accountsManager, clock, 1, 1, mock(ScheduledExecutorService.class));
+        apnSender, fcmSender, webPushSender, accountsManager, clock, 1, 1, mock(ScheduledExecutorService.class));
   }
 
   @ParameterizedTest
@@ -170,6 +182,7 @@ class PushNotificationSchedulerTest {
     verify(switch (tokenType) {
       case FCM -> fcmSender;
       case APN -> apnSender;
+      case WEBPUSH -> webPushSender;
     }).sendNotification(notificationCaptor.capture());
 
     final PushNotification pushNotification = notificationCaptor.getValue();
@@ -178,7 +191,8 @@ class PushNotificationSchedulerTest {
     assertEquals(switch (tokenType) {
       case FCM -> GCM_ID;
       case APN -> APN_ID;
-    }, pushNotification.deviceToken());
+      case WEBPUSH -> WEB_PUSH_SUB;
+    }, pushNotification.pushToken().value());
     assertEquals(account, pushNotification.destination());
     assertEquals(device, pushNotification.destinationDevice());
     assertEquals(PushNotification.NotificationType.NOTIFICATION, pushNotification.notificationType());
@@ -265,7 +279,7 @@ class PushNotificationSchedulerTest {
 
     final AccountsManager accountsManager = mock(AccountsManager.class);
 
-    pushNotificationScheduler = new PushNotificationScheduler(redisCluster, apnSender, fcmSender,
+    pushNotificationScheduler = new PushNotificationScheduler(redisCluster, apnSender, fcmSender, webPushSender,
         accountsManager, dedicatedThreadCount, 1, mock(ScheduledExecutorService.class));
 
     pushNotificationScheduler.start();
