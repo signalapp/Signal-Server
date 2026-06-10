@@ -67,6 +67,8 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfigura
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
+import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
+import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
@@ -286,6 +288,7 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ManagedAsync
+  @RateLimitedByIp(RateLimiters.For.ADD_SUBSCRIPTION_PAYMENT_METHOD)
   public CreatePaymentMethodResponse createPaymentMethod(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
@@ -323,6 +326,7 @@ public class SubscriptionController {
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   @ManagedAsync
+  @RateLimitedByIp(RateLimiters.For.ADD_SUBSCRIPTION_PAYMENT_METHOD)
   public CreatePayPalBillingAgreementResponse createPayPalPaymentMethod(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
