@@ -53,11 +53,11 @@ public class ErrorMappingInterceptor implements ServerInterceptor {
           case ConvertibleToGrpcStatus e -> e.toStatusRuntimeException();
           case UncheckedIOException e -> {
             log.warn("RPC {} encountered UncheckedIOException", call.getMethodDescriptor().getFullMethodName(), e.getCause());
-            yield GrpcExceptions.unavailable(e.getCause().getMessage());
+            yield GrpcExceptions.unavailable();
           }
           case IOException e -> {
             log.warn("RPC {} encountered IOException", call.getMethodDescriptor().getFullMethodName(), e);
-            yield GrpcExceptions.unavailable(e.getMessage());
+            yield GrpcExceptions.unavailable();
           }
           case null -> {
             log.error("RPC {} finished with status UNKNOWN: {}",
