@@ -29,3 +29,7 @@ deployer.log
 .classpath
 .settings
 .DS_Store
+
+# Generated gRPC documentation build artifacts
+/api-doc/grpc/descriptor.pb
+/api-doc/grpc/sabledocs_output/

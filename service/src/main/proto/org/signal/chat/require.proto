@@ -215,8 +215,9 @@ enum Auth {
 }
 
 // This is duplicated from common.proto because:
-//   1. importing would be a circular dependency
-//   2. the canonical declaration belongs there
+//
+// 1. importing would be a circular dependency
+// 2. the canonical declaration belongs there
 enum IdentityType {
   IDENTITY_TYPE_UNSPECIFIED = 0;
   IDENTITY_TYPE_ACI = 1;

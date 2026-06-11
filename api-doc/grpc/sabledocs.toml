@@ -1,0 +1,2 @@
+main-page-content-file = "../../service/src/main/proto/org/signal/chat/README.md"
+markdown-extensions = ["fenced_code", "tables"]

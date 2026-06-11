@@ -1,10 +1,22 @@
 #  Chat gRPC API 
-Eventually, all chat protocol endpoints will be available via gRPC.
+
+## Request metadata
 
 Clients may provide headers for gRPC requests via [gRPC metadata](https://grpc.io/docs/guides/metadata/) which translates directly to HTTP/2 headers.
 
 - Clients should provide a `User-Agent` header on all gRPC requests.  
 - Clients may provide an `Accept-Language` on any gRPC requests.
+
+## Authentication
+
+To authenticate for a specific signal account + device, clients may provide a [Basic authorization header](https://www.rfc-editor.org/info/rfc7617/)
+on the request. The username must be the account identifier encoded in the 8-4-4-4-12 format followed by a '.'
+character and then the device id serialized as a string.
+
+All services either require or forbid providing authentication via an Authorization header. If the service is annotated
+with the `require.auth` option `AUTH_ONLY_AUTHENTICATED`, all requests to the service must contain valid authentication
+headers. If the service is annotated with the option `AUTH_ONLY_ANONYMOUS` the client must not provide an authorization
+header. If provided, the request will fail with a `BAD_AUTHENTICATION` error.
 
 ## Errors
 

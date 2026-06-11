@@ -132,17 +132,19 @@ message GetBackupAuthCredentialsResponse {
 // to the account.
 //
 // To register an anonymous credential:
-//   1. Set a backup-id on the authenticated channel via Backups::SetBackupId
-//   2. Retrieve BackupAuthCredentials via Backups::GetBackupAuthCredentials
-//   3. Generate a key pair and set the public key via
-//      BackupsAnonymous::SetPublicKey
+//
+// 1. Set a backup-id on the authenticated channel via Backups::SetBackupId
+// 2. Retrieve BackupAuthCredentials via Backups::GetBackupAuthCredentials
+// 3. Generate a key pair and set the public key via
+//    BackupsAnonymous::SetPublicKey
 //
 // Unless otherwise noted, requests for this service require a
 // SignedPresentation, which includes:
-//   - a presentation generated from a BackupAuthCredential issued by
-//     GetBackupAuthCredentials
-//   - a signature of that presentation using the private key of a key pair
-//     previously set with SetPublicKey.
+//
+// - a presentation generated from a BackupAuthCredential issued by
+//   GetBackupAuthCredentials
+// - a signature of that presentation using the private key of a key pair
+//   previously set with SetPublicKey.
 service BackupsAnonymous {
   option (require.auth) = AUTH_ONLY_ANONYMOUS;
 

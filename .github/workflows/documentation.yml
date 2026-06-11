@@ -17,17 +17,29 @@ jobs:
           distribution: 'temurin'
           java-version-file: .java-version
           cache: 'maven'
-      - name: Compile and Build OpenAPI file
+      - name: Install gRPC documentation tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          pip install sabledocs
+      - name: Generate OpenAPI documentation
         run: ./mvnw compile
-      - name: Update Documentation
+      - name: Generate gRPC documentation
+        run: |
+          protoc -I service/src/main/proto service/src/main/proto/org/signal/chat/*.proto \
+            -o api-doc/grpc/descriptor.pb --include_source_info
+          cd api-doc/grpc && sabledocs
+      - name: Push documentation to gh-pages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp -r api-doc/target/openapi/signal-server-openapi.yaml /tmp/
           git config user.email "github@signal.org"
           git config user.name "Documentation Updater"
           git fetch origin gh-pages
           git checkout gh-pages
-          cp /tmp/signal-server-openapi.yaml .
-          git diff --quiet || git commit -a -m "Updating documentation"
+          cp api-doc/target/openapi/signal-server-openapi.yaml .
+          rm -rf grpc
+          cp -r api-doc/grpc/sabledocs_output grpc
+          git add -A signal-server-openapi.yaml grpc
+          git diff --cached --quiet || git commit -m "Updating documentation"
           git push origin gh-pages -q
