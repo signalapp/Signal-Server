@@ -241,16 +241,12 @@ public class WebSocketConnection implements DisconnectionRequestListener {
     final ServiceIdentifier destinationServiceIdentifier =
         ServiceIdentifier.fromByteString(message.getDestinationServiceId());
 
-    @Nullable final AciServiceIdentifier sourceServiceIdentifier;
-    final boolean shouldSendDeliveryReceipt;
-
-    if (message.hasSourceServiceId()) {
-      sourceServiceIdentifier = AciServiceIdentifier.fromByteString(message.getSourceServiceId());
-      shouldSendDeliveryReceipt = message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT;
-    } else {
-      sourceServiceIdentifier = null;
-      shouldSendDeliveryReceipt = false;
-    }
+    final boolean shouldSendDeliveryReceipt =
+        message.hasSourceServiceId() && message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT;
+    // If the envelope has a source, and it is not a server delivery receipt, it will be an ACI.
+    @Nullable final AciServiceIdentifier sourceServiceIdentifier = shouldSendDeliveryReceipt
+        ? AciServiceIdentifier.fromByteString(message.getSourceServiceId())
+        : null;
 
     final Timer.Sample sample = Timer.start();
 

@@ -58,6 +58,7 @@ class PendingAcknowledgementTracker {
   void addUnacknowledgedEnvelope(final MessageProtos.Envelope envelope) {
     sentMessageCounter.incrementAndGet();
     final UUID messageGuid = UUIDUtil.fromByteString(envelope.getServerGuid());
+    // If the envelope has a source, and it is not a server delivery receipt, it will be an ACI.
     final AciServiceIdentifier sourceId = envelope.hasSourceServiceId() && envelope.getType() != MessageProtos.Envelope.Type.SERVER_DELIVERY_RECEIPT
         ? AciServiceIdentifier.fromByteString(envelope.getSourceServiceId())
         : null;
