@@ -236,7 +236,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
 
   private CompletableFuture<Void> sendMessage(final Envelope message) {
     if (message.getStory() && !client.shouldDeliverStories()) {
-      return messageStream.acknowledgeMessage(message);
+      return messageStream.acknowledgeMessage(UUIDUtil.fromByteString(message.getServerGuid()), message.getServerTimestamp());
     }
 
     final Optional<byte[]> body = Optional.of(serializeMessage(message));
@@ -266,7 +266,7 @@ public class WebSocketConnection implements DisconnectionRequestListener {
           final CompletableFuture<Void> result;
           if (isSuccessResponse(response)) {
 
-            result = messageStream.acknowledgeMessage(message);
+            result = messageStream.acknowledgeMessage(UUIDUtil.fromByteString(message.getServerGuid()), message.getServerTimestamp());
 
             if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
               sendDeliveryReceiptFor(message);

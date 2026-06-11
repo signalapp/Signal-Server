@@ -64,7 +64,7 @@ class RedisDynamoDbMessageStreamTest {
     when(messagesDynamoDb.deleteMessage(ACCOUNT_IDENTIFIER, device, messageGuid, serverTimestamp))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(message)));
 
-    redisDynamoDbMessageStream.acknowledgeMessage(message).join();
+    redisDynamoDbMessageStream.acknowledgeMessage(messageGuid, serverTimestamp).join();
 
     verify(messagesCache).remove(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid);
     verify(messagesDynamoDb).deleteMessage(ACCOUNT_IDENTIFIER, device, messageGuid, serverTimestamp);
@@ -78,7 +78,7 @@ class RedisDynamoDbMessageStreamTest {
     when(messagesCache.remove(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid))
         .thenReturn(CompletableFuture.completedFuture(Optional.of(RemovedMessage.fromEnvelope(message))));
 
-    redisDynamoDbMessageStream.acknowledgeMessage(message).join();
+    redisDynamoDbMessageStream.acknowledgeMessage(messageGuid, message.getServerTimestamp()).join();
 
     verify(messagesCache).remove(ACCOUNT_IDENTIFIER, DEVICE_ID, messageGuid);
     verify(messagesDynamoDb, never()).deleteMessage(any(), any(), any(), anyLong());

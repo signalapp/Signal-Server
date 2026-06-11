@@ -58,13 +58,11 @@ public class RedisDynamoDbMessageStream implements MessageStream {
   }
 
   @Override
-  public CompletableFuture<Void> acknowledgeMessage(final MessageProtos.Envelope message) {
-    final UUID guid = UUIDUtil.fromByteString(message.getServerGuid());
-
-    return messagesCache.remove(accountIdentifier, device.getId(), guid)
+  public CompletableFuture<Void> acknowledgeMessage(final UUID messageGuid, final long serverTimestamp) {
+    return messagesCache.remove(accountIdentifier, device.getId(), messageGuid)
         .thenCompose(removed -> removed.map(_ -> CompletableFuture.<Void>completedFuture(null))
             .orElseGet(() ->
-                messagesDynamoDb.deleteMessage(accountIdentifier, device, guid, message.getServerTimestamp())
+                messagesDynamoDb.deleteMessage(accountIdentifier, device, messageGuid, serverTimestamp)
                     .thenRun(Util.NOOP)))
         .whenComplete((_, _) -> messagePublisher.handleMessageAcknowledged());
   }

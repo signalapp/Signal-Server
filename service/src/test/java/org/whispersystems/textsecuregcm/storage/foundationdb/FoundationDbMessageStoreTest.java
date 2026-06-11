@@ -569,7 +569,7 @@ class FoundationDbMessageStoreTest {
             .doOnNext(entry -> {
               final int messageNum = messageCounter.getAndIncrement();
               if (!unacknowledgedMessages.contains(messageNum) && entry instanceof MessageStreamEntry.Envelope(final MessageProtos.Envelope message)) {
-                acknowledgeFutures.add(messageStream.acknowledgeMessage(message));
+                acknowledgeFutures.add(messageStream.acknowledgeMessage(UUIDUtil.fromByteString(message.getServerGuid()), message.getServerTimestamp()));
               }
             }))
         .expectNextCount(numMessages)

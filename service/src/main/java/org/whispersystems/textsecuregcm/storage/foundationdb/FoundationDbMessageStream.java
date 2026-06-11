@@ -1,5 +1,7 @@
 package org.whispersystems.textsecuregcm.storage.foundationdb;
 
+import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
+
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.StreamingMode;
@@ -9,27 +11,22 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.common.annotations.VisibleForTesting;
-import java.time.Clock;
-import java.time.Duration;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.Consumer;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.util.Pair;
-import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.adapter.JdkFlowAdapter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
 /// A [MessageStream] implementation that fetches messages from FoundationDB
 public class FoundationDbMessageStream implements MessageStream {
@@ -158,9 +155,8 @@ public class FoundationDbMessageStream implements MessageStream {
   }
 
   @Override
-  public CompletableFuture<Void> acknowledgeMessage(final MessageProtos.Envelope message) {
-    acknowledgedMessageBuffer.acknowledgeMessage(
-        messageGuidCodec.decodeMessageGuid(UUIDUtil.fromByteString(message.getServerGuid())));
+  public CompletableFuture<Void> acknowledgeMessage(final UUID messageGuid, final long serverTimestamp) {
+    acknowledgedMessageBuffer.acknowledgeMessage(messageGuidCodec.decodeMessageGuid(messageGuid));
 
     return CompletableFuture.completedFuture(null);
   }
