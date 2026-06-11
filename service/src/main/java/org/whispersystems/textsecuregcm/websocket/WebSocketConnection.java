@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,6 +58,7 @@ import reactor.core.Disposable;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
+import javax.annotation.Nullable;
 
 public class WebSocketConnection implements DisconnectionRequestListener {
 
@@ -246,6 +248,27 @@ public class WebSocketConnection implements DisconnectionRequestListener {
     bytesSentCounter.increment(body.map(bytes -> bytes.length).orElse(0));
     messageMetrics.measureAccountEnvelopeUuidMismatches(authenticatedAccount, message);
 
+    // Retain only the parts of the message we need to avoid retaining the whole `Envelope` in memory longer than
+    // necessary
+    final UUID messageGuid = UUIDUtil.fromByteString(message.getServerGuid());
+    final long serverTimestamp = message.getServerTimestamp();
+    final long clientTimestamp = message.getClientTimestamp();
+    final boolean isUrgent = message.getUrgent();
+    final boolean isEphemeral = message.getEphemeral();
+    final ServiceIdentifier destinationServiceIdentifier =
+        ServiceIdentifier.fromByteString(message.getDestinationServiceId());
+
+    @Nullable final AciServiceIdentifier sourceServiceIdentifier;
+    final boolean shouldSendDeliveryReceipt;
+
+    if (message.hasSourceServiceId()) {
+      sourceServiceIdentifier = AciServiceIdentifier.fromByteString(message.getSourceServiceId());
+      shouldSendDeliveryReceipt = message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT;
+    } else {
+      sourceServiceIdentifier = null;
+      shouldSendDeliveryReceipt = false;
+    }
+
     final Timer.Sample sample = Timer.start();
 
     return client.sendRequest("PUT", "/api/v1/message",
@@ -254,11 +277,11 @@ public class WebSocketConnection implements DisconnectionRequestListener {
           if (throwable != null) {
             sendFailuresCounter.increment();
           } else {
-            messageMetrics.measureOutgoingMessageLatency(message.getServerTimestamp(),
+            messageMetrics.measureOutgoingMessageLatency(serverTimestamp,
                 "websocket",
                 authenticatedDevice.isPrimary(),
-                message.getUrgent(),
-                message.getEphemeral(),
+                isUrgent,
+                isEphemeral,
                 client.getUserAgent(),
                 clientReleaseManager);
           }
@@ -266,10 +289,17 @@ public class WebSocketConnection implements DisconnectionRequestListener {
           final CompletableFuture<Void> result;
           if (isSuccessResponse(response)) {
 
-            result = messageStream.acknowledgeMessage(UUIDUtil.fromByteString(message.getServerGuid()), message.getServerTimestamp());
+            result = messageStream.acknowledgeMessage(messageGuid, serverTimestamp);
 
-            if (message.getType() != Envelope.Type.SERVER_DELIVERY_RECEIPT) {
-              sendDeliveryReceiptFor(message);
+            if (shouldSendDeliveryReceipt) {
+              try {
+                receiptSender.sendReceipt(destinationServiceIdentifier,
+                    authenticatedDevice.getId(),
+                    sourceServiceIdentifier,
+                    clientTimestamp);
+              } catch (final Exception e) {
+                logger.warn("Failed to send receipt", e);
+              }
             }
           } else {
             Tags tags = platformTag.and(STATUS_CODE_TAG, String.valueOf(response.getStatus()));
@@ -294,22 +324,6 @@ public class WebSocketConnection implements DisconnectionRequestListener {
   @VisibleForTesting
   static byte[] serializeMessage(final Envelope message) {
     return message.toBuilder().clearEphemeral().build().toByteArray();
-  }
-
-  private void sendDeliveryReceiptFor(Envelope message) {
-    if (!message.hasSourceServiceId()) {
-      return;
-    }
-
-    try {
-      receiptSender.sendReceipt(ServiceIdentifier.fromByteString(message.getDestinationServiceId()),
-          authenticatedDevice.getId(), AciServiceIdentifier.fromByteString(message.getSourceServiceId()),
-          message.getClientTimestamp());
-    } catch (final IllegalArgumentException e) {
-      logger.error("Could not parse UUID: {}", HexFormat.of().formatHex(message.getSourceServiceId().toByteArray()));
-    } catch (final Exception e) {
-      logger.warn("Failed to send receipt", e);
-    }
   }
 
   private static boolean isSuccessResponse(final WebSocketResponseMessage response) {
