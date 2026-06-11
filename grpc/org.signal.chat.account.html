@@ -1,0 +1,2586 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.account</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.account.Accounts">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>Accounts</code> 
+      </a>
+    </p>
+    
+    <p>
+      <a href="#service-org.signal.chat.account.AccountsAnonymous">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>AccountsAnonymous</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.CheckAccountExistenceRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CheckAccountExistenceRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.CheckAccountExistenceResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CheckAccountExistenceResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ClearRegistrationLockRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ClearRegistrationLockRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ClearRegistrationLockResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ClearRegistrationLockResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ConfigureUnidentifiedAccessRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ConfigureUnidentifiedAccessRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ConfigureUnidentifiedAccessResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ConfigureUnidentifiedAccessResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ConfirmUsernameHashRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ConfirmUsernameHashRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ConfirmUsernameHashResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ConfirmUsernameHashResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ConfirmUsernameHashResponse.ConfirmedUsernameHash">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ConfirmedUsernameHash</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.DeleteAccountRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteAccountRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.DeleteAccountResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteAccountResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.DeleteUsernameHashRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteUsernameHashRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.DeleteUsernameHashResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteUsernameHashResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.DeleteUsernameLinkRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteUsernameLinkRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.DeleteUsernameLinkResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteUsernameLinkResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetAccountIdentityRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetAccountIdentityRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.GetAccountIdentityResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetAccountIdentityResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.LookupUsernameHashRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>LookupUsernameHashRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.LookupUsernameHashResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>LookupUsernameHashResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.LookupUsernameLinkRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>LookupUsernameLinkRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.LookupUsernameLinkResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>LookupUsernameLinkResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ReserveUsernameHashRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ReserveUsernameHashRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.ReserveUsernameHashResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ReserveUsernameHashResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetDiscoverableByPhoneNumberRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetDiscoverableByPhoneNumberRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetDiscoverableByPhoneNumberResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetDiscoverableByPhoneNumberResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetRegistrationLockRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetRegistrationLockRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetRegistrationLockResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetRegistrationLockResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetRegistrationRecoveryPasswordRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetRegistrationRecoveryPasswordRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetRegistrationRecoveryPasswordResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetRegistrationRecoveryPasswordResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetUsernameLinkRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetUsernameLinkRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetUsernameLinkResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetUsernameLinkResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetZkCredentialKeyRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetZkCredentialKeyRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.SetZkCredentialKeyResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetZkCredentialKeyResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.account.UsernameNotAvailable">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>UsernameNotAvailable</code> 
+        </a>
+      </p>
+      
+    
+
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.account.Accounts">
+  <a href="#service-org.signal.chat.account.Accounts" title="org.signal.chat.account.Accounts">service Accounts</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Provides methods for working with Signal accounts.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-GetAccountIdentity">
+      <a href="#service-org.signal.chat.account.Accounts-GetAccountIdentity">
+        rpc <code>GetAccountIdentity</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetAccountIdentityRequest"><span title="org.signal.chat.account.GetAccountIdentityRequest">org.signal.chat.account.GetAccountIdentityRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.GetAccountIdentityResponse"><span title="org.signal.chat.account.GetAccountIdentityResponse">org.signal.chat.account.GetAccountIdentityResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns basic identifiers for the authenticated account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-DeleteAccount">
+      <a href="#service-org.signal.chat.account.Accounts-DeleteAccount">
+        rpc <code>DeleteAccount</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.DeleteAccountRequest"><span title="org.signal.chat.account.DeleteAccountRequest">org.signal.chat.account.DeleteAccountRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.DeleteAccountResponse"><span title="org.signal.chat.account.DeleteAccountResponse">org.signal.chat.account.DeleteAccountResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Deletes the authenticated account, purging all associated data in the
+process.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-SetRegistrationLock">
+      <a href="#service-org.signal.chat.account.Accounts-SetRegistrationLock">
+        rpc <code>SetRegistrationLock</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetRegistrationLockRequest"><span title="org.signal.chat.account.SetRegistrationLockRequest">org.signal.chat.account.SetRegistrationLockRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetRegistrationLockResponse"><span title="org.signal.chat.account.SetRegistrationLockResponse">org.signal.chat.account.SetRegistrationLockResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets the registration lock secret for the authenticated account. To remove
+a registration lock, please use <code>ClearRegistrationLock</code>.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-ClearRegistrationLock">
+      <a href="#service-org.signal.chat.account.Accounts-ClearRegistrationLock">
+        rpc <code>ClearRegistrationLock</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ClearRegistrationLockRequest"><span title="org.signal.chat.account.ClearRegistrationLockRequest">org.signal.chat.account.ClearRegistrationLockRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ClearRegistrationLockResponse"><span title="org.signal.chat.account.ClearRegistrationLockResponse">org.signal.chat.account.ClearRegistrationLockResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Removes any registration lock credentials from the authenticated account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-ReserveUsernameHash">
+      <a href="#service-org.signal.chat.account.Accounts-ReserveUsernameHash">
+        rpc <code>ReserveUsernameHash</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ReserveUsernameHashRequest"><span title="org.signal.chat.account.ReserveUsernameHashRequest">org.signal.chat.account.ReserveUsernameHashRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ReserveUsernameHashResponse"><span title="org.signal.chat.account.ReserveUsernameHashResponse">org.signal.chat.account.ReserveUsernameHashResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Attempts to reserve one of multiple given username hashes. Reserved
+usernames may be claimed later via <code>ConfirmUsernameHash</code>.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-ConfirmUsernameHash">
+      <a href="#service-org.signal.chat.account.Accounts-ConfirmUsernameHash">
+        rpc <code>ConfirmUsernameHash</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ConfirmUsernameHashRequest"><span title="org.signal.chat.account.ConfirmUsernameHashRequest">org.signal.chat.account.ConfirmUsernameHashRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ConfirmUsernameHashResponse"><span title="org.signal.chat.account.ConfirmUsernameHashResponse">org.signal.chat.account.ConfirmUsernameHashResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets the username hash/encrypted username to a previously-reserved value
+(see <code>ReserveUsernameHash</code>).</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-DeleteUsernameHash">
+      <a href="#service-org.signal.chat.account.Accounts-DeleteUsernameHash">
+        rpc <code>DeleteUsernameHash</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.DeleteUsernameHashRequest"><span title="org.signal.chat.account.DeleteUsernameHashRequest">org.signal.chat.account.DeleteUsernameHashRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.DeleteUsernameHashResponse"><span title="org.signal.chat.account.DeleteUsernameHashResponse">org.signal.chat.account.DeleteUsernameHashResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Clears the current username hash, ciphertext, and link for the
+authenticated user.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-SetUsernameLink">
+      <a href="#service-org.signal.chat.account.Accounts-SetUsernameLink">
+        rpc <code>SetUsernameLink</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetUsernameLinkRequest"><span title="org.signal.chat.account.SetUsernameLinkRequest">org.signal.chat.account.SetUsernameLinkRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetUsernameLinkResponse"><span title="org.signal.chat.account.SetUsernameLinkResponse">org.signal.chat.account.SetUsernameLinkResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Associates the given username ciphertext with the account, replacing any
+previously stored ciphertext. A new link handle will optionally be created,
+and the link handle to use will be returned in any event.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-DeleteUsernameLink">
+      <a href="#service-org.signal.chat.account.Accounts-DeleteUsernameLink">
+        rpc <code>DeleteUsernameLink</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.DeleteUsernameLinkRequest"><span title="org.signal.chat.account.DeleteUsernameLinkRequest">org.signal.chat.account.DeleteUsernameLinkRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.DeleteUsernameLinkResponse"><span title="org.signal.chat.account.DeleteUsernameLinkResponse">org.signal.chat.account.DeleteUsernameLinkResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Clears any username link associated with the authenticated account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-ConfigureUnidentifiedAccess">
+      <a href="#service-org.signal.chat.account.Accounts-ConfigureUnidentifiedAccess">
+        rpc <code>ConfigureUnidentifiedAccess</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ConfigureUnidentifiedAccessRequest"><span title="org.signal.chat.account.ConfigureUnidentifiedAccessRequest">org.signal.chat.account.ConfigureUnidentifiedAccessRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.ConfigureUnidentifiedAccessResponse"><span title="org.signal.chat.account.ConfigureUnidentifiedAccessResponse">org.signal.chat.account.ConfigureUnidentifiedAccessResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Configures "unidentified access" keys and preferences for the authenticated
+account. Other users permitted to interact with this account anonymously
+may take actions like fetching pre-keys and profiles for this account or
+sending sealed-sender messages without providing identifying credentials.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-SetDiscoverableByPhoneNumber">
+      <a href="#service-org.signal.chat.account.Accounts-SetDiscoverableByPhoneNumber">
+        rpc <code>SetDiscoverableByPhoneNumber</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetDiscoverableByPhoneNumberRequest"><span title="org.signal.chat.account.SetDiscoverableByPhoneNumberRequest">org.signal.chat.account.SetDiscoverableByPhoneNumberRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetDiscoverableByPhoneNumberResponse"><span title="org.signal.chat.account.SetDiscoverableByPhoneNumberResponse">org.signal.chat.account.SetDiscoverableByPhoneNumberResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets whether the authenticated account may be discovered by phone number
+via the Contact Discovery Service (CDS).</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-SetRegistrationRecoveryPassword">
+      <a href="#service-org.signal.chat.account.Accounts-SetRegistrationRecoveryPassword">
+        rpc <code>SetRegistrationRecoveryPassword</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetRegistrationRecoveryPasswordRequest"><span title="org.signal.chat.account.SetRegistrationRecoveryPasswordRequest">org.signal.chat.account.SetRegistrationRecoveryPasswordRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetRegistrationRecoveryPasswordResponse"><span title="org.signal.chat.account.SetRegistrationRecoveryPasswordResponse">org.signal.chat.account.SetRegistrationRecoveryPasswordResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets the registration recovery password for the authenticated account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.Accounts-SetZkCredentialKey">
+      <a href="#service-org.signal.chat.account.Accounts-SetZkCredentialKey">
+        rpc <code>SetZkCredentialKey</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetZkCredentialKeyRequest"><span title="org.signal.chat.account.SetZkCredentialKeyRequest">org.signal.chat.account.SetZkCredentialKeyRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.SetZkCredentialKeyResponse"><span title="org.signal.chat.account.SetZkCredentialKeyResponse">org.signal.chat.account.SetZkCredentialKeyResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Store a public key used to issue and verify zero-knowledge (anonymous) credentials for the account.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.account.AccountsAnonymous">
+  <a href="#service-org.signal.chat.account.AccountsAnonymous" title="org.signal.chat.account.AccountsAnonymous">service AccountsAnonymous</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Provides methods for looking up Signal accounts. Callers must not provide
+identifying credentials when calling methods in this service.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.AccountsAnonymous-CheckAccountExistence">
+      <a href="#service-org.signal.chat.account.AccountsAnonymous-CheckAccountExistence">
+        rpc <code>CheckAccountExistence</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.CheckAccountExistenceRequest"><span title="org.signal.chat.account.CheckAccountExistenceRequest">org.signal.chat.account.CheckAccountExistenceRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.CheckAccountExistenceResponse"><span title="org.signal.chat.account.CheckAccountExistenceResponse">org.signal.chat.account.CheckAccountExistenceResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Checks whether an account with the given service identifier exists.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.AccountsAnonymous-LookupUsernameHash">
+      <a href="#service-org.signal.chat.account.AccountsAnonymous-LookupUsernameHash">
+        rpc <code>LookupUsernameHash</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.LookupUsernameHashRequest"><span title="org.signal.chat.account.LookupUsernameHashRequest">org.signal.chat.account.LookupUsernameHashRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.LookupUsernameHashResponse"><span title="org.signal.chat.account.LookupUsernameHashResponse">org.signal.chat.account.LookupUsernameHashResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Finds the service identifier of the account associated with the given
+username hash.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.account.AccountsAnonymous-LookupUsernameLink">
+      <a href="#service-org.signal.chat.account.AccountsAnonymous-LookupUsernameLink">
+        rpc <code>LookupUsernameLink</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.LookupUsernameLinkRequest"><span title="org.signal.chat.account.LookupUsernameLinkRequest">org.signal.chat.account.LookupUsernameLinkRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.account.html#message-org.signal.chat.account.LookupUsernameLinkResponse"><span title="org.signal.chat.account.LookupUsernameLinkResponse">org.signal.chat.account.LookupUsernameLinkResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Finds the encrypted username identified by a given username link handle.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.CheckAccountExistenceRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.CheckAccountExistenceRequest" title="org.signal.chat.account.CheckAccountExistenceRequest">message CheckAccountExistenceRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        service_identifier
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The service identifier of an account that may or may not exist.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.CheckAccountExistenceResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.CheckAccountExistenceResponse" title="org.signal.chat.account.CheckAccountExistenceResponse">message CheckAccountExistenceResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        account_exists
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>True if an account exists with the given service identifier or false if no
+account was found.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ClearRegistrationLockRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.ClearRegistrationLockRequest" title="org.signal.chat.account.ClearRegistrationLockRequest">message ClearRegistrationLockRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ClearRegistrationLockResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.ClearRegistrationLockResponse" title="org.signal.chat.account.ClearRegistrationLockResponse">message ClearRegistrationLockResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ConfigureUnidentifiedAccessRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.ConfigureUnidentifiedAccessRequest" title="org.signal.chat.account.ConfigureUnidentifiedAccessRequest">message ConfigureUnidentifiedAccessRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        unidentified_access_key
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The key that other users must provide to interact with this account
+anonymously (i.e. to retrieve keys or profiles or to send messages) unless
+unrestricted unidentified access is permitted. Must be present if
+unrestricted unidentified access is not allowed.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        allow_unrestricted_unidentified_access
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If <code>true</code>, any user may interact with this account anonymously without
+providing an unidentified access key. Otherwise, users must provide the
+given unidentified access key to interact with this account anonymously.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ConfigureUnidentifiedAccessResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.ConfigureUnidentifiedAccessResponse" title="org.signal.chat.account.ConfigureUnidentifiedAccessResponse">message ConfigureUnidentifiedAccessResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ConfirmUsernameHashRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.ConfirmUsernameHashRequest" title="org.signal.chat.account.ConfirmUsernameHashRequest">message ConfirmUsernameHashRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        username_hash
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The username hash to claim for the authenticated account.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        zk_proof
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A zero-knowledge proof that the given username hash was generated by the
+Signal username algorithm.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        username_ciphertext
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The ciphertext of the chosen username for use in public-facing contexts
+(e.g. links and QR codes).</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ConfirmUsernameHashResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.ConfirmUsernameHashResponse" title="org.signal.chat.account.ConfirmUsernameHashResponse">message ConfirmUsernameHashResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            confirmed_username_hash
+          </td>
+          <td>
+            <code title="org.signal.chat.account.ConfirmUsernameHashResponse.ConfirmedUsernameHash">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.ConfirmUsernameHashResponse.ConfirmedUsernameHash"><span title="org.signal.chat.account.ConfirmUsernameHashResponse.ConfirmedUsernameHash">org.signal.chat.account.ConfirmUsernameHashResponse.ConfirmedUsernameHash</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The details of the successfully confirmed username.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            reservation_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided hash was not reserved for the account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            username_not_available
+          </td>
+          <td>
+            <code title="org.signal.chat.account.UsernameNotAvailable">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.UsernameNotAvailable"><span title="org.signal.chat.account.UsernameNotAvailable">org.signal.chat.account.UsernameNotAvailable</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The reservation has lapsed and the requested username has been claimed by
+another caller.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ConfirmUsernameHashResponse.ConfirmedUsernameHash">
+  <span>
+    <a href="#message-org.signal.chat.account.ConfirmUsernameHashResponse.ConfirmedUsernameHash" title="org.signal.chat.account.ConfirmUsernameHashResponse.ConfirmedUsernameHash">message ConfirmedUsernameHash</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.account.html#message-org.signal.chat.account.ConfirmUsernameHashResponse"><span title="org.signal.chat.account.ConfirmUsernameHashResponse">org.signal.chat.account.ConfirmUsernameHashResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        username_hash
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The newly-confirmed username hash.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        username_link_handle
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The server-generated username link handle for the newly-confirmed username.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.DeleteAccountRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.DeleteAccountRequest" title="org.signal.chat.account.DeleteAccountRequest">message DeleteAccountRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.DeleteAccountResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.DeleteAccountResponse" title="org.signal.chat.account.DeleteAccountResponse">message DeleteAccountResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.DeleteUsernameHashRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.DeleteUsernameHashRequest" title="org.signal.chat.account.DeleteUsernameHashRequest">message DeleteUsernameHashRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.DeleteUsernameHashResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.DeleteUsernameHashResponse" title="org.signal.chat.account.DeleteUsernameHashResponse">message DeleteUsernameHashResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.DeleteUsernameLinkRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.DeleteUsernameLinkRequest" title="org.signal.chat.account.DeleteUsernameLinkRequest">message DeleteUsernameLinkRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.DeleteUsernameLinkResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.DeleteUsernameLinkResponse" title="org.signal.chat.account.DeleteUsernameLinkResponse">message DeleteUsernameLinkResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetAccountIdentityRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.GetAccountIdentityRequest" title="org.signal.chat.account.GetAccountIdentityRequest">message GetAccountIdentityRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.GetAccountIdentityResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.GetAccountIdentityResponse" title="org.signal.chat.account.GetAccountIdentityResponse">message GetAccountIdentityResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        account_identifiers
+      </td>
+      <td>
+        <code title="org.signal.chat.common.AccountIdentifiers">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.AccountIdentifiers"><span title="org.signal.chat.common.AccountIdentifiers">org.signal.chat.common.AccountIdentifiers</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A set of account identifiers for the authenticated account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.LookupUsernameHashRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.LookupUsernameHashRequest" title="org.signal.chat.account.LookupUsernameHashRequest">message LookupUsernameHashRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        username_hash
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A 32-byte username hash for which to find an account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.LookupUsernameHashResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.LookupUsernameHashResponse" title="org.signal.chat.account.LookupUsernameHashResponse">message LookupUsernameHashResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            service_identifier
+          </td>
+          <td>
+            <code title="org.signal.chat.common.ServiceIdentifier">
+              
+              <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The service identifier associated with the provided username hash.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>No account was found for the provided username hash.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.LookupUsernameLinkRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.LookupUsernameLinkRequest" title="org.signal.chat.account.LookupUsernameLinkRequest">message LookupUsernameLinkRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        username_link_handle
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The link handle for which to find an encrypted username. Link handles are
+16-byte representations of UUIDs.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.LookupUsernameLinkResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.LookupUsernameLinkResponse" title="org.signal.chat.account.LookupUsernameLinkResponse">message LookupUsernameLinkResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            username_ciphertext
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>The ciphertext of the username identified by the provided link handle.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>No username was found for the provided link handle.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ReserveUsernameHashRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.ReserveUsernameHashRequest" title="org.signal.chat.account.ReserveUsernameHashRequest">message ReserveUsernameHashRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        username_hashes
+      </td>
+      <td>
+        <code title="bytes">
+          
+            repeated
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A prioritized list of username hashes to attempt to reserve. Each hash must
+be exactly 32 bytes.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.ReserveUsernameHashResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.ReserveUsernameHashResponse" title="org.signal.chat.account.ReserveUsernameHashResponse">message ReserveUsernameHashResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            username_hash
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>The first username hash that was available (and actually reserved).</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            username_not_available
+          </td>
+          <td>
+            <code title="org.signal.chat.account.UsernameNotAvailable">
+              
+              <a href="org.signal.chat.account.html#message-org.signal.chat.account.UsernameNotAvailable"><span title="org.signal.chat.account.UsernameNotAvailable">org.signal.chat.account.UsernameNotAvailable</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Indicates that, of all of the candidate hashes provided, none were
+available. Callers may generate a new set of hashes and and retry.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetDiscoverableByPhoneNumberRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.SetDiscoverableByPhoneNumberRequest" title="org.signal.chat.account.SetDiscoverableByPhoneNumberRequest">message SetDiscoverableByPhoneNumberRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        discoverable_by_phone_number
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If true, the authenticated account may be discovered by phone number via
+the Contact Discovery Service (CDS). Otherwise, other users must discover
+this account by other means (i.e. by username).</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetDiscoverableByPhoneNumberResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.SetDiscoverableByPhoneNumberResponse" title="org.signal.chat.account.SetDiscoverableByPhoneNumberResponse">message SetDiscoverableByPhoneNumberResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetRegistrationLockRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.SetRegistrationLockRequest" title="org.signal.chat.account.SetRegistrationLockRequest">message SetRegistrationLockRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        registration_lock
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The new registration lock secret for the authenticated account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetRegistrationLockResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.SetRegistrationLockResponse" title="org.signal.chat.account.SetRegistrationLockResponse">message SetRegistrationLockResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetRegistrationRecoveryPasswordRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.SetRegistrationRecoveryPasswordRequest" title="org.signal.chat.account.SetRegistrationRecoveryPasswordRequest">message SetRegistrationRecoveryPasswordRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        registration_recovery_password
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The new registration recovery password for the authenticated account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetRegistrationRecoveryPasswordResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.SetRegistrationRecoveryPasswordResponse" title="org.signal.chat.account.SetRegistrationRecoveryPasswordResponse">message SetRegistrationRecoveryPasswordResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetUsernameLinkRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.SetUsernameLinkRequest" title="org.signal.chat.account.SetUsernameLinkRequest">message SetUsernameLinkRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        username_ciphertext
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The username ciphertext for which to generate a new link handle.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        keep_link_handle
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If true and the account already had an encrypted username stored, the
+existing link handle will be reused. Otherwise a new link handle will be
+created.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetUsernameLinkResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.SetUsernameLinkResponse" title="org.signal.chat.account.SetUsernameLinkResponse">message SetUsernameLinkResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            username_link_handle
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>A new link handle for the given username ciphertext.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            no_username_set
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The authenticated account did not have a username set.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetZkCredentialKeyRequest">
+  <span>
+    <a href="#message-org.signal.chat.account.SetZkCredentialKeyRequest" title="org.signal.chat.account.SetZkCredentialKeyRequest">message SetZkCredentialKeyRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        public_key
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A serialized Ristretto key with a one-byte type prefix</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.SetZkCredentialKeyResponse">
+  <span>
+    <a href="#message-org.signal.chat.account.SetZkCredentialKeyResponse" title="org.signal.chat.account.SetZkCredentialKeyResponse">message SetZkCredentialKeyResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        rotation_id
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>A random, non-zero, value that must be included in credential requests using the key.</p>
+<p>This value allows the server to ratchet the resulting binding identity,
+as reverting to the previous key will result in a new rotation ID.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.account.UsernameNotAvailable">
+  <span>
+    <a href="#message-org.signal.chat.account.UsernameNotAvailable" title="org.signal.chat.account.UsernameNotAvailable">message UsernameNotAvailable</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>

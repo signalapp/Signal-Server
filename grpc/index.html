@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  
+    <p class="mb-2">
+      <a style="font-size: 0.9em" href="#packages">↓ Packages</a>
+    </p>
+    <div class="block content"><h1>Chat gRPC API</h1>
+<h2>Request metadata</h2>
+<p>Clients may provide headers for gRPC requests via <a href="https://grpc.io/docs/guides/metadata/">gRPC metadata</a> which translates directly to HTTP/2 headers.</p>
+<ul>
+<li>Clients should provide a <code>User-Agent</code> header on all gRPC requests.  </li>
+<li>Clients may provide an <code>Accept-Language</code> on any gRPC requests.</li>
+</ul>
+<h2>Authentication</h2>
+<p>To authenticate for a specific signal account + device, clients may provide a <a href="https://www.rfc-editor.org/info/rfc7617/">Basic authorization header</a>
+on the request. The username must be the account identifier encoded in the 8-4-4-4-12 format followed by a '.'
+character and then the device id serialized as a string.</p>
+<p>All services either require or forbid providing authentication via an Authorization header. If the service is annotated
+with the <code>require.auth</code> option <code>AUTH_ONLY_AUTHENTICATED</code>, all requests to the service must contain valid authentication
+headers. If the service is annotated with the option <code>AUTH_ONLY_ANONYMOUS</code> the client must not provide an authorization
+header. If provided, the request will fail with a <code>BAD_AUTHENTICATION</code> error.</p>
+<h2>Errors</h2>
+<p>In the gRPC protocol all errors are at the request level. That is, errors are returned in response to individual requests and do not impact other H2 streams on the same connection nor terminate the connection.</p>
+<p>For errors that may be returned by any RPCs, the chat server will return the well-defined gRPC status codes returned as part of every RPC call. For errors that are specific to a particular RPC, the error must be encoded in the service proto definition and will be returned with a <code>Status</code> of <code>OK</code>.</p>
+<p>Status errors include additional metadata as described in <a href="https://google.aip.dev/193#error_model">AIP-193 (google's richer error model)</a>. Every <code>Status != OK</code> response returned by the chat server's application layer will include a <code>Grpc-Status-Details-Bin</code> response trailer with a <code>google.rpc.Status</code> proto.</p>
+<p>Each <code>google.rpc.Status</code> must have a status matching the top-level status on the gRPC response. Additionally, a single <code>ErrorInfo</code> must always be present in the details field of the <code>Status</code>. The <code>ErrorInfo</code> must contain a <code>domain</code> field and a <code>reason</code> field.</p>
+<p>The <code>domain</code> for a status error generated by the chat server will always be <code>grpc.chat.signal.org</code></p>
+<p>The server may set the <code>reason</code> to match the enum string for the <code>Status.Code</code> if there is no need to further distinguish a code. Clients should inspect the <code>reason</code>, not the <code>status</code>, for automated error handling.</p>
+<p>The chat server may return the following errors from any RPC</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Status Code</th>
+<th style="text-align: left;">Reason</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>INVALID_ARGUMENT</code></td>
+<td style="text-align: left;"><code>UPGRADE_REQUIRED</code></td>
+<td style="text-align: left;">The client version provided in the <code>User-Agent</code> is no longer supported. The client must upgrade to use the service.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>INVALID_ARGUMENT</code></td>
+<td style="text-align: left;"><code>CONSTRAINT_VIOLATED</code></td>
+<td style="text-align: left;">The RPC argument violated a constraint that was annotated or documented in the service definition. It is always possible to check this constraint without communicating with the chat server. This always represents a client bug or out of date client. <br><br> The <code>details</code> may include a <a href="https://github.com/googleapis/googleapis/blob/8c06c1e04ae562f49f411357577c700e9142f33c/google/rpc/error_details.proto#L236"><code>BadRequest</code> message</a> that indicates additional information about the invalid field.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>INVALID_ARGUMENT</code></td>
+<td style="text-align: left;"><code>BAD_AUTHENTICATION</code></td>
+<td style="text-align: left;">The request has incorrectly set authentication credentials for the RPC. This represents a client bug where the authorization mode is not correct for the RPC. For example, <br><br> The RPC was for an anonymous service, but included an Authentication header in the RPC metadata. <br><br>The RPC should only be made by the primary device, but the request had linked device credentials.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>UNAUTHENTICATED</code></td>
+<td style="text-align: left;"><code>INVALID_CREDENTIALS</code></td>
+<td style="text-align: left;">The account credentials provided in the authorization header are not valid.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>RESOURCE_EXHAUSTED</code></td>
+<td style="text-align: left;"><code>RESOURCE_EXHAUSTED</code></td>
+<td style="text-align: left;">A server-side resource was exhausted. The <code>details</code> field may include a <a href="https://github.com/googleapis/googleapis/blob/8c06c1e04ae562f49f411357577c700e9142f33c/google/rpc/error_details.proto#L92"><code>RetryInfo</code> message</a> that includes the amount of time in seconds the client should wait before retrying the request. <br><br> If a <code>RetryInfo</code> is present, the client must wait the indicated time before retrying the request. If absent, the client should retry with an exponential backoff.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>UNAVAILABLE</code></td>
+<td style="text-align: left;"><code>UNAVAILABLE</code></td>
+<td style="text-align: left;">There was an internal error processing the RPC. The client should retry the request with exponential backoff.</td>
+</tr>
+</tbody>
+</table>
+<h3>Logging Errors</h3>
+<p>When logging error responses, clients may always log the status code, domain, and reason.</p>
+<p>For errors with domain <code>grpc.chat.signal.org</code> and reason <code>CONSTRAINT_VIOLATED</code>, clients should check the <code>details</code> field for a <code>BadRequest</code> proto. If present, they should log the <code>field</code> of each violation in <code>field_violations</code>.</p></div>
+  
+  <h3 id="packages" class="title is-3">
+    Packages
+  </h3>
+  <div class="block">This site contains the documentation for the following Protobuf packages.</div>
+  <div class="block">
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.account.html">org.signal.chat.account</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.attachments.html">org.signal.chat.attachments</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.backup.html">org.signal.chat.backup</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.calling.html">org.signal.chat.calling</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.calling.quality.html">org.signal.chat.calling.quality</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.challenge.html">org.signal.chat.challenge</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.common.html">org.signal.chat.common</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.credentials.html">org.signal.chat.credentials</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.device.html">org.signal.chat.device</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.donations.html">org.signal.chat.donations</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.errors.html">org.signal.chat.errors</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.keys.html">org.signal.chat.keys</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.messages.html">org.signal.chat.messages</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.payments.html">org.signal.chat.payments</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.profile.html">org.signal.chat.profile</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.require.html">org.signal.chat.require</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.tag.html">org.signal.chat.tag</a>
+      
+    </h4>
+    
+  
+  </div>
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>

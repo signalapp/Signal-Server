@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.donations</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.donations.Donations">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>Donations</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.donations.RedeemReceiptRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RedeemReceiptRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.donations.RedeemReceiptResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RedeemReceiptResponse</code> 
+        </a>
+      </p>
+      
+    
+
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.donations.Donations">
+  <a href="#service-org.signal.chat.donations.Donations" title="org.signal.chat.donations.Donations">service Donations</a>
+  
+</h4>
+
+<div class="block content">
+  <p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.donations.Donations-RedeemReceipt">
+      <a href="#service-org.signal.chat.donations.Donations-RedeemReceipt">
+        rpc <code>RedeemReceipt</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.donations.html#message-org.signal.chat.donations.RedeemReceiptRequest"><span title="org.signal.chat.donations.RedeemReceiptRequest">org.signal.chat.donations.RedeemReceiptRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.donations.html#message-org.signal.chat.donations.RedeemReceiptResponse"><span title="org.signal.chat.donations.RedeemReceiptResponse">org.signal.chat.donations.RedeemReceiptResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Redeem a receipt acquired from Subscriptions.CreateSubscriptionReceiptCredentials
+ to add a badge to the account. After successful redemption, profile
+ responses will include the corresponding badge (if configured as visible)
+ until the expiration time on the receipt.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.donations.RedeemReceiptRequest">
+  <span>
+    <a href="#message-org.signal.chat.donations.RedeemReceiptRequest" title="org.signal.chat.donations.RedeemReceiptRequest">message RedeemReceiptRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        receiptCredentialPresentation
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>Presentation of the ZK receipt acquired when the subscription was created</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        visible
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If true, the corresponding badge should be visible on the profile</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        primary
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If true, and the new badge is visible, it should be the primary badge on the profile</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.donations.RedeemReceiptResponse">
+  <span>
+    <a href="#message-org.signal.chat.donations.RedeemReceiptResponse" title="org.signal.chat.donations.RedeemReceiptResponse">message RedeemReceiptResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The receipt was successfully redeemed</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided presentation is invalid</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            already_redeemed
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The receipt was already redeemed for a different account</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>

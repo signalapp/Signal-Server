@@ -1,0 +1,4098 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.backup</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.backup.Backups">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>Backups</code> 
+      </a>
+    </p>
+    
+    <p>
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>BackupsAnonymous</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetCdnCredentialsResponse.CdnCredentials">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CdnCredentials</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.CopyMediaItem">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CopyMediaItem</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.CopyMediaRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CopyMediaRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.CopyMediaResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CopyMediaResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.CopyMediaResponse.CopySuccess">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CopySuccess</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetBackupAuthCredentialsResponse.Credentials">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>Credentials</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.DeleteAllRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteAllRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.DeleteAllResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteAllResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.DeleteMediaItem">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteMediaItem</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.DeleteMediaRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteMediaRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.DeleteMediaResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteMediaResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetBackupAuthCredentialsRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetBackupAuthCredentialsRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetBackupAuthCredentialsResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetBackupAuthCredentialsResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetBackupInfoRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetBackupInfoRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetCdnCredentialsRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetCdnCredentialsRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetCdnCredentialsResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetCdnCredentialsResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetMediaBackupInfoResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetMediaBackupInfoResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetMessageBackupInfoResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetMessageBackupInfoResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetSvrBCredentialsRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetSvrBCredentialsRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetSvrBCredentialsResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetSvrBCredentialsResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetUploadFormRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetUploadFormRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetUploadFormResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetUploadFormResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.ListMediaResponse.ListEntry">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ListEntry</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.ListMediaRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ListMediaRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.ListMediaResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ListMediaResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.ListMediaResponse.ListResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ListResult</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetMediaBackupInfoResponse.MediaBackupInfo">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>MediaBackupInfo</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetUploadFormRequest.MediaUploadType">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>MediaUploadType</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetMessageBackupInfoResponse.MessageBackupInfo">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>MessageBackupInfo</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetUploadFormRequest.MessagesUploadType">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>MessagesUploadType</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.CopyMediaResponse.OutOfSpace">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>OutOfSpace</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.RedeemReceiptRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RedeemReceiptRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.RedeemReceiptResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RedeemReceiptResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.RefreshRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RefreshRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.RefreshResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RefreshResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.SetBackupIdRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetBackupIdRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.SetBackupIdResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetBackupIdResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.SetPublicKeyRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetPublicKeyRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.SetPublicKeyResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetPublicKeyResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.SignedPresentation">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SignedPresentation</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.CopyMediaResponse.SourceNotFound">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SourceNotFound</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.GetSvrBCredentialsResponse.SvrBCredentials">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SvrBCredentials</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.backup.CopyMediaResponse.WrongSourceLength">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>WrongSourceLength</code> 
+        </a>
+      </p>
+      
+    
+
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.backup.Backups">
+  <a href="#service-org.signal.chat.backup.Backups" title="org.signal.chat.backup.Backups">service Backups</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Service for backup operations that require account authentication.</p>
+<p>Most actual backup operations operate on the backup-id and cannot be linked
+to the caller's account, but setting up anonymous credentials and changing
+backup tier requires account authentication.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.Backups-SetBackupId">
+      <a href="#service-org.signal.chat.backup.Backups-SetBackupId">
+        rpc <code>SetBackupId</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SetBackupIdRequest"><span title="org.signal.chat.backup.SetBackupIdRequest">org.signal.chat.backup.SetBackupIdRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SetBackupIdResponse"><span title="org.signal.chat.backup.SetBackupIdResponse">org.signal.chat.backup.SetBackupIdResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Set (blinded) backup-id(s) for the account.</p>
+<p>Each account may have a single active backup-id for each credential type
+that can be used to store and retrieve backups. Once the backup-id is set,
+BackupAuthCredentials can be generated using GetBackupAuthCredentials.</p>
+<p>The blinded backup-id and the key-pair used to blind it must be derived
+from a recoverable secret.</p>
+<p>At least one of the credential types must be set on the request.
+Only the primary device can set a blinded backup-id.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.Backups-RedeemReceipt">
+      <a href="#service-org.signal.chat.backup.Backups-RedeemReceipt">
+        rpc <code>RedeemReceipt</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.RedeemReceiptRequest"><span title="org.signal.chat.backup.RedeemReceiptRequest">org.signal.chat.backup.RedeemReceiptRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.RedeemReceiptResponse"><span title="org.signal.chat.backup.RedeemReceiptResponse">org.signal.chat.backup.RedeemReceiptResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Redeem a receipt acquired from /v1/subscription/{subscriberId}/receipt_credentials
+to mark the account as eligible for the paid backup tier.</p>
+<p>After successful redemption, subsequent requests to
+GetBackupAuthCredentials will return credentials with the level on the
+provided receipt until the expiration time on the receipt.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.Backups-GetBackupAuthCredentials">
+      <a href="#service-org.signal.chat.backup.Backups-GetBackupAuthCredentials">
+        rpc <code>GetBackupAuthCredentials</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetBackupAuthCredentialsRequest"><span title="org.signal.chat.backup.GetBackupAuthCredentialsRequest">org.signal.chat.backup.GetBackupAuthCredentialsRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetBackupAuthCredentialsResponse"><span title="org.signal.chat.backup.GetBackupAuthCredentialsResponse">org.signal.chat.backup.GetBackupAuthCredentialsResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>After setting a blinded backup-id with PUT /v1/archives/, this fetches
+credentials that can be used to perform operations against that backup-id.
+Clients may (and should) request up to 7 days of credentials at a time.</p>
+<p>The redemption_start and redemption_end seconds must be UTC day aligned, and
+must not span more than 7 days.</p>
+<p>Each credential contains a receipt level which indicates the backup level
+the credential is good for. If the account has paid backup access that
+expires at some point in the provided redemption window, credentials with
+redemption times after the expiration may be on a lower backup level.</p>
+<p>Clients must validate the receipt level on the credential matches a known
+receipt level before using it.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.backup.BackupsAnonymous">
+  <a href="#service-org.signal.chat.backup.BackupsAnonymous" title="org.signal.chat.backup.BackupsAnonymous">service BackupsAnonymous</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Service for backup operations with anonymous credentials</p>
+<p>This service never requires account authentication. It instead requires a
+backup-id authenticated with an anonymous credential that cannot be linked
+to the account.</p>
+<p>To register an anonymous credential:</p>
+<ol>
+<li>Set a backup-id on the authenticated channel via Backups::SetBackupId</li>
+<li>Retrieve BackupAuthCredentials via Backups::GetBackupAuthCredentials</li>
+<li>Generate a key pair and set the public key via
+   BackupsAnonymous::SetPublicKey</li>
+</ol>
+<p>Unless otherwise noted, requests for this service require a
+SignedPresentation, which includes:</p>
+<ul>
+<li>a presentation generated from a BackupAuthCredential issued by
+  GetBackupAuthCredentials</li>
+<li>a signature of that presentation using the private key of a key pair
+  previously set with SetPublicKey.</li>
+</ul></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-GetCdnCredentials">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-GetCdnCredentials">
+        rpc <code>GetCdnCredentials</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetCdnCredentialsRequest"><span title="org.signal.chat.backup.GetCdnCredentialsRequest">org.signal.chat.backup.GetCdnCredentialsRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetCdnCredentialsResponse"><span title="org.signal.chat.backup.GetCdnCredentialsResponse">org.signal.chat.backup.GetCdnCredentialsResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieve credentials used to read objects stored on the backup cdn</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-GetSvrBCredentials">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-GetSvrBCredentials">
+        rpc <code>GetSvrBCredentials</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetSvrBCredentialsRequest"><span title="org.signal.chat.backup.GetSvrBCredentialsRequest">org.signal.chat.backup.GetSvrBCredentialsRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetSvrBCredentialsResponse"><span title="org.signal.chat.backup.GetSvrBCredentialsResponse">org.signal.chat.backup.GetSvrBCredentialsResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieve credentials used to interact with the SecureValueRecoveryB service</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-GetMessageBackupInfo">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-GetMessageBackupInfo">
+        rpc <code>GetMessageBackupInfo</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetBackupInfoRequest"><span title="org.signal.chat.backup.GetBackupInfoRequest">org.signal.chat.backup.GetBackupInfoRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetMessageBackupInfoResponse"><span title="org.signal.chat.backup.GetMessageBackupInfoResponse">org.signal.chat.backup.GetMessageBackupInfoResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieve information about the currently stored message backup</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-GetMediaBackupInfo">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-GetMediaBackupInfo">
+        rpc <code>GetMediaBackupInfo</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetBackupInfoRequest"><span title="org.signal.chat.backup.GetBackupInfoRequest">org.signal.chat.backup.GetBackupInfoRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetMediaBackupInfoResponse"><span title="org.signal.chat.backup.GetMediaBackupInfoResponse">org.signal.chat.backup.GetMediaBackupInfoResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieve information about the currently stored media backup</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-SetPublicKey">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-SetPublicKey">
+        rpc <code>SetPublicKey</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SetPublicKeyRequest"><span title="org.signal.chat.backup.SetPublicKeyRequest">org.signal.chat.backup.SetPublicKeyRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SetPublicKeyResponse"><span title="org.signal.chat.backup.SetPublicKeyResponse">org.signal.chat.backup.SetPublicKeyResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Permanently set the public key of an ED25519 key-pair for the backup-id.
+All requests (including this one!) must sign their BackupAuthCredential
+presentations with the private key corresponding to the provided public key.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-Refresh">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-Refresh">
+        rpc <code>Refresh</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.RefreshRequest"><span title="org.signal.chat.backup.RefreshRequest">org.signal.chat.backup.RefreshRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.RefreshResponse"><span title="org.signal.chat.backup.RefreshResponse">org.signal.chat.backup.RefreshResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Refresh the backup, indicating that the backup is still active. Clients
+must periodically upload new backups or perform a refresh. If a backup has
+not been active for 30 days, it may be deleted.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-GetUploadForm">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-GetUploadForm">
+        rpc <code>GetUploadForm</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetUploadFormRequest"><span title="org.signal.chat.backup.GetUploadFormRequest">org.signal.chat.backup.GetUploadFormRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetUploadFormResponse"><span title="org.signal.chat.backup.GetUploadFormResponse">org.signal.chat.backup.GetUploadFormResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieve an upload form that can be used to perform a resumable upload</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-CopyMedia">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-CopyMedia">
+        rpc <code>CopyMedia</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaRequest"><span title="org.signal.chat.backup.CopyMediaRequest">org.signal.chat.backup.CopyMediaRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaResponse"><span title="org.signal.chat.backup.CopyMediaResponse">org.signal.chat.backup.CopyMediaResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Copy and re-encrypt media from the attachments cdn into the backup cdn.
+The original, already encrypted, attachments will be encrypted with the
+provided key material before being copied.</p>
+<p>The copy operation is not atomic and responses will be returned as copy
+operations complete with detailed information about the outcome. If an
+error is encountered, not all requests may be reflected in the responses.</p>
+<p>On retries, a particular destination media id must not be reused with a
+different source media id or different encryption parameters.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-ListMedia">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-ListMedia">
+        rpc <code>ListMedia</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.ListMediaRequest"><span title="org.signal.chat.backup.ListMediaRequest">org.signal.chat.backup.ListMediaRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.ListMediaResponse"><span title="org.signal.chat.backup.ListMediaResponse">org.signal.chat.backup.ListMediaResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieve a page of media objects stored for this backup-id. A client may
+have previously stored media objects that are no longer referenced in their
+current backup. To reclaim storage space used by these orphaned objects,
+perform a list operation and remove any unreferenced media objects
+via DeleteMedia.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-DeleteMedia">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-DeleteMedia">
+        rpc <code>DeleteMedia</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.DeleteMediaRequest"><span title="org.signal.chat.backup.DeleteMediaRequest">org.signal.chat.backup.DeleteMediaRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.DeleteMediaResponse"><span title="org.signal.chat.backup.DeleteMediaResponse">org.signal.chat.backup.DeleteMediaResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Delete media objects stored with this backup-id. Streams the locations of
+media items back when the item has successfully been removed.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.backup.BackupsAnonymous-DeleteAll">
+      <a href="#service-org.signal.chat.backup.BackupsAnonymous-DeleteAll">
+        rpc <code>DeleteAll</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.DeleteAllRequest"><span title="org.signal.chat.backup.DeleteAllRequest">org.signal.chat.backup.DeleteAllRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.backup.html#message-org.signal.chat.backup.DeleteAllResponse"><span title="org.signal.chat.backup.DeleteAllResponse">org.signal.chat.backup.DeleteAllResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Delete all backup metadata, objects, and stored public key. To use
+backups again, a public key must be resupplied.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetCdnCredentialsResponse.CdnCredentials">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetCdnCredentialsResponse.CdnCredentials" title="org.signal.chat.backup.GetCdnCredentialsResponse.CdnCredentials">message CdnCredentials</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetCdnCredentialsResponse"><span title="org.signal.chat.backup.GetCdnCredentialsResponse">org.signal.chat.backup.GetCdnCredentialsResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        headers
+      </td>
+      <td>
+        <code title="map&lt;string, string&gt;">
+          
+          <span>map&lt;string, string&gt;</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.CopyMediaItem">
+  <span>
+    <a href="#message-org.signal.chat.backup.CopyMediaItem" title="org.signal.chat.backup.CopyMediaItem">message CopyMediaItem</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        source_attachment_cdn
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The attachment cdn of the object to copy into the backup</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        source_key
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The attachment key of the object to copy into the backup</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        object_length
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The length of the source attachment before the encryption applied by the
+copy operation</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        media_id
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>media_id to copy on to the backup CDN</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        hmac_key
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A 32-byte key for the MAC</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>6</td>
+      <td>
+        encryption_key
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A 32-byte encryption key for AES</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.CopyMediaRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.CopyMediaRequest" title="org.signal.chat.backup.CopyMediaRequest">message CopyMediaRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        items
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.CopyMediaItem">
+          
+            repeated
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaItem"><span title="org.signal.chat.backup.CopyMediaItem">org.signal.chat.backup.CopyMediaItem</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>Items to copy</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.CopyMediaResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.CopyMediaResponse" title="org.signal.chat.backup.CopyMediaResponse">message CopyMediaResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        media_id
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The 15-byte media_id from the corresponding CopyMediaItem in the request</p></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.CopyMediaResponse.CopySuccess">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaResponse.CopySuccess"><span title="org.signal.chat.backup.CopyMediaResponse.CopySuccess">org.signal.chat.backup.CopyMediaResponse.CopySuccess</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The media item was successfully copied into the backup</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            source_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.CopyMediaResponse.SourceNotFound">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaResponse.SourceNotFound"><span title="org.signal.chat.backup.CopyMediaResponse.SourceNotFound">org.signal.chat.backup.CopyMediaResponse.SourceNotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The source object was not found</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            wrong_source_length
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.CopyMediaResponse.WrongSourceLength">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaResponse.WrongSourceLength"><span title="org.signal.chat.backup.CopyMediaResponse.WrongSourceLength">org.signal.chat.backup.CopyMediaResponse.WrongSourceLength</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided object length was incorrect</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            6
+          </td>
+          <td>
+            out_of_space
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.CopyMediaResponse.OutOfSpace">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaResponse.OutOfSpace"><span title="org.signal.chat.backup.CopyMediaResponse.OutOfSpace">org.signal.chat.backup.CopyMediaResponse.OutOfSpace</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>All media capacity has been consumed. Free some space to continue.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.CopyMediaResponse.CopySuccess">
+  <span>
+    <a href="#message-org.signal.chat.backup.CopyMediaResponse.CopySuccess" title="org.signal.chat.backup.CopyMediaResponse.CopySuccess">message CopySuccess</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaResponse"><span title="org.signal.chat.backup.CopyMediaResponse">org.signal.chat.backup.CopyMediaResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        cdn
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The backup cdn where this media object is stored</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetBackupAuthCredentialsResponse.Credentials">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetBackupAuthCredentialsResponse.Credentials" title="org.signal.chat.backup.GetBackupAuthCredentialsResponse.Credentials">message Credentials</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetBackupAuthCredentialsResponse"><span title="org.signal.chat.backup.GetBackupAuthCredentialsResponse">org.signal.chat.backup.GetBackupAuthCredentialsResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        message_credentials
+      </td>
+      <td>
+        <code title="map&lt;int64, ZkCredential&gt;">
+          
+          <span>map&lt;int64, ZkCredential&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>The requested message backup ZkCredentials indexed by the start of their
+validity period. The smallest key should be for the requested
+redemption_start, the largest for the requested redemption_end.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        media_credentials
+      </td>
+      <td>
+        <code title="map&lt;int64, ZkCredential&gt;">
+          
+          <span>map&lt;int64, ZkCredential&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>The requested media backup ZkCredentials indexed by the start of their
+validity period. The smallest key should be for the requested
+redemption_start, the largest for the requested redemption_end.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.DeleteAllRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.DeleteAllRequest" title="org.signal.chat.backup.DeleteAllRequest">message DeleteAllRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.DeleteAllResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.DeleteAllResponse" title="org.signal.chat.backup.DeleteAllResponse">message DeleteAllResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The backup was successfully scheduled for deletion</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.DeleteMediaItem">
+  <span>
+    <a href="#message-org.signal.chat.backup.DeleteMediaItem" title="org.signal.chat.backup.DeleteMediaItem">message DeleteMediaItem</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        cdn
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The backup cdn where this media object is stored</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        media_id
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The media_id of the object to delete</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.DeleteMediaRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.DeleteMediaRequest" title="org.signal.chat.backup.DeleteMediaRequest">message DeleteMediaRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        items
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.DeleteMediaItem">
+          
+            repeated
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.DeleteMediaItem"><span title="org.signal.chat.backup.DeleteMediaItem">org.signal.chat.backup.DeleteMediaItem</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.DeleteMediaResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.DeleteMediaResponse" title="org.signal.chat.backup.DeleteMediaResponse">message DeleteMediaResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            deleted_item
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.DeleteMediaItem">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.DeleteMediaItem"><span title="org.signal.chat.backup.DeleteMediaItem">org.signal.chat.backup.DeleteMediaItem</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetBackupAuthCredentialsRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetBackupAuthCredentialsRequest" title="org.signal.chat.backup.GetBackupAuthCredentialsRequest">message GetBackupAuthCredentialsRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        redemption_start
+      </td>
+      <td>
+        <code title="int64">
+          
+          <span>int64</span>
+        </code>
+      </td>
+      <td class="content"><p>The redemption time for the first credential. This must be a day-aligned
+seconds since epoch in UTC.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        redemption_stop
+      </td>
+      <td>
+        <code title="int64">
+          
+          <span>int64</span>
+        </code>
+      </td>
+      <td class="content"><p>The redemption time for the last credential. This must be a day-aligned
+seconds since epoch in UTC. The span between redemptionStart and
+redemptionEnd must not exceed 7 days.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetBackupAuthCredentialsResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetBackupAuthCredentialsResponse" title="org.signal.chat.backup.GetBackupAuthCredentialsResponse">message GetBackupAuthCredentialsResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        credentials
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.GetBackupAuthCredentialsResponse.Credentials">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetBackupAuthCredentialsResponse.Credentials"><span title="org.signal.chat.backup.GetBackupAuthCredentialsResponse.Credentials">org.signal.chat.backup.GetBackupAuthCredentialsResponse.Credentials</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The requested credentials. If absent, there was no existing blinded
+backup id associated with the provided account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetBackupInfoRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetBackupInfoRequest" title="org.signal.chat.backup.GetBackupInfoRequest">message GetBackupInfoRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetCdnCredentialsRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetCdnCredentialsRequest" title="org.signal.chat.backup.GetCdnCredentialsRequest">message GetCdnCredentialsRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        cdn
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetCdnCredentialsResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetCdnCredentialsResponse" title="org.signal.chat.backup.GetCdnCredentialsResponse">message GetCdnCredentialsResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            cdn_credentials
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.GetCdnCredentialsResponse.CdnCredentials">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetCdnCredentialsResponse.CdnCredentials"><span title="org.signal.chat.backup.GetCdnCredentialsResponse.CdnCredentials">org.signal.chat.backup.GetCdnCredentialsResponse.CdnCredentials</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Headers to include with requests to the read from the backup CDN. Includes
+time limited read-only credentials.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetMediaBackupInfoResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetMediaBackupInfoResponse" title="org.signal.chat.backup.GetMediaBackupInfoResponse">message GetMediaBackupInfoResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            backup_info
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.GetMediaBackupInfoResponse.MediaBackupInfo">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetMediaBackupInfoResponse.MediaBackupInfo"><span title="org.signal.chat.backup.GetMediaBackupInfoResponse.MediaBackupInfo">org.signal.chat.backup.GetMediaBackupInfoResponse.MediaBackupInfo</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetMessageBackupInfoResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetMessageBackupInfoResponse" title="org.signal.chat.backup.GetMessageBackupInfoResponse">message GetMessageBackupInfoResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            backup_info
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.GetMessageBackupInfoResponse.MessageBackupInfo">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetMessageBackupInfoResponse.MessageBackupInfo"><span title="org.signal.chat.backup.GetMessageBackupInfoResponse.MessageBackupInfo">org.signal.chat.backup.GetMessageBackupInfoResponse.MessageBackupInfo</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetSvrBCredentialsRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetSvrBCredentialsRequest" title="org.signal.chat.backup.GetSvrBCredentialsRequest">message GetSvrBCredentialsRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetSvrBCredentialsResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetSvrBCredentialsResponse" title="org.signal.chat.backup.GetSvrBCredentialsResponse">message GetSvrBCredentialsResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            svrb_credentials
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.GetSvrBCredentialsResponse.SvrBCredentials">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetSvrBCredentialsResponse.SvrBCredentials"><span title="org.signal.chat.backup.GetSvrBCredentialsResponse.SvrBCredentials">org.signal.chat.backup.GetSvrBCredentialsResponse.SvrBCredentials</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetUploadFormRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetUploadFormRequest" title="org.signal.chat.backup.GetUploadFormRequest">message GetUploadFormRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        uploadLength
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The length of the attachment for the requested upload form. Uploads
+performed with this form will be limited to the provided length.</p></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof upload_type</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            messages
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.GetUploadFormRequest.MessagesUploadType">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetUploadFormRequest.MessagesUploadType"><span title="org.signal.chat.backup.GetUploadFormRequest.MessagesUploadType">org.signal.chat.backup.GetUploadFormRequest.MessagesUploadType</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Retrieve an upload form that can be used to perform a resumable upload of
+a message backup. The finished upload will be available on the backup cdn.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            media
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.GetUploadFormRequest.MediaUploadType">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetUploadFormRequest.MediaUploadType"><span title="org.signal.chat.backup.GetUploadFormRequest.MediaUploadType">org.signal.chat.backup.GetUploadFormRequest.MediaUploadType</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Retrieve an upload form for a temporary location that can be used to
+perform a resumable upload of an attachment. After uploading, the
+attachment can be copied into the backup via CopyMedia.</p>
+<p>Behaves identically to the account authenticated version at /attachments.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetUploadFormResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetUploadFormResponse" title="org.signal.chat.backup.GetUploadFormResponse">message GetUploadFormResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            upload_form
+          </td>
+          <td>
+            <code title="org.signal.chat.common.UploadForm">
+              
+              <a href="org.signal.chat.common.html#message-org.signal.chat.common.UploadForm"><span title="org.signal.chat.common.UploadForm">org.signal.chat.common.UploadForm</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            exceeds_max_upload_length
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The request size was larger than the maximum supported upload size. The
+maximum upload size is subject to change and is governed by
+<code>global.attachments.maxBytes</code></p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.ListMediaResponse.ListEntry">
+  <span>
+    <a href="#message-org.signal.chat.backup.ListMediaResponse.ListEntry" title="org.signal.chat.backup.ListMediaResponse.ListEntry">message ListEntry</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.ListMediaResponse"><span title="org.signal.chat.backup.ListMediaResponse">org.signal.chat.backup.ListMediaResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        cdn
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The backup cdn where this media object is stored</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        media_id
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The media_id of the object</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        length
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The length of the object in bytes</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.ListMediaRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.ListMediaRequest" title="org.signal.chat.backup.ListMediaRequest">message ListMediaRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        cursor
+      </td>
+      <td>
+        <code title="string">
+          
+            optional
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A cursor returned by a previous call to ListMedia, absent on the first call</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        limit
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>If provided, the maximum number of entries to return in a page</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.ListMediaResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.ListMediaResponse" title="org.signal.chat.backup.ListMediaResponse">message ListMediaResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            list_result
+          </td>
+          <td>
+            <code title="org.signal.chat.backup.ListMediaResponse.ListResult">
+              
+              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.ListMediaResponse.ListResult"><span title="org.signal.chat.backup.ListMediaResponse.ListResult">org.signal.chat.backup.ListMediaResponse.ListResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.ListMediaResponse.ListResult">
+  <span>
+    <a href="#message-org.signal.chat.backup.ListMediaResponse.ListResult" title="org.signal.chat.backup.ListMediaResponse.ListResult">message ListResult</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.ListMediaResponse"><span title="org.signal.chat.backup.ListMediaResponse">org.signal.chat.backup.ListMediaResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        page
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.ListMediaResponse.ListEntry">
+          
+            repeated
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.ListMediaResponse.ListEntry"><span title="org.signal.chat.backup.ListMediaResponse.ListEntry">org.signal.chat.backup.ListMediaResponse.ListEntry</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A page of media objects stored for this backup ID</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        backup_dir
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The base directory of the backup data on the cdn. The stored media can be
+found at /backup_dir/media_dir/media_id, where the media_id is encoded with
+unpadded url-safe base64.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        media_dir
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The prefix path component for the media objects. The stored media for
+media_id can be found at /backup_dir/media_dir/media_id, where the media_id
+is encoded with unpadded url-safe base64.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        cursor
+      </td>
+      <td>
+        <code title="string">
+          
+            optional
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>If set, the cursor value to pass to the next list request to continue
+listing. If absent, all objects have been listed</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetMediaBackupInfoResponse.MediaBackupInfo">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetMediaBackupInfoResponse.MediaBackupInfo" title="org.signal.chat.backup.GetMediaBackupInfoResponse.MediaBackupInfo">message MediaBackupInfo</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetMediaBackupInfoResponse"><span title="org.signal.chat.backup.GetMediaBackupInfoResponse">org.signal.chat.backup.GetMediaBackupInfoResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        backup_dir
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The base directory of your backup data on the cdn. Always non-empty, even
+if no media has been stored to the cdn or the credential is for a tier
+that does not support media.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        media_dir
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The prefix path component for media objects on a cdn. Stored media for a
+media_id can be found at /backup_dir/media_dir/media_id, where the
+media_id is encoded in unpadded url-safe base64. Always non-empty, even
+if no media has been stored to the cdn or the credential is for a tier
+that does not support media.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        used_space
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The amount of space used to store media</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetUploadFormRequest.MediaUploadType">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetUploadFormRequest.MediaUploadType" title="org.signal.chat.backup.GetUploadFormRequest.MediaUploadType">message MediaUploadType</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetUploadFormRequest"><span title="org.signal.chat.backup.GetUploadFormRequest">org.signal.chat.backup.GetUploadFormRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetMessageBackupInfoResponse.MessageBackupInfo">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetMessageBackupInfoResponse.MessageBackupInfo" title="org.signal.chat.backup.GetMessageBackupInfoResponse.MessageBackupInfo">message MessageBackupInfo</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetMessageBackupInfoResponse"><span title="org.signal.chat.backup.GetMessageBackupInfoResponse">org.signal.chat.backup.GetMessageBackupInfoResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        backup_dir
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The base directory of your backup data on the cdn. Always non-empty, even
+if a backup has not actually been stored to the cdn. If a backup was
+previously uploaded and has not expired, it can be found in the returned
+cdn at /backup_dir/backup_name.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        cdn
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The CDN type where the message backup is stored. Media may be stored
+elsewhere.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        backup_name
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The location of the message backup on the cdn. Always non-empty, even
+if a backup has not actually been stored to the cdn. If a backup was
+previously uploaded and has not expired, it can be found in the returned
+cdn at /backup_dir/backup_name.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetUploadFormRequest.MessagesUploadType">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetUploadFormRequest.MessagesUploadType" title="org.signal.chat.backup.GetUploadFormRequest.MessagesUploadType">message MessagesUploadType</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetUploadFormRequest"><span title="org.signal.chat.backup.GetUploadFormRequest">org.signal.chat.backup.GetUploadFormRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.CopyMediaResponse.OutOfSpace">
+  <span>
+    <a href="#message-org.signal.chat.backup.CopyMediaResponse.OutOfSpace" title="org.signal.chat.backup.CopyMediaResponse.OutOfSpace">message OutOfSpace</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaResponse"><span title="org.signal.chat.backup.CopyMediaResponse">org.signal.chat.backup.CopyMediaResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.RedeemReceiptRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.RedeemReceiptRequest" title="org.signal.chat.backup.RedeemReceiptRequest">message RedeemReceiptRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        presentation
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>Presentation for a previously acquired receipt, serialized with libsignal</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.RedeemReceiptResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.RedeemReceiptResponse" title="org.signal.chat.backup.RedeemReceiptResponse">message RedeemReceiptResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The receipt was successfully redeemed</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            account_missing_commitment
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The target account does not have a backup-id commitment</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            invalid_receipt
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided receipt presentation was malformed or expired</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.RefreshRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.RefreshRequest" title="org.signal.chat.backup.RefreshRequest">message RefreshRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.RefreshResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.RefreshResponse" title="org.signal.chat.backup.RefreshResponse">message RefreshResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The backup was successfully refreshed</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.SetBackupIdRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.SetBackupIdRequest" title="org.signal.chat.backup.SetBackupIdRequest">message SetBackupIdRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        messages_backup_auth_credential_request
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A BackupAuthCredentialRequest containing a blinded encrypted backup-id,
+encoded in standard padded base64. This backup-id should be used for
+message backups only, and must have the message backup type set on the
+credential. If absent, the message credential request will not be updated.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        media_backup_auth_credential_request
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A BackupAuthCredentialRequest containing a blinded encrypted backup-id,
+encoded in standard padded base64. This backup-id should be used for
+media only, and must have the media type set on the credential. If absent,
+the media credential request will not be updated.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.SetBackupIdResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.SetBackupIdResponse" title="org.signal.chat.backup.SetBackupIdResponse">message SetBackupIdResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.SetPublicKeyRequest">
+  <span>
+    <a href="#message-org.signal.chat.backup.SetPublicKeyRequest" title="org.signal.chat.backup.SetPublicKeyRequest">message SetPublicKeyRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        signed_presentation
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.SignedPresentation">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.SignedPresentation"><span title="org.signal.chat.backup.SignedPresentation">org.signal.chat.backup.SignedPresentation</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        public_key
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The public key, serialized in libsignal's elliptic-curve public key format.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.SetPublicKeyResponse">
+  <span>
+    <a href="#message-org.signal.chat.backup.SetPublicKeyResponse" title="org.signal.chat.backup.SetPublicKeyResponse">message SetPublicKeyResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The public key was successfully set</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p>
+<p>This may also be returned if there was an existing public key and the
+provided public key did not match.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.SignedPresentation">
+  <span>
+    <a href="#message-org.signal.chat.backup.SignedPresentation" title="org.signal.chat.backup.SignedPresentation">message SignedPresentation</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        presentation
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>Presentation of a BackupAuthCredential previously retrieved from
+GetBackupAuthCredentials on the authenticated channel</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        presentation_signature
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The presentation signed with the private key corresponding to the public
+key set with SetPublicKey</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.CopyMediaResponse.SourceNotFound">
+  <span>
+    <a href="#message-org.signal.chat.backup.CopyMediaResponse.SourceNotFound" title="org.signal.chat.backup.CopyMediaResponse.SourceNotFound">message SourceNotFound</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaResponse"><span title="org.signal.chat.backup.CopyMediaResponse">org.signal.chat.backup.CopyMediaResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.GetSvrBCredentialsResponse.SvrBCredentials">
+  <span>
+    <a href="#message-org.signal.chat.backup.GetSvrBCredentialsResponse.SvrBCredentials" title="org.signal.chat.backup.GetSvrBCredentialsResponse.SvrBCredentials">message SvrBCredentials</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.GetSvrBCredentialsResponse"><span title="org.signal.chat.backup.GetSvrBCredentialsResponse">org.signal.chat.backup.GetSvrBCredentialsResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        username
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A username that can be presented to authenticate with SVRB</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        password
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A password that can be presented to authenticate with SVRB</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.CopyMediaResponse.WrongSourceLength">
+  <span>
+    <a href="#message-org.signal.chat.backup.CopyMediaResponse.WrongSourceLength" title="org.signal.chat.backup.CopyMediaResponse.WrongSourceLength">message WrongSourceLength</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.CopyMediaResponse"><span title="org.signal.chat.backup.CopyMediaResponse">org.signal.chat.backup.CopyMediaResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>

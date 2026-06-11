@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.calling.quality</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.calling.quality.CallQuality">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>CallQuality</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SubmitCallQualitySurveyRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.calling.quality.SubmitCallQualitySurveyResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SubmitCallQualitySurveyResponse</code> 
+        </a>
+      </p>
+      
+    
+
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.calling.quality.CallQuality">
+  <a href="#service-org.signal.chat.calling.quality.CallQuality" title="org.signal.chat.calling.quality.CallQuality">service CallQuality</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Provides methods for submitting call quality surveys</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.calling.quality.CallQuality-SubmitCallQualitySurvey">
+      <a href="#service-org.signal.chat.calling.quality.CallQuality-SubmitCallQualitySurvey">
+        rpc <code>SubmitCallQualitySurvey</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.calling.quality.html#message-org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest"><span title="org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest">org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.calling.quality.html#message-org.signal.chat.calling.quality.SubmitCallQualitySurveyResponse"><span title="org.signal.chat.calling.quality.SubmitCallQualitySurveyResponse">org.signal.chat.calling.quality.SubmitCallQualitySurveyResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Submits a call quality survey response.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest">
+  <span>
+    <a href="#message-org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest" title="org.signal.chat.calling.quality.SubmitCallQualitySurveyRequest">message SubmitCallQualitySurveyRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        user_satisfied
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Indicates whether the caller was generally satisfied with the quality of
+the call</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        call_quality_issues
+      </td>
+      <td>
+        <code title="string">
+          
+            repeated
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A list of call quality issues selected by the caller</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        additional_issues_description
+      </td>
+      <td>
+        <code title="string">
+          
+            optional
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A free-form description of any additional issues as written by the caller</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        debug_log_url
+      </td>
+      <td>
+        <code title="string">
+          
+            optional
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A URL for a set of debug logs associated with the call if the caller chose
+to submit debug logs</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        start_timestamp
+      </td>
+      <td>
+        <code title="int64">
+          
+          <span>int64</span>
+        </code>
+      </td>
+      <td class="content"><p>The time at which the call started in milliseconds since the epoch</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>6</td>
+      <td>
+        end_timestamp
+      </td>
+      <td>
+        <code title="int64">
+          
+          <span>int64</span>
+        </code>
+      </td>
+      <td class="content"><p>The time at which the call ended in milliseconds since the epoch</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>7</td>
+      <td>
+        call_type
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The type of call; note that direct voice calls can become video calls and
+vice versa, and this field indicates which mode was selected at call
+initiation time. At the time of writing, expected call types are
+"direct_voice", "direct_video", "group", and "call_link".</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>8</td>
+      <td>
+        success
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Indicates whether the call completed without error or if it terminated
+abnormally</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>9</td>
+      <td>
+        call_end_reason
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A client-defined, but human-readable reason for call termination</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>10</td>
+      <td>
+        connection_rtt_median
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The median round-trip time, measured in milliseconds, for STUN/ICE packets
+(i.e. connection maintenance and establishment)</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>11</td>
+      <td>
+        audio_rtt_median
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The median round-trip time, measured in milliseconds, for RTP/RTCP packets
+for audio streams</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>12</td>
+      <td>
+        video_rtt_median
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The median round-trip time, measured in milliseconds, for RTP/RTCP packets
+for video streams</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>13</td>
+      <td>
+        audio_recv_jitter_median
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The median jitter for audio streams, measured in milliseconds, for the
+duration of the call as measured by the client submitting the survey</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>14</td>
+      <td>
+        video_recv_jitter_median
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The median jitter for video streams, measured in milliseconds, for the
+duration of the call as measured by the client submitting the survey</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>15</td>
+      <td>
+        audio_send_jitter_median
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The median jitter for audio streams, measured in milliseconds, for the
+duration of the call as measured by the remote endpoint in the call (either
+the peer of the client submitting the survey in a direct call or the SFU in
+a group call)</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>16</td>
+      <td>
+        video_send_jitter_median
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The median jitter for video streams, measured in milliseconds, for the
+duration of the call as measured by the remote endpoint in the call (either
+the peer of the client submitting the survey in a direct call or the SFU in
+a group call)</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>17</td>
+      <td>
+        audio_recv_packet_loss_fraction
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The fraction of audio packets lost over the duration of the call as
+measured by the client submitting the survey</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>18</td>
+      <td>
+        video_recv_packet_loss_fraction
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The fraction of video packets lost over the duration of the call as
+measured by the client submitting the survey</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>19</td>
+      <td>
+        audio_send_packet_loss_fraction
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The fraction of audio packets lost over the duration of the call as
+measured by the remote endpoint in the call (either the peer of the client
+submitting the survey in a direct call or the SFU in a group call)</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>20</td>
+      <td>
+        video_send_packet_loss_fraction
+      </td>
+      <td>
+        <code title="float">
+          
+            optional
+          
+          <span>float</span>
+        </code>
+      </td>
+      <td class="content"><p>The fraction of video packets lost over the duration of the call as
+measured by the remote endpoint in the call (either the peer of the client
+submitting the survey in a direct call or the SFU in a group call)</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>21</td>
+      <td>
+        call_telemetry
+      </td>
+      <td>
+        <code title="bytes">
+          
+            optional
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>Machine-generated telemetry from the call; this is a serialized protobuf
+entity generated (and, critically, explained to the user!) by the calling
+library</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>22</td>
+      <td>
+        call_id_hash
+      </td>
+      <td>
+        <code title="bytes">
+          
+            optional
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A hash of a call ID (shared between clients and never sent to the calling
+server) that can be used to correlate survey responses from multiple
+participants in a call</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.calling.quality.SubmitCallQualitySurveyResponse">
+  <span>
+    <a href="#message-org.signal.chat.calling.quality.SubmitCallQualitySurveyResponse" title="org.signal.chat.calling.quality.SubmitCallQualitySurveyResponse">message SubmitCallQualitySurveyResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>

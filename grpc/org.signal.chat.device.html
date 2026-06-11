@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.device</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.device.Devices">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>Devices</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.SetPushTokenRequest.ApnsTokenRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ApnsTokenRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.ClearPushTokenRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ClearPushTokenRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.ClearPushTokenResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ClearPushTokenResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.SetPushTokenRequest.FcmTokenRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>FcmTokenRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.GetDevicesRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetDevicesRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.GetDevicesResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetDevicesResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.GetDevicesResponse.LinkedDevice">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>LinkedDevice</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.RemoveDeviceRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RemoveDeviceRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.RemoveDeviceResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>RemoveDeviceResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.SetCapabilitiesRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetCapabilitiesRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.SetCapabilitiesResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetCapabilitiesResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.SetDeviceNameRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetDeviceNameRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.SetDeviceNameResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetDeviceNameResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.SetPushTokenRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetPushTokenRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.device.SetPushTokenResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetPushTokenResponse</code> 
+        </a>
+      </p>
+      
+    
+
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.device.Devices">
+  <a href="#service-org.signal.chat.device.Devices" title="org.signal.chat.device.Devices">service Devices</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Provides methods for working with devices attached to a Signal account.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.device.Devices-GetDevices">
+      <a href="#service-org.signal.chat.device.Devices-GetDevices">
+        rpc <code>GetDevices</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.GetDevicesRequest"><span title="org.signal.chat.device.GetDevicesRequest">org.signal.chat.device.GetDevicesRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.GetDevicesResponse"><span title="org.signal.chat.device.GetDevicesResponse">org.signal.chat.device.GetDevicesResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns a list of devices associated with the caller's account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.device.Devices-RemoveDevice">
+      <a href="#service-org.signal.chat.device.Devices-RemoveDevice">
+        rpc <code>RemoveDevice</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.RemoveDeviceRequest"><span title="org.signal.chat.device.RemoveDeviceRequest">org.signal.chat.device.RemoveDeviceRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.RemoveDeviceResponse"><span title="org.signal.chat.device.RemoveDeviceResponse">org.signal.chat.device.RemoveDeviceResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Removes a linked device from the caller's account.</p>
+<p>Linked devices may only remove themselves. Primary devices may remove
+any device other than themselves.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.device.Devices-SetDeviceName">
+      <a href="#service-org.signal.chat.device.Devices-SetDeviceName">
+        rpc <code>SetDeviceName</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.SetDeviceNameRequest"><span title="org.signal.chat.device.SetDeviceNameRequest">org.signal.chat.device.SetDeviceNameRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.SetDeviceNameResponse"><span title="org.signal.chat.device.SetDeviceNameResponse">org.signal.chat.device.SetDeviceNameResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets the encrypted human-readable name for a specific devices. Primary
+devices may change the name of any device associated with their account,
+but linked devices may only change their own name. The response will
+indicate if the target device was not found.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.device.Devices-SetPushToken">
+      <a href="#service-org.signal.chat.device.Devices-SetPushToken">
+        rpc <code>SetPushToken</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.SetPushTokenRequest"><span title="org.signal.chat.device.SetPushTokenRequest">org.signal.chat.device.SetPushTokenRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.SetPushTokenResponse"><span title="org.signal.chat.device.SetPushTokenResponse">org.signal.chat.device.SetPushTokenResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets the token(s) the server should use to send new message notifications
+to the authenticated device.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.device.Devices-ClearPushToken">
+      <a href="#service-org.signal.chat.device.Devices-ClearPushToken">
+        rpc <code>ClearPushToken</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.ClearPushTokenRequest"><span title="org.signal.chat.device.ClearPushTokenRequest">org.signal.chat.device.ClearPushTokenRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.ClearPushTokenResponse"><span title="org.signal.chat.device.ClearPushTokenResponse">org.signal.chat.device.ClearPushTokenResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Removes any push tokens associated with the authenticated device. After
+calling this method, the server will assume that the authenticated device
+will periodically poll for new messages.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.device.Devices-SetCapabilities">
+      <a href="#service-org.signal.chat.device.Devices-SetCapabilities">
+        rpc <code>SetCapabilities</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.SetCapabilitiesRequest"><span title="org.signal.chat.device.SetCapabilitiesRequest">org.signal.chat.device.SetCapabilitiesRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.device.html#message-org.signal.chat.device.SetCapabilitiesResponse"><span title="org.signal.chat.device.SetCapabilitiesResponse">org.signal.chat.device.SetCapabilitiesResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Declares that the authenticated device supports certain features.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.SetPushTokenRequest.ApnsTokenRequest">
+  <span>
+    <a href="#message-org.signal.chat.device.SetPushTokenRequest.ApnsTokenRequest" title="org.signal.chat.device.SetPushTokenRequest.ApnsTokenRequest">message ApnsTokenRequest</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.device.html#message-org.signal.chat.device.SetPushTokenRequest"><span title="org.signal.chat.device.SetPushTokenRequest">org.signal.chat.device.SetPushTokenRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        apns_token
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A "standard" APNs device token.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.ClearPushTokenRequest">
+  <span>
+    <a href="#message-org.signal.chat.device.ClearPushTokenRequest" title="org.signal.chat.device.ClearPushTokenRequest">message ClearPushTokenRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.ClearPushTokenResponse">
+  <span>
+    <a href="#message-org.signal.chat.device.ClearPushTokenResponse" title="org.signal.chat.device.ClearPushTokenResponse">message ClearPushTokenResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.SetPushTokenRequest.FcmTokenRequest">
+  <span>
+    <a href="#message-org.signal.chat.device.SetPushTokenRequest.FcmTokenRequest" title="org.signal.chat.device.SetPushTokenRequest.FcmTokenRequest">message FcmTokenRequest</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.device.html#message-org.signal.chat.device.SetPushTokenRequest"><span title="org.signal.chat.device.SetPushTokenRequest">org.signal.chat.device.SetPushTokenRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        fcm_token
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>An FCM push token.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.GetDevicesRequest">
+  <span>
+    <a href="#message-org.signal.chat.device.GetDevicesRequest" title="org.signal.chat.device.GetDevicesRequest">message GetDevicesRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.GetDevicesResponse">
+  <span>
+    <a href="#message-org.signal.chat.device.GetDevicesResponse" title="org.signal.chat.device.GetDevicesResponse">message GetDevicesResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        devices
+      </td>
+      <td>
+        <code title="org.signal.chat.device.GetDevicesResponse.LinkedDevice">
+          
+            repeated
+          
+          <a href="org.signal.chat.device.html#message-org.signal.chat.device.GetDevicesResponse.LinkedDevice"><span title="org.signal.chat.device.GetDevicesResponse.LinkedDevice">org.signal.chat.device.GetDevicesResponse.LinkedDevice</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A list of devices linked to the authenticated account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.GetDevicesResponse.LinkedDevice">
+  <span>
+    <a href="#message-org.signal.chat.device.GetDevicesResponse.LinkedDevice" title="org.signal.chat.device.GetDevicesResponse.LinkedDevice">message LinkedDevice</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.device.html#message-org.signal.chat.device.GetDevicesResponse"><span title="org.signal.chat.device.GetDevicesResponse">org.signal.chat.device.GetDevicesResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        id
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The identifier for the device within an account.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        name
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A sequence of bytes that encodes an encrypted human-readable name for
+this device.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        last_seen
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The approximate time, in milliseconds since the epoch, at which this
+device last connected to the server.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        registration_id
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The registration ID of the given device.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        created_at_ciphertext
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A sequence of bytes that encodes the time,
+in milliseconds since the epoch, at which this device was
+attached to its parent account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.RemoveDeviceRequest">
+  <span>
+    <a href="#message-org.signal.chat.device.RemoveDeviceRequest" title="org.signal.chat.device.RemoveDeviceRequest">message RemoveDeviceRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        id
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The identifier for the device to remove from the authenticated account. The
+identifier must not be for the primary device.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.RemoveDeviceResponse">
+  <span>
+    <a href="#message-org.signal.chat.device.RemoveDeviceResponse" title="org.signal.chat.device.RemoveDeviceResponse">message RemoveDeviceResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.SetCapabilitiesRequest">
+  <span>
+    <a href="#message-org.signal.chat.device.SetCapabilitiesRequest" title="org.signal.chat.device.SetCapabilitiesRequest">message SetCapabilitiesRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        capabilities
+      </td>
+      <td>
+        <code title="org.signal.chat.common.DeviceCapability">
+          
+            repeated
+          
+          <a href="org.signal.chat.common.html#enum-org.signal.chat.common.DeviceCapability"><span title="org.signal.chat.common.DeviceCapability">org.signal.chat.common.DeviceCapability</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.SetCapabilitiesResponse">
+  <span>
+    <a href="#message-org.signal.chat.device.SetCapabilitiesResponse" title="org.signal.chat.device.SetCapabilitiesResponse">message SetCapabilitiesResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.SetDeviceNameRequest">
+  <span>
+    <a href="#message-org.signal.chat.device.SetDeviceNameRequest" title="org.signal.chat.device.SetDeviceNameRequest">message SetDeviceNameRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        name
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A sequence of bytes that encodes an encrypted human-readable name for this
+device.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        id
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The identifier for the device for which to set a name.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.SetDeviceNameResponse">
+  <span>
+    <a href="#message-org.signal.chat.device.SetDeviceNameResponse" title="org.signal.chat.device.SetDeviceNameResponse">message SetDeviceNameResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The device name was successfully set</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            target_device_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>No device with the provided identifier was found on the account</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.SetPushTokenRequest">
+  <span>
+    <a href="#message-org.signal.chat.device.SetPushTokenRequest" title="org.signal.chat.device.SetPushTokenRequest">message SetPushTokenRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof token_request</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            apns_token_request
+          </td>
+          <td>
+            <code title="org.signal.chat.device.SetPushTokenRequest.ApnsTokenRequest">
+              
+              <a href="org.signal.chat.device.html#message-org.signal.chat.device.SetPushTokenRequest.ApnsTokenRequest"><span title="org.signal.chat.device.SetPushTokenRequest.ApnsTokenRequest">org.signal.chat.device.SetPushTokenRequest.ApnsTokenRequest</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>If present, specifies the APNs device token(s) the server will use to
+send new message notifications to the authenticated device.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            fcm_token_request
+          </td>
+          <td>
+            <code title="org.signal.chat.device.SetPushTokenRequest.FcmTokenRequest">
+              
+              <a href="org.signal.chat.device.html#message-org.signal.chat.device.SetPushTokenRequest.FcmTokenRequest"><span title="org.signal.chat.device.SetPushTokenRequest.FcmTokenRequest">org.signal.chat.device.SetPushTokenRequest.FcmTokenRequest</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>If present, specifies the FCM push token the server will use to send new
+message notifications to the authenticated device.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.device.SetPushTokenResponse">
+  <span>
+    <a href="#message-org.signal.chat.device.SetPushTokenResponse" title="org.signal.chat.device.SetPushTokenResponse">message SetPushTokenResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>

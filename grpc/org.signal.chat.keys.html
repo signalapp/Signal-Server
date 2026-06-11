@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.keys</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.keys.Keys">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>Keys</code> 
+      </a>
+    </p>
+    
+    <p>
+      <a href="#service-org.signal.chat.keys.KeysAnonymous">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>KeysAnonymous</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.AccountPreKeyBundles">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>AccountPreKeyBundles</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.CheckIdentityKeyRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CheckIdentityKeyRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.CheckIdentityKeyResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CheckIdentityKeyResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.DevicePreKeyBundle">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DevicePreKeyBundle</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.GetPreKeyCountRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetPreKeyCountRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.GetPreKeyCountResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetPreKeyCountResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.GetPreKeysAnonymousRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetPreKeysAnonymousRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.GetPreKeysAnonymousResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetPreKeysAnonymousResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.GetPreKeysRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetPreKeysRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.GetPreKeysResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetPreKeysResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.SetEcSignedPreKeyRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetEcSignedPreKeyRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.SetKemLastResortPreKeyRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetKemLastResortPreKeyRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.SetOneTimeEcPreKeysRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetOneTimeEcPreKeysRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetOneTimeKemSignedPreKeysRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.keys.SetPreKeyResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetPreKeyResponse</code> 
+        </a>
+      </p>
+      
+    
+
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.keys.Keys">
+  <a href="#service-org.signal.chat.keys.Keys" title="org.signal.chat.keys.Keys">service Keys</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Provides methods for working with pre-keys.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.keys.Keys-GetPreKeyCount">
+      <a href="#service-org.signal.chat.keys.Keys-GetPreKeyCount">
+        rpc <code>GetPreKeyCount</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.GetPreKeyCountRequest"><span title="org.signal.chat.keys.GetPreKeyCountRequest">org.signal.chat.keys.GetPreKeyCountRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.GetPreKeyCountResponse"><span title="org.signal.chat.keys.GetPreKeyCountResponse">org.signal.chat.keys.GetPreKeyCountResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieves an approximate count of the number of the various kinds of
+pre-keys stored for the authenticated device.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.keys.Keys-GetPreKeys">
+      <a href="#service-org.signal.chat.keys.Keys-GetPreKeys">
+        rpc <code>GetPreKeys</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.GetPreKeysRequest"><span title="org.signal.chat.keys.GetPreKeysRequest">org.signal.chat.keys.GetPreKeysRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.GetPreKeysResponse"><span title="org.signal.chat.keys.GetPreKeysResponse">org.signal.chat.keys.GetPreKeysResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieves a set of pre-keys for establishing a session with the targeted
+device or devices. Note that callers with an unidentified access key for
+the targeted account should use the version of this method in
+<code>KeysAnonymous</code> instead.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.keys.Keys-SetOneTimeEcPreKeys">
+      <a href="#service-org.signal.chat.keys.Keys-SetOneTimeEcPreKeys">
+        rpc <code>SetOneTimeEcPreKeys</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.SetOneTimeEcPreKeysRequest"><span title="org.signal.chat.keys.SetOneTimeEcPreKeysRequest">org.signal.chat.keys.SetOneTimeEcPreKeysRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.SetPreKeyResponse"><span title="org.signal.chat.keys.SetPreKeyResponse">org.signal.chat.keys.SetPreKeyResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Uploads a new set of one-time EC pre-keys for the authenticated device,
+clearing any previously-stored pre-keys. Note that all keys submitted via
+a single call to this method <em>must</em> have the same identity type (i.e. if
+the first key has an ACI identity type, then all other keys in the same
+stream must also have an ACI identity type). The provided list of pre-keys
+must be non-empty.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.keys.Keys-SetOneTimeKemSignedPreKeys">
+      <a href="#service-org.signal.chat.keys.Keys-SetOneTimeKemSignedPreKeys">
+        rpc <code>SetOneTimeKemSignedPreKeys</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest"><span title="org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest">org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.SetPreKeyResponse"><span title="org.signal.chat.keys.SetPreKeyResponse">org.signal.chat.keys.SetPreKeyResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Uploads a new set of one-time KEM pre-keys for the authenticated device,
+clearing any previously-stored pre-keys. Note that all keys submitted via
+a single call to this method <em>must</em> have the same identity type (i.e. if
+the first key has an ACI identity type, then all other keys in the same
+stream must also have an ACI identity type). The provided list of pre-keys
+must be non-empty.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.keys.Keys-SetEcSignedPreKey">
+      <a href="#service-org.signal.chat.keys.Keys-SetEcSignedPreKey">
+        rpc <code>SetEcSignedPreKey</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.SetEcSignedPreKeyRequest"><span title="org.signal.chat.keys.SetEcSignedPreKeyRequest">org.signal.chat.keys.SetEcSignedPreKeyRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.SetPreKeyResponse"><span title="org.signal.chat.keys.SetPreKeyResponse">org.signal.chat.keys.SetPreKeyResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets the signed EC pre-key for one identity (i.e. ACI or PNI) associated
+with the authenticated device.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.keys.Keys-SetKemLastResortPreKey">
+      <a href="#service-org.signal.chat.keys.Keys-SetKemLastResortPreKey">
+        rpc <code>SetKemLastResortPreKey</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.SetKemLastResortPreKeyRequest"><span title="org.signal.chat.keys.SetKemLastResortPreKeyRequest">org.signal.chat.keys.SetKemLastResortPreKeyRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.SetPreKeyResponse"><span title="org.signal.chat.keys.SetPreKeyResponse">org.signal.chat.keys.SetPreKeyResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets the last-resort KEM pre-key for one identity (i.e. ACI or PNI)
+associated with the authenticated device.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.keys.KeysAnonymous">
+  <a href="#service-org.signal.chat.keys.KeysAnonymous" title="org.signal.chat.keys.KeysAnonymous">service KeysAnonymous</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Provides methods for working with pre-keys using "unidentified access"
+credentials.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.keys.KeysAnonymous-GetPreKeys">
+      <a href="#service-org.signal.chat.keys.KeysAnonymous-GetPreKeys">
+        rpc <code>GetPreKeys</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.GetPreKeysAnonymousRequest"><span title="org.signal.chat.keys.GetPreKeysAnonymousRequest">org.signal.chat.keys.GetPreKeysAnonymousRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.GetPreKeysAnonymousResponse"><span title="org.signal.chat.keys.GetPreKeysAnonymousResponse">org.signal.chat.keys.GetPreKeysAnonymousResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieves a set of pre-keys for establishing a session with the targeted
+device or devices. Callers must not submit any self-identifying credentials
+when calling this method and must instead present the targeted account's
+unidentified access key as an anonymous authentication mechanism. Callers
+without an unidentified access key should use the equivalent, authenticated
+method in <code>Keys</code> instead.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.keys.KeysAnonymous-CheckIdentityKeys">
+      <a href="#service-org.signal.chat.keys.KeysAnonymous-CheckIdentityKeys">
+        rpc <code>CheckIdentityKeys</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.CheckIdentityKeyRequest"><span title="org.signal.chat.keys.CheckIdentityKeyRequest">org.signal.chat.keys.CheckIdentityKeyRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.keys.html#message-org.signal.chat.keys.CheckIdentityKeyResponse"><span title="org.signal.chat.keys.CheckIdentityKeyResponse">org.signal.chat.keys.CheckIdentityKeyResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Checks identity key fingerprints of the target accounts.</p>
+<p>Returns a stream of elements, each one representing an account that had a mismatched
+identity key fingerprint with the server and the corresponding identity key stored by the server.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.AccountPreKeyBundles">
+  <span>
+    <a href="#message-org.signal.chat.keys.AccountPreKeyBundles" title="org.signal.chat.keys.AccountPreKeyBundles">message AccountPreKeyBundles</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        identity_key
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The identity key associated with the targeted account/identity.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        device_pre_keys
+      </td>
+      <td>
+        <code title="map&lt;uint32, DevicePreKeyBundle&gt;">
+          
+          <span>map&lt;uint32, DevicePreKeyBundle&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>A map of device IDs to pre-key "bundles" for the targeted account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.CheckIdentityKeyRequest">
+  <span>
+    <a href="#message-org.signal.chat.keys.CheckIdentityKeyRequest" title="org.signal.chat.keys.CheckIdentityKeyRequest">message CheckIdentityKeyRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        target_identifier
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The service identifier of the account for which we want to check the associated identity key fingerprint.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        fingerprint
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The most significant 4 bytes of the SHA-256 hash of the identity key associated with the target account/identity type.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.CheckIdentityKeyResponse">
+  <span>
+    <a href="#message-org.signal.chat.keys.CheckIdentityKeyResponse" title="org.signal.chat.keys.CheckIdentityKeyResponse">message CheckIdentityKeyResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        target_identifier
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The service identifier of the account for which there is a mismatch between the client and server identity key fingerprints.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        identity_key
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The identity key that is stored by the server for the target account/identity type.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.DevicePreKeyBundle">
+  <span>
+    <a href="#message-org.signal.chat.keys.DevicePreKeyBundle" title="org.signal.chat.keys.DevicePreKeyBundle">message DevicePreKeyBundle</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        ec_signed_pre_key
+      </td>
+      <td>
+        <code title="org.signal.chat.common.EcSignedPreKey">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.EcSignedPreKey"><span title="org.signal.chat.common.EcSignedPreKey">org.signal.chat.common.EcSignedPreKey</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The EC signed pre-key associated with the targeted
+account/device/identity.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        ec_one_time_pre_key
+      </td>
+      <td>
+        <code title="org.signal.chat.common.EcPreKey">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.EcPreKey"><span title="org.signal.chat.common.EcPreKey">org.signal.chat.common.EcPreKey</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A one-time EC pre-key for the targeted account/device/identity. May not
+be set if no one-time EC pre-keys are available.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        kem_one_time_pre_key
+      </td>
+      <td>
+        <code title="org.signal.chat.common.KemSignedPreKey">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.KemSignedPreKey"><span title="org.signal.chat.common.KemSignedPreKey">org.signal.chat.common.KemSignedPreKey</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A one-time KEM pre-key (or a last-resort KEM pre-key) for the targeted
+account/device/identity.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        registration_id
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The registration ID for the targeted account/device/identity.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.GetPreKeyCountRequest">
+  <span>
+    <a href="#message-org.signal.chat.keys.GetPreKeyCountRequest" title="org.signal.chat.keys.GetPreKeyCountRequest">message GetPreKeyCountRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.GetPreKeyCountResponse">
+  <span>
+    <a href="#message-org.signal.chat.keys.GetPreKeyCountResponse" title="org.signal.chat.keys.GetPreKeyCountResponse">message GetPreKeyCountResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        aci_ec_pre_key_count
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The approximate number of one-time EC pre-keys stored for the
+authenticated device and associated with the caller's ACI.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        aci_kem_pre_key_count
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The approximate number of one-time Kyber pre-keys stored for the
+authenticated device and associated with the caller's ACI.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        pni_ec_pre_key_count
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The approximate number of one-time EC pre-keys stored for the
+authenticated device and associated with the caller's PNI.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        pni_kem_pre_key_count
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The approximate number of one-time KEM pre-keys stored for the
+authenticated device and associated with the caller's PNI.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.GetPreKeysAnonymousRequest">
+  <span>
+    <a href="#message-org.signal.chat.keys.GetPreKeysAnonymousRequest" title="org.signal.chat.keys.GetPreKeysAnonymousRequest">message GetPreKeysAnonymousRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        request
+      </td>
+      <td>
+        <code title="org.signal.chat.keys.GetPreKeysRequest">
+          
+          <a href="org.signal.chat.keys.html#message-org.signal.chat.keys.GetPreKeysRequest"><span title="org.signal.chat.keys.GetPreKeysRequest">org.signal.chat.keys.GetPreKeysRequest</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The request to retrieve pre-keys for a specific account/device(s).</p></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof authorization</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            unidentified_access_key
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>The unidentified access key (UAK) for the targeted account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            group_send_token
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>A group send endorsement token for the targeted account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            unrestricted_access
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The destination account allows unrestricted unidentified access</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.GetPreKeysAnonymousResponse">
+  <span>
+    <a href="#message-org.signal.chat.keys.GetPreKeysAnonymousResponse" title="org.signal.chat.keys.GetPreKeysAnonymousResponse">message GetPreKeysAnonymousResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            pre_keys
+          </td>
+          <td>
+            <code title="org.signal.chat.keys.AccountPreKeyBundles">
+              
+              <a href="org.signal.chat.keys.html#message-org.signal.chat.keys.AccountPreKeyBundles"><span title="org.signal.chat.keys.AccountPreKeyBundles">org.signal.chat.keys.AccountPreKeyBundles</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested pre-key bundles</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            target_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Either the target account was not found, no active device with the given
+ID (if specified) was found on the target account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            failed_unidentified_authorization
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided unidentified authorization credential was invalid</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.GetPreKeysRequest">
+  <span>
+    <a href="#message-org.signal.chat.keys.GetPreKeysRequest" title="org.signal.chat.keys.GetPreKeysRequest">message GetPreKeysRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        target_identifier
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The service identifier of the account for which to retrieve pre-keys.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        device_id
+      </td>
+      <td>
+        <code title="uint32">
+          
+            optional
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The ID of the device associated with the targeted account for which to
+retrieve pre-keys. If not set, pre-keys are returned for all devices
+associated with the targeted account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.GetPreKeysResponse">
+  <span>
+    <a href="#message-org.signal.chat.keys.GetPreKeysResponse" title="org.signal.chat.keys.GetPreKeysResponse">message GetPreKeysResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            pre_keys
+          </td>
+          <td>
+            <code title="org.signal.chat.keys.AccountPreKeyBundles">
+              
+              <a href="org.signal.chat.keys.html#message-org.signal.chat.keys.AccountPreKeyBundles"><span title="org.signal.chat.keys.AccountPreKeyBundles">org.signal.chat.keys.AccountPreKeyBundles</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested pre-key bundles</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            target_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Either the target account was not found, no active device with the given
+ID (if specified) was found on the target account.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.SetEcSignedPreKeyRequest">
+  <span>
+    <a href="#message-org.signal.chat.keys.SetEcSignedPreKeyRequest" title="org.signal.chat.keys.SetEcSignedPreKeyRequest">message SetEcSignedPreKeyRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        identity_type
+      </td>
+      <td>
+        <code title="org.signal.chat.common.IdentityType">
+          
+          <a href="org.signal.chat.common.html#enum-org.signal.chat.common.IdentityType"><span title="org.signal.chat.common.IdentityType">org.signal.chat.common.IdentityType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The identity type (i.e. ACI/PNI) with which this key is associated.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        signed_pre_key
+      </td>
+      <td>
+        <code title="org.signal.chat.common.EcSignedPreKey">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.EcSignedPreKey"><span title="org.signal.chat.common.EcSignedPreKey">org.signal.chat.common.EcSignedPreKey</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The signed EC pre-key itself.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.SetKemLastResortPreKeyRequest">
+  <span>
+    <a href="#message-org.signal.chat.keys.SetKemLastResortPreKeyRequest" title="org.signal.chat.keys.SetKemLastResortPreKeyRequest">message SetKemLastResortPreKeyRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        identity_type
+      </td>
+      <td>
+        <code title="org.signal.chat.common.IdentityType">
+          
+          <a href="org.signal.chat.common.html#enum-org.signal.chat.common.IdentityType"><span title="org.signal.chat.common.IdentityType">org.signal.chat.common.IdentityType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The identity type (i.e. ACI/PNI) with which this key is associated.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        signed_pre_key
+      </td>
+      <td>
+        <code title="org.signal.chat.common.KemSignedPreKey">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.KemSignedPreKey"><span title="org.signal.chat.common.KemSignedPreKey">org.signal.chat.common.KemSignedPreKey</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The signed KEM pre-key itself.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.SetOneTimeEcPreKeysRequest">
+  <span>
+    <a href="#message-org.signal.chat.keys.SetOneTimeEcPreKeysRequest" title="org.signal.chat.keys.SetOneTimeEcPreKeysRequest">message SetOneTimeEcPreKeysRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        identity_type
+      </td>
+      <td>
+        <code title="org.signal.chat.common.IdentityType">
+          
+          <a href="org.signal.chat.common.html#enum-org.signal.chat.common.IdentityType"><span title="org.signal.chat.common.IdentityType">org.signal.chat.common.IdentityType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The identity type (i.e. ACI/PNI) with which the keys in this request are
+associated.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        pre_keys
+      </td>
+      <td>
+        <code title="org.signal.chat.common.EcPreKey">
+          
+            repeated
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.EcPreKey"><span title="org.signal.chat.common.EcPreKey">org.signal.chat.common.EcPreKey</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The unsigned EC pre-keys to be stored.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest">
+  <span>
+    <a href="#message-org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest" title="org.signal.chat.keys.SetOneTimeKemSignedPreKeysRequest">message SetOneTimeKemSignedPreKeysRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        identity_type
+      </td>
+      <td>
+        <code title="org.signal.chat.common.IdentityType">
+          
+          <a href="org.signal.chat.common.html#enum-org.signal.chat.common.IdentityType"><span title="org.signal.chat.common.IdentityType">org.signal.chat.common.IdentityType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The identity type (i.e. ACI/PNI) with which the keys in this request are
+associated.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        pre_keys
+      </td>
+      <td>
+        <code title="org.signal.chat.common.KemSignedPreKey">
+          
+            repeated
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.KemSignedPreKey"><span title="org.signal.chat.common.KemSignedPreKey">org.signal.chat.common.KemSignedPreKey</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The KEM pre-keys to be stored.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.keys.SetPreKeyResponse">
+  <span>
+    <a href="#message-org.signal.chat.keys.SetPreKeyResponse" title="org.signal.chat.keys.SetPreKeyResponse">message SetPreKeyResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>

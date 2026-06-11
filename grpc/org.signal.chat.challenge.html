@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.challenge</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.challenge.Challenge">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>Challenge</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.challenge.AnswerChallengeRequest.AnswerCaptchaChallengeRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>AnswerCaptchaChallengeRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.challenge.AnswerChallengeRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>AnswerChallengeRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.challenge.AnswerChallengeResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>AnswerChallengeResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.challenge.AnswerChallengeRequest.AnswerPushChallengeRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>AnswerPushChallengeRequest</code> 
+        </a>
+      </p>
+      
+    
+
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.challenge.Challenge">
+  <a href="#service-org.signal.chat.challenge.Challenge" title="org.signal.chat.challenge.Challenge">service Challenge</a>
+  
+</h4>
+
+<div class="block content">
+  <p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.challenge.Challenge-HandleChallengeResponse">
+      <a href="#service-org.signal.chat.challenge.Challenge-HandleChallengeResponse">
+        rpc <code>HandleChallengeResponse</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.AnswerChallengeRequest"><span title="org.signal.chat.challenge.AnswerChallengeRequest">org.signal.chat.challenge.AnswerChallengeRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.AnswerChallengeResponse"><span title="org.signal.chat.challenge.AnswerChallengeResponse">org.signal.chat.challenge.AnswerChallengeResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Some server endpoints (the "send message" endpoint, for example) may return
+ a response indicating the client must complete a challenge before continuing.
+ Clients may use this endpoint to provide proof of a completed challenge.
+ If successful, the client may then continue their original operation.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.challenge.AnswerChallengeRequest.AnswerCaptchaChallengeRequest">
+  <span>
+    <a href="#message-org.signal.chat.challenge.AnswerChallengeRequest.AnswerCaptchaChallengeRequest" title="org.signal.chat.challenge.AnswerChallengeRequest.AnswerCaptchaChallengeRequest">message AnswerCaptchaChallengeRequest</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.AnswerChallengeRequest"><span title="org.signal.chat.challenge.AnswerChallengeRequest">org.signal.chat.challenge.AnswerChallengeRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        captcha
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A string representing a solved captcha
+Example: signal-hcaptcha.30b01b46-d8c9-4c30-bbd7-9719acfe0c10.challenge.abcdefg1345</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.challenge.AnswerChallengeRequest">
+  <span>
+    <a href="#message-org.signal.chat.challenge.AnswerChallengeRequest" title="org.signal.chat.challenge.AnswerChallengeRequest">message AnswerChallengeRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        token
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The opaque token id from the ChallengeRequired response returned by the
+server endpoint that requested the challenge</p></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof request</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            push
+          </td>
+          <td>
+            <code title="org.signal.chat.challenge.AnswerChallengeRequest.AnswerPushChallengeRequest">
+              
+              <a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.AnswerChallengeRequest.AnswerPushChallengeRequest"><span title="org.signal.chat.challenge.AnswerChallengeRequest.AnswerPushChallengeRequest">org.signal.chat.challenge.AnswerChallengeRequest.AnswerPushChallengeRequest</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            captcha
+          </td>
+          <td>
+            <code title="org.signal.chat.challenge.AnswerChallengeRequest.AnswerCaptchaChallengeRequest">
+              
+              <a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.AnswerChallengeRequest.AnswerCaptchaChallengeRequest"><span title="org.signal.chat.challenge.AnswerChallengeRequest.AnswerCaptchaChallengeRequest">org.signal.chat.challenge.AnswerChallengeRequest.AnswerCaptchaChallengeRequest</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.challenge.AnswerChallengeResponse">
+  <span>
+    <a href="#message-org.signal.chat.challenge.AnswerChallengeResponse" title="org.signal.chat.challenge.AnswerChallengeResponse">message AnswerChallengeResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        success
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Whether the challenge proof was accepted</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.challenge.AnswerChallengeRequest.AnswerPushChallengeRequest">
+  <span>
+    <a href="#message-org.signal.chat.challenge.AnswerChallengeRequest.AnswerPushChallengeRequest" title="org.signal.chat.challenge.AnswerChallengeRequest.AnswerPushChallengeRequest">message AnswerPushChallengeRequest</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.challenge.html#message-org.signal.chat.challenge.AnswerChallengeRequest"><span title="org.signal.chat.challenge.AnswerChallengeRequest">org.signal.chat.challenge.AnswerChallengeRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        challenge
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The challenge string provided to the client via a push payload</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,2473 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.messages</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.messages.Messages">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>Messages</code> 
+      </a>
+    </p>
+    
+    <p>
+      <a href="#service-org.signal.chat.messages.MessagesAnonymous">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>MessagesAnonymous</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.ChallengeRequired">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ChallengeRequired</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.GetMessagesRequest.GetMessageOptions">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetMessageOptions</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.GetMessagesRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetMessagesRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.GetMessagesResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetMessagesResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.IndividualRecipientMessageBundle">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>IndividualRecipientMessageBundle</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.IndividualRecipientMessageBundle.Message">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>Message</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.MismatchedDevices">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>MismatchedDevices</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.MultiRecipientMessage">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>MultiRecipientMessage</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.MultiRecipientMismatchedDevices">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>MultiRecipientMismatchedDevices</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.MultiRecipientSuccess">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>MultiRecipientSuccess</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.SendAuthenticatedSenderMessageRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SendAuthenticatedSenderMessageRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.SendMessageAuthenticatedSenderResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SendMessageAuthenticatedSenderResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.SendMessageResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SendMessageResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.SendMultiRecipientMessageRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SendMultiRecipientMessageRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.SendMultiRecipientMessageResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SendMultiRecipientMessageResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.SendMultiRecipientStoryRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SendMultiRecipientStoryRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.SendSealedSenderMessageRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SendSealedSenderMessageRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.SendStoryMessageRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SendStoryMessageRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.SendSyncMessageRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SendSyncMessageRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.messages.GetMessagesResponse.Terminated">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>Terminated</code> 
+        </a>
+      </p>
+      
+    
+
+    
+      <p>
+        <a href="#enum-org.signal.chat.messages.ChallengeRequired.ChallengeType">
+          <span class="tag" style="min-width: 6em">Enum</span>
+          <code>ChallengeType</code> 
+        </a>
+      </p>
+    
+      <p>
+        <a href="#enum-org.signal.chat.messages.SendMessageType">
+          <span class="tag" style="min-width: 6em">Enum</span>
+          <code>SendMessageType</code> 
+        </a>
+      </p>
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.messages.Messages">
+  <a href="#service-org.signal.chat.messages.Messages" title="org.signal.chat.messages.Messages">service Messages</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Provides methods for sending "unsealed sender" messages.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.messages.Messages-SendMessage">
+      <a href="#service-org.signal.chat.messages.Messages-SendMessage">
+        rpc <code>SendMessage</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendAuthenticatedSenderMessageRequest"><span title="org.signal.chat.messages.SendAuthenticatedSenderMessageRequest">org.signal.chat.messages.SendAuthenticatedSenderMessageRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendMessageAuthenticatedSenderResponse"><span title="org.signal.chat.messages.SendMessageAuthenticatedSenderResponse">org.signal.chat.messages.SendMessageAuthenticatedSenderResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sends an "unsealed sender" message to all devices linked to a single
+destination account.</p>
+<p>The destination account must not be the same as the authenticated caller.
+Callers should use <code>SendSyncMessage</code> to send messages to themselves.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.messages.Messages-SendSyncMessage">
+      <a href="#service-org.signal.chat.messages.Messages-SendSyncMessage">
+        rpc <code>SendSyncMessage</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendSyncMessageRequest"><span title="org.signal.chat.messages.SendSyncMessageRequest">org.signal.chat.messages.SendSyncMessageRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendMessageAuthenticatedSenderResponse"><span title="org.signal.chat.messages.SendMessageAuthenticatedSenderResponse">org.signal.chat.messages.SendMessageAuthenticatedSenderResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sends a "sync" message to all other devices linked to the authenticated
+sender's account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.messages.Messages-GetMessages">
+      <a href="#service-org.signal.chat.messages.Messages-GetMessages">
+        rpc <code>GetMessages</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.GetMessagesRequest"><span title="org.signal.chat.messages.GetMessagesRequest">org.signal.chat.messages.GetMessagesRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.GetMessagesResponse"><span title="org.signal.chat.messages.GetMessagesResponse">org.signal.chat.messages.GetMessagesResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieve messages for the authenticated device. When the caller receives
+and successfully processes a message returned in a GetMessagesResponse they
+must send a corresponding GetMessagesRequest indicating that the message
+has been processed (an ack). Acks should only be sent for messages
+delivered via the currently open RPC.</p>
+<p>Only the first GetMessagesRequest may contain request parameters that
+configure the stream. The first request must not contain an ack.</p>
+<p>The server will keep the stream open until the client disconnects or the
+connection is displaced as indicated by a Terminated response.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.messages.MessagesAnonymous">
+  <a href="#service-org.signal.chat.messages.MessagesAnonymous" title="org.signal.chat.messages.MessagesAnonymous">service MessagesAnonymous</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Provides methods for sending "sealed sender" messages.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.messages.MessagesAnonymous-SendSingleRecipientMessage">
+      <a href="#service-org.signal.chat.messages.MessagesAnonymous-SendSingleRecipientMessage">
+        rpc <code>SendSingleRecipientMessage</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendSealedSenderMessageRequest"><span title="org.signal.chat.messages.SendSealedSenderMessageRequest">org.signal.chat.messages.SendSealedSenderMessageRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendMessageResponse"><span title="org.signal.chat.messages.SendMessageResponse">org.signal.chat.messages.SendMessageResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sends a "sealed sender" message to all devices linked to a single
+destination account.</p>
+<p>If this RPC is authorized with an unidentified access key, it will fail
+with an authorization failure if the credential is invalid OR if the
+destination account was not found. If it is authorized using a group send
+token, it will fail with an authorization failure if the credential is
+invalid and with an destination not found error if the account does not
+exist</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.messages.MessagesAnonymous-SendMultiRecipientMessage">
+      <a href="#service-org.signal.chat.messages.MessagesAnonymous-SendMultiRecipientMessage">
+        rpc <code>SendMultiRecipientMessage</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendMultiRecipientMessageRequest"><span title="org.signal.chat.messages.SendMultiRecipientMessageRequest">org.signal.chat.messages.SendMultiRecipientMessageRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendMultiRecipientMessageResponse"><span title="org.signal.chat.messages.SendMultiRecipientMessageResponse">org.signal.chat.messages.SendMultiRecipientMessageResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sends a "sealed sender" message with a common payload to all devices linked
+to multiple destination accounts.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.messages.MessagesAnonymous-SendStory">
+      <a href="#service-org.signal.chat.messages.MessagesAnonymous-SendStory">
+        rpc <code>SendStory</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendStoryMessageRequest"><span title="org.signal.chat.messages.SendStoryMessageRequest">org.signal.chat.messages.SendStoryMessageRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendMessageResponse"><span title="org.signal.chat.messages.SendMessageResponse">org.signal.chat.messages.SendMessageResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sends a story message to devices linked to a single destination account.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.messages.MessagesAnonymous-SendMultiRecipientStory">
+      <a href="#service-org.signal.chat.messages.MessagesAnonymous-SendMultiRecipientStory">
+        rpc <code>SendMultiRecipientStory</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendMultiRecipientStoryRequest"><span title="org.signal.chat.messages.SendMultiRecipientStoryRequest">org.signal.chat.messages.SendMultiRecipientStoryRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.messages.html#message-org.signal.chat.messages.SendMultiRecipientMessageResponse"><span title="org.signal.chat.messages.SendMultiRecipientMessageResponse">org.signal.chat.messages.SendMultiRecipientMessageResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sends a story message with a common payload to devices linked to devices
+linked to multiple destination accounts.</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.ChallengeRequired">
+  <span>
+    <a href="#message-org.signal.chat.messages.ChallengeRequired" title="org.signal.chat.messages.ChallengeRequired">message ChallengeRequired</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        token
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>An opaque token identifying this challenge request. Clients must generally
+submit this token when submitting a challenge response.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        challenge_options
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.ChallengeRequired.ChallengeType">
+          
+            repeated
+          
+          <a href="org.signal.chat.messages.html#enum-org.signal.chat.messages.ChallengeRequired.ChallengeType"><span title="org.signal.chat.messages.ChallengeRequired.ChallengeType">org.signal.chat.messages.ChallengeRequired.ChallengeType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A list of challenge types callers may choose to complete to resolve the
+challenge requirement. May be empty, in which case callers cannot resolve
+the challenge by any means other than waiting.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        retry_after_seconds
+      </td>
+      <td>
+        <code title="uint64">
+          
+            optional
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>A duration (in seconds) after which the challenge requirement may be
+resolved by simply waiting. May not be set if the challenge cannot be
+resolved by waiting.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.GetMessagesRequest.GetMessageOptions">
+  <span>
+    <a href="#message-org.signal.chat.messages.GetMessagesRequest.GetMessageOptions" title="org.signal.chat.messages.GetMessagesRequest.GetMessageOptions">message GetMessageOptions</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.GetMessagesRequest"><span title="org.signal.chat.messages.GetMessagesRequest">org.signal.chat.messages.GetMessagesRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        drop_stories
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If present and true, the server will not deliver any messages with the
+story flag set. This flag may only be set on the first GetMessagesRequest
+sent from the client to the server in an RPC stream.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.GetMessagesRequest">
+  <span>
+    <a href="#message-org.signal.chat.messages.GetMessagesRequest" title="org.signal.chat.messages.GetMessagesRequest">message GetMessagesRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof request</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            options
+          </td>
+          <td>
+            <code title="org.signal.chat.messages.GetMessagesRequest.GetMessageOptions">
+              
+              <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.GetMessagesRequest.GetMessageOptions"><span title="org.signal.chat.messages.GetMessagesRequest.GetMessageOptions">org.signal.chat.messages.GetMessagesRequest.GetMessageOptions</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Configuration options for the message stream. Required for the first
+request of the stream, forbidden on subsequent reqeusts.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            server_guid_ack
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>The server_guid of an envelope previously returned in a
+GetMessagesResponse that has been successfully processed by the caller.
+Forbidden on the first request of the stream, required on subsequent
+requests.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.GetMessagesResponse">
+  <span>
+    <a href="#message-org.signal.chat.messages.GetMessagesResponse" title="org.signal.chat.messages.GetMessagesResponse">message GetMessagesResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            envelope
+          </td>
+          <td>
+            <code title="textsecure.Envelope">
+              
+              <span>textsecure.Envelope</span>
+            </code>
+          </td>
+          <td class="content"><p>A message. On successful receipt of an envelope the caller should ack
+the envelope by sending a GetMessagesRequest with the envelope's server
+guid. Acks should only be sent for envelopes received on the currently
+open RPC.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            queue_empty
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>An indicator that all outstanding messages for the device have been
+drained and acked by the client. The stream will remain open and continue
+to deliver newly arrived messages.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            terminated
+          </td>
+          <td>
+            <code title="org.signal.chat.messages.GetMessagesResponse.Terminated">
+              
+              <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.GetMessagesResponse.Terminated"><span title="org.signal.chat.messages.GetMessagesResponse.Terminated">org.signal.chat.messages.GetMessagesResponse.Terminated</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Indicates that the stream is about to be closed.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.IndividualRecipientMessageBundle">
+  <span>
+    <a href="#message-org.signal.chat.messages.IndividualRecipientMessageBundle" title="org.signal.chat.messages.IndividualRecipientMessageBundle">message IndividualRecipientMessageBundle</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        timestamp
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The time, in milliseconds since the epoch, at which this message was
+originally sent from the perspective of the sender. Note that the maximum
+allowable timestamp for JavaScript clients is less than Long.MAX_VALUE; see
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
+for additional details and discussion.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        messages
+      </td>
+      <td>
+        <code title="map&lt;uint32, Message&gt;">
+          
+          <span>map&lt;uint32, Message&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>A map of device IDs to individual messages. Generally, callers must include
+one message for each device linked to the destination account. In cases of
+"sync messages" where a sender is distributing information to other devices
+linked to the sender's account, senders may omit a message for the sending
+device.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.IndividualRecipientMessageBundle.Message">
+  <span>
+    <a href="#message-org.signal.chat.messages.IndividualRecipientMessageBundle.Message" title="org.signal.chat.messages.IndividualRecipientMessageBundle.Message">message Message</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.IndividualRecipientMessageBundle"><span title="org.signal.chat.messages.IndividualRecipientMessageBundle">org.signal.chat.messages.IndividualRecipientMessageBundle</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>A message for an individual device linked to a destination account.</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        registration_id
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The registration ID for the destination device.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        payload
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The content of the message to deliver to the destination device.</p>
+<p>256 KiB</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        type
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.SendMessageType">
+          
+          <a href="org.signal.chat.messages.html#enum-org.signal.chat.messages.SendMessageType"><span title="org.signal.chat.messages.SendMessageType">org.signal.chat.messages.SendMessageType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The message type of the message. If this message is part of an
+unidentified send, this must be UNIDENTIFIED_SENDER</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.MismatchedDevices">
+  <span>
+    <a href="#message-org.signal.chat.messages.MismatchedDevices" title="org.signal.chat.messages.MismatchedDevices">message MismatchedDevices</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        service_identifier
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The service identifier to which the devices named in this object are
+linked.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        missing_devices
+      </td>
+      <td>
+        <code title="uint32">
+          
+            repeated
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>A list of device IDs that are linked to the destination account, but were
+not included in the collection of messages bound for the destination
+account.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        extra_devices
+      </td>
+      <td>
+        <code title="uint32">
+          
+            repeated
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>A list of device IDs that were included in the collection of messages bound
+for the destination account, but are not currently linked to the
+destination account.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        stale_devices
+      </td>
+      <td>
+        <code title="uint32">
+          
+            repeated
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>A list of device IDs that present in the collection of messages bound for
+the destination account and are linked to the destination account, but have
+a different registration ID than the registration ID presented by the
+sender (indicating that the destination device has likely been replaced by
+another device).</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.MultiRecipientMessage">
+  <span>
+    <a href="#message-org.signal.chat.messages.MultiRecipientMessage" title="org.signal.chat.messages.MultiRecipientMessage">message MultiRecipientMessage</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        timestamp
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The time, in milliseconds since the epoch, at which this message was
+originally sent from the perspective of the sender. Note that the maximum
+allowable timestamp for JavaScript clients is less than Long.MAX_VALUE; see
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date#the_epoch_timestamps_and_invalid_date
+for additional details and discussion.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        payload
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>The serialized multi-recipient message payload.</p>
+<p>256 KiB payload + (5000 * 100) of overhead</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.MultiRecipientMismatchedDevices">
+  <span>
+    <a href="#message-org.signal.chat.messages.MultiRecipientMismatchedDevices" title="org.signal.chat.messages.MultiRecipientMismatchedDevices">message MultiRecipientMismatchedDevices</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        mismatched_devices
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.MismatchedDevices">
+          
+            repeated
+          
+          <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.MismatchedDevices"><span title="org.signal.chat.messages.MismatchedDevices">org.signal.chat.messages.MismatchedDevices</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A list of sets of discrepancies between the destination devices identified
+in a request to send a message and the devices that are actually linked to
+a destination account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.MultiRecipientSuccess">
+  <span>
+    <a href="#message-org.signal.chat.messages.MultiRecipientSuccess" title="org.signal.chat.messages.MultiRecipientSuccess">message MultiRecipientSuccess</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        unresolved_recipients
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+            repeated
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>A list of destination service identifiers that could not be resolved to
+registered Signal accounts. The  message in the original request was sent
+to all service identifiers/devices in the original request except for the
+destination devices associated with the service identifiers in this list.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.SendAuthenticatedSenderMessageRequest">
+  <span>
+    <a href="#message-org.signal.chat.messages.SendAuthenticatedSenderMessageRequest" title="org.signal.chat.messages.SendAuthenticatedSenderMessageRequest">message SendAuthenticatedSenderMessageRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        destination
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The service identifier of the account to which to deliver the message.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        ephemeral
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If true, this message will only be delivered to destination devices that
+have an active message delivery channel with a Signal server.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        urgent
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Indicates whether this message is urgent and should trigger a high-priority
+notification if the destination device does not have an active message
+delivery channel with a Signal server</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        messages
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.IndividualRecipientMessageBundle">
+          
+          <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.IndividualRecipientMessageBundle"><span title="org.signal.chat.messages.IndividualRecipientMessageBundle">org.signal.chat.messages.IndividualRecipientMessageBundle</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The messages to send to the destination account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.SendMessageAuthenticatedSenderResponse">
+  <span>
+    <a href="#message-org.signal.chat.messages.SendMessageAuthenticatedSenderResponse" title="org.signal.chat.messages.SendMessageAuthenticatedSenderResponse">message SendMessageAuthenticatedSenderResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The message was successfully delivered to all destination devices</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            mismatched_devices
+          </td>
+          <td>
+            <code title="org.signal.chat.messages.MismatchedDevices">
+              
+              <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.MismatchedDevices"><span title="org.signal.chat.messages.MismatchedDevices">org.signal.chat.messages.MismatchedDevices</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>A list of discrepancies between the destination devices identified in a
+request to send a message and the devices that are actually linked to an
+account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            challenge_required
+          </td>
+          <td>
+            <code title="org.signal.chat.messages.ChallengeRequired">
+              
+              <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.ChallengeRequired"><span title="org.signal.chat.messages.ChallengeRequired">org.signal.chat.messages.ChallengeRequired</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>A description of a challenge callers must complete before sending
+additional messages.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            destination_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The destination account did not exist</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.SendMessageResponse">
+  <span>
+    <a href="#message-org.signal.chat.messages.SendMessageResponse" title="org.signal.chat.messages.SendMessageResponse">message SendMessageResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The message was successfully delivered to all destination devices</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            mismatched_devices
+          </td>
+          <td>
+            <code title="org.signal.chat.messages.MismatchedDevices">
+              
+              <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.MismatchedDevices"><span title="org.signal.chat.messages.MismatchedDevices">org.signal.chat.messages.MismatchedDevices</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>A list of discrepancies between the destination devices identified in a
+request to send a message and the devices that are actually linked to an
+account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            failed_unidentified_authorization
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided unidentified authorization credential was invalid</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            destination_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The destination account did not exist</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.SendMultiRecipientMessageRequest">
+  <span>
+    <a href="#message-org.signal.chat.messages.SendMultiRecipientMessageRequest" title="org.signal.chat.messages.SendMultiRecipientMessageRequest">message SendMultiRecipientMessageRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        ephemeral
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If true, this message will only be delivered to destination devices that
+have an active message delivery channel with a Signal server.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        urgent
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Indicates whether this message is urgent and should trigger a high-priority
+notification if the destination device does not have an active message
+delivery channel with a Signal server</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        message
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.MultiRecipientMessage">
+          
+          <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.MultiRecipientMessage"><span title="org.signal.chat.messages.MultiRecipientMessage">org.signal.chat.messages.MultiRecipientMessage</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The multi-recipient message to send to all destination accounts and
+devices.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        group_send_token
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A group send endorsement token for the destination account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.SendMultiRecipientMessageResponse">
+  <span>
+    <a href="#message-org.signal.chat.messages.SendMultiRecipientMessageResponse" title="org.signal.chat.messages.SendMultiRecipientMessageResponse">message SendMultiRecipientMessageResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="org.signal.chat.messages.MultiRecipientSuccess">
+              
+              <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.MultiRecipientSuccess"><span title="org.signal.chat.messages.MultiRecipientSuccess">org.signal.chat.messages.MultiRecipientSuccess</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The message was sent to at least some of the destination accounts/devices
+identified in the original request.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            mismatched_devices
+          </td>
+          <td>
+            <code title="org.signal.chat.messages.MultiRecipientMismatchedDevices">
+              
+              <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.MultiRecipientMismatchedDevices"><span title="org.signal.chat.messages.MultiRecipientMismatchedDevices">org.signal.chat.messages.MultiRecipientMismatchedDevices</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>A list of sets of discrepancies between the destination devices
+identified in a request to send a message and the devices that are
+actually linked to a destination account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            failed_unidentified_authorization
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided unidentified authorization credential was invalid</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.SendMultiRecipientStoryRequest">
+  <span>
+    <a href="#message-org.signal.chat.messages.SendMultiRecipientStoryRequest" title="org.signal.chat.messages.SendMultiRecipientStoryRequest">message SendMultiRecipientStoryRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        urgent
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Indicates whether this message is urgent and should trigger a high-priority
+notification if the destination device does not have an active message
+delivery channel with a Signal server</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        message
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.MultiRecipientMessage">
+          
+          <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.MultiRecipientMessage"><span title="org.signal.chat.messages.MultiRecipientMessage">org.signal.chat.messages.MultiRecipientMessage</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The multi-recipient story message to send to all destination accounts and
+devices.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.SendSealedSenderMessageRequest">
+  <span>
+    <a href="#message-org.signal.chat.messages.SendSealedSenderMessageRequest" title="org.signal.chat.messages.SendSealedSenderMessageRequest">message SendSealedSenderMessageRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        destination
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The service identifier of the account to which to deliver the message.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        ephemeral
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If true, this message will only be delivered to destination devices that
+have an active message delivery channel with a Signal server.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        urgent
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Indicates whether this message is urgent and should trigger a high-priority
+notification if the destination device does not have an active message
+delivery channel with a Signal server</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        messages
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.IndividualRecipientMessageBundle">
+          
+          <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.IndividualRecipientMessageBundle"><span title="org.signal.chat.messages.IndividualRecipientMessageBundle">org.signal.chat.messages.IndividualRecipientMessageBundle</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The messages to send to the destination account.</p></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof authorization</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            unidentified_access_key
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>The unidentified access key (UAK) for the destination account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            6
+          </td>
+          <td>
+            group_send_token
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"><p>A group send endorsement token for the destination account.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            7
+          </td>
+          <td>
+            unrestricted_access
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The destination account allows unrestricted unidentified access</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.SendStoryMessageRequest">
+  <span>
+    <a href="#message-org.signal.chat.messages.SendStoryMessageRequest" title="org.signal.chat.messages.SendStoryMessageRequest">message SendStoryMessageRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        destination
+      </td>
+      <td>
+        <code title="org.signal.chat.common.ServiceIdentifier">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.ServiceIdentifier"><span title="org.signal.chat.common.ServiceIdentifier">org.signal.chat.common.ServiceIdentifier</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The service identifier of the account to which to deliver the message.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        urgent
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Indicates whether this message is urgent and should trigger a high-priority
+notification if the destination device does not have an active message
+delivery channel with a Signal server</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        messages
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.IndividualRecipientMessageBundle">
+          
+          <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.IndividualRecipientMessageBundle"><span title="org.signal.chat.messages.IndividualRecipientMessageBundle">org.signal.chat.messages.IndividualRecipientMessageBundle</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The messages to send to the destination account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.SendSyncMessageRequest">
+  <span>
+    <a href="#message-org.signal.chat.messages.SendSyncMessageRequest" title="org.signal.chat.messages.SendSyncMessageRequest">message SendSyncMessageRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        urgent
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Indicates whether this message is urgent and should trigger a high-priority
+notification if the destination device does not have an active message
+delivery channel with a Signal server</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        messages
+      </td>
+      <td>
+        <code title="org.signal.chat.messages.IndividualRecipientMessageBundle">
+          
+          <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.IndividualRecipientMessageBundle"><span title="org.signal.chat.messages.IndividualRecipientMessageBundle">org.signal.chat.messages.IndividualRecipientMessageBundle</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The messages to send to the destination account.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.GetMessagesResponse.Terminated">
+  <span>
+    <a href="#message-org.signal.chat.messages.GetMessagesResponse.Terminated" title="org.signal.chat.messages.GetMessagesResponse.Terminated">message Terminated</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.GetMessagesResponse"><span title="org.signal.chat.messages.GetMessagesResponse">org.signal.chat.messages.GetMessagesResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>The reason why a GetMessages RPC is being closed by the server.</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof reason</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            reauthentication_required
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>The account's credentials have been updated and the caller must reauthenticate.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            conflicting_stream
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"><p>Another caller has opened a GetMessages stream for the same device.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Enums
+    </h3>
+
+    
+    <div class="block">
+      <h4 class="title is-4 type-heading" id="enum-org.signal.chat.messages.ChallengeRequired.ChallengeType">
+  <a href="#enum-org.signal.chat.messages.ChallengeRequired.ChallengeType" title="org.signal.chat.messages.ChallengeRequired.ChallengeType">enum ChallengeType</a>
+  
+</h4>
+
+<div class="block content">
+  <p></p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Number</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><code>UNSPECIFIED</code></td>
+      <td>0</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>CAPTCHA</code></td>
+      <td>1</td>
+      <td class="content"><p>A challenge that callers can fulfill by completing a captcha.</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>PUSH_CHALLENGE</code></td>
+      <td>2</td>
+      <td class="content"><p>A challenge that callers can fulfill by supplying a token delivered via
+push notification.</p></td>
+    </tr>
+    
+  </tbody>
+</table> 
+    </div>
+    
+    <div class="block">
+      <h4 class="title is-4 type-heading" id="enum-org.signal.chat.messages.SendMessageType">
+  <a href="#enum-org.signal.chat.messages.SendMessageType" title="org.signal.chat.messages.SendMessageType">enum SendMessageType</a>
+  
+</h4>
+
+<div class="block content">
+  <p></p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Number</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><code>UNSPECIFIED</code></td>
+      <td>0</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>DOUBLE_RATCHET</code></td>
+      <td>1</td>
+      <td class="content"><p>A double-ratchet message represents a "normal," "unsealed-sender" message
+encrypted using the Double Ratchet within an established Signal session.</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>PREKEY_MESSAGE</code></td>
+      <td>2</td>
+      <td class="content"><p>A prekey message begins a new Signal session. The <code>content</code> of a prekey
+message is a superset of a double-ratchet message's <code>content</code> and
+contains the sender's identity public key and information identifying the
+pre-keys used in the message's ciphertext.</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>PLAINTEXT_CONTENT</code></td>
+      <td>3</td>
+      <td class="content"><p>A plaintext message is used solely to convey encryption error receipts
+and never contains encrypted message content. Encryption error receipts
+must be delivered in plaintext because encryption/decryption of a prior
+message failed and there is no reason to believe that
+encryption/decryption of subsequent messages with the same key material
+would succeed.</p>
+<p>Critically, plaintext messages never have "real" message content
+generated by users. Plaintext messages include sender information.</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>UNIDENTIFIED_SENDER</code></td>
+      <td>4</td>
+      <td class="content"><p>An unidentified sender message is an encrypted message. No other
+information about the type of the encrypted message is known to the server.</p>
+<p>Unidenitfied sender messages require an unidentified access token or a
+group send endorsement token to prove the unidentified sender is authorized
+to send messages to the destination.</p></td>
+    </tr>
+    
+  </tbody>
+</table> 
+    </div>
+    
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>
