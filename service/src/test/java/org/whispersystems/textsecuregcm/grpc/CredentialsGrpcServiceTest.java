@@ -8,9 +8,12 @@ package org.whispersystems.textsecuregcm.grpc;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimitExceeded;
@@ -46,6 +49,8 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.signal.chat.credentials.CredentialsGrpc;
 import org.signal.chat.credentials.ExternalServiceType;
+import org.signal.chat.credentials.GetCreateCallLinkCredentialsRequest;
+import org.signal.chat.credentials.GetCreateCallLinkCredentialsResponse;
 import org.signal.chat.credentials.GetDeliveryCertificateRequest;
 import org.signal.chat.credentials.GetDeliveryCertificateResponse;
 import org.signal.chat.credentials.GetExternalServiceCredentialsRequest;
@@ -63,10 +68,12 @@ import org.signal.libsignal.zkgroup.auth.AuthCredentialWithPniResponse;
 import org.signal.libsignal.zkgroup.auth.ClientZkAuthOperations;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
+import org.signal.libsignal.zkgroup.calllinks.CreateCallLinkCredentialRequestContext;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
 import org.whispersystems.textsecuregcm.controllers.CertificateController;
+import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
@@ -190,7 +197,7 @@ public class CredentialsGrpcServiceTest
   @MethodSource
   public void testSuccess(
       final ExternalServiceType externalServiceType,
-      final ExternalServiceCredentialsGenerator credentialsGenerator) throws Exception {
+      final ExternalServiceCredentialsGenerator credentialsGenerator) {
     final RateLimiter limiter = mock(RateLimiter.class);
     doReturn(limiter).when(rateLimiters).forDescriptor(eq(RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS));
     doReturn(Mono.fromFuture(CompletableFuture.completedFuture(null))).when(limiter).validateReactive(eq(AUTHENTICATED_ACI));
@@ -220,7 +227,7 @@ public class CredentialsGrpcServiceTest
   }
 
   @Test
-  public void testRateLimitExceeded() throws Exception {
+  public void testRateLimitExceeded() {
     final Duration retryAfter = MockUtils.updateRateLimiterResponseToFail(
         rateLimiters, RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS, AUTHENTICATED_ACI, Duration.ofSeconds(100));
     Mockito.reset(DIRECTORY_CREDENTIALS_GENERATOR);
@@ -353,5 +360,48 @@ public class CredentialsGrpcServiceTest
             startOfDay.plus(Duration.ofDays(1))),
         Arguments.argumentSet("End is not at a day boundary", startOfDay, startOfDay.plusSeconds(17))
     );
+  }
+
+  @Test
+  void getCreateCallLinkCredentials() {
+    when(rateLimiters.getCreateCallLinkLimiter()).thenReturn(mock(RateLimiter.class));
+
+    final byte[] roomId = TestRandomUtil.nextBytes(32);
+
+    final GetCreateCallLinkCredentialsResponse response =
+        authenticatedServiceStub().getCreateCallLinkCredentials(GetCreateCallLinkCredentialsRequest.newBuilder()
+            .setCredentialRequest(
+                ByteString.copyFrom(CreateCallLinkCredentialRequestContext.forRoom(roomId).getRequest().serialize()))
+            .build());
+
+    assertFalse(response.getCredential().isEmpty());
+    assertEquals(CLOCK.instant().truncatedTo(ChronoUnit.DAYS).getEpochSecond(), response.getRedemptionTimeSeconds());
+  }
+
+  @Test
+  void getCreateCallLinkCredentialsRateLimited() throws RateLimitExceededException {
+    final Duration retryAfter = Duration.ofSeconds(71);
+
+    final RateLimiter rateLimiter = mock(RateLimiter.class);
+    doThrow(new RateLimitExceededException(retryAfter)).when(rateLimiter).validate(any(UUID.class));
+
+    when(rateLimiters.getCreateCallLinkLimiter()).thenReturn(rateLimiter);
+
+    //noinspection ResultOfMethodCallIgnored
+    GrpcTestUtils.assertRateLimitExceeded(retryAfter,
+        () -> authenticatedServiceStub().getCreateCallLinkCredentials(GetCreateCallLinkCredentialsRequest.newBuilder()
+            .setCredentialRequest(ByteString.copyFrom(TestRandomUtil.nextBytes(32)))
+            .build()));
+  }
+
+  @Test
+  void getCreateCallLinkCredentialsInvalidRequest() {
+    when(rateLimiters.getCreateCallLinkLimiter()).thenReturn(mock(RateLimiter.class));
+
+    //noinspection ThrowableNotThrown,ResultOfMethodCallIgnored
+    GrpcTestUtils.assertStatusException(Status.INVALID_ARGUMENT,
+        () -> authenticatedServiceStub().getCreateCallLinkCredentials(GetCreateCallLinkCredentialsRequest.newBuilder()
+            .setCredentialRequest(ByteString.copyFrom(TestRandomUtil.nextBytes(16)))
+            .build()));
   }
 }

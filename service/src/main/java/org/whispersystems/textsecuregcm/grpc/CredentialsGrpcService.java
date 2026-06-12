@@ -8,8 +8,12 @@ package org.whispersystems.textsecuregcm.grpc;
 import com.google.protobuf.ByteString;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.UUID;
 import org.signal.chat.credentials.ExternalServiceType;
+import org.signal.chat.credentials.GetCreateCallLinkCredentialsRequest;
+import org.signal.chat.credentials.GetCreateCallLinkCredentialsResponse;
 import org.signal.chat.credentials.GetDeliveryCertificateRequest;
 import org.signal.chat.credentials.GetDeliveryCertificateResponse;
 import org.signal.chat.credentials.GetExternalServiceCredentialsRequest;
@@ -19,8 +23,10 @@ import org.signal.chat.credentials.GetGroupCredentialsResponse;
 import org.signal.chat.credentials.SimpleCredentialsGrpc;
 import org.signal.libsignal.protocol.ServiceId;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
+import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.auth.ServerZkAuthOperations;
 import org.signal.libsignal.zkgroup.calllinks.CallLinkAuthCredentialResponse;
+import org.signal.libsignal.zkgroup.calllinks.CreateCallLinkCredentialRequest;
 import org.whispersystems.textsecuregcm.auth.CertificateGenerator;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentials;
 import org.whispersystems.textsecuregcm.auth.ExternalServiceCredentialsGenerator;
@@ -132,5 +138,31 @@ public class CredentialsGrpcService extends SimpleCredentialsGrpc.CredentialsImp
     }
 
     return responseBuilder.build();
+  }
+
+  @Override
+  public GetCreateCallLinkCredentialsResponse getCreateCallLinkCredentials(final GetCreateCallLinkCredentialsRequest request)
+      throws RateLimitExceededException {
+
+    final UUID accountIdentifier = AuthenticationUtil.requireAuthenticatedDevice().accountIdentifier();
+    rateLimiters.getCreateCallLinkLimiter().validate(accountIdentifier);
+
+    final Instant truncatedDayTimestamp = clock.instant().truncatedTo(ChronoUnit.DAYS);
+
+    try {
+      final CreateCallLinkCredentialRequest createCallLinkCredentialRequest =
+          new CreateCallLinkCredentialRequest(request.getCredentialRequest().toByteArray());
+
+      return GetCreateCallLinkCredentialsResponse.newBuilder()
+          .setRedemptionTimeSeconds(truncatedDayTimestamp.getEpochSecond())
+          .setCredential(ByteString.copyFrom(createCallLinkCredentialRequest.issueCredential(
+                  new ServiceId.Aci(accountIdentifier),
+                  truncatedDayTimestamp,
+                  serverSecretParams)
+              .serialize()))
+          .build();
+    } catch (final InvalidInputException e) {
+      throw GrpcExceptions.invalidArguments("Invalid 'create call link credential' request");
+    }
   }
 }
