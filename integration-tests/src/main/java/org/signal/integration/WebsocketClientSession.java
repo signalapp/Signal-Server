@@ -62,7 +62,7 @@ public class WebsocketClientSession implements Session.Listener.AutoDemanding {
           log.info("received response message {}", response.getStatus());
           final CompletableFuture<WebSocketResponseMessage> future = responseFutures.remove(response.getRequestId());
           if (future == null) {
-            throw new IllegalArgumentException("Received response with no matching request: {}" + response.getRequestId());
+            throw new IllegalArgumentException("Received response with no matching request: " + response.getRequestId());
           }
           future.complete(response);
         }

@@ -15,7 +15,6 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,7 +28,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.util.StaticException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
@@ -62,7 +60,7 @@ import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
-public class WebSocketConnection implements DisconnectionRequestListener {
+public class WebSocketConnection {
 
   private static final Counter sendFailuresCounter = Metrics.counter(name(WebSocketConnection.class, "sendFailures"));
 
@@ -332,11 +330,5 @@ public class WebSocketConnection implements DisconnectionRequestListener {
         throwable == WebSocketResourceProvider.CONNECTION_CLOSED_EXCEPTION ||
         throwable instanceof org.eclipse.jetty.io.EofException ||
         (throwable instanceof StaticException staticException && "Closed".equals(staticException.getMessage()));
-  }
-
-  @Override
-  public void handleDisconnectionRequest() {
-    messageMetrics.measureMessageStreamDisplaced(MessageMetrics.WEBSOCKET_CHANNEL, userAgent, false);
-    client.close(4401, "Reauthentication required");
   }
 }

@@ -38,6 +38,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
   private final AccountsManager accountsManager;
   private final DisconnectionRequestManager disconnectionRequestManager;
   private final WebSocketConnectionBuilder webSocketConnectionBuilder;
+  private final MessageMetrics messageMetrics;
 
   private final OpenWebSocketCounter openAuthenticatedWebSocketCounter;
   private final OpenWebSocketCounter openUnauthenticatedWebSocketCounter;
@@ -66,6 +67,7 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
         disconnectionRequestManager,
         asnInfoProviderSupplier,
         clientReleaseManager,
+        messageMetrics,
         (account, device, client) -> new WebSocketConnection(receiptSender,
             messagesManager,
             messageMetrics,
@@ -86,11 +88,13 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
       final DisconnectionRequestManager disconnectionRequestManager,
       final Supplier<AsnInfoProvider> asnInfoProviderSupplier,
       final ClientReleaseManager clientReleaseManager,
+      final MessageMetrics messageMetrics,
       final WebSocketConnectionBuilder webSocketConnectionBuilder) {
 
     this.accountsManager = accountsManager;
     this.disconnectionRequestManager = disconnectionRequestManager;
     this.webSocketConnectionBuilder = webSocketConnectionBuilder;
+    this.messageMetrics = messageMetrics;
 
     this.openAuthenticatedWebSocketCounter = new OpenWebSocketCounter("rpc-authenticated", asnInfoProviderSupplier, clientReleaseManager);
     this.openUnauthenticatedWebSocketCounter = new OpenWebSocketCounter("rpc-unauthenticated", asnInfoProviderSupplier, clientReleaseManager);
@@ -102,46 +106,52 @@ public class AuthenticatedConnectListener implements WebSocketConnectListener {
     final boolean authenticated = (context.getAuthenticated() != null);
 
     (authenticated ? openAuthenticatedWebSocketCounter : openUnauthenticatedWebSocketCounter).countOpenWebSocket(context);
+    if (!authenticated) {
+      return;
+    }
 
-    if (authenticated) {
-      final AuthenticatedDevice auth = context.getAuthenticated(AuthenticatedDevice.class);
+    final AuthenticatedDevice auth = context.getAuthenticated(AuthenticatedDevice.class);
 
-      final Optional<Account> maybeAuthenticatedAccount =
-          accountsManager.getByAccountIdentifier(auth.accountIdentifier());
+    final Optional<Account> maybeAuthenticatedAccount =
+        accountsManager.getByAccountIdentifier(auth.accountIdentifier());
 
-      final Optional<Device> maybeAuthenticatedDevice =
-          maybeAuthenticatedAccount.flatMap(account -> account.getDevice(auth.deviceId()));
+    final Optional<Device> maybeAuthenticatedDevice =
+        maybeAuthenticatedAccount.flatMap(account -> account.getDevice(auth.deviceId()));
 
-      if (maybeAuthenticatedAccount.isEmpty() || maybeAuthenticatedDevice.isEmpty()) {
-        log.warn("{}:{} not found when opening authenticated WebSocket", auth.accountIdentifier(), auth.deviceId());
+    if (maybeAuthenticatedAccount.isEmpty() || maybeAuthenticatedDevice.isEmpty()) {
+      log.warn("{}:{} not found when opening authenticated WebSocket", auth.accountIdentifier(), auth.deviceId());
 
-        context.getClient().close(1011, "Unexpected error initializing connection");
-        return;
-      }
+      context.getClient().close(1011, "Unexpected error initializing connection");
+      return;
+    }
 
-      final WebSocketConnection connection =
-          webSocketConnectionBuilder.buildWebSocketConnection(maybeAuthenticatedAccount.get(),
-              maybeAuthenticatedDevice.get(),
-              context.getClient());
+    final Account account = maybeAuthenticatedAccount.get();
+    final Device device = maybeAuthenticatedDevice.get();
 
-      disconnectionRequestManager.addListener(maybeAuthenticatedAccount.get().getIdentifier(IdentityType.ACI),
-          maybeAuthenticatedDevice.get().getId(),
-          connection);
+    final boolean disableMessages = context.getClient().shouldDisableMessages();
 
-      context.addWebsocketClosedListener((_, _, _) -> {
-        disconnectionRequestManager.removeListener(maybeAuthenticatedAccount.get().getIdentifier(IdentityType.ACI),
-            maybeAuthenticatedDevice.get().getId(),
-            connection);
+    final Optional<WebSocketConnection> maybeWebSocketConnection = disableMessages
+            ? Optional.empty()
+            : Optional.of(webSocketConnectionBuilder.buildWebSocketConnection(account, device, context.getClient()));
 
-        connection.stop();
-      });
+    final WebSocketDisconnectionRequestListener disconnectionListener =
+        new WebSocketDisconnectionRequestListener(messageMetrics, context.getClient(), disableMessages);
 
-      try {
-        connection.start();
-      } catch (final Exception e) {
-        log.warn("Failed to initialize websocket", e);
-        context.getClient().close(1011, "Unexpected error initializing connection");
-      }
+    disconnectionRequestManager
+        .addListener(account.getIdentifier(IdentityType.ACI), device.getId(), disconnectionListener);
+
+    context.addWebsocketClosedListener((_, _, _) -> {
+      disconnectionRequestManager
+          .removeListener(account.getIdentifier(IdentityType.ACI), device.getId(), disconnectionListener);
+      maybeWebSocketConnection.ifPresent(WebSocketConnection::stop);
+    });
+
+    try {
+      maybeWebSocketConnection.ifPresent(WebSocketConnection::start);
+    } catch (final Exception e) {
+      log.warn("Failed to initialize websocket", e);
+      context.getClient().close(1011, "Unexpected error initializing connection");
     }
   }
+
 }

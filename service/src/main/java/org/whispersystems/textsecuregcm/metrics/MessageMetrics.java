@@ -35,6 +35,7 @@ public final class MessageMetrics {
 
   public static String GRPC_CHANNEL = "grpc";
   public static String WEBSOCKET_CHANNEL = "websocket";
+  public static String MESSAGELESS_WEBSOCKET_CHANNEL = "messageless-websocket";
 
   @VisibleForTesting
   static final String MISMATCHED_ACCOUNT_ENVELOPE_UUID_COUNTER_NAME = name(MessageMetrics.class,

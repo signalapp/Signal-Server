@@ -21,10 +21,13 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.whispersystems.textsecuregcm.asn.AsnInfoProvider;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.metrics.MessageMetrics;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
@@ -58,6 +61,7 @@ class AuthenticatedConnectListenerTest {
         disconnectionRequestManager,
         () -> mock(AsnInfoProvider.class),
         mock(ClientReleaseManager.class),
+        mock(MessageMetrics.class),
         (_, _, _) -> authenticatedWebSocketConnection);
 
     final Device device = mock(Device.class);
@@ -83,10 +87,18 @@ class AuthenticatedConnectListenerTest {
 
     authenticatedConnectListener.onWebSocketConnect(webSocketSessionContext);
 
-    verify(disconnectionRequestManager).addListener(ACCOUNT_IDENTIFIER, DEVICE_ID, authenticatedWebSocketConnection);
+    final ArgumentCaptor<DisconnectionRequestListener> disconnectListener = ArgumentCaptor.forClass(DisconnectionRequestListener.class);
+    final ArgumentCaptor<WebSocketSessionContext.WebSocketEventListener> closeListener =
+        ArgumentCaptor.forClass(WebSocketSessionContext.WebSocketEventListener.class);
+    verify(disconnectionRequestManager).addListener(eq(ACCOUNT_IDENTIFIER), eq(DEVICE_ID), disconnectListener.capture());
     // We expect one call from AuthenticatedConnectListener itself and one from OpenWebSocketCounter
-    verify(webSocketSessionContext, times(2)).addWebsocketClosedListener(any());
+    verify(webSocketSessionContext, times(2)).addWebsocketClosedListener(closeListener.capture());
     verify(authenticatedWebSocketConnection).start();
+
+    // Verify that if we run the close listeners, the disconnection listener gets removed
+    closeListener.getAllValues()
+        .forEach(c -> c.onWebSocketClose(webSocketSessionContext, 1011, "test"));
+    verify(disconnectionRequestManager).removeListener(ACCOUNT_IDENTIFIER, DEVICE_ID, disconnectListener.getValue());
   }
 
   @Test
@@ -118,12 +130,21 @@ class AuthenticatedConnectListenerTest {
 
     authenticatedConnectListener.onWebSocketConnect(webSocketSessionContext);
 
-    verify(disconnectionRequestManager).addListener(ACCOUNT_IDENTIFIER, DEVICE_ID, authenticatedWebSocketConnection);
-    // We expect one call from AuthenticatedConnectListener itself and one from OpenWebSocketCounter
-    verify(webSocketSessionContext, times(2)).addWebsocketClosedListener(any());
+    final ArgumentCaptor<DisconnectionRequestListener> disconnectListener = ArgumentCaptor.forClass(DisconnectionRequestListener.class);
+    final ArgumentCaptor<WebSocketSessionContext.WebSocketEventListener> closeListener =
+        ArgumentCaptor.forClass(WebSocketSessionContext.WebSocketEventListener.class);
+
+    // We expect one call from OpenWebSocketCounter and one from AuthenticatedConnectListener itself
+    verify(webSocketSessionContext, times(2)).addWebsocketClosedListener(closeListener.capture());
+    verify(disconnectionRequestManager).addListener(eq(ACCOUNT_IDENTIFIER), eq(DEVICE_ID), disconnectListener.capture());
     verify(authenticatedWebSocketConnection).start();
 
     verify(webSocketClient).close(eq(1011), anyString());
+
+    // Verify that if we run the close listeners, the disconnection listener gets removed
+    closeListener.getAllValues()
+        .forEach(c -> c.onWebSocketClose(webSocketSessionContext, 1011, "test"));
+    verify(disconnectionRequestManager).removeListener(ACCOUNT_IDENTIFIER, DEVICE_ID, disconnectListener.getValue());
   }
 
   @Test

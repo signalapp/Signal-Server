@@ -97,7 +97,12 @@ public class WebSocketClient {
 
   public boolean shouldDeliverStories() {
     String value = session.getUpgradeRequest().getHeader(WebsocketHeaders.X_SIGNAL_RECEIVE_STORIES);
-    return WebsocketHeaders.parseReceiveStoriesHeader(value);
+    return WebsocketHeaders.parseBooleanHeader(value);
+  }
+
+  public boolean shouldDisableMessages() {
+    final String value = session.getUpgradeRequest().getHeader(WebsocketHeaders.X_SIGNAL_DISABLE_MESSAGES);
+    return WebsocketHeaders.parseBooleanHeader(value);
   }
 
   private long generateRequestId() {
