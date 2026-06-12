@@ -8,6 +8,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import java.util.Optional;
 import java.util.concurrent.Flow;
+import org.signal.chat.backup.BackupStreamClosed;
 import org.signal.chat.backup.CopyMediaRequest;
 import org.signal.chat.backup.CopyMediaResponse;
 import org.signal.chat.backup.DeleteAllRequest;
@@ -228,10 +229,12 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
               new MediaEncryptionParameters(item.getEncryptionKey().toByteArray(), item.getHmacKey().toByteArray()),
               item.getMediaId().toByteArray())).toList(), maxAttachmentSize);
     } catch (BackupFailedZkAuthenticationException e) {
-      return JdkFlowAdapter.publisherToFlowPublisher(Mono.just(CopyMediaResponse
-          .newBuilder()
-          .setFailedAuthentication(FailedZkAuthentication.newBuilder().setDescription(e.getMessage()))
-          .build()));
+      return JdkFlowAdapter.publisherToFlowPublisher(
+          Mono.error(GrpcExceptions.streamClosed(BackupStreamClosed.newBuilder()
+              .setFailedAuthentication(FailedZkAuthentication.newBuilder()
+                  .setDescription(e.getMessage())
+                  .build())
+              .build())));
     }
     return JdkFlowAdapter.publisherToFlowPublisher(backupManager.copyToBackup(copyQuota)
         .doOnNext(result -> backupMetrics.updateCopyCounter(
@@ -308,10 +311,12 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
           .map(item -> new BackupManager.StorageDescriptor(item.getCdn(), item.getMediaId().toByteArray()))
           .toList());
     } catch (BackupFailedZkAuthenticationException e) {
-      return JdkFlowAdapter.publisherToFlowPublisher(Mono.just(DeleteMediaResponse
-          .newBuilder()
-          .setFailedAuthentication(FailedZkAuthentication.newBuilder().setDescription(e.getMessage()))
-          .build()));
+      return JdkFlowAdapter.publisherToFlowPublisher(
+          Mono.error(GrpcExceptions.streamClosed(BackupStreamClosed.newBuilder()
+              .setFailedAuthentication(FailedZkAuthentication.newBuilder()
+                  .setDescription(e.getMessage())
+                  .build())
+              .build())));
     }
     return JdkFlowAdapter.publisherToFlowPublisher(deleteItems
         .map(storageDescriptor -> DeleteMediaResponse.newBuilder()

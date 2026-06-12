@@ -183,6 +183,9 @@ service BackupsAnonymous {
   //
   // On retries, a particular destination media id must not be reused with a
   // different source media id or different encryption parameters.
+  //
+  // The response stream may be closed with STREAM_CLOSED error reason. In this
+  // case, a BackupStreamClosed message will be present in the error details.
   rpc CopyMedia(CopyMediaRequest) returns (stream CopyMediaResponse) {}
 
   // Retrieve a page of media objects stored for this backup-id. A client may
@@ -194,6 +197,9 @@ service BackupsAnonymous {
 
   // Delete media objects stored with this backup-id. Streams the locations of
   // media items back when the item has successfully been removed.
+  //
+  // The response stream may be closed with STREAM_CLOSED error reason. In this
+  // case, a BackupStreamClosed message will be present in the error details.
   rpc DeleteMedia(DeleteMediaRequest) returns (stream DeleteMediaResponse) {}
 
   // Delete all backup metadata, objects, and stored public key. To use
@@ -439,20 +445,25 @@ message CopyMediaResponse {
     // The media item was successfully copied into the backup
     CopySuccess success = 2;
 
+    // The source object was not found
+    SourceNotFound source_not_found = 3 [(tag.reason) = "source_not_found"];
+
+    // The provided object length was incorrect
+    WrongSourceLength wrong_source_length = 4 [(tag.reason) = "wrong_source_length"];
+
+    // All media capacity has been consumed. Free some space to continue.
+    OutOfSpace out_of_space = 5 [(tag.reason) = "out_of_space"];
+  }
+}
+
+// The reason why a media stream RPC is being prematurely closed by the server.
+message BackupStreamClosed {
+  oneof reason {
     // The provided backup auth credential presentation could not be
     // authenticated. Either, the presentation could not be verified, or
     // the public key signature was invalid, or there is no backup associated
     // with the backup-id in the presentation.
-    errors.FailedZkAuthentication failed_authentication = 3 [(tag.reason) = "failed_authentication"];
-
-    // The source object was not found
-    SourceNotFound source_not_found = 4 [(tag.reason) = "source_not_found"];
-
-    // The provided object length was incorrect
-    WrongSourceLength wrong_source_length = 5 [(tag.reason) = "wrong_source_length"];
-
-    // All media capacity has been consumed. Free some space to continue.
-    OutOfSpace out_of_space = 6 [(tag.reason) = "out_of_space"];
+    errors.FailedZkAuthentication failed_authentication = 1 [(tag.reason) = "failed_authentication"];
   }
 }
 
@@ -537,13 +548,5 @@ message DeleteMediaRequest {
 }
 
 message DeleteMediaResponse {
-  oneof response {
-    DeleteMediaItem deleted_item = 1;
-
-    // The provided backup auth credential presentation could not be
-    // authenticated. Either, the presentation could not be verified, or
-    // the public key signature was invalid, or there is no backup associated
-    // with the backup-id in the presentation.
-    errors.FailedZkAuthentication failed_authentication = 2 [(tag.reason) = "failed_authentication"];
-  }
+  DeleteMediaItem deleted_item = 1;
 }

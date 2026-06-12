@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -17,6 +18,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
+import io.grpc.Status;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
@@ -30,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.signal.chat.messages.GetMessagesResponse;
+import org.signal.chat.messages.GetMessagesStreamClosed;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestManager;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -59,16 +62,6 @@ class MessageDispatcherTest {
 
   private static final GetMessagesResponse QUEUE_EMPTY =
       GetMessagesResponse.newBuilder().setQueueEmpty(Empty.getDefaultInstance()).build();
-  private static final GetMessagesResponse REQUIRES_REAUTH = GetMessagesResponse.newBuilder()
-      .setTerminated(GetMessagesResponse.Terminated.newBuilder()
-          .setReauthenticationRequired(Empty.getDefaultInstance())
-          .build())
-      .build();
-  private static final GetMessagesResponse CONFLICTING_STREAM = GetMessagesResponse.newBuilder()
-      .setTerminated(GetMessagesResponse.Terminated.newBuilder()
-          .setConflictingStream(Empty.getDefaultInstance())
-          .build())
-      .build();
 
   private static final UUID ACI = UUID.randomUUID();
   private static final byte DEVICE_ID = 2;
@@ -296,8 +289,17 @@ class MessageDispatcherTest {
           verify(disconnectionRequestManager).addListener(eq(ACI), eq(DEVICE_ID), listener.capture());
           listener.getValue().handleDisconnectionRequest();
         })
-        .expectNext(REQUIRES_REAUTH)
-        .verifyComplete();
+        .expectErrorSatisfies(MessageDispatcherTest::assertReauthError)
+        .verify();
+  }
+
+  private static void assertReauthError(final Throwable e) {
+    GrpcTestUtils.assertStatusException(Status.UNAUTHENTICATED, "INVALID_CREDENTIALS", e);
+  }
+
+  private static void assertConflictError(final Throwable e) {
+    final GetMessagesStreamClosed reason = GrpcTestUtils.assertStreamClosed(GetMessagesStreamClosed.class, e);
+    assertEquals(GetMessagesStreamClosed.ReasonCase.CONFLICTING_STREAM, reason.getReasonCase());
   }
 
   @Test
@@ -306,8 +308,8 @@ class MessageDispatcherTest {
     final Flux<GetMessagesResponse> responses =
         dispatcher.getMessages(true, TEST_UA, account, device, Flux.never());
     StepVerifier.create(responses)
-        .expectNext(CONFLICTING_STREAM)
-        .verifyComplete();
+        .expectErrorSatisfies(MessageDispatcherTest::assertConflictError)
+        .verify();
   }
 
   @Test
@@ -329,8 +331,8 @@ class MessageDispatcherTest {
         .expectNoEvent(Duration.ofMillis(1))
         // The error should make it to us immediately even though there are max-unacked messages outstanding
         .then(() -> source.error(new ConflictingMessageConsumerException()))
-        .expectNext(CONFLICTING_STREAM)
-        .verifyComplete();
+        .expectErrorSatisfies(MessageDispatcherTest::assertConflictError)
+        .verify();
   }
 
   /// Set envelopes to return when a message stream is created. A [MessageStreamEntry.QueueEmpty] will be emitted after

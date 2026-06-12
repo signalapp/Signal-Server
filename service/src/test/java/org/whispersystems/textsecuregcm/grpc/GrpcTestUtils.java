@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -33,6 +34,12 @@ public final class GrpcTestUtils {
     return exception;
   }
 
+  public static void assertStatusException(final Status expected, final String expectedReason, final Throwable throwable) {
+    final StatusRuntimeException exception = Assertions.assertInstanceOf(StatusRuntimeException.class, throwable);
+    assertEquals(expected.getCode(), exception.getStatus().getCode());
+    assertEquals(expectedReason, extractErrorInfo(exception).getReason());
+  }
+
   public static void assertStatusException(final Status expected, final String expectedReason, final Executable serviceCall) {
     final StatusRuntimeException exception = Assertions.assertThrows(StatusRuntimeException.class, serviceCall);
     assertEquals(expected.getCode(), exception.getStatus().getCode());
@@ -41,14 +48,6 @@ public final class GrpcTestUtils {
 
   public static StatusRuntimeException assertStatusInvalidArgument(final Executable serviceCall) {
     return assertStatusException(Status.INVALID_ARGUMENT, serviceCall);
-  }
-
-  public static StatusRuntimeException assertStatusUnauthenticated(final Executable serviceCall) {
-    return assertStatusException(Status.UNAUTHENTICATED, serviceCall);
-  }
-
-  public static StatusRuntimeException assertStatusPermissionDenied(final Executable serviceCall) {
-    return assertStatusException(Status.PERMISSION_DENIED, serviceCall);
   }
 
   public static void assertRateLimitExceeded(
@@ -69,6 +68,13 @@ public final class GrpcTestUtils {
     for (final Object mock: mocksToCheckForNoInteraction) {
       verifyNoInteractions(mock);
     }
+  }
+
+  public static <T extends Message> T assertStreamClosed(final Class<T> streamClosedMessageClass, final Throwable exception) {
+    final StatusRuntimeException statusRuntimeException = assertInstanceOf(StatusRuntimeException.class, exception);
+    final ErrorInfo errorInfo = extractErrorInfo(statusRuntimeException);
+    assertEquals("STREAM_CLOSED", errorInfo.getReason());
+    return extractDetail(streamClosedMessageClass, statusRuntimeException);
   }
 
   public static ErrorInfo extractErrorInfo(final StatusRuntimeException exception) {

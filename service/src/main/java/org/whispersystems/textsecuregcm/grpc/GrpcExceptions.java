@@ -39,6 +39,11 @@ public class GrpcExceptions {
       .setReason("BAD_AUTHENTICATION")
       .build());
 
+  private static final Any ERROR_INFO_STREAM_CLOSED = Any.pack(ErrorInfo.newBuilder()
+      .setDomain(DOMAIN)
+      .setReason("STREAM_CLOSED")
+      .build());
+
   private static final com.google.rpc.Status UPGRADE_REQUIRED = com.google.rpc.Status.newBuilder()
       .setCode(Status.Code.INVALID_ARGUMENT.value())
       .setMessage("Upgrade required")
@@ -142,6 +147,20 @@ public class GrpcExceptions {
           .build()));
     }
     return StatusProto.toStatusRuntimeException(builder.build());
+  }
+
+  /// The server terminated the stream non-successfully for a reason specific to the RPC. The server must provide
+  /// additional information about the stream closure reason via the `streamClosedMessage`.
+  ///
+  /// @param streamClosedMessage The additional domain-specific proto message that indicates the closure reason
+  /// @return A [StatusRuntimeException] encoding the error
+  public static <T extends com.google.protobuf.Message> StatusRuntimeException streamClosed(
+      final T streamClosedMessage) {
+    return StatusProto.toStatusRuntimeException(com.google.rpc.Status.newBuilder()
+        .setCode(Status.Code.ABORTED.value())
+        .addDetails(ERROR_INFO_STREAM_CLOSED)
+        .addDetails(Any.pack(streamClosedMessage))
+        .build());
   }
 
   public static StatusRuntimeException unavailable() {

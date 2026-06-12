@@ -39,7 +39,7 @@ public class ErrorConformanceInterceptor implements ServerInterceptor {
         }
 
         switch (status.getCode()) {
-          case UNAUTHENTICATED, UNAVAILABLE, INVALID_ARGUMENT, RESOURCE_EXHAUSTED -> {
+          case UNAUTHENTICATED, UNAVAILABLE, INVALID_ARGUMENT, RESOURCE_EXHAUSTED, ABORTED -> {
           }
           default -> {
             log.error("Intercepted call {} returned illegal application status {}: {}",

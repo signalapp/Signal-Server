@@ -6,11 +6,13 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Empty;
+import io.grpc.StatusRuntimeException;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Duration;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import org.signal.chat.messages.GetMessagesResponse;
+import org.signal.chat.messages.GetMessagesStreamClosed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.DisconnectionRequestListener;
@@ -54,14 +56,10 @@ public class MessageDispatcher {
 
   public static final GetMessagesResponse QUEUE_EMPTY_RESPONSE =
       GetMessagesResponse.newBuilder().setQueueEmpty(Empty.getDefaultInstance()).build();
-  private static final GetMessagesResponse CONFLICTING_STREAM_RESPONSE = GetMessagesResponse.newBuilder()
-      .setTerminated(GetMessagesResponse.Terminated.newBuilder()
-          .setConflictingStream(Empty.getDefaultInstance()))
-      .build();
-  private static final GetMessagesResponse REAUTHENTICATION_REQUIRED_RESPONSE = GetMessagesResponse.newBuilder()
-      .setTerminated(GetMessagesResponse.Terminated.newBuilder()
-          .setReauthenticationRequired(Empty.getDefaultInstance()))
-      .build();
+  private static final StatusRuntimeException CONFLICTING_STREAM_EXCEPTION =
+      GrpcExceptions.streamClosed(GetMessagesStreamClosed.newBuilder()
+          .setConflictingStream(Empty.getDefaultInstance())
+          .build());
 
   private static final String SEND_MESSAGES_FLUX_NAME = MetricsUtil.name(MessageDispatcher.class, "sendMessages");
 
@@ -99,8 +97,8 @@ public class MessageDispatcher {
   /// terminates for any reason. The error from the client will be propagated to the returned flux. The stream may also
   /// terminate with any other error encountered retrieving messages or processing acknowledgements.
   ///
-  /// The returned flux will emit a [GetMessagesResponse.Terminated] and then complete if
-  /// - A disconnection request (typically indicating a change in authorization credentials) is received.
+  /// The returned flux will error with a [GrpcExceptions#streamClosed] non-ok status exception if:
+  /// - A disconnection request (typically indicating a change in authorization credentials) is received
   /// - A client requests messages for the same account/device while this stream is still active
   ///
   /// When the stream terminates for any reason and the client has messages remaining in their queue, a push
@@ -167,7 +165,11 @@ public class MessageDispatcher {
             pendingAcknowledgementTracker.markEndOfQueue();
             yield Mono.empty();
           }
-        }, MAX_UNACKED_MESSAGES);
+        }, MAX_UNACKED_MESSAGES)
+        .onErrorMap(ConflictingMessageConsumerException.class, _ -> {
+          messageMetrics.measureMessageStreamDisplaced(MessageMetrics.GRPC_CHANNEL, userAgent, true);
+          return CONFLICTING_STREAM_EXCEPTION;
+        });
 
     // Only emit envelopes when the permit flux emits a value. Initially it is seeded MAX_UNACKED_MESSAGES permits,
     // after that a permit is emitted every time we receive an ack.
@@ -204,18 +206,8 @@ public class MessageDispatcher {
             ackCompletions,
             // Emits a queue empty once all messages prior to the queueEmpty signal have been acked
             pendingAcknowledgementTracker.queueDrained(),
-            // Emit a Terminated response if we receive a disconnection request
-            disconnectionSignal(account, device))
-        .onErrorResume(ConflictingMessageConsumerException.class, _ -> Mono.just(CONFLICTING_STREAM_RESPONSE))
-        .takeUntil(response -> switch (response.getResponseCase()) {
-          case ENVELOPE, QUEUE_EMPTY -> false;
-          case TERMINATED -> {
-            messageMetrics.measureMessageStreamDisplaced(MessageMetrics.GRPC_CHANNEL, userAgent,
-                response.getTerminated().hasConflictingStream());
-            yield true;
-          }
-          case RESPONSE_NOT_SET -> throw new IllegalStateException("tried to return an invalid GetMessagesResponse");
-        })
+            // Emit an invalid credentials error if we receive a disconnection request
+            disconnectionSignal(account, device, userAgent))
         .doFinally(_ -> maybeSchedulePush(account, device));
   }
 
@@ -232,11 +224,14 @@ public class MessageDispatcher {
 
   /// Watch for a disconnection signal from the [DisconnectionRequestManager]
   ///
-  /// @return Mono that completes with a [org.signal.chat.messages.GetMessagesResponse.Terminated] response if the
+  /// @return Mono that completes with an `InvalidCredentials` status if the
   /// device receives a disconnection request
-  private Mono<GetMessagesResponse> disconnectionSignal(final Account account, final Device device) {
+  private Mono<GetMessagesResponse> disconnectionSignal(final Account account, final Device device, final UserAgent userAgent) {
     return Mono.create(sink -> {
-      final DisconnectionRequestListener listener = () -> sink.success(REAUTHENTICATION_REQUIRED_RESPONSE);
+      final DisconnectionRequestListener listener = () -> {
+        messageMetrics.measureMessageStreamDisplaced(MessageMetrics.GRPC_CHANNEL, userAgent, false);
+        sink.error(GrpcExceptions.invalidCredentials("reauthentication required"));
+      };
       disconnectionRequestManager.addListener(account.getUuid(), device.getId(), listener);
       sink.onDispose(() -> disconnectionRequestManager.removeListener(account.getUuid(), device.getId(), listener));
     });

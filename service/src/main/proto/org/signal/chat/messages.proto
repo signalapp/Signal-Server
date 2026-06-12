@@ -43,8 +43,11 @@ service Messages {
   // Only the first GetMessagesRequest may contain request parameters that
   // configure the stream. The first request must not contain an ack.
   //
-  // The server will keep the stream open until the client disconnects or the
-  // connection is displaced as indicated by a Terminated response.
+  // The server will keep the stream open until the client disconnects. Only
+  // one GetMessages stream may be open per device. If a second GetMessages
+  // stream is opened, the server may terminate any of the streams with
+  // a STREAM_CLOSED error reason. A GetMessagesStreamClosed message will be
+  // present in the error details.
   rpc GetMessages(stream GetMessagesRequest) returns (stream GetMessagesResponse) {}
 }
 
@@ -68,19 +71,15 @@ message GetMessagesRequest {
   }
 }
 
-message GetMessagesResponse {
-
-  // The reason why a GetMessages RPC is being closed by the server.
-  message Terminated {
-    oneof reason {
-      // The account's credentials have been updated and the caller must reauthenticate.
-      google.protobuf.Empty reauthentication_required = 1;
-
-      // Another caller has opened a GetMessages stream for the same device.
-      google.protobuf.Empty conflicting_stream = 2;
-    }
+// The reason why a GetMessages RPC is being closed by the server.
+message GetMessagesStreamClosed {
+  oneof reason {
+    // Another caller has opened a GetMessages stream for the same device.
+    google.protobuf.Empty conflicting_stream = 1;
   }
+}
 
+message GetMessagesResponse {
   oneof response {
     // A message. On successful receipt of an envelope the caller should ack
     // the envelope by sending a GetMessagesRequest with the envelope's server
@@ -92,9 +91,6 @@ message GetMessagesResponse {
     // drained and acked by the client. The stream will remain open and continue
     // to deliver newly arrived messages.
     google.protobuf.Empty queue_empty = 2;
-
-    // Indicates that the stream is about to be closed.
-    Terminated terminated = 3;
   }
 }
 
