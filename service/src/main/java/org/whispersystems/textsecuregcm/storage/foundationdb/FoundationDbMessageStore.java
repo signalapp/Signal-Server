@@ -19,11 +19,9 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -42,8 +40,8 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class FoundationDbMessageStore {
 
   private final Database[][] databasesByEpoch;
+  private final int activeEpoch;
   private final VersionstampUUIDCipher versionstampUUIDCipher;
-  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Clock clock;
 
   private static final Subspace MESSAGES_SUBSPACE = new Subspace(Tuple.from("M"));
@@ -69,8 +67,8 @@ public class FoundationDbMessageStore {
   }
 
   public FoundationDbMessageStore(final Map<Integer, List<Database>> databasesByEpoch,
+      final int activeEpoch,
       final VersionstampUUIDCipher versionstampUUIDCipher,
-      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Clock clock) {
 
     final Database[][] databasesByEpochArray = new Database[MAX_EPOCHS][];
@@ -79,8 +77,8 @@ public class FoundationDbMessageStore {
         databasesByEpochArray[epoch] = databases.toArray(Database[]::new));
 
     this.databasesByEpoch = databasesByEpochArray;
+    this.activeEpoch = activeEpoch;
     this.versionstampUUIDCipher = versionstampUUIDCipher;
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.clock = clock;
   }
 
@@ -93,7 +91,15 @@ public class FoundationDbMessageStore {
   public CompletableFuture<Map<Byte, InsertResult>> insert(final AciServiceIdentifier aciServiceIdentifier,
       final Map<Byte, MessageProtos.Envelope> messagesByDeviceId) {
 
-    return insert(Map.of(aciServiceIdentifier, messagesByDeviceId))
+    return insert(aciServiceIdentifier, messagesByDeviceId, activeEpoch);
+  }
+
+  @VisibleForTesting
+  CompletableFuture<Map<Byte, InsertResult>> insert(final AciServiceIdentifier aciServiceIdentifier,
+      final Map<Byte, MessageProtos.Envelope> messagesByDeviceId,
+      final int epoch) {
+
+    return insert(Map.of(aciServiceIdentifier, messagesByDeviceId), epoch)
         .thenApply(resultsByServiceIdentifier -> {
           assert resultsByServiceIdentifier.size() == 1;
 
@@ -115,6 +121,14 @@ public class FoundationDbMessageStore {
   public CompletableFuture<Map<AciServiceIdentifier, Map<Byte, InsertResult>>> insert(
       final Map<AciServiceIdentifier, Map<Byte, MessageProtos.Envelope>> messagesByServiceIdentifier) {
 
+    return insert(messagesByServiceIdentifier, activeEpoch);
+  }
+
+  @VisibleForTesting
+  CompletableFuture<Map<AciServiceIdentifier, Map<Byte, InsertResult>>> insert(
+      final Map<AciServiceIdentifier, Map<Byte, MessageProtos.Envelope>> messagesByServiceIdentifier,
+      final int epoch) {
+
     if (messagesByServiceIdentifier.entrySet()
         .stream()
         .anyMatch(entry -> entry.getValue().isEmpty())) {
@@ -129,12 +143,9 @@ public class FoundationDbMessageStore {
       throw new IllegalArgumentException("Messages must not have pre-set server GUIDs");
     }
 
-    final int activeEpoch =
-        dynamicConfigurationManager.getConfiguration().getFoundationDbMessagesConfiguration().activeEpoch();
-
     final Map<Integer, List<Map.Entry<AciServiceIdentifier, Map<Byte, MessageProtos.Envelope>>>> messagesByShardId =
         messagesByServiceIdentifier.entrySet().stream()
-            .collect(Collectors.groupingBy(entry -> hashAciToShardNumber(entry.getKey(), activeEpoch)));
+            .collect(Collectors.groupingBy(entry -> hashAciToShardNumber(entry.getKey(), epoch)));
 
     final List<CompletableFuture<Map<AciServiceIdentifier, Map<Byte, InsertResult>>>> chunkFutures =
         new ArrayList<>();
@@ -150,7 +161,7 @@ public class FoundationDbMessageStore {
             .sum();
 
         if (estimatedTransactionSize > MAX_MESSAGE_CHUNK_SIZE) {
-          chunkFutures.add(insertChunk(shardId, activeEpoch, messagesForShard.subList(start, current)));
+          chunkFutures.add(insertChunk(shardId, epoch, messagesForShard.subList(start, current)));
 
           start = current;
           estimatedTransactionSize = 0;
@@ -160,7 +171,7 @@ public class FoundationDbMessageStore {
       }
 
       assert start < messagesForShard.size();
-      chunkFutures.add(insertChunk(shardId, activeEpoch, messagesForShard.subList(start, messagesForShard.size())));
+      chunkFutures.add(insertChunk(shardId, epoch, messagesForShard.subList(start, messagesForShard.size())));
     });
 
     return CompletableFuture.allOf(chunkFutures.toArray(CompletableFuture[]::new))

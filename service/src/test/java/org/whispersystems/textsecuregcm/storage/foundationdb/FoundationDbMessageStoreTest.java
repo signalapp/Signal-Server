@@ -8,8 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.KeyValue;
@@ -57,12 +55,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.params.IntRangeSource;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
-import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicFoundationDbMessagesConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device;
-import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.FoundationDbClusterExtension;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
@@ -80,7 +75,6 @@ class FoundationDbMessageStoreTest {
   static FoundationDbClusterExtension FOUNDATION_DB_EXTENSION = new FoundationDbClusterExtension(2);
 
   private VersionstampUUIDCipher versionstampUUIDCipher;
-  private DynamicFoundationDbMessagesConfiguration foundationDbMessagesConfiguration;
   private FoundationDbMessageStore foundationDbMessageStore;
 
   private static final Clock CLOCK = Clock.fixed(Instant.ofEpochSecond(500), ZoneId.of("UTC"));
@@ -95,17 +89,6 @@ class FoundationDbMessageStoreTest {
 
     versionstampUUIDCipher = new VersionstampUUIDCipher(0, versionstampCipherKey);
 
-    foundationDbMessagesConfiguration = mock(DynamicFoundationDbMessagesConfiguration.class);
-    when(foundationDbMessagesConfiguration.activeEpoch()).thenReturn(DEFAULT_EPOCH);
-
-    final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    when(dynamicConfiguration.getFoundationDbMessagesConfiguration()).thenReturn(foundationDbMessagesConfiguration);
-
-    @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager =
-        mock(DynamicConfigurationManager.class);
-
-    when(dynamicConfigurationManager.getConfiguration()).thenReturn(dynamicConfiguration);
-
     final List<Database> databases = Arrays.asList(FOUNDATION_DB_EXTENSION.getDatabases());
 
     foundationDbMessageStore = new FoundationDbMessageStore(
@@ -116,8 +99,8 @@ class FoundationDbMessageStoreTest {
             DEFAULT_EPOCH, databases,
             FUTURE_EPOCH, databases.reversed()
         ),
+        DEFAULT_EPOCH,
         versionstampUUIDCipher,
-        dynamicConfigurationManager,
         CLOCK);
   }
 
@@ -200,15 +183,11 @@ class FoundationDbMessageStoreTest {
     final MessageProtos.Envelope defaultEpochMessage = generateRandomMessage(false);
     final MessageProtos.Envelope futureEpochMessage = generateRandomMessage(false);
 
-    when(foundationDbMessagesConfiguration.activeEpoch()).thenReturn(DEFAULT_EPOCH);
-
     final Map<Byte, FoundationDbMessageStore.InsertResult> defaultEpochInsertResult =
-        foundationDbMessageStore.insert(aci, Map.of(deviceId, defaultEpochMessage)).join();
-
-    when(foundationDbMessagesConfiguration.activeEpoch()).thenReturn(FUTURE_EPOCH);
+        foundationDbMessageStore.insert(aci, Map.of(deviceId, defaultEpochMessage), DEFAULT_EPOCH).join();
 
     final Map<Byte, FoundationDbMessageStore.InsertResult> futureEpochInsertResult =
-        foundationDbMessageStore.insert(aci, Map.of(deviceId, futureEpochMessage)).join();
+        foundationDbMessageStore.insert(aci, Map.of(deviceId, futureEpochMessage), FUTURE_EPOCH).join();
 
     for (int epoch : new int[] { DEFAULT_EPOCH, FUTURE_EPOCH }) {
       final List<KeyValue> itemsInDeviceQueue = getItemsInDeviceQueue(aci, deviceId, epoch);
@@ -941,15 +920,13 @@ class FoundationDbMessageStoreTest {
     final MessageGuidCodec messageGuidCodec =
         new MessageGuidCodec(aci.uuid(), deviceId, versionstampUUIDCipher);
 
-    when(foundationDbMessagesConfiguration.activeEpoch()).thenReturn(epoch);
-
     return IntStream.range(0, messageCount)
         .mapToObj(_ -> {
           final MessageProtos.Envelope message =
               generateRandomMessage(false, 16, timestampSupplier.get());
 
           final FoundationDbMessageStore.InsertResult insertResult =
-              foundationDbMessageStore.insert(aci, Map.of(deviceId, message)).join().get(deviceId);
+              foundationDbMessageStore.insert(aci, Map.of(deviceId, message), epoch).join().get(deviceId);
 
           final Versionstamp versionstamp = insertResult.versionstamp().orElseThrow();
           final UUID messageGuid = messageGuidCodec.encodeMessageGuid(versionstamp);

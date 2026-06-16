@@ -17,7 +17,8 @@ import java.util.Map;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 
 public record FoundationDbMessagesConfiguration(@NotEmpty Map<String, @Valid FoundationDbClusterConfiguration> clusters,
-                                                @NotEmpty Map<@PositiveOrZero @Max(FoundationDbMessageStore.MAX_EPOCHS - 1) Integer, @Size(min = 1, max = FoundationDbMessageStore.MAX_SHARDS - 1) List<String>> epochs) {
+                                                @NotEmpty Map<@PositiveOrZero @Max(FoundationDbMessageStore.MAX_EPOCHS - 1) Integer, @Size(min = 1, max = FoundationDbMessageStore.MAX_SHARDS - 1) List<String>> epochs,
+                                                @PositiveOrZero @Max(FoundationDbMessageStore.MAX_EPOCHS - 1) int activeEpoch) {
 
   @AssertTrue
   boolean isEveryEpochClusterConfigured() {
@@ -41,5 +42,10 @@ public record FoundationDbMessagesConfiguration(@NotEmpty Map<String, @Valid Fou
     }
 
     return true;
+  }
+
+  @AssertTrue
+  boolean isActiveEpochConfigured() {
+    return epochs().containsKey(activeEpoch());
   }
 }

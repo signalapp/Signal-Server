@@ -18,12 +18,14 @@ class FoundationDbMessagesConfigurationTest {
   void isEveryEpochClusterConfigured() {
     assertTrue(new FoundationDbMessagesConfiguration(
         Map.of("messages-0", new FoundationDbClusterConfiguration("test-url", null)),
-        Map.of(0, List.of("messages-0"))
+        Map.of(0, List.of("messages-0")),
+        0
     ).isEveryEpochClusterConfigured());
 
     assertFalse(new FoundationDbMessagesConfiguration(
         Map.of("messages-0", new FoundationDbClusterConfiguration("test-url", null)),
-        Map.of(0, List.of("messages-0", "unconfigured-cluster"))
+        Map.of(0, List.of("messages-0", "unconfigured-cluster")),
+        0
     ).isEveryEpochClusterConfigured());
   }
 
@@ -31,12 +33,29 @@ class FoundationDbMessagesConfigurationTest {
   void isEveryEpochFreeOfDuplicates() {
     assertTrue(new FoundationDbMessagesConfiguration(
         Map.of("messages-0", new FoundationDbClusterConfiguration("test-url", null)),
-        Map.of(0, List.of("messages-0"))
+        Map.of(0, List.of("messages-0")),
+        0
     ).isEveryEpochFreeOfDuplicates());
 
     assertFalse(new FoundationDbMessagesConfiguration(
         Map.of("messages-0", new FoundationDbClusterConfiguration("test-url", null)),
-        Map.of(0, List.of("messages-0", "messages-0"))
+        Map.of(0, List.of("messages-0", "messages-0")),
+        0
     ).isEveryEpochFreeOfDuplicates());
+  }
+
+  @Test
+  void isActiveEpochConfigured() {
+    assertTrue(new FoundationDbMessagesConfiguration(
+        Map.of("messages-0", new FoundationDbClusterConfiguration("test-url", null)),
+        Map.of(0, List.of("messages-0")),
+        0
+    ).isActiveEpochConfigured());
+
+    assertFalse(new FoundationDbMessagesConfiguration(
+        Map.of("messages-0", new FoundationDbClusterConfiguration("test-url", null)),
+        Map.of(0, List.of("messages-0")),
+        1
+    ).isActiveEpochConfigured());
   }
 }
