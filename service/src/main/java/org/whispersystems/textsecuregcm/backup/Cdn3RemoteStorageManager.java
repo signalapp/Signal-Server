@@ -86,7 +86,7 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
   public CompletionStage<Void> copy(
       final int sourceCdn,
       final String sourceKey,
-      final int expectedSourceLength,
+      final long expectedSourceLength,
       final MediaEncryptionParameters encryptionParameters,
       final String destinationKey) {
     final String sourceScheme = this.sourceSchemes.get(sourceCdn);
@@ -132,10 +132,10 @@ public class Cdn3RemoteStorageManager implements RemoteStorageManager {
    */
   record Cdn3CopyRequest(
       String encryptionKey, String hmacKey,
-      SourceDescriptor source, int expectedSourceLength,
+      SourceDescriptor source, long expectedSourceLength,
       String dst) {
 
-    Cdn3CopyRequest(MediaEncryptionParameters parameters, SourceDescriptor source, int expectedSourceLength,
+    Cdn3CopyRequest(MediaEncryptionParameters parameters, SourceDescriptor source, long expectedSourceLength,
         String dst) {
       this(Base64.getEncoder().encodeToString(parameters.aesEncryptionKey().getEncoded()),
           Base64.getEncoder().encodeToString(parameters.hmacSHA256Key().getEncoded()),

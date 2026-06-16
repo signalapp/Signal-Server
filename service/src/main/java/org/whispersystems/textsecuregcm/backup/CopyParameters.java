@@ -18,7 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 public record CopyParameters(
     int sourceCdn,
     String sourceKey,
-    int sourceLength,
+    long sourceLength,
     MediaEncryptionParameters encryptionParameters,
     byte[] destinationMediaId) {
 
@@ -35,16 +35,17 @@ public record CopyParameters(
   ///
   /// @return the size, in bytes, of the ciphertext of a media object with the given `inputSize`
   @VisibleForTesting
-  static long destinationObjectSize(final int inputSize) {
+  static long destinationObjectSize(final long inputSize) {
     if (inputSize < 0) {
       throw new IllegalArgumentException("Size must be non-negative, but was " + inputSize);
     }
 
     // AES-256 has 16-byte block size, and always adds a block if the plaintext is a multiple of the block size
-    final long numBlocks = ((long) inputSize + 16) / 16;
+    final long numBlocks = Math.addExact(inputSize, 16L) / 16;
+    final long cipherTextLength = Math.multiplyExact(numBlocks, 16);
 
-    // 16-byte IV will be generated and prepended to the ciphertext
+    // 16-byte IV will be generated and prepended to the ciphertext.
     // IV + AES-256 encrypted data + HmacSHA256
-    return 16 + (numBlocks * 16) + 32;
+    return Math.addExact(cipherTextLength, 16L + 32);
   }
 }

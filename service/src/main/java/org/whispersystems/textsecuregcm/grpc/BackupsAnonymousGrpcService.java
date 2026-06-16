@@ -224,8 +224,7 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
       copyQuota = backupManager.getCopyQuota(backupUser,
           request.getItemsList().stream().map(item -> new CopyParameters(
               item.getSourceAttachmentCdn(), item.getSourceKey(),
-              // uint32 in proto, make sure it fits in a signed int
-              fromUnsignedExact(item.getObjectLength()),
+              item.getObjectLength(),
               new MediaEncryptionParameters(item.getEncryptionKey().toByteArray(), item.getHmacKey().toByteArray()),
               item.getMediaId().toByteArray())).toList(), maxAttachmentSize);
     } catch (BackupFailedZkAuthenticationException e) {
@@ -349,17 +348,6 @@ public class BackupsAnonymousGrpcService extends SimpleBackupsAnonymousGrpc.Back
     } catch (InvalidInputException e) {
       throw GrpcExceptions.badAuthentication("Could not deserialize presentation");
     }
-  }
-
-  /**
-   * Convert an int from a proto uint32 to a signed positive integer, throwing if the value exceeds
-   * {@link Integer#MAX_VALUE}. To convert to a long, see {@link Integer#toUnsignedLong(int)}
-   */
-  private static int fromUnsignedExact(final int i) {
-    if (i < 0) {
-      throw GrpcExceptions.invalidArguments("integer length too large");
-    }
-    return i;
   }
 
   private interface Deserializer<T> {

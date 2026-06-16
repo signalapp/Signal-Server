@@ -525,11 +525,11 @@ public class BackupManagerTest {
 
     when(tusCredentialGenerator.generateUpload(any(), anyLong()))
         .thenReturn(new BackupUploadDescriptor(3, "", Collections.emptyMap(), ""));
-    when(remoteStorageManager.copy(eq(3), eq("success"), eq(100), any(), any()))
+    when(remoteStorageManager.copy(eq(3), eq("success"), eq(100L), any(), any()))
         .thenReturn(CompletableFuture.completedFuture(null));
-    when(remoteStorageManager.copy(eq(3), eq("missing"), eq(200), any(), any()))
+    when(remoteStorageManager.copy(eq(3), eq("missing"), eq(200L), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new SourceObjectNotFoundException()));
-    when(remoteStorageManager.copy(eq(3), eq("badlength"), eq(300), any(), any()))
+    when(remoteStorageManager.copy(eq(3), eq("badlength"), eq(300L), any(), any()))
         .thenReturn(CompletableFuture.failedFuture(new InvalidLengthException("")));
 
     final List<CopyResult> results = backupManager

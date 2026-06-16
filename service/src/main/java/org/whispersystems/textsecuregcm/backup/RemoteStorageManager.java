@@ -35,7 +35,7 @@ public interface RemoteStorageManager {
   CompletionStage<Void> copy(
       int sourceCdn,
       String sourceKey,
-      int expectedSourceLength,
+      long expectedSourceLength,
       MediaEncryptionParameters encryptionParameters,
       String dstKey);
 
