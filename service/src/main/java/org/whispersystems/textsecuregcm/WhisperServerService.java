@@ -400,7 +400,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
   @Override
   public void run(WhisperServerConfiguration config, Environment environment) throws Exception {
     final Clock clock = Clock.systemUTC();
-    final int availableProcessors = Runtime.getRuntime().availableProcessors();
 
     final AwsCredentialsProvider awsCredentialsProvider = config.getAwsCredentialsConfiguration().build();
 
