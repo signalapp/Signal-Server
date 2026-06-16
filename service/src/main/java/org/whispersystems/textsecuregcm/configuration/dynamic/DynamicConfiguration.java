@@ -84,6 +84,11 @@ public class DynamicConfiguration {
   @Valid
   private DynamicTurnConfiguration turn = new DynamicTurnConfiguration();
 
+  @JsonProperty
+  @Valid
+  private DynamicFoundationDbMessagesConfiguration foundationDbMessages =
+      new DynamicFoundationDbMessagesConfiguration(0);
+
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
       final String experimentName) {
     return Optional.ofNullable(experiments.get(experimentName));
@@ -152,5 +157,9 @@ public class DynamicConfiguration {
 
   public DynamicTurnConfiguration getTurnConfiguration() {
     return turn;
+  }
+
+  public DynamicFoundationDbMessagesConfiguration getFoundationDbMessagesConfiguration() {
+    return foundationDbMessages;
   }
 }

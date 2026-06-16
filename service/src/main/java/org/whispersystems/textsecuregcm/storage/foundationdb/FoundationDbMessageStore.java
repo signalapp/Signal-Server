@@ -17,12 +17,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -40,8 +41,9 @@ import org.whispersystems.textsecuregcm.util.Util;
 ///         * {versionstamp_2} => envelope_2
 public class FoundationDbMessageStore {
 
-  private final Database[] databases;
+  private final Database[][] databasesByEpoch;
   private final VersionstampUUIDCipher versionstampUUIDCipher;
+  private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Clock clock;
 
   private static final Subspace MESSAGES_SUBSPACE = new Subspace(Tuple.from("M"));
@@ -53,6 +55,11 @@ public class FoundationDbMessageStore {
   /// suggest a limit of 1MB to avoid performance issues, although the hard limit is 10MB
   private static final long MAX_MESSAGE_CHUNK_SIZE = DataSize.megabytes(1).toBytes();
 
+  // We pack the current configuration epoch and shard ID into a single byte of "user data" in each message
+  // versionstamp. We use two bits for the epoch and six for the shard ID.
+  public static final int MAX_EPOCHS = 4;
+  public static final int MAX_SHARDS = 64;
+
   /// Result of inserting a message for a particular device
   ///
   /// @param versionstamp the versionstamp of the transaction in which this device's message was inserted, empty
@@ -61,12 +68,19 @@ public class FoundationDbMessageStore {
   public record InsertResult(Optional<Versionstamp> versionstamp, boolean present) {
   }
 
-  public FoundationDbMessageStore(final Database[] databases,
+  public FoundationDbMessageStore(final Map<Integer, List<Database>> databasesByEpoch,
       final VersionstampUUIDCipher versionstampUUIDCipher,
+      final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final Clock clock) {
 
-    this.databases = databases;
+    final Database[][] databasesByEpochArray = new Database[MAX_EPOCHS][];
+
+    databasesByEpoch.forEach((epoch, databases) ->
+        databasesByEpochArray[epoch] = databases.toArray(Database[]::new));
+
+    this.databasesByEpoch = databasesByEpochArray;
     this.versionstampUUIDCipher = versionstampUUIDCipher;
+    this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.clock = clock;
   }
 
@@ -115,9 +129,12 @@ public class FoundationDbMessageStore {
       throw new IllegalArgumentException("Messages must not have pre-set server GUIDs");
     }
 
+    final int activeEpoch =
+        dynamicConfigurationManager.getConfiguration().getFoundationDbMessagesConfiguration().activeEpoch();
+
     final Map<Integer, List<Map.Entry<AciServiceIdentifier, Map<Byte, MessageProtos.Envelope>>>> messagesByShardId =
         messagesByServiceIdentifier.entrySet().stream()
-            .collect(Collectors.groupingBy(entry -> hashAciToShardNumber(entry.getKey())));
+            .collect(Collectors.groupingBy(entry -> hashAciToShardNumber(entry.getKey(), activeEpoch)));
 
     final List<CompletableFuture<Map<AciServiceIdentifier, Map<Byte, InsertResult>>>> chunkFutures =
         new ArrayList<>();
@@ -133,7 +150,7 @@ public class FoundationDbMessageStore {
             .sum();
 
         if (estimatedTransactionSize > MAX_MESSAGE_CHUNK_SIZE) {
-          chunkFutures.add(insertChunk(shardId, messagesForShard.subList(start, current)));
+          chunkFutures.add(insertChunk(shardId, activeEpoch, messagesForShard.subList(start, current)));
 
           start = current;
           estimatedTransactionSize = 0;
@@ -143,7 +160,7 @@ public class FoundationDbMessageStore {
       }
 
       assert start < messagesForShard.size();
-      chunkFutures.add(insertChunk(shardId, messagesForShard.subList(start, messagesForShard.size())));
+      chunkFutures.add(insertChunk(shardId, activeEpoch, messagesForShard.subList(start, messagesForShard.size())));
     });
 
     return CompletableFuture.allOf(chunkFutures.toArray(CompletableFuture[]::new))
@@ -157,6 +174,7 @@ public class FoundationDbMessageStore {
 
   private CompletableFuture<Map<AciServiceIdentifier, Map<Byte, InsertResult>>> insertChunk(
       final int shardId,
+      final int epoch,
       final List<Map.Entry<AciServiceIdentifier, Map<Byte, MessageProtos.Envelope>>> messagesByAccountIdentifier) {
 
     final Map<AciServiceIdentifier, CompletableFuture<Map<Byte, Boolean>>> insertFuturesByAci = new HashMap<>();
@@ -168,9 +186,9 @@ public class FoundationDbMessageStore {
         .map(MessageProtos.Envelope::getEphemeral)
         .orElseThrow(() -> new IllegalStateException("One or more bundles is empty"));
 
-    return databases[shardId].runAsync(transaction -> {
+    return getDatabases(epoch)[shardId].runAsync(transaction -> {
           messagesByAccountIdentifier.forEach(entry ->
-              insertFuturesByAci.put(entry.getKey(), insert(entry.getKey(), entry.getValue(), transaction)));
+              insertFuturesByAci.put(entry.getKey(), insert(entry.getKey(), entry.getValue(), epoch, shardId, transaction)));
 
           return CompletableFuture.allOf(insertFuturesByAci.values().toArray(CompletableFuture[]::new))
               .thenApply(_ -> {
@@ -181,7 +199,8 @@ public class FoundationDbMessageStore {
                     .anyMatch(isPresent -> isPresent);
                 if (anyClientPresent || !ephemeral) {
                   return transaction.getVersionstamp()
-                      .thenApply(versionstampBytes -> Optional.of(Versionstamp.complete(versionstampBytes, shardId)));
+                      .thenApply(versionstampBytes -> Optional.of(Versionstamp.complete(versionstampBytes,
+                          packUserData(epoch, shardId))));
                 }
                 return CompletableFuture.completedFuture(Optional.<Versionstamp>empty());
               });
@@ -217,6 +236,8 @@ public class FoundationDbMessageStore {
   /// @return a future that yields the presence state of each destination device
   private CompletableFuture<Map<Byte, Boolean>> insert(final AciServiceIdentifier aci,
       final Map<Byte, MessageProtos.Envelope> messagesByDeviceId,
+      final int epoch,
+      final int shardId,
       final Transaction transaction) {
 
     final Map<Byte, CompletableFuture<Boolean>> messageInsertFuturesByDeviceId = messagesByDeviceId.entrySet()
@@ -232,7 +253,7 @@ public class FoundationDbMessageStore {
                 if (isPresent || !message.getEphemeral()) {
                   transaction.mutate(MutationType.SET_VERSIONSTAMPED_KEY,
                       getDeviceQueueSubspace(aci, deviceId)
-                          .packWithVersionstamp(Tuple.from(Versionstamp.incomplete(hashAciToShardNumber(aci)))), message.toByteArray());
+                          .packWithVersionstamp(Tuple.from(Versionstamp.incomplete(packUserData(epoch, shardId)))), message.toByteArray());
                 }
 
                 return isPresent;
@@ -251,7 +272,7 @@ public class FoundationDbMessageStore {
 
           if (anyClientPresent) {
             transaction.mutate(MutationType.SET_VERSIONSTAMPED_VALUE, getMessagesAvailableWatchKey(aci),
-                Tuple.from(Versionstamp.incomplete(hashAciToShardNumber(aci))).packWithVersionstamp());
+                Tuple.from(Versionstamp.incomplete(packUserData(epoch, shardId))).packWithVersionstamp());
           }
 
           return presenceByDeviceId;
@@ -264,11 +285,24 @@ public class FoundationDbMessageStore {
   }
 
   @VisibleForTesting
-  MessageStream getMessages(final AciServiceIdentifier aci, final Device destinationDevice,
-      final int maxMessagesPerScan, final int maxUnacknowledgedMessages, final Runnable doAfterCleanup) {
+  MessageStream getMessages(final AciServiceIdentifier aci,
+      final Device destinationDevice,
+      final int maxMessagesPerScan,
+      final int maxUnacknowledgedMessages,
+      final Runnable doAfterCleanup) {
+
+    // For each configured database epoch, which database held (or holds) the messages for this ACI/device pair?
+    final Database[] databasesForQueueByEpoch = new Database[databasesByEpoch.length];
+
+    for (int epoch = 0; epoch < databasesByEpoch.length; epoch++) {
+      databasesForQueueByEpoch[epoch] = databasesByEpoch[epoch] != null
+          ? getDatabases(epoch)[hashAciToShardNumber(aci, epoch)]
+          : null;
+    }
+
     return new FoundationDbMessageStream(getDeviceQueueSubspace(aci, destinationDevice.getId()),
         getMessagesAvailableWatchKey(aci),
-        getShardForAci(aci),
+        databasesForQueueByEpoch,
         new MessageGuidCodec(aci.uuid(), destinationDevice.getId(), versionstampUUIDCipher),
         maxMessagesPerScan,
         maxUnacknowledgedMessages,
@@ -280,14 +314,46 @@ public class FoundationDbMessageStore {
   }
 
   @VisibleForTesting
-  Database getShardForAci(final AciServiceIdentifier aci) {
-    return databases[hashAciToShardNumber(aci)];
+  Database getShardForAci(final AciServiceIdentifier aci, final int epoch) {
+    return getDatabases(epoch)[hashAciToShardNumber(aci, epoch)];
+  }
+
+  private Database[] getDatabases(final int epoch) {
+    if (databasesByEpoch[epoch] == null) {
+      throw new IllegalStateException("Epoch (%d) not in static configuration".formatted(epoch));
+    }
+
+    return databasesByEpoch[epoch];
   }
 
   @VisibleForTesting
-  int hashAciToShardNumber(final AciServiceIdentifier aci) {
+  int hashAciToShardNumber(final AciServiceIdentifier aci, final int epoch) {
     // We use a consistent hash here to reduce the number of key remappings if we increase the number of shards
-    return Hashing.consistentHash(aci.uuid().getLeastSignificantBits(), databases.length);
+    return Hashing.consistentHash(aci.uuid().getLeastSignificantBits(), getDatabases(epoch).length);
+  }
+
+  @VisibleForTesting
+  static int packUserData(final int epoch, final int shardId) {
+    if (epoch < 0 || epoch >= MAX_EPOCHS) {
+      throw new IllegalArgumentException("Epoch (%d) outside of allowable range (0 to %d, exclusive)".formatted(
+          epoch, MAX_EPOCHS));
+    }
+
+    if (shardId < 0 || shardId >= MAX_SHARDS) {
+      throw new IllegalArgumentException("Shard ID (%d) outside of allowable range (0 to %d, exclusive)".formatted(
+          epoch, MAX_SHARDS));
+    }
+
+    return epoch << 6 | shardId;
+  }
+
+  static int getConfigurationEpoch(final Versionstamp versionstamp) {
+    return versionstamp.getUserVersion() >> 6 & 0x03;
+  }
+
+  @VisibleForTesting
+  static int getShardId(final Versionstamp versionstamp) {
+    return versionstamp.getUserVersion() & 0x3f;
   }
 
   @VisibleForTesting
