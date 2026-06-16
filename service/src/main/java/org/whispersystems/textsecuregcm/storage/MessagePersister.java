@@ -350,7 +350,7 @@ public class MessagePersister implements Managed {
           cachedMessageBytes.set(estimatedPersistedQueueSize);
           targetDeleteBytes.set(Math.round(estimatedPersistedQueueSize * extraRoomRatio));
 
-          return Flux.from(messagesManager.getMessagesForDeviceReactive(aci, device, false))
+          return Flux.from(messagesManager.getMessagesForDevice(aci, device))
               .concatMap(envelope -> {
                 if (bytesDeleted.getAndAdd(envelope.getSerializedSize()) >= targetDeleteBytes.get()) {
                   return Mono.just(Optional.<MessageProtos.Envelope>empty());

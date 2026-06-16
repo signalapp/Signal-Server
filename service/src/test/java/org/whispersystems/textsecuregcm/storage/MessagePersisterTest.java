@@ -504,7 +504,7 @@ class MessagePersisterTest {
 
     when(messagesManager.persistMessages(any(UUID.class), any(), anyList()))
         .thenThrow(ItemCollectionSizeLimitExceededException.builder().build());
-    when(messagesManager.getMessagesForDeviceReactive(DESTINATION_ACCOUNT_UUID, primary, false))
+    when(messagesManager.getMessagesForDevice(DESTINATION_ACCOUNT_UUID, primary))
         .thenReturn(Flux.concat(
             Flux.fromIterable(persistedMessages),
             Flux.fromIterable(cachedMessages)));
