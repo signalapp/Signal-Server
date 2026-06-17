@@ -470,9 +470,9 @@ public class BackupManagerTest {
 
     final int slowIndex = backupConfiguration.usageCheckpointCount() - 1;
     final CompletableFuture<Void> slow = new CompletableFuture<>();
-    when(remoteStorageManager.copy(eq(3), anyString(), eq(100), any(), anyString()))
+    when(remoteStorageManager.copy(eq(3), anyString(), eq(100L), any(), anyString()))
         .thenReturn(CompletableFuture.completedFuture(null));
-    when(remoteStorageManager.copy(eq(3), eq(sourceKeys.get(slowIndex)), eq(100), any(), anyString()))
+    when(remoteStorageManager.copy(eq(3), eq(sourceKeys.get(slowIndex)), eq(100L), any(), anyString()))
         .thenReturn(slow);
     final ArrayBlockingQueue<CopyResult> copyResults = new ArrayBlockingQueue<>(100);
     final CompletableFuture<Void> future = backupManager
