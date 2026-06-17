@@ -1,6 +1,7 @@
 package org.whispersystems.textsecuregcm.grpc;
 
 import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientPlatform;
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getPayPalLocale;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
@@ -11,6 +12,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.FailedZkAuthentication;
@@ -30,6 +34,7 @@ import org.signal.chat.subscriptions.GetReceiptCredentialsResponse;
 import org.signal.chat.subscriptions.GetSubscriptionInformationRequest;
 import org.signal.chat.subscriptions.GetSubscriptionInformationResponse;
 import org.signal.chat.subscriptions.PaymentMethod;
+import org.signal.chat.subscriptions.PaymentRequired;
 import org.signal.chat.subscriptions.SetDefaultPaymentMethodRequest;
 import org.signal.chat.subscriptions.SetDefaultPaymentMethodResponse;
 import org.signal.chat.subscriptions.SetIapSubscriptionRequest;
@@ -50,6 +55,8 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
@@ -59,11 +66,9 @@ import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.BankTransferType;
 import org.whispersystems.textsecuregcm.subscriptions.BraintreeManager;
-import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.CurrencyConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
-import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriberIdCreationNotPermittedException;
@@ -96,6 +101,11 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
   private final BadgeTranslator badgeTranslator;
   private final BankMandateTranslator bankMandateTranslator;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
+
+  static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionsGrpcService.class, "receiptIssued");
+  static final String PROCESSOR_TAG_NAME = "processor";
+  static final String TYPE_TAG_NAME = "type";
+  private static final String SUBSCRIPTION_TYPE_TAG_NAME = "subscriptionType";
 
   public SubscriptionsGrpcService(final Clock clock, final SubscriptionConfiguration subscriptionConfiguration,
       final OneTimeDonationConfiguration oneTimeDonationConfiguration, final SubscriptionManager subscriptionManager,
@@ -136,7 +146,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
         }
       } catch (final InvalidInputException _) {
         throw GrpcExceptions.invalidArguments("invalid donation permit");
-      } catch (final VerificationFailedException _ ) {
+      } catch (final VerificationFailedException _) {
         return UpdateSubscriberResponse.newBuilder()
             .setPermitRejected(FailedZkAuthentication.newBuilder()
                 .setDescription("donation permit failed verification")
@@ -198,7 +208,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
       }
     } catch (final InvalidInputException _) {
       throw GrpcExceptions.invalidArguments("invalid donation permit");
-    } catch (final VerificationFailedException _ ) {
+    } catch (final VerificationFailedException _) {
       return CreatePaymentMethodResponse.newBuilder()
           .setPermitRejected(FailedZkAuthentication.getDefaultInstance())
           .build();
@@ -227,8 +237,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
   public CreatePayPalPaymentMethodResponse createPayPalPaymentMethod(final CreatePayPalPaymentMethodRequest request) {
     final SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(
         request.getSubscriberId().toByteArray(), clock);
-    final Locale locale = RequestAttributesUtil.getAcceptableLanguages().stream().filter(r -> !"*".equals(r.getRange()))
-        .findFirst().map(r -> Locale.forLanguageTag(r.getRange())).orElse(Locale.US);
+    final Locale locale = getPayPalLocale(RequestAttributesUtil.getAvailableAcceptedLocales());
     try {
       final BraintreeManager.PayPalBillingAgreementApprovalDetails details = subscriptionManager.addPaymentMethodToCustomer(
           subscriberCredentials, braintreeManager, getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)),
@@ -363,7 +372,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
           .build();
     } catch (final SubscriptionProcessorException e) {
       return SetSubscriptionLevelResponse.newBuilder()
-          .setChargeFailure(toChargeFailure(e.getProcessor(), e.getChargeFailure())).build();
+          .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure())).build();
     } catch (final SubscriptionPaymentRequiresActionException e) {
       return SetSubscriptionLevelResponse.newBuilder().setPaymentRequiresAction(FailedPrecondition.newBuilder().build())
           .build();
@@ -443,7 +452,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
       subscription.setBillingCycleAnchor(info.billingCycleAnchor().getEpochSecond());
     }
     if (info.chargeFailure() != null) {
-      subscription.setChargeFailure(toChargeFailure(info.paymentProvider(), info.chargeFailure()));
+      subscription.setChargeFailure(SubscriptionsUtil.toChargeFailure(info.paymentProvider(), info.chargeFailure()));
     }
     return GetSubscriptionInformationResponse.newBuilder().setSuccess(subscription.build()).build();
 
@@ -458,6 +467,15 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
       final SubscriptionManager.ReceiptResult result = subscriptionManager.createReceiptCredentials(
           subscriberCredentials, request.getReceiptCredentialRequest().toByteArray(),
           r -> SubscriptionsUtil.receiptExpirationWithGracePeriod(subscriptionConfiguration, r));
+      Metrics.counter(RECEIPT_ISSUED_COUNTER_NAME,
+              Tags.of(
+                  Tag.of(PROCESSOR_TAG_NAME, result.paymentProvider().toString()),
+                  Tag.of(TYPE_TAG_NAME, "subscription"),
+                  Tag.of(SUBSCRIPTION_TYPE_TAG_NAME,
+                      subscriptionConfiguration.getSubscriptionLevel(result.receiptItem().level()).type().name()
+                          .toLowerCase(Locale.ROOT)),
+                  UserAgentTagUtil.getPlatformTag(RequestAttributesUtil.getUserAgent().orElse(null))))
+          .increment();
       return GetReceiptCredentialsResponse.newBuilder().setSuccess(
           GetReceiptCredentialsResponse.GetReceiptCredentialsResult.newBuilder()
               .setReceiptCredentialResponse(ByteString.copyFrom(result.receiptCredentialResponse().serialize()))
@@ -467,11 +485,11 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
           .build();
     } catch (final SubscriptionChargeFailurePaymentRequiredException e) {
       return GetReceiptCredentialsResponse.newBuilder().setPaymentRequired(
-          GetReceiptCredentialsResponse.PaymentRequired.newBuilder()
-              .setChargeFailure(toChargeFailure(e.getProcessor(), e.getChargeFailure())).build()).build();
+          PaymentRequired.newBuilder()
+              .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure())).build()).build();
     } catch (final SubscriptionPaymentRequiredException e) {
       return GetReceiptCredentialsResponse.newBuilder()
-          .setPaymentRequired(GetReceiptCredentialsResponse.PaymentRequired.newBuilder().build()).build();
+          .setPaymentRequired(PaymentRequired.newBuilder().build()).build();
     } catch (final SubscriptionInvalidArgumentsException e) {
       throw GrpcExceptions.invalidArguments(e.errorDetail().orElse(""));
     } catch (final SubscriptionReceiptAlreadyRedeemedException e) {
@@ -587,22 +605,6 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
     final String mandate = bankMandateTranslator.translate(RequestAttributesUtil.getAvailableAcceptedLocales(),
         bankTransferType);
     return GetBankMandateResponse.newBuilder().setMandate(mandate).build();
-  }
-
-  private static org.signal.chat.subscriptions.ChargeFailure toChargeFailure(final PaymentProvider processor,
-      final ChargeFailure chargeFailure) {
-    final org.signal.chat.subscriptions.ChargeFailure.Builder builder = org.signal.chat.subscriptions.ChargeFailure.newBuilder()
-        .setProcessor(processor.toProto()).setCode(chargeFailure.code()).setMessage(chargeFailure.message());
-    if (chargeFailure.outcomeNetworkStatus() != null) {
-      builder.setOutcomeNetworkStatus(chargeFailure.outcomeNetworkStatus());
-    }
-    if (chargeFailure.outcomeReason() != null) {
-      builder.setOutcomeReason(chargeFailure.outcomeReason());
-    }
-    if (chargeFailure.outcomeType() != null) {
-      builder.setOutcomeType(chargeFailure.outcomeType());
-    }
-    return builder.build();
   }
 
 }

@@ -25,10 +25,12 @@ import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
+import org.whispersystems.textsecuregcm.subscriptions.ChargeFailure;
 import org.whispersystems.textsecuregcm.subscriptions.CurrencyConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
+import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
@@ -160,4 +162,26 @@ public class SubscriptionsUtil {
         .increment();
   }
 
+  public static org.signal.chat.subscriptions.ChargeFailure toChargeFailure(final PaymentProvider processor,
+      final ChargeFailure chargeFailure) {
+    final org.signal.chat.subscriptions.ChargeFailure.Builder builder = org.signal.chat.subscriptions.ChargeFailure.newBuilder()
+        .setProcessor(processor.toProto()).setCode(chargeFailure.code()).setMessage(chargeFailure.message());
+    if (chargeFailure.outcomeNetworkStatus() != null) {
+      builder.setOutcomeNetworkStatus(chargeFailure.outcomeNetworkStatus());
+    }
+    if (chargeFailure.outcomeReason() != null) {
+      builder.setOutcomeReason(chargeFailure.outcomeReason());
+    }
+    if (chargeFailure.outcomeType() != null) {
+      builder.setOutcomeType(chargeFailure.outcomeType());
+    }
+    return builder.build();
+  }
+
+  public static Locale getPayPalLocale(final List<Locale> acceptableLocales) {
+    return acceptableLocales.stream()
+        .filter(l -> !"*".equals(l.getLanguage()))
+        .findFirst()
+        .orElse(Locale.US);
+  }
 }

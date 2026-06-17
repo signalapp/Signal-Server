@@ -176,6 +176,7 @@ import org.whispersystems.textsecuregcm.grpc.MessageDispatcher;
 import org.whispersystems.textsecuregcm.grpc.MessagesAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.MessagesGrpcService;
 import org.whispersystems.textsecuregcm.grpc.MetricServerInterceptor;
+import org.whispersystems.textsecuregcm.grpc.OneTimeDonationsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.PaymentsGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
@@ -1095,7 +1096,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC())),
             new SubscriptionsGrpcService(clock, config.getSubscription(), config.getOneTimeDonations(), subscriptionManager,
                 donationPermitsManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
-                profileBadgeConverter, bankMandateTranslator, dynamicConfigurationManager))
+                profileBadgeConverter, bankMandateTranslator, dynamicConfigurationManager),
+            new OneTimeDonationsGrpcService(config.getOneTimeDonations(), stripeManager, braintreeManager,
+                payPalDonationsTranslator, oneTimeDonationsManager, issuedReceiptsManager,
+                zkReceiptOperations, clock, rateLimiters, donationPermitsManager))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!

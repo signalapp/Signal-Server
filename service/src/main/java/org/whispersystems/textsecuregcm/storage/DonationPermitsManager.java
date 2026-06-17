@@ -28,6 +28,7 @@ public class DonationPermitsManager {
 
   /// Verifies and then spends the given {@link DonationPermit}
   ///
+  /// @return whether the spend was successful
   /// @throws VerificationFailedException if the permit was not valid (expired or otherwise)
   public boolean spend(final DonationPermit donationPermit) throws VerificationFailedException {
     // Permits must be verified with the key pair that issued them, which can be re-derived from the embedded expiration

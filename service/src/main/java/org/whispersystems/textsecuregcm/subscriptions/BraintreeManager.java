@@ -128,7 +128,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     return paymentMethod == PaymentMethod.PAYPAL;
   }
 
-  public CompletableFuture<PaymentDetails> getPaymentDetails(final String paymentId) {
+  public CompletableFuture<Optional<PaymentDetails>> getPaymentDetails(final String paymentId) {
     return CompletableFuture.supplyAsync(() -> {
       try {
         final Transaction transaction = braintreeGateway.transaction().find(paymentId);
@@ -136,14 +136,14 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
         if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
           chargeFailure = createChargeFailure(transaction);
         }
-        return new PaymentDetails(transaction.getGraphQLId(),
+        return Optional.of(new PaymentDetails(transaction.getGraphQLId(),
             transaction.getCustomFields(),
             getPaymentStatus(transaction.getStatus()),
             transaction.getCreatedAt().toInstant(),
-            chargeFailure);
+            chargeFailure));
 
       } catch (final NotFoundException e) {
-        return null;
+        return Optional.empty();
       }
     }, executor);
   }

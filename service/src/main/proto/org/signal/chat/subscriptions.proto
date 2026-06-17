@@ -295,6 +295,10 @@ message ChargeFailure {
   optional string outcome_type = 6;
 }
 
+message PaymentRequired {
+  optional ChargeFailure charge_failure = 1;
+}
+
 message SetSubscriptionLevelResponse {
   message SetSubscriptionLevelResult {
     uint64 level = 1;
@@ -365,10 +369,6 @@ message GetReceiptCredentialsRequest {
 message GetReceiptCredentialsResponse {
   message GetReceiptCredentialsResult {
     bytes receiptCredentialResponse = 1;
-  }
-
-  message PaymentRequired {
-    optional ChargeFailure charge_failure = 1;
   }
 
   oneof response {

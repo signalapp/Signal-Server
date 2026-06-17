@@ -97,6 +97,7 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumen
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidIdempotencyKeyException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidLevelException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiresActionException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPrice;
@@ -594,7 +595,7 @@ public class SubscriptionsGrpcServiceTest extends
     final byte[] responseBytes = TestRandomUtil.nextBytes(16);
     when(receiptCredentialResponse.serialize()).thenReturn(responseBytes);
     when(subscriptionManager.createReceiptCredentials(any(), any(), any()))
-        .thenReturn(new SubscriptionManager.ReceiptResult(receiptCredentialResponse, null, PaymentProvider.STRIPE));
+        .thenReturn(new SubscriptionManager.ReceiptResult(receiptCredentialResponse, new SubscriptionPaymentProcessor.ReceiptItem("test-item-id", null, 5), PaymentProvider.STRIPE));
     final GetReceiptCredentialsResponse response = unauthenticatedServiceStub().getReceiptCredentials(
         GetReceiptCredentialsRequest.newBuilder()
             .setSubscriberId(SUBSCRIBER_ID)

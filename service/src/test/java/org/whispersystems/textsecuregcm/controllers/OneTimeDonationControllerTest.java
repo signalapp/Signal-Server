@@ -25,6 +25,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -239,12 +240,12 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
   @ParameterizedTest
   @MethodSource
   void createBoostReceiptPaymentRequired(final ChargeFailure chargeFailure, boolean expectChargeFailure) {
-    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(new PaymentDetails(
+    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(new PaymentDetails(
         "id",
         Collections.emptyMap(),
         PaymentStatus.FAILED,
         Instant.now(),
-        chargeFailure)
+        chargeFailure))
     ));
     try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
         .request()
@@ -322,12 +323,12 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
 
-    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(new PaymentDetails(
+    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(new PaymentDetails(
         "id",
         Collections.emptyMap(),
         PaymentStatus.SUCCEEDED,
         Instant.now(),
-        null)));
+        null))));
     doThrow(WriteConflictException.class).when(ISSUED_RECEIPTS_MANAGER).recordIssuance(any(), any(), any(), any());
 
     try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")

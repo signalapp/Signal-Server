@@ -8,6 +8,7 @@ package org.whispersystems.textsecuregcm.controllers;
 import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.buildCurrencyConfiguration;
 import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.buildDonationLevelsConfiguration;
 import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientPlatform;
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getPayPalLocale;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
@@ -318,10 +319,7 @@ public class SubscriptionController {
 
     final SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
-    final Locale locale = HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext).stream()
-        .filter(l -> !"*".equals(l.getLanguage()))
-        .findFirst()
-        .orElse(Locale.US);
+    final Locale locale = getPayPalLocale(HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext));
 
     final BraintreeManager.PayPalBillingAgreementApprovalDetails billingAgreementApprovalDetails = subscriptionManager.addPaymentMethodToCustomer(
             subscriberCredentials,

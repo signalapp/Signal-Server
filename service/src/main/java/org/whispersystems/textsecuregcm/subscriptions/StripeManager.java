@@ -242,7 +242,7 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
     }, executor);
   }
 
-  public CompletableFuture<PaymentDetails> getPaymentDetails(String paymentIntentId) {
+  public CompletableFuture<Optional<PaymentDetails>> getPaymentDetails(final String paymentIntentId) {
     return CompletableFuture.supplyAsync(() -> {
       try {
         final PaymentIntent paymentIntent = getPaymentIntent(paymentIntentId);
@@ -255,14 +255,14 @@ public class StripeManager implements CustomerAwareSubscriptionPaymentProcessor 
           }
         }
 
-        return new PaymentDetails(paymentIntent.getId(),
+        return Optional.of(new PaymentDetails(paymentIntent.getId(),
             paymentIntent.getMetadata() == null ? Collections.emptyMap() : paymentIntent.getMetadata(),
             getPaymentStatusForStatus(paymentIntent.getStatus()),
             Instant.ofEpochSecond(paymentIntent.getCreated()),
-            chargeFailure);
+            chargeFailure));
       } catch (StripeException e) {
         if (e.getStatusCode() == 404) {
-          return null;
+          return Optional.empty();
         } else {
           throw new CompletionException(e);
         }
