@@ -345,6 +345,11 @@ enum SendVerificationCodeErrorType {
    */
   SEND_VERIFICATION_CODE_ERROR_TYPE_SUSPECTED_FRAUD = 7;
 
+  /**
+   * No senders are available for the requested region/transport
+   */
+  SEND_VERIFICATION_CODE_ERROR_NO_SENDER_AVAILABLE = 8;
+
 }
 
 message CheckVerificationCodeRequest {

@@ -28,6 +28,10 @@ public class RegistrationServiceSenderException extends Exception {
     return new RegistrationServiceSenderException(Reason.PROVIDER_UNAVAILABLE, permanent);
   }
 
+  public static RegistrationServiceSenderException unavailable(final boolean permanent) {
+    return new RegistrationServiceSenderException(Reason.PROVIDER_UNAVAILABLE, permanent);
+  }
+
   private RegistrationServiceSenderException(final Reason reason, final boolean permanent) {
     super(null, null, true, false);
     this.reason = reason;

@@ -183,6 +183,8 @@ public class RegistrationServiceClient implements Managed {
                   RegistrationServiceSenderException.unknown(response.getError().getMayRetry()));
               case SEND_VERIFICATION_CODE_ERROR_TYPE_TRANSPORT_NOT_ALLOWED -> throw new CompletionException(
                   new TransportNotAllowedException(buildSessionResponseFromMetadata(response.getSessionMetadata())));
+              case SEND_VERIFICATION_CODE_ERROR_NO_SENDER_AVAILABLE -> throw new CompletionException(
+                  RegistrationServiceSenderException.unavailable(response.getError().getMayRetry()));
 
               default -> throw new CompletionException(
                   new RuntimeException("Failed to send verification code: " + response.getError().getErrorType()));
