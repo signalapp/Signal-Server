@@ -5,7 +5,6 @@
 
 package org.whispersystems.textsecuregcm.metrics;
 
-import com.codahale.metrics.SharedMetricRegistries;
 import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.core.setup.Environment;
 import io.micrometer.core.instrument.Meter;
@@ -40,7 +39,6 @@ import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 public class MetricsUtil {
 
   public static final String PREFIX = "chat";
-  private static final String DROPWIZARD_METRICS_NAME = "textsecure";
 
   private static volatile boolean registeredMetrics = false;
 
@@ -68,8 +66,6 @@ public class MetricsUtil {
     }
 
     registeredMetrics = true;
-
-    SharedMetricRegistries.add(DROPWIZARD_METRICS_NAME, environment.metrics());
 
     Duration shutdownWaitDuration = Duration.ZERO;
 
