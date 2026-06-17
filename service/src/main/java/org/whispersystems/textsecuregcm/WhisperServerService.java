@@ -632,6 +632,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     FaultTolerantRedisClusterClient messagesCluster =
         config.getMessageCacheConfiguration().getRedisClusterConfiguration()
             .build("messages", sharedClientResources.mutate());
+    FaultTolerantRedisClusterClient webPushSenderCluster = config.getPushSchedulerCluster().build("webpush",
+        sharedClientResources.mutate());
     FaultTolerantRedisClusterClient pushSchedulerCluster = config.getPushSchedulerCluster().build("push_scheduler",
         sharedClientResources.mutate());
     FaultTolerantRedisClusterClient rateLimitersCluster = config.getRateLimitersCluster().build("rate_limiters",
@@ -832,7 +834,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getRegistrationTotpConfiguration().maxValidationDelay(),
             webAuthnCeremonyManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs, config.getRemoteConfigConfiguration().globalConfig());
-    WebPushSender webPushSender = new WebPushSender(webPushSenderExecutor);
+    WebPushSender webPushSender = new WebPushSender(webPushSenderExecutor, webPushSenderCluster);
     APNSender apnSender = new APNSender(apnSenderExecutor, Clock.systemUTC(), config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,

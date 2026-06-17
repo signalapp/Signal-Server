@@ -221,6 +221,8 @@ public record CommandDependencies(
 
     FaultTolerantRedisClusterClient cacheCluster = configuration.getCacheClusterConfiguration()
         .build("main_cache", redisClientResourcesBuilder);
+    FaultTolerantRedisClusterClient webPushSenderCluster = configuration.getPushSchedulerCluster()
+        .build("webpush", redisClientResourcesBuilder);
     FaultTolerantRedisClusterClient pushSchedulerCluster = configuration.getPushSchedulerCluster()
         .build("push_scheduler", redisClientResourcesBuilder);
     FaultTolerantRedisClient pubsubClient =
@@ -454,7 +456,7 @@ public record CommandDependencies(
 
     APNSender apnSender = new APNSender(apnSenderExecutor, Clock.systemUTC(), configuration.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, configuration.getFcmConfiguration().credentials().value());
-    WebPushSender webPushSender = new WebPushSender(webPushSenderExecutor);
+    WebPushSender webPushSender = new WebPushSender(webPushSenderExecutor, webPushSenderCluster);
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
         apnSender, fcmSender, webPushSender, accountsManager, 0, 0, retryExecutor);
     PushNotificationManager pushNotificationManager = new PushNotificationManager(accountsManager,
