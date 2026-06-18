@@ -16,10 +16,10 @@ import jakarta.ws.rs.core.Response;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.PhoneVerificationRequest;
@@ -28,7 +28,6 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
-import javax.annotation.Nullable;
 
 public class PhoneVerificationTokenManager {
 
@@ -90,11 +89,10 @@ public class PhoneVerificationTokenManager {
     return verificationType;
   }
 
-  private void verifyBySessionId(final String number, final byte[] sessionId) throws InterruptedException {
+  private void verifyBySessionId(final String number, final byte[] sessionId) {
     try {
       final RegistrationServiceSession session = registrationServiceClient
           .getSession(sessionId, REGISTRATION_RPC_TIMEOUT)
-          .get(VERIFICATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
           .orElseThrow(() -> new NotAuthorizedException("session not verified"));
 
       if (!MessageDigest.isEqual(number.getBytes(), session.number().getBytes())) {
@@ -103,18 +101,10 @@ public class PhoneVerificationTokenManager {
       if (!session.verified()) {
         throw new NotAuthorizedException("session not verified");
       }
-    } catch (final ExecutionException e) {
-
-      if (e.getCause() instanceof StatusRuntimeException grpcRuntimeException) {
-        if (grpcRuntimeException.getStatus().getCode() == Status.Code.INVALID_ARGUMENT) {
-          throw new BadRequestException();
-        }
+    } catch (final StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.INVALID_ARGUMENT) {
+        throw new BadRequestException();
       }
-
-      logger.error("Registration service failure", e);
-      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
-
-    } catch (final CancellationException | TimeoutException e) {
 
       logger.error("Registration service failure", e);
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);

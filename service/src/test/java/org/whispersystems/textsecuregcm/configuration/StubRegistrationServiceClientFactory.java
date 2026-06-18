@@ -18,9 +18,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
@@ -41,7 +39,7 @@ public class StubRegistrationServiceClientFactory implements RegistrationService
   private SecretBytes collationKeySalt;
 
   @Override
-  public RegistrationServiceClient build(final Environment environment, final Executor callbackExecutor,
+  public RegistrationServiceClient build(final Environment environment,
       final ScheduledExecutorService identityRefreshExecutor) {
 
     try {
@@ -56,11 +54,11 @@ public class StubRegistrationServiceClientFactory implements RegistrationService
     private final static Map<String, RegistrationServiceSession> SESSIONS = new ConcurrentHashMap<>();
 
     public StubRegistrationServiceClient(final String registrationCaCertificate, final byte[] collationKeySalt) throws IOException {
-      super("example.com", 8080, null, registrationCaCertificate,  collationKeySalt, null);
+      super("example.com", 8080, null, registrationCaCertificate,  collationKeySalt);
     }
 
     @Override
-    public CompletableFuture<RegistrationServiceSession> createRegistrationSession(
+    public RegistrationServiceSession createRegistrationSession(
         final Phonenumber.PhoneNumber phoneNumber,
         final String sourceHost,
         final boolean accountExistsWithPhoneNumber,
@@ -77,18 +75,18 @@ public class StubRegistrationServiceClientFactory implements RegistrationService
           Instant.now().plus(Duration.ofMinutes(10)).toEpochMilli());
       SESSIONS.put(Base64.getEncoder().encodeToString(id), session);
 
-      return CompletableFuture.completedFuture(session);
+      return session;
     }
 
     @Override
-    public CompletableFuture<RegistrationServiceSession> sendVerificationCode(final byte[] sessionId,
+    public RegistrationServiceSession sendVerificationCode(final byte[] sessionId,
         final MessageTransport messageTransport, final ClientType clientType, final @Nullable String acceptLanguage,
         final @Nullable String senderOverride, final Duration timeout) {
-      return CompletableFuture.completedFuture(SESSIONS.get(Base64.getEncoder().encodeToString(sessionId)));
+      return SESSIONS.get(Base64.getEncoder().encodeToString(sessionId));
     }
 
     @Override
-    public CompletableFuture<RegistrationServiceSession> checkVerificationCode(final byte[] sessionId,
+    public RegistrationServiceSession checkVerificationCode(final byte[] sessionId,
         final String verificationCode, final Duration timeout) {
       final RegistrationServiceSession session = SESSIONS.get(Base64.getEncoder().encodeToString(sessionId));
 
@@ -97,14 +95,12 @@ public class StubRegistrationServiceClientFactory implements RegistrationService
           Instant.now().plus(Duration.ofMinutes(10)).toEpochMilli());
 
       SESSIONS.put(Base64.getEncoder().encodeToString(sessionId), updatedSession);
-      return CompletableFuture.completedFuture(updatedSession);
+      return updatedSession;
     }
 
     @Override
-    public CompletableFuture<Optional<RegistrationServiceSession>> getSession(final byte[] sessionId,
-        final Duration timeout) {
-      return CompletableFuture.completedFuture(
-          Optional.ofNullable(SESSIONS.get(Base64.getEncoder().encodeToString(sessionId))));
+    public Optional<RegistrationServiceSession> getSession(final byte[] sessionId, final Duration timeout) {
+      return Optional.ofNullable(SESSIONS.get(Base64.getEncoder().encodeToString(sessionId)));
     }
   }
 

@@ -633,10 +633,6 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .workQueue(receiptSenderQueue)
         .rejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy())
         .build();
-    ExecutorService registrationCallbackExecutor = ExecutorServiceBuilder.of(environment, "registration")
-        .maxThreads(2)
-        .minThreads(2)
-        .build();
     ExecutorService accountLockExecutor = ExecutorServiceBuilder.of(environment, "accountLock")
         .minThreads(8)
         .maxThreads(8)
@@ -718,7 +714,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             retryExecutor);
 
     RegistrationServiceClient registrationServiceClient = config.getRegistrationServiceConfiguration()
-        .build(environment, registrationCallbackExecutor, registrationIdentityTokenRefreshExecutor);
+        .build(environment, registrationIdentityTokenRefreshExecutor);
     KeyTransparencyServiceClient keyTransparencyServiceClient = new KeyTransparencyServiceClient(
         config.getKeyTransparencyServiceConfiguration().host(),
         config.getKeyTransparencyServiceConfiguration().port(),

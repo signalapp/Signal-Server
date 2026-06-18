@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.auth;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -23,7 +22,6 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -78,8 +76,8 @@ class PhoneVerificationTokenManagerTest {
       final byte[] sessionId = TestRandomUtil.nextBytes(16);
 
       when(registrationServiceClient.getSession(eq(sessionId), any()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of(
-              new RegistrationServiceSession(sessionId, PHONE_NUMBER, true, null, null, null, 0))));
+          .thenReturn(Optional.of(
+              new RegistrationServiceSession(sessionId, PHONE_NUMBER, true, null, null, null, 0)));
 
       assertDoesNotThrow(() -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
@@ -92,7 +90,7 @@ class PhoneVerificationTokenManagerTest {
       final byte[] sessionId = TestRandomUtil.nextBytes(16);
 
       when(registrationServiceClient.getSession(eq(sessionId), any()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+          .thenReturn(Optional.empty());
 
       assertThrows(NotAuthorizedException.class, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
@@ -105,8 +103,8 @@ class PhoneVerificationTokenManagerTest {
       final byte[] sessionId = TestRandomUtil.nextBytes(16);
 
       when(registrationServiceClient.getSession(eq(sessionId), any()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of(
-              new RegistrationServiceSession(sessionId, PHONE_NUMBER + "0", true, null, null, null, 0))));
+          .thenReturn(Optional.of(
+              new RegistrationServiceSession(sessionId, PHONE_NUMBER + "0", true, null, null, null, 0)));
 
       assertThrows(BadRequestException.class, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
@@ -119,8 +117,8 @@ class PhoneVerificationTokenManagerTest {
       final byte[] sessionId = TestRandomUtil.nextBytes(16);
 
       when(registrationServiceClient.getSession(eq(sessionId), any()))
-          .thenReturn(CompletableFuture.completedFuture(Optional.of(
-              new RegistrationServiceSession(sessionId, PHONE_NUMBER, false, null, null, null, 0))));
+          .thenReturn(Optional.of(
+              new RegistrationServiceSession(sessionId, PHONE_NUMBER, false, null, null, null, 0)));
 
       assertThrows(NotAuthorizedException.class, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
@@ -131,13 +129,9 @@ class PhoneVerificationTokenManagerTest {
     @ParameterizedTest
     @MethodSource
     void verifyRegistrationServiceClientException(final Throwable registrationServiceClientException,
-        final Class<Throwable> expectedExceptionClass) throws ExecutionException, InterruptedException, TimeoutException {
+        final Class<Throwable> expectedExceptionClass) {
 
-      @SuppressWarnings("unchecked") final CompletableFuture<Optional<RegistrationServiceSession>> mockFuture
-          = mock(CompletableFuture.class);
-
-      when(mockFuture.get(anyLong(), any())).thenThrow(registrationServiceClientException);
-      when(registrationServiceClient.getSession(any(), any())).thenReturn(mockFuture);
+      when(registrationServiceClient.getSession(any(), any())).thenThrow(registrationServiceClientException);
 
       assertThrows(expectedExceptionClass, () -> phoneVerificationTokenManager.verify(mock(ContainerRequestContext.class),
           PHONE_NUMBER,
@@ -147,10 +141,9 @@ class PhoneVerificationTokenManagerTest {
 
     private static List<Arguments> verifyRegistrationServiceClientException() {
       return List.of(
-          Arguments.arguments(new ExecutionException(Status.INVALID_ARGUMENT.asRuntimeException()), BadRequestException.class),
-          Arguments.arguments(new ExecutionException(Status.RESOURCE_EXHAUSTED.asRuntimeException()), ServerErrorException.class),
-          Arguments.arguments(new CancellationException(), ServerErrorException.class),
-          Arguments.arguments(new TimeoutException(), ServerErrorException.class)
+          Arguments.arguments(Status.INVALID_ARGUMENT.asRuntimeException(), BadRequestException.class),
+          Arguments.arguments(Status.RESOURCE_EXHAUSTED.asRuntimeException(), ServerErrorException.class),
+          Arguments.arguments(Status.DEADLINE_EXCEEDED.asRuntimeException(), ServerErrorException.class)
       );
     }
   }

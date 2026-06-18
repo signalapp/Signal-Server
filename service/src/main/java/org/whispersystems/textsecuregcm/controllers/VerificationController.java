@@ -59,8 +59,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletionException;
 import org.apache.commons.lang3.Strings;
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
@@ -91,7 +89,6 @@ import org.whispersystems.textsecuregcm.registration.MessageTransport;
 import org.whispersystems.textsecuregcm.registration.RegistrationFraudException;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceException;
-import org.whispersystems.textsecuregcm.registration.RegistrationServiceSenderException;
 import org.whispersystems.textsecuregcm.registration.TransportNotAllowedException;
 import org.whispersystems.textsecuregcm.registration.VerificationSession;
 import org.whispersystems.textsecuregcm.spam.RegistrationFraudChecker;
@@ -105,7 +102,6 @@ import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.telephony.CarrierData;
 import org.whispersystems.textsecuregcm.telephony.CarrierDataException;
 import org.whispersystems.textsecuregcm.telephony.CarrierDataProvider;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ObsoletePhoneNumberFormatException;
 import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -225,27 +221,13 @@ public class VerificationController {
       maybeCarrierData = Optional.empty();
     }
 
-    final RegistrationServiceSession registrationServiceSession;
-    try {
-      final String sourceHost = (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME);
-
-      registrationServiceSession = registrationServiceClient.createRegistrationSession(phoneNumber,
-          sourceHost,
-          accountsManager.getByE164(request.number()).isPresent(),
-          maybeCarrierData.flatMap(CarrierData::mcc).orElse(null),
-          maybeCarrierData.flatMap(CarrierData::mnc).orElse(null),
-          REGISTRATION_RPC_TIMEOUT).join();
-    } catch (final CancellationException e) {
-
-      throw new ServerErrorException("registration service unavailable", Response.Status.SERVICE_UNAVAILABLE);
-    } catch (final CompletionException e) {
-
-      if (ExceptionUtils.unwrap(e) instanceof RateLimitExceededException re) {
-        throw re;
-      }
-
-      throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, e);
-    }
+    final RegistrationServiceSession registrationServiceSession =
+        registrationServiceClient.createRegistrationSession(phoneNumber,
+            (String) requestContext.getProperty(RemoteAddressFilter.REMOTE_ADDRESS_ATTRIBUTE_NAME),
+            accountsManager.getByE164(request.number()).isPresent(),
+            maybeCarrierData.flatMap(CarrierData::mcc).orElse(null),
+            maybeCarrierData.flatMap(CarrierData::mnc).orElse(null),
+            REGISTRATION_RPC_TIMEOUT);
 
     VerificationSession verificationSession = new VerificationSession(registrationServiceSession.encodedSessionId(),
         null,
@@ -654,58 +636,43 @@ public class VerificationController {
           clientType,
           acceptLanguage.orElse(null),
           senderOverride,
-          REGISTRATION_RPC_TIMEOUT).join();
+          REGISTRATION_RPC_TIMEOUT);
+    } catch (final VerificationSessionRateLimitExceededException e) {
+      throw new ClientErrorException(buildResponseForRateLimitExceeded(verificationSession,
+          e.getRegistrationSession(),
+          e.getRetryDuration()));
+    } catch (final RegistrationServiceException registrationServiceException) {
+      throw registrationServiceException.getRegistrationSession()
+          .map(s -> buildResponse(s, verificationSession))
+          .map(verificationSessionResponse -> {
+            final Response response = registrationServiceException instanceof TransportNotAllowedException
+                ? Response.status(418).entity(verificationSessionResponse).build()
+                : Response.status(Response.Status.CONFLICT).entity(verificationSessionResponse).build();
 
-      accountsManager.getByE164(registrationServiceSession.number())
-          .filter(existingAccount ->
-              experimentEnrollmentManager.isEnrolled(existingAccount.getIdentifier(IdentityType.ACI), VERIFICATION_CODE_PUSH_NOTIFICATION_EXPERIMENT_NAME))
-          .ifPresent(existingAccount -> {
-            try {
-              pushNotificationManager.sendVerificationCodeRequestedNotifications(existingAccount, clock.instant());
-            } catch (final NotPushRegisteredException _) {
-            }
-          });
-    } catch (final CancellationException e) {
-      throw new ServerErrorException("registration service unavailable", Response.Status.SERVICE_UNAVAILABLE);
-    } catch (final CompletionException e) {
-      final Throwable unwrappedException = ExceptionUtils.unwrap(e);
-      switch (unwrappedException) {
-        case RateLimitExceededException rateLimitExceededException -> {
-          if (rateLimitExceededException instanceof VerificationSessionRateLimitExceededException ve) {
-            final Response response = buildResponseForRateLimitExceeded(verificationSession,
-                ve.getRegistrationSession(),
-                ve.getRetryDuration());
-            throw new ClientErrorException(response);
-          }
-
-          throw new RateLimitExceededException(rateLimitExceededException.getRetryDuration().orElse(null));
-        }
-        case RegistrationServiceException registrationServiceException ->
-            throw registrationServiceException.getRegistrationSession()
-                .map(s -> buildResponse(s, verificationSession))
-                .map(verificationSessionResponse -> {
-                  final Response response = registrationServiceException instanceof TransportNotAllowedException
-                      ? Response.status(418).entity(verificationSessionResponse).build()
-                      : Response.status(Response.Status.CONFLICT).entity(verificationSessionResponse).build();
-
-                  return new ClientErrorException(response);
-                })
-                .orElseGet(NotFoundException::new);
-        case RegistrationFraudException _ -> {
-          if (dynamicConfigurationManager.getConfiguration().getRegistrationConfiguration()
-              .squashDeclinedAttemptErrors()) {
-            return buildResponse(registrationServiceSession, verificationSession);
-          } else {
-            throw unwrappedException.getCause();
-          }
-        }
-        case RegistrationServiceSenderException _ -> throw unwrappedException;
-        case null, default -> {
-          logger.error("Registration service failure", unwrappedException);
-          throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR);
-        }
+            return new ClientErrorException(response);
+          })
+          .orElseGet(NotFoundException::new);
+    } catch (final RegistrationFraudException e) {
+      if (dynamicConfigurationManager.getConfiguration().getRegistrationConfiguration()
+          .squashDeclinedAttemptErrors()) {
+        return buildResponse(registrationServiceSession, verificationSession);
+      } else {
+        throw e.getCause();
       }
+    } catch (final RuntimeException e) {
+      logger.error("Registration service failure", e);
+      throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR);
     }
+
+    accountsManager.getByE164(registrationServiceSession.number())
+        .filter(existingAccount ->
+            experimentEnrollmentManager.isEnrolled(existingAccount.getIdentifier(IdentityType.ACI), VERIFICATION_CODE_PUSH_NOTIFICATION_EXPERIMENT_NAME))
+        .ifPresent(existingAccount -> {
+          try {
+            pushNotificationManager.sendVerificationCodeRequestedNotifications(existingAccount, clock.instant());
+          } catch (final NotPushRegisteredException _) {
+          }
+        });
 
     Metrics.counter(CODE_REQUESTED_COUNTER_NAME, Tags.of(
             UserAgentTagUtil.getPlatformTag(userAgent),
@@ -746,8 +713,7 @@ public class VerificationController {
           schema = @Schema(implementation = Integer.class)))
   public VerificationSessionResponse verifyCode(@PathParam("sessionId") final String encodedSessionId,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent,
-      @NotNull @Valid final SubmitVerificationCodeRequest submitVerificationCodeRequest)
-      throws RateLimitExceededException {
+      @NotNull @Valid final SubmitVerificationCodeRequest submitVerificationCodeRequest) {
 
     final RegistrationServiceSession registrationServiceSession = retrieveRegistrationServiceSession(encodedSessionId);
     final VerificationSession verificationSession = retrieveVerificationSession(registrationServiceSession);
@@ -764,35 +730,17 @@ public class VerificationController {
     try {
       resultSession = registrationServiceClient.checkVerificationCode(registrationServiceSession.id(),
               submitVerificationCodeRequest.code(),
-              REGISTRATION_RPC_TIMEOUT)
-          .join();
-    } catch (final CancellationException e) {
-      logger.warn("Unexpected cancellation from registration service", e);
-      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE);
-    } catch (final CompletionException e) {
-      final Throwable unwrappedException = ExceptionUtils.unwrap(e);
-      if (unwrappedException instanceof RateLimitExceededException rateLimitExceededException) {
-
-        if (rateLimitExceededException instanceof VerificationSessionRateLimitExceededException ve) {
-          final Response response = buildResponseForRateLimitExceeded(verificationSession, ve.getRegistrationSession(),
-              ve.getRetryDuration());
-          throw new ClientErrorException(response);
-        }
-
-        throw new RateLimitExceededException(rateLimitExceededException.getRetryDuration().orElse(null));
-
-      } else if (unwrappedException instanceof RegistrationServiceException registrationServiceException) {
-
-        throw registrationServiceException.getRegistrationSession()
-            .map(s -> buildResponse(s, verificationSession))
-            .map(verificationSessionResponse -> new ClientErrorException(
-                Response.status(Response.Status.CONFLICT).entity(verificationSessionResponse).build()))
-            .orElseGet(NotFoundException::new);
-
-      } else {
-        logger.error("Registration service failure", unwrappedException);
-        throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR);
-      }
+              REGISTRATION_RPC_TIMEOUT);
+    } catch (final VerificationSessionRateLimitExceededException e) {
+      throw new ClientErrorException(buildResponseForRateLimitExceeded(verificationSession,
+          e.getRegistrationSession(),
+          e.getRetryDuration()));
+    } catch (final RegistrationServiceException e) {
+      throw e.getRegistrationSession()
+          .map(s -> buildResponse(s, verificationSession))
+          .map(verificationSessionResponse -> new ClientErrorException(
+              Response.status(Response.Status.CONFLICT).entity(verificationSessionResponse).build()))
+          .orElseGet(NotFoundException::new);
     }
 
     boolean existingRRP = false;
@@ -868,9 +816,8 @@ public class VerificationController {
     }
 
     try {
-      final RegistrationServiceSession registrationServiceSession = registrationServiceClient.getSession(sessionId,
-              REGISTRATION_RPC_TIMEOUT).join()
-          .orElseThrow(NotFoundException::new);
+      final RegistrationServiceSession registrationServiceSession =
+          registrationServiceClient.getSession(sessionId, REGISTRATION_RPC_TIMEOUT).orElseThrow(NotFoundException::new);
 
       if (registrationServiceSession.verified()) {
         // Since there is a valid verification session we invalidate the other possible verification mechanism,
@@ -882,14 +829,16 @@ public class VerificationController {
 
       return registrationServiceSession;
 
-    } catch (final CompletionException | CancellationException e) {
-      final Throwable unwrapped = ExceptionUtils.unwrap(e);
-
-      if (unwrapped instanceof StatusRuntimeException grpcRuntimeException) {
-        if (grpcRuntimeException.getStatus().getCode() == Status.Code.INVALID_ARGUMENT) {
-          throw new BadRequestException();
-        }
+    } catch (final StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.INVALID_ARGUMENT) {
+        throw new BadRequestException();
       }
+
+      logger.error("Registration service failure", e);
+      throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, e);
+    } catch (final WebApplicationException e) {
+      throw e;
+    } catch (final RuntimeException e) {
       logger.error("Registration service failure", e);
       throw new ServerErrorException(Response.Status.SERVICE_UNAVAILABLE, e);
     }

@@ -15,6 +15,5 @@ import java.util.concurrent.ScheduledExecutorService;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", defaultImpl = RegistrationServiceConfiguration.class)
 public interface RegistrationServiceClientFactory extends Discoverable {
 
-  RegistrationServiceClient build(Environment environment, Executor callbackExecutor,
-      ScheduledExecutorService identityRefreshExecutor);
+  RegistrationServiceClient build(Environment environment, ScheduledExecutorService identityRefreshExecutor);
 }
