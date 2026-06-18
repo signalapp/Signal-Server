@@ -17,9 +17,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import java.io.IOException;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpResponse;
+import java.security.GeneralSecurityException;
+import java.util.Base64;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -31,6 +32,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.whispersystems.textsecuregcm.configuration.WebPushConfiguration;
+import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.push.PushNotification.PushToken;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
@@ -48,14 +51,18 @@ class WebPushSenderTest {
   private ExecutorService executorService;
   private FaultTolerantHttpClient httpClient;
   private FaultTolerantRedisClusterClient redisClient;
+  private WebPushConfiguration config;
   private WebPushSender webPushSender;
 
+  private static final String VAPID_PRIVATE_KEY = "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg8dRIiQwMkW/hdtdytU4NJmQWDjUTOv3ZV/nDQVGHGy2hRANCAATpV1b2ETFP0CCL6woRsdG0SnilqV7NMoiisocq5P/xl0GO8T97N3w7a/b4oWNkWKvxJ1hN5Q75tZauC0sXHOS5";
+
   @BeforeEach
-  void setUp() throws IOException {
+  void setUp() throws Exception {
     executorService = new SynchronousExecutorService();
     httpClient = mock(FaultTolerantHttpClient.class);
     redisClient = mock(FaultTolerantRedisClusterClient.class);
-    webPushSender = new WebPushSender(executorService, redisClient, httpClient);
+    config = new WebPushConfiguration(new SecretBytes(Base64.getDecoder().decode(VAPID_PRIVATE_KEY)));
+    webPushSender = new WebPushSender(executorService, redisClient, config.vapidStaticKeyPair(), httpClient);
   }
 
   @AfterEach
@@ -215,5 +222,13 @@ class WebPushSenderTest {
       return arg.apply(cluster);
     });
     return cmd;
+  }
+
+  @Test
+  void testVapidHeader() throws GeneralSecurityException, JsonProcessingException {
+    final String vapidHeader = WebPushSender.genAuthorization(config.vapidStaticKeyPair(), "https://domain.tld", "mailto:mail@example.localhost", 1000000);
+    // Replace URL-safe Base64 encoded signature, as it changes everytime. That's enough to test the header is in the good format
+    final String toCompare = vapidHeader.replaceAll("\\.[A-Za-z0-9-_]+,", ".AAAABBBBCCCCDDDD,");
+    assertEquals("vapid t=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJodHRwczovL2RvbWFpbi50bGQiLCJzdWIiOiJtYWlsdG86bWFpbEBleGFtcGxlLmxvY2FsaG9zdCIsImV4cCI6MTAwMDkwMH0.AAAABBBBCCCCDDDD,k=BOlXVvYRMU_QIIvrChGx0bRKeKWpXs0yiKKyhyrk__GXQY7xP3s3fDtr9vihY2RYq_EnWE3lDvm1lq4LSxcc5Lk", toCompare);
   }
 }

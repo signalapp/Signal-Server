@@ -69,6 +69,7 @@ import org.whispersystems.textsecuregcm.configuration.TurnConfiguration;
 import org.whispersystems.textsecuregcm.configuration.UnidentifiedDeliveryConfiguration;
 import org.whispersystems.textsecuregcm.configuration.VirtualThreadConfiguration;
 import org.whispersystems.textsecuregcm.configuration.WebAuthnConfiguration;
+import org.whispersystems.textsecuregcm.configuration.WebPushConfiguration;
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
@@ -328,6 +329,11 @@ public class WhisperServerConfiguration extends Configuration {
   @NotNull
   @JsonProperty
   private VirtualThreadConfiguration virtualThread = new VirtualThreadConfiguration();
+
+  @Valid
+  @NotNull
+  @JsonProperty
+  private WebPushConfiguration webPush;
 
   @Valid
   @NotNull
@@ -603,6 +609,10 @@ public class WhisperServerConfiguration extends Configuration {
 
   public VirtualThreadConfiguration getVirtualThreadConfiguration() {
     return virtualThread;
+  }
+
+  public WebPushConfiguration getWebPushConfiguration() {
+    return webPush;
   }
 
   public ExternalRequestFilterConfiguration getExternalRequestFilterConfiguration() {

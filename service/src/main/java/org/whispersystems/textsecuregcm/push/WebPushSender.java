@@ -11,8 +11,14 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.security.GeneralSecurityException;
+import java.security.KeyPair;
+import java.security.Signature;
+import java.security.interfaces.ECPublicKey;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -28,17 +34,23 @@ import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HttpHeaders;
 import com.google.crypto.tink.apps.webpush.WebPushHybridEncrypt;
+import com.google.crypto.tink.subtle.EllipticCurves;
 
 import io.lettuce.core.SetArgs;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
+import net.logstash.logback.util.StringUtils;
 
 public class WebPushSender implements PushNotificationSender {
 
+  private static final Logger logger = LoggerFactory.getLogger(WebPushSender.class);
   private final FaultTolerantHttpClient httpClient;
+  private final FaultTolerantRedisClusterClient redisClient;
+  private final KeyPair vapidKp;
 
   private static final Timer SEND_NOTIFICATION_TIMER = Metrics.timer(name(WebPushSender.class, "sendNotification"));
   private static final String RETRY_NAME = ResilienceUtil.name(WebPushSender.class);
@@ -52,23 +64,21 @@ public class WebPushSender implements PushNotificationSender {
    */
   private static final int DEFAULT_RETRY_AFTER = 300;
 
-  private static final Logger logger = LoggerFactory.getLogger(WebPushSender.class);
-  private final FaultTolerantRedisClusterClient redisClient;
-
   private class RateLimitedException extends Exception {}
 
-  // TODO: Add keystore for the VAPID key
-  public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient) throws IOException {
+  public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp) throws IOException {
     this.httpClient = FaultTolerantHttpClient.newBuilder("webpush", executor)
       .withRedirect(HttpClient.Redirect.NEVER)
       .build();
     this.redisClient = redisClient;
+    this.vapidKp = vapidKp;
   }
 
   @VisibleForTesting
-  public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, FaultTolerantHttpClient httpClient) {
+  public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp, FaultTolerantHttpClient httpClient) {
     this.httpClient = httpClient;
     this.redisClient = redisClient;
+    this.vapidKp = vapidKp;
   }
 
   @Override
@@ -83,6 +93,18 @@ public class WebPushSender implements PushNotificationSender {
       return CompletableFuture.completedFuture(
         new SendPushNotificationResult(false, Optional.of("Rate limited"), false, Optional.empty())
       );
+    }
+
+    if (StringUtils.isBlank(authorization)) {
+      try {
+        authorization = genAuthorization(vapidKp, aud, "mailto:TODO@localhost");
+      } catch (Exception e) {
+        logger.warn("Error while making vapid authorization", e);
+        return CompletableFuture.completedFuture(
+          new SendPushNotificationResult(false, Optional.of("Cannot make VAPID auth"), false, Optional.empty())
+        );
+      }
+      cacheAuthorization(aud, authorization);
     }
 
     final Map<String, String> map = new HashMap<String, String>();
@@ -122,7 +144,8 @@ public class WebPushSender implements PushNotificationSender {
       .header("TTL", "604800")
       .header(HttpHeaders.CONTENT_ENCODING, "aes128gcm")
       // The urgency is defined by RFC8030: https://www.rfc-editor.org/info/rfc8030/#section-5.3
-      .header("Urgency", pushNotification.urgent() ? "high" : "normal");
+      .header("Urgency", pushNotification.urgent() ? "high" : "normal")
+      .header("Authorization", authorization);
 
     // The Topic header is defined by webpush to permit the
     // application server (us) to update a notification, to
@@ -182,5 +205,72 @@ public class WebPushSender implements PushNotificationSender {
     .executeSupplier(() ->
       redisClient.withCluster(cluster -> cluster.sync().set(aud, RATE_LIMITED, args))
     );
+  }
+
+  private void cacheAuthorization(final String aud, final String authHeader) {
+    // NX: only set the value if the key doesn't already exists
+    // to be sure we never override a RATE_LIMITED
+    final SetArgs args = new SetArgs().ex(AUTH_CACHE_DURATION).nx();
+    ResilienceUtil.getGeneralRedisRetry(RETRY_NAME)
+    .executeSupplier(() ->
+      redisClient.withCluster(cluster -> cluster.sync().set(aud, authHeader, args))
+    );
+  }
+
+  private static String genAuthorization(final KeyPair kp, final String aud, final String sub) throws JsonProcessingException, GeneralSecurityException {
+    return genAuthorization(kp, aud, sub, (int) (System.currentTimeMillis() / 1000));
+  }
+
+  @VisibleForTesting
+  static String genAuthorization(final KeyPair kp, final String aud, final String sub, final int currentTimeSec) throws JsonProcessingException, GeneralSecurityException {
+    final Map<String, String> headerMap = new HashMap<String, String>();
+    headerMap.put("alg", "ES256");
+    headerMap.put("typ", "JWT");
+    final byte[] header = Base64.getUrlEncoder().withoutPadding().encode(
+      SystemMapper.jsonMapper().writeValueAsString(headerMap).getBytes()
+    );
+
+    // The header expire after 15 min
+    final int exp = currentTimeSec + 900;
+    final Map<String, Object> bodyMap = new HashMap<String, Object>();
+    bodyMap.put("aud", aud);
+    bodyMap.put("exp", exp);
+    bodyMap.put("sub", sub);
+    final byte[] body = Base64.getUrlEncoder().withoutPadding().encode(
+      SystemMapper.jsonMapper().writeValueAsString(bodyMap).getBytes()
+    );
+
+    final byte[] toSign = ByteBuffer.allocate(header.length + body.length + 1)
+      .put(header)
+      .put((byte) '.')
+      .put(body)
+      .array();
+
+    final byte[] signature = Base64.getUrlEncoder().withoutPadding().encode(
+      sign(kp, toSign)
+    );
+    final String jwt = new String(
+      ByteBuffer.allocate(toSign.length + signature.length + 1)
+        .put(toSign)
+        .put((byte) '.')
+        .put(signature)
+        .array()
+    );
+    final String k = Base64.getUrlEncoder().withoutPadding().encodeToString(
+      EllipticCurves.pointEncode(
+        EllipticCurves.CurveType.NIST_P256,
+        EllipticCurves.PointFormatType.UNCOMPRESSED,
+        ((ECPublicKey) kp.getPublic()).getW()
+      )
+    );
+    return String.format("vapid t=%s,k=%s", jwt, k);
+  }
+
+  private static byte[] sign(final KeyPair kp, final byte[] data) throws GeneralSecurityException {
+    final Signature engine = Signature.getInstance("SHA256withECDSA");
+    engine.initSign(kp.getPrivate());
+    engine.update(data);
+    byte[] signature = engine.sign();
+    return EllipticCurves.ecdsaDer2Ieee(signature, 64);
   }
 }

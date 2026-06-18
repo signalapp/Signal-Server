@@ -516,6 +516,9 @@ turn:
 linkDevice:
   secret: secret://linkDevice.secret
 
+webPush:
+  vapidStaticPrivateKey: secret://webPush.vapidStaticPrivateKey
+
 externalRequestFilter:
   grpcMethods:
     - com.example.grpc.ExampleService/exampleMethod
