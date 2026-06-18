@@ -2066,6 +2066,38 @@ paths:
                 $ref: "#/components/schemas/ExternalServiceCredentials"
       security:
       - authenticatedAccount: []
+  /v1/donation/permit:
+    post:
+      tags:
+      - Donations
+      summary: Generate permits for anonymous donation endpoints
+      description: |
+        Generate a set of anonymous, single-use, permits for use with /v1/subscription endpoints.
+      operationId: createPermits
+      requestBody:
+        content:
+          '*/*':
+            schema:
+              $ref: "#/components/schemas/CreateDonationPermitsRequest"
+        required: true
+      responses:
+        "200":
+          description: '`JSON` with generated credentials'
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateDonationPermitResponse"
+        "400":
+          description: Invalid credential request
+        "401":
+          description: Account authentication check failed
+        "422":
+          description: Invalid request format
+        "429":
+          description: Rate-limited; reduce requested permit count and/or try again
+            after the prescribed delay
+      security:
+      - authenticatedAccount: []
   /v1/donation/redeem-receipt:
     post:
       tags:
@@ -5137,6 +5169,26 @@ components:
           format: int32
         transferArchive:
           $ref: "#/components/schemas/TransferArchiveResult"
+    CreateDonationPermitResponse:
+      required:
+      - permitResponse
+      type: object
+      properties:
+        permitResponse:
+          minLength: 1
+          type: string
+          description: A serialized DonationPermitResponse
+          format: byte
+    CreateDonationPermitsRequest:
+      required:
+      - permitRequest
+      type: object
+      properties:
+        permitRequest:
+          minLength: 1
+          type: string
+          description: A serialized DonationPermitRequest
+          format: byte
     RedeemReceiptRequest:
       required:
       - receiptCredentialPresentation
