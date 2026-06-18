@@ -51,6 +51,7 @@ public class WebPushSender implements PushNotificationSender {
   private final FaultTolerantHttpClient httpClient;
   private final FaultTolerantRedisClusterClient redisClient;
   private final KeyPair vapidKp;
+  private final String vapidSub;
 
   private static final Timer SEND_NOTIFICATION_TIMER = Metrics.timer(name(WebPushSender.class, "sendNotification"));
   private static final String RETRY_NAME = ResilienceUtil.name(WebPushSender.class);
@@ -66,19 +67,21 @@ public class WebPushSender implements PushNotificationSender {
 
   private class RateLimitedException extends Exception {}
 
-  public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp) throws IOException {
+  public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp, String vapidSub) throws IOException {
     this.httpClient = FaultTolerantHttpClient.newBuilder("webpush", executor)
       .withRedirect(HttpClient.Redirect.NEVER)
       .build();
     this.redisClient = redisClient;
     this.vapidKp = vapidKp;
+    this.vapidSub = vapidSub;
   }
 
   @VisibleForTesting
-  public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp, FaultTolerantHttpClient httpClient) {
+  public WebPushSender (ExecutorService executor, FaultTolerantRedisClusterClient redisClient, KeyPair vapidKp, String vapidSub, FaultTolerantHttpClient httpClient) {
     this.httpClient = httpClient;
     this.redisClient = redisClient;
     this.vapidKp = vapidKp;
+    this.vapidSub = vapidSub;
   }
 
   @Override
@@ -97,7 +100,7 @@ public class WebPushSender implements PushNotificationSender {
 
     if (StringUtils.isBlank(authorization)) {
       try {
-        authorization = genAuthorization(vapidKp, aud, "mailto:TODO@localhost");
+        authorization = genAuthorization(vapidKp, aud, vapidSub);
       } catch (Exception e) {
         logger.warn("Error while making vapid authorization", e);
         return CompletableFuture.completedFuture(

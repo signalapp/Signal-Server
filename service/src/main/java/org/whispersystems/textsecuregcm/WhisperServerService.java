@@ -834,7 +834,12 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getRegistrationTotpConfiguration().maxValidationDelay(),
             webAuthnCeremonyManager);
     RemoteConfigsManager remoteConfigsManager = new RemoteConfigsManager(remoteConfigs, config.getRemoteConfigConfiguration().globalConfig());
-    WebPushSender webPushSender = new WebPushSender(webPushSenderExecutor, webPushSenderCluster, config.getWebPushConfiguration().vapidStaticKeyPair());
+    WebPushSender webPushSender = new WebPushSender(
+      webPushSenderExecutor,
+      webPushSenderCluster,
+      config.getWebPushConfiguration().vapidStaticKeyPair(),
+      config.getWebPushConfiguration().vapidSub()
+    );
     APNSender apnSender = new APNSender(apnSenderExecutor, Clock.systemUTC(), config.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, config.getFcmConfiguration().credentials().value());
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,

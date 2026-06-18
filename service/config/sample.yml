@@ -511,6 +511,9 @@ linkDevice:
   secret: secret://linkDevice.secret
 
 webPush:
+  # vapidSub can be an https:// url or a mailto: url
+  # vapidSub: mailto:contact@example.com
+  vapidSub: https://github.com/mollyim/flatline-platform/issues
   vapidStaticPrivateKey: secret://webPush.vapidStaticPrivateKey
 
 externalRequestFilter:

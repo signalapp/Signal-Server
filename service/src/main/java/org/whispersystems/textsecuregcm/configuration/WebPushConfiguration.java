@@ -15,9 +15,9 @@ import org.whispersystems.textsecuregcm.configuration.secrets.SecretBytes;
 
 import com.google.crypto.tink.internal.EllipticCurvesUtil;
 
-public record WebPushConfiguration(@NotNull SecretBytes vapidStaticPrivateKey, KeyPair keyPair) {
-  public WebPushConfiguration(@NotNull SecretBytes vapidStaticPrivateKey) {
-    this(vapidStaticPrivateKey, null);
+public record WebPushConfiguration(@NotNull SecretBytes vapidStaticPrivateKey, @NotNull String vapidSub, KeyPair keyPair) {
+  public WebPushConfiguration(@NotNull SecretBytes vapidStaticPrivateKey, @NotNull String vapidSub) {
+    this(vapidStaticPrivateKey, vapidSub, null);
   }
 
   public WebPushConfiguration {

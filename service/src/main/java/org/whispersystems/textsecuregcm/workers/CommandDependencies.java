@@ -456,7 +456,12 @@ public record CommandDependencies(
 
     APNSender apnSender = new APNSender(apnSenderExecutor, Clock.systemUTC(), configuration.getApnConfiguration());
     FcmSender fcmSender = new FcmSender(fcmSenderExecutor, configuration.getFcmConfiguration().credentials().value());
-    WebPushSender webPushSender = new WebPushSender(webPushSenderExecutor, webPushSenderCluster, configuration.getWebPushConfiguration().vapidStaticKeyPair());
+    WebPushSender webPushSender = new WebPushSender(
+      webPushSenderExecutor,
+      webPushSenderCluster,
+      configuration.getWebPushConfiguration().vapidStaticKeyPair(),
+      configuration.getWebPushConfiguration().vapidSub()
+    );
     PushNotificationScheduler pushNotificationScheduler = new PushNotificationScheduler(pushSchedulerCluster,
         apnSender, fcmSender, webPushSender, accountsManager, 0, 0, retryExecutor);
     PushNotificationManager pushNotificationManager = new PushNotificationManager(accountsManager,
