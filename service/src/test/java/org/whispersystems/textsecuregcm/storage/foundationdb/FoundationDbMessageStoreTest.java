@@ -452,6 +452,94 @@ class FoundationDbMessageStoreTest {
         Map.of(generateRandomAciForShard(0), Collections.emptyMap())));
   }
 
+  @Test
+  void delete() {
+    final AciServiceIdentifier deletedMessageAci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deletedMessageDeviceId = Device.PRIMARY_ID;
+    final MessageProtos.Envelope deletedMessage = generateRandomMessage(false);
+
+    final AciServiceIdentifier retainedMessageAci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte retainedMessageDeviceId = Device.PRIMARY_ID;
+    final MessageProtos.Envelope retainedMessage = generateRandomMessage(false);
+
+    final UUID deletedMessageGuid =
+        foundationDbMessageStore.insert(deletedMessageAci, Map.of(deletedMessageDeviceId, deletedMessage)).join()
+            .get(deletedMessageDeviceId).messageGuid().orElseThrow();
+
+    foundationDbMessageStore.insert(retainedMessageAci, Map.of(retainedMessageDeviceId, retainedMessage)).join();
+
+    assertArrayEquals(deletedMessage.toByteArray(),
+        getItemsInDeviceQueue(deletedMessageAci, deletedMessageDeviceId).getFirst().getValue());
+
+    assertArrayEquals(retainedMessage.toByteArray(),
+        getItemsInDeviceQueue(retainedMessageAci, retainedMessageDeviceId).getFirst().getValue());
+
+    foundationDbMessageStore.delete(deletedMessageAci, deletedMessageDeviceId, deletedMessageGuid);
+
+    assertTrue(getItemsInDeviceQueue(deletedMessageAci, deletedMessageDeviceId).isEmpty());
+
+    assertArrayEquals(retainedMessage.toByteArray(),
+        getItemsInDeviceQueue(retainedMessageAci, retainedMessageDeviceId).getFirst().getValue());
+  }
+
+  @Test
+  void clearAllForAccount() {
+    final AciServiceIdentifier deletedAccountIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deletedPrimaryDeviceId = Device.PRIMARY_ID;
+    final byte deletedLinkedDeviceId = deletedPrimaryDeviceId + 1;
+
+    final AciServiceIdentifier retainedAccountIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+    final byte retainedPrimaryDeviceId = Device.PRIMARY_ID;
+
+    foundationDbMessageStore.insert(deletedAccountIdentifier, Map.of(
+        deletedPrimaryDeviceId, generateRandomMessage(false),
+        deletedLinkedDeviceId, generateRandomMessage(false)
+    )).join();
+
+    foundationDbMessageStore.insert(retainedAccountIdentifier, Map.of(
+        retainedPrimaryDeviceId, generateRandomMessage(false)
+    )).join();
+
+    assertEquals(1, getItemsInDeviceQueue(deletedAccountIdentifier, deletedPrimaryDeviceId).size());
+    assertEquals(1, getItemsInDeviceQueue(deletedAccountIdentifier, deletedLinkedDeviceId).size());
+    assertEquals(1, getItemsInDeviceQueue(retainedAccountIdentifier, retainedPrimaryDeviceId).size());
+
+    foundationDbMessageStore.clearAll(deletedAccountIdentifier);
+
+    assertEquals(0, getItemsInDeviceQueue(deletedAccountIdentifier, deletedPrimaryDeviceId).size());
+    assertEquals(0, getItemsInDeviceQueue(deletedAccountIdentifier, deletedLinkedDeviceId).size());
+    assertEquals(1, getItemsInDeviceQueue(retainedAccountIdentifier, retainedPrimaryDeviceId).size());
+  }
+
+  @Test
+  void clearAllForDevice() {
+    final AciServiceIdentifier targetedAccountIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+    final byte targetedAccountRetainedDeviceId = Device.PRIMARY_ID;
+    final byte targetedAccountDeletedDeviceId = targetedAccountRetainedDeviceId + 1;
+
+    final AciServiceIdentifier untargetedAccountIdentifier = new AciServiceIdentifier(UUID.randomUUID());
+    final byte untargetedAccountPrimaryDeviceId = Device.PRIMARY_ID;
+
+    foundationDbMessageStore.insert(targetedAccountIdentifier, Map.of(
+        targetedAccountRetainedDeviceId, generateRandomMessage(false),
+        targetedAccountDeletedDeviceId, generateRandomMessage(false)
+    )).join();
+
+    foundationDbMessageStore.insert(untargetedAccountIdentifier, Map.of(
+        untargetedAccountPrimaryDeviceId, generateRandomMessage(false)
+    )).join();
+
+    assertEquals(1, getItemsInDeviceQueue(targetedAccountIdentifier, targetedAccountRetainedDeviceId).size());
+    assertEquals(1, getItemsInDeviceQueue(targetedAccountIdentifier, targetedAccountDeletedDeviceId).size());
+    assertEquals(1, getItemsInDeviceQueue(untargetedAccountIdentifier, untargetedAccountPrimaryDeviceId).size());
+
+    foundationDbMessageStore.clearAll(targetedAccountIdentifier, targetedAccountDeletedDeviceId);
+
+    assertEquals(1, getItemsInDeviceQueue(targetedAccountIdentifier, targetedAccountRetainedDeviceId).size());
+    assertEquals(0, getItemsInDeviceQueue(targetedAccountIdentifier, targetedAccountDeletedDeviceId).size());
+    assertEquals(1, getItemsInDeviceQueue(untargetedAccountIdentifier, untargetedAccountPrimaryDeviceId).size());
+  }
+
   @ParameterizedTest
   @MethodSource
   void getMessages(final int numMessages, final int batchSize) {

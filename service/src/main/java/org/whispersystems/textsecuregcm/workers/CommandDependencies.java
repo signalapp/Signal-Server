@@ -5,18 +5,23 @@
 
 package org.whispersystems.textsecuregcm.workers;
 
+import com.apple.foundationdb.Database;
+import com.apple.foundationdb.FDB;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.dropwizard.core.setup.Environment;
 import io.lettuce.core.resource.ClientResources;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
+import java.util.stream.Collectors;
 import org.signal.libsignal.zkgroup.GenericServerSecretParams;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.ServerSecretParams;
@@ -56,6 +61,7 @@ import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriodManager
 import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriods;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.DynamoDbRecoveryManager;
+import org.whispersystems.textsecuregcm.storage.FoundationDbVersion;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -75,6 +81,8 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.SingleUseECPreKeyStore;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
+import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreClient;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
@@ -126,6 +134,39 @@ public record CommandDependencies(
     MetricsUtil.configureLogging(configuration, environment);
 
     environment.getObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    final FDB fdb = FDB.selectAPIVersion(FoundationDbVersion.getFoundationDbApiVersion());
+
+    // Jetty and the FoundationDB client both register shutdown hooks to begin shutdown/cleanup operations. There isn't
+    // a good way to coordinate or enforce ordering between shutdown hooks, and so the two processes will race.
+    // Generally, FoundationDB will shut down before Jetty does, meaning we'll still be trying to serve requests that
+    // require talking to FoundationDB even though FoundationDB has shut down. To avoid that scenario, we disabled
+    // FoundationDB's shutdown hook and let the JVM terminate its (daemon) threads at exit. This isn't as graceful as
+    // we'd like, but is the least bad option given current constraints.
+    fdb.disableShutdownHook();
+
+    final Map<Integer, List<Database>> messageDatabasesByEpoch;
+    {
+      final Map<String, Database> databasesByName =
+          configuration.getFoundationDbMessagesConfiguration().clusters().entrySet().stream()
+              .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
+                  entry -> {
+                    try {
+                      final Database database = entry.getValue().build(fdb);
+                      database.options().setMaxWatches(configuration.getFoundationDbMessagesConfiguration().maxWatchesPerClient());
+
+                      return database;
+                    } catch (final IOException e) {
+                      throw new UncheckedIOException(e);
+                    }
+                  }));
+
+      messageDatabasesByEpoch = configuration.getFoundationDbMessagesConfiguration().epochs().entrySet().stream()
+          .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
+              entry -> entry.getValue().stream()
+                  .map(databasesByName::get)
+                  .toList()));
+    }
 
     final AwsCredentialsProvider awsCredentialsProvider = configuration.getAwsCredentialsConfiguration().build();
 
@@ -268,6 +309,11 @@ public record CommandDependencies(
         disconnectionRequestListenerExecutor, retryExecutor);
     MessagesCache messagesCache = new MessagesCache(messagesCluster,
         messageDeliveryScheduler, messageDeletionExecutor, retryExecutor, Clock.systemUTC());
+    final FoundationDbMessageStore foundationDbMessageStore = new FoundationDbMessageStore(messageDatabasesByEpoch,
+        configuration.getFoundationDbMessagesConfiguration().activeEpoch(),
+        new VersionstampUUIDCipher(configuration.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey(),
+            configuration.getFoundationDbMessagesConfiguration().versionstampCipherKeys().get(configuration.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey()).value()),
+        Clock.systemUTC());
     ProfilesManager profilesManager = new ProfilesManager(profilesV1, profiles, cacheCluster, retryExecutor, asyncCdnS3Client,
         configuration.getCdnConfiguration().bucket());
     ReportMessageDynamoDb reportMessageDynamoDb = new ReportMessageDynamoDb(dynamoDbClient, dynamoDbAsyncClient,
@@ -277,8 +323,9 @@ public record CommandDependencies(
         configuration.getReportMessageConfiguration().getCounterTtl());
     RedisMessageAvailabilityManager redisMessageAvailabilityManager =
         new RedisMessageAvailabilityManager(messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
-    MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
-        reportMessageManager, messageDeletionExecutor, Clock.systemUTC());
+    final MessagesManager messagesManager =
+        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager,
+            reportMessageManager, messageDeletionExecutor, Clock.systemUTC(), experimentEnrollmentManager);
     AccountLockManager accountLockManager = new AccountLockManager(dynamoDbClient,
         configuration.getDynamoDbTables().getDeletedAccountsLock().getTableName());
     RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager =

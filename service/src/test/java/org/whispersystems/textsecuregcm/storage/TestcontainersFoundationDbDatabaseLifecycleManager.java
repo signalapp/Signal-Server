@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.utility.DockerImageName;
 
-class TestcontainersFoundationDbDatabaseLifecycleManager implements FoundationDbDatabaseLifecycleManager {
+public class TestcontainersFoundationDbDatabaseLifecycleManager implements FoundationDbDatabaseLifecycleManager {
 
   private FoundationDBContainer foundationDBContainer;
   private Database database;

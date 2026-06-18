@@ -617,7 +617,7 @@
           <plugin>
             <groupId>io.github.download-maven-plugin</groupId>
             <artifactId>download-maven-plugin</artifactId>
-            <version>2.0.0</version>
+            <version>2.1.0</version>
 
             <executions>
               <execution>
@@ -632,6 +632,7 @@
             <configuration>
               <url>https://github.com/apple/foundationdb/releases/download/${foundationdb.version}/libfdb_c.x86_64.so</url>
               <outputDirectory>${project.build.directory}/jib-extra/usr/lib</outputDirectory>
+              <outputFileName>libfdb_c.so</outputFileName>
               <sha256>${foundationdb.client-library-sha256}</sha256>
             </configuration>
           </plugin>

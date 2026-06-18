@@ -36,11 +36,13 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicMessagePersisterConfiguration;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.push.MessageAvailabilityListener;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.redis.RedisClusterExtension;
 import org.whispersystems.textsecuregcm.storage.DynamoDbExtensionSchema.Tables;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.tests.util.DevicesHelper;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.scheduler.Scheduler;
@@ -95,10 +97,12 @@ class MessagePersisterIntegrationTest {
 
     final MessagesManager messagesManager = new MessagesManager(messagesDynamoDb,
         messagesCache,
+        mock(FoundationDbMessageStore.class),
         mock(RedisMessageAvailabilityManager.class),
         mock(ReportMessageManager.class),
         messageDeletionExecutorService,
-        Clock.systemUTC());
+        Clock.systemUTC(),
+        mock(ExperimentEnrollmentManager.class));
 
     websocketConnectionEventExecutor = Executors.newVirtualThreadPerTaskExecutor();
     asyncOperationQueueingExecutor = Executors.newSingleThreadExecutor();

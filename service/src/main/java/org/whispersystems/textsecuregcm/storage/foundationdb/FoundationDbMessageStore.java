@@ -16,11 +16,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.util.Conversions;
@@ -58,12 +65,27 @@ public class FoundationDbMessageStore {
   public static final int MAX_EPOCHS = 4;
   public static final int MAX_SHARDS = 64;
 
+  private static final Counter INSERT_MESSAGE_COUNTER =
+      Metrics.counter(MetricsUtil.name(FoundationDbMessageStore.class, "insertMessage"));
+
+  private static final Timer INSERT_MESSAGE_BATCH_TIMER =
+      Metrics.timer(MetricsUtil.name(FoundationDbMessageStore.class, "insertMessageBatchTimer"));
+
+  private static final Counter DELETE_MESSAGE_COUNTER =
+      Metrics.counter(MetricsUtil.name(FoundationDbMessageStore.class, "deleteMessage"));
+
+  private static final Timer DELETE_MESSAGE_TIMER =
+      Metrics.timer(MetricsUtil.name(FoundationDbMessageStore.class, "deleteMessageTimer"));
+
   /// Result of inserting a message for a particular device
   ///
   /// @param versionstamp the versionstamp of the transaction in which this device's message was inserted, empty
   ///                     otherwise
+  /// @param messageGuid  the versionstamp encrypted/encoded as a version 8 UUID
   /// @param present      whether the device is online
-  public record InsertResult(Optional<Versionstamp> versionstamp, boolean present) {
+  public record InsertResult(Optional<Versionstamp> versionstamp,
+                             Optional<UUID> messageGuid,
+                             boolean present) {
   }
 
   public FoundationDbMessageStore(final Map<Integer, List<Database>> databasesByEpoch,
@@ -129,6 +151,8 @@ public class FoundationDbMessageStore {
       final Map<AciServiceIdentifier, Map<Byte, MessageProtos.Envelope>> messagesByServiceIdentifier,
       final int epoch) {
 
+    final Timer.Sample sample = Timer.start();
+
     if (messagesByServiceIdentifier.entrySet()
         .stream()
         .anyMatch(entry -> entry.getValue().isEmpty())) {
@@ -180,7 +204,13 @@ public class FoundationDbMessageStore {
             .reduce(new HashMap<>(), (a, b) -> {
               a.putAll(b);
               return a;
-            }));
+            }))
+        .whenComplete((_, throwable) -> {
+          if (throwable == null) {
+            sample.stop(INSERT_MESSAGE_BATCH_TIMER);
+            INSERT_MESSAGE_COUNTER.increment(messagesByServiceIdentifier.values().stream().mapToInt(Map::size).sum());
+          }
+        });
   }
 
   private CompletableFuture<Map<AciServiceIdentifier, Map<Byte, InsertResult>>> insertChunk(
@@ -231,7 +261,11 @@ public class FoundationDbMessageStore {
                     } else {
                       insertResultVersionstamp = Optional.empty();
                     }
-                    return new InsertResult(insertResultVersionstamp, presenceEntry.getValue());
+
+                    return new InsertResult(insertResultVersionstamp,
+                        insertResultVersionstamp.map(versionstamp ->
+                            versionstampUUIDCipher.encryptVersionstamp(versionstamp, entry.getKey().uuid(), presenceEntry.getKey())),
+                        presenceEntry.getValue());
                   }));
             })));
   }
@@ -288,6 +322,48 @@ public class FoundationDbMessageStore {
 
           return presenceByDeviceId;
         });
+  }
+
+  // Note that this method is intended only for initial migration support; in general, callers should clear messages
+  // by acknowledging messages via a `FoundationDbMessageStream`.
+  public void delete(final AciServiceIdentifier aci, final byte deviceId, final UUID messageGuid) {
+    delete(aci, deviceId, versionstampUUIDCipher.decryptVersionstamp(messageGuid, aci.uuid(), deviceId));
+  }
+
+  private void delete(final AciServiceIdentifier aci, final byte deviceId, final Versionstamp versionstamp) {
+    final Timer.Sample sample = Timer.start();
+
+    final byte[] messageKey = getDeviceQueueSubspace(aci, deviceId).pack(Tuple.from(versionstamp));
+
+    databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].run(transaction -> {
+      transaction.clear(messageKey);
+      return null;
+    });
+
+    sample.stop(DELETE_MESSAGE_TIMER);
+    DELETE_MESSAGE_COUNTER.increment();
+  }
+
+  public void clearAll(final AciServiceIdentifier aci) {
+    doForAllDatabasesWithMessages(aci, database -> database.run(transaction -> {
+      transaction.clear(getAccountSubspace(aci).range());
+      return null;
+    }));
+  }
+
+  public void clearAll(final AciServiceIdentifier aci, final byte deviceId) {
+    doForAllDatabasesWithMessages(aci, database -> database.run(transaction -> {
+      transaction.clear(getDeviceSubspace(aci, deviceId).range());
+      return null;
+    }));
+  }
+
+  private void doForAllDatabasesWithMessages(final AciServiceIdentifier aci, final Consumer<Database> action) {
+    IntStream.range(0, databasesByEpoch.length)
+        .filter(epoch -> databasesByEpoch[epoch] != null)
+        .mapToObj(epoch -> databasesByEpoch[epoch][hashAciToShardNumber(aci, epoch)])
+        .distinct()
+        .forEach(action);
   }
 
   public MessageStream getMessages(final AciServiceIdentifier aci, final Device destinationDevice) {

@@ -71,6 +71,10 @@ public class Experiment {
     this.experimentNullMismatchTimer = experimentNullMismatchTimer;
   }
 
+  public <T> void compareResult(final T expected, final T experimentResult) {
+    recordResult(expected, experimentResult, Timer.start());
+  }
+
   public <T> void compareMonoResult(final T expected, final Mono<T> experimentMono) {
     final Timer.Sample sample = Timer.start();
 

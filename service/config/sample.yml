@@ -538,3 +538,27 @@ callQualitySurvey:
 hlrLookup:
   apiKey: secret://hlrLookup.apiKey
   apiSecret: secret://hlrLookup.apiSecret
+
+foundationDbMessages:
+  maxWatchesPerClient: 10000
+  versionstampCipherKeys:
+    0: secret://foundationDbMessages.versionstampCipherKey.0
+  currentVersionstampCipherKey: 0
+  clusters:
+    "messages-0":
+      clusterFileUrl: http://clusterfiles.example.com/messages-0
+    "messages-1":
+      clusterFileUrl: http://clusterfiles.example.com/messages-1
+    "messages-2":
+      clusterFileUrl: http://clusterfiles.example.com/messages-2
+    "messages-3":
+      clusterFileUrl: http://clusterfiles.example.com/messages-3
+  epochs:
+    0:
+      - messages-0
+      - messages-1
+    1:
+      - messages-0
+      - messages-1
+      - messages-2
+      - messages-3

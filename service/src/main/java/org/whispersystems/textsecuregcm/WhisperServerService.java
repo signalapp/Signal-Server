@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm;
 import static java.util.Objects.requireNonNull;
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.apple.foundationdb.Database;
+import com.apple.foundationdb.FDB;
 import com.google.common.collect.Lists;
 import com.webauthn4j.appattest.DeviceCheckManager;
 import io.dropwizard.auth.AuthDynamicFeature;
@@ -44,6 +46,8 @@ import io.netty.resolver.dns.DnsNameResolverBuilder;
 import io.netty.util.Mapping;
 import jakarta.servlet.DispatcherType;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.http.HttpClient;
@@ -53,6 +57,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
@@ -63,7 +68,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.eclipse.jetty.ee10.websocket.server.config.JettyWebSocketServletContainerInitializer;
 import org.eclipse.jetty.websocket.core.WebSocketExtensionRegistry;
 import org.eclipse.jetty.websocket.core.server.WebSocketServerComponents;
@@ -174,8 +181,8 @@ import org.whispersystems.textsecuregcm.grpc.ProfileAnonymousGrpcService;
 import org.whispersystems.textsecuregcm.grpc.ProfileGrpcService;
 import org.whispersystems.textsecuregcm.grpc.RequestAttributesInterceptor;
 import org.whispersystems.textsecuregcm.grpc.ValidatingInterceptor;
-import org.whispersystems.textsecuregcm.grpc.net.ManagedGrpcServer;
 import org.whispersystems.textsecuregcm.grpc.net.ManagedEventLoopGroup;
+import org.whispersystems.textsecuregcm.grpc.net.ManagedGrpcServer;
 import org.whispersystems.textsecuregcm.grpc.net.OmnibusH2Server;
 import org.whispersystems.textsecuregcm.grpc.net.OmnibusRouter;
 import org.whispersystems.textsecuregcm.grpc.net.SniMapper;
@@ -245,6 +252,7 @@ import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriods;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleases;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
+import org.whispersystems.textsecuregcm.storage.FoundationDbVersion;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.KeysManager;
 import org.whispersystems.textsecuregcm.storage.MessagesCache;
@@ -275,6 +283,8 @@ import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckTrustAnchor;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceChecks;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
+import org.whispersystems.textsecuregcm.storage.foundationdb.VersionstampUUIDCipher;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreClient;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.BankMandateTranslator;
@@ -331,7 +341,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
-import javax.annotation.Nullable;
 
 public class WhisperServerService extends Application<WhisperServerConfiguration> {
 
@@ -459,6 +468,39 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final DynamoDbClient dynamoDbClient = config.getDynamoDbClientConfiguration()
         .buildSyncClient(awsCredentialsProvider, new MicrometerAwsSdkMetricPublisher(awsSdkMetricsExecutor, "dynamoDbSync"));
+
+    final FDB fdb = FDB.selectAPIVersion(FoundationDbVersion.getFoundationDbApiVersion());
+
+    // Jetty and the FoundationDB client both register shutdown hooks to begin shutdown/cleanup operations. There isn't
+    // a good way to coordinate or enforce ordering between shutdown hooks, and so the two processes will race.
+    // Generally, FoundationDB will shut down before Jetty does, meaning we'll still be trying to serve requests that
+    // require talking to FoundationDB even though FoundationDB has shut down. To avoid that scenario, we disabled
+    // FoundationDB's shutdown hook and let the JVM terminate its (daemon) threads at exit. This isn't as graceful as
+    // we'd like, but is the least bad option given current constraints.
+    fdb.disableShutdownHook();
+
+    final Map<Integer, List<Database>> messageDatabasesByEpoch;
+    {
+      final Map<String, Database> databasesByName =
+          config.getFoundationDbMessagesConfiguration().clusters().entrySet().stream()
+              .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
+                  entry -> {
+                    try {
+                      final Database database = entry.getValue().build(fdb);
+                      database.options().setMaxWatches(config.getFoundationDbMessagesConfiguration().maxWatchesPerClient());
+
+                      return database;
+                    } catch (final IOException e) {
+                      throw new UncheckedIOException(e);
+                    }
+                  }));
+
+      messageDatabasesByEpoch = config.getFoundationDbMessagesConfiguration().epochs().entrySet().stream()
+          .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey,
+              entry -> entry.getValue().stream()
+                  .map(databasesByName::get)
+                  .toList()));
+    }
 
     final AwsCredentialsProvider cdnCredentialsProvider = config.getCdnConfiguration().credentials().build();
     final S3AsyncClient asyncCdnS3Client = S3AsyncClient.builder()
@@ -703,6 +745,11 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getCdnConfiguration().bucket());
     MessagesCache messagesCache = new MessagesCache(messagesCluster, messageDeliveryScheduler,
         messageDeletionAsyncExecutor, retryExecutor, clock);
+    final FoundationDbMessageStore foundationDbMessageStore = new FoundationDbMessageStore(messageDatabasesByEpoch,
+        config.getFoundationDbMessagesConfiguration().activeEpoch(),
+        new VersionstampUUIDCipher(config.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey(),
+            config.getFoundationDbMessagesConfiguration().versionstampCipherKeys().get(config.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey()).value()),
+        Clock.systemUTC());
     ClientReleaseManager clientReleaseManager = new ClientReleaseManager(clientReleases,
         recurringJobExecutor,
         config.getClientReleaseConfiguration().refreshInterval(),
@@ -711,8 +758,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getReportMessageConfiguration().getCounterTtl());
     RedisMessageAvailabilityManager redisMessageAvailabilityManager =
         new RedisMessageAvailabilityManager(messagesCluster, clientEventExecutor, asyncOperationQueueingExecutor);
-    MessagesManager messagesManager = new MessagesManager(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
-        reportMessageManager, messageDeletionAsyncExecutor, Clock.systemUTC());
+    MessagesManager messagesManager =
+        new MessagesManager(messagesDynamoDb, messagesCache, foundationDbMessageStore, redisMessageAvailabilityManager,
+            reportMessageManager, messageDeletionAsyncExecutor, Clock.systemUTC(), experimentEnrollmentManager);
     final ChangeNumberWaitingPeriods changeNumberWaitingPeriods = new ChangeNumberWaitingPeriods(
         config.getDynamoDbTables().getChangeNumberWaitingPeriods().getTableName(), dynamoDbClient);
     final ChangeNumberWaitingPeriodManager changeNumberWaitingPeriodManager = new ChangeNumberWaitingPeriodManager(

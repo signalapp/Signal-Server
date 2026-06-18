@@ -61,7 +61,7 @@ jobs:
       - name: Download and install FoundationDB client
         run: |
           ./mvnw -e -B -Pexclude-spam-filter clean prepare-package -DskipTests=true
-          cp service/target/jib-extra/usr/lib/libfdb_c.x86_64.so /usr/lib/libfdb_c.x86_64.so
+          cp service/target/jib-extra/usr/lib/libfdb_c.so /usr/lib/libfdb_c.x86_64.so
           ldconfig
       - name: Build with Maven
         run: ./mvnw -e -B clean verify -DfoundationDb.serviceContainerNamePrefix=foundationdb

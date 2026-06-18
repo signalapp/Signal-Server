@@ -555,3 +555,15 @@ server:
     - type: h2c
       port: 8080
       useForwardedHeaders: true
+
+foundationDbMessages:
+  maxWatchesPerClient: 10000
+  versionstampCipherKeys:
+    0: secret://foundationDbMessages.versionstampCipherKey.0
+  currentVersionstampCipherKey: 0
+  clusters:
+    "messages-0":
+      type: local
+  epochs:
+    0:
+      - messages-0

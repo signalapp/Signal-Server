@@ -6,11 +6,14 @@ package org.whispersystems.textsecuregcm.storage;
 
 import static org.whispersystems.textsecuregcm.metrics.MetricsUtil.name;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,10 +31,13 @@ import org.signal.libsignal.protocol.SealedSenderMultiRecipientMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos.Envelope;
+import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
+import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
+import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
@@ -52,27 +58,44 @@ public class MessagesManager {
   private static final String MAY_HAVE_MESSAGES_COUNTER_NAME =
       MetricsUtil.name(MessagesManager.class, "mayHaveMessages");
 
+  private static final String PRESENCE_MATCH_COUNTER_NAME =
+      MetricsUtil.name(MessagesManager.class, "presenceMatch");
+
+  @VisibleForTesting
+  static final String MIRROR_INSERTS_EXPERIMENT_NAME = "foundationDbMirrorInserts";
+
+  @VisibleForTesting
+  static final String MIRROR_DELETIONS_EXPERIMENT_NAME = "foundationDbMirrorDeletions";
+
+  private static final long FOUNDATIONDB_INSERT_TIMEOUT_MILLIS = Duration.ofSeconds(2).toMillis();
+
   private final MessagesDynamoDb messagesDynamoDb;
   private final MessagesCache messagesCache;
+  private final FoundationDbMessageStore foundationDbMessageStore;
   private final RedisMessageAvailabilityManager redisMessageAvailabilityManager;
   private final ReportMessageManager reportMessageManager;
   private final ExecutorService messageDeletionExecutor;
   private final Clock clock;
+  private final ExperimentEnrollmentManager experimentEnrollmentManager;
 
   public MessagesManager(
       final MessagesDynamoDb messagesDynamoDb,
       final MessagesCache messagesCache,
+      final FoundationDbMessageStore foundationDbMessageStore,
       final RedisMessageAvailabilityManager redisMessageAvailabilityManager,
       final ReportMessageManager reportMessageManager,
       final ExecutorService messageDeletionExecutor,
-      final Clock clock) {
+      final Clock clock,
+      final ExperimentEnrollmentManager experimentEnrollmentManager) {
 
     this.messagesDynamoDb = messagesDynamoDb;
     this.messagesCache = messagesCache;
+    this.foundationDbMessageStore = foundationDbMessageStore;
     this.redisMessageAvailabilityManager = redisMessageAvailabilityManager;
     this.reportMessageManager = reportMessageManager;
     this.messageDeletionExecutor = messageDeletionExecutor;
     this.clock = clock;
+    this.experimentEnrollmentManager = experimentEnrollmentManager;
   }
 
   /**
@@ -92,28 +115,68 @@ public class MessagesManager {
   private CompletableFuture<Map<Byte, Boolean>> insertAsync(final UUID accountIdentifier, final Map<Byte, Envelope> messagesByDeviceId) {
     final Map<Byte, Boolean> devicePresenceById = new ConcurrentHashMap<>();
 
-    return CompletableFuture.allOf(messagesByDeviceId.entrySet().stream()
-            .map(deviceIdAndMessage -> {
-              final byte deviceId = deviceIdAndMessage.getKey();
-              final Envelope message = deviceIdAndMessage.getValue();
-              final UUID messageGuid = UUID.randomUUID();
+    final CompletableFuture<Map<Byte, FoundationDbMessageStore.InsertResult>> foundationDbInsertFuture;
 
-              return messagesCache.insert(messageGuid, accountIdentifier, deviceId, message)
-                  .thenAccept(present -> {
-                    if (message.hasSourceServiceId()) {
-                      final ServiceIdentifier sourceServiceIdentifier =
-                          ServiceIdentifier.fromByteString(message.getSourceServiceId());
+    if (experimentEnrollmentManager.isEnrolled(accountIdentifier, MIRROR_INSERTS_EXPERIMENT_NAME)) {
+      // Multi-recipient messages will have both a "shared MRM key" and actual message content; we only need/want the
+      // latter for FoundationDB
+      final Map<Byte, Envelope> minimizedMessagesByDeviceId = messagesByDeviceId.entrySet().stream()
+          .collect(Collectors.toUnmodifiableMap(
+              Map.Entry::getKey,
+              entry -> entry.getValue().toBuilder().clearSharedMrmKey().build()));
 
-                      if (!accountIdentifier.equals(sourceServiceIdentifier.uuid())) {
-                        // Note that this is an asynchronous, best-effort, fire-and-forget operation
-                        reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
-                      }
-                    }
+      foundationDbInsertFuture =
+          foundationDbMessageStore.insert(new AciServiceIdentifier(accountIdentifier), minimizedMessagesByDeviceId)
+              .orTimeout(FOUNDATIONDB_INSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+              .exceptionally(e -> {
+                logger.warn("Failed to insert {} message(s) for {} into FoundationDB",
+                    minimizedMessagesByDeviceId.size(),
+                    accountIdentifier,
+                    e);
 
-                    devicePresenceById.put(deviceId, present);
-                  });
-            })
-            .toArray(CompletableFuture[]::new))
+                return Collections.emptyMap();
+              });
+    } else {
+      foundationDbInsertFuture = CompletableFuture.completedFuture(Collections.emptyMap());
+    }
+
+    return foundationDbInsertFuture.thenCompose(foundationDbInsertResults ->
+            CompletableFuture.allOf(messagesByDeviceId.entrySet().stream()
+                .map(deviceIdAndMessage -> {
+                  final byte deviceId = deviceIdAndMessage.getKey();
+
+                  // Multi-recipient messages will have both a "shared MRM key" and actual message content; we only
+                  // need/want the former for Redis
+                  final Envelope message = deviceIdAndMessage.getValue().hasSharedMrmKey()
+                      ? deviceIdAndMessage.getValue().toBuilder().clearContent().build()
+                      : deviceIdAndMessage.getValue();
+
+                  final UUID messageGuid = Optional.ofNullable(foundationDbInsertResults.get(deviceId))
+                      .flatMap(FoundationDbMessageStore.InsertResult::messageGuid)
+                      .orElseGet(UUID::randomUUID);
+
+                  return messagesCache.insert(messageGuid, accountIdentifier, deviceId, message)
+                      .thenAccept(present -> {
+                        if (message.hasSourceServiceId()) {
+                          final ServiceIdentifier sourceServiceIdentifier =
+                              ServiceIdentifier.fromByteString(message.getSourceServiceId());
+
+                          if (!accountIdentifier.equals(sourceServiceIdentifier.uuid())) {
+                            // Note that this is an asynchronous, best-effort, fire-and-forget operation
+                            reportMessageManager.store(sourceServiceIdentifier.toServiceIdentifierString(), messageGuid);
+                          }
+                        }
+
+                        devicePresenceById.put(deviceId, present);
+
+                        if (foundationDbInsertResults.containsKey(deviceId)) {
+                          Metrics.counter(PRESENCE_MATCH_COUNTER_NAME,
+                                  "match", String.valueOf(present == foundationDbInsertResults.get(deviceId).present()))
+                              .increment();
+                        }
+                      });
+                })
+                .toArray(CompletableFuture[]::new)))
         .thenApply(ignored -> devicePresenceById);
   }
 
@@ -173,6 +236,7 @@ public class MessagesManager {
                     return insertAsync(resolvedRecipients.get(recipient).getIdentifier(IdentityType.ACI),
                         IntStream.range(0, devices.length).mapToObj(i -> devices[i])
                             .collect(Collectors.toMap(deviceId -> deviceId, _ -> prototypeMessage.toBuilder()
+                                .setContent(ByteString.copyFrom(multiRecipientMessage.messageForRecipient(serviceIdAndRecipient.getValue())))
                                 .setDestinationServiceId(serviceIdentifier.toCompactByteString())
                                 .build())))
                         .thenAccept(clientPresenceByDeviceId ->
@@ -215,7 +279,13 @@ public class MessagesManager {
   }
 
   public MessageStream getMessages(final UUID destinationUuid, final Device destinationDevice) {
-    return new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, destinationUuid, destinationDevice);
+    return new DeletionMirroringRedisDynamoDbMessageStream(
+        new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, destinationUuid, destinationDevice),
+        foundationDbMessageStore,
+        experimentEnrollmentManager,
+        messageDeletionExecutor,
+        destinationUuid,
+        destinationDevice.getId());
   }
 
   Publisher<Envelope> getMessagesForDevice(final UUID destinationUuid, final Device destinationDevice) {
@@ -226,11 +296,31 @@ public class MessagesManager {
         .tap(Micrometer.metrics(Metrics.globalRegistry));
   }
 
-  public CompletableFuture<Void> clear(UUID destinationUuid) {
+  public CompletableFuture<Void> clear(final UUID destinationUuid) {
+    if (experimentEnrollmentManager.isEnrolled(destinationUuid, MessagesManager.MIRROR_DELETIONS_EXPERIMENT_NAME)) {
+      messageDeletionExecutor.execute(() -> {
+        try {
+          foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid));
+        } catch (final Exception e) {
+          logger.warn("Failed to clear messages for {}", destinationUuid, e);
+        }
+      });
+    }
+
     return messagesCache.clear(destinationUuid);
   }
 
-  public CompletableFuture<Void> clear(UUID destinationUuid, byte deviceId) {
+  public CompletableFuture<Void> clear(final UUID destinationUuid, final byte deviceId) {
+    if (experimentEnrollmentManager.isEnrolled(destinationUuid, MessagesManager.MIRROR_DELETIONS_EXPERIMENT_NAME)) {
+      messageDeletionExecutor.execute(() -> {
+        try {
+          foundationDbMessageStore.clearAll(new AciServiceIdentifier(destinationUuid), deviceId);
+        } catch (final Exception e) {
+          logger.warn("Failed to clear messages for {}:{}", destinationUuid, deviceId, e);
+        }
+      });
+    }
+
     return messagesCache.clear(destinationUuid, deviceId);
   }
 

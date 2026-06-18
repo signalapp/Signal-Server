@@ -34,6 +34,7 @@ import org.whispersystems.textsecuregcm.configuration.ExternalRequestFilterConfi
 import org.whispersystems.textsecuregcm.configuration.FaultTolerantRedisClientFactory;
 import org.whispersystems.textsecuregcm.configuration.FaultTolerantRedisClusterFactory;
 import org.whispersystems.textsecuregcm.configuration.FcmConfiguration;
+import org.whispersystems.textsecuregcm.configuration.FoundationDbMessagesConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GcpAttachmentsConfiguration;
 import org.whispersystems.textsecuregcm.configuration.GenericZkConfig;
 import org.whispersystems.textsecuregcm.configuration.GooglePlayBillingConfiguration;
@@ -361,6 +362,11 @@ public class WhisperServerConfiguration extends Configuration {
   @JsonProperty
   private ChangeNumberConfiguration changeNumber = new ChangeNumberConfiguration(Duration.ofHours(1));
 
+  @Valid
+  @NotNull
+  @JsonProperty
+  private FoundationDbMessagesConfiguration foundationDbMessages;
+
   public TlsKeyStoreConfiguration getTlsKeyStoreConfiguration() {
     return tlsKeyStore;
   }
@@ -599,5 +605,9 @@ public class WhisperServerConfiguration extends Configuration {
 
   public ChangeNumberConfiguration getChangeNumber() {
     return changeNumber;
+  }
+
+  public FoundationDbMessagesConfiguration getFoundationDbMessagesConfiguration() {
+    return foundationDbMessages;
   }
 }
