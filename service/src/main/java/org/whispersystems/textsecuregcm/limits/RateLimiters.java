@@ -61,6 +61,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     DEVICE_CHECK_CHALLENGE("deviceCheckChallenge", new RateLimiterConfig(10, Duration.ofMinutes(1), false)),
     SUBMIT_CALL_QUALITY_SURVEY("submitCallQualitySurvey", new RateLimiterConfig(100, Duration.ofMinutes(1), true)),
     BATCH_IDENTITY_CHECK("batchIdentityCheck", new RateLimiterConfig(100, Duration.ofMinutes(1), true)),
+    CREATE_DONATION_PERMIT("createDonationCredential", new RateLimiterConfig(30, Duration.ofHours(4), true)),
     ONE_TIME_DONATION("oneTimeDonation", new RateLimiterConfig(5, Duration.ofMinutes(1), true)),
     ADD_SUBSCRIPTION_PAYMENT_METHOD("addSubscriptionPaymentMethod", new RateLimiterConfig(10, Duration.ofMinutes(1), true)),
     ;
@@ -241,7 +242,7 @@ public class RateLimiters extends BaseRateLimiters<RateLimiters.For> {
     return forDescriptor(For.SUBMIT_CALL_QUALITY_SURVEY);
   }
 
-  public RateLimiter getBatchIdentityCheckLimiter() {
-    return forDescriptor(For.BATCH_IDENTITY_CHECK);
+  public RateLimiter getCreateDonationPermitLimiter() {
+    return forDescriptor(For.CREATE_DONATION_PERMIT);
   }
 }
