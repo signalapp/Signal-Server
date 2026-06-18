@@ -24,6 +24,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
@@ -37,8 +38,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.signal.chat.attachments.AttachmentsGrpc;
+import org.signal.chat.attachments.GetStickerUploadFormRequest;
+import org.signal.chat.attachments.GetStickerUploadFormResponse;
 import org.signal.chat.attachments.GetUploadFormRequest;
 import org.signal.chat.attachments.GetUploadFormResponse;
+import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.common.UploadForm;
 import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
@@ -49,6 +53,7 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 
@@ -65,6 +70,8 @@ class AttachmentsGrpcServiceTest extends
   private RateLimiter countRateLimiter;
   @Mock
   private RateLimiter byteRateLimiter;
+  @Mock
+  private RateLimiter stickerRateLimiter;
 
   @Override
   protected AttachmentsGrpcService createServiceBeforeEachTest() {
@@ -86,10 +93,13 @@ class AttachmentsGrpcServiceTest extends
           MockUtils.buildMock(RateLimiters.class, rateLimiters -> {
             when(rateLimiters.getAttachmentLimiter()).thenReturn(countRateLimiter);
             when(rateLimiters.getAttachmentBytesLimiter()).thenReturn(byteRateLimiter);
+            when(rateLimiters.getStickerPackLimiter()).thenReturn(stickerRateLimiter);
           }),
           gcsAttachmentGenerator,
           tusAttachmentGenerator,
-          MAX_UPLOAD_LENGTH);
+          new PostPolicyGenerator("wakonda-south-7", "test", "accessId", "accessSecret"),
+          MAX_UPLOAD_LENGTH,
+          Clock.systemUTC());
     } catch (NoSuchAlgorithmException | IOException | InvalidKeyException | InvalidKeySpecException e) {
       throw new AssertionError(e);
     }
@@ -208,5 +218,42 @@ class AttachmentsGrpcServiceTest extends
 
     assertRateLimitExceeded(retryAfter, () ->
         authenticatedServiceStub().getUploadForm(GetUploadFormRequest.newBuilder().setUploadLength(1).build()));
+  }
+
+  @Test
+  void getStickerUploadForm() {
+    final int stickerCount = 7;
+
+    final GetStickerUploadFormResponse response =
+        authenticatedServiceStub().getStickerUploadForm(GetStickerUploadFormRequest.newBuilder()
+            .setStickerCount(stickerCount)
+            .build());
+
+    assertThat(response.getPackId()).isNotBlank();
+    assertThat(response.getManifestUploadForm()).satisfies(AttachmentsGrpcServiceTest::s3UploadFormValid);
+    assertThat(response.getStickerUploadFormsCount()).isEqualTo(stickerCount);
+    assertThat(response.getStickerUploadFormsList()).allSatisfy(AttachmentsGrpcServiceTest::s3UploadFormValid);
+  }
+
+  private static void s3UploadFormValid(final S3UploadForm s3UploadForm) {
+    assertThat(s3UploadForm.getAcl()).isEqualTo("private");
+    assertThat(s3UploadForm.getAlgorithm()).isEqualTo("AWS4-HMAC-SHA256");
+    assertThat(s3UploadForm.getKey()).startsWith("stickers/");
+    assertThat(s3UploadForm.getCredential()).endsWith("/s3/aws4_request");
+    assertThat(s3UploadForm.getDate()).isNotBlank();
+    assertThat(s3UploadForm.getPolicy()).isNotBlank();
+    assertThat(s3UploadForm.getSignature()).isNotBlank();
+  }
+
+  @Test
+  void getStickerUploadFormRateLimited() throws RateLimitExceededException {
+    final Duration retryAfter = Duration.ofMinutes(13);
+    doThrow(new RateLimitExceededException(retryAfter)).when(stickerRateLimiter).validate(any(UUID.class));
+
+    //noinspection ResultOfMethodCallIgnored
+    GrpcTestUtils.assertRateLimitExceeded(retryAfter,
+        () -> authenticatedServiceStub().getStickerUploadForm(GetStickerUploadFormRequest.newBuilder()
+            .setStickerCount(7)
+            .build()));
   }
 }

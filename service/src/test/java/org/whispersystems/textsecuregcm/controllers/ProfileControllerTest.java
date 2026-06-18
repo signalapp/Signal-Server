@@ -100,7 +100,6 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
-import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
@@ -129,8 +128,7 @@ class ProfileControllerTest {
   private static final RateLimiter usernameRateLimiter = mock(RateLimiter.class);
 
   private static final PostPolicyGenerator postPolicyGenerator = new PostPolicyGenerator("us-west-1", "profile-bucket",
-      "accessKey");
-  private static final PolicySigner policySigner = new PolicySigner("accessSecret", "us-west-1");
+      "accessKey", "accessSecret");
   private static final ServerZkProfileOperations zkProfileOperations = mock(ServerZkProfileOperations.class);
   private static final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
 
@@ -172,7 +170,6 @@ class ProfileControllerTest {
               new BadgeConfiguration("TEST3", "testing", List.of("l", "m", "h", "x", "xx", "xxx"), "SVG", List.of(new BadgeSvg("sl", "sd"), new BadgeSvg("ml", "md"), new BadgeSvg("ll", "ld")))
           ), List.of("TEST1"), Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3")),
           postPolicyGenerator,
-          policySigner,
           serverSecretParams,
           zkProfileOperations,
           Executors.newSingleThreadExecutor()))

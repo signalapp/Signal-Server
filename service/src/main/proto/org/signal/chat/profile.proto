@@ -122,7 +122,7 @@ message SetProfileResult {
   //
   // Because this is a temporary field during the migration, it has the highest
   // field number without serialization overhead. This is purely aesthetic.
-  optional ProfileAvatarUploadAttributes v1_avatar_upload_form = 15;
+  optional common.S3UploadForm v1_avatar_upload_form = 15;
 
   // next: 1
 }
@@ -319,23 +319,6 @@ message GetExpiringProfileKeyCredentialAnonymousResponse {
     errors.NotFound not_found = 2 [(tag.reason) = "not_found"];
     errors.FailedUnidentifiedAuthorization failed_unidentified_authorization = 3 [(tag.reason) = "failed_unidentified_authorization"];
   }
-}
-
-message ProfileAvatarUploadAttributes {
-  // The S3 upload path for the profile's avatar.
-  string path = 1;
-  // A scoped credential. Includes the AWS access key, date, region targeted, and AWS service.
-  string credential = 2;
-  // The type of access control for the avatar object.
-  string acl = 3;
-  // The algorithm used to calculate a signature on the S3 policy.
-  string algorithm = 4;
-  // The timestamp at which the S3 policy and signature were generated.
-  string date = 5;
-  // The S3 policy used to upload the avatar object.
-  string policy = 6;
-  // A digital signature on the S3 policy.
-  bytes signature = 7;
 }
 
 enum CredentialType {

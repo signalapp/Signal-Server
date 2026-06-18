@@ -36,11 +36,11 @@ import org.eclipse.jetty.util.component.LifeCycle;
 import org.whispersystems.textsecuregcm.WhisperServerConfiguration;
 import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfiguration;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
-import org.whispersystems.textsecuregcm.util.Constants;
 
 public class MetricsUtil {
 
   public static final String PREFIX = "chat";
+  private static final String DROPWIZARD_METRICS_NAME = "textsecure";
 
   private static volatile boolean registeredMetrics = false;
 
@@ -69,7 +69,7 @@ public class MetricsUtil {
 
     registeredMetrics = true;
 
-    SharedMetricRegistries.add(Constants.METRICS_NAME, environment.metrics());
+    SharedMetricRegistries.add(DROPWIZARD_METRICS_NAME, environment.metrics());
 
     Duration shutdownWaitDuration = Duration.ZERO;
 

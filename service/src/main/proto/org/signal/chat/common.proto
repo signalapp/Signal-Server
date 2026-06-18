@@ -116,6 +116,33 @@ message UploadForm {
   string signed_upload_location = 4;
 }
 
+// An upload location, credentials, and metadata which may be used to upload an
+// object to AWS S3
+message S3UploadForm {
+  // The S3 key (i.e. path and filename) for the uploaded file.
+  string key = 1;
+
+  // A scoped credential. Includes the AWS access key, date, region targeted,
+  // and AWS service.
+  string credential = 2;
+
+  // The type of access control for the uploaded file.
+  string acl = 3;
+
+  // The algorithm used to calculate a signature on the S3 policy.
+  string algorithm = 4;
+
+  // The timestamp (formatted as "yyyyMMdd'T'HHmmssX") at which the S3 policy
+  // and signature were generated.
+  string date = 5;
+
+  // The S3 policy (as a base64-encoded JSON string) used to upload the file.
+  string policy = 6;
+
+  // A digital signature (formatted as a hex string) on the S3 policy.
+  string signature = 7;
+}
+
 message BadgeSvg {
   // File name of the scalable vector graphic for light mode.
   string light = 1;

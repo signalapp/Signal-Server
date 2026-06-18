@@ -234,7 +234,6 @@ import org.whispersystems.textsecuregcm.redis.ConnectionEventLogger;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClient;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
-import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.s3.S3MonitoringSupplier;
 import org.whispersystems.textsecuregcm.securestorage.SecureStorageClient;
@@ -898,11 +897,15 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getGcpAttachmentsConfiguration().pathPrefix(),
         config.getGcpAttachmentsConfiguration().rsaSigningKey().value());
 
-    PostPolicyGenerator profileCdnPolicyGenerator = new PostPolicyGenerator(config.getCdnConfiguration().region(),
-        config.getCdnConfiguration().bucket(), config.getCdnConfiguration().credentials().accessKeyId().value());
-    PolicySigner profileCdnPolicySigner = new PolicySigner(
-        config.getCdnConfiguration().credentials().secretAccessKey().value(),
-        config.getCdnConfiguration().region());
+    final PostPolicyGenerator profileCdnPolicyGenerator = new PostPolicyGenerator(config.getCdnConfiguration().region(),
+        config.getCdnConfiguration().bucket(),
+        config.getCdnConfiguration().credentials().accessKeyId().value(),
+        config.getCdnConfiguration().credentials().secretAccessKey().value());
+
+    final PostPolicyGenerator stickerPolicyGenerator = new PostPolicyGenerator(config.getCdnConfiguration().region(),
+        config.getCdnConfiguration().bucket(),
+        config.getCdnConfiguration().credentials().accessKeyId().value(),
+        config.getCdnConfiguration().credentials().secretAccessKey().value());
 
     ServerSecretParams zkSecretParams = new ServerSecretParams(config.getZkConfig().serverSecret().value());
     GenericServerSecretParams callingGenericZkSecretParams = new GenericServerSecretParams(config.getCallingZkConfig().serverSecret().value());
@@ -1057,12 +1060,13 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new CallingGrpcService(cloudflareTurnCredentialsManager, rateLimiters),
             new CredentialsGrpcService(accountsManager, certificateGenerator, zkAuthOperations, callingGenericZkSecretParams, rateLimiters, Clock.systemUTC(), ExternalServiceDefinitions.createExternalServiceList(config, Clock.systemUTC())),
             new KeysGrpcService(accountsManager, keysManager, rateLimiters),
-            new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager, config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner, profileBadgeConverter, rateLimiters),
+            new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager, config.getBadges(), profileCdnPolicyGenerator, profileBadgeConverter, rateLimiters),
             new MessagesGrpcService(accountsManager, rateLimiters, messageSender, messageByteLimitCardinalityEstimator, spamChecker, messageDispatcher, Clock.systemUTC()),
             new BackupsGrpcService(accountsManager, backupAuthManager, backupMetrics),
             new DevicesGrpcService(accountsManager),
-            new AttachmentsGrpcService(experimentEnrollmentManager, rateLimiters,
-                gcsAttachmentGenerator, tusAttachmentGenerator, config.getAttachments().maxAttachmentUploadSizeInBytes()),
+            new AttachmentsGrpcService(experimentEnrollmentManager, rateLimiters, gcsAttachmentGenerator,
+                tusAttachmentGenerator, stickerPolicyGenerator,
+                config.getAttachments().maxAttachmentUploadSizeInBytes(), Clock.systemUTC()),
             new PaymentsGrpcService(currencyManager),
             new ChallengeGrpcService(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
             new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new))
@@ -1225,7 +1229,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             phoneNumberIdentifiers, reportMessageManager, zkSecretParams, spamChecker, Clock.systemUTC()),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
-            profileBadgeConverter, config.getBadges(), profileCdnPolicyGenerator, profileCdnPolicySigner,
+            profileBadgeConverter, config.getBadges(), profileCdnPolicyGenerator,
             zkSecretParams, zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
         new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
@@ -1233,9 +1237,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new RemoteConfigController(remoteConfigsManager, config.getRemoteConfigConfiguration().globalConfig()),
         new SecureStorageController(storageCredentialsGenerator),
         new SecureValueRecovery2Controller(svr2CredentialsGenerator, accountsManager),
-        new StickerController(rateLimiters, config.getCdnConfiguration().credentials().accessKeyId().value(),
-            config.getCdnConfiguration().credentials().secretAccessKey().value(), config.getCdnConfiguration().region(),
-            config.getCdnConfiguration().bucket()),
+        new StickerController(rateLimiters, stickerPolicyGenerator, Clock.systemUTC()),
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
             pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager,
             phoneNumberIdentifiers, rateLimiters, accountsManager, carrierDataProvider, registrationFraudChecker,

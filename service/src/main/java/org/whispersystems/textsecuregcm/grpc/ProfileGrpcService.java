@@ -5,9 +5,7 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
-import com.google.protobuf.ByteString;
 import java.time.Clock;
-import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
@@ -16,6 +14,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.profile.GetUnversionedProfileRequest;
@@ -23,7 +22,6 @@ import org.signal.chat.profile.GetUnversionedProfileResponse;
 import org.signal.chat.profile.GetVersionedProfileRequest;
 import org.signal.chat.profile.GetVersionedProfileResponse;
 import org.signal.chat.profile.PaymentsForbiddenInRegion;
-import org.signal.chat.profile.ProfileAvatarUploadAttributes;
 import org.signal.chat.profile.ProfilesV2CapabilityRequired;
 import org.signal.chat.profile.SetProfileRequest;
 import org.signal.chat.profile.SetProfileResponse;
@@ -40,7 +38,6 @@ import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
@@ -51,7 +48,6 @@ import org.whispersystems.textsecuregcm.storage.ProfilesManager;
 import org.whispersystems.textsecuregcm.storage.VersionedProfile;
 import org.whispersystems.textsecuregcm.storage.VersionedProfileV1;
 import org.whispersystems.textsecuregcm.storage.WriteConflictException;
-import org.whispersystems.textsecuregcm.util.Pair;
 import org.whispersystems.textsecuregcm.util.ProfileHelper;
 
 public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
@@ -62,13 +58,17 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
   private final PostPolicyGenerator policyGenerator;
-  private final PolicySigner policySigner;
   private final ProfileBadgeConverter profileBadgeConverter;
   private final RateLimiters rateLimiters;
 
+  private static final S3UploadForm PROTOTYPE_AVATAR_UPLOAD_FORM = S3UploadForm.newBuilder()
+      .setAcl(PostPolicyGenerator.ACL)
+      .setAlgorithm(PostPolicyGenerator.ALGORITHM)
+      .build();
+
   private record AvatarData(Optional<String> currentAvatar,
                             Optional<String>  finalAvatar,
-                            Optional<ProfileAvatarUploadAttributes> uploadAttributes) {}
+                            Optional<S3UploadForm> uploadAttributes) {}
 
   public ProfileGrpcService(
       final Clock clock,
@@ -77,7 +77,6 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
       final BadgesConfiguration badgesConfiguration,
       final PostPolicyGenerator policyGenerator,
-      final PolicySigner policySigner,
       final ProfileBadgeConverter profileBadgeConverter,
       final RateLimiters rateLimiters) {
     this.clock = clock;
@@ -87,7 +86,6 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     this.badgeConfigurationMap = badgesConfiguration.getBadges().stream().collect(Collectors.toMap(
         BadgeConfiguration::getId, Function.identity()));
     this.policyGenerator = policyGenerator;
-    this.policySigner = policySigner;
     this.profileBadgeConverter = profileBadgeConverter;
     this.rateLimiters = rateLimiters;
   }
@@ -266,19 +264,16 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
     }
   }
 
-  private ProfileAvatarUploadAttributes generateAvatarUploadForm(final String objectName) {
-    final ZonedDateTime now = ZonedDateTime.now(clock);
-    final Pair<String, String> policy = policyGenerator.createFor(now, objectName, ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES);
-    final String signature = policySigner.getSignature(now, policy.second());
+  private S3UploadForm generateAvatarUploadForm(final String objectName) {
+    final PostPolicyGenerator.SignedPostPolicy policy =
+        policyGenerator.createFor(objectName, ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES, clock.instant());
 
-    return ProfileAvatarUploadAttributes.newBuilder()
-        .setPath(objectName)
-        .setCredential(policy.first())
-        .setAcl("private")
-        .setAlgorithm("AWS4-HMAC-SHA256")
-        .setDate(now.format(PostPolicyGenerator.AWS_DATE_TIME))
-        .setPolicy(policy.second())
-        .setSignature(ByteString.copyFrom(signature.getBytes()))
+    return PROTOTYPE_AVATAR_UPLOAD_FORM.toBuilder()
+        .setKey(objectName)
+        .setCredential(policy.credential())
+        .setDate(policy.formattedTimestamp())
+        .setPolicy(policy.encodedPolicy())
+        .setSignature(policy.signature())
         .build();
   }
 }

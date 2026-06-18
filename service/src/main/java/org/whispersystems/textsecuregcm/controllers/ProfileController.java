@@ -39,7 +39,6 @@ import jakarta.ws.rs.core.Response;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -88,7 +87,6 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
-import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
@@ -114,7 +112,6 @@ public class ProfileController {
   private final ProfileBadgeConverter profileBadgeConverter;
   private final Map<String, BadgeConfiguration> badgeConfigurationMap;
 
-  private final PolicySigner policySigner;
   private final PostPolicyGenerator policyGenerator;
   private final ServerSecretParams serverSecretParams;
   private final ServerZkProfileOperations zkProfileOperations;
@@ -135,7 +132,6 @@ public class ProfileController {
       ProfileBadgeConverter profileBadgeConverter,
       BadgesConfiguration badgesConfiguration,
       PostPolicyGenerator policyGenerator,
-      PolicySigner policySigner,
       ServerSecretParams serverSecretParams,
       ServerZkProfileOperations zkProfileOperations,
       Executor batchIdentityCheckExecutor) {
@@ -150,7 +146,6 @@ public class ProfileController {
     this.serverSecretParams = serverSecretParams;
     this.zkProfileOperations = zkProfileOperations;
     this.policyGenerator = policyGenerator;
-    this.policySigner = policySigner;
     this.batchIdentityCheckExecutor = Preconditions.checkNotNull(batchIdentityCheckExecutor);
   }
 
@@ -553,15 +548,13 @@ public class ProfileController {
     return maybeTargetAccount.get();
   }
 
-  private ProfileAvatarUploadAttributes generateAvatarUploadForm(
-      final String objectName) {
-    ZonedDateTime now = ZonedDateTime.now(clock);
-    Pair<String, String> policy = policyGenerator.createFor(now, objectName, ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES);
-    String signature = policySigner.getSignature(now, policy.second());
+  private ProfileAvatarUploadAttributes generateAvatarUploadForm(final String objectName) {
+    final PostPolicyGenerator.SignedPostPolicy signedPostPolicy =
+        policyGenerator.createFor(objectName, ProfileHelper.MAX_PROFILE_AVATAR_SIZE_BYTES, clock.instant());
 
-    return new ProfileAvatarUploadAttributes(objectName, policy.first(),
-        "private", "AWS4-HMAC-SHA256",
-        now.format(PostPolicyGenerator.AWS_DATE_TIME), policy.second(), signature);
+    return new ProfileAvatarUploadAttributes(objectName, signedPostPolicy.credential(),
+        PostPolicyGenerator.ACL, PostPolicyGenerator.ALGORITHM,
+        signedPostPolicy.formattedTimestamp(), signedPostPolicy.encodedPolicy(), signedPostPolicy.signature());
   }
 
   private static Map<String, Boolean> getAccountCapabilities(final Account account) {

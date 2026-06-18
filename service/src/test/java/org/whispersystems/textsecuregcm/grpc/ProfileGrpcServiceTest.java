@@ -93,7 +93,6 @@ import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
-import org.whispersystems.textsecuregcm.s3.PolicySigner;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
@@ -148,10 +147,11 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
   @Override
   protected ProfileGrpcService createServiceBeforeEachTest() {
+    clock = Clock.fixed(Instant.ofEpochSecond(42), ZoneId.of("Etc/UTC"));
+
     @SuppressWarnings("unchecked") final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager = mock(DynamicConfigurationManager.class);
     final DynamicConfiguration dynamicConfiguration = mock(DynamicConfiguration.class);
-    final PolicySigner policySigner = new PolicySigner("accessSecret", "us-west-1");
-    final PostPolicyGenerator policyGenerator = new PostPolicyGenerator("us-west-1", "profile-bucket", "accessKey");
+    final PostPolicyGenerator policyGenerator = new PostPolicyGenerator("us-west-1", "profile-bucket", "accessKey", "accessSecret");
     final BadgesConfiguration badgesConfiguration = new BadgesConfiguration(
         List.of(new BadgeConfiguration(
             "TEST",
@@ -201,8 +201,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
 
     when(profilesManager.deleteAvatar(anyString())).thenReturn(CompletableFuture.completedFuture(null));
 
-    clock = Clock.fixed(Instant.ofEpochSecond(42), ZoneId.of("Etc/UTC"));
-
     return new ProfileGrpcService(
         clock,
         accountsManager,
@@ -210,7 +208,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         dynamicConfigurationManager,
         badgesConfiguration,
         policyGenerator,
-        policySigner,
         profileBadgeConverter,
         rateLimiters
     );
@@ -398,9 +395,9 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
     final SetProfileResult result = response.getResult();
 
     if (expectHasS3UploadPath) {
-      assertTrue(result.getV1AvatarUploadForm().getPath().startsWith("profiles/"));
+      assertTrue(result.getV1AvatarUploadForm().getKey().startsWith("profiles/"));
     } else {
-      assertEquals("", result.getV1AvatarUploadForm().getPath());
+      assertEquals("", result.getV1AvatarUploadForm().getKey());
     }
 
     if (expectDeleteS3Object) {
