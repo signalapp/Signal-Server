@@ -474,7 +474,7 @@ class FoundationDbMessageStoreTest {
     assertArrayEquals(retainedMessage.toByteArray(),
         getItemsInDeviceQueue(retainedMessageAci, retainedMessageDeviceId).getFirst().getValue());
 
-    foundationDbMessageStore.delete(deletedMessageAci, deletedMessageDeviceId, deletedMessageGuid);
+    foundationDbMessageStore.delete(deletedMessageAci, deletedMessageDeviceId, deletedMessageGuid).join();
 
     assertTrue(getItemsInDeviceQueue(deletedMessageAci, deletedMessageDeviceId).isEmpty());
 

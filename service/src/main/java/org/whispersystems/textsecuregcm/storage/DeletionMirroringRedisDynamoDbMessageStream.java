@@ -7,9 +7,7 @@ package org.whispersystems.textsecuregcm.storage;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Flow;
-import com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
@@ -21,9 +19,7 @@ public class DeletionMirroringRedisDynamoDbMessageStream implements MessageStrea
 
   private final RedisDynamoDbMessageStream redisDynamoDbMessageStream;
   private final FoundationDbMessageStore foundationDbMessageStore;
-
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
-  private final Executor messageDeletionExecutor;
 
   private final AciServiceIdentifier accountIdentifier;
   private final byte deviceId;
@@ -33,15 +29,12 @@ public class DeletionMirroringRedisDynamoDbMessageStream implements MessageStrea
   public DeletionMirroringRedisDynamoDbMessageStream(final RedisDynamoDbMessageStream redisDynamoDbMessageStream,
       final FoundationDbMessageStore foundationDbMessageStore,
       final ExperimentEnrollmentManager experimentEnrollmentManager,
-      final Executor messageDeletionExecutor,
       final UUID accountIdentifier,
       final byte deviceId) {
 
     this.redisDynamoDbMessageStream = redisDynamoDbMessageStream;
     this.foundationDbMessageStore = foundationDbMessageStore;
-
     this.experimentEnrollmentManager = experimentEnrollmentManager;
-    this.messageDeletionExecutor = messageDeletionExecutor;
 
     this.accountIdentifier = new AciServiceIdentifier(accountIdentifier);
     this.deviceId = deviceId;
@@ -59,13 +52,13 @@ public class DeletionMirroringRedisDynamoDbMessageStream implements MessageStrea
     if (messageGuid.version() == 8 &&
         experimentEnrollmentManager.isEnrolled(accountIdentifier.uuid(), MessagesManager.MIRROR_DELETIONS_EXPERIMENT_NAME)) {
 
-      messageDeletionExecutor.execute(() -> {
-        try {
-          foundationDbMessageStore.delete(accountIdentifier, deviceId, messageGuid);
-        } catch (final Exception e) {
-          logger.warn("Failed to delete message {}/{}/{} from FoundationDb", accountIdentifier.uuid(), deviceId, messageGuid, e);
-        }
-      });
+      foundationDbMessageStore.delete(accountIdentifier, deviceId, messageGuid)
+          .whenComplete((_, throwable) -> {
+            if (throwable != null) {
+              logger.warn("Failed to delete message {}/{}/{} from FoundationDb", accountIdentifier.uuid(), deviceId,
+                  messageGuid, throwable);
+            }
+          });
     }
 
     return redisDynamoDbMessageStream.acknowledgeMessage(messageGuid, serverTimestamp);

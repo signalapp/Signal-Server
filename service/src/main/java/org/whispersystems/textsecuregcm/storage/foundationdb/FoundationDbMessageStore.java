@@ -326,22 +326,23 @@ public class FoundationDbMessageStore {
 
   // Note that this method is intended only for initial migration support; in general, callers should clear messages
   // by acknowledging messages via a `FoundationDbMessageStream`.
-  public void delete(final AciServiceIdentifier aci, final byte deviceId, final UUID messageGuid) {
-    delete(aci, deviceId, versionstampUUIDCipher.decryptVersionstamp(messageGuid, aci.uuid(), deviceId));
+  public CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final UUID messageGuid) {
+    return delete(aci, deviceId, versionstampUUIDCipher.decryptVersionstamp(messageGuid, aci.uuid(), deviceId));
   }
 
-  private void delete(final AciServiceIdentifier aci, final byte deviceId, final Versionstamp versionstamp) {
+  private CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final Versionstamp versionstamp) {
     final Timer.Sample sample = Timer.start();
 
     final byte[] messageKey = getDeviceQueueSubspace(aci, deviceId).pack(Tuple.from(versionstamp));
 
-    databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].run(transaction -> {
-      transaction.clear(messageKey);
-      return null;
-    });
-
-    sample.stop(DELETE_MESSAGE_TIMER);
-    DELETE_MESSAGE_COUNTER.increment();
+    return databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].runAsync(transaction -> {
+          transaction.clear(messageKey);
+          return CompletableFuture.completedFuture(null);
+        })
+        .thenRun(() -> {
+          sample.stop(DELETE_MESSAGE_TIMER);
+          DELETE_MESSAGE_COUNTER.increment();
+        });
   }
 
   public void clearAll(final AciServiceIdentifier aci) {

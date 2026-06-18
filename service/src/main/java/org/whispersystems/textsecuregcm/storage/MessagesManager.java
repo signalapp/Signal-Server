@@ -283,7 +283,6 @@ public class MessagesManager {
         new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, destinationUuid, destinationDevice),
         foundationDbMessageStore,
         experimentEnrollmentManager,
-        messageDeletionExecutor,
         destinationUuid,
         destinationDevice.getId());
   }

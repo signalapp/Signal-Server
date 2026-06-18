@@ -41,7 +41,6 @@ class DeletionMirroringRedisDynamoDbMessageStreamTest {
         mock(RedisDynamoDbMessageStream.class),
         foundationDbMessageStore,
         experimentEnrollmentManager,
-        Runnable::run,
         ACCOUNT_IDENTIFIER.uuid(),
         DEVICE_ID);
   }
