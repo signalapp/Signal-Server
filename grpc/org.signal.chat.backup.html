@@ -88,6 +88,15 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.backup.BackupStreamClosed">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>BackupStreamClosed</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.backup.GetCdnCredentialsResponse.CdnCredentials">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>CdnCredentials</code> 
@@ -791,7 +800,9 @@ provided key material before being copied.</p>
 operations complete with detailed information about the outcome. If an
 error is encountered, not all requests may be reflected in the responses.</p>
 <p>On retries, a particular destination media id must not be reused with a
-different source media id or different encryption parameters.</p></p>
+different source media id or different encryption parameters.</p>
+<p>The response stream may be closed with STREAM_CLOSED error reason. In this
+case, a BackupStreamClosed message will be present in the error details.</p></p>
   </div>
   
 </div>
@@ -836,7 +847,9 @@ via DeleteMedia.</p></p>
   
   <div class="block">
     <p><p>Delete media objects stored with this backup-id. Streams the locations of
-media items back when the item has successfully been removed.</p></p>
+media items back when the item has successfully been removed.</p>
+<p>The response stream may be closed with STREAM_CLOSED error reason. In this
+case, a BackupStreamClosed message will be present in the error details.</p></p>
   </div>
   
 </div>
@@ -874,6 +887,75 @@ backups again, a public key must be resupplied.</p></p>
       Messages
     </h3>
 
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.backup.BackupStreamClosed">
+  <span>
+    <a href="#message-org.signal.chat.backup.BackupStreamClosed" title="org.signal.chat.backup.BackupStreamClosed">message BackupStreamClosed</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>The reason why a media stream RPC is being prematurely closed by the server.</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof reason</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            failed_authentication
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The provided backup auth credential presentation could not be
+authenticated. Either, the presentation could not be verified, or
+the public key signature was invalid, or there is no backup associated
+with the backup-id in the presentation.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
     
       
       <div class="block">
@@ -992,9 +1074,9 @@ backups again, a public key must be resupplied.</p></p>
         object_length
       </td>
       <td>
-        <code title="uint32">
+        <code title="uint64">
           
-          <span>uint32</span>
+          <span>uint64</span>
         </code>
       </td>
       <td class="content"><p>The length of the source attachment before the encryption applied by the
@@ -1204,29 +1286,6 @@ copy operation</p></td>
             3
           </td>
           <td>
-            failed_authentication
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedZkAuthentication">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The provided backup auth credential presentation could not be
-authenticated. Either, the presentation could not be verified, or
-the public key signature was invalid, or there is no backup associated
-with the backup-id in the presentation.</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            4
-          </td>
-          <td>
             source_not_found
           </td>
           <td>
@@ -1244,7 +1303,7 @@ with the backup-id in the presentation.</p></td>
 
         <tr>
           <td>
-            5
+            4
           </td>
           <td>
             wrong_source_length
@@ -1264,7 +1323,7 @@ with the backup-id in the presentation.</p></td>
 
         <tr>
           <td>
-            6
+            5
           </td>
           <td>
             out_of_space
@@ -1713,60 +1772,22 @@ with the backup-id in the presentation.</p></td>
   </thead>
   <tbody>
     
+    <tr>
+      <td>1</td>
+      <td>
+        deleted_item
+      </td>
+      <td>
+        <code title="org.signal.chat.backup.DeleteMediaItem">
+          
+          <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.DeleteMediaItem"><span title="org.signal.chat.backup.DeleteMediaItem">org.signal.chat.backup.DeleteMediaItem</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
     
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof response</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            1
-          </td>
-          <td>
-            deleted_item
-          </td>
-          <td>
-            <code title="org.signal.chat.backup.DeleteMediaItem">
-              
-              <a href="org.signal.chat.backup.html#message-org.signal.chat.backup.DeleteMediaItem"><span title="org.signal.chat.backup.DeleteMediaItem">org.signal.chat.backup.DeleteMediaItem</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            failed_authentication
-          </td>
-          <td>
-            <code title="org.signal.chat.errors.FailedZkAuthentication">
-              
-              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
-    </a>
-            </code>
-          </td>
-          <td class="content"><p>The provided backup auth credential presentation could not be
-authenticated. Either, the presentation could not be verified, or
-the public key signature was invalid, or there is no backup associated
-with the backup-id in the presentation.</p></td>
-          
-        </tr>
-      
     
   </tbody>
 </table>

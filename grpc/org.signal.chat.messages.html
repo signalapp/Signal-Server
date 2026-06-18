@@ -124,6 +124,15 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.messages.GetMessagesStreamClosed">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetMessagesStreamClosed</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.messages.IndividualRecipientMessageBundle">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>IndividualRecipientMessageBundle</code> 
@@ -259,15 +268,6 @@
       </p>
       
     
-      
-      <p>
-        <a href="#message-org.signal.chat.messages.GetMessagesResponse.Terminated">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>Terminated</code> 
-        </a>
-      </p>
-      
-    
 
     
       <p>
@@ -377,8 +377,11 @@ has been processed (an ack). Acks should only be sent for messages
 delivered via the currently open RPC.</p>
 <p>Only the first GetMessagesRequest may contain request parameters that
 configure the stream. The first request must not contain an ack.</p>
-<p>The server will keep the stream open until the client disconnects or the
-connection is displaced as indicated by a Terminated response.</p></p>
+<p>The server will keep the stream open until the client disconnects. Only
+one GetMessages stream may be open per device. If a second GetMessages
+stream is opened, the server may terminate any of the streams with
+a STREAM_CLOSED error reason. A GetMessagesStreamClosed message will be
+present in the error details.</p></p>
   </div>
   
 </div>
@@ -816,23 +819,68 @@ to deliver newly arrived messages.</p></td>
           
         </tr>
       
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.GetMessagesStreamClosed">
+  <span>
+    <a href="#message-org.signal.chat.messages.GetMessagesStreamClosed" title="org.signal.chat.messages.GetMessagesStreamClosed">message GetMessagesStreamClosed</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>The reason why a GetMessages RPC is being closed by the server.</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof reason</strong>
+              </div>
+            </td>
+          </tr>
         
 
         <tr>
           <td>
-            3
+            1
           </td>
           <td>
-            terminated
+            conflicting_stream
           </td>
           <td>
-            <code title="org.signal.chat.messages.GetMessagesResponse.Terminated">
+            <code title="google.protobuf.Empty">
               
-              <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.GetMessagesResponse.Terminated"><span title="org.signal.chat.messages.GetMessagesResponse.Terminated">org.signal.chat.messages.GetMessagesResponse.Terminated</span>
-    </a>
+              <span>google.protobuf.Empty</span>
             </code>
           </td>
-          <td class="content"><p>Indicates that the stream is about to be closed.</p></td>
+          <td class="content"><p>Another caller has opened a GetMessages stream for the same device.</p></td>
           
         </tr>
       
@@ -2242,93 +2290,6 @@ delivery channel with a Signal server</p></td>
       
     </tr>
     
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.messages.GetMessagesResponse.Terminated">
-  <span>
-    <a href="#message-org.signal.chat.messages.GetMessagesResponse.Terminated" title="org.signal.chat.messages.GetMessagesResponse.Terminated">message Terminated</a>
-  
-    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.messages.html#message-org.signal.chat.messages.GetMessagesResponse"><span title="org.signal.chat.messages.GetMessagesResponse">org.signal.chat.messages.GetMessagesResponse</span>
-    </a>)</span>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  <p>The reason why a GetMessages RPC is being closed by the server.</p>
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    
-      
-        
-          <tr class="nohover"><td style="border: 0px"></td></tr>
-          <tr class="nohover">
-            <td class="oneof-heading" colspan="4">
-              <div class="oneof-heading">
-                <strong>oneof reason</strong>
-              </div>
-            </td>
-          </tr>
-        
-
-        <tr>
-          <td>
-            1
-          </td>
-          <td>
-            reauthentication_required
-          </td>
-          <td>
-            <code title="google.protobuf.Empty">
-              
-              <span>google.protobuf.Empty</span>
-            </code>
-          </td>
-          <td class="content"><p>The account's credentials have been updated and the caller must reauthenticate.</p></td>
-          
-        </tr>
-      
-        
-
-        <tr>
-          <td>
-            2
-          </td>
-          <td>
-            conflicting_stream
-          </td>
-          <td>
-            <code title="google.protobuf.Empty">
-              
-              <span>google.protobuf.Empty</span>
-            </code>
-          </td>
-          <td class="content"><p>Another caller has opened a GetMessages stream for the same device.</p></td>
-          
-        </tr>
-      
     
   </tbody>
 </table>

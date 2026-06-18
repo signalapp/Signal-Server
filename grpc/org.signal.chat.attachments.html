@@ -81,6 +81,24 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.attachments.GetStickerUploadFormRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetStickerUploadFormRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.attachments.GetStickerUploadFormResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetStickerUploadFormResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.attachments.GetUploadFormRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>GetUploadFormRequest</code> 
@@ -145,6 +163,26 @@
   </div>
   
 </div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.attachments.Attachments-GetStickerUploadForm">
+      <a href="#service-org.signal.chat.attachments.Attachments-GetStickerUploadForm">
+        rpc <code>GetStickerUploadForm</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.attachments.html#message-org.signal.chat.attachments.GetStickerUploadFormRequest"><span title="org.signal.chat.attachments.GetStickerUploadFormRequest">org.signal.chat.attachments.GetStickerUploadFormRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.attachments.html#message-org.signal.chat.attachments.GetStickerUploadFormResponse"><span title="org.signal.chat.attachments.GetStickerUploadFormResponse">org.signal.chat.attachments.GetStickerUploadFormResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Retrieve an upload form that can be used to upload a sticker pack</p></p>
+  </div>
+  
+</div>
  
     </div>
     
@@ -158,6 +196,140 @@
       Messages
     </h3>
 
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.attachments.GetStickerUploadFormRequest">
+  <span>
+    <a href="#message-org.signal.chat.attachments.GetStickerUploadFormRequest" title="org.signal.chat.attachments.GetStickerUploadFormRequest">message GetStickerUploadFormRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        sticker_count
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The number of stickers in the sticker pack to upload</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.attachments.GetStickerUploadFormResponse">
+  <span>
+    <a href="#message-org.signal.chat.attachments.GetStickerUploadFormResponse" title="org.signal.chat.attachments.GetStickerUploadFormResponse">message GetStickerUploadFormResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        pack_id
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A randomly-generated ID for the new sticker pack</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        manifest_upload_form
+      </td>
+      <td>
+        <code title="org.signal.chat.common.S3UploadForm">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.S3UploadForm"><span title="org.signal.chat.common.S3UploadForm">org.signal.chat.common.S3UploadForm</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>An upload form clients must use to upload a manifest for the sticker pack</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        sticker_upload_forms
+      </td>
+      <td>
+        <code title="org.signal.chat.common.S3UploadForm">
+          
+            repeated
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.S3UploadForm"><span title="org.signal.chat.common.S3UploadForm">org.signal.chat.common.S3UploadForm</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>Upload forms for individual stickers within the sticker pack</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
     
       
       <div class="block">

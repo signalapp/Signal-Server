@@ -121,6 +121,11 @@ header. If provided, the request will fail with a <code>BAD_AUTHENTICATION</code
 <td style="text-align: left;">A server-side resource was exhausted. The <code>details</code> field may include a <a href="https://github.com/googleapis/googleapis/blob/8c06c1e04ae562f49f411357577c700e9142f33c/google/rpc/error_details.proto#L92"><code>RetryInfo</code> message</a> that includes the amount of time in seconds the client should wait before retrying the request. <br><br> If a <code>RetryInfo</code> is present, the client must wait the indicated time before retrying the request. If absent, the client should retry with an exponential backoff.</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>ABORTED</code></td>
+<td style="text-align: left;"><code>STREAM_CLOSED</code></td>
+<td style="text-align: left;">The server terminated a streaming RPC for some domain specific reason. The <code>details</code> field must include a message with additional information about why the stream was closed. This message must be defined in the corresponding service proto for the streaming RPC. This status must only be returned from server-side streaming RPCs. Clients must handle a STREAM_CLOSED status even if no corresponding message is defined in the version of the proto they are targeting. Unless otherwise noted, if a stream termination message is defined, clients must handle the error at any point in the message stream.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>UNAVAILABLE</code></td>
 <td style="text-align: left;"><code>UNAVAILABLE</code></td>
 <td style="text-align: left;">There was an internal error processing the RPC. The client should retry the request with exponential backoff.</td>
@@ -245,6 +250,13 @@ header. If provided, the request will fail with a <code>BAD_AUTHENTICATION</code
     <h4 class="title is-5">
       
         <a href="org.signal.chat.require.html">org.signal.chat.require</a>
+      
+    </h4>
+    
+  
+    <h4 class="title is-5">
+      
+        <a href="org.signal.chat.subscriptions.html">org.signal.chat.subscriptions</a>
       
     </h4>
     

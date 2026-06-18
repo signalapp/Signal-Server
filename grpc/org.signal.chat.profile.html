@@ -88,24 +88,6 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.profile.Badge">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>Badge</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.BadgeSvg">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>BadgeSvg</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
         <a href="#message-org.signal.chat.profile.DataEtag">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>DataEtag</code> 
@@ -253,15 +235,6 @@
         <a href="#message-org.signal.chat.profile.PaymentsForbiddenInRegion">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>PaymentsForbiddenInRegion</code> 
-        </a>
-      </p>
-      
-    
-      
-      <p>
-        <a href="#message-org.signal.chat.profile.ProfileAvatarUploadAttributes">
-          <span class="tag" style="min-width: 6em">Message</span>
-          <code>ProfileAvatarUploadAttributes</code> 
         </a>
       </p>
       
@@ -508,216 +481,6 @@ methods in <code>Profile</code> instead.</p></p>
       Messages
     </h3>
 
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.Badge">
-  <span>
-    <a href="#message-org.signal.chat.profile.Badge" title="org.signal.chat.profile.Badge">message Badge</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        id
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>An ID that uniquely identifies the badge.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        category
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>The category the badge falls in ("donor" or "other").</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>3</td>
-      <td>
-        name
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>The badge name.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>4</td>
-      <td>
-        description
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>The badge description.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>5</td>
-      <td>
-        sprites6
-      </td>
-      <td>
-        <code title="string">
-          
-            repeated
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>Different size badge SVG files.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>6</td>
-      <td>
-        svg
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>File name of the scalable vector graphic representing this badge.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>7</td>
-      <td>
-        svgs
-      </td>
-      <td>
-        <code title="org.signal.chat.profile.BadgeSvg">
-          
-            repeated
-          
-          <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.BadgeSvg"><span title="org.signal.chat.profile.BadgeSvg">org.signal.chat.profile.BadgeSvg</span>
-    </a>
-        </code>
-      </td>
-      <td class="content"><p>Pairs of light/dark SVG files designed for display at different sizes.</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.BadgeSvg">
-  <span>
-    <a href="#message-org.signal.chat.profile.BadgeSvg" title="org.signal.chat.profile.BadgeSvg">message BadgeSvg</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        light
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>File name of the scalable vector graphic for light mode.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        dark
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>File name of the scalable vector graphic for dark mode.</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
     
       
       <div class="block">
@@ -1548,11 +1311,11 @@ the request.</p></td>
         badges
       </td>
       <td>
-        <code title="org.signal.chat.profile.Badge">
+        <code title="org.signal.chat.common.Badge">
           
             repeated
           
-          <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.Badge"><span title="org.signal.chat.profile.Badge">org.signal.chat.profile.Badge</span>
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.Badge"><span title="org.signal.chat.common.Badge">org.signal.chat.common.Badge</span>
     </a>
         </code>
       </td>
@@ -2234,146 +1997,6 @@ due to a disallowed country prefix on the account's phone number.</p>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.ProfileAvatarUploadAttributes">
-  <span>
-    <a href="#message-org.signal.chat.profile.ProfileAvatarUploadAttributes" title="org.signal.chat.profile.ProfileAvatarUploadAttributes">message ProfileAvatarUploadAttributes</a>
-  
-  </span>
-  
-</h4>
-
-<div class="block content">
-  
-</div>
-
-<table class="table is-fullwidth is-hoverable is-bordered">
-  <thead>
-    <tr>
-      <th></th>
-      <th>Field</th>
-      <th>Type</th>
-      <th>Description</th>
-      
-    </tr>
-  </thead>
-  <tbody>
-    
-    <tr>
-      <td>1</td>
-      <td>
-        path
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>The S3 upload path for the profile's avatar.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>2</td>
-      <td>
-        credential
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>A scoped credential. Includes the AWS access key, date, region targeted, and AWS service.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>3</td>
-      <td>
-        acl
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>The type of access control for the avatar object.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>4</td>
-      <td>
-        algorithm
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>The algorithm used to calculate a signature on the S3 policy.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>5</td>
-      <td>
-        date
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>The timestamp at which the S3 policy and signature were generated.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>6</td>
-      <td>
-        policy
-      </td>
-      <td>
-        <code title="string">
-          
-          <span>string</span>
-        </code>
-      </td>
-      <td class="content"><p>The S3 policy used to upload the avatar object.</p></td>
-      
-    </tr>
-    
-    <tr>
-      <td>7</td>
-      <td>
-        signature
-      </td>
-      <td>
-        <code title="bytes">
-          
-          <span>bytes</span>
-        </code>
-      </td>
-      <td class="content"><p>A digital signature on the S3 policy.</p></td>
-      
-    </tr>
-    
-    
-  </tbody>
-</table>
- 
-      </div>
-      
-    
-      
-      <div class="block">
-        
-
 <h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.ProfilesV2CapabilityRequired">
   <span>
     <a href="#message-org.signal.chat.profile.ProfilesV2CapabilityRequired" title="org.signal.chat.profile.ProfilesV2CapabilityRequired">message ProfilesV2CapabilityRequired</a>
@@ -2756,11 +2379,11 @@ field number without serialization overhead. This is purely aesthetic.</p></td>
         v1_avatar_upload_form
       </td>
       <td>
-        <code title="org.signal.chat.profile.ProfileAvatarUploadAttributes">
+        <code title="org.signal.chat.common.S3UploadForm">
           
             optional
           
-          <a href="org.signal.chat.profile.html#message-org.signal.chat.profile.ProfileAvatarUploadAttributes"><span title="org.signal.chat.profile.ProfileAvatarUploadAttributes">org.signal.chat.profile.ProfileAvatarUploadAttributes</span>
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.S3UploadForm"><span title="org.signal.chat.common.S3UploadForm">org.signal.chat.common.S3UploadForm</span>
     </a>
         </code>
       </td>

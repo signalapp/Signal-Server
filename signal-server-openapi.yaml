@@ -6375,6 +6375,14 @@ components:
           items:
             type: string
             description: The payment methods that support the given currency
+            enum:
+            - UNKNOWN
+            - CARD
+            - PAYPAL
+            - SEPA_DEBIT
+            - IDEAL
+            - GOOGLE_PLAY_BILLING
+            - APPLE_APP_STORE
       description: Configuration for a currency - use to present appropriate client
         interfaces
     GetSubscriptionConfigurationResponse:
@@ -6405,9 +6413,6 @@ components:
     LevelConfiguration:
       type: object
       properties:
-        name:
-          type: string
-          description: The localized name for the level
         badge:
           $ref: "#/components/schemas/Badge"
       description: Configuration for a donation level - use to present appropriate
