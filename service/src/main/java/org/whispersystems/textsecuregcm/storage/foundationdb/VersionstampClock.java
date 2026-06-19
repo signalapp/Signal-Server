@@ -16,6 +16,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
  /// A "versionstamp clock" records versionstamp/time pairs in a FoundationDB database. The purpose of the "clock" is to
  /// allow callers to get the versionstamp of a FoundationDB database at a specific real-world time to facilitate
@@ -44,19 +45,18 @@ public class VersionstampClock {
 
   /// Make a recording in the database of the current time and associated versionstamp.
   ///
-  /// @return the versionstamp for the newly-recorded entry
-  public Versionstamp recordVersionstampAndTime() {
+  /// @return a future for the versionstamp for the newly-recorded entry
+  public CompletableFuture<Versionstamp> recordVersionstampAndTime() {
     final Instant currentTime = clock.instant();
 
-    return database.run(transaction -> {
+    return database.runAsync(transaction -> {
           transaction.mutate(MutationType.SET_VERSIONSTAMPED_VALUE,
               getTimestampKey(currentTime),
               Tuple.from(Versionstamp.incomplete()).packWithVersionstamp());
 
-          return transaction.getVersionstamp();
+          return CompletableFuture.completedFuture(transaction.getVersionstamp());
         })
-        .thenApply(Versionstamp::complete)
-        .join();
+        .thenApply(ff -> Versionstamp.complete(ff.join()));
   }
 
   /// Returns the highest versionstamp recorded at or before the given instant.

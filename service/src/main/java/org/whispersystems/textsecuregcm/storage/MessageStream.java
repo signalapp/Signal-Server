@@ -8,7 +8,6 @@ package org.whispersystems.textsecuregcm.storage;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
-import org.whispersystems.textsecuregcm.entities.MessageProtos;
 
 /// A message stream publishes an ordered stream of Signal messages from a destination device's queue and provides a
 /// mechanism for consumers to acknowledge receipt of delivered messages.

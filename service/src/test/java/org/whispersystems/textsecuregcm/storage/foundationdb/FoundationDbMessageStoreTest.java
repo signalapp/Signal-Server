@@ -19,10 +19,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.util.DataSize;
 import java.io.UncheckedIOException;
 import java.security.SecureRandom;
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -62,6 +60,7 @@ import org.whispersystems.textsecuregcm.storage.FoundationDbClusterExtension;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
 import org.whispersystems.textsecuregcm.util.Conversions;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
@@ -77,7 +76,7 @@ class FoundationDbMessageStoreTest {
   private VersionstampUUIDCipher versionstampUUIDCipher;
   private FoundationDbMessageStore foundationDbMessageStore;
 
-  private static final Clock CLOCK = Clock.fixed(Instant.ofEpochSecond(500), ZoneId.of("UTC"));
+  private static final TestClock CLOCK = TestClock.pinned(Instant.ofEpochSecond(500));
 
   private static final int DEFAULT_EPOCH = 0;
   private static final int FUTURE_EPOCH = 2;
@@ -980,6 +979,57 @@ class FoundationDbMessageStoreTest {
 
     assertEquals(epoch, FoundationDbMessageStore.getConfigurationEpoch(versionstamp));
     assertEquals(shardId, FoundationDbMessageStore.getShardId(versionstamp));
+  }
+
+  @Test
+  void deleteExpiredMessages() {
+    final Instant oldTime = CLOCK.instant();
+    final Instant threshold = oldTime.plus(Duration.ofDays(1));
+    final Instant newTime = oldTime.plus(Duration.ofDays(2));
+    final Instant testTime = oldTime.plus(Duration.ofDays(3));
+
+    final List<AciServiceIdentifier> acis = IntStream.range(0, 1024).mapToObj(_ -> new AciServiceIdentifier(UUID.randomUUID())).toList();
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+
+    // insert some old messages
+    CompletableFuture.allOf(
+        IntStream.range(0, 10)
+            .mapToObj(_ -> foundationDbMessageStore.insert(
+                acis.stream()
+                    .collect(Collectors.toMap(Function.identity(), _ -> Map.of(Device.PRIMARY_ID, generateRandomMessage(false))))))
+            .toArray(CompletableFuture[]::new))
+        .join();
+
+    // update the versionstamp at the cutoff threshold
+    CLOCK.pin(threshold);
+    foundationDbMessageStore.recordVersionstamps();
+
+    // insert some new messages
+    CLOCK.pin(newTime);
+    CompletableFuture.allOf(
+        IntStream.range(0, 10)
+            .mapToObj(_ -> foundationDbMessageStore.insert(
+                acis.stream()
+                    .collect(Collectors.toMap(Function.identity(), _ -> Map.of(Device.PRIMARY_ID, generateRandomMessage(false))))))
+            .toArray(CompletableFuture[]::new))
+        .join();
+
+    // advance to a future date, and clear messages before the threshold
+    CLOCK.pin(testTime);
+    foundationDbMessageStore.deleteMessagesBefore(
+        acis.stream().collect(Collectors.toMap(Function.identity(), _ -> List.of(Device.PRIMARY_ID))),
+        threshold).join();
+
+    // make sure we have new but not old messages
+    for (AciServiceIdentifier aci : acis) {
+      final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
+      final List<MessageProtos.Envelope> messages = JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()).takeUntil(entry -> entry instanceof MessageStreamEntry.QueueEmpty).filter(entry -> entry instanceof MessageStreamEntry.Envelope).cast(MessageStreamEntry.Envelope.class).map(MessageStreamEntry.Envelope::message).collectList().block();
+      assertEquals(10, messages.size());
+      for (MessageProtos.Envelope m : messages) {
+        assertEquals(newTime.toEpochMilli(), m.getServerTimestamp());
+      }
+    }
   }
 
   static MessageProtos.Envelope generateRandomMessage(final boolean ephemeral, final int contentSize) {

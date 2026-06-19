@@ -2,15 +2,23 @@ package org.whispersystems.textsecuregcm.storage.foundationdb;
 
 import com.apple.foundationdb.Database;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Multimaps;
 import com.google.common.hash.Hashing;
 import io.dropwizard.util.DataSize;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,9 +30,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Timer;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
@@ -32,6 +37,8 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Util;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 /// An implementation of a message store backed by FoundationDB.
 ///
@@ -47,6 +54,7 @@ import org.whispersystems.textsecuregcm.util.Util;
 public class FoundationDbMessageStore {
 
   private final Database[][] databasesByEpoch;
+  private final Map<Database, VersionstampClock> versionstampClocks;
   private final int activeEpoch;
   private final VersionstampUUIDCipher versionstampUUIDCipher;
   private final Clock clock;
@@ -101,6 +109,10 @@ public class FoundationDbMessageStore {
     this.databasesByEpoch = databasesByEpochArray;
     this.activeEpoch = activeEpoch;
     this.versionstampUUIDCipher = versionstampUUIDCipher;
+    this.versionstampClocks = databasesByEpoch.values().stream()
+        .flatMap(List::stream)
+        .distinct()
+        .collect(Collectors.toMap(Function.identity(), db -> new VersionstampClock(db, clock)));
     this.clock = clock;
   }
 
@@ -395,6 +407,45 @@ public class FoundationDbMessageStore {
         maxMessagesPerScan,
         maxUnacknowledgedMessages,
         doAfterCleanup);
+  }
+
+  /// Record the versionstamp for the current time in each database's versionstamp clock.
+  public void recordVersionstamps() {
+    CompletableFuture
+        .allOf(
+            versionstampClocks.values().stream()
+                .map(VersionstampClock::recordVersionstampAndTime)
+                .toArray(CompletableFuture[]::new))
+        .join();
+  }
+
+  @VisibleForTesting
+  CompletableFuture<Void> deleteMessagesBefore(final Map<AciServiceIdentifier, List<Byte>> accountDeviceIdentifiers, final Instant cutoffTime) {
+    final List<Integer> liveEpochs = IntStream.range(0, MAX_EPOCHS).filter(e -> databasesByEpoch[e] != null).boxed().toList();
+    final Multimap<Database, Subspace> queueSpacesByDatabase = accountDeviceIdentifiers.entrySet()
+        .stream()
+        .flatMap(entry -> liveEpochs.stream().map(e -> getShardForAci(entry.getKey(), e)).distinct().map(db -> Tuples.of(db, entry)))
+        .collect(
+            Multimaps.flatteningToMultimap(
+                Tuple2::getT1,
+                dbAndAciAndDevices -> {
+                  final AciServiceIdentifier aci = dbAndAciAndDevices.getT2().getKey();
+                  final List<Byte> devices = dbAndAciAndDevices.getT2().getValue();
+                  return devices.stream().map(deviceId -> getDeviceQueueSubspace(aci, deviceId));
+                },
+                MultimapBuilder.hashKeys().arrayListValues()::build));
+
+    return CompletableFuture.allOf(
+        versionstampClocks.entrySet().stream()
+            .flatMap(dbAndClock -> dbAndClock.getValue().getVersionstamp(cutoffTime).map(v -> Tuples.of(dbAndClock.getKey(), v)).stream())
+            .map(dbAndVersionstamp -> {
+          final Database db = dbAndVersionstamp.getT1();
+          final Versionstamp versionstamp = dbAndVersionstamp.getT2();
+          return db.runAsync(txn -> {
+            queueSpacesByDatabase.get(db).forEach(s -> txn.clear(new Range(s.pack(Tuple.from()), s.pack(Tuple.from(versionstamp)))));
+            return CompletableFuture.<Void>completedFuture(null);
+          });
+        }).toArray(CompletableFuture[]::new));
   }
 
   static Versionstamp getVersionstamp(final byte[] messageKey) {
