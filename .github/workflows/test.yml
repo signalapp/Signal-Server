@@ -14,14 +14,14 @@ jobs:
 
     services:
       foundationdb0:
-        # Note: this should generally match the version of the FoundationDB SERVER deployed in production; it's okay if
-        # it's a little behind the CLIENT version.
-        image: foundationdb/foundationdb:7.3.62
+        # Note: this should generally match the version of the FoundationDB SERVER deployed in production; no need to
+        # bump it purely to match the CLIENT version
+        image: foundationdb/foundationdb:7.3.68
         options: --name foundationdb0
       foundationdb1:
-        # Note: this should generally match the version of the FoundationDB SERVER deployed in production; it's okay if
-        # it's a little behind the CLIENT version.
-        image: foundationdb/foundationdb:7.3.62
+        # Note: this should generally match the version of the FoundationDB SERVER deployed in production; no need to
+        # bump it purely to match the CLIENT version
+        image: foundationdb/foundationdb:7.3.68
         options: --name foundationdb1
 
     steps:
