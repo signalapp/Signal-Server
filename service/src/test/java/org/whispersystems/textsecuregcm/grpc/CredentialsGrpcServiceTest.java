@@ -12,7 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -34,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
@@ -84,7 +82,6 @@ import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
-import reactor.core.publisher.Mono;
 
 public class CredentialsGrpcServiceTest
     extends SimpleBaseGrpcTest<CredentialsGrpcService, CredentialsGrpc.CredentialsBlockingStub> {
@@ -199,8 +196,7 @@ public class CredentialsGrpcServiceTest
       final ExternalServiceType externalServiceType,
       final ExternalServiceCredentialsGenerator credentialsGenerator) {
     final RateLimiter limiter = mock(RateLimiter.class);
-    doReturn(limiter).when(rateLimiters).forDescriptor(eq(RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS));
-    doReturn(Mono.fromFuture(CompletableFuture.completedFuture(null))).when(limiter).validateReactive(eq(AUTHENTICATED_ACI));
+    when(rateLimiters.forDescriptor(eq(RateLimiters.For.EXTERNAL_SERVICE_CREDENTIALS))).thenReturn(limiter);
     final GetExternalServiceCredentialsResponse artResponse = authenticatedServiceStub().getExternalServiceCredentials(
         GetExternalServiceCredentialsRequest.newBuilder()
             .setExternalService(externalServiceType)
