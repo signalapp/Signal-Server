@@ -1019,12 +1019,20 @@ class FoundationDbMessageStoreTest {
     CLOCK.pin(testTime);
     foundationDbMessageStore.deleteMessagesBefore(
         acis.stream().collect(Collectors.toMap(Function.identity(), _ -> List.of(Device.PRIMARY_ID))),
-        threshold).join();
+        threshold);
 
     // make sure we have new but not old messages
     for (AciServiceIdentifier aci : acis) {
       final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
-      final List<MessageProtos.Envelope> messages = JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()).takeUntil(entry -> entry instanceof MessageStreamEntry.QueueEmpty).filter(entry -> entry instanceof MessageStreamEntry.Envelope).cast(MessageStreamEntry.Envelope.class).map(MessageStreamEntry.Envelope::message).collectList().block();
+      final List<MessageProtos.Envelope> messages =
+        JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages())
+            .takeUntil(entry -> entry instanceof MessageStreamEntry.QueueEmpty)
+            .filter(entry -> entry instanceof MessageStreamEntry.Envelope)
+            .cast(MessageStreamEntry.Envelope.class)
+            .map(MessageStreamEntry.Envelope::message)
+            .collectList()
+            .blockOptional()
+            .orElseGet(Collections::emptyList);
       assertEquals(10, messages.size());
       for (MessageProtos.Envelope m : messages) {
         assertEquals(newTime.toEpochMilli(), m.getServerTimestamp());

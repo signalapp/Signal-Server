@@ -47,10 +47,10 @@ class VersionstampClockTest {
     final Instant tomorrow = start.plus(Duration.ofDays(1));
 
     clock.pin(firstInsert);
-    final Versionstamp firstStamp = versionstampClock.recordVersionstampAndTime().join();
+    final Versionstamp firstStamp = versionstampClock.recordVersionstampAndTime();
 
     clock.pin(secondInsert);
-    final Versionstamp secondStamp = versionstampClock.recordVersionstampAndTime().join();
+    final Versionstamp secondStamp = versionstampClock.recordVersionstampAndTime();
 
     assertThat(versionstampClock.getVersionstamp(start)).isEmpty();
     assertThat(versionstampClock.getVersionstamp(firstInsert)).isPresent().hasValue(firstStamp);
@@ -66,13 +66,13 @@ class VersionstampClockTest {
     final Instant old = start.minus(Duration.ofDays(21));
 
     clock.pin(veryOld);
-    final Versionstamp veryOldStamp = versionstampClock.recordVersionstampAndTime().join();
+    final Versionstamp veryOldStamp = versionstampClock.recordVersionstampAndTime();
 
     clock.pin(old);
-    final Versionstamp oldStamp = versionstampClock.recordVersionstampAndTime().join();
+    final Versionstamp oldStamp = versionstampClock.recordVersionstampAndTime();
 
     clock.pin(start);
-    final Versionstamp nowStamp = versionstampClock.recordVersionstampAndTime().join();
+    final Versionstamp nowStamp = versionstampClock.recordVersionstampAndTime();
 
     assertThat(versionstampClock.getVersionstamp(veryOld)).isPresent().hasValue(veryOldStamp);
 
