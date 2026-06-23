@@ -84,7 +84,16 @@ message ValidationsRequest {
   optional common.ServiceIdentifier aciServiceIdentifier = 34 [(require.identityType) = IDENTITY_TYPE_ACI];
   optional common.ServiceIdentifier pniServiceIdentifier = 35 [(require.identityType) = IDENTITY_TYPE_PNI];
 
-  // next 36
+  repeated bytes eachExactlyBytes = 36 [(require.each) = { exactlySize: 4 }];
+  repeated uint32 eachRange = 37 [(require.each) = { range: { min: 1, max: 127 } }];
+  repeated string eachNonEmpty = 38 [(require.each) = { nonEmpty: true }];
+  // collection-level size combined with per-element size
+  repeated bytes eachCombined = 39 [
+    (require.size) = { min: 1, max: 3 },
+    (require.each) = { exactlySize: 4 }
+  ];
+
+  // next 40
 }
 
 message NestedMessage {

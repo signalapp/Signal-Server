@@ -7,11 +7,10 @@ package org.whispersystems.textsecuregcm.grpc.validators;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
 import java.util.List;
 import java.util.Set;
 
-public class ExactlySizeFieldValidator extends BaseFieldValidator<Set<Integer>> {
+public class ExactlySizeFieldValidator extends FieldValidator<Set<Integer>> {
 
   public ExactlySizeFieldValidator() {
     super("exactlySize", Set.of(
@@ -50,11 +49,10 @@ public class ExactlySizeFieldValidator extends BaseFieldValidator<Set<Integer>> 
   protected void validateRepeatedField(
       final Set<Integer> permittedSizes,
       final Descriptors.FieldDescriptor fd,
-      final Message msg) throws FieldValidationException {
-    final int size = msg.getRepeatedFieldCount(fd);
-    if (permittedSizes.contains(size)) {
+      final List<?> repeated) throws FieldValidationException {
+    if (permittedSizes.contains(repeated.size())) {
       return;
     }
-    throw new FieldValidationException("list size is [%d] but expected to be one of %s".formatted(size, permittedSizes));
+    throw new FieldValidationException("list size is [%d] but expected to be one of %s".formatted(repeated.size(), permittedSizes));
   }
 }

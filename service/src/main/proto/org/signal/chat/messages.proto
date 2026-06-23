@@ -385,19 +385,19 @@ message MismatchedDevices {
   // A list of device IDs that are linked to the destination account, but were
   // not included in the collection of messages bound for the destination
   // account.
-  repeated uint32 missing_devices = 2 [(require.range).max = 0x7f];
+  repeated uint32 missing_devices = 2 [(require.each) = {range: {max: 0x7f}}];
 
   // A list of device IDs that were included in the collection of messages bound
   // for the destination account, but are not currently linked to the
   // destination account.
-  repeated uint32 extra_devices = 3 [(require.range).max = 0x7f];
+  repeated uint32 extra_devices = 3 [(require.each) = {range: {max: 0x7f}}];
 
   // A list of device IDs that present in the collection of messages bound for
   // the destination account and are linked to the destination account, but have
   // a different registration ID than the registration ID presented by the
   // sender (indicating that the destination device has likely been replaced by
   // another device).
-  repeated uint32 stale_devices = 4 [(require.range).max = 0x7f];
+  repeated uint32 stale_devices = 4 [(require.each) = {range: {max: 0x7f}}];
 }
 
 message MultiRecipientMismatchedDevices {

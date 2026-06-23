@@ -48,7 +48,6 @@ import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessUtil;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
-import org.whispersystems.textsecuregcm.controllers.AccountController;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
@@ -136,11 +135,6 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     final List<byte[]> usernameHashes = new ArrayList<>(request.getUsernameHashesCount());
 
     for (final ByteString usernameHash : request.getUsernameHashesList()) {
-      if (usernameHash.size() != AccountController.USERNAME_HASH_LENGTH) {
-        throw GrpcExceptions.fieldViolation("username_hashes",
-          String.format("Username hash length must be %d bytes, but was actually %d",
-                AccountController.USERNAME_HASH_LENGTH, usernameHash.size()));
-      }
       usernameHashes.add(usernameHash.toByteArray());
     }
 

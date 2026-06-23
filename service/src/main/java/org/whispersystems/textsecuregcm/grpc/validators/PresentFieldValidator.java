@@ -9,7 +9,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import java.util.Set;
 
-public class PresentFieldValidator extends BaseFieldValidator<Boolean> {
+public class PresentFieldValidator extends FieldValidator<Boolean> {
 
   public PresentFieldValidator() {
     super("present",

@@ -11,7 +11,7 @@ import org.whispersystems.textsecuregcm.util.ImpossiblePhoneNumberException;
 import org.whispersystems.textsecuregcm.util.NonNormalizedPhoneNumberException;
 import org.whispersystems.textsecuregcm.util.Util;
 
-public class E164FieldValidator extends BaseFieldValidator<Boolean> {
+public class E164FieldValidator extends FieldValidator<Boolean> {
 
   public E164FieldValidator() {
     super("e164", Set.of(Descriptors.FieldDescriptor.Type.STRING), MissingOptionalAction.SUCCEED, false);

@@ -7,11 +7,11 @@ package org.whispersystems.textsecuregcm.grpc.validators;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
+import java.util.List;
 import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 
-public class NonEmptyFieldValidator extends BaseFieldValidator<Boolean> {
+public class NonEmptyFieldValidator extends FieldValidator<Boolean> {
 
   public NonEmptyFieldValidator() {
     super("nonEmpty", Set.of(
@@ -49,8 +49,8 @@ public class NonEmptyFieldValidator extends BaseFieldValidator<Boolean> {
   protected void validateRepeatedField(
       final Boolean extensionValue,
       final Descriptors.FieldDescriptor fd,
-      final Message msg) throws FieldValidationException {
-    if (msg.getRepeatedFieldCount(fd) > 0) {
+      final List<?> repeated) throws FieldValidationException {
+    if (repeated.size() > 0) {
       return;
     }
     throw new FieldValidationException("repeated field is expected to be non-empty");

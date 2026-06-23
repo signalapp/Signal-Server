@@ -178,7 +178,40 @@ extend google.protobuf.FieldOptions {
    */
   optional IdentityType identityType = 70009;
 
-  // next 70010
+  /*
+   * Applies element-wise constraints to the elements of a `repeated` field.
+   * Top-level `require.*` annotations on a `repeated` field constrain the
+   * collection itself (e.g. element count), `each` constrains the
+   * individual elements.
+   *
+   * ```
+   * import "org/signal/chat/require.proto";
+   *
+   * message Data {
+   *   // 1-20 username hashes, each exactly 32 bytes
+   *   repeated bytes username_hashes = 1 [
+   *     (require.size) = {min: 1, max: 20},
+   *     (require.each) = { exactlySize: 32 }
+   *   ];
+   * }
+   * ```
+   *
+   * Applicable only to `repeated` fields.
+   */
+  optional ElementConstraint each = 70010;
+
+  // next 70011
+}
+
+message ElementConstraint {
+  optional bool nonEmpty = 1;
+  optional SizeConstraint size = 2;
+  repeated uint32 exactlySize = 3;
+  optional bool e164 = 4;
+  optional bool base64url = 5;
+  optional ValueRangeConstraint range = 6;
+  optional IdentityType identityType = 7;
+  optional bool specified = 8;
 }
 
 message SizeConstraint {

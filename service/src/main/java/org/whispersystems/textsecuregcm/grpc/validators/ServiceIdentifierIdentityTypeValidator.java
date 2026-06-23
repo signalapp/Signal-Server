@@ -12,7 +12,7 @@ import java.util.Set;
 import org.signal.chat.common.IdentityType;
 import org.signal.chat.common.ServiceIdentifier;
 
-public class ServiceIdentifierIdentityTypeValidator extends BaseFieldValidator<IdentityType> {
+public class ServiceIdentifierIdentityTypeValidator extends FieldValidator<IdentityType> {
 
   public ServiceIdentifierIdentityTypeValidator() {
     super("identityType", Set.of(Descriptors.FieldDescriptor.Type.MESSAGE), MissingOptionalAction.SUCCEED, false);

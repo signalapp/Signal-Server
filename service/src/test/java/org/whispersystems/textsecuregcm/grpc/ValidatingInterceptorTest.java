@@ -446,6 +446,79 @@ public class ValidatingInterceptorTest {
   }
 
   @Test
+  public void eachExactlySize() {
+    assertDoesNotThrow(() -> stub.validationsEndpoint(builderWithValidDefaults().build()));
+
+    assertDoesNotThrow(() -> stub.validationsEndpoint(builderWithValidDefaults()
+        .addEachExactlyBytes(ByteString.copyFrom(new byte[4]))
+        .addEachExactlyBytes(ByteString.copyFrom(new byte[4]))
+        .build()));
+
+    // second element is the wrong length
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(builderWithValidDefaults()
+        .addEachExactlyBytes(ByteString.copyFrom(new byte[4]))
+        .addEachExactlyBytes(ByteString.copyFrom(new byte[3]))
+        .build()));
+  }
+
+  @Test
+  public void eachRange() {
+    assertDoesNotThrow(() -> stub.validationsEndpoint(builderWithValidDefaults()
+        .addEachRange(1)
+        .addEachRange(127)
+        .build()));
+
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(builderWithValidDefaults()
+        .addEachRange(0)
+        .build()));
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(builderWithValidDefaults()
+        .addEachRange(128)
+        .build()));
+  }
+
+  @Test
+  public void eachNonEmpty() {
+    assertDoesNotThrow(() -> stub.validationsEndpoint(builderWithValidDefaults()
+        .addEachNonEmpty("a")
+        .build()));
+
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(builderWithValidDefaults()
+        .addEachNonEmpty("a")
+        .addEachNonEmpty("")
+        .build()));
+  }
+
+  @Test
+  public void eachCombinedWithCollectionConstraint() {
+    // empty list fails the collection-level `size {min:1}` constraint
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(builderWithValidDefaults()
+        .clearEachCombined()
+        .build()));
+
+    // too many elements (collection-level `size {max:3}`)
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(builderWithValidDefaults()
+        .clearEachCombined()
+        .addEachCombined(ByteString.copyFrom(new byte[4]))
+        .addEachCombined(ByteString.copyFrom(new byte[4]))
+        .addEachCombined(ByteString.copyFrom(new byte[4]))
+        .addEachCombined(ByteString.copyFrom(new byte[4]))
+        .build()));
+
+    // count is in range but an element is the wrong length
+    assertStatusException(Status.INVALID_ARGUMENT, () -> stub.validationsEndpoint(builderWithValidDefaults()
+        .clearEachCombined()
+        .addEachCombined(ByteString.copyFrom(new byte[3]))
+        .build()));
+
+    // both constraints satisfied
+    assertDoesNotThrow(() -> stub.validationsEndpoint(builderWithValidDefaults()
+        .clearEachCombined()
+        .addEachCombined(ByteString.copyFrom(new byte[4]))
+        .addEachCombined(ByteString.copyFrom(new byte[4]))
+        .build()));
+  }
+
+  @Test
   public void testFailedValidationOnNestedMessage() {
     assertStatusException(Status.INVALID_ARGUMENT, () ->
         stub.validationsEndpoint(builderWithValidDefaults().setNested(NestedMessage.newBuilder().setI32(101)).build()));
@@ -528,7 +601,8 @@ public class ValidatingInterceptorTest {
         .setPniServiceIdentifier(ServiceIdentifier.newBuilder()
             .setIdentityType(IdentityType.IDENTITY_TYPE_PNI)
             .setUuid(UUIDUtil.toByteString(UUID.randomUUID()))
-            .build());
+            .build())
+        .addEachCombined(ByteString.copyFrom(new byte[4]));
   }
 
   private static void assertStatusException(final Status expected, final Executable serviceCall) {

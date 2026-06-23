@@ -105,9 +105,8 @@ message ClearRegistrationLockResponse {
 }
 
 message ReserveUsernameHashRequest {
-  // A prioritized list of username hashes to attempt to reserve. Each hash must
-  // be exactly 32 bytes.
-  repeated bytes username_hashes = 1 [(require.size) = {min: 1, max: 20}];
+  // A prioritized list of username hashes to attempt to reserve.
+  repeated bytes username_hashes = 1 [(require.size) = {min: 1, max: 20}, (require.each) = {exactlySize: 32}];
 }
 
 message UsernameNotAvailable {}

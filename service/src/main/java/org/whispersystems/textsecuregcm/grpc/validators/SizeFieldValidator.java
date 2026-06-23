@@ -7,11 +7,11 @@ package org.whispersystems.textsecuregcm.grpc.validators;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Message;
+import java.util.List;
 import java.util.Set;
 import org.signal.chat.require.SizeConstraint;
 
-public class SizeFieldValidator extends BaseFieldValidator<Range> {
+public class SizeFieldValidator extends FieldValidator<Range> {
 
   public SizeFieldValidator() {
     super("size", Set.of(
@@ -45,8 +45,8 @@ public class SizeFieldValidator extends BaseFieldValidator<Range> {
   }
 
   @Override
-  protected void validateRepeatedField(final Range range, final Descriptors.FieldDescriptor fd, final Message msg) throws FieldValidationException {
-    final int size = msg.getRepeatedFieldCount(fd);
+  protected void validateRepeatedField(final Range range, final Descriptors.FieldDescriptor fd, final List<?> repeated) throws FieldValidationException {
+    final int size = repeated.size();
     if (size < range.min() || size > range.max()) {
       throw new FieldValidationException("field value is [%d] but expected to be within the [%d, %d] range".formatted(
           size, range.min(), range.max()));

@@ -8,7 +8,7 @@ package org.whispersystems.textsecuregcm.grpc.validators;
 import com.google.protobuf.Descriptors;
 import java.util.Set;
 
-public class EnumSpecifiedFieldValidator extends BaseFieldValidator<Boolean> {
+public class EnumSpecifiedFieldValidator extends FieldValidator<Boolean> {
 
   public EnumSpecifiedFieldValidator() {
     super("specified", Set.of(Descriptors.FieldDescriptor.Type.ENUM), MissingOptionalAction.FAIL, false);

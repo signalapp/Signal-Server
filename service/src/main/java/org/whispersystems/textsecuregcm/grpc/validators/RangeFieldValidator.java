@@ -9,7 +9,7 @@ import com.google.protobuf.Descriptors;
 import java.util.Set;
 import org.signal.chat.require.ValueRangeConstraint;
 
-public class RangeFieldValidator extends BaseFieldValidator<Range> {
+public class RangeFieldValidator extends FieldValidator<Range> {
 
   private static final Set<Descriptors.FieldDescriptor.Type> UNSIGNED_TYPES = Set.of(
       Descriptors.FieldDescriptor.Type.FIXED32,
