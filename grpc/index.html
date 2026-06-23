@@ -134,7 +134,10 @@ header. If provided, the request will fail with a <code>BAD_AUTHENTICATION</code
 </table>
 <h3>Logging Errors</h3>
 <p>When logging error responses, clients may always log the status code, domain, and reason.</p>
-<p>For errors with domain <code>grpc.chat.signal.org</code> and reason <code>CONSTRAINT_VIOLATED</code>, clients should check the <code>details</code> field for a <code>BadRequest</code> proto. If present, they should log the <code>field</code> of each violation in <code>field_violations</code>.</p></div>
+<p>For errors with domain <code>grpc.chat.signal.org</code> and reason <code>CONSTRAINT_VIOLATED</code>, clients should check the <code>details</code> field for a <code>BadRequest</code> proto. If present, they should log the <code>field</code> of each violation in <code>field_violations</code>.</p>
+<h3>GOAWAY</h3>
+<p>In a partial or total server outage, the server may start rejecting new connection requests or terminating existing connections with an HTTP/2 GOAWAY frame with code 0x40.</p>
+<p>If clients receive a 0x40 GOAWAY they should retry connections with an aggressive exponential backoff.</p></div>
   
   <h3 id="packages" class="title is-3">
     Packages
