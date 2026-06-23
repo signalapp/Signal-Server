@@ -7,6 +7,7 @@ package org.whispersystems.textsecuregcm.configuration.dynamic;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -82,6 +83,10 @@ public class DynamicConfiguration {
 
   @JsonProperty
   @Valid
+  private DynamicOmnibusConfiguration omnibus = new DynamicOmnibusConfiguration(BigDecimal.ZERO);
+
+  @JsonProperty
+  @Valid
   private DynamicTurnConfiguration turn = new DynamicTurnConfiguration();
 
   public Optional<DynamicExperimentEnrollmentConfiguration> getExperimentEnrollmentConfiguration(
@@ -148,6 +153,10 @@ public class DynamicConfiguration {
 
   public DynamicGrpcAllowListConfiguration getGrpcAllowList() {
     return grpcAllowList;
+  }
+
+  public DynamicOmnibusConfiguration getOmnibus() {
+    return omnibus;
   }
 
   public DynamicTurnConfiguration getTurnConfiguration() {

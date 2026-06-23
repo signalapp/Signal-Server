@@ -1133,6 +1133,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         omnibusNioEventLoopGroup.getEventLoopGroup(),
         omnibusLocalEventLoopGroup.getEventLoopGroup(),
         new InetSocketAddress(config.getGrpc().bindAddress(), config.getGrpc().port()), omnibusRouter,
+        () -> dynamicConfigurationManager.getConfiguration().getOmnibus(),
         config.getGrpc().idleTimeout());
 
     environment.lifecycle().manage(omnibusLocalEventLoopGroup);

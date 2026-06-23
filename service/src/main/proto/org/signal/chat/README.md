@@ -49,3 +49,8 @@ The chat server may return the following errors from any RPC
 When logging error responses, clients may always log the status code, domain, and reason.
 
 For errors with domain `grpc.chat.signal.org` and reason `CONSTRAINT_VIOLATED`, clients should check the `details` field for a `BadRequest` proto. If present, they should log the `field` of each violation in `field_violations`.
+
+### GOAWAY
+In a partial or total server outage, the server may start rejecting new connection requests or terminating existing connections with an HTTP/2 GOAWAY frame with code 0x40.
+
+If clients receive a 0x40 GOAWAY they should retry connections with an aggressive exponential backoff.

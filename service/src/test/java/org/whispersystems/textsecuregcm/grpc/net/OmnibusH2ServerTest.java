@@ -36,6 +36,7 @@ import io.netty.handler.codec.http2.DefaultHttp2ResetFrame;
 import io.netty.handler.codec.http2.Http2DataFrame;
 import io.netty.handler.codec.http2.Http2Error;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
+import io.netty.handler.codec.http2.Http2GoAwayFrame;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2HeadersFrame;
 import io.netty.handler.codec.http2.Http2MultiplexHandler;
@@ -51,6 +52,7 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.test.LeakPresenceExtension;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -69,10 +71,12 @@ import javax.annotation.Nullable;
 import javax.net.ssl.SSLException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicOmnibusConfiguration;
 
 @ExtendWith(LeakPresenceExtension.class)
 class OmnibusH2ServerTest {
@@ -88,11 +92,13 @@ class OmnibusH2ServerTest {
 
   private List<Channel> backendChannelsToShutDown;
   private List<OmnibusH2Server> omnibusH2ServersToShutDown;
+  private AtomicReference<DynamicOmnibusConfiguration> dynamicConfiguration;
 
   @BeforeEach
   void setUp() {
     backendChannelsToShutDown = new ArrayList<>();
     omnibusH2ServersToShutDown = new ArrayList<>();
+    dynamicConfiguration = new AtomicReference<>(new DynamicOmnibusConfiguration(BigDecimal.ZERO));
   }
 
   @AfterEach
@@ -389,6 +395,41 @@ class OmnibusH2ServerTest {
     timeoutServer.stop();
   }
 
+  @Test
+  void loadShed() throws Exception {
+    dynamicConfiguration.set(new DynamicOmnibusConfiguration(BigDecimal.ONE));
+    final OmnibusH2Server server = startOmnibusServer(
+        Map.of(PREFIX, startBackendServer(true, PREFIX_BACKEND_IDENTITY)),
+        startBackendServer(true, DEFAULT_BACKEND_IDENTITY));
+
+    final CompletableFuture<Http2GoAwayFrame> goAwayFuture = new CompletableFuture<>();
+    final Bootstrap clientBootstrap = new Bootstrap()
+        .group(nioEventLoopGroup)
+        .channel(NioSocketChannel.class)
+        .handler(new ChannelInitializer<SocketChannel>() {
+          @Override
+          protected void initChannel(final SocketChannel ch) {
+            final SslContext clientSsl = sslContext();
+            ch.pipeline().addLast(clientSsl.newHandler(ch.alloc(), server.getLocalAddress().getHostName(),
+                server.getLocalAddress().getPort()));
+            ch.pipeline()
+                .addLast(Http2FrameCodecBuilder.forClient().initialSettings(Http2Settings.defaultSettings()).build());
+            ch.pipeline().addLast(new ChannelInboundHandlerAdapter() {
+              @Override
+              public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                if (msg instanceof Http2GoAwayFrame g) {
+                  goAwayFuture.complete(g);
+                }
+                ctx.fireChannelRead(msg);
+              }
+            });
+          }
+        });
+    clientBootstrap.connect(server.getLocalAddress()).syncUninterruptibly().channel();
+    final Http2GoAwayFrame frame = goAwayFuture.get(1, TimeUnit.SECONDS);
+    assertEquals(OmnibusLoadShedHandler.LOAD_SHED_ERROR_CODE, frame.errorCode());
+  }
+
   /// Start an OmnibusH2Server. The returned server and provided backends will be torn down in [#tearDown()]
   ///
   /// @param routes A map of prefixes and the corresponding backend server channels the omnibus will target
@@ -409,6 +450,7 @@ class OmnibusH2ServerTest {
         new OmnibusRouter(
             routes.entrySet().stream().map(entry -> new OmnibusRouter.OmnibusRoute(entry.getKey(), entry.getValue().localAddress())).toList(),
             defaultBackend.localAddress()),
+        dynamicConfiguration::get,
         timeout);
     server.start();
     omnibusH2ServersToShutDown.add(server);
@@ -459,19 +501,7 @@ class OmnibusH2ServerTest {
 
   /// Makes an H2 connection to the omnibus at [this#server] on which new H2 streams can be opened
   private Channel connectToOmnibus(final OmnibusH2Server server, @Nullable final HAProxyMessage proxyHeader) {
-    final SslContext clientSsl;
-    try {
-      clientSsl = SslContextBuilder.forClient()
-          .trustManager(InsecureTrustManagerFactory.INSTANCE)
-          .applicationProtocolConfig(new ApplicationProtocolConfig(
-              ApplicationProtocolConfig.Protocol.ALPN,
-              ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
-              ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-              ApplicationProtocolNames.HTTP_2))
-          .build();
-    } catch (SSLException e) {
-      throw new RuntimeException(e);
-    }
+    final SslContext clientSsl = sslContext();
 
     final Bootstrap clientBootstrap = new Bootstrap()
         .group(nioEventLoopGroup)
@@ -502,6 +532,21 @@ class OmnibusH2ServerTest {
 
   private Channel connectToOmnibus(final OmnibusH2Server server) {
     return connectToOmnibus(server, null);
+  }
+
+  private static SslContext sslContext() {
+    try {
+      return SslContextBuilder.forClient()
+          .trustManager(InsecureTrustManagerFactory.INSTANCE)
+          .applicationProtocolConfig(new ApplicationProtocolConfig(
+              ApplicationProtocolConfig.Protocol.ALPN,
+              ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+              ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+              ApplicationProtocolNames.HTTP_2))
+          .build();
+    } catch (SSLException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private String sendRequestThroughOmnibus(final Channel h2Connection, final String path) {
