@@ -5,16 +5,21 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
@@ -24,6 +29,7 @@ import java.security.SecureRandom;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.attachments.AttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.AttachmentUtil;
 import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
@@ -33,6 +39,8 @@ import org.whispersystems.textsecuregcm.entities.AttachmentDescriptorV3;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 
 
 /**
@@ -40,7 +48,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
  * (message attachments) to a remote storage location. The location may be selected by the server at runtime.
  */
 @Path("/v4/attachments")
-@Tag(name = "Attachments")
+@io.swagger.v3.oas.annotations.tags.Tag(name = "Attachments")
 public class AttachmentControllerV4 {
 
   private final ExperimentEnrollmentManager experimentEnrollmentManager;
@@ -49,6 +57,9 @@ public class AttachmentControllerV4 {
   private final long maxUploadLength;
 
   private final Map<Integer, AttachmentGenerator> attachmentGenerators;
+
+  private static final String ATTACHMENT_SIZE_NAME =
+      MetricsUtil.name(AttachmentControllerV4.class, "attachmentSize");
 
   @Nonnull
   private final SecureRandom secureRandom;
@@ -91,7 +102,8 @@ public class AttachmentControllerV4 {
   public AttachmentDescriptorV3 getAttachmentUploadForm(
       @Auth AuthenticatedDevice auth,
       @Parameter(description = "The size of the attachment to upload in bytes")
-      @QueryParam("uploadLength") final @Valid Optional<@Positive Long> maybeUploadLength)
+      @QueryParam("uploadLength") final @Valid Optional<@Positive Long> maybeUploadLength,
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgent)
       throws RateLimitExceededException {
 
     final long uploadLength = maybeUploadLength.orElse(maxUploadLength);
@@ -110,6 +122,12 @@ public class AttachmentControllerV4 {
         throw e;
       }
     }
+
+    DistributionSummary.builder(ATTACHMENT_SIZE_NAME)
+        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(userAgent),
+            Tag.of("uploadLengthSupplied", Boolean.toString(maybeUploadLength.isPresent()))))
+        .register(Metrics.globalRegistry)
+        .record(uploadLength);
 
     final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
     final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(), AttachmentUtil.CDN3_EXPERIMENT_NAME);

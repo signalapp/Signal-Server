@@ -11,6 +11,10 @@ import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.stream.IntStream;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.signal.chat.attachments.GetStickerUploadFormRequest;
 import org.signal.chat.attachments.GetStickerUploadFormResponse;
 import org.signal.chat.attachments.GetUploadFormRequest;
@@ -25,11 +29,14 @@ import org.whispersystems.textsecuregcm.attachments.GcsAttachmentGenerator;
 import org.whispersystems.textsecuregcm.attachments.TusAttachmentGenerator;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticatedDevice;
 import org.whispersystems.textsecuregcm.auth.grpc.AuthenticationUtil;
+import org.whispersystems.textsecuregcm.controllers.AttachmentControllerV4;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.controllers.StickerController;
 import org.whispersystems.textsecuregcm.experiment.ExperimentEnrollmentManager;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 
 public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImplBase {
@@ -48,6 +55,9 @@ public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImp
       .setAcl(PostPolicyGenerator.ACL)
       .setAlgorithm(PostPolicyGenerator.ALGORITHM)
       .build();
+
+  private static final String ATTACHMENT_SIZE_NAME =
+      MetricsUtil.name(AttachmentsGrpcService.class, "attachmentSize");
 
   public AttachmentsGrpcService(
       final ExperimentEnrollmentManager experimentEnrollmentManager,
@@ -88,6 +98,11 @@ public class AttachmentsGrpcService extends SimpleAttachmentsGrpc.AttachmentsImp
       countRateLimiter.restorePermits(auth.accountIdentifier(), 1);
       throw e;
     }
+
+    DistributionSummary.builder(ATTACHMENT_SIZE_NAME)
+        .tags(Tags.of(UserAgentTagUtil.getPlatformTag(RequestAttributesUtil.getUserAgent().orElse(null))))
+        .register(Metrics.globalRegistry)
+        .record(request.getUploadLength());
 
     final String key = AttachmentUtil.generateAttachmentKey(secureRandom);
     final boolean useCdn3 = this.experimentEnrollmentManager.isEnrolled(auth.accountIdentifier(),
