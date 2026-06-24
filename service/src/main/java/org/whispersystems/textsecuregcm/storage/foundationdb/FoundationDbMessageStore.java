@@ -9,9 +9,6 @@ import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hashing;
 import io.dropwizard.util.DataSize;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -25,9 +22,14 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.storage.Device;
+import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.Util;
 
@@ -68,6 +70,12 @@ public class FoundationDbMessageStore {
 
   private static final Timer INSERT_MESSAGE_BATCH_TIMER =
       Metrics.timer(MetricsUtil.name(FoundationDbMessageStore.class, "insertMessageBatchTimer"));
+
+  private static final Counter DELETE_MESSAGE_COUNTER =
+      Metrics.counter(MetricsUtil.name(FoundationDbMessageStore.class, "deleteMessage"));
+
+  private static final Timer DELETE_MESSAGE_TIMER =
+      Metrics.timer(MetricsUtil.name(FoundationDbMessageStore.class, "deleteMessageTimer"));
 
   /// Result of inserting a message for a particular device
   ///
@@ -316,6 +324,27 @@ public class FoundationDbMessageStore {
         });
   }
 
+  // Note that this method is intended only for initial migration support; in general, callers should clear messages
+  // by acknowledging messages via a `FoundationDbMessageStream`.
+  public CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final UUID messageGuid) {
+    return delete(aci, deviceId, versionstampUUIDCipher.decryptVersionstamp(messageGuid, aci.uuid(), deviceId));
+  }
+
+  private CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final Versionstamp versionstamp) {
+    final Timer.Sample sample = Timer.start();
+
+    final byte[] messageKey = getDeviceQueueSubspace(aci, deviceId).pack(Tuple.from(versionstamp));
+
+    return databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].runAsync(transaction -> {
+          transaction.clear(messageKey);
+          return CompletableFuture.completedFuture(null);
+        })
+        .thenRun(() -> {
+          sample.stop(DELETE_MESSAGE_TIMER);
+          DELETE_MESSAGE_COUNTER.increment();
+        });
+  }
+
   public void clearAll(final AciServiceIdentifier aci) {
     doForAllDatabasesWithMessages(aci, database -> database.run(transaction -> {
       transaction.clear(getAccountSubspace(aci).range());
@@ -338,14 +367,14 @@ public class FoundationDbMessageStore {
         .forEach(action);
   }
 
-  public FoundationDbMessageStream getMessages(final AciServiceIdentifier aci, final byte deviceId) {
-    return getMessages(aci, deviceId, FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
+  public MessageStream getMessages(final AciServiceIdentifier aci, final Device destinationDevice) {
+    return getMessages(aci, destinationDevice, FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
         FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES, Util.NOOP);
   }
 
   @VisibleForTesting
-  FoundationDbMessageStream getMessages(final AciServiceIdentifier aci,
-      final byte deviceId,
+  MessageStream getMessages(final AciServiceIdentifier aci,
+      final Device destinationDevice,
       final int maxMessagesPerScan,
       final int maxUnacknowledgedMessages,
       final Runnable doAfterCleanup) {
@@ -359,10 +388,10 @@ public class FoundationDbMessageStore {
           : null;
     }
 
-    return new FoundationDbMessageStream(getDeviceQueueSubspace(aci, deviceId),
+    return new FoundationDbMessageStream(getDeviceQueueSubspace(aci, destinationDevice.getId()),
         getMessagesAvailableWatchKey(aci),
         databasesForQueueByEpoch,
-        new MessageGuidCodec(aci.uuid(), deviceId, versionstampUUIDCipher),
+        new MessageGuidCodec(aci.uuid(), destinationDevice.getId(), versionstampUUIDCipher),
         maxMessagesPerScan,
         maxUnacknowledgedMessages,
         doAfterCleanup);

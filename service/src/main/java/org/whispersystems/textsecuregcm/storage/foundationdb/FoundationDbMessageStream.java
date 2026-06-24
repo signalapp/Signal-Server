@@ -51,15 +51,8 @@ public class FoundationDbMessageStream implements MessageStream {
 
   private final Map<Database, AcknowledgedMessageBuffer> acknowledgedMessageBuffersByDatabase;
 
-  private final Counter messageReadCounter =
-      Metrics.counter(name(FoundationDbMessageStream.class, "messagesRead"));
-
-  private final Counter messageAcknowledgedCounter =
-      Metrics.counter(name(FoundationDbMessageStream.class, "messagesAcknowledged"));
-
-  private final Counter staleEphemeralMessagesCounter =
-      Metrics.counter(name(FoundationDbMessageStream.class, "staleEphemeralMessages"));
-
+  private final Counter staleEphemeralMessagesCounter = Metrics.counter(
+      name(FoundationDbMessageStream.class, "staleEphemeralMessages"));
   static final int DEFAULT_MAX_MESSAGES_PER_SCAN = 1024;
   @VisibleForTesting
   static final int DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES = 16_384;
@@ -123,11 +116,6 @@ public class FoundationDbMessageStream implements MessageStream {
           sink.next(messageStreamEntry);
         })
         .map(fdbMessageStreamEntry -> fdbMessageStreamEntry.toMessageStreamEntry(messageGuidCodec))
-        .doOnNext(messageStreamEntry -> {
-          if (messageStreamEntry instanceof MessageStreamEntry.Envelope) {
-            messageReadCounter.increment();
-          }
-        })
         .doFinally(_ -> flushAllAcknowledgedMessages().thenRun(doAfterCleanup));
   }
 
@@ -236,8 +224,6 @@ public class FoundationDbMessageStream implements MessageStream {
   public CompletableFuture<Void> acknowledgeMessage(final UUID messageGuid, final long serverTimestamp) {
     final Versionstamp versionstamp = messageGuidCodec.decodeMessageGuid(messageGuid);
     getAcknowledgedMessageBuffer(versionstamp).acknowledgeMessage(versionstamp);
-
-    messageAcknowledgedCounter.increment();
 
     return CompletableFuture.completedFuture(null);
   }

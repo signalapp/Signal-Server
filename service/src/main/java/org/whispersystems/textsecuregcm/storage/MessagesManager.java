@@ -38,7 +38,6 @@ import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.push.RedisMessageAvailabilityManager;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStore;
-import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStream;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import reactor.core.observability.micrometer.Micrometer;
 import reactor.core.publisher.Flux;
@@ -280,15 +279,12 @@ public class MessagesManager {
   }
 
   public MessageStream getMessages(final UUID destinationUuid, final Device destinationDevice) {
-    final RedisDynamoDbMessageStream redisDynamoDbMessageStream =
-        new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager,
-            destinationUuid, destinationDevice);
-
-    return experimentEnrollmentManager.isEnrolled(destinationUuid, MIRROR_DELETIONS_EXPERIMENT_NAME)
-        ? new AcknowledgementMirroringMessageStream(
-        redisDynamoDbMessageStream,
-        foundationDbMessageStore.getMessages(new AciServiceIdentifier(destinationUuid), destinationDevice.getId()))
-        : redisDynamoDbMessageStream;
+    return new DeletionMirroringRedisDynamoDbMessageStream(
+        new RedisDynamoDbMessageStream(messagesDynamoDb, messagesCache, redisMessageAvailabilityManager, destinationUuid, destinationDevice),
+        foundationDbMessageStore,
+        experimentEnrollmentManager,
+        destinationUuid,
+        destinationDevice.getId());
   }
 
   Publisher<Envelope> getMessagesForDevice(final UUID destinationUuid, final Device destinationDevice) {

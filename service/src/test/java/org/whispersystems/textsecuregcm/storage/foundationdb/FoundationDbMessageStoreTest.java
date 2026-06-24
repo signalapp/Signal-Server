@@ -453,6 +453,36 @@ class FoundationDbMessageStoreTest {
   }
 
   @Test
+  void delete() {
+    final AciServiceIdentifier deletedMessageAci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deletedMessageDeviceId = Device.PRIMARY_ID;
+    final MessageProtos.Envelope deletedMessage = generateRandomMessage(false);
+
+    final AciServiceIdentifier retainedMessageAci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte retainedMessageDeviceId = Device.PRIMARY_ID;
+    final MessageProtos.Envelope retainedMessage = generateRandomMessage(false);
+
+    final UUID deletedMessageGuid =
+        foundationDbMessageStore.insert(deletedMessageAci, Map.of(deletedMessageDeviceId, deletedMessage)).join()
+            .get(deletedMessageDeviceId).messageGuid().orElseThrow();
+
+    foundationDbMessageStore.insert(retainedMessageAci, Map.of(retainedMessageDeviceId, retainedMessage)).join();
+
+    assertArrayEquals(deletedMessage.toByteArray(),
+        getItemsInDeviceQueue(deletedMessageAci, deletedMessageDeviceId).getFirst().getValue());
+
+    assertArrayEquals(retainedMessage.toByteArray(),
+        getItemsInDeviceQueue(retainedMessageAci, retainedMessageDeviceId).getFirst().getValue());
+
+    foundationDbMessageStore.delete(deletedMessageAci, deletedMessageDeviceId, deletedMessageGuid).join();
+
+    assertTrue(getItemsInDeviceQueue(deletedMessageAci, deletedMessageDeviceId).isEmpty());
+
+    assertArrayEquals(retainedMessage.toByteArray(),
+        getItemsInDeviceQueue(retainedMessageAci, retainedMessageDeviceId).getFirst().getValue());
+  }
+
+  @Test
   void clearAllForAccount() {
     final AciServiceIdentifier deletedAccountIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     final byte deletedPrimaryDeviceId = Device.PRIMARY_ID;
@@ -523,9 +553,10 @@ class FoundationDbMessageStoreTest {
             .orElseThrow())
         .toList();
 
-    final MessageStream messageStream =
-        foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID, batchSize, numMessages, Util.NOOP);
-
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device, batchSize, numMessages,
+        Util.NOOP);
     final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
         .recordWith(() -> retrievedEntries)
@@ -561,6 +592,9 @@ class FoundationDbMessageStoreTest {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final byte deviceId = Device.PRIMARY_ID;
 
+    final Device device = new Device();
+    device.setId(deviceId);
+
     final int messagesPerBatch = 8;
 
     final AtomicLong serialTimestamp = new AtomicLong();
@@ -574,7 +608,7 @@ class FoundationDbMessageStoreTest {
     final List<MessageProtos.Envelope> liveDefaultEpochMessages = new ArrayList<>();
     final List<MessageProtos.Envelope> liveFutureEpochMessages = new ArrayList<>();
 
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, deviceId);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
     final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
     final CountDownLatch queueEmptyLatch = new CountDownLatch(1);
 
@@ -655,7 +689,9 @@ class FoundationDbMessageStoreTest {
       }
     });
 
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID);
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
         .expectNext(new MessageStreamEntry.Envelope(message1
             .toBuilder()
@@ -699,7 +735,9 @@ class FoundationDbMessageStoreTest {
       }
     });
 
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID);
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
     // Initially only request a single message, then give the go ahead to the publisher. This verifies that we get the
     // queue empty signal when we consume the initial batch of messages even though the publisher keeps publishing in
     // the meantime.
@@ -730,8 +768,10 @@ class FoundationDbMessageStoreTest {
                 .orElseThrow())
         .toList();
 
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
     final CountDownLatch latch = new CountDownLatch(1);
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device,
         FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
         FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
         latch::countDown);
@@ -792,7 +832,12 @@ class FoundationDbMessageStoreTest {
   void acknowledgeMessagesEpochChange() throws InterruptedException {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final byte deviceId = Device.PRIMARY_ID;
+
+    final Device device = new Device();
+    device.setId(deviceId);
+
     final int messagesPerBatch = 8;
+
     final AtomicLong serialTimestamp = new AtomicLong();
 
     generateAndInsertMessages(aci, deviceId, DEFAULT_EPOCH, messagesPerBatch, serialTimestamp::getAndIncrement);
@@ -802,7 +847,7 @@ class FoundationDbMessageStoreTest {
       final CountDownLatch cleanupLatch = new CountDownLatch(1);
 
       final MessageStream messageStream = foundationDbMessageStore.getMessages(aci,
-          deviceId,
+          device,
           FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
           FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
           cleanupLatch::countDown);
@@ -825,7 +870,7 @@ class FoundationDbMessageStoreTest {
     }
 
     {
-      final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, deviceId);
+      final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device);
       final List<MessageStreamEntry> retrievedEntries = new ArrayList<>();
 
       StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
@@ -857,7 +902,9 @@ class FoundationDbMessageStoreTest {
       foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join();
     }
 
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device,
         FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
         maxUnacknowledgedMessages,
         Util.NOOP);
@@ -902,7 +949,10 @@ class FoundationDbMessageStoreTest {
       }
     });
 
-    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID,
+    final Device device = new Device();
+    device.setId(Device.PRIMARY_ID);
+
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, device,
         FoundationDbMessageStream.DEFAULT_MAX_MESSAGES_PER_SCAN,
         FoundationDbMessageStream.DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES,
         cleanUpLatch::countDown);
