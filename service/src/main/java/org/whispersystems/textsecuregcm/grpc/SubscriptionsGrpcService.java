@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
+import org.signal.chat.errors.FailedZkAuthentication;
 import org.signal.chat.errors.NotFound;
 import org.signal.chat.subscriptions.CreatePayPalPaymentMethodRequest;
 import org.signal.chat.subscriptions.CreatePayPalPaymentMethodResponse;
@@ -38,6 +39,9 @@ import org.signal.chat.subscriptions.SetSubscriptionLevelResponse;
 import org.signal.chat.subscriptions.SimpleSubscriptionsGrpc;
 import org.signal.chat.subscriptions.UpdateSubscriberRequest;
 import org.signal.chat.subscriptions.UpdateSubscriberResponse;
+import org.signal.libsignal.zkgroup.InvalidInputException;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.donation.DonationPermit;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
@@ -46,6 +50,7 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
+import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
@@ -61,6 +66,7 @@ import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriberIdCreationNotPermittedException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionForbiddenException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInformation;
@@ -82,6 +88,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
   private final SubscriptionConfiguration subscriptionConfiguration;
   private final OneTimeDonationConfiguration oneTimeDonationConfiguration;
   private final SubscriptionManager subscriptionManager;
+  private final DonationPermitsManager donationPermitsManager;
   private final StripeManager stripeManager;
   private final BraintreeManager braintreeManager;
   private final GooglePlayBillingManager googlePlayBillingManager;
@@ -92,14 +99,16 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
 
   public SubscriptionsGrpcService(final Clock clock, final SubscriptionConfiguration subscriptionConfiguration,
       final OneTimeDonationConfiguration oneTimeDonationConfiguration, final SubscriptionManager subscriptionManager,
-      final StripeManager stripeManager, final BraintreeManager braintreeManager,
-      final GooglePlayBillingManager googlePlayBillingManager, final AppleAppStoreManager appleAppStoreManager,
-      final BadgeTranslator badgeTranslator, final BankMandateTranslator bankMandateTranslator,
+      final DonationPermitsManager donationPermitsManager, final StripeManager stripeManager,
+      final BraintreeManager braintreeManager, final GooglePlayBillingManager googlePlayBillingManager,
+      final AppleAppStoreManager appleAppStoreManager, final BadgeTranslator badgeTranslator,
+      final BankMandateTranslator bankMandateTranslator,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.clock = clock;
     this.subscriptionConfiguration = subscriptionConfiguration;
     this.oneTimeDonationConfiguration = oneTimeDonationConfiguration;
     this.subscriptionManager = subscriptionManager;
+    this.donationPermitsManager = donationPermitsManager;
     this.stripeManager = stripeManager;
     this.braintreeManager = braintreeManager;
     this.googlePlayBillingManager = googlePlayBillingManager;
@@ -115,11 +124,41 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
     try {
       final SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(
           request.getSubscriberId().toByteArray(), clock);
-      subscriptionManager.updateSubscriber(subscriberCredentials);
+
+      final boolean creationPermitted;
+      try {
+        if (request.getDonationPermit().isEmpty()) {
+          creationPermitted = false;
+        } else {
+          final DonationPermit permit = new DonationPermit(request.getDonationPermit().toByteArray());
+
+          creationPermitted = SubscriptionsUtil.verifyAndSpendDonationPermit(permit, donationPermitsManager, clock);
+        }
+      } catch (final InvalidInputException _) {
+        throw GrpcExceptions.invalidArguments("invalid donation permit");
+      } catch (final VerificationFailedException _ ) {
+        return UpdateSubscriberResponse.newBuilder()
+            .setPermitRejected(FailedZkAuthentication.newBuilder()
+                .setDescription("donation permit failed verification")
+                .build())
+            .build();
+      }
+
+      subscriptionManager.updateSubscriber(subscriberCredentials, creationPermitted);
       return UpdateSubscriberResponse.newBuilder().setSuccess(Empty.getDefaultInstance()).build();
     } catch (final SubscriptionForbiddenException e) {
       return UpdateSubscriberResponse.newBuilder().setSubscriberIdMismatch(
           FailedUnidentifiedAuthorization.newBuilder().setDescription(e.errorDetail().orElse("")).build()).build();
+    } catch (SubscriberIdCreationNotPermittedException _) {
+      if (request.getDonationPermit().isEmpty()) {
+        throw GrpcExceptions.invalidArguments("donation permit is required to create a subscriber ID");
+      }
+
+      return UpdateSubscriberResponse.newBuilder()
+          .setPermitRejected(FailedZkAuthentication.newBuilder()
+              .setDescription("donation permit was not valid")
+              .build())
+          .build();
     }
 
   }
@@ -144,11 +183,26 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
   public CreatePaymentMethodResponse createPaymentMethod(final CreatePaymentMethodRequest request) {
     final SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(
         request.getSubscriberId().toByteArray(), clock);
-    final PaymentMethod paymentMethod;
     final CustomerAwareSubscriptionPaymentProcessor customerAwareSubscriptionPaymentProcessor = switch (request.getPaymentMethod()) {
       case PAYMENT_METHOD_CARD, PAYMENT_METHOD_SEPA_DEBIT, PAYMENT_METHOD_IDEAL -> stripeManager;
       default -> throw GrpcExceptions.fieldViolation("payment_method", "Unsupported payment method");
     };
+
+    try {
+      final DonationPermit permit = new DonationPermit(request.getDonationPermit().toByteArray());
+
+      if (!SubscriptionsUtil.verifyAndSpendDonationPermit(permit, donationPermitsManager, clock)) {
+        return CreatePaymentMethodResponse.newBuilder()
+            .setPermitRejected(FailedZkAuthentication.getDefaultInstance())
+            .build();
+      }
+    } catch (final InvalidInputException _) {
+      throw GrpcExceptions.invalidArguments("invalid donation permit");
+    } catch (final VerificationFailedException _ ) {
+      return CreatePaymentMethodResponse.newBuilder()
+          .setPermitRejected(FailedZkAuthentication.getDefaultInstance())
+          .build();
+    }
 
     try {
       final String token = subscriptionManager.addPaymentMethodToCustomer(subscriberCredentials,
@@ -178,7 +232,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
     try {
       final BraintreeManager.PayPalBillingAgreementApprovalDetails details = subscriptionManager.addPaymentMethodToCustomer(
           subscriberCredentials, braintreeManager, getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)),
-          (mgr, customerId) -> mgr.createPayPalBillingAgreement(request.getReturnUrl(), request.getCancelUrl(),
+          (mgr, _) -> mgr.createPayPalBillingAgreement(request.getReturnUrl(), request.getCancelUrl(),
               locale.toLanguageTag())).join();
       return CreatePayPalPaymentMethodResponse.newBuilder().setResult(
           CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult.newBuilder()

@@ -38,6 +38,8 @@ public final class HeaderUtils {
 
   public static final String GROUP_SEND_TOKEN = "Group-Send-Token";
 
+  public static final String DONATION_PERMIT = "Donation-Permit";
+
   private static final String INVALID_ACCEPT_LANGUAGE_COUNTER_NAME = MetricsUtil.name(HeaderUtils.class,
       "invalidAcceptLanguage");
 

@@ -115,6 +115,14 @@ public final class DynamoDbExtensionSchema {
             .attributeType(ScalarAttributeType.S).build()),
         List.of(), List.of()),
 
+    DONATION_PERMITS("donation_permits_test",
+        DonationPermits.KEY_SPEND_ID,
+        null,
+        List.of(AttributeDefinition.builder()
+            .attributeName(DonationPermits.KEY_SPEND_ID)
+            .attributeType(ScalarAttributeType.B)
+            .build()), List.of(), List.of()),
+
     NUMBERS("numbers_test",
         Accounts.ATTR_ACCOUNT_E164,
         null,

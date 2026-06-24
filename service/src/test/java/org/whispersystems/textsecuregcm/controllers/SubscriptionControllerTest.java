@@ -92,9 +92,9 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequire
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConflictException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
-import org.whispersystems.textsecuregcm.storage.WriteConflictException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.SubscriptionConfigTestHelper;
+import org.whispersystems.textsecuregcm.util.HeaderUtils;
 import org.whispersystems.textsecuregcm.util.MockUtils;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -117,7 +117,7 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
       SUBSCRIPTION_CONFIG, ONETIME_CONFIG,
       new SubscriptionManager(SUBSCRIPTIONS, List.of(STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER),
           ZK_OPS, ISSUED_RECEIPTS_MANAGER), STRIPE_MANAGER, BRAINTREE_MANAGER, PLAY_MANAGER, APPSTORE_MANAGER,
-      BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR, DYNAMIC_CONFIGURATION_MANAGER);
+      BADGE_TRANSLATOR, BANK_MANDATE_TRANSLATOR, DONATION_PERMITS_MANAGER, DYNAMIC_CONFIGURATION_MANAGER);
   private static final ResourceExtension RESOURCE_EXTENSION = ResourceExtension.builder()
       .addProperty(ServerProperties.UNWRAP_COMPLETION_STAGE_IN_WRITER_ENABLE, Boolean.TRUE)
       .addProvider(AuthHelper.getAuthFilter())
@@ -131,7 +131,11 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
   @BeforeEach
   void setUp() {
-    reset(CLOCK, SUBSCRIPTIONS, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR);
+    reset(CLOCK, DONATION_PERMITS, SUBSCRIPTIONS, STRIPE_MANAGER, BRAINTREE_MANAGER, ZK_OPS, ISSUED_RECEIPTS_MANAGER, BADGE_TRANSLATOR);
+
+    setUpDonationPermitsSpendStubbing(DONATION_PERMITS);
+
+    when(CLOCK.instant()).thenReturn(Instant.now());
 
     when(STRIPE_MANAGER.getProvider()).thenReturn(PaymentProvider.STRIPE);
     when(BRAINTREE_MANAGER.getProvider()).thenReturn(PaymentProvider.BRAINTREE);
@@ -163,8 +167,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
     @BeforeEach
     void setUp() {
-      when(CLOCK.instant()).thenReturn(Instant.now());
-
       final byte[] subscriberUserAndKey = new byte[32];
       Arrays.fill(subscriberUserAndKey, (byte) 1);
       subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
@@ -189,12 +191,13 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
-      final Response response = RESOURCE_EXTENSION.target(
+      try (Response response = RESOURCE_EXTENSION.target(
               String.format("/v1/subscription/%s/level/%s/%s/%s", subscriberId, level, currency, idempotencyKey))
           .request()
-          .put(Entity.json(""));
+          .put(Entity.json(""))) {
 
-      assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getStatus()).isEqualTo(200);
+      }
     }
 
     @Test
@@ -205,14 +208,16 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
-      final Response response = RESOURCE_EXTENSION.target(
+      final Map<?, ?> responseMap;
+      try (Response response = RESOURCE_EXTENSION.target(
               String.format("/v1/subscription/%s/level/%s/%s/%s", subscriberId, level, currency, idempotencyKey))
           .request()
-          .put(Entity.json(""));
+          .put(Entity.json(""))) {
 
-      assertThat(response.getStatus()).isEqualTo(SubscriptionExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
+        assertThat(response.getStatus()).isEqualTo(SubscriptionExceptionMapper.PROCESSOR_ERROR_STATUS_CODE);
 
-      final Map responseMap = response.readEntity(Map.class);
+        responseMap = response.readEntity(Map.class);
+      }
       assertThat(responseMap.get("processor")).isEqualTo("STRIPE");
       assertThat(responseMap.get("chargeFailure")).asInstanceOf(
               InstanceOfAssertFactories.map(String.class, Object.class))
@@ -238,12 +243,13 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
-      final Response response = RESOURCE_EXTENSION.target(
+      try (Response response = RESOURCE_EXTENSION.target(
               String.format("/v1/subscription/%s/level/%s/%s/%s", subscriberId, level, currency, idempotencyKey))
           .request()
-          .put(Entity.json(""));
-      assertThat(response.getStatus()).isEqualTo(409);
-      assertThat(response.readEntity(Map.class)).containsOnlyKeys("code", "message");
+          .put(Entity.json(""))) {
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.readEntity(Map.class)).containsOnlyKeys("code", "message");
+      }
     }
 
     @Test
@@ -263,13 +269,15 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
       when(SUBSCRIPTIONS.get(eq(Arrays.copyOfRange(subscriberUserAndKey, 0, 16)), any()))
           .thenReturn(Subscriptions.GetResult.found(record));
 
-      final Response response = RESOURCE_EXTENSION
+      try (Response response = RESOURCE_EXTENSION
           .target(String.format("/v1/subscription/%s/create_payment_method", subscriberId))
           .request()
-          .post(Entity.json(""));
+          .header(HeaderUtils.DONATION_PERMIT, getDonationPermitHeader())
+          .post(Entity.json(""))) {
 
-      assertThat(response.getStatus()).isEqualTo(409);
-      assertThat(response.readEntity(Map.class)).containsOnlyKeys("code", "message");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.readEntity(Map.class)).containsOnlyKeys("code", "message");
+      }
     }
 
     @Test
@@ -280,27 +288,26 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
       final String level = String.valueOf(levelId);
       final String idempotencyKey = UUID.randomUUID().toString();
-      final Response response = RESOURCE_EXTENSION.target(
+      try (Response response = RESOURCE_EXTENSION.target(
               String.format("/v1/subscription/%s/level/%s/%s/%s", subscriberId, level, currency, idempotencyKey))
           .request()
-          .put(Entity.json(""));
+          .put(Entity.json(""))) {
 
-      assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getStatus()).isEqualTo(400);
 
-      assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelErrorResponse.class))
-          .satisfies(errorResponse ->
-              assertThat(errorResponse.errors())
-                  .anySatisfy(error ->
-                      assertThat(error.type())
-                          .isEqualTo(
-                              SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION)));
+        assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelErrorResponse.class))
+            .satisfies(errorResponse ->
+                assertThat(errorResponse.errors())
+                    .anySatisfy(error ->
+                        assertThat(error.type())
+                            .isEqualTo(
+                                SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.PAYMENT_REQUIRES_ACTION)));
+      }
     }
   }
 
   @Test
   void createSubscriber() {
-    when(CLOCK.instant()).thenReturn(Instant.now());
-
     // basic create
     final byte[] subscriberUserAndKey = new byte[32];
     Arrays.fill(subscriberUserAndKey, (byte) 1);
@@ -316,30 +323,34 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
     when(SUBSCRIPTIONS.create(any(), any(), any())).thenReturn(record);
 
-    final Response createResponse = RESOURCE_EXTENSION.target(String.format("/v1/subscription/%s", subscriberId))
+    try (Response createResponse = RESOURCE_EXTENSION.target(String.format("/v1/subscription/%s", subscriberId))
         .request()
-        .put(Entity.json(""));
-    assertThat(createResponse.getStatus()).isEqualTo(200);
+        .header(HeaderUtils.DONATION_PERMIT, getDonationPermitHeader())
+        .put(Entity.json(""))) {
+      assertThat(createResponse.getStatus()).isEqualTo(200);
+    }
 
     // creating should be idempotent
     when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.found(record));
 
-    final Response idempotentCreateResponse = RESOURCE_EXTENSION.target(
+    try (Response idempotentCreateResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", subscriberId))
         .request()
-        .put(Entity.json(""));
-    assertThat(idempotentCreateResponse.getStatus()).isEqualTo(200);
+        .put(Entity.json(""))) {
+      assertThat(idempotentCreateResponse.getStatus()).isEqualTo(200);
+    }
 
     // when the manager returns `null`, it means there was a password mismatch from the storage layer `create`.
     // this could happen if there is a race between two concurrent `create` requests for the same user ID
     when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.NOT_STORED);
     when(SUBSCRIPTIONS.create(any(), any(), any())).thenReturn(null);
 
-    final Response managerCreateNullResponse = RESOURCE_EXTENSION.target(
+    try (Response managerCreateNullResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", subscriberId))
         .request()
-        .put(Entity.json(""));
-    assertThat(managerCreateNullResponse.getStatus()).isEqualTo(403);
+        .put(Entity.json(""))) {
+      assertThat(managerCreateNullResponse.getStatus()).isEqualTo(403);
+    }
 
     final byte[] subscriberUserAndMismatchedKey = new byte[32];
     Arrays.fill(subscriberUserAndMismatchedKey, 0, 16, (byte) 1);
@@ -349,24 +360,26 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     // a password mismatch for an existing record
     when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.PASSWORD_MISMATCH);
 
-    final Response passwordMismatchResponse = RESOURCE_EXTENSION.target(
+    try (Response passwordMismatchResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", mismatchedSubscriberId))
         .request()
-        .put(Entity.json(""));
+        .put(Entity.json(""))) {
 
-    assertThat(passwordMismatchResponse.getStatus()).isEqualTo(403);
+      assertThat(passwordMismatchResponse.getStatus()).isEqualTo(403);
+    }
 
     // invalid request data is a 404
     final byte[] malformedUserAndKey = new byte[16];
     Arrays.fill(malformedUserAndKey, (byte) 1);
     final String malformedUserId = Base64.getEncoder().encodeToString(malformedUserAndKey);
 
-    final Response malformedUserAndKeyResponse = RESOURCE_EXTENSION.target(
+    try (Response malformedUserAndKeyResponse = RESOURCE_EXTENSION.target(
             String.format("/v1/subscription/%s", malformedUserId))
         .request()
-        .put(Entity.json(""));
+        .put(Entity.json(""))) {
 
-    assertThat(malformedUserAndKeyResponse.getStatus()).isEqualTo(404);
+      assertThat(malformedUserAndKeyResponse.getStatus()).isEqualTo(404);
+    }
   }
 
   @Test
@@ -375,7 +388,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     Arrays.fill(subscriberUserAndKey, (byte) 1);
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
-    when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any())).thenReturn(Subscriptions.GetResult.NOT_STORED);
 
     final Map<String, AttributeValue> dynamoItem = Map.of(Subscriptions.KEY_PASSWORD, b(new byte[16]),
@@ -386,12 +398,14 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         Arrays.copyOfRange(subscriberUserAndKey, 0, 16), dynamoItem);
     when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class))).thenReturn(record);
 
-    final Response createSubscriberResponse = RESOURCE_EXTENSION
+    try (Response createSubscriberResponse = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s", subscriberId))
         .request()
-        .put(Entity.json(""));
+        .header(HeaderUtils.DONATION_PERMIT, getDonationPermitHeader())
+        .put(Entity.json(""))) {
 
-    assertThat(createSubscriberResponse.getStatus()).isEqualTo(200);
+      assertThat(createSubscriberResponse.getStatus()).isEqualTo(200);
+    }
 
     when(SUBSCRIPTIONS.get(any(), any()))
         .thenReturn(Subscriptions.GetResult.found(record));
@@ -415,15 +429,17 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     when(STRIPE_MANAGER.createPaymentMethodSetupToken(customerId))
         .thenReturn(clientSecret);
 
-    final SubscriptionController.CreatePaymentMethodResponse createPaymentMethodResponse = RESOURCE_EXTENSION
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/create_payment_method", subscriberId))
         .request()
-        .post(Entity.json(""))
-        .readEntity(SubscriptionController.CreatePaymentMethodResponse.class);
+        .header(HeaderUtils.DONATION_PERMIT, getDonationPermitHeader())
+        .post(Entity.json(""))) {
+      final SubscriptionController.CreatePaymentMethodResponse createPaymentMethodResponse =
+          response.readEntity(SubscriptionController.CreatePaymentMethodResponse.class);
 
-    assertThat(createPaymentMethodResponse.processor()).isEqualTo(PaymentProvider.STRIPE);
-    assertThat(createPaymentMethodResponse.clientSecret()).isEqualTo(clientSecret);
-
+      assertThat(createPaymentMethodResponse.processor()).isEqualTo(PaymentProvider.STRIPE);
+      assertThat(createPaymentMethodResponse.clientSecret()).isEqualTo(clientSecret);
+    }
   }
 
   @Test
@@ -443,16 +459,16 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         .thenReturn(record);
 
     // set up mocks
-    when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
         .thenReturn(Subscriptions.GetResult.found(record));
 
-    final Response response = RESOURCE_EXTENSION
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, 5, "usd", "abcd"))
         .request()
-        .put(Entity.json(""));
+        .put(Entity.json(""))) {
 
-    assertThat(response.getStatus()).isEqualTo(409);
+      assertThat(response.getStatus()).isEqualTo(409);
+    }
   }
 
   @ParameterizedTest
@@ -482,26 +498,26 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         .thenReturn(record);
 
     // set up mocks
-    when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
         .thenReturn(Subscriptions.GetResult.found(record));
 
     when(BRAINTREE_MANAGER.createSubscription(any(), any(), anyLong(), anyLong()))
         .thenReturn(new CustomerAwareSubscriptionPaymentProcessor.SubscriptionId("subscription"));
 
-    final Response response = RESOURCE_EXTENSION
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, levelId, "usd", "abcd"))
         .request()
-        .put(Entity.json(""));
+        .put(Entity.json(""))) {
 
-    verify(BRAINTREE_MANAGER).createSubscription(eq(customerId), eq(expectedProcessorId), eq(levelId), eq(0L));
-    verifyNoMoreInteractions(BRAINTREE_MANAGER);
+      verify(BRAINTREE_MANAGER).createSubscription(eq(customerId), eq(expectedProcessorId), eq(levelId), eq(0L));
+      verifyNoMoreInteractions(BRAINTREE_MANAGER);
 
-    assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.getStatus()).isEqualTo(200);
 
-    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class))
-        .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::level)
-        .isEqualTo(levelId);
+      assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class))
+          .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::level)
+          .isEqualTo(levelId);
+    }
   }
 
   @ParameterizedTest
@@ -530,7 +546,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         .thenReturn(record);
 
     // set up mocks
-    when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
         .thenReturn(Subscriptions.GetResult.found(record));
 
@@ -546,27 +561,28 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     }
 
     final String idempotencyKey = "abcd";
-    final Response response = RESOURCE_EXTENSION
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, requestLevel, requestCurrency,
             idempotencyKey))
         .request()
-        .put(Entity.json(""));
+        .put(Entity.json(""))) {
 
-    verify(BRAINTREE_MANAGER).getSubscription(any());
-    verify(BRAINTREE_MANAGER).getLevelAndCurrencyForSubscription(any());
+      verify(BRAINTREE_MANAGER).getSubscription(any());
+      verify(BRAINTREE_MANAGER).getLevelAndCurrencyForSubscription(any());
 
-    if (expectUpdate) {
-      verify(BRAINTREE_MANAGER).updateSubscription(any(), any(), eq(requestLevel), eq(idempotencyKey));
-      verify(SUBSCRIPTIONS).subscriptionLevelChanged(any(), any(), eq(requestLevel), eq(updatedSubscriptionId));
+      if (expectUpdate) {
+        verify(BRAINTREE_MANAGER).updateSubscription(any(), any(), eq(requestLevel), eq(idempotencyKey));
+        verify(SUBSCRIPTIONS).subscriptionLevelChanged(any(), any(), eq(requestLevel), eq(updatedSubscriptionId));
+      }
+
+      verifyNoMoreInteractions(BRAINTREE_MANAGER);
+
+      assertThat(response.getStatus()).isEqualTo(200);
+
+      assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class))
+          .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::level)
+          .isEqualTo(requestLevel);
     }
-
-    verifyNoMoreInteractions(BRAINTREE_MANAGER);
-
-    assertThat(response.getStatus()).isEqualTo(200);
-
-    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class))
-        .extracting(SubscriptionController.SetSubscriptionLevelSuccessResponse::level)
-        .isEqualTo(requestLevel);
   }
 
   static Stream<Arguments> setSubscriptionLevelExistingSubscription() {
@@ -600,7 +616,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     when(SUBSCRIPTIONS.create(any(), any(), any(Instant.class)))
         .thenReturn(record);
 
-    when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
         .thenReturn(Subscriptions.GetResult.found(record));
 
@@ -610,17 +625,19 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         .thenReturn(new CustomerAwareSubscriptionPaymentProcessor.LevelAndCurrency(201, "usd"));
 
     // Try to change from a backup subscription (201) to a donation subscription (5)
-    final Response response = RESOURCE_EXTENSION
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/level/%d/%s/%s", subscriberId, 5, "usd", "abcd"))
         .request()
-        .put(Entity.json(""));
-    assertThat(response.getStatus()).isEqualTo(400);
-    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelErrorResponse.class))
-        .extracting(resp -> resp.errors())
-        .asInstanceOf(InstanceOfAssertFactories.list(SubscriptionController.SetSubscriptionLevelErrorResponse.Error.class))
-        .hasSize(1).first()
-        .extracting(error -> error.type())
-        .isEqualTo(SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL);
+        .put(Entity.json(""))) {
+      assertThat(response.getStatus()).isEqualTo(400);
+      assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelErrorResponse.class))
+          .extracting(SubscriptionController.SetSubscriptionLevelErrorResponse::errors)
+          .asInstanceOf(
+              InstanceOfAssertFactories.list(SubscriptionController.SetSubscriptionLevelErrorResponse.Error.class))
+          .hasSize(1).first()
+          .extracting(SubscriptionController.SetSubscriptionLevelErrorResponse.Error::type)
+          .isEqualTo(SubscriptionController.SetSubscriptionLevelErrorResponse.Error.Type.UNSUPPORTED_LEVEL);
+    }
   }
 
   @Test
@@ -646,14 +663,15 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
     when(APPSTORE_MANAGER.validateTransaction(eq(originalTxId)))
         .thenReturn(99L);
-    
-    final Response response = RESOURCE_EXTENSION
+
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/appstore/%s", subscriberId, originalTxId))
         .request()
-        .post(Entity.json(""));
-    assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class).level())
-        .isEqualTo(99L);
+        .post(Entity.json(""))) {
+      assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class).level())
+          .isEqualTo(99L);
+    }
 
     verify(SUBSCRIPTIONS, times(1)).setIapPurchase(
         any(),
@@ -687,13 +705,14 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     when(validatedToken.getLevel()).thenReturn(99L);
     when(PLAY_MANAGER.validateToken(eq(purchaseToken))).thenReturn(validatedToken);
 
-    final Response response = RESOURCE_EXTENSION
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/playbilling/%s", subscriberId, purchaseToken))
         .request()
-        .post(Entity.json(""));
-    assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class).level())
-        .isEqualTo(99L);
+        .post(Entity.json(""))) {
+      assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class).level())
+          .isEqualTo(99L);
+    }
 
     verify(SUBSCRIPTIONS, times(1)).setIapPurchase(
         any(),
@@ -729,13 +748,14 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
 
     when(PLAY_MANAGER.validateToken(eq(newPurchaseToken))).thenReturn(validatedToken);
 
-    final Response response = RESOURCE_EXTENSION
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/playbilling/%s", subscriberId, newPurchaseToken))
         .request()
-        .post(Entity.json(""));
-    assertThat(response.getStatus()).isEqualTo(200);
-    assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class).level())
-        .isEqualTo(99L);
+        .post(Entity.json(""))) {
+      assertThat(response.getStatus()).isEqualTo(200);
+      assertThat(response.readEntity(SubscriptionController.SetSubscriptionLevelSuccessResponse.class).level())
+          .isEqualTo(99L);
+    }
 
     verify(SUBSCRIPTIONS, times(1)).setIapPurchase(
         any(),
@@ -754,7 +774,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     Arrays.fill(subscriberUserAndKey, (byte) 1);
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
-    when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
         .thenReturn(Subscriptions.GetResult.found(Subscriptions.Record.from(
             Arrays.copyOfRange(subscriberUserAndKey, 0, 16),
@@ -772,13 +791,15 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final ReceiptCredentialRequest receiptRequest = new ClientZkReceiptOperations(
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
-    final Response response = RESOURCE_EXTENSION
+    final Map<?, ?> responseMap;
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/receipt_credentials", subscriberId))
         .request()
-        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())));
+        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())))) {
 
-    assertThat(response.getStatus()).isEqualTo(402);
-    final Map responseMap = response.readEntity(Map.class);
+      assertThat(response.getStatus()).isEqualTo(402);
+      responseMap = response.readEntity(Map.class);
+    }
     assertThat(responseMap.get("processor")).isEqualTo("STRIPE");
     assertThat(responseMap.get("chargeFailure")).asInstanceOf(
             InstanceOfAssertFactories.map(String.class, Object.class))
@@ -793,7 +814,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     Arrays.fill(subscriberUserAndKey, (byte) 1);
     final String subscriberId = Base64.getEncoder().encodeToString(subscriberUserAndKey);
 
-    when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
         .thenReturn(Subscriptions.GetResult.found(Subscriptions.Record.from(
             Arrays.copyOfRange(subscriberUserAndKey, 0, 16),
@@ -813,12 +833,13 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
     final ReceiptCredentialRequest receiptRequest = new ClientZkReceiptOperations(
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
-    final Response response = RESOURCE_EXTENSION
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/receipt_credentials", subscriberId))
         .request()
-        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())));
+        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())))) {
 
-    assertThat(response.getStatus()).isEqualTo(409);
+      assertThat(response.getStatus()).isEqualTo(409);
+    }
   }
 
   @ParameterizedTest
@@ -844,7 +865,6 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
     final ReceiptCredentialResponse receiptCredentialResponse = mock(ReceiptCredentialResponse.class);
 
-    when(CLOCK.instant()).thenReturn(Instant.now());
     when(SUBSCRIPTIONS.get(any(), any()))
         .thenReturn(Subscriptions.GetResult.found(record));
     when(BRAINTREE_MANAGER.getReceiptItem(subscriptionId)).thenReturn(
@@ -854,11 +874,12 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
             level));
     when(ZK_OPS.issueReceiptCredential(any(), anyLong(), eq(level))).thenReturn(receiptCredentialResponse);
     when(receiptCredentialResponse.serialize()).thenReturn(new byte[0]);
-    final Response response = RESOURCE_EXTENSION
+    try (Response response = RESOURCE_EXTENSION
         .target(String.format("/v1/subscription/%s/receipt_credentials", subscriberId))
         .request()
-        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())));
-    assertThat(response.getStatus()).isEqualTo(200);
+        .post(Entity.json(new SubscriptionController.GetReceiptCredentialsRequest(receiptRequest.serialize())))) {
+      assertThat(response.getStatus()).isEqualTo(200);
+    }
 
     long expectedExpiration = Instant.EPOCH
         // Truncated current time is day 1
@@ -988,13 +1009,12 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
                 assertThat(badge.getName()).isEqualTo("gift1");
               }));
 
-      assertThat(levelsMap).extractingByKey(5L).satisfies(level -> {
-        assertThat(level).extracting(LevelConfiguration::badge)
-            .satisfies(badge -> {
-              assertThat(badge.getId()).isEqualTo("B1");
-              assertThat(badge.getName()).isEqualTo("name1");
-            });
-      });
+      assertThat(levelsMap).extractingByKey(5L).satisfies(level ->
+          assertThat(level).extracting(LevelConfiguration::badge)
+              .satisfies(badge -> {
+                assertThat(badge.getId()).isEqualTo("B1");
+                assertThat(badge.getName()).isEqualTo("name1");
+              }));
 
       assertThat(levelsMap).extractingByKey(15L).satisfies(level ->
           assertThat(level).extracting(LevelConfiguration::badge)
@@ -1003,13 +1023,12 @@ class SubscriptionControllerTest extends AbstractV1SubscriptionControllerTest {
                 assertThat(badge.getName()).isEqualTo("name2");
               }));
 
-      assertThat(levelsMap).extractingByKey(35L).satisfies(level -> {
-        assertThat(level).extracting(LevelConfiguration::badge)
-            .satisfies(badge -> {
-              assertThat(badge.getId()).isEqualTo("B3");
-              assertThat(badge.getName()).isEqualTo("name3");
-            });
-      });
+      assertThat(levelsMap).extractingByKey(35L).satisfies(level ->
+          assertThat(level).extracting(LevelConfiguration::badge)
+              .satisfies(badge -> {
+                assertThat(badge.getId()).isEqualTo("B3");
+                assertThat(badge.getName()).isEqualTo("name3");
+              }));
     });
 
     assertThat(response.backup().levels()).containsOnlyKeys("201").extractingByKey("201").satisfies(configuration -> {

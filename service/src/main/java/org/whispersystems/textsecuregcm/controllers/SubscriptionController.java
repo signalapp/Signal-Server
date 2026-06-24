@@ -5,6 +5,10 @@
 
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.buildCurrencyConfiguration;
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.buildDonationLevelsConfiguration;
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientPlatform;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.google.common.annotations.VisibleForTesting;
@@ -15,6 +19,7 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -36,6 +41,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
@@ -50,11 +56,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.glassfish.jersey.server.ManagedAsync;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.auth.DonationPermitHeader;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
@@ -66,6 +73,7 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.SubscriptionExceptionMapper;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.SubscriberCredentials;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
@@ -90,10 +98,6 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequire
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
-import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.buildCurrencyConfiguration;
-import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.buildDonationLevelsConfiguration;
-import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientPlatform;
-
 @Path("/v1/subscription")
 @io.swagger.v3.oas.annotations.tags.Tag(name = "Subscriptions")
 public class SubscriptionController {
@@ -108,6 +112,7 @@ public class SubscriptionController {
   private final AppleAppStoreManager appleAppStoreManager;
   private final BadgeTranslator badgeTranslator;
   private final BankMandateTranslator bankMandateTranslator;
+  private final DonationPermitsManager donationPermitsManager;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   static final String RECEIPT_ISSUED_COUNTER_NAME = MetricsUtil.name(SubscriptionController.class, "receiptIssued");
   static final String PROCESSOR_TAG_NAME = "processor";
@@ -115,17 +120,18 @@ public class SubscriptionController {
   private static final String SUBSCRIPTION_TYPE_TAG_NAME = "subscriptionType";
 
   public SubscriptionController(
-      @Nonnull Clock clock,
-      @Nonnull SubscriptionConfiguration subscriptionConfiguration,
-      @Nonnull OneTimeDonationConfiguration oneTimeDonationConfiguration,
-      @Nonnull SubscriptionManager subscriptionManager,
-      @Nonnull StripeManager stripeManager,
-      @Nonnull BraintreeManager braintreeManager,
-      @Nonnull GooglePlayBillingManager googlePlayBillingManager,
-      @Nonnull AppleAppStoreManager appleAppStoreManager,
-      @Nonnull BadgeTranslator badgeTranslator,
-      @Nonnull BankMandateTranslator bankMandateTranslator,
-      @NotNull DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
+      Clock clock,
+      SubscriptionConfiguration subscriptionConfiguration,
+      OneTimeDonationConfiguration oneTimeDonationConfiguration,
+      SubscriptionManager subscriptionManager,
+      StripeManager stripeManager,
+      BraintreeManager braintreeManager,
+      GooglePlayBillingManager googlePlayBillingManager,
+      AppleAppStoreManager appleAppStoreManager,
+      BadgeTranslator badgeTranslator,
+      BankMandateTranslator bankMandateTranslator,
+      DonationPermitsManager donationPermitsManager,
+      DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager) {
     this.subscriptionManager = subscriptionManager;
     this.clock = Objects.requireNonNull(clock);
     this.subscriptionConfiguration = Objects.requireNonNull(subscriptionConfiguration);
@@ -136,7 +142,8 @@ public class SubscriptionController {
     this.appleAppStoreManager = appleAppStoreManager;
     this.badgeTranslator = Objects.requireNonNull(badgeTranslator);
     this.bankMandateTranslator = Objects.requireNonNull(bankMandateTranslator);
-    this.dynamicConfigurationManager = dynamicConfigurationManager;
+    this.donationPermitsManager = donationPermitsManager;
+    this.dynamicConfigurationManager = Objects.requireNonNull(dynamicConfigurationManager);
   }
 
 
@@ -202,15 +209,35 @@ public class SubscriptionController {
       period of time will result in the subscription being canceled.
       """)
   @ApiResponse(responseCode = "200", description = "The subscriber was successfully created or refreshed")
+  @ApiResponse(responseCode = "401", description = "Donation permit was invalid or already spent")
   @ApiResponse(responseCode = "403", description = "subscriberId authentication failure OR account authentication is present")
   @ApiResponse(responseCode = "404", description = "subscriberId is malformed")
   @ManagedAsync
   public Response updateSubscriber(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+
+      @Parameter(description="A base64-encoded donation permit retrieved from POST /v1/donation/permit")
+      @HeaderParam(HeaderUtils.DONATION_PERMIT)
+      final Optional<DonationPermitHeader> donationPermitHeader,
+
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgent,
+
       @PathParam("subscriberId") String subscriberId) throws SubscriptionException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
-    subscriptionManager.updateSubscriber(subscriberCredentials);
+
+    SubscriptionsUtil.recordDonationPermitPresent(donationPermitHeader.isPresent(), "putSubscriber", userAgent);
+    final boolean creationPermitted = donationPermitHeader.map(
+        permitHeader -> {
+          try {
+            return SubscriptionsUtil.verifyAndSpendDonationPermit(permitHeader.permit(), donationPermitsManager, clock);
+          } catch (VerificationFailedException e) {
+            return false;
+          }
+        })
+        .orElse(true);
+
+    subscriptionManager.updateSubscriber(subscriberCredentials, creationPermitted);
     return Response.ok().build();
   }
 
@@ -226,6 +253,11 @@ public class SubscriptionController {
   @RateLimitedByIp(RateLimiters.For.ADD_SUBSCRIPTION_PAYMENT_METHOD)
   public CreatePaymentMethodResponse createPaymentMethod(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+
+      @Parameter(description="A base64-encoded donation permit retrieved from POST /v1/donation/permit")
+      @HeaderParam(HeaderUtils.DONATION_PERMIT)
+      final Optional<DonationPermitHeader> donationPermitHeader,
+
       @PathParam("subscriberId") String subscriberId,
       @QueryParam("type") @DefaultValue("CARD") PaymentMethod paymentMethodType,
       @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) throws SubscriptionException {
@@ -242,6 +274,21 @@ public class SubscriptionController {
       case PAYPAL -> throw new BadRequestException("The PAYPAL payment type must use create_payment_method/paypal");
       case UNKNOWN -> throw new BadRequestException("Invalid payment method");
     };
+
+    SubscriptionsUtil.recordDonationPermitPresent(donationPermitHeader.isPresent(), "createPaymentMethod", userAgentString);
+    final boolean spendSuccessful = donationPermitHeader.map(
+            permitHeader -> {
+              try {
+                return SubscriptionsUtil.verifyAndSpendDonationPermit(permitHeader.permit(), donationPermitsManager, clock);
+              } catch (VerificationFailedException e) {
+                return false;
+              }
+            })
+        .orElse(true);
+
+    if (!spendSuccessful) {
+      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
+    }
 
     final String token = subscriptionManager.addPaymentMethodToCustomer(
         subscriberCredentials,

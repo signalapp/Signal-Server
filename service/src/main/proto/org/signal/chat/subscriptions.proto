@@ -108,7 +108,10 @@ service Subscriptions {
 }
 
 message UpdateSubscriberRequest {
-  bytes subscriberId = 1 [(require.exactlySize) = 32];
+  bytes subscriber_id = 1 [(require.exactlySize) = 32];
+  // A libsignal DonationPermit from rpc Donations.CreateDonationPermit,
+  // required if the subscriber ID is new
+  bytes donation_permit = 2;
 }
 
 message UpdateSubscriberResponse {
@@ -116,6 +119,8 @@ message UpdateSubscriberResponse {
     google.protobuf.Empty success = 1;
     // subscriberId authentication failure
     errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 2 [(tag.reason) = "subscriber_id_mismatch"];
+    // The donation permit was expired or already spent
+    errors.FailedZkAuthentication permit_rejected = 3 [(tag.reason) = "permit_rejected"];
   }
 }
 
@@ -171,8 +176,10 @@ enum SubscriptionStatus {
 message CreatePaymentMethodRequest {
   // Only PAYMENT_METHOD_CARD, PAYMENT_METHOD_SEPA_DEBIT, and PAYMENT_METHOD_IDEAL are supported;
   // other values will result in an INVALID_ARGUMENT error.
-  bytes subscriberId = 1 [(require.exactlySize) = 32];
-  PaymentMethod paymentMethod = 2 [(require.specified) = true];
+  bytes subscriber_id = 1 [(require.exactlySize) = 32];
+  PaymentMethod payment_method = 2 [(require.specified) = true];
+  // a libsignal DonationPermit from rpc Donations.CreateDonationPermit
+  bytes donation_permit = 3 [(require.nonEmpty) = true];
 }
 
 message CreatePaymentMethodResponse {
@@ -188,6 +195,8 @@ message CreatePaymentMethodResponse {
     errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 3 [(tag.reason) = "subscriber_id_mismatch"];
     // New payment processor does not match existing processor associated with the subscription
     errors.FailedPrecondition subscription_processor_conflict = 4 [(tag.reason) = "subscription_processor_conflict"];
+    // The donation permit was expired or already spent
+    errors.FailedZkAuthentication permit_rejected = 5 [(tag.reason) = "permit_rejected"];
   }
 }
 

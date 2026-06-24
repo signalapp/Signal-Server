@@ -55,6 +55,7 @@ public class DynamoDbTables {
   private final Table clientReleases;
   private final Table deletedAccounts;
   private final Table deletedAccountsLock;
+  private final TableWithExpiration donationPermits;
   private final IssuedReceiptsTableConfiguration issuedReceipts;
   private final Table ecKeys;
   private final Table ecSignedPreKeys;
@@ -84,6 +85,7 @@ public class DynamoDbTables {
       @JsonProperty("clientReleases") final Table clientReleases,
       @JsonProperty("deletedAccounts") final Table deletedAccounts,
       @JsonProperty("deletedAccountsLock") final Table deletedAccountsLock,
+      @JsonProperty("donationPermits") final TableWithExpiration donationPermits,
       @JsonProperty("issuedReceipts") final IssuedReceiptsTableConfiguration issuedReceipts,
       @JsonProperty("ecKeys") final Table ecKeys,
       @JsonProperty("ecSignedPreKeys") final Table ecSignedPreKeys,
@@ -112,6 +114,7 @@ public class DynamoDbTables {
     this.clientReleases = clientReleases;
     this.deletedAccounts = deletedAccounts;
     this.deletedAccountsLock = deletedAccountsLock;
+    this.donationPermits = donationPermits;
     this.issuedReceipts = issuedReceipts;
     this.ecKeys = ecKeys;
     this.ecSignedPreKeys = ecSignedPreKeys;
@@ -179,6 +182,12 @@ public class DynamoDbTables {
   @Valid
   public Table getDeletedAccountsLock() {
     return deletedAccountsLock;
+  }
+
+  @NotNull
+  @Valid
+  public TableWithExpiration getDonationPermits() {
+    return donationPermits;
   }
 
   @NotNull

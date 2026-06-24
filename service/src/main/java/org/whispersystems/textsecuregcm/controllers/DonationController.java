@@ -24,9 +24,7 @@ import java.time.Instant;
 import java.util.Objects;
 import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.zkgroup.InvalidInputException;
-import org.signal.libsignal.zkgroup.ServerSecretParams;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
-import org.signal.libsignal.zkgroup.donation.DonationPermitDerivedKeyPair;
 import org.signal.libsignal.zkgroup.donation.DonationPermitRequest;
 import org.signal.libsignal.zkgroup.donation.DonationPermitResponse;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialPresentation;
@@ -40,6 +38,7 @@ import org.whispersystems.textsecuregcm.entities.RedeemReceiptRequest;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
 
@@ -53,7 +52,7 @@ public class DonationController {
   private final AccountsManager accountsManager;
   private final BadgesConfiguration badgesConfiguration;
   private final ReceiptCredentialPresentationFactory receiptCredentialPresentationFactory;
-  private final ServerSecretParams serverSecretParams;
+  private final DonationPermitsManager donationPermitsManager;
   private final RateLimiters rateLimiters;
 
   public DonationController(
@@ -63,7 +62,7 @@ public class DonationController {
       final AccountsManager accountsManager,
       final BadgesConfiguration badgesConfiguration,
       final ReceiptCredentialPresentationFactory receiptCredentialPresentationFactory,
-      final ServerSecretParams serverSecretParams,
+      final DonationPermitsManager donationPermitsManager,
       final RateLimiters rateLimiters) {
     this.clock = Objects.requireNonNull(clock);
     this.serverZkReceiptOperations = Objects.requireNonNull(serverZkReceiptOperations);
@@ -71,7 +70,7 @@ public class DonationController {
     this.accountsManager = Objects.requireNonNull(accountsManager);
     this.badgesConfiguration = Objects.requireNonNull(badgesConfiguration);
     this.receiptCredentialPresentationFactory = Objects.requireNonNull(receiptCredentialPresentationFactory);
-    this.serverSecretParams = Objects.requireNonNull(serverSecretParams);
+    this.donationPermitsManager = Objects.requireNonNull(donationPermitsManager);
     this.rateLimiters = Objects.requireNonNull(rateLimiters);
   }
 
@@ -169,10 +168,7 @@ public class DonationController {
 
     rateLimiters.getCreateDonationPermitLimiter().validate(auth.accountIdentifier(), permitRequest.getPermitCount());
 
-    final DonationPermitDerivedKeyPair derivedKeyPair = DonationPermitDerivedKeyPair.forExpiration(
-        DonationPermitResponse.defaultExpiration(clock.instant()), serverSecretParams);
-
-    final DonationPermitResponse permitResponse = permitRequest.issue(derivedKeyPair);
+    final DonationPermitResponse permitResponse = donationPermitsManager.issue(permitRequest);
 
     return new CreateDonationPermitResponse(permitResponse.serialize());
   }

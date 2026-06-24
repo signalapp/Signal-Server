@@ -4,6 +4,8 @@
  */
 package org.whispersystems.textsecuregcm.controllers;
 
+import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientPlatform;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.net.HttpHeaders;
 import io.dropwizard.auth.Auth;
@@ -11,6 +13,7 @@ import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.StringToClassMapItem;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -42,7 +45,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nonnull;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
@@ -51,10 +53,13 @@ import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.auth.AuthenticatedDevice;
+import org.whispersystems.textsecuregcm.auth.DonationPermitHeader;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
+import org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil;
 import org.whispersystems.textsecuregcm.limits.RateLimitedByIp;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
 import org.whispersystems.textsecuregcm.storage.OneTimeDonationsManager;
 import org.whispersystems.textsecuregcm.storage.WriteConflictException;
@@ -70,8 +75,6 @@ import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionCurrencyUtil;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
-
-import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientPlatform;
 
 
 /**
@@ -97,16 +100,18 @@ public class OneTimeDonationController {
   private final ServerZkReceiptOperations zkReceiptOperations;
   private final IssuedReceiptsManager issuedReceiptsManager;
   private final OneTimeDonationsManager oneTimeDonationsManager;
+  private final DonationPermitsManager donationPermitsManager;
 
   public OneTimeDonationController(
-      @Nonnull Clock clock,
-      @Nonnull OneTimeDonationConfiguration oneTimeDonationConfiguration,
-      @Nonnull StripeManager stripeManager,
-      @Nonnull BraintreeManager braintreeManager,
-      @Nonnull PayPalDonationsTranslator payPalDonationsTranslator,
-      @Nonnull ServerZkReceiptOperations zkReceiptOperations,
-      @Nonnull IssuedReceiptsManager issuedReceiptsManager,
-      @Nonnull OneTimeDonationsManager oneTimeDonationsManager) {
+      Clock clock,
+      OneTimeDonationConfiguration oneTimeDonationConfiguration,
+      StripeManager stripeManager,
+      BraintreeManager braintreeManager,
+      PayPalDonationsTranslator payPalDonationsTranslator,
+      ServerZkReceiptOperations zkReceiptOperations,
+      IssuedReceiptsManager issuedReceiptsManager,
+      OneTimeDonationsManager oneTimeDonationsManager,
+      DonationPermitsManager donationPermitsManager) {
     this.clock = Objects.requireNonNull(clock);
     this.oneTimeDonationConfiguration = Objects.requireNonNull(oneTimeDonationConfiguration);
     this.stripeManager = Objects.requireNonNull(stripeManager);
@@ -115,6 +120,7 @@ public class OneTimeDonationController {
     this.zkReceiptOperations = Objects.requireNonNull(zkReceiptOperations);
     this.issuedReceiptsManager = Objects.requireNonNull(issuedReceiptsManager);
     this.oneTimeDonationsManager = Objects.requireNonNull(oneTimeDonationsManager);
+    this.donationPermitsManager = Objects.requireNonNull(donationPermitsManager);
   }
 
   public static class CreateBoostRequest {
@@ -162,14 +168,34 @@ public class OneTimeDonationController {
           properties = {
               @StringToClassMapItem(key = "error", value = String.class)
           })))
+  @ApiResponse(responseCode = "401", description = "Donation permit was invalid or already spent")
   @RateLimitedByIp(RateLimiters.For.ONE_TIME_DONATION)
   public CompletableFuture<Response> createBoostPaymentIntent(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
+
+      @Parameter(description="A base64-encoded donation permit retrieved from POST /v1/donation/permit")
+      @HeaderParam(HeaderUtils.DONATION_PERMIT)
+      final Optional<DonationPermitHeader> donationPermitHeader,
+
       @NotNull @Valid CreateBoostRequest request,
       @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
 
     if (authenticatedAccount.isPresent()) {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
+    }
+
+    SubscriptionsUtil.recordDonationPermitPresent(donationPermitHeader.isPresent(), "boostCreate", userAgent);
+    final boolean spendSuccessful = donationPermitHeader.map(
+            permitHeader -> {
+              try {
+                return SubscriptionsUtil.verifyAndSpendDonationPermit(permitHeader.permit(), donationPermitsManager, clock);
+              } catch (VerificationFailedException e) {
+                return false;
+              }
+            })
+        .orElse(true);
+    if (!spendSuccessful) {
+      throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
     return CompletableFuture.runAsync(() ->

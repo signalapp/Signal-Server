@@ -51,6 +51,8 @@ import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.mappers.RateLimitExceededExceptionMapper;
 import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
+import org.whispersystems.textsecuregcm.storage.DonationPermits;
+import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.RedeemedReceiptsManager;
 import org.whispersystems.textsecuregcm.subscriptions.ReceiptCredentialPresentationFactory;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
@@ -78,7 +80,9 @@ class DonationControllerTest {
   }
 
   private final TestClock clock = TestClock.pinned(Instant.ofEpochSecond(nowEpochSeconds));
-  private final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
+
+  final ServerSecretParams serverSecretParams = ServerSecretParams.generate();
+  private final DonationPermitsManager donationPermitsManager = new DonationPermitsManager(mock(DonationPermits.class), serverSecretParams, clock);
 
   private RedeemedReceiptsManager redeemedReceiptsManager;
   private AccountsManager accountsManager;
@@ -117,7 +121,7 @@ class DonationControllerTest {
         .addProvider(RateLimitExceededExceptionMapper.class)
         .setTestContainerFactory(new GrizzlyWebTestContainerFactory())
         .addResource(new DonationController(clock, mock(ServerZkReceiptOperations.class), redeemedReceiptsManager, accountsManager,
-            getBadgesConfiguration(), receiptCredentialPresentationFactory, serverSecretParams, rateLimiters))
+            getBadgesConfiguration(), receiptCredentialPresentationFactory, donationPermitsManager, rateLimiters))
         .build();
     resources.before();
   }

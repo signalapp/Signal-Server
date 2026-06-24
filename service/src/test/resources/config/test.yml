@@ -106,6 +106,9 @@ dynamoDbTables:
     tableName: deleted_accounts_test
   deletedAccountsLock:
     tableName: deleted_accounts_lock_test
+  donationPermits:
+    tableName: donation_permits_test
+    expiration: P7D # Duration of time until rows expire
   issuedReceipts:
     tableName: issued_receipts_test
     expiration: P30D # Duration of time until rows expire

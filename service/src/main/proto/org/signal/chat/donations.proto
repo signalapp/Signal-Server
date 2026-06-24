@@ -21,6 +21,11 @@ service Donations {
   //  responses will include the corresponding badge (if configured as visible)
   //  until the expiration time on the receipt.
   rpc RedeemReceipt(RedeemReceiptRequest) returns (RedeemReceiptResponse) {}
+
+  // Generate a set of anonymous, single-use, permits for use with /v1/subscription endpoints.
+  //
+  // If rate limited, reduce requested permit count and/or try again after the prescribed delay.
+  rpc CreateDonationPermit(CreateDonationPermitRequest) returns (CreateDonationPermitResponse) {}
 }
 
 message RedeemReceiptRequest {
@@ -41,5 +46,14 @@ message RedeemReceiptResponse {
     // The receipt was already redeemed for a different account
     errors.FailedPrecondition already_redeemed = 3 [(tag.reason) = "already_redeemed"];
   }
+}
 
+message CreateDonationPermitRequest {
+  // a serialized libsignal DonationPermitRequest
+  bytes donation_permit_request = 1 [(require.nonEmpty) = true];
+}
+
+message CreateDonationPermitResponse {
+  // a serialized libsignal DonationPermitResponse
+  bytes donation_permit_response = 1;
 }

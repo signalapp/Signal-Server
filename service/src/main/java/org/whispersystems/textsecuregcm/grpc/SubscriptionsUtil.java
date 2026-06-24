@@ -1,9 +1,11 @@
 package org.whispersystems.textsecuregcm.grpc;
 
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tags;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -11,6 +13,8 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.donation.DonationPermit;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationCurrencyConfiguration;
@@ -18,6 +22,9 @@ import org.whispersystems.textsecuregcm.configuration.SubscriptionConfiguration;
 import org.whispersystems.textsecuregcm.configuration.SubscriptionLevelConfiguration;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.PurchasableBadge;
+import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
+import org.whispersystems.textsecuregcm.metrics.UserAgentTagUtil;
+import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.subscriptions.CurrencyConfiguration;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration;
@@ -27,6 +34,13 @@ import org.whispersystems.textsecuregcm.util.ua.UnrecognizedUserAgentException;
 import org.whispersystems.textsecuregcm.util.ua.UserAgentUtil;
 
 public class SubscriptionsUtil {
+
+  private static final String DONATION_PERMIT_PRESENT_COUNTER_NAME = MetricsUtil.name(SubscriptionsUtil.class,
+      "donationPermitPresent");
+
+  private static final String DONATION_PERMIT_SPEND_COUNTER_NAME = MetricsUtil.name(SubscriptionsUtil.class,
+      "donationPermitSpend");
+
   @Nullable
   public static ClientPlatform getClientPlatform(@Nullable final String userAgentString) {
     try {
@@ -124,4 +138,26 @@ public class SubscriptionsUtil {
                 oneTimeDonationConfiguration.gift().expiration())));
     return donationLevels;
   }
+
+  /// Verifies the permit and spends it
+  ///
+  /// @return `true` if the spend was accepted, otherwise `false`
+  /// @throws VerificationFailedException if the permit is invalid
+  public static boolean verifyAndSpendDonationPermit(final DonationPermit permit, final DonationPermitsManager donationPermitsManager, final Clock clock) throws VerificationFailedException {
+
+    final boolean spent = donationPermitsManager.spend(permit);
+
+    Metrics.counter(DONATION_PERMIT_SPEND_COUNTER_NAME, "outcome", spent ? "success" : "failure").increment();
+
+    return spent;
+  }
+
+  public static void recordDonationPermitPresent(final boolean present, final String context, final String userAgent) {
+    Metrics.counter(DONATION_PERMIT_PRESENT_COUNTER_NAME,
+        Tags.of("present", String.valueOf(present),
+                "context", context)
+            .and(UserAgentTagUtil.getPlatformTag(userAgent)))
+        .increment();
+  }
+
 }

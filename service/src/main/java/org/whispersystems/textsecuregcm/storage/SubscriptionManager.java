@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CompletionException;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -23,26 +22,25 @@ import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.signal.libsignal.zkgroup.receipts.ServerZkReceiptOperations;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
-import org.whispersystems.textsecuregcm.controllers.SubscriptionController;
 import org.whispersystems.textsecuregcm.subscriptions.AppleAppStoreManager;
 import org.whispersystems.textsecuregcm.subscriptions.CustomerAwareSubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInformation;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidIdempotencyKeyException;
-import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriberIdCreationNotPermittedException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionForbiddenException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInformation;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidArgumentsException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidIdempotencyKeyException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidLevelException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionNotFoundException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentProcessor;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiredException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionPaymentRequiresActionException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConflictException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptAlreadyRedeemedException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 /**
@@ -105,16 +103,23 @@ public class SubscriptionManager {
    * already exists, its last access time will be updated.
    *
    * @param subscriberCredentials Subscriber credentials derived from the subscriberId
+   * @param createPermitted Whether creating a new subscriber is permitted if one does not exist
    * @throws SubscriptionForbiddenException if the subscriber credentials were incorrect
+   * @throws SubscriberIdCreationNotPermittedException if a new subscriber ID would be created, but the caller does not permit it
    */
-  public void updateSubscriber(final SubscriberCredentials subscriberCredentials)
-      throws SubscriptionForbiddenException {
+  public void updateSubscriber(final SubscriberCredentials subscriberCredentials, final boolean createPermitted)
+      throws SubscriptionForbiddenException, SubscriberIdCreationNotPermittedException {
     final Subscriptions.GetResult getResult =
         subscriptions.get(subscriberCredentials.subscriberUser(), subscriberCredentials.hmac());
 
     if (getResult == Subscriptions.GetResult.PASSWORD_MISMATCH) {
       throw new SubscriptionForbiddenException("subscriberId mismatch");
     } else if (getResult == Subscriptions.GetResult.NOT_STORED) {
+
+      if (!createPermitted) {
+        throw new SubscriberIdCreationNotPermittedException();
+      }
+
       // create a customer and write it to ddb
       final Subscriptions.Record updatedRecord = subscriptions.create(subscriberCredentials.subscriberUser(),
           subscriberCredentials.hmac(),

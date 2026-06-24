@@ -251,6 +251,8 @@ import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriodManager
 import org.whispersystems.textsecuregcm.storage.ChangeNumberWaitingPeriods;
 import org.whispersystems.textsecuregcm.storage.ClientReleaseManager;
 import org.whispersystems.textsecuregcm.storage.ClientReleases;
+import org.whispersystems.textsecuregcm.storage.DonationPermits;
+import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.FoundationDbVersion;
 import org.whispersystems.textsecuregcm.storage.IssuedReceiptsManager;
@@ -785,6 +787,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getDynamoDbTables().getIssuedReceipts().getmaxIssuedReceiptsPerPaymentId());
     OneTimeDonationsManager oneTimeDonationsManager = new OneTimeDonationsManager(
         config.getDynamoDbTables().getOnetimeDonations().getTableName(), config.getDynamoDbTables().getOnetimeDonations().getExpiration(), dynamoDbClient);
+    DonationPermits donationPermits = new DonationPermits(
+        config.getDynamoDbTables().getDonationPermits().getTableName(), config.getDynamoDbTables().getDonationPermits().getExpiration(), dynamoDbClient);
     RedeemedReceiptsManager redeemedReceiptsManager = new RedeemedReceiptsManager(clock,
         config.getDynamoDbTables().getRedeemedReceipts().getTableName(),
         dynamoDbClient,
@@ -949,6 +953,9 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAppleDeviceCheck().teamId(),
         config.getAppleDeviceCheck().bundleId());
 
+    final DonationPermitsManager donationPermitsManager = new DonationPermitsManager(donationPermits, zkSecretParams,
+        clock);
+
     final SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,
         List.of(stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager),
         zkReceiptOperations, issuedReceiptsManager);
@@ -1065,7 +1072,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
                 config.getAttachments().maxAttachmentUploadSizeInBytes(), Clock.systemUTC()),
             new PaymentsGrpcService(currencyManager),
             new ChallengeGrpcService(accountsManager, rateLimitChallengeManager, challengeConstraintChecker),
-            new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new))
+            new DonationsGrpcService(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(), ReceiptCredentialPresentation::new, donationPermitsManager, rateLimiters))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
@@ -1087,8 +1094,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
             new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC())),
             new SubscriptionsGrpcService(clock, config.getSubscription(), config.getOneTimeDonations(), subscriptionManager,
-                stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager, profileBadgeConverter,
-                bankMandateTranslator, dynamicConfigurationManager))
+                donationPermitsManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
+                profileBadgeConverter, bankMandateTranslator, dynamicConfigurationManager))
         .map(bindableService -> ServerInterceptors.intercept(bindableService,
             // Note: interceptors run in the reverse order they are added; the remote deprecation filter
             // depends on the user-agent context so it has to come first here!
@@ -1219,7 +1226,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             config.getDeviceCheck().backupRedemptionDuration()),
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
-            ReceiptCredentialPresentation::new, zkSecretParams, rateLimiters),
+            ReceiptCredentialPresentation::new, donationPermitsManager, rateLimiters),
         new KeysController(rateLimiters, keysManager, accountsManager, zkSecretParams, Clock.systemUTC()),
         new KeyTransparencyController(keyTransparencyServiceClient),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, accountsManager,
@@ -1241,9 +1248,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             dynamicConfigurationManager, experimentEnrollmentManager, clock),
         new SubscriptionController(clock, config.getSubscription(), config.getOneTimeDonations(),
             subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
-            profileBadgeConverter, bankMandateTranslator, dynamicConfigurationManager),
+            profileBadgeConverter, bankMandateTranslator, donationPermitsManager, dynamicConfigurationManager),
         new OneTimeDonationController(clock, config.getOneTimeDonations(), stripeManager, braintreeManager,
-            payPalDonationsTranslator, zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager)
+            payPalDonationsTranslator, zkReceiptOperations, issuedReceiptsManager, oneTimeDonationsManager,
+            donationPermitsManager)
     );
 
     for (Object controller : commonControllers) {

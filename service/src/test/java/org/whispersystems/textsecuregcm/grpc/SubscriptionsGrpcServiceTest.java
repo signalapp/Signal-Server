@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -19,8 +20,9 @@ import static org.mockito.Mockito.when;
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 import java.math.BigDecimal;
-import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,10 +35,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
-import org.signal.chat.subscriptions.CreatePaymentMethodRequest;
-import org.signal.chat.subscriptions.CreatePaymentMethodResponse;
 import org.signal.chat.subscriptions.CreatePayPalPaymentMethodRequest;
 import org.signal.chat.subscriptions.CreatePayPalPaymentMethodResponse;
+import org.signal.chat.subscriptions.CreatePaymentMethodRequest;
+import org.signal.chat.subscriptions.CreatePaymentMethodResponse;
 import org.signal.chat.subscriptions.DeleteSubscriberRequest;
 import org.signal.chat.subscriptions.DeleteSubscriberResponse;
 import org.signal.chat.subscriptions.GetBankMandateRequest;
@@ -57,6 +59,12 @@ import org.signal.chat.subscriptions.SetSubscriptionLevelResponse;
 import org.signal.chat.subscriptions.SubscriptionsGrpc;
 import org.signal.chat.subscriptions.UpdateSubscriberRequest;
 import org.signal.chat.subscriptions.UpdateSubscriberResponse;
+import org.signal.libsignal.zkgroup.ServerSecretParams;
+import org.signal.libsignal.zkgroup.VerificationFailedException;
+import org.signal.libsignal.zkgroup.donation.DonationPermit;
+import org.signal.libsignal.zkgroup.donation.DonationPermitRequest;
+import org.signal.libsignal.zkgroup.donation.DonationPermitRequestContext;
+import org.signal.libsignal.zkgroup.donation.DonationPermitResponse;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialResponse;
 import org.whispersystems.textsecuregcm.badges.BadgeTranslator;
 import org.whispersystems.textsecuregcm.configuration.OneTimeDonationConfiguration;
@@ -66,6 +74,8 @@ import org.whispersystems.textsecuregcm.configuration.dynamic.DynamicConfigurati
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
 import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.entities.BadgeSvg;
+import org.whispersystems.textsecuregcm.storage.DonationPermits;
+import org.whispersystems.textsecuregcm.storage.DonationPermitsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
@@ -78,6 +88,7 @@ import org.whispersystems.textsecuregcm.subscriptions.GooglePlayBillingManager;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.ProcessorCustomer;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriberIdCreationNotPermittedException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionChargeFailurePaymentRequiredException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionForbiddenException;
@@ -101,13 +112,19 @@ import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 public class SubscriptionsGrpcServiceTest extends
     SimpleBaseGrpcTest<SubscriptionsGrpcService, SubscriptionsGrpc.SubscriptionsBlockingStub> {
 
-  private final Clock clock = TestClock.pinned(Instant.ofEpochSecond(100));
+  private final TestClock clock = TestClock.pinned(Instant.now());
 
   private final SubscriptionConfiguration subscriptionConfiguration =
       SubscriptionConfigTestHelper.getSubscriptionConfig();
 
   private final OneTimeDonationConfiguration oneTimeDonationConfiguration =
       SubscriptionConfigTestHelper.getOneTimeConfig();
+
+  @Mock
+  private DonationPermits donationPermits;
+
+  private static final ServerSecretParams DONATION_PERMITS_SECRET_PARAMS = ServerSecretParams.generate();
+  private DonationPermitsManager donationPermitsManager;
 
   @Mock
   private SubscriptionManager subscriptionManager;
@@ -141,9 +158,17 @@ public class SubscriptionsGrpcServiceTest extends
   protected SubscriptionsGrpcService createServiceBeforeEachTest() {
     getMockRequestAttributesInterceptor().setRequestAttributes(
         new RequestAttributes(InetAddresses.forString("127.0.0.1"), null, "en-us"));
+
+     donationPermitsManager = new DonationPermitsManager(donationPermits, DONATION_PERMITS_SECRET_PARAMS, clock);
+
+    // spendIds are spend-once
+    final Set<String> spent = new HashSet<>();
+    when(donationPermits.spend(any(byte[].class), any(Instant.class)))
+        .thenAnswer(answer -> spent.add(new String(answer.getArgument(0, byte[].class))));
+
     return new SubscriptionsGrpcService(clock, subscriptionConfiguration, oneTimeDonationConfiguration,
-        subscriptionManager, stripeManager, braintreeManager, googlePlayBillingManager, appleAppStoreManager,
-        badgeTranslator, bankMandateTranslator, dynamicConfigurationManager);
+        subscriptionManager, donationPermitsManager, stripeManager, braintreeManager, googlePlayBillingManager,
+        appleAppStoreManager, badgeTranslator, bankMandateTranslator, dynamicConfigurationManager);
   }
 
   @Test
@@ -156,9 +181,36 @@ public class SubscriptionsGrpcServiceTest extends
   }
 
   @Test
-  void updateSubscriberIdMismatch() throws SubscriptionForbiddenException {
+  void updateSubscriberCreationNotPermittedPermitRejected() throws SubscriptionException {
+    doThrow(new SubscriberIdCreationNotPermittedException())
+        .when(subscriptionManager).updateSubscriber(any(), eq(false));
+
+    final DonationPermit donationPermit = getDonationPermit();
+    clock.pin(clock.instant().plus(Duration.ofDays(14)));
+
+    final UpdateSubscriberResponse response = unauthenticatedServiceStub().updateSubscriber(
+        UpdateSubscriberRequest.newBuilder()
+            .setSubscriberId(SUBSCRIBER_ID)
+            .setDonationPermit(ByteString.copyFrom(donationPermit.serialize()))
+            .build());
+
+    assertTrue(response.hasPermitRejected());
+  }
+
+  @Test
+  void updateSubscriberCreationNotPermittedMissingPermit() throws SubscriptionException {
+    doThrow(new SubscriberIdCreationNotPermittedException())
+        .when(subscriptionManager).updateSubscriber(any(), eq(false));
+    GrpcTestUtils.assertStatusInvalidArgument(() -> unauthenticatedServiceStub().updateSubscriber(
+        UpdateSubscriberRequest.newBuilder()
+            .setSubscriberId(SUBSCRIBER_ID)
+            .build()));
+  }
+
+  @Test
+  void updateSubscriberIdMismatch() throws SubscriptionException {
     doThrow(new SubscriptionForbiddenException("subscriberId mismatch"))
-        .when(subscriptionManager).updateSubscriber(any());
+        .when(subscriptionManager).updateSubscriber(any(), anyBoolean());
     final UpdateSubscriberResponse response = unauthenticatedServiceStub().updateSubscriber(
         UpdateSubscriberRequest.newBuilder()
             .setSubscriberId(SUBSCRIBER_ID)
@@ -206,8 +258,10 @@ public class SubscriptionsGrpcServiceTest extends
       throws SubscriptionForbiddenException, SubscriptionNotFoundException, SubscriptionProcessorConflictException {
     when(subscriptionManager.addPaymentMethodToCustomer(any(), any(), any(), any())).thenReturn("test-client-secret");
     when(stripeManager.getProvider()).thenReturn(PaymentProvider.STRIPE);
+
     final CreatePaymentMethodRequest.Builder builder = CreatePaymentMethodRequest.newBuilder()
         .setSubscriberId(SUBSCRIBER_ID)
+        .setDonationPermit(ByteString.copyFrom(getDonationPermit().serialize()))
         .setPaymentMethod(paymentMethod);
     final CreatePaymentMethodResponse response = unauthenticatedServiceStub().createPaymentMethod(builder.build());
     assertEquals(CreatePaymentMethodResponse.ResponseCase.RESULT, response.getResponseCase());
@@ -228,6 +282,34 @@ public class SubscriptionsGrpcServiceTest extends
   }
 
   @Test
+  void createPaymentMethodInvalidDonationPermit() {
+    GrpcTestUtils.assertStatusInvalidArgument(
+        () -> unauthenticatedServiceStub().createPaymentMethod(
+            CreatePaymentMethodRequest.newBuilder()
+                .setSubscriberId(SUBSCRIBER_ID)
+                .setDonationPermit(ByteString.copyFrom(new byte[]{1}))
+                .setPaymentMethod(PaymentMethod.PAYMENT_METHOD_CARD)
+                .build()));
+  }
+
+  @Test
+  void createPaymentMethodExpiredDonationPermit() {
+    when(stripeManager.getProvider()).thenReturn(PaymentProvider.STRIPE);
+
+    final DonationPermit donationPermit = getDonationPermit();
+    clock.pin(clock.instant().plus(Duration.ofDays(30)));
+
+    final CreatePaymentMethodResponse createPaymentMethodResponse = unauthenticatedServiceStub().createPaymentMethod(
+        CreatePaymentMethodRequest.newBuilder()
+            .setSubscriberId(SUBSCRIBER_ID)
+            .setDonationPermit(ByteString.copyFrom(donationPermit.serialize()))
+            .setPaymentMethod(PaymentMethod.PAYMENT_METHOD_CARD)
+            .build());
+
+    assertTrue(createPaymentMethodResponse.hasPermitRejected());
+  }
+
+  @Test
   void createPaymentMethodProcessorConflict()
       throws SubscriptionForbiddenException, SubscriptionNotFoundException, SubscriptionProcessorConflictException {
     doThrow(new SubscriptionProcessorConflictException())
@@ -235,6 +317,7 @@ public class SubscriptionsGrpcServiceTest extends
     final CreatePaymentMethodResponse response = unauthenticatedServiceStub().createPaymentMethod(
         CreatePaymentMethodRequest.newBuilder()
             .setSubscriberId(SUBSCRIBER_ID)
+            .setDonationPermit(ByteString.copyFrom(getDonationPermit().serialize()))
             .setPaymentMethod(PaymentMethod.PAYMENT_METHOD_CARD)
             .build());
     assertEquals(CreatePaymentMethodResponse.ResponseCase.SUBSCRIPTION_PROCESSOR_CONFLICT, response.getResponseCase());
@@ -719,6 +802,22 @@ public class SubscriptionsGrpcServiceTest extends
             .setBankTransferType(org.signal.chat.subscriptions.BankTransferType.BANK_TRANSFER_TYPE_SEPA_DEBIT)
             .build());
     assertEquals("test-mandate", response.getMandate());
+  }
+
+  private DonationPermit getDonationPermit() {
+    final DonationPermitRequestContext context = DonationPermitRequestContext.forCount(1);
+    final DonationPermitRequest permitRequest = context.request();
+
+    final DonationPermitResponse permitResponse = donationPermitsManager.issue(permitRequest);
+
+    try {
+      final List<DonationPermit> donationPermits = context.receive(permitResponse,
+          DONATION_PERMITS_SECRET_PARAMS.getPublicParams(), clock.instant());
+
+      return donationPermits.getFirst();
+    } catch (final VerificationFailedException e) {
+      throw new AssertionError("The permit was correctly requested and issued in this method", e);
+    }
   }
 
 }
