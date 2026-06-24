@@ -109,8 +109,8 @@ service Subscriptions {
 
 message UpdateSubscriberRequest {
   bytes subscriber_id = 1 [(require.exactlySize) = 32];
-  // A libsignal DonationPermit from rpc Donations.CreateDonationPermit,
-  // required if the subscriber ID is new
+  // A libsignal DonationPermit from rpc Donations.CreateDonationPermit.
+  // Not required if the subscriber already exists.
   bytes donation_permit = 2;
 }
 

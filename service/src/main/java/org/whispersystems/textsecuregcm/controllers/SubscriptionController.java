@@ -216,7 +216,7 @@ public class SubscriptionController {
   public Response updateSubscriber(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
 
-      @Parameter(description="A base64-encoded donation permit retrieved from POST /v1/donation/permit")
+      @Parameter(description="A base64-encoded donation permit retrieved from POST /v1/donation/permit. Not required if the subscriber already exists.")
       @HeaderParam(HeaderUtils.DONATION_PERMIT)
       final Optional<DonationPermitHeader> donationPermitHeader,
 
