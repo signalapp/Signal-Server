@@ -33,6 +33,8 @@ import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.keytransparency.client.AciMonitorRequest;
 import org.signal.keytransparency.client.E164MonitorRequest;
 import org.signal.keytransparency.client.E164SearchRequest;
+import org.signal.keytransparency.client.MonitorResponseV2;
+import org.signal.keytransparency.client.SearchResponseV2;
 import org.signal.keytransparency.client.UsernameHashMonitorRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,15 +103,23 @@ public class KeyTransparencyController {
                   .build()
           ));
 
-      return new KeyTransparencySearchResponse(
-          keyTransparencyServiceClient.search(
-              ByteString.copyFrom(request.aci().toCompactByteArray()),
-              ByteString.copyFrom(request.aciIdentityKey().serialize()),
-              request.usernameHash().map(ByteString::copyFrom),
-              maybeE164SearchRequest,
-              request.lastTreeHeadSize(),
-              request.distinguishedTreeHeadSize())
-          .toByteArray());
+      final SearchResponseV2 searchResponse =  keyTransparencyServiceClient.search(
+          ByteString.copyFrom(request.aci().toCompactByteArray()),
+          ByteString.copyFrom(request.aciIdentityKey().serialize()),
+          request.usernameHash().map(ByteString::copyFrom),
+          maybeE164SearchRequest,
+          request.lastTreeHeadSize(),
+          request.distinguishedTreeHeadSize());
+
+      if (searchResponse.hasPermissionDenied()) {
+        throw new StatusRuntimeException(Status.PERMISSION_DENIED);
+      }
+
+      if (!searchResponse.hasSearchResponse()) {
+        throw new StatusRuntimeException(Status.UNAVAILABLE.withDescription("Missing search response"));
+      }
+
+      return new KeyTransparencySearchResponse(searchResponse.getSearchResponse().toByteArray());
     } catch (final StatusRuntimeException exception) {
       handleKeyTransparencyServiceError(exception);
     }
@@ -163,13 +173,22 @@ public class KeyTransparencyController {
               .setCommitmentIndex(ByteString.copyFrom(e164.commitmentIndex()))
               .build());
 
-      return new KeyTransparencyMonitorResponse(keyTransparencyServiceClient.monitor(
+      final MonitorResponseV2 monitorResponse = keyTransparencyServiceClient.monitor(
           aciMonitorRequest,
           usernameHashMonitorRequest,
           e164MonitorRequest,
           request.lastNonDistinguishedTreeHeadSize(),
-          request.lastDistinguishedTreeHeadSize())
-          .toByteArray());
+          request.lastDistinguishedTreeHeadSize());
+
+      if (monitorResponse.hasPermissionDenied()) {
+        throw new StatusRuntimeException(Status.PERMISSION_DENIED);
+      }
+
+      if (!monitorResponse.hasMonitorResponse()) {
+        throw new StatusRuntimeException(Status.UNAVAILABLE.withDescription("Missing monitor response"));
+      }
+
+      return new KeyTransparencyMonitorResponse(monitorResponse.getMonitorResponse().toByteArray());
     } catch (final StatusRuntimeException exception) {
       handleKeyTransparencyServiceError(exception);
     }

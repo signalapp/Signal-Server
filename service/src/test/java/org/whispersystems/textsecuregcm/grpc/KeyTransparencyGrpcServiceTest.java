@@ -23,9 +23,9 @@ import org.signal.keytransparency.client.E164MonitorRequest;
 import org.signal.keytransparency.client.E164SearchRequest;
 import org.signal.keytransparency.client.KeyTransparencyQueryServiceGrpc;
 import org.signal.keytransparency.client.MonitorRequest;
-import org.signal.keytransparency.client.MonitorResponse;
+import org.signal.keytransparency.client.MonitorResponseV2;
 import org.signal.keytransparency.client.SearchRequest;
-import org.signal.keytransparency.client.SearchResponse;
+import org.signal.keytransparency.client.SearchResponseV2;
 import org.signal.keytransparency.client.UsernameHashMonitorRequest;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.whispersystems.textsecuregcm.controllers.RateLimitExceededException;
@@ -56,7 +56,7 @@ import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertRateLimi
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
 import static org.whispersystems.textsecuregcm.grpc.KeyTransparencyGrpcService.COMMITMENT_INDEX_LENGTH;
 
-@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+@SuppressWarnings({"OptionalUsedAsFieldOrParameterType", "ThrowableNotThrown", "ResultOfMethodCallIgnored"})
 public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransparencyGrpcService, KeyTransparencyQueryServiceGrpc.KeyTransparencyQueryServiceBlockingStub>{
   @Mock
   private KeyTransparencyServiceClient keyTransparencyServiceClient;
@@ -80,7 +80,7 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
 
   @Test
   void searchSuccess() throws RateLimitExceededException {
-    when(keyTransparencyServiceClient.search(any())).thenReturn(SearchResponse.getDefaultInstance());
+    when(keyTransparencyServiceClient.search(any())).thenReturn(SearchResponseV2.getDefaultInstance());
     Mockito.doNothing().when(rateLimiter).validate(any(String.class));
     final SearchRequest request = SearchRequest.newBuilder()
         .setAci(ByteString.copyFrom(ACI.toCompactByteArray()))
@@ -90,7 +90,7 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
             .build())
         .build();
 
-    assertDoesNotThrow(() -> unauthenticatedServiceStub().search(request));
+    assertDoesNotThrow(() -> unauthenticatedServiceStub().searchV2(request));
     verify(keyTransparencyServiceClient, times(1)).search(eq(request));
   }
 
@@ -121,7 +121,7 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
     lastTreeHeadSize.ifPresent(consistencyBuilder::setLast);
     requestBuilder.setConsistency(consistencyBuilder.build());
 
-    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().search(requestBuilder.build()));
+    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().searchV2(requestBuilder.build()));
     verifyNoInteractions(keyTransparencyServiceClient);
   }
 
@@ -152,13 +152,13 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
             .setDistinguished(10)
             .build())
         .build();
-    assertRateLimitExceeded(retryAfterDuration, () -> unauthenticatedServiceStub().search(request));
+    assertRateLimitExceeded(retryAfterDuration, () -> unauthenticatedServiceStub().searchV2(request));
     verifyNoInteractions(keyTransparencyServiceClient);
   }
 
   @Test
   void monitorSuccess() {
-    when(keyTransparencyServiceClient.monitor(any())).thenReturn(MonitorResponse.getDefaultInstance());
+    when(keyTransparencyServiceClient.monitor(any())).thenReturn(MonitorResponseV2.getDefaultInstance());
     when(rateLimiter.validateReactive(any(String.class)))
         .thenReturn(Mono.empty());
     final AciMonitorRequest aciMonitorRequest = AciMonitorRequest.newBuilder()
@@ -175,7 +175,7 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
             .build())
         .build();
 
-    assertDoesNotThrow(() -> unauthenticatedServiceStub().monitor(request));
+    assertDoesNotThrow(() -> unauthenticatedServiceStub().monitorV2(request));
     verify(keyTransparencyServiceClient, times(1)).monitor(eq(request));
   }
 
@@ -199,7 +199,7 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
 
     requestBuilder.setConsistency(consistencyBuilder.build());
 
-    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().monitor(requestBuilder.build()));
+    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().monitorV2(requestBuilder.build()));
   }
 
   private static Stream<Arguments> monitorInvalidRequest() {
@@ -218,9 +218,9 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
         Arguments.argumentSet("Invalid username hash length", validAciMonitorRequest, Optional.empty(), Optional.of(constructUsernameHashMonitorRequest(new byte[31], new byte[32], 10)), Optional.of(4L), Optional.of(4L)),
         Arguments.argumentSet("Invalid commitment index on username hash monitor request", validAciMonitorRequest, Optional.empty(), Optional.of(constructUsernameHashMonitorRequest(USERNAME_HASH, new byte[31], 10)), Optional.of(4L), Optional.of(4L)),
         Arguments.argumentSet("Invalid entry position on username hash monitor request", validAciMonitorRequest, Optional.empty(), Optional.of(constructUsernameHashMonitorRequest(USERNAME_HASH, new byte[32], 0)), Optional.of(4L), Optional.of(4L)),
-        Arguments.argumentSet("consistency.last must be provided", validAciMonitorRequest, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(4L),
+        Arguments.argumentSet("consistency.last must be provided", validAciMonitorRequest, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(4L)),
         Arguments.argumentSet("consistency.last must be positive", validAciMonitorRequest, Optional.empty(), Optional.empty(), Optional.of(0L), Optional.of(4L)),
-        Arguments.argumentSet("consistency.distinguished must be provided", validAciMonitorRequest, Optional.empty(), Optional.empty(), Optional.of(4L)), Optional.empty()),
+        Arguments.argumentSet("consistency.distinguished must be provided", validAciMonitorRequest, Optional.empty(), Optional.empty(), Optional.of(4L), Optional.empty()),
         Arguments.argumentSet("consistency.distinguished must be positive", validAciMonitorRequest, Optional.empty(), Optional.empty(), Optional.of(4L), Optional.of(0L))
     );
   }
@@ -243,7 +243,7 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
             .setLast(10)
             .build())
         .build();
-    assertRateLimitExceeded(retryAfterDuration, () -> unauthenticatedServiceStub().monitor(request));
+    assertRateLimitExceeded(retryAfterDuration, () -> unauthenticatedServiceStub().monitorV2(request));
     verifyNoInteractions(keyTransparencyServiceClient);
   }
 
@@ -254,7 +254,7 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
         .thenReturn(Mono.empty());
     final DistinguishedRequest request = DistinguishedRequest.newBuilder().build();
 
-    assertDoesNotThrow(() -> unauthenticatedServiceStub().distinguished(request));
+    assertDoesNotThrow(() -> unauthenticatedServiceStub().distinguishedV2(request));
     verify(keyTransparencyServiceClient, times(1)).distinguished(eq(request));
   }
 
@@ -264,7 +264,7 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
         .setLast(0)
         .build();
 
-    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().distinguished(request));
+    assertStatusException(Status.INVALID_ARGUMENT, () -> unauthenticatedServiceStub().distinguishedV2(request));
     verifyNoInteractions(keyTransparencyServiceClient);
   }
 
@@ -277,7 +277,7 @@ public class KeyTransparencyGrpcServiceTest extends SimpleBaseGrpcTest<KeyTransp
         .setLast(10)
         .build();
 
-    assertRateLimitExceeded(retryAfterDuration, () -> unauthenticatedServiceStub().distinguished(request));
+    assertRateLimitExceeded(retryAfterDuration, () -> unauthenticatedServiceStub().distinguishedV2(request));
     verifyNoInteractions(keyTransparencyServiceClient);
   }
 

@@ -54,8 +54,10 @@ import org.signal.keytransparency.client.DistinguishedResponse;
 import org.signal.keytransparency.client.E164SearchRequest;
 import org.signal.keytransparency.client.FullTreeHead;
 import org.signal.keytransparency.client.MonitorResponse;
+import org.signal.keytransparency.client.MonitorResponseV2;
 import org.signal.keytransparency.client.SearchProof;
 import org.signal.keytransparency.client.SearchResponse;
+import org.signal.keytransparency.client.SearchResponseV2;
 import org.signal.keytransparency.client.UpdateValue;
 import org.signal.libsignal.protocol.IdentityKey;
 import org.signal.libsignal.protocol.ecc.ECKeyPair;
@@ -143,7 +145,10 @@ public class KeyTransparencyControllerTest {
     usernameHash.ifPresent(ignored -> searchResponseBuilder.setUsernameHash(CondensedTreeSearchResponse.getDefaultInstance()));
 
     when(keyTransparencyServiceClient.search(any(), any(), any(), any(), any(), anyLong()))
-        .thenReturn(searchResponseBuilder.build());
+        .thenReturn(SearchResponseV2.newBuilder()
+            .setSearchResponse(searchResponseBuilder.build())
+            .build()
+        );
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/search")
@@ -291,7 +296,9 @@ public class KeyTransparencyControllerTest {
   @Test
   void monitorSuccess() {
     when(keyTransparencyServiceClient.monitor(any(), any(), any(), anyLong(), anyLong()))
-        .thenReturn(MonitorResponse.getDefaultInstance());
+        .thenReturn(MonitorResponseV2.newBuilder()
+            .setMonitorResponse(MonitorResponse.getDefaultInstance())
+            .build());
 
     final Invocation.Builder request = resources.getJerseyTest()
         .target("/v1/key-transparency/monitor")
@@ -306,7 +313,7 @@ public class KeyTransparencyControllerTest {
 
       final KeyTransparencyMonitorResponse keyTransparencyMonitorResponse = response.readEntity(
           KeyTransparencyMonitorResponse.class);
-      assertNotNull(keyTransparencyMonitorResponse.serializedResponse());
+      assertArrayEquals(MonitorResponse.getDefaultInstance().toByteArray(), keyTransparencyMonitorResponse.serializedResponse());
 
       verify(keyTransparencyServiceClient, times(1)).monitor(
           any(), any(), any(), eq(3L), eq(4L));

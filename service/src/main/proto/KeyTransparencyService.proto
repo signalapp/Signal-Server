@@ -34,17 +34,17 @@ service KeyTransparencyQueryService {
    * subsequent Search and Monitor requests. It should be the first key
    * transparency RPC a client calls.
    */
-  rpc Distinguished(DistinguishedRequest) returns (DistinguishedResponse) {}
+  rpc DistinguishedV2(DistinguishedRequest) returns (DistinguishedResponse) {}
   /**
    * An endpoint used by clients to search for one or more identifiers in the transparency log.
    * The server returns proof that the identifier(s) exist in the log.
    */
-  rpc Search(SearchRequest) returns (SearchResponse) {}
+  rpc SearchV2(SearchRequest) returns (SearchResponseV2) {}
   /**
    * An endpoint that allows users to monitor a group of identifiers by returning proof that the log continues to be
    * constructed correctly in later entries for those identifiers.
    */
-  rpc Monitor(MonitorRequest) returns (MonitorResponse) {}
+  rpc MonitorV2(MonitorRequest) returns (MonitorResponseV2) {}
 }
 
 message SearchRequest {
@@ -113,6 +113,19 @@ message SearchResponse {
 }
 
 /**
+ * Indicates that the client is not authorized to make the request because
+ * it did not provide the correct set of data.
+ */
+message PermissionDenied {}
+
+message SearchResponseV2 {
+  oneof response {
+    SearchResponse search_response = 1;
+    PermissionDenied permission_denied = 2;
+  }
+}
+
+/**
  * The tree head size(s) to prove consistency against. A client's very first
  * key transparency request should be looking up the "distinguished" key;
  * in this case, both fields will be omitted since the client has no previous
@@ -124,13 +137,11 @@ message ConsistencyParameters {
    * This field may be omitted if the client is looking up an identifier
    * for the first time.
    */
-  optional uint64 last = 1;
+  optional uint64 last = 1 [(org.signal.chat.require.range) = {min: 1}];
   /**
    * The distinguished tree head size to prove consistency against.
-   * This field may be omitted when the client is looking up the
-   * "distinguished" key for the very first time.
    */
-  optional uint64 distinguished = 2;
+  uint64 distinguished = 2 [(org.signal.chat.require.range) = {min: 1}];
 }
 
 /**
@@ -143,7 +154,7 @@ message DistinguishedRequest {
    * exception of a client's very first request, this field should always be
    * set.
    */
-  optional uint64 last = 1;
+  optional uint64 last = 1 [(org.signal.chat.require.range) = {min: 1}];
 }
 
 /**
@@ -343,20 +354,20 @@ message MonitorRequest {
 
 message AciMonitorRequest {
   bytes aci = 1 [(org.signal.chat.require.exactlySize) = 16];
-  uint64 entry_position = 2;
+  uint64 entry_position = 2 [(org.signal.chat.require.range) = {min: 1}];
   bytes commitment_index = 3 [(org.signal.chat.require.exactlySize) = 32];
 }
 
 message UsernameHashMonitorRequest {
-  bytes username_hash = 1 [(org.signal.chat.require.exactlySize) = 0, (org.signal.chat.require.exactlySize) = 32];
-  uint64 entry_position = 2;
-  bytes commitment_index = 3 [(org.signal.chat.require.exactlySize) = 0, (org.signal.chat.require.exactlySize) = 32];
+  bytes username_hash = 1 [(org.signal.chat.require.exactlySize) = 32];
+  uint64 entry_position = 2 [(org.signal.chat.require.range) = {min: 1}];
+  bytes commitment_index = 3 [(org.signal.chat.require.exactlySize) = 32];
 }
 
 message E164MonitorRequest {
-  optional string e164 = 1 [(org.signal.chat.require.e164) = true];
-  uint64 entry_position = 2;
-  bytes commitment_index = 3 [(org.signal.chat.require.exactlySize) = 0, (org.signal.chat.require.exactlySize) = 32];
+  string e164 = 1 [(org.signal.chat.require.e164) = true];
+  uint64 entry_position = 2 [(org.signal.chat.require.range) = {min: 1}];
+  bytes commitment_index = 3 [(org.signal.chat.require.exactlySize) = 32];
 }
 
 message MonitorProof {
@@ -396,4 +407,11 @@ message MonitorResponse {
    * being monitored in the request are included in the current log tree.
    */
   repeated bytes inclusion = 5;
+}
+
+message MonitorResponseV2 {
+  oneof response {
+    MonitorResponse monitor_response = 1;
+    PermissionDenied permission_denied = 2;
+  }
 }

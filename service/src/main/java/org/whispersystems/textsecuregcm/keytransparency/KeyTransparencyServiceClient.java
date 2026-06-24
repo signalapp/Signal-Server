@@ -29,8 +29,10 @@ import org.signal.keytransparency.client.E164SearchRequest;
 import org.signal.keytransparency.client.KeyTransparencyQueryServiceGrpc;
 import org.signal.keytransparency.client.MonitorRequest;
 import org.signal.keytransparency.client.MonitorResponse;
+import org.signal.keytransparency.client.MonitorResponseV2;
 import org.signal.keytransparency.client.SearchRequest;
 import org.signal.keytransparency.client.SearchResponse;
+import org.signal.keytransparency.client.SearchResponseV2;
 import org.signal.keytransparency.client.UsernameHashMonitorRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,7 +112,7 @@ public class KeyTransparencyServiceClient implements Managed {
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public SearchResponse search(
+  public SearchResponseV2 search(
       final ByteString aci,
       final ByteString aciIdentityKey,
       final Optional<ByteString> usernameHash,
@@ -132,13 +134,13 @@ public class KeyTransparencyServiceClient implements Managed {
     return search(searchRequestBuilder.build());
   }
 
-  public SearchResponse search(final SearchRequest request) {
+  public SearchResponseV2 search(final SearchRequest request) {
     return stub.withDeadline(toDeadline(KEY_TRANSPARENCY_RPC_TIMEOUT))
-        .search(request);
+        .searchV2(request);
   }
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-  public MonitorResponse monitor(final AciMonitorRequest aciMonitorRequest,
+  public MonitorResponseV2 monitor(final AciMonitorRequest aciMonitorRequest,
       final Optional<UsernameHashMonitorRequest> usernameHashMonitorRequest,
       final Optional<E164MonitorRequest> e164MonitorRequest,
       final long lastTreeHeadSize,
@@ -155,11 +157,10 @@ public class KeyTransparencyServiceClient implements Managed {
     return monitor(monitorRequestBuilder.build());
   }
 
-  public MonitorResponse monitor(final MonitorRequest request) {
+  public MonitorResponseV2 monitor(final MonitorRequest request) {
     return stub.withDeadline(toDeadline(KEY_TRANSPARENCY_RPC_TIMEOUT))
-        .monitor(request);
+        .monitorV2(request);
   }
-
 
   @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
   public DistinguishedResponse getDistinguishedKey(final Optional<Long> lastTreeHeadSize) {
@@ -171,7 +172,7 @@ public class KeyTransparencyServiceClient implements Managed {
 
   public DistinguishedResponse distinguished(final DistinguishedRequest request) {
     return stub.withDeadline(toDeadline(KEY_TRANSPARENCY_RPC_TIMEOUT))
-        .distinguished(request);
+        .distinguishedV2(request);
   }
 
   private static Deadline toDeadline(final Duration timeout) {
