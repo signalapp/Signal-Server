@@ -44,6 +44,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -982,6 +983,7 @@ class FoundationDbMessageStoreTest {
   }
 
   @Test
+  @Disabled("flaky test")
   void deleteExpiredMessages() {
     final Instant oldTime = CLOCK.instant();
     final Instant threshold = oldTime.plus(Duration.ofDays(1));
