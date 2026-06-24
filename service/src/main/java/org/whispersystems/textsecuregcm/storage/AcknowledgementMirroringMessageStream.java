@@ -14,6 +14,7 @@ import java.util.function.BiConsumer;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import org.reactivestreams.Subscription;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.foundationdb.FoundationDbMessageStream;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -78,6 +79,12 @@ public class AcknowledgementMirroringMessageStream implements MessageStream {
       if (requestMore) {
         request(FOUNDATIONDB_REQUEST_SIZE);
       }
+    }
+
+    @Override
+    protected void hookOnSubscribe(final Subscription subscription) {
+      // The base `hookOnSubscribe` requests `Long.MAX_VALUE` elements, and that is something we're explicitly trying
+      // to avoid with this subscriber
     }
 
     @Override
