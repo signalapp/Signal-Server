@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Manages the lifecycle of a database connected to a FoundationDB instance running as an external service container.
  */
-class ServiceContainerFoundationDbDatabaseLifecycleManager implements FoundationDbDatabaseLifecycleManager {
+public class ServiceContainerFoundationDbDatabaseLifecycleManager implements FoundationDbDatabaseLifecycleManager {
 
   private final String foundationDbServiceContainerName;
 
@@ -24,7 +24,7 @@ class ServiceContainerFoundationDbDatabaseLifecycleManager implements Foundation
 
   private static final Logger log = LoggerFactory.getLogger(ServiceContainerFoundationDbDatabaseLifecycleManager.class);
 
-  ServiceContainerFoundationDbDatabaseLifecycleManager(final String foundationDbServiceContainerName) {
+  public ServiceContainerFoundationDbDatabaseLifecycleManager(final String foundationDbServiceContainerName) {
     log.info("Using FoundationDB service container: {}", foundationDbServiceContainerName);
     this.foundationDbServiceContainerName = foundationDbServiceContainerName;
   }
