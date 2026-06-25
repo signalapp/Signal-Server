@@ -1324,6 +1324,11 @@ paths:
         schema:
           type: integer
           format: int64
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+          nullable: true
       responses:
         "200":
           description: "Success, response body includes upload form"
@@ -2667,6 +2672,11 @@ paths:
         Once the payment is complete, the paymentIntentId can be used at /v1/subscriptions/receipt_credentials
       operationId: createBoostPaymentIntent
       parameters:
+      - name: Donation-Permit
+        in: header
+        description: A base64-encoded donation permit retrieved from POST /v1/donation/permit
+        schema:
+          $ref: "#/components/schemas/DonationPermitHeader"
       - name: User-Agent
         in: header
         schema:
@@ -2699,6 +2709,8 @@ paths:
                 properties:
                   error:
                     type: string
+        "401":
+          description: Donation permit was invalid or already spent
       security:
       - authenticatedAccount: []
       - {}
@@ -3269,6 +3281,11 @@ paths:
       - Subscriptions
       operationId: createPaymentMethod
       parameters:
+      - name: Donation-Permit
+        in: header
+        description: A base64-encoded donation permit retrieved from POST /v1/donation/permit
+        schema:
+          $ref: "#/components/schemas/DonationPermitHeader"
       - name: subscriberId
         in: path
         required: true
@@ -3430,6 +3447,17 @@ paths:
         period of time will result in the subscription being canceled.
       operationId: updateSubscriber
       parameters:
+      - name: Donation-Permit
+        in: header
+        description: A base64-encoded donation permit retrieved from POST /v1/donation/permit.
+          Not required if the subscriber already exists.
+        schema:
+          $ref: "#/components/schemas/DonationPermitHeader"
+      - name: User-Agent
+        in: header
+        schema:
+          type: string
+          nullable: true
       - name: subscriberId
         in: path
         required: true
@@ -3438,6 +3466,8 @@ paths:
       responses:
         "200":
           description: The subscriber was successfully created or refreshed
+        "401":
+          description: Donation permit was invalid or already spent
         "403":
           description: subscriberId authentication failure OR account authentication
             is present
@@ -5661,6 +5691,23 @@ components:
         clientSecret:
           type: string
           description: A client secret that can be used to complete a stripe PaymentIntent
+    DonationPermit:
+      type: object
+      properties:
+        spendId:
+          type: string
+          format: byte
+        expiration:
+          type: string
+          format: date-time
+        internalContentsForJNI:
+          type: string
+          format: byte
+    DonationPermitHeader:
+      type: object
+      properties:
+        permit:
+          $ref: "#/components/schemas/DonationPermit"
     CreateBoostRequest:
       required:
       - amount

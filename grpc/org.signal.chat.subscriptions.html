@@ -325,7 +325,7 @@
     
       
       <p>
-        <a href="#message-org.signal.chat.subscriptions.GetReceiptCredentialsResponse.PaymentRequired">
+        <a href="#message-org.signal.chat.subscriptions.PaymentRequired">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>PaymentRequired</code> 
         </a>
@@ -1630,7 +1630,7 @@ depending on which processor was used</p></td>
     <tr>
       <td>1</td>
       <td>
-        subscriberId
+        subscriber_id
       </td>
       <td>
         <code title="bytes">
@@ -1646,7 +1646,7 @@ other values will result in an INVALID_ARGUMENT error.</p></td>
     <tr>
       <td>2</td>
       <td>
-        paymentMethod
+        payment_method
       </td>
       <td>
         <code title="org.signal.chat.subscriptions.PaymentMethod">
@@ -1656,6 +1656,21 @@ other values will result in an INVALID_ARGUMENT error.</p></td>
         </code>
       </td>
       <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        donation_permit
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>a libsignal DonationPermit from rpc Donations.CreateDonationPermit</p></td>
       
     </tr>
     
@@ -1782,6 +1797,26 @@ other values will result in an INVALID_ARGUMENT error.</p></td>
             </code>
           </td>
           <td class="content"><p>New payment processor does not match existing processor associated with the subscription</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            permit_rejected
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The donation permit was expired or already spent</p></td>
           
         </tr>
       
@@ -2562,9 +2597,9 @@ for display purposes only</p></td>
             payment_required
           </td>
           <td>
-            <code title="org.signal.chat.subscriptions.GetReceiptCredentialsResponse.PaymentRequired">
+            <code title="org.signal.chat.subscriptions.PaymentRequired">
               
-              <a href="org.signal.chat.subscriptions.html#message-org.signal.chat.subscriptions.GetReceiptCredentialsResponse.PaymentRequired"><span title="org.signal.chat.subscriptions.GetReceiptCredentialsResponse.PaymentRequired">org.signal.chat.subscriptions.GetReceiptCredentialsResponse.PaymentRequired</span>
+              <a href="org.signal.chat.subscriptions.html#message-org.signal.chat.subscriptions.PaymentRequired"><span title="org.signal.chat.subscriptions.PaymentRequired">org.signal.chat.subscriptions.PaymentRequired</span>
     </a>
             </code>
           </td>
@@ -2891,12 +2926,9 @@ for display purposes only</p></td>
       <div class="block">
         
 
-<h4 class="title is-4 type-heading" id="message-org.signal.chat.subscriptions.GetReceiptCredentialsResponse.PaymentRequired">
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.subscriptions.PaymentRequired">
   <span>
-    <a href="#message-org.signal.chat.subscriptions.GetReceiptCredentialsResponse.PaymentRequired" title="org.signal.chat.subscriptions.GetReceiptCredentialsResponse.PaymentRequired">message PaymentRequired</a>
-  
-    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.subscriptions.html#message-org.signal.chat.subscriptions.GetReceiptCredentialsResponse"><span title="org.signal.chat.subscriptions.GetReceiptCredentialsResponse">org.signal.chat.subscriptions.GetReceiptCredentialsResponse</span>
-    </a>)</span>
+    <a href="#message-org.signal.chat.subscriptions.PaymentRequired" title="org.signal.chat.subscriptions.PaymentRequired">message PaymentRequired</a>
   
   </span>
   
@@ -4361,7 +4393,7 @@ for display purposes only</p></td>
     <tr>
       <td>1</td>
       <td>
-        subscriberId
+        subscriber_id
       </td>
       <td>
         <code title="bytes">
@@ -4370,6 +4402,22 @@ for display purposes only</p></td>
         </code>
       </td>
       <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        donation_permit
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A libsignal DonationPermit from rpc Donations.CreateDonationPermit.
+Not required if the subscriber already exists.</p></td>
       
     </tr>
     
@@ -4455,6 +4503,26 @@ for display purposes only</p></td>
             </code>
           </td>
           <td class="content"><p>subscriberId authentication failure</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            permit_rejected
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The donation permit was expired or already spent</p></td>
           
         </tr>
       

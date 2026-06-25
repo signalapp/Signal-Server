@@ -81,6 +81,24 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.donations.CreateDonationPermitRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreateDonationPermitRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.donations.CreateDonationPermitResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreateDonationPermitResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.donations.RedeemReceiptRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>RedeemReceiptRequest</code> 
@@ -148,6 +166,27 @@
   </div>
   
 </div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.donations.Donations-CreateDonationPermit">
+      <a href="#service-org.signal.chat.donations.Donations-CreateDonationPermit">
+        rpc <code>CreateDonationPermit</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.donations.html#message-org.signal.chat.donations.CreateDonationPermitRequest"><span title="org.signal.chat.donations.CreateDonationPermitRequest">org.signal.chat.donations.CreateDonationPermitRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.donations.html#message-org.signal.chat.donations.CreateDonationPermitResponse"><span title="org.signal.chat.donations.CreateDonationPermitResponse">org.signal.chat.donations.CreateDonationPermitResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Generate a set of anonymous, single-use, permits for use with /v1/subscription endpoints.</p>
+<p>If rate limited, reduce requested permit count and/or try again after the prescribed delay.</p></p>
+  </div>
+  
+</div>
  
     </div>
     
@@ -161,6 +200,106 @@
       Messages
     </h3>
 
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.donations.CreateDonationPermitRequest">
+  <span>
+    <a href="#message-org.signal.chat.donations.CreateDonationPermitRequest" title="org.signal.chat.donations.CreateDonationPermitRequest">message CreateDonationPermitRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        donation_permit_request
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>a serialized libsignal DonationPermitRequest</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.donations.CreateDonationPermitResponse">
+  <span>
+    <a href="#message-org.signal.chat.donations.CreateDonationPermitResponse" title="org.signal.chat.donations.CreateDonationPermitResponse">message CreateDonationPermitResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        donation_permit_response
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>a serialized libsignal DonationPermitResponse</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
     
       
       <div class="block">
