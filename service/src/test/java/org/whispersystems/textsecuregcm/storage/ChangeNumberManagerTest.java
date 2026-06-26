@@ -166,7 +166,7 @@ public class ChangeNumberManagerTest {
 
     changeNumberManager.changeNumber(accountIdentifier, null, null, null, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyList(), Collections.emptyMap(), mock(ContainerRequestContext.class));
     verify(accountsManager).changeNumber(accountIdentifier, targetNumber, pniIdentityKey, ecSignedPreKeys, kemLastResortPreKeys, Collections.emptyMap());
-    verify(messageSender, never()).sendMessages(eq(account), any(), any(), any(), any(), any());
+    verify(messageSender, never()).sendMessages(any(), any(), any(), any(), any(), any());
   }
 
   @Test
