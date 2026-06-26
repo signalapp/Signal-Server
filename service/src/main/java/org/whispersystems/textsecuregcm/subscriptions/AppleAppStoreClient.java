@@ -133,7 +133,7 @@ public class AppleAppStoreClient {
           final APIError apiError = e.getApiError();
           Metrics.counter(GET_SUBSCRIPTION_ERROR_COUNTER_NAME, errorTags.and("reason", apiError != null ? apiError.name() : "http_" + e.getHttpStatusCode())).increment();
           throw switch (e.getApiError()) {
-            case TRANSACTION_ID_NOT_FOUND, ORIGINAL_TRANSACTION_ID_NOT_FOUND -> new SubscriptionNotFoundException();
+            case TRANSACTION_ID_NOT_FOUND, ORIGINAL_TRANSACTION_ID_NOT_FOUND, ACCOUNT_NOT_FOUND -> new SubscriptionNotFoundException();
             case RATE_LIMIT_EXCEEDED -> new RateLimitExceededException(null);
             case INVALID_ORIGINAL_TRANSACTION_ID -> new SubscriptionInvalidArgumentsException(e.getApiErrorMessage());
             case null, default -> throw e;
@@ -183,7 +183,7 @@ public class AppleAppStoreClient {
 
   private static boolean shouldRetry(Throwable e) {
     return e instanceof APIException apiException && switch (apiException.getApiError()) {
-      case ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE, GENERAL_INTERNAL_RETRYABLE, APP_NOT_FOUND_RETRYABLE -> true;
+      case ORIGINAL_TRANSACTION_ID_NOT_FOUND_RETRYABLE, GENERAL_INTERNAL_RETRYABLE, APP_NOT_FOUND_RETRYABLE, ACCOUNT_NOT_FOUND_RETRYABLE -> true;
       case null, default -> false;
     };
   }

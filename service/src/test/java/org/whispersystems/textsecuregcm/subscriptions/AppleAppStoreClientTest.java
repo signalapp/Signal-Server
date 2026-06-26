@@ -6,6 +6,7 @@ package org.whispersystems.textsecuregcm.subscriptions;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatException;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -61,6 +62,19 @@ class AppleAppStoreClientTest {
 
     assertThatException().isThrownBy(() -> apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID, Tags.empty()));
     verifyNoInteractions(sandboxClient);
+  }
+
+  @ParameterizedTest
+  @EnumSource(mode = EnumSource.Mode.INCLUDE, names = {"TRANSACTION_ID_NOT_FOUND", "ORIGINAL_TRANSACTION_ID_NOT_FOUND", "ACCOUNT_NOT_FOUND"})
+  public void notFound(APIError error) throws APIException, IOException {
+    when(productionClient.getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{}))
+        .thenThrow(new APIException(404, error, "test"));
+    when(sandboxClient.getAllSubscriptionStatuses(ORIGINAL_TX_ID, new Status[]{}))
+        .thenThrow(new APIException(404, error, "test"));
+
+    assertThatExceptionOfType(SubscriptionNotFoundException.class)
+        .isThrownBy(() -> apiWrapper.getAllSubscriptions(ORIGINAL_TX_ID, Tags.empty()));
+
   }
 
   @Test
