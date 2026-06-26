@@ -5,12 +5,14 @@ import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getPayPalL
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.util.Locale;
 import java.util.Optional;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.signal.chat.errors.FailedPrecondition;
 import org.signal.chat.errors.FailedUnidentifiedAuthorization;
 import org.signal.chat.errors.FailedZkAuthentication;
@@ -216,7 +218,8 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
   }
 
   @Override
-  public CreatePayPalPaymentMethodResponse createPayPalPaymentMethod(final CreatePayPalPaymentMethodRequest request) {
+  public CreatePayPalPaymentMethodResponse createPayPalPaymentMethod(final CreatePayPalPaymentMethodRequest request)
+      throws IOException {
     final SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(
         request.getSubscriberId().toByteArray(), clock);
     final Locale locale = getPayPalLocale(RequestAttributesUtil.getAvailableAcceptedLocales());
@@ -224,7 +227,7 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
       final BraintreeManager.PayPalBillingAgreementApprovalDetails details = subscriptionManager.addPaymentMethodToCustomer(
           subscriberCredentials, braintreeManager, getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)),
           (mgr, _) -> mgr.createPayPalBillingAgreement(request.getReturnUrl(), request.getCancelUrl(),
-              locale.toLanguageTag())).join();
+              locale.toLanguageTag()));
       return CreatePayPalPaymentMethodResponse.newBuilder().setResult(
           CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult.newBuilder()
               .setApprovalUrl(details.approvalUrl()).setToken(details.billingAgreementToken()).build()).build();
@@ -241,27 +244,28 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
   }
 
   @Override
-  public SetDefaultPaymentMethodResponse setDefaultPaymentMethod(final SetDefaultPaymentMethodRequest request) {
-    final SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(
-        request.getSubscriberId().toByteArray(), clock);
-    final CustomerAwareSubscriptionPaymentProcessor manager;
-    final String paymentMethodId = switch (request.getRequestCase()) {
-      case STRIPE -> {
-        manager = stripeManager;
-        yield request.getStripe().getPaymentMethodToken();
-      }
-      case BRAINTREE -> {
-        manager = braintreeManager;
-        yield request.getBraintree().getPaymentMethodToken();
-      }
-      case SEPA -> {
-        manager = stripeManager;
-        yield stripeManager.getGeneratedSepaIdFromSetupIntent(request.getSepa().getSetupIntentId()).join();
-      }
-      default -> throw GrpcExceptions.fieldViolation("request", "No payment method specified");
-    };
-
+  public SetDefaultPaymentMethodResponse setDefaultPaymentMethod(final SetDefaultPaymentMethodRequest request)
+      throws IOException {
     try {
+      final SubscriberCredentials subscriberCredentials = SubscriberCredentials.process(
+          request.getSubscriberId().toByteArray(), clock);
+      final CustomerAwareSubscriptionPaymentProcessor manager;
+      final String paymentMethodId = switch (request.getRequestCase()) {
+        case STRIPE -> {
+          manager = stripeManager;
+          yield request.getStripe().getPaymentMethodToken();
+        }
+        case BRAINTREE -> {
+          manager = braintreeManager;
+          yield request.getBraintree().getPaymentMethodToken();
+        }
+        case SEPA -> {
+          manager = stripeManager;
+          yield stripeManager.getGeneratedSepaIdFromSetupIntent(request.getSepa().getSetupIntentId());
+        }
+        default -> throw GrpcExceptions.fieldViolation("request", "No payment method specified");
+      };
+
       final Subscriptions.Record record = subscriptionManager.getSubscriber(subscriberCredentials);
       return record.getProcessorCustomer().map(
           processorCustomer -> setDefaultPaymentMethodForCustomer(manager, processorCustomer, paymentMethodId,
@@ -275,6 +279,10 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
     } catch (final SubscriptionForbiddenException e) {
       return SetDefaultPaymentMethodResponse.newBuilder().setSubscriberIdMismatch(
           FailedUnidentifiedAuthorization.newBuilder().setDescription(e.errorDetail().orElse("")).build()).build();
+    } catch (final SubscriptionProcessorConflictException e) {
+      return SetDefaultPaymentMethodResponse.newBuilder()
+          .setSubscriptionProcessorConflict(
+              FailedPrecondition.newBuilder().setDescription(e.errorDetail().orElse("")).build()).build();
     }
   }
 
@@ -290,6 +298,8 @@ public class SubscriptionsGrpcService extends SimpleSubscriptionsGrpc.Subscripti
       return SetDefaultPaymentMethodResponse.newBuilder()
           .setPaymentMethodNotSetUp(FailedPrecondition.newBuilder().setDescription(e.errorDetail().orElse("")).build())
           .build();
+    } catch (final IOException e) {
+      throw new UncheckedIOException(e);
     }
 
   }

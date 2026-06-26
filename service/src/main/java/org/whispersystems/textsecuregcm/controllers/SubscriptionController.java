@@ -48,6 +48,8 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -311,7 +313,8 @@ public class SubscriptionController {
       @PathParam("subscriberId") String subscriberId,
       @NotNull @Valid CreatePayPalBillingAgreementRequest request,
       @Context ContainerRequestContext containerRequestContext,
-      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString) throws SubscriptionException {
+      @HeaderParam(HttpHeaders.USER_AGENT) @Nullable final String userAgentString)
+      throws SubscriptionException, IOException {
 
     final SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
@@ -321,10 +324,8 @@ public class SubscriptionController {
             subscriberCredentials,
             braintreeManager,
             getClientPlatform(userAgentString),
-            (mgr, customerId) ->
-                mgr.createPayPalBillingAgreement(request.returnUrl, request.cancelUrl, locale.toLanguageTag()))
-        .join();
-    return new CreatePayPalBillingAgreementResponse(
+            (mgr, _) -> mgr.createPayPalBillingAgreement(request.returnUrl, request.cancelUrl, locale.toLanguageTag()));
+              return new CreatePayPalBillingAgreementResponse(
         billingAgreementApprovalDetails.approvalUrl(),
         billingAgreementApprovalDetails.billingAgreementToken());
   }
@@ -346,7 +347,7 @@ public class SubscriptionController {
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
       @PathParam("processor") PaymentProvider processor,
-      @PathParam("paymentMethodToken") @NotEmpty String paymentMethodToken) throws SubscriptionException {
+      @PathParam("paymentMethodToken") @NotEmpty String paymentMethodToken) throws SubscriptionException, IOException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
@@ -750,18 +751,18 @@ public class SubscriptionController {
   public Response setDefaultPaymentMethodForIdeal(
       @Auth Optional<AuthenticatedDevice> authenticatedAccount,
       @PathParam("subscriberId") String subscriberId,
-      @PathParam("setupIntentId") @NotEmpty String setupIntentId) throws SubscriptionException {
+      @PathParam("setupIntentId") @NotEmpty String setupIntentId) throws SubscriptionException, IOException {
     SubscriberCredentials subscriberCredentials =
         SubscriberCredentials.process(authenticatedAccount, subscriberId, clock);
 
-    final String generatedSepaId = stripeManager.getGeneratedSepaIdFromSetupIntent(setupIntentId).join();
+    final String generatedSepaId = stripeManager.getGeneratedSepaIdFromSetupIntent(setupIntentId);
     setDefaultPaymentMethod(stripeManager, generatedSepaId, subscriberCredentials);
     return Response.ok().build();
   }
 
   private void setDefaultPaymentMethod(final CustomerAwareSubscriptionPaymentProcessor manager,
       final String paymentMethodId,
-      final SubscriberCredentials requestData) throws SubscriptionException {
+      final SubscriberCredentials requestData) throws SubscriptionException, IOException {
     try {
       final Subscriptions.Record record = subscriptionManager.getSubscriber(requestData);
 
@@ -772,7 +773,7 @@ public class SubscriptionController {
 
       manager
           .setDefaultPaymentMethodForCustomer(processorCustomer.customerId(), paymentMethodId, record.subscriptionId);
-    } catch (SubscriptionInvalidArgumentsException e) {
+    } catch (final SubscriptionInvalidArgumentsException e) {
       // Here, invalid arguments must mean that the client has made requests out of order, and needs to finish
       // setting up the paymentMethod first
       throw new ClientErrorException(Status.CONFLICT);

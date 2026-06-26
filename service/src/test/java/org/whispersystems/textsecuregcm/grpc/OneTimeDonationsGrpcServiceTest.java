@@ -18,13 +18,13 @@ import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
 import com.stripe.model.PaymentIntent;
 import jakarta.annotation.Nullable;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -66,6 +66,8 @@ import org.whispersystems.textsecuregcm.subscriptions.PayPalDonationsTranslator;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidAmountException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.tests.util.SubscriptionConfigTestHelper;
 import org.whispersystems.textsecuregcm.util.TestClock;
 
@@ -135,14 +137,14 @@ public class OneTimeDonationsGrpcServiceTest extends
   }
 
   @Test
-  void createBoost() {
+  void createBoost() throws SubscriptionInvalidAmountException {
     final PaymentIntent paymentIntent = mock(PaymentIntent.class);
     when(paymentIntent.getClientSecret()).thenReturn("test-client-secret");
     when(stripeManager.getSupportedCurrenciesForPaymentMethod(
         org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.CARD))
         .thenReturn(Set.of("usd"));
     when(stripeManager.createPaymentIntent(any(), anyLong(), anyLong(), any()))
-        .thenReturn(CompletableFuture.completedFuture(paymentIntent));
+        .thenReturn(paymentIntent);
 
     final CreateBoostResponse response = unauthenticatedServiceStub().createBoost(
         CreateBoostRequest.newBuilder()
@@ -212,7 +214,7 @@ public class OneTimeDonationsGrpcServiceTest extends
   }
 
   @Test
-  void createPayPalBoost() {
+  void createPayPalBoost() throws IOException {
     final BraintreeManager.PayPalOneTimePaymentApprovalDetails approvalDetails =
         mock(BraintreeManager.PayPalOneTimePaymentApprovalDetails.class);
     when(approvalDetails.approvalUrl()).thenReturn("test-approval-url");
@@ -224,7 +226,7 @@ public class OneTimeDonationsGrpcServiceTest extends
         .thenReturn("Donation to Signal Technology Foundation");
     when(braintreeManager.createOneTimePayment(anyString(), anyLong(), anyString(), anyString(), anyString(),
         anyString()))
-        .thenReturn(CompletableFuture.completedFuture(approvalDetails));
+        .thenReturn(approvalDetails);
 
     final CreatePayPalBoostResponse response = unauthenticatedServiceStub().createPayPalBoost(
         CreatePayPalBoostRequest.newBuilder()
@@ -241,14 +243,14 @@ public class OneTimeDonationsGrpcServiceTest extends
   }
 
   @Test
-  void confirmPayPalBoost() {
+  void confirmPayPalBoost() throws SubscriptionProcessorException, IOException {
     when(braintreeManager.getSupportedCurrenciesForPaymentMethod(
         org.whispersystems.textsecuregcm.subscriptions.PaymentMethod.PAYPAL))
         .thenReturn(Set.of("usd"));
     when(braintreeManager.captureOneTimePayment(anyString(), anyString(), anyString(), anyString(), anyLong(),
         anyLong(), any()))
-        .thenReturn(CompletableFuture.completedFuture(
-            new BraintreeManager.PayPalChargeSuccessDetails("test-id")));
+        .thenReturn(
+            new BraintreeManager.PayPalChargeSuccessDetails("test-id"));
 
     final ConfirmPayPalBoostResponse response = unauthenticatedServiceStub().confirmPayPalBoost(
         ConfirmPayPalBoostRequest.newBuilder()
@@ -268,10 +270,10 @@ public class OneTimeDonationsGrpcServiceTest extends
   @MethodSource
   void createBoostReceiptCredentialsPaymentRequired(
       @Nullable final ChargeFailure chargeFailure,
-      final boolean expectChargeFailure) {
-    when(stripeManager.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(
+      final boolean expectChargeFailure) throws IOException {
+    when(stripeManager.getPaymentDetails(any())).thenReturn(
         Optional.of(new PaymentDetails("id", Collections.emptyMap(), PaymentStatus.FAILED,
-            clock.instant(), chargeFailure))));
+            clock.instant(), chargeFailure)));
 
     final CreateBoostReceiptCredentialsResponse response =
         unauthenticatedServiceStub().createBoostReceiptCredentials(
@@ -303,9 +305,9 @@ public class OneTimeDonationsGrpcServiceTest extends
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
 
-    when(stripeManager.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(
+    when(stripeManager.getPaymentDetails(any())).thenReturn(
         Optional.of(new PaymentDetails("id", Collections.emptyMap(), PaymentStatus.SUCCEEDED,
-            clock.instant(), null))));
+            clock.instant(), null)));
     doThrow(WriteConflictException.class).when(issuedReceiptsManager)
         .recordIssuance(any(), any(), any(), any());
 

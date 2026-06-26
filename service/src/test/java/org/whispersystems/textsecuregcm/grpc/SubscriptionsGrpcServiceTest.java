@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.net.InetAddresses;
 import com.google.protobuf.ByteString;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -310,7 +311,7 @@ public class SubscriptionsGrpcServiceTest extends
     final BraintreeManager.PayPalBillingAgreementApprovalDetails details =
         new BraintreeManager.PayPalBillingAgreementApprovalDetails("https://fake-approval", "test-billing-token");
     when(subscriptionManager.addPaymentMethodToCustomer(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(details));
+        .thenReturn(details);
     final CreatePayPalPaymentMethodResponse response = unauthenticatedServiceStub().createPayPalPaymentMethod(
         CreatePayPalPaymentMethodRequest.newBuilder()
             .setSubscriberId(SUBSCRIBER_ID)
@@ -340,7 +341,7 @@ public class SubscriptionsGrpcServiceTest extends
   @ParameterizedTest
   @EnumSource(value = SetDefaultPaymentMethodRequest.RequestCase.class, names = {"STRIPE", "BRAINTREE", "SEPA"})
   void setDefaultPaymentMethod(final SetDefaultPaymentMethodRequest.RequestCase requestCase)
-      throws SubscriptionNotFoundException, SubscriptionForbiddenException {
+      throws SubscriptionNotFoundException, SubscriptionForbiddenException, IOException, SubscriptionProcessorConflictException {
     final PaymentProvider provider = requestCase == SetDefaultPaymentMethodRequest.RequestCase.BRAINTREE
         ? PaymentProvider.BRAINTREE : PaymentProvider.STRIPE;
     final Subscriptions.Record record = mock(Subscriptions.Record.class);
@@ -348,7 +349,7 @@ public class SubscriptionsGrpcServiceTest extends
     when(subscriptionManager.getSubscriber(any())).thenReturn(record);
     if (requestCase == SetDefaultPaymentMethodRequest.RequestCase.SEPA) {
       when(stripeManager.getGeneratedSepaIdFromSetupIntent(any()))
-          .thenReturn(CompletableFuture.completedFuture("sepa-id"));
+          .thenReturn("sepa-id");
     }
     final SetDefaultPaymentMethodRequest.Builder builder = SetDefaultPaymentMethodRequest.newBuilder()
         .setSubscriberId(SUBSCRIBER_ID);

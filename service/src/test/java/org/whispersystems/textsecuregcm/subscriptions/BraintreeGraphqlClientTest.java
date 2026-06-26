@@ -8,26 +8,26 @@ package org.whispersystems.textsecuregcm.subscriptions;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.braintree.graphql.clientoperation.CreatePayPalOneTimePaymentMutation;
-import jakarta.ws.rs.ServiceUnavailableException;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 
+@ExtendWith(MockitoExtension.class)
 class BraintreeGraphqlClientTest {
 
   private static final String CURRENCY = "xts";
@@ -36,49 +36,40 @@ class BraintreeGraphqlClientTest {
   private static final String LOCALE = "xx";
   private static final String LOCALIZED_LINE_ITEM_NAME = "Donation to Signal Technology Foundation";
 
+  @Mock
   private FaultTolerantHttpClient httpClient;
+
+  @Mock
+  private HttpResponse<Object> response;
+
   private BraintreeGraphqlClient braintreeGraphqlClient;
 
 
   @BeforeEach
-  void setUp() {
-    httpClient = mock(FaultTolerantHttpClient.class);
+  void setUp() throws IOException {
+    lenient().when(httpClient.send(any(), any())).thenReturn(response);
 
     braintreeGraphqlClient = new BraintreeGraphqlClient(httpClient, "https://example.com", "public", "super-secret");
   }
 
   @Test
-  void createPayPalOneTimePayment() {
-
-    final HttpResponse<Object> response = mock(HttpResponse.class);
-    when(httpClient.sendAsync(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(response));
-
+  void createPayPalOneTimePayment() throws IOException {
     final String paymentId = "PAYID-AAA1AAAA1A11111AA111111A";
     when(response.body())
         .thenReturn(createPayPalOneTimePaymentResponse(paymentId));
     when(response.statusCode())
         .thenReturn(200);
 
-    final CompletableFuture<CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment> future = braintreeGraphqlClient.createPayPalOneTimePayment(
+    final CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment result = braintreeGraphqlClient.createPayPalOneTimePayment(
         BigDecimal.ONE, CURRENCY,
         RETURN_URL, CANCEL_URL, LOCALE, LOCALIZED_LINE_ITEM_NAME);
 
-    assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
-      final CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment result = future.get();
-
       assertEquals(paymentId, result.paymentId);
       assertNotNull(result.approvalUrl);
-    });
   }
 
   @Test
-  void createPayPalOneTimePaymentHttpError() {
-
-    final HttpResponse<Object> response = mock(HttpResponse.class);
-    when(httpClient.sendAsync(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(response));
-
+  void createPayPalOneTimePaymentHttpError() throws IOException {
     when(response.statusCode())
         .thenReturn(500);
     final HttpHeaders httpheaders = mock(HttpHeaders.class);
@@ -86,39 +77,21 @@ class BraintreeGraphqlClientTest {
     when(response.headers())
         .thenReturn(httpheaders);
 
-    final CompletableFuture<CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment> future = braintreeGraphqlClient.createPayPalOneTimePayment(
+    assertThrows(IOException.class, () -> braintreeGraphqlClient.createPayPalOneTimePayment(
         BigDecimal.ONE, CURRENCY,
-        RETURN_URL, CANCEL_URL, LOCALE, LOCALIZED_LINE_ITEM_NAME);
-
-    assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
-
-      final ExecutionException e = assertThrows(ExecutionException.class, future::get);
-
-      assertTrue(e.getCause() instanceof ServiceUnavailableException);
-    });
+        RETURN_URL, CANCEL_URL, LOCALE, LOCALIZED_LINE_ITEM_NAME));
   }
 
   @Test
   void createPayPalOneTimePaymentGraphQlError() {
-
-    final HttpResponse<Object> response = mock(HttpResponse.class);
-    when(httpClient.sendAsync(any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(response));
-
     when(response.body())
         .thenReturn(createErrorResponse("createPayPalOneTimePayment", "12345"));
     when(response.statusCode())
         .thenReturn(200);
 
-    final CompletableFuture<CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment> future = braintreeGraphqlClient.createPayPalOneTimePayment(
+    assertThrows(IOException.class, () ->  braintreeGraphqlClient.createPayPalOneTimePayment(
         BigDecimal.ONE, CURRENCY,
-        RETURN_URL, CANCEL_URL, LOCALE, LOCALIZED_LINE_ITEM_NAME);
-
-    assertTimeoutPreemptively(Duration.ofSeconds(3), () -> {
-
-      final ExecutionException e = assertThrows(ExecutionException.class, future::get);
-      assertTrue(e.getCause() instanceof ServiceUnavailableException);
-    });
+        RETURN_URL, CANCEL_URL, LOCALE, LOCALIZED_LINE_ITEM_NAME));
   }
 
   private String createPayPalOneTimePaymentResponse(final String paymentId) {

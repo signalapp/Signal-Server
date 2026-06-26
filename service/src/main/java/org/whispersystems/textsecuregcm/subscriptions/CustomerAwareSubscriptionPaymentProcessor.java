@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.subscriptions;
 
+import java.io.IOException;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
@@ -41,10 +42,11 @@ public interface CustomerAwareSubscriptionPaymentProcessor extends SubscriptionP
    *                              {@link #createPaymentMethodSetupToken}
    * @param currentSubscriptionId (nullable) an active subscription ID, in case it needs an explicit update
    * @throws SubscriptionInvalidArgumentsException If the paymentMethodToken is invalid or the payment method has not
-   *                                                finished being set up
+   *                                               finished being set up
+   * @throws IOException                           If there was an error talking to the external payment provider
    */
   void setDefaultPaymentMethodForCustomer(String customerId, String paymentMethodToken,
-      @Nullable String currentSubscriptionId) throws SubscriptionInvalidArgumentsException;
+      @Nullable String currentSubscriptionId) throws SubscriptionInvalidArgumentsException, IOException;
 
   Object getSubscription(String subscriptionId);
 

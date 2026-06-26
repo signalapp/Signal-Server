@@ -20,6 +20,7 @@ import io.dropwizard.testing.junit5.DropwizardExtensionsSupport;
 import io.dropwizard.testing.junit5.ResourceExtension;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.core.Response;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
@@ -55,6 +56,7 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidAmountException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
@@ -179,13 +181,13 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
 
   @ParameterizedTest
   @ValueSource(booleans = {true, false})
-  void testCreateBoostPaymentIntent(final boolean donationPermitSpendOk) {
+  void testCreateBoostPaymentIntent(final boolean donationPermitSpendOk) throws SubscriptionInvalidAmountException {
     when(DONATION_PERMITS.spend(any(byte[].class), any(Instant.class))).thenReturn(donationPermitSpendOk);
 
     when(STRIPE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.CARD))
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     when(STRIPE_MANAGER.createPaymentIntent(anyString(), anyLong(), anyLong(), any()))
-        .thenReturn(CompletableFuture.completedFuture(PAYMENT_INTENT));
+        .thenReturn(PAYMENT_INTENT);
 
     String clientSecret = "some_client_secret";
     when(PAYMENT_INTENT.getClientSecret()).thenReturn(clientSecret);
@@ -202,13 +204,13 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
   }
 
   @Test
-  void testCreateBoostPayPal() {
+  void testCreateBoostPayPal() throws IOException {
     final BraintreeManager.PayPalOneTimePaymentApprovalDetails payPalOneTimePaymentApprovalDetails = mock(
         BraintreeManager.PayPalOneTimePaymentApprovalDetails.class);
     when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     when(BRAINTREE_MANAGER.createOneTimePayment(anyString(), anyLong(), anyString(), anyString(), anyString(), anyString()))
-        .thenReturn(CompletableFuture.completedFuture(payPalOneTimePaymentApprovalDetails));
+        .thenReturn(payPalOneTimePaymentApprovalDetails);
     when(payPalOneTimePaymentApprovalDetails.approvalUrl()).thenReturn("approvalUrl");
     when(payPalOneTimePaymentApprovalDetails.paymentId()).thenReturn("someId");
 
@@ -239,14 +241,15 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
 
   @ParameterizedTest
   @MethodSource
-  void createBoostReceiptPaymentRequired(final ChargeFailure chargeFailure, boolean expectChargeFailure) {
-    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(new PaymentDetails(
+  void createBoostReceiptPaymentRequired(final ChargeFailure chargeFailure, boolean expectChargeFailure)
+      throws IOException {
+    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(Optional.of(new PaymentDetails(
         "id",
         Collections.emptyMap(),
         PaymentStatus.FAILED,
         Instant.now(),
         chargeFailure))
-    ));
+    );
     try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")
         .request()
         .post(Entity.json("""
@@ -281,13 +284,13 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
   }
 
   @Test
-  void confirmPaypalBoostProcessorError() {
+  void confirmPaypalBoostProcessorError() throws SubscriptionProcessorException, IOException {
     when(BRAINTREE_MANAGER.getSupportedCurrenciesForPaymentMethod(PaymentMethod.PAYPAL))
         .thenReturn(Set.of("usd", "jpy", "bif", "eur"));
     when(BRAINTREE_MANAGER.captureOneTimePayment(anyString(), anyString(), anyString(), anyString(), anyLong(),
         anyLong(), any()))
-        .thenReturn(CompletableFuture.failedFuture(new SubscriptionProcessorException(PaymentProvider.BRAINTREE,
-            new ChargeFailure("2046", "Declined", null, null, null))));
+        .thenThrow(new SubscriptionProcessorException(PaymentProvider.BRAINTREE,
+            new ChargeFailure("2046", "Declined", null, null, null)));
 
     try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/paypal/confirm")
         .request()
@@ -323,12 +326,12 @@ class OneTimeDonationControllerTest extends AbstractV1SubscriptionControllerTest
         ServerSecretParams.generate().getPublicParams()).createReceiptCredentialRequestContext(
         new ReceiptSerial(new byte[ReceiptSerial.SIZE])).getRequest();
 
-    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(CompletableFuture.completedFuture(Optional.of(new PaymentDetails(
+    when(STRIPE_MANAGER.getPaymentDetails(any())).thenReturn(Optional.of(new PaymentDetails(
         "id",
         Collections.emptyMap(),
         PaymentStatus.SUCCEEDED,
         Instant.now(),
-        null))));
+        null)));
     doThrow(WriteConflictException.class).when(ISSUED_RECEIPTS_MANAGER).recordIssuance(any(), any(), any(), any());
 
     try (Response response = RESOURCE_EXTENSION.target("/v1/subscription/boost/receipt_credentials")

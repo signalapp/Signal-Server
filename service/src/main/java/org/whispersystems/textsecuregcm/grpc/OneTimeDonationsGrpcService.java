@@ -8,6 +8,7 @@ import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientP
 import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.toChargeFailure;
 
 import com.google.protobuf.ByteString;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -53,6 +54,8 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentDetails;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidAmountException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 
 public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneTimeDonationsImplBase {
 
@@ -91,7 +94,8 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
   }
 
   @Override
-  public CreateBoostResponse createBoost(final CreateBoostRequest request) throws RateLimitExceededException {
+  public CreateBoostResponse createBoost(final CreateBoostRequest request)
+      throws RateLimitExceededException {
     RateLimitUtil.rateLimitByRemoteAddress(rateLimiters.forDescriptor(RateLimiters.For.ONE_TIME_DONATION));
 
     try {
@@ -144,16 +148,23 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
               .setAmountAboveSepaLimit(AmountAboveSepaLimitError.newBuilder()
                   .setMaximum(r.maximum().toString()).build()).build();
       case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.Success _ -> {
-        final com.stripe.model.PaymentIntent paymentIntent = stripeManager.createPaymentIntent(
-            request.getCurrency(), request.getAmount(), request.getLevel(),
-            getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null))).join();
-        yield CreateBoostResponse.newBuilder().setClientSecret(paymentIntent.getClientSecret()).build();
+        try {
+          final com.stripe.model.PaymentIntent paymentIntent = stripeManager.createPaymentIntent(
+              request.getCurrency(), request.getAmount(), request.getLevel(),
+              getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)));
+          yield CreateBoostResponse.newBuilder().setClientSecret(paymentIntent.getClientSecret()).build();
+        } catch (final SubscriptionInvalidAmountException e) {
+          yield CreateBoostResponse.newBuilder()
+              .setInvalidAmount(FailedPrecondition.newBuilder()
+                  .setDescription(e.getErrorCode()).build())
+              .build();
+        }
       }
     };
   }
 
   @Override
-  public CreatePayPalBoostResponse createPayPalBoost(final CreatePayPalBoostRequest request) {
+  public CreatePayPalBoostResponse createPayPalBoost(final CreatePayPalBoostRequest request) throws IOException {
 
     final OneTimeDonationUtil.OneTimeDonationRequestValidationResult validationResult =
         OneTimeDonationUtil.validateOneTimeDonationRequest(
@@ -185,7 +196,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
             braintreeManager.createOneTimePayment(
                 request.getCurrency().toUpperCase(Locale.ROOT), request.getAmount(),
                 localizedLineItem.locale().toLanguageTag(), request.getReturnUrl(), request.getCancelUrl(),
-                localizedLineItem.itemName()).join();
+                localizedLineItem.itemName());
         yield CreatePayPalBoostResponse.newBuilder()
             .setResult(CreatePayPalBoostResponse.CreatePayPalBoostResult.newBuilder()
                 .setApprovalUrl(approvalDetails.approvalUrl())
@@ -196,7 +207,7 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
 
   @Override
   public ConfirmPayPalBoostResponse confirmPayPalBoost(final ConfirmPayPalBoostRequest request)
-      throws RateLimitExceededException {
+      throws RateLimitExceededException, IOException {
     RateLimitUtil.rateLimitByRemoteAddress(rateLimiters.forDescriptor(RateLimiters.For.ONE_TIME_DONATION));
 
     final OneTimeDonationUtil.OneTimeDonationRequestValidationResult validationResult =
@@ -222,33 +233,39 @@ public class OneTimeDonationsGrpcService extends SimpleOneTimeDonationsGrpc.OneT
       case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.AmountAboveSepaLimit _ ->
           throw new IllegalStateException("SEPA limit should not trigger for PayPal");
       case OneTimeDonationUtil.OneTimeDonationRequestValidationResult.Success _ -> {
-        final BraintreeManager.PayPalChargeSuccessDetails chargeSuccessDetails =
-            braintreeManager.captureOneTimePayment(
-                request.getPayerId(), request.getPaymentId(), request.getPaymentToken(),
-                request.getCurrency(), request.getAmount(), request.getLevel(),
-                getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null))).join();
+        final BraintreeManager.PayPalChargeSuccessDetails chargeSuccessDetails;
+        try {
+          chargeSuccessDetails = braintreeManager.captureOneTimePayment(
+              request.getPayerId(), request.getPaymentId(), request.getPaymentToken(),
+              request.getCurrency(), request.getAmount(), request.getLevel(),
+              SubscriptionsUtil.getClientPlatform(RequestAttributesUtil.getUserAgent().orElse(null)));
         oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), clock.instant());
         yield ConfirmPayPalBoostResponse.newBuilder()
             .setResult(ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult.newBuilder()
                 .setPaymentId(chargeSuccessDetails.paymentId()).build()).build();
+        } catch (final SubscriptionProcessorException e) {
+          yield ConfirmPayPalBoostResponse.newBuilder()
+              .setChargeFailure(SubscriptionsUtil.toChargeFailure(e.getProcessor(), e.getChargeFailure()))
+              .build();
+        }
       }
     };
   }
 
   @Override
   public CreateBoostReceiptCredentialsResponse createBoostReceiptCredentials(
-      final CreateBoostReceiptCredentialsRequest request) {
+      final CreateBoostReceiptCredentialsRequest request) throws IOException {
 
     final PaymentProvider processor;
     final Optional<PaymentDetails> maybePaymentDetails;
     switch (request.getProcessor()) {
       case PAYMENT_PROVIDER_STRIPE -> {
         processor = PaymentProvider.STRIPE;
-        maybePaymentDetails = stripeManager.getPaymentDetails(request.getPaymentIntentId()).join();
+        maybePaymentDetails = stripeManager.getPaymentDetails(request.getPaymentIntentId());
       }
       case PAYMENT_PROVIDER_BRAINTREE -> {
         processor = PaymentProvider.BRAINTREE;
-        maybePaymentDetails = braintreeManager.getPaymentDetails(request.getPaymentIntentId()).join();
+        maybePaymentDetails = braintreeManager.getPaymentDetails(request.getPaymentIntentId());
       }
       default -> throw GrpcExceptions.fieldViolation("processor", "Unsupported payment processor");
     }

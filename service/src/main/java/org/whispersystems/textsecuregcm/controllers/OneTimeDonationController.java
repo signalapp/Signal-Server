@@ -8,6 +8,7 @@ import static org.whispersystems.textsecuregcm.grpc.SubscriptionsUtil.getClientP
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.net.HttpHeaders;
+import com.stripe.model.PaymentIntent;
 import io.dropwizard.auth.Auth;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tag;
@@ -34,9 +35,9 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -45,7 +46,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import org.glassfish.jersey.server.ManagedAsync;
 import org.signal.libsignal.zkgroup.InvalidInputException;
 import org.signal.libsignal.zkgroup.VerificationFailedException;
 import org.signal.libsignal.zkgroup.receipts.ReceiptCredentialRequest;
@@ -74,6 +75,8 @@ import org.whispersystems.textsecuregcm.subscriptions.PaymentMethod;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentProvider;
 import org.whispersystems.textsecuregcm.subscriptions.PaymentStatus;
 import org.whispersystems.textsecuregcm.subscriptions.StripeManager;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionInvalidAmountException;
+import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.util.ExactlySize;
 import org.whispersystems.textsecuregcm.util.HeaderUtils;
 
@@ -168,14 +171,15 @@ public class OneTimeDonationController {
           })))
   @ApiResponse(responseCode = "401", description = "Donation permit was invalid or already spent")
   @RateLimitedByIp(RateLimiters.For.ONE_TIME_DONATION)
-  public CompletableFuture<Response> createBoostPaymentIntent(
+  @ManagedAsync
+  public CreateBoostResponse createBoostPaymentIntent(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
 
       @Parameter(description = "A base64-encoded donation permit retrieved from POST /v1/donation/permit")
       @HeaderParam(HeaderUtils.DONATION_PERMIT) final Optional<DonationPermitHeader> donationPermitHeader,
 
       @NotNull @Valid final CreateBoostRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws SubscriptionInvalidAmountException {
 
     if (authenticatedAccount.isPresent()) {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
@@ -195,11 +199,11 @@ public class OneTimeDonationController {
       throw new WebApplicationException(Response.Status.UNAUTHORIZED);
     }
 
-    return CompletableFuture.runAsync(() ->
-            validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), stripeManager))
-        .thenCompose(_ -> stripeManager.createPaymentIntent(request.currency, request.amount, request.level,
-            getClientPlatform(userAgent)))
-        .thenApply(paymentIntent -> Response.ok(new CreateBoostResponse(paymentIntent.getClientSecret())).build());
+    validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), stripeManager);
+    final PaymentIntent paymentIntent = stripeManager.createPaymentIntent(request.currency, request.amount,
+        request.level,
+        getClientPlatform(userAgent));
+    return new CreateBoostResponse(paymentIntent.getClientSecret());
   }
 
   /**
@@ -245,34 +249,32 @@ public class OneTimeDonationController {
     }
   }
 
-  record CreatePayPalBoostResponse(String approvalUrl, String paymentId) {}
+  public record CreatePayPalBoostResponse(String approvalUrl, String paymentId) {}
 
   @POST
   @Path("/paypal/create")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createPayPalBoost(
+  @ManagedAsync
+  public CreatePayPalBoostResponse createPayPalBoost(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid final CreatePayPalBoostRequest request,
-      @Context final ContainerRequestContext containerRequestContext) {
+      @Context final ContainerRequestContext containerRequestContext) throws IOException {
 
     if (authenticatedAccount.isPresent()) {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
-    return CompletableFuture.runAsync(() ->
-            validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager))
-        .thenCompose(_ -> {
-          final List<Locale> acceptableLanguages =
-              HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
-          final OneTimeDonationUtil.LocalizedPayPalDonationLineItem localizedLineItem = OneTimeDonationUtil.localizePayPalDonationLineItem(
-              payPalDonationsTranslator, acceptableLanguages);
-          return braintreeManager.createOneTimePayment(request.currency.toUpperCase(Locale.ROOT), request.amount,
-              localizedLineItem.locale().toLanguageTag(),
-              request.returnUrl, request.cancelUrl, localizedLineItem.itemName());
-        })
-        .thenApply(approvalDetails -> Response.ok(
-            new CreatePayPalBoostResponse(approvalDetails.approvalUrl(), approvalDetails.paymentId())).build());
+    validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager);
+    final List<Locale> acceptableLanguages =
+        HeaderUtils.getAcceptableLanguagesForRequest(containerRequestContext);
+    final OneTimeDonationUtil.LocalizedPayPalDonationLineItem localizedLineItem = OneTimeDonationUtil.localizePayPalDonationLineItem(
+        payPalDonationsTranslator, acceptableLanguages);
+    final BraintreeManager.PayPalOneTimePaymentApprovalDetails approvalDetails =
+        braintreeManager.createOneTimePayment(request.currency.toUpperCase(Locale.ROOT), request.amount,
+            localizedLineItem.locale().toLanguageTag(),
+            request.returnUrl, request.cancelUrl, localizedLineItem.itemName());
+    return new CreatePayPalBoostResponse(approvalDetails.approvalUrl(), approvalDetails.paymentId());
   }
 
   public static class ConfirmPayPalBoostRequest extends CreateBoostRequest {
@@ -289,30 +291,28 @@ public class OneTimeDonationController {
     }
   }
 
-  record ConfirmPayPalBoostResponse(String paymentId) {}
+  public record ConfirmPayPalBoostResponse(String paymentId) {}
 
   @POST
   @Path("/paypal/confirm")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> confirmPayPalBoost(
+  @ManagedAsync
+  public ConfirmPayPalBoostResponse confirmPayPalBoost(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid final ConfirmPayPalBoostRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws SubscriptionProcessorException, IOException {
 
     if (authenticatedAccount.isPresent()) {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
-    return CompletableFuture.runAsync(() ->
-            validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager))
-        .thenCompose(_ -> braintreeManager.captureOneTimePayment(request.payerId, request.paymentId,
-            request.paymentToken, request.currency, request.amount, request.level, getClientPlatform(userAgent)))
-        .thenApply(chargeSuccessDetails -> {
-          oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), Instant.now());
-          return Response.ok(
-              new ConfirmPayPalBoostResponse(chargeSuccessDetails.paymentId())).build();
-        });
+    validateRequestCurrencyAmount(request, BigDecimal.valueOf(request.amount), braintreeManager);
+    final BraintreeManager.PayPalChargeSuccessDetails chargeSuccessDetails = braintreeManager.captureOneTimePayment(
+        request.payerId, request.paymentId,
+        request.paymentToken, request.currency, request.amount, request.level, getClientPlatform(userAgent));
+    oneTimeDonationsManager.putPaidAt(chargeSuccessDetails.paymentId(), Instant.now());
+    return new ConfirmPayPalBoostResponse(chargeSuccessDetails.paymentId());
   }
 
   public static class CreateBoostReceiptCredentialsRequest {
@@ -339,77 +339,76 @@ public class OneTimeDonationController {
   @Path("/receipt_credentials")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public CompletableFuture<Response> createBoostReceiptCredentials(
+  @ManagedAsync
+  public Response createBoostReceiptCredentials(
       @Auth final Optional<AuthenticatedDevice> authenticatedAccount,
       @NotNull @Valid final CreateBoostReceiptCredentialsRequest request,
-      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) {
+      @HeaderParam(HttpHeaders.USER_AGENT) final String userAgent) throws IOException {
 
     if (authenticatedAccount.isPresent()) {
       throw new ForbiddenException("must not use authenticated connection for one-time donation operations");
     }
 
-    final CompletableFuture<Optional<PaymentDetails>> paymentDetailsFut = switch (request.processor) {
+    final Optional<PaymentDetails> maybePaymentDetails = (switch (request.processor) {
       case STRIPE -> stripeManager.getPaymentDetails(request.paymentIntentId);
       case BRAINTREE -> braintreeManager.getPaymentDetails(request.paymentIntentId);
       case GOOGLE_PLAY_BILLING -> throw new BadRequestException("cannot use play billing for one-time donations");
       case APPLE_APP_STORE -> throw new BadRequestException("cannot use app store purchases for one-time donations");
-    };
-
-    return paymentDetailsFut.thenApply(maybePaymentDetails -> {
-      if (maybePaymentDetails.isEmpty()) {
-        throw new WebApplicationException(Response.Status.NOT_FOUND);
-      }
-      final PaymentDetails paymentDetails = maybePaymentDetails.get();
-      if (paymentDetails.status() == PaymentStatus.PROCESSING) {
-        return Response.noContent().build();
-      }
-      if (paymentDetails.status() != PaymentStatus.SUCCEEDED) {
-        throw new WebApplicationException(Response.status(Response.Status.PAYMENT_REQUIRED)
-            .entity(new CreateBoostReceiptCredentialsErrorResponse(paymentDetails.chargeFailure())).build());
-      }
-
-      // The payment was successful, try to issue the receipt credential
-
-      final OneTimeDonationUtil.DonationLevelDetails levelDetails;
-      try {
-        levelDetails = OneTimeDonationUtil.getLevelDetails(paymentDetails, oneTimeDonationConfiguration);
-      } catch (OneTimeDonationUtil.InvalidLevelException _) {
-        throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
-      }
-
-      final ReceiptCredentialRequest receiptCredentialRequest;
-      try {
-        receiptCredentialRequest = new ReceiptCredentialRequest(request.receiptCredentialRequest);
-      } catch (final InvalidInputException e) {
-        throw new BadRequestException("invalid receipt credential request", e);
-      }
-      try {
-        issuedReceiptsManager.recordIssuance(paymentDetails.id(), request.processor,
-            receiptCredentialRequest, clock.instant());
-      } catch (WriteConflictException _) {
-        throw new WebApplicationException(Response.Status.CONFLICT);
-      }
-      final Instant paidAt = oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created());
-      final Instant expiration = paidAt
-          .plus(levelDetails.levelExpiration())
-          .truncatedTo(ChronoUnit.DAYS)
-          .plus(1, ChronoUnit.DAYS);
-      final ReceiptCredentialResponse receiptCredentialResponse;
-      try {
-        receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
-            receiptCredentialRequest, expiration.getEpochSecond(), levelDetails.level());
-      } catch (final VerificationFailedException e) {
-        throw new BadRequestException("receipt credential request failed verification", e);
-      }
-      Metrics.counter(SubscriptionController.RECEIPT_ISSUED_COUNTER_NAME,
-              Tags.of(
-                  Tag.of(SubscriptionController.PROCESSOR_TAG_NAME, request.processor.toString()),
-                  Tag.of(SubscriptionController.TYPE_TAG_NAME, "boost"),
-                  UserAgentTagUtil.getPlatformTag(userAgent)))
-          .increment();
-      return Response.ok(
-              new CreateBoostReceiptCredentialsSuccessResponse(receiptCredentialResponse.serialize()))
-          .build();
     });
+
+    if (maybePaymentDetails.isEmpty()) {
+      throw new WebApplicationException(Response.Status.NOT_FOUND);
+    }
+    final PaymentDetails paymentDetails = maybePaymentDetails.get();
+    if (paymentDetails.status() == PaymentStatus.PROCESSING) {
+      return Response.noContent().build();
+    }
+    if (paymentDetails.status() != PaymentStatus.SUCCEEDED) {
+      throw new WebApplicationException(Response.status(Response.Status.PAYMENT_REQUIRED)
+          .entity(new CreateBoostReceiptCredentialsErrorResponse(paymentDetails.chargeFailure())).build());
+    }
+
+    // The payment was successful, try to issue the receipt credential
+
+    final OneTimeDonationUtil.DonationLevelDetails levelDetails;
+    try {
+      levelDetails = OneTimeDonationUtil.getLevelDetails(paymentDetails, oneTimeDonationConfiguration);
+    } catch (OneTimeDonationUtil.InvalidLevelException _) {
+      throw new WebApplicationException(Response.Status.INTERNAL_SERVER_ERROR);
+    }
+
+    final ReceiptCredentialRequest receiptCredentialRequest;
+    try {
+      receiptCredentialRequest = new ReceiptCredentialRequest(request.receiptCredentialRequest);
+    } catch (final InvalidInputException e) {
+      throw new BadRequestException("invalid receipt credential request", e);
+    }
+    try {
+      issuedReceiptsManager.recordIssuance(paymentDetails.id(), request.processor,
+          receiptCredentialRequest, clock.instant());
+    } catch (WriteConflictException _) {
+      throw new WebApplicationException(Response.Status.CONFLICT);
+    }
+    final Instant paidAt = oneTimeDonationsManager.getPaidAt(paymentDetails.id(), paymentDetails.created());
+    final Instant expiration = paidAt
+        .plus(levelDetails.levelExpiration())
+        .truncatedTo(ChronoUnit.DAYS)
+        .plus(1, ChronoUnit.DAYS);
+    final ReceiptCredentialResponse receiptCredentialResponse;
+    try {
+      receiptCredentialResponse = zkReceiptOperations.issueReceiptCredential(
+          receiptCredentialRequest, expiration.getEpochSecond(), levelDetails.level());
+    } catch (final VerificationFailedException e) {
+      throw new BadRequestException("receipt credential request failed verification", e);
+    }
+    Metrics.counter(SubscriptionController.RECEIPT_ISSUED_COUNTER_NAME,
+            Tags.of(
+                Tag.of(SubscriptionController.PROCESSOR_TAG_NAME, request.processor.toString()),
+                Tag.of(SubscriptionController.TYPE_TAG_NAME, "boost"),
+                UserAgentTagUtil.getPlatformTag(userAgent)))
+        .increment();
+    return Response.ok(
+            new CreateBoostReceiptCredentialsSuccessResponse(receiptCredentialResponse.serialize()))
+        .build();
   }
 }

@@ -5,7 +5,11 @@
 
 package org.whispersystems.textsecuregcm.subscriptions;
 
+import com.braintree.graphql.clientoperation.ChargePayPalOneTimePaymentMutation;
+import com.braintree.graphql.clientoperation.CreatePayPalBillingAgreementMutation;
+import com.braintree.graphql.clientoperation.CreatePayPalOneTimePaymentMutation;
 import com.braintree.graphql.clientoperation.TokenizePayPalBillingAgreementMutation;
+import com.braintree.graphql.clientoperation.TokenizePayPalOneTimePaymentMutation;
 import com.braintree.graphql.clientoperation.VaultPaymentMethodMutation;
 import com.braintreegateway.BraintreeGateway;
 import com.braintreegateway.ClientTokenRequest;
@@ -36,7 +40,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
@@ -45,7 +48,6 @@ import org.whispersystems.textsecuregcm.currency.CurrencyConversionManager;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
 import org.whispersystems.textsecuregcm.storage.PaymentTime;
-import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ExecutorUtil;
 import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -128,92 +130,88 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     return paymentMethod == PaymentMethod.PAYPAL;
   }
 
-  public CompletableFuture<Optional<PaymentDetails>> getPaymentDetails(final String paymentId) {
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        final Transaction transaction = braintreeGateway.transaction().find(paymentId);
-        ChargeFailure chargeFailure = null;
-        if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
-          chargeFailure = createChargeFailure(transaction);
-        }
-        return Optional.of(new PaymentDetails(transaction.getGraphQLId(),
-            transaction.getCustomFields(),
-            getPaymentStatus(transaction.getStatus()),
-            transaction.getCreatedAt().toInstant(),
-            chargeFailure));
-
-      } catch (final NotFoundException e) {
-        return Optional.empty();
+  public Optional<PaymentDetails> getPaymentDetails(final String paymentId) {
+    try {
+      final Transaction transaction = braintreeGateway.transaction().find(paymentId);
+      ChargeFailure chargeFailure = null;
+      if (!getPaymentStatus(transaction.getStatus()).equals(PaymentStatus.SUCCEEDED)) {
+        chargeFailure = createChargeFailure(transaction);
       }
-    }, executor);
+      return Optional.of(new PaymentDetails(transaction.getGraphQLId(),
+          transaction.getCustomFields(),
+          getPaymentStatus(transaction.getStatus()),
+          transaction.getCreatedAt().toInstant(),
+          chargeFailure));
+
+    } catch (final NotFoundException e) {
+      return Optional.empty();
+    }
   }
 
-  public CompletableFuture<PayPalOneTimePaymentApprovalDetails> createOneTimePayment(String currency, long amount,
-      String locale, String returnUrl, String cancelUrl, String localizedLineItemname) {
-    return braintreeGraphqlClient.createPayPalOneTimePayment(convertApiAmountToBraintreeAmount(currency, amount),
-            currency.toUpperCase(Locale.ROOT), returnUrl,
-            cancelUrl, locale, localizedLineItemname)
-        .thenApply(result -> new PayPalOneTimePaymentApprovalDetails((String) result.approvalUrl, result.paymentId));
+  public PayPalOneTimePaymentApprovalDetails createOneTimePayment(final String currency, final long amount,
+      final String locale, final String returnUrl, final String cancelUrl, final String localizedLineItemName) throws IOException {
+    final CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment result = braintreeGraphqlClient.createPayPalOneTimePayment(
+        convertApiAmountToBraintreeAmount(currency, amount),
+        currency.toUpperCase(Locale.ROOT), returnUrl,
+        cancelUrl, locale, localizedLineItemName);
+    return new PayPalOneTimePaymentApprovalDetails((String) result.approvalUrl, result.paymentId);
   }
 
-  public CompletableFuture<PayPalChargeSuccessDetails> captureOneTimePayment(String payerId, String paymentId,
-      String paymentToken, String currency, long amount, long level, @Nullable ClientPlatform clientPlatform) {
-    return braintreeGraphqlClient.tokenizePayPalOneTimePayment(payerId, paymentId, paymentToken)
-        .thenCompose(response -> braintreeGraphqlClient.chargeOneTimePayment(
-                response.paymentMethod.id,
-                convertApiAmountToBraintreeAmount(currency, amount),
-                currenciesToMerchantAccounts.get(currency.toLowerCase(Locale.ROOT)),
-                level)
-            .thenComposeAsync(chargeResponse -> {
+  public PayPalChargeSuccessDetails captureOneTimePayment(final String payerId, final String paymentId,
+      final String paymentToken, final String currency, final long amount, final long level, @Nullable final ClientPlatform clientPlatform)
+      throws SubscriptionProcessorException, IOException {
+    final TokenizePayPalOneTimePaymentMutation.TokenizePayPalOneTimePayment response = braintreeGraphqlClient.tokenizePayPalOneTimePayment(
+        payerId, paymentId, paymentToken);
+    final ChargePayPalOneTimePaymentMutation.ChargePaymentMethod chargeResponse = braintreeGraphqlClient.chargeOneTimePayment(
+        response.paymentMethod.id,
+        convertApiAmountToBraintreeAmount(currency, amount),
+        currenciesToMerchantAccounts.get(currency.toLowerCase(Locale.ROOT)),
+        level);
 
-              final PaymentStatus paymentStatus = getPaymentStatus(chargeResponse.transaction.status);
-              if (paymentStatus == PaymentStatus.SUCCEEDED || paymentStatus == PaymentStatus.PROCESSING) {
-                publishDonationEvent(amount, currency, Instant.now(), clientPlatform);
-                return CompletableFuture.completedFuture(new PayPalChargeSuccessDetails(chargeResponse.transaction.id));
-              }
+    final PaymentStatus paymentStatus = getPaymentStatus(chargeResponse.transaction.status);
+    if (paymentStatus == PaymentStatus.SUCCEEDED || paymentStatus == PaymentStatus.PROCESSING) {
+      publishDonationEvent(amount, currency, Instant.now(), clientPlatform);
+      return new PayPalChargeSuccessDetails(chargeResponse.transaction.id);
+    }
 
-              // the GraphQL/Apollo interfaces are a tad unwieldy for this type of status checking
-              final Transaction unsuccessfulTx = braintreeGateway.transaction().find(chargeResponse.transaction.id);
+    // the GraphQL/Apollo interfaces are a tad unwieldy for this type of status checking
+    final Transaction unsuccessfulTx = braintreeGateway.transaction().find(chargeResponse.transaction.id);
 
-              if (PAYPAL_PAYMENT_ALREADY_COMPLETED_PROCESSOR_CODE.equals(unsuccessfulTx.getProcessorResponseCode())
-                  || Transaction.GatewayRejectionReason.DUPLICATE.equals(unsuccessfulTx.getGatewayRejectionReason())) {
-                // the payment has already been charged - maybe a previous call timed out or was interrupted -
-                // in any case, check for a successful transaction with the paymentId
-                final ResourceCollection<Transaction> search = braintreeGateway.transaction()
-                    .search(new TransactionSearchRequest()
-                        .paypalPaymentId().is(paymentId)
-                        .status().in(
-                            Transaction.Status.SETTLED,
-                            Transaction.Status.SETTLING,
-                            Transaction.Status.SUBMITTED_FOR_SETTLEMENT,
-                            Transaction.Status.SETTLEMENT_PENDING
-                        )
-                    );
+    if (PAYPAL_PAYMENT_ALREADY_COMPLETED_PROCESSOR_CODE.equals(unsuccessfulTx.getProcessorResponseCode())
+        || Transaction.GatewayRejectionReason.DUPLICATE.equals(unsuccessfulTx.getGatewayRejectionReason())) {
+      // the payment has already been charged - maybe a previous call timed out or was interrupted -
+      // in any case, check for a successful transaction with the paymentId
+      final ResourceCollection<Transaction> search = braintreeGateway.transaction()
+          .search(new TransactionSearchRequest()
+              .paypalPaymentId().is(paymentId)
+              .status().in(
+                  Transaction.Status.SETTLED,
+                  Transaction.Status.SETTLING,
+                  Transaction.Status.SUBMITTED_FOR_SETTLEMENT,
+                  Transaction.Status.SETTLEMENT_PENDING
+              )
+          );
 
-                if (search.getMaximumSize() == 0) {
-                  return CompletableFuture.failedFuture(ExceptionUtils.wrap(new IOException()));
-                }
+      if (search.getMaximumSize() == 0) {
+        throw new IOException();
+      }
 
-                final Transaction successfulTx = search.getFirst();
+      final Transaction successfulTx = search.getFirst();
 
-                publishDonationEvent(amount, currency, successfulTx.getCreatedAt().toInstant(), clientPlatform);
+      publishDonationEvent(amount, currency, successfulTx.getCreatedAt().toInstant(), clientPlatform);
 
-                return CompletableFuture.completedFuture(
-                    new PayPalChargeSuccessDetails(successfulTx.getGraphQLId()));
-              }
+      return new PayPalChargeSuccessDetails(successfulTx.getGraphQLId());
+    }
 
-              return switch (unsuccessfulTx.getProcessorResponseCode()) {
-                case GENERIC_DECLINED_PROCESSOR_CODE, PAYPAL_FUNDING_INSTRUMENT_DECLINED_PROCESSOR_CODE ->
-                    CompletableFuture.failedFuture(
-                        new SubscriptionProcessorException(getProvider(), createChargeFailure(unsuccessfulTx)));
+    switch (unsuccessfulTx.getProcessorResponseCode()) {
+      case GENERIC_DECLINED_PROCESSOR_CODE, PAYPAL_FUNDING_INSTRUMENT_DECLINED_PROCESSOR_CODE ->
+          throw new SubscriptionProcessorException(getProvider(), createChargeFailure(unsuccessfulTx));
 
-                default -> {
-                  logger.info("PayPal charge unexpectedly failed: {}", unsuccessfulTx.getProcessorResponseCode());
-
-                  yield CompletableFuture.failedFuture(ExceptionUtils.wrap(new IOException()));
-                }
-              };
-            }, executor));
+      default -> {
+        logger.info("PayPal charge unexpectedly failed: {}", unsuccessfulTx.getProcessorResponseCode());
+        throw new IOException();
+      }
+    }
   }
 
   private void publishDonationEvent(final long amount,
@@ -264,7 +262,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     return amount.multiply(ONE_MILLION).longValueExact();
   }
 
-  private static PaymentStatus getPaymentStatus(Transaction.Status status) {
+  private static PaymentStatus getPaymentStatus(final Transaction.Status status) {
     return switch (status) {
       case SETTLEMENT_CONFIRMED, SETTLING, SUBMITTED_FOR_SETTLEMENT, SETTLED -> PaymentStatus.SUCCEEDED;
       case AUTHORIZATION_EXPIRED, GATEWAY_REJECTED, PROCESSOR_DECLINED, SETTLEMENT_DECLINED, VOIDED, FAILED ->
@@ -273,9 +271,9 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     };
   }
 
-  private static PaymentStatus getPaymentStatus(com.braintree.graphql.client.type.PaymentStatus status) {
+  private static PaymentStatus getPaymentStatus(final com.braintree.graphql.client.type.PaymentStatus status) {
     try {
-      Transaction.Status transactionStatus = Transaction.Status.valueOf(status.rawValue);
+      final Transaction.Status transactionStatus = Transaction.Status.valueOf(status.rawValue);
 
       return getPaymentStatus(transactionStatus);
     } catch (final Exception e) {
@@ -283,7 +281,8 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     }
   }
 
-  private static SubscriptionStatus getSubscriptionStatus(final Subscription.Status status, final boolean latestTransactionFailed) {
+  private static SubscriptionStatus getSubscriptionStatus(final Subscription.Status status,
+      final boolean latestTransactionFailed) {
     return switch (status) {
       // Stripe returns a PAST_DUE status if the subscription's most recent payment failed.
       // This check ensures that Braintree is consistent with Stripe.
@@ -316,7 +315,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
 
   @Override
   public ProcessorCustomer createCustomer(final byte[] subscriberUser, @Nullable final ClientPlatform clientPlatform) {
-    CustomerRequest request = new CustomerRequest()
+    final CustomerRequest request = new CustomerRequest()
         .customField("subscriber_user", HexFormat.of().formatHex(subscriberUser));
 
     if (clientPlatform != null) {
@@ -332,19 +331,19 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
 
   @Override
   public String createPaymentMethodSetupToken(final String customerId) {
-    ClientTokenRequest request = new ClientTokenRequest().customerId(customerId);
+    final ClientTokenRequest request = new ClientTokenRequest().customerId(customerId);
 
     return braintreeGateway.clientToken().generate(request);
   }
 
   @Override
-  public void setDefaultPaymentMethodForCustomer(String customerId, String billingAgreementToken,
-      @Nullable String currentSubscriptionId) {
+  public void setDefaultPaymentMethodForCustomer(final String customerId, final String billingAgreementToken,
+      @Nullable final String currentSubscriptionId) throws IOException {
     final Optional<String> maybeSubscriptionId = Optional.ofNullable(currentSubscriptionId);
     final TokenizePayPalBillingAgreementMutation.TokenizePayPalBillingAgreement tokenizePayPalBillingAgreement =
-        braintreeGraphqlClient.tokenizePayPalBillingAgreement(billingAgreementToken).join();
+        braintreeGraphqlClient.tokenizePayPalBillingAgreement(billingAgreementToken);
     final VaultPaymentMethodMutation.VaultPaymentMethod vaultPaymentMethod =
-        braintreeGraphqlClient.vaultPaymentMethod(customerId, tokenizePayPalBillingAgreement.paymentMethod.id).join();
+        braintreeGraphqlClient.vaultPaymentMethod(customerId, tokenizePayPalBillingAgreement.paymentMethod.id);
     final Result<Customer> result = braintreeGateway.customer()
         .update(customerId, new CustomerRequest().defaultPaymentMethodToken(vaultPaymentMethod.paymentMethod.id));
     maybeSubscriptionId.ifPresent(subscriptionId ->
@@ -353,13 +352,13 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
   }
 
   @Override
-  public Object getSubscription(String subscriptionId) {
+  public Object getSubscription(final String subscriptionId) {
     return braintreeGateway.subscription().find(subscriptionId);
   }
 
   @Override
-  public SubscriptionId createSubscription(String customerId, String planId, long level,
-      long lastSubscriptionCreatedAt)
+  public SubscriptionId createSubscription(final String customerId, final String planId, final long level,
+      final long lastSubscriptionCreatedAt)
       throws SubscriptionProcessorConflictException, SubscriptionProcessorException {
 
     final com.braintreegateway.PaymentMethod paymentMethod = getDefaultPaymentMethod(customerId);
@@ -406,14 +405,15 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     return new SubscriptionId(result.getTarget().getId());
   }
 
-  private com.braintreegateway.PaymentMethod getDefaultPaymentMethod(String customerId) {
+  private com.braintreegateway.PaymentMethod getDefaultPaymentMethod(final String customerId) {
     return braintreeGateway.customer().find(customerId).getDefaultPaymentMethod();
   }
 
 
   @Override
-  public CustomerAwareSubscriptionPaymentProcessor.SubscriptionId updateSubscription(Object subscriptionObj, String planId, long level,
-      String idempotencyKey) throws SubscriptionProcessorConflictException, SubscriptionProcessorException {
+  public CustomerAwareSubscriptionPaymentProcessor.SubscriptionId updateSubscription(final Object subscriptionObj,
+      final String planId, final long level,
+      final String idempotencyKey) throws SubscriptionProcessorConflictException, SubscriptionProcessorException {
 
     if (!(subscriptionObj instanceof final Subscription subscription)) {
       throw new IllegalArgumentException("invalid subscription object: " + subscriptionObj.getClass().getName());
@@ -425,7 +425,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     endSubscription(subscription);
 
     final Transaction transaction = getLatestTransactionForSubscription(subscription)
-        .orElseThrow(() -> ExceptionUtils.wrap(new SubscriptionProcessorConflictException()));
+        .orElseThrow(SubscriptionProcessorConflictException::new);
 
     final Customer customer = transaction.getCustomer();
 
@@ -434,13 +434,13 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
   }
 
   @Override
-  public LevelAndCurrency getLevelAndCurrencyForSubscription(Object subscriptionObj) {
+  public LevelAndCurrency getLevelAndCurrencyForSubscription(final Object subscriptionObj) {
     final Subscription subscription = getSubscription(subscriptionObj);
     final Plan plan = findPlan(subscription.getPlanId());
     return new LevelAndCurrency(getLevelForPlan(plan), plan.getCurrencyIsoCode().toLowerCase(Locale.ROOT));
   }
 
-  private Plan findPlan(String planId) {
+  private Plan findPlan(final String planId) {
     return braintreeGateway.plan().find(planId);
   }
 
@@ -449,7 +449,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     try {
       metadata = SystemMapper.jsonMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
 
-    } catch (JsonProcessingException e) {
+    } catch (final JsonProcessingException e) {
       throw new RuntimeException(e);
     }
 
@@ -458,7 +458,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
 
   @Override
   public SubscriptionInformation getSubscriptionInformation(final String subscriptionId) {
-    final Subscription subscription =  getSubscription(getSubscription(subscriptionId));
+    final Subscription subscription = getSubscription(getSubscription(subscriptionId));
     final Plan plan = braintreeGateway.plan().find(subscription.getPlanId());
     final long level = getLevelForPlan(plan);
 
@@ -500,11 +500,12 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     return new TransactionInfo(paymentMethod, paymentProcessing, false, null);
   }
 
-  private PaymentMethod getPaymentMethodFromTransaction(Transaction transaction) {
+  private PaymentMethod getPaymentMethodFromTransaction(final Transaction transaction) {
     if (transaction.getPayPalDetails() != null) {
       return PaymentMethod.PAYPAL;
     }
-    logger.error("Unexpected payment method from Braintree: {}, transaction id {}", transaction.getPaymentInstrumentType(), transaction.getId());
+    logger.error("Unexpected payment method from Braintree: {}, transaction id {}",
+        transaction.getPaymentInstrumentType(), transaction.getId());
     return PaymentMethod.UNKNOWN;
   }
 
@@ -512,7 +513,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     return status == Transaction.Status.SETTLEMENT_PENDING;
   }
 
-  private ChargeFailure createChargeFailure(Transaction transaction) {
+  private ChargeFailure createChargeFailure(final Transaction transaction) {
 
     final String code;
     final String message;
@@ -539,7 +540,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
   }
 
   @Override
-  public void cancelAllActiveSubscriptions(String customerId) {
+  public void cancelAllActiveSubscriptions(final String customerId) {
     final Customer customer = braintreeGateway.customer().find(customerId);
     ExecutorUtil.runAll(executor, Optional.ofNullable(customer.getDefaultPaymentMethod())
         .stream()
@@ -548,7 +549,7 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
         .toList());
   }
 
-  private void endSubscription(Subscription subscription) {
+  private void endSubscription(final Subscription subscription) {
     final boolean latestTransactionFailed = getLatestTransactionForSubscription(subscription)
         .map(this::getTransactionInfo)
         .map(TransactionInfo::transactionFailed)
@@ -563,20 +564,20 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     }
   }
 
-  private void cancelSubscriptionAtEndOfCurrentPeriod(Subscription subscription) {
+  private void cancelSubscriptionAtEndOfCurrentPeriod(final Subscription subscription) {
     braintreeGateway
         .subscription()
         .update(subscription.getId(),
             new SubscriptionRequest().numberOfBillingCycles(subscription.getCurrentBillingCycle()));
   }
 
-  private void cancelSubscriptionImmediately(Subscription subscription) {
+  private void cancelSubscriptionImmediately(final Subscription subscription) {
     braintreeGateway.subscription().cancel(subscription.getId());
   }
 
 
   @Override
-  public ReceiptItem getReceiptItem(String subscriptionId)
+  public ReceiptItem getReceiptItem(final String subscriptionId)
       throws SubscriptionReceiptRequestedForOpenPaymentException, SubscriptionChargeFailurePaymentRequiredException {
     final Subscription subscription = getSubscription(getSubscription(subscriptionId));
     final Transaction transaction = getLatestTransactionForSubscription(subscription)
@@ -597,31 +598,31 @@ public class BraintreeManager implements CustomerAwareSubscriptionPaymentProcess
     try {
       metadata = SystemMapper.jsonMapper().readValue(plan.getDescription(), BraintreePlanMetadata.class);
 
-    } catch (JsonProcessingException e) {
+    } catch (final JsonProcessingException e) {
       throw new RuntimeException(e);
     }
 
     return new ReceiptItem(transaction.getId(), PaymentTime.periodStart(paidAt), metadata.level());
   }
 
-  private static Subscription getSubscription(Object subscriptionObj) {
+  private static Subscription getSubscription(final Object subscriptionObj) {
     if (!(subscriptionObj instanceof final Subscription subscription)) {
       throw new IllegalArgumentException("Invalid subscription object: " + subscriptionObj.getClass().getName());
     }
     return subscription;
   }
 
-  private Optional<Transaction> getLatestTransactionForSubscription(Subscription subscription) {
+  private Optional<Transaction> getLatestTransactionForSubscription(final Subscription subscription) {
     return subscription.getTransactions().stream()
-            .max(Comparator.comparing(Transaction::getCreatedAt));
+        .max(Comparator.comparing(Transaction::getCreatedAt));
   }
 
-  public CompletableFuture<PayPalBillingAgreementApprovalDetails> createPayPalBillingAgreement(final String returnUrl,
-                                                                                               final String cancelUrl, final String locale) {
-    return braintreeGraphqlClient.createPayPalBillingAgreement(returnUrl, cancelUrl, locale)
-            .thenApply(response ->
-                    new PayPalBillingAgreementApprovalDetails((String) response.approvalUrl, response.billingAgreementToken)
-            );
+  public PayPalBillingAgreementApprovalDetails createPayPalBillingAgreement(final String returnUrl,
+      final String cancelUrl, final String locale)
+      throws IOException {
+    final CreatePayPalBillingAgreementMutation.CreatePayPalBillingAgreement response = braintreeGraphqlClient.createPayPalBillingAgreement(
+        returnUrl, cancelUrl, locale);
+    return new PayPalBillingAgreementApprovalDetails((String) response.approvalUrl, response.billingAgreementToken);
   }
 
   public record PayPalBillingAgreementApprovalDetails(String approvalUrl, String billingAgreementToken) {

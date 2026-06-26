@@ -251,6 +251,8 @@ message SetDefaultPaymentMethodResponse {
     // subscriberId authentication failure
     errors.FailedUnidentifiedAuthorization subscriber_id_mismatch = 3 [(tag.reason) = "subscriber_id_mismatch"];
     errors.FailedPrecondition payment_method_not_set_up = 4 [(tag.reason) = "payment_method_not_set_up"];
+    // Payment processor does not match existing processor associated with the subscription
+    errors.FailedPrecondition subscription_processor_conflict = 5 [(tag.reason) = "subscription_processor_conflict"];
   }
 }
 

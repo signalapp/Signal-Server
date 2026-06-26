@@ -76,6 +76,8 @@ message CreateBoostResponse {
     errors.FailedPrecondition unsupported_level = 5 [(tag.reason) = "unsupported_level"];
     // Donation permit was invalid or already spent
     errors.FailedZkAuthentication permit_rejected = 6 [(tag.reason) = "permit_rejected"];
+    // The amount in the specified currency is not supported by the payment provider
+    errors.FailedPrecondition invalid_amount = 7 [(tag.reason) = "invalid_amount"];
   }
 }
 
@@ -135,6 +137,8 @@ message ConfirmPayPalBoostResponse {
     errors.FailedPrecondition unsupported_currency = 3 [(tag.reason) = "unsupported_currency"];
     // The requested level is not a valid one-time donation level
     errors.FailedPrecondition unsupported_level = 4 [(tag.reason) = "unsupported_level"];
+    // The payment failed; see charge failure details
+    ChargeFailure charge_failure = 5 [(tag.reason) = "charge_failure"];
   }
 }
 

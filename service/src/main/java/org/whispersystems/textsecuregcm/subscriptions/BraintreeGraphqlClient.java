@@ -36,7 +36,7 @@ import com.braintree.graphql.clientoperation.CreatePayPalOneTimePaymentMutation;
 import com.braintree.graphql.clientoperation.TokenizePayPalBillingAgreementMutation;
 import com.braintree.graphql.clientoperation.TokenizePayPalOneTimePaymentMutation;
 import com.braintree.graphql.clientoperation.VaultPaymentMethodMutation;
-import jakarta.ws.rs.ServiceUnavailableException;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -44,7 +44,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Base64;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import okio.Buffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,7 +68,7 @@ class BraintreeGraphqlClient {
     this.httpClient = httpClient;
     try {
       this.graphqlUri = new URI(graphqlUri);
-    } catch (URISyntaxException e) {
+    } catch (final URISyntaxException e) {
       throw new IllegalArgumentException("Invalid URI", e);
     }
     // “public”/“private” key is a bit of a misnomer, but we follow the upstream nomenclature
@@ -77,36 +76,32 @@ class BraintreeGraphqlClient {
     this.authorizationHeader = "Basic " + Base64.getEncoder().encodeToString((publicKey + ":" + privateKey).getBytes());
   }
 
-  CompletableFuture<CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment> createPayPalOneTimePayment(
+  CreatePayPalOneTimePaymentMutation.CreatePayPalOneTimePayment createPayPalOneTimePayment(
       final BigDecimal amount, final String currency, final String returnUrl,
-      final String cancelUrl, final String locale, final String localizedLineItemName) {
+      final String cancelUrl, final String locale, final String localizedLineItemName) throws IOException {
 
     final CreatePayPalOneTimePaymentInput input = buildCreatePayPalOneTimePaymentInput(amount, currency, returnUrl,
         cancelUrl, locale, localizedLineItemName);
     final CreatePayPalOneTimePaymentMutation mutation = new CreatePayPalOneTimePaymentMutation(input);
     final HttpRequest request = buildRequest(mutation);
 
-    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-        .thenApply(httpResponse ->
-        {
-          // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
-          // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
-          final ApolloResponse<CreatePayPalOneTimePaymentMutation.Data> apolloResponse =
-              extractApolloResponse(httpResponse, mutation);
-          final CreatePayPalOneTimePaymentMutation.Data data = assertSuccessAndExtractDataFromApolloResponse(apolloResponse);
-          if (data.createPayPalOneTimePayment == null) {
-            logger.warn(
-                "createPayPalOneTimePayment requestId={} currency={} amount={} did not have any errors but data was null. response={}",
-                apolloResponse.extensions.getOrDefault("requestId", "<No-Request-Id>"),
-                currency, amount, httpResponse.body());
-            throw new ServiceUnavailableException();
-          }
-          return data.createPayPalOneTimePayment;
-        });
+    final HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    final ApolloResponse<CreatePayPalOneTimePaymentMutation.Data> apolloResponse =
+        extractApolloResponse(httpResponse, mutation);
+    final CreatePayPalOneTimePaymentMutation.Data data = assertSuccessAndExtractDataFromApolloResponse(apolloResponse);
+    if (data.createPayPalOneTimePayment == null) {
+      logger.warn(
+          "createPayPalOneTimePayment requestId={} currency={} amount={} did not have any errors but data was null. response={}",
+          apolloResponse.extensions.getOrDefault("requestId", "<No-Request-Id>"),
+          currency, amount, httpResponse.body());
+      throw new IOException();
+    }
+    return data.createPayPalOneTimePayment;
+
   }
 
-  private static CreatePayPalOneTimePaymentInput buildCreatePayPalOneTimePaymentInput(BigDecimal amount,
-      String currency, String returnUrl, String cancelUrl, String locale, String localizedLineItemName) {
+  private static CreatePayPalOneTimePaymentInput buildCreatePayPalOneTimePaymentInput(final BigDecimal amount,
+      final String currency, final String returnUrl, final String cancelUrl, final String locale, final String localizedLineItemName) {
 
     // Note locale and localizedLineItemName are a best-effort, and it's possible that they will not match.
     // We could try to align with the locales PayPal documents <https://developer.paypal.com/reference/locale-codes/#supported-locale-codes>
@@ -148,8 +143,8 @@ class BraintreeGraphqlClient {
     );
   }
 
-  CompletableFuture<TokenizePayPalOneTimePaymentMutation.TokenizePayPalOneTimePayment> tokenizePayPalOneTimePayment(
-      final String payerId, final String paymentId, final String paymentToken) {
+  TokenizePayPalOneTimePaymentMutation.TokenizePayPalOneTimePayment tokenizePayPalOneTimePayment(
+      final String payerId, final String paymentId, final String paymentToken) throws IOException {
 
     final TokenizePayPalOneTimePaymentInput input = new TokenizePayPalOneTimePaymentInput(
         Optional.absent(),
@@ -159,18 +154,15 @@ class BraintreeGraphqlClient {
 
     final TokenizePayPalOneTimePaymentMutation mutation = new TokenizePayPalOneTimePaymentMutation(input);
     final HttpRequest request = buildRequest(mutation);
+    final HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-        .thenApply(httpResponse -> {
-          // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
-          // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
-          final TokenizePayPalOneTimePaymentMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
-          return data.tokenizePayPalOneTimePayment;
-        });
+    final TokenizePayPalOneTimePaymentMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
+    return data.tokenizePayPalOneTimePayment;
   }
 
-  CompletableFuture<ChargePayPalOneTimePaymentMutation.ChargePaymentMethod> chargeOneTimePayment(
-      final String paymentMethodId, final BigDecimal amount, final String merchantAccount, final long level) {
+  ChargePayPalOneTimePaymentMutation.ChargePaymentMethod chargeOneTimePayment(
+      final String paymentMethodId, final BigDecimal amount, final String merchantAccount, final long level)
+      throws IOException {
 
     final List<CustomFieldInput> customFields = List.of(
         new CustomFieldInput("level", Optional.present(Long.toString(level))));
@@ -180,18 +172,14 @@ class BraintreeGraphqlClient {
     final ChargePayPalOneTimePaymentMutation mutation = new ChargePayPalOneTimePaymentMutation(input);
     final HttpRequest request = buildRequest(mutation);
 
-    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-        .thenApply(httpResponse -> {
-          // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
-          // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
-          final ChargePayPalOneTimePaymentMutation.Data data = assertSuccessAndExtractData(httpResponse,
-              mutation);
-          return data.chargePaymentMethod;
-        });
+    final HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    final ChargePayPalOneTimePaymentMutation.Data data = assertSuccessAndExtractData(httpResponse,
+        mutation);
+    return data.chargePaymentMethod;
   }
 
-  private static ChargePaymentMethodInput buildChargePaymentMethodInput(String paymentMethodId, BigDecimal amount,
-      String merchantAccount, List<CustomFieldInput> customFields) {
+  private static ChargePaymentMethodInput buildChargePaymentMethodInput(final String paymentMethodId, final BigDecimal amount,
+      final String merchantAccount, final List<CustomFieldInput> customFields) {
 
     return new ChargePaymentMethodInput(
         Optional.absent(),
@@ -221,25 +209,21 @@ class BraintreeGraphqlClient {
     );
   }
 
-  public CompletableFuture<CreatePayPalBillingAgreementMutation.CreatePayPalBillingAgreement> createPayPalBillingAgreement(
-      final String returnUrl, final String cancelUrl, final String locale) {
+  public CreatePayPalBillingAgreementMutation.CreatePayPalBillingAgreement createPayPalBillingAgreement(
+      final String returnUrl, final String cancelUrl, final String locale) throws IOException {
 
     final CreatePayPalBillingAgreementInput input = buildCreatePayPalBillingAgreementInput(returnUrl, cancelUrl,
         locale);
     final CreatePayPalBillingAgreementMutation mutation = new CreatePayPalBillingAgreementMutation(input);
     final HttpRequest request = buildRequest(mutation);
 
-    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-        .thenApply(httpResponse -> {
-          // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
-          // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
-          final CreatePayPalBillingAgreementMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
-          return data.createPayPalBillingAgreement;
-        });
+    final HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    final CreatePayPalBillingAgreementMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
+    return data.createPayPalBillingAgreement;
   }
 
-  private static CreatePayPalBillingAgreementInput buildCreatePayPalBillingAgreementInput(String returnUrl,
-      String cancelUrl, String locale) {
+  private static CreatePayPalBillingAgreementInput buildCreatePayPalBillingAgreementInput(final String returnUrl,
+      final String cancelUrl, final String locale) {
 
     return new CreatePayPalBillingAgreementInput(
         Optional.absent(),
@@ -263,8 +247,8 @@ class BraintreeGraphqlClient {
     );
   }
 
-  public CompletableFuture<TokenizePayPalBillingAgreementMutation.TokenizePayPalBillingAgreement> tokenizePayPalBillingAgreement(
-      final String billingAgreementToken) {
+  public TokenizePayPalBillingAgreementMutation.TokenizePayPalBillingAgreement tokenizePayPalBillingAgreement(
+      final String billingAgreementToken) throws IOException {
 
     final TokenizePayPalBillingAgreementInput input = new TokenizePayPalBillingAgreementInput(
         Optional.absent(),
@@ -272,32 +256,24 @@ class BraintreeGraphqlClient {
     final TokenizePayPalBillingAgreementMutation mutation = new TokenizePayPalBillingAgreementMutation(input);
     final HttpRequest request = buildRequest(mutation);
 
-    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-        .thenApply(httpResponse -> {
-          // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
-          // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
-          final TokenizePayPalBillingAgreementMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
-          return data.tokenizePayPalBillingAgreement;
-        });
+    final HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    final TokenizePayPalBillingAgreementMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
+    return data.tokenizePayPalBillingAgreement;
   }
 
-  public CompletableFuture<VaultPaymentMethodMutation.VaultPaymentMethod> vaultPaymentMethod(final String customerId,
-      final String paymentMethodId) {
+  public VaultPaymentMethodMutation.VaultPaymentMethod vaultPaymentMethod(final String customerId,
+      final String paymentMethodId) throws IOException {
 
     final VaultPaymentMethodInput input = buildVaultPaymentMethodInput(customerId, paymentMethodId);
     final VaultPaymentMethodMutation mutation = new VaultPaymentMethodMutation(input);
     final HttpRequest request = buildRequest(mutation);
 
-    return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-        .thenApply(httpResponse -> {
-          // IntelliJ users: type parameters error “no instance of type variable exists so that Data conforms to Data”
-          // is not accurate; this might be fixed in Kotlin 1.8: https://youtrack.jetbrains.com/issue/KTIJ-21905/
-          final VaultPaymentMethodMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
-          return data.vaultPaymentMethod;
-        });
+    final HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    final VaultPaymentMethodMutation.Data data = assertSuccessAndExtractData(httpResponse, mutation);
+    return data.vaultPaymentMethod;
   }
 
-  private static VaultPaymentMethodInput buildVaultPaymentMethodInput(String customerId, String paymentMethodId) {
+  private static VaultPaymentMethodInput buildVaultPaymentMethodInput(final String customerId, final String paymentMethodId) {
     return new VaultPaymentMethodInput(
         Optional.absent(),
         paymentMethodId,
@@ -311,26 +287,28 @@ class BraintreeGraphqlClient {
 
   /**
    * Verifies that the HTTP response has a {@code 200} status code and the GraphQL response has no errors, otherwise
-   * throws a {@link ServiceUnavailableException}.
+   * throws a {@link IOException}.
    */
   private static <T extends Operation<U>, U extends Operation.Data> U assertSuccessAndExtractData(
-      HttpResponse<String> httpResponse, T operation) {
+      final HttpResponse<String> httpResponse, final T operation) throws IOException {
     return assertSuccessAndExtractDataFromApolloResponse(extractApolloResponse(httpResponse, operation));
   }
 
   private static <T extends Operation<U>, U extends Operation.Data> ApolloResponse<U> extractApolloResponse(
-      HttpResponse<String> httpResponse, T operation) {
+      final HttpResponse<String> httpResponse, final T operation) throws IOException {
 
     if (httpResponse.statusCode() != 200) {
       logger.warn("Received HTTP response status {} ({})", httpResponse.statusCode(),
           httpResponse.headers().firstValue("paypal-debug-id").orElse("<debug id absent>"));
-      throw new ServiceUnavailableException();
+      throw new IOException();
     }
 
     return Operations.parseJsonResponse(operation, httpResponse.body());
   }
 
-  private static <T extends Operation<U>, U extends Operation.Data> U assertSuccessAndExtractDataFromApolloResponse(final ApolloResponse<U> response) {
+  private static <T extends Operation<U>, U extends Operation.Data> U assertSuccessAndExtractDataFromApolloResponse(
+      final ApolloResponse<U> response)
+      throws IOException {
     if (response.hasErrors() || response.data == null) {
       //noinspection ConstantConditions
       response.errors.forEach(
@@ -342,7 +320,7 @@ class BraintreeGraphqlClient {
                 response.operation.name(), error.getMessage(), legacyCode);
           });
 
-      throw new ServiceUnavailableException();
+      throw new IOException();
     }
 
     return response.data;

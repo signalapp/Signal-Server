@@ -41,6 +41,7 @@ import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorConfl
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionProcessorException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptAlreadyRedeemedException;
 import org.whispersystems.textsecuregcm.subscriptions.SubscriptionReceiptRequestedForOpenPaymentException;
+import org.whispersystems.textsecuregcm.util.ThrowingBiFunction;
 import org.whispersystems.textsecuregcm.util.ua.ClientPlatform;
 
 /**
@@ -244,6 +245,7 @@ public class SubscriptionManager {
    * @param <T>                          A payment processor that has a notion of server-managed customers
    * @param <R>                          The return type of the paymentSetupFunction, which should be used by a client
    *                                     to configure the newly created payment method
+   * @param <E>                          An exception thrown by the paymentSetupFunction
    * @return The return value of the paymentSetupFunction
    * @throws SubscriptionForbiddenException         if the subscriber credentials were incorrect
    * @throws SubscriptionNotFoundException          if the subscriber did not exist or did not have a subscription
@@ -251,12 +253,12 @@ public class SubscriptionManager {
    * @throws SubscriptionProcessorConflictException if the new payment processor does not match the existing processor associated with
    *                                                the subscriberId
    */
-  public <T extends CustomerAwareSubscriptionPaymentProcessor, R> R addPaymentMethodToCustomer(
+  public <T extends CustomerAwareSubscriptionPaymentProcessor, R, E extends Exception> R addPaymentMethodToCustomer(
       final SubscriberCredentials subscriberCredentials,
       final T subscriptionPaymentProcessor,
       final ClientPlatform clientPlatform,
-      final BiFunction<T, String, R> paymentSetupFunction)
-      throws SubscriptionForbiddenException, SubscriptionNotFoundException, SubscriptionProcessorConflictException {
+      final ThrowingBiFunction<T, String, R, E> paymentSetupFunction)
+      throws SubscriptionForbiddenException, SubscriptionNotFoundException, SubscriptionProcessorConflictException, E {
 
     Subscriptions.Record record = this.getSubscriber(subscriberCredentials);
     if (record.getProcessorCustomer().isEmpty()) {
