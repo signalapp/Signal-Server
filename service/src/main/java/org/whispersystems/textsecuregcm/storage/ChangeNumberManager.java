@@ -158,21 +158,24 @@ public class ChangeNumberManager {
     final Account updatedAccount = accountsManager.changeNumber(
         account.getIdentifier(IdentityType.ACI), number, pniIdentityKey, deviceSignedPreKeys, devicePqLastResortPreKeys, pniRegistrationIds);
 
-    try {
-      // Now that we've actually updated the account, populate the "updated PNI" field on all envelopes
-      messagesByDeviceId.replaceAll((_, envelope) ->
-          envelope.toBuilder().setUpdatedPni(UUIDUtil.toByteString(updatedAccount.getIdentifier(IdentityType.PNI)))
-              .build());
+    if (!messagesByDeviceId.isEmpty()) {
+      try {
+        // Now that we've actually updated the account, populate the "updated PNI" field on all envelopes
+        messagesByDeviceId.replaceAll((_, envelope) ->
+            envelope.toBuilder().setUpdatedPni(UUIDUtil.toByteString(updatedAccount.getIdentifier(IdentityType.PNI)))
+                .build());
 
-      messageSender.sendMessages(updatedAccount,
-          serviceIdentifier,
-          messagesByDeviceId,
-          registrationIdsByDeviceId,
-          Optional.of(Device.PRIMARY_ID),
-          senderUserAgent);
-    } catch (final RuntimeException e) {
-      logger.warn("Changed number but could not send all device messages for {}", account.getIdentifier(IdentityType.ACI), e);
-      throw e;
+        messageSender.sendMessages(updatedAccount,
+            serviceIdentifier,
+            messagesByDeviceId,
+            registrationIdsByDeviceId,
+            Optional.of(Device.PRIMARY_ID),
+            senderUserAgent);
+      } catch (final RuntimeException e) {
+        logger.warn("Changed number but could not send all device messages for {}",
+            account.getIdentifier(IdentityType.ACI), e);
+        throw e;
+      }
     }
 
     return updatedAccount;
