@@ -94,6 +94,10 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     account.getUsernameHash().ifPresent(usernameHash ->
         accountIdentifiersBuilder.setUsernameHash(ByteString.copyFrom(usernameHash)));
 
+    if (account.getUsernameLinkHandle() != null) {
+      accountIdentifiersBuilder.setUsernameLinkHandle(UUIDUtil.toByteString(account.getUsernameLinkHandle()));
+    }
+
     return GetAccountIdentityResponse.newBuilder()
         .setAccountIdentifiers(accountIdentifiersBuilder)
         .build();

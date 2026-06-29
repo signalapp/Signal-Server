@@ -30,11 +30,15 @@ message AccountIdentifiers {
   repeated ServiceIdentifier service_identifiers = 1;
 
   // The phone number associated with the identified account.
-  string e164 = 2;
+  string e164 = 2 [(org.signal.chat.require.e164) = true];
 
   // The username hash (if any) associated with the identified account. May be
   // empty if no username is associated with the identified account.
-  bytes username_hash = 3;
+  bytes username_hash = 3  [(org.signal.chat.require.exactlySize) = 0, (org.signal.chat.require.exactlySize) = 32];
+
+  // The username link handle UUID associated with the identified account.
+  // May be empty if no username is associated with the identified account.
+  bytes username_link_handle = 4 [(org.signal.chat.require.exactlySize) = 0, (org.signal.chat.require.exactlySize) = 16];
 }
 
 message EcPreKey {

@@ -121,12 +121,14 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
         PhoneNumberUtil.getInstance().getExampleNumber("US"), PhoneNumberUtil.PhoneNumberFormat.E164);
 
     final byte[] usernameHash = TestRandomUtil.nextBytes(32);
+    final UUID usernameLinkHandle = UUID.randomUUID();
 
     final Account account = mock(Account.class);
     when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
     when(account.getPhoneNumberIdentifier()).thenReturn(phoneNumberIdentifier);
     when(account.getNumber()).thenReturn(e164);
     when(account.getUsernameHash()).thenReturn(Optional.of(usernameHash));
+    when(account.getUsernameLinkHandle()).thenReturn(usernameLinkHandle);
 
     when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI))
         .thenReturn(Optional.of(account));
@@ -137,6 +139,7 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
             .addServiceIdentifiers(GrpcServiceIdentifierUtil.toGrpcServiceIdentifier(new PniServiceIdentifier(phoneNumberIdentifier)))
             .setE164(e164)
             .setUsernameHash(ByteString.copyFrom(usernameHash))
+            .setUsernameLinkHandle(UUIDUtil.toByteString(usernameLinkHandle))
             .build())
         .build();
 
