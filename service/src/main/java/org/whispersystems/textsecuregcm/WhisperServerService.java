@@ -914,18 +914,18 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getCdnConfiguration().credentials().accessKeyId().value(),
         config.getCdnConfiguration().credentials().secretAccessKey().value());
 
-    ServerSecretParams zkSecretParams = new ServerSecretParams(config.getZkConfig().serverSecret().value());
+    ServerSecretParams groupZkSecretParams = new ServerSecretParams(config.getGroupsZkConfig().serverSecret().value());
     GenericServerSecretParams callingGenericZkSecretParams = new GenericServerSecretParams(config.getCallingZkConfig().serverSecret().value());
-    GenericServerSecretParams backupsGenericZkSecretParams = new GenericServerSecretParams(config.getBackupsZkConfig().serverSecret().value());
-    GenericServerSecretParams profileAvatarsGenericZkSecretParams = new GenericServerSecretParams(config.getProfileAvatarsZkConfig().serverSecret().value());
-    ServerZkProfileOperations zkProfileOperations = new ServerZkProfileOperations(zkSecretParams);
-    ServerZkAuthOperations zkAuthOperations = new ServerZkAuthOperations(zkSecretParams);
-    ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);
+    GenericServerSecretParams chatGenericZkSecretParams = new GenericServerSecretParams(config.getChatZkConfig().serverSecret().value());
+    ServerZkProfileOperations zkProfileOperations = new ServerZkProfileOperations(groupZkSecretParams);
+    ServerZkAuthOperations zkAuthOperations = new ServerZkAuthOperations(groupZkSecretParams);
+    // ZK receipts are not actually shared with ZK groups, but use the same extensible parameters object for legacy reasons
+    ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(groupZkSecretParams);
 
     TusAttachmentGenerator tusAttachmentGenerator = new TusAttachmentGenerator(config.getTus());
     Cdn3BackupCredentialGenerator cdn3BackupCredentialGenerator = new Cdn3BackupCredentialGenerator(config.getTus());
     BackupAuthManager backupAuthManager = new BackupAuthManager(experimentEnrollmentManager, rateLimiters,
-        accountsManager, zkReceiptOperations, redeemedReceiptsManager, backupsGenericZkSecretParams, clock);
+        accountsManager, zkReceiptOperations, redeemedReceiptsManager, chatGenericZkSecretParams, clock);
     BackupsDb backupsDb = new BackupsDb(
         dynamoDbAsyncClient,
         config.getDynamoDbTables().getBackups().getTableName(),
@@ -936,7 +936,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getCdn3StorageManagerConfiguration());
     BackupManager backupManager = new BackupManager(
         backupsDb,
-        backupsGenericZkSecretParams,
+        chatGenericZkSecretParams,
         rateLimiters,
         tusAttachmentGenerator,
         cdn3BackupCredentialGenerator,
@@ -961,7 +961,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getAppleDeviceCheck().teamId(),
         config.getAppleDeviceCheck().bundleId());
 
-    final DonationPermitsManager donationPermitsManager = new DonationPermitsManager(donationPermits, zkSecretParams,
+    final DonationPermitsManager donationPermitsManager = new DonationPermitsManager(donationPermits, groupZkSecretParams,
         clock);
 
     final SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,
@@ -1054,7 +1054,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getExternalRequestFilterConfiguration().grpcMethods());
     final RequireAuthenticationInterceptor requireAuthenticationInterceptor = new RequireAuthenticationInterceptor(accountAuthenticator);
     final ProhibitAuthenticationInterceptor prohibitAuthenticationInterceptor = new ProhibitAuthenticationInterceptor();
-    final GroupSendTokenUtil groupSendTokenUtil = new GroupSendTokenUtil(zkSecretParams, Clock.systemUTC());
+    final GroupSendTokenUtil groupSendTokenUtil = new GroupSendTokenUtil(groupZkSecretParams, Clock.systemUTC());
     final MessageMetrics messageMetrics = new MessageMetrics();
     final MessageDispatcher messageDispatcher = new MessageDispatcher(receiptSender, messagesManager, messageMetrics,
         pushNotificationManager, pushNotificationScheduler, messageDeliveryLoopMonitor, disconnectionRequestManager,
@@ -1071,7 +1071,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
             new CallingGrpcService(cloudflareTurnCredentialsManager, rateLimiters),
             new CredentialsGrpcService(accountsManager, certificateGenerator, zkAuthOperations, callingGenericZkSecretParams, rateLimiters, Clock.systemUTC(), ExternalServiceDefinitions.createExternalServiceList(config, Clock.systemUTC())),
             new KeysGrpcService(accountsManager, keysManager, rateLimiters),
-            new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager, config.getBadges(), profileCdnPolicyGenerator, profileAvatarsGenericZkSecretParams, profileBadgeConverter, rateLimiters),
+            new ProfileGrpcService(clock, accountsManager, profilesManager, dynamicConfigurationManager, config.getBadges(), profileCdnPolicyGenerator, chatGenericZkSecretParams, profileBadgeConverter, rateLimiters),
             new MessagesGrpcService(accountsManager, rateLimiters, messageSender, messageByteLimitCardinalityEstimator, spamChecker, messageDispatcher, Clock.systemUTC()),
             new BackupsGrpcService(accountsManager, backupAuthManager, backupMetrics),
             new DevicesGrpcService(accountsManager),
@@ -1096,8 +1096,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
     final List<ServerServiceDefinition> unauthenticatedServices = Stream.of(
             new AccountsAnonymousGrpcService(accountsManager, rateLimiters),
             new CallQualitySurveyGrpcService(callQualitySurveyManager, rateLimiters),
-            new KeysAnonymousGrpcService(accountsManager, keysManager, zkSecretParams, Clock.systemUTC()),
-            new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, profileCdnPolicyGenerator, profileAvatarsGenericZkSecretParams, zkSecretParams, rateLimiters, clock),
+            new KeysAnonymousGrpcService(accountsManager, keysManager, groupZkSecretParams, Clock.systemUTC()),
+            new ProfileAnonymousGrpcService(accountsManager, profilesManager, profileBadgeConverter, profileCdnPolicyGenerator, chatGenericZkSecretParams, groupZkSecretParams, rateLimiters, clock),
             new MessagesAnonymousGrpcService(accountsManager, rateLimiters, messageSender, groupSendTokenUtil, messageByteLimitCardinalityEstimator, spamChecker, Clock.systemUTC()),
             new BackupsAnonymousGrpcService(backupManager, backupMetrics, config.getAttachments().maxAttachmentUploadSizeInBytes(), config.getAttachments().maxMessageBackupUploadSizeInBytes()),
             new CredentialsAnonymousGrpcService(accountsManager, ExternalServiceDefinitions.SVR.generatorFactory().apply(config, Clock.systemUTC())),
@@ -1237,14 +1237,14 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new DirectoryV2Controller(directoryV2CredentialsGenerator),
         new DonationController(clock, zkReceiptOperations, redeemedReceiptsManager, accountsManager, config.getBadges(),
             ReceiptCredentialPresentation::new, donationPermitsManager, rateLimiters),
-        new KeysController(rateLimiters, keysManager, accountsManager, zkSecretParams, Clock.systemUTC()),
+        new KeysController(rateLimiters, keysManager, accountsManager, groupZkSecretParams, Clock.systemUTC()),
         new KeyTransparencyController(keyTransparencyServiceClient),
         new MessageController(rateLimiters, messageByteLimitCardinalityEstimator, messageSender, accountsManager,
-            phoneNumberIdentifiers, reportMessageManager, zkSecretParams, spamChecker, Clock.systemUTC()),
+            phoneNumberIdentifiers, reportMessageManager, groupZkSecretParams, spamChecker, Clock.systemUTC()),
         new PaymentsController(currencyManager, paymentsCredentialsGenerator),
         new ProfileController(clock, rateLimiters, accountsManager, profilesManager, dynamicConfigurationManager,
             profileBadgeConverter, config.getBadges(), profileCdnPolicyGenerator,
-            zkSecretParams, zkProfileOperations, batchIdentityCheckExecutor),
+            groupZkSecretParams, zkProfileOperations, batchIdentityCheckExecutor),
         new ProvisioningController(rateLimiters, provisioningManager),
         new RegistrationController(accountsManager, phoneVerificationTokenManager, registrationLockVerificationManager,
             rateLimiters, registrationFraudChecker),

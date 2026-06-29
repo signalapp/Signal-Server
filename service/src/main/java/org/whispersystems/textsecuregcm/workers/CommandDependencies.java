@@ -351,7 +351,7 @@ public record CommandDependencies(
     final GenericServerSecretParams backupsGenericZkSecretParams;
     try {
       backupsGenericZkSecretParams =
-          new GenericServerSecretParams(configuration.getBackupsZkConfig().serverSecret().value());
+          new GenericServerSecretParams(configuration.getChatZkConfig().serverSecret().value());
     } catch (InvalidInputException e) {
       throw new IllegalArgumentException(e);
     }
@@ -377,7 +377,7 @@ public record CommandDependencies(
         configuration.getDynamoDbTables().getIssuedReceipts().getGenerator(),
         configuration.getDynamoDbTables().getIssuedReceipts().getmaxIssuedReceiptsPerPaymentId());
 
-    final ServerSecretParams zkSecretParams = new ServerSecretParams(configuration.getZkConfig().serverSecret().value());
+    final ServerSecretParams zkSecretParams = new ServerSecretParams(configuration.getGroupsZkConfig().serverSecret().value());
     final ServerZkReceiptOperations zkReceiptOperations = new ServerZkReceiptOperations(zkSecretParams);
     GooglePlayBillingManager googlePlayBillingManager = new GooglePlayBillingManager(
         new ByteArrayInputStream(configuration.getGooglePlayBilling().credentialsJson().getBytes(StandardCharsets.UTF_8)),

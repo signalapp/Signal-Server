@@ -68,7 +68,7 @@ import org.whispersystems.textsecuregcm.configuration.VirtualThreadConfiguration
 import org.whispersystems.textsecuregcm.configuration.ZkConfig;
 import org.whispersystems.websocket.configuration.WebSocketConfiguration;
 
-/** @noinspection MismatchedQueryAndUpdateOfCollection, WeakerAccess */
+// @noinspection MismatchedQueryAndUpdateOfCollection, WeakerAccess
 public class WhisperServerConfiguration extends Configuration {
 
   @NotNull
@@ -229,22 +229,17 @@ public class WhisperServerConfiguration extends Configuration {
   @Valid
   @NotNull
   @JsonProperty
-  private ZkConfig zkConfig;
-
-  @Valid
-  @NotNull
-  @JsonProperty
   private GenericZkConfig callingZkConfig;
 
   @Valid
   @NotNull
   @JsonProperty
-  private GenericZkConfig backupsZkConfig;
+  private GenericZkConfig chatZkConfig;
 
   @Valid
   @NotNull
   @JsonProperty
-  private GenericZkConfig profileAvatarsZkConfig;
+  private ZkConfig groupsZkConfig;
 
   @Valid
   @NotNull
@@ -502,20 +497,19 @@ public class WhisperServerConfiguration extends Configuration {
     return paymentsService;
   }
 
-  public ZkConfig getZkConfig() {
-    return zkConfig;
+  /// ZK secret limited to Chat Service
+  public GenericZkConfig getChatZkConfig() {
+    return chatZkConfig;
   }
 
+  /// ZK secret shared with Calling Service
   public GenericZkConfig getCallingZkConfig() {
     return callingZkConfig;
   }
 
-  public GenericZkConfig getBackupsZkConfig() {
-    return backupsZkConfig;
-  }
-
-  public GenericZkConfig getProfileAvatarsZkConfig() {
-    return profileAvatarsZkConfig;
+  /// ZK secret shared with Groups Service
+  public ZkConfig getGroupsZkConfig() {
+    return groupsZkConfig;
   }
 
   public RemoteConfigConfiguration getRemoteConfigConfiguration() {
