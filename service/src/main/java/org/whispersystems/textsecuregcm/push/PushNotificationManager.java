@@ -59,8 +59,14 @@ public class PushNotificationManager {
         PushNotification.NotificationType.NOTIFICATION, null, destination, device, urgent, null));
   }
 
-  public CompletableFuture<SendPushNotificationResult> sendRegistrationChallengeNotification(final String deviceToken, final PushNotification.TokenType tokenType, final String challengeToken) {
-    return sendNotification(new PushNotification(deviceToken, tokenType, PushNotification.NotificationType.CHALLENGE, challengeToken, null, null, true,
+  /** To activate web push subscription */
+  public CompletableFuture<SendPushNotificationResult> sendActivationTokenNotification(final PushNotification.PushToken<?> deviceToken, final String token) {
+    return sendNotification(new PushNotification(deviceToken, PushNotification.NotificationType.ACTIVATION_TOKEN, token, null, null, true, null))
+        .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
+  }
+
+  public CompletableFuture<SendPushNotificationResult> sendRegistrationChallengeNotification(final PushNotification.PushToken<?> deviceToken, final String challengeToken) {
+    return sendNotification(new PushNotification(deviceToken, PushNotification.NotificationType.CHALLENGE, challengeToken, null, null, true,
         null))
         .thenApply(maybeResponse -> maybeResponse.orElseThrow(() -> new AssertionError("Responses must be present for urgent notifications")));
   }
@@ -205,7 +211,10 @@ public class PushNotificationManager {
               // Don't clear the token if it's already changed
               if (originalToken.equals(Device.getPushToken(d, tokenType))) {
                 switch (tokenType) {
-                  case WEBPUSH -> d.setWebPush(null);
+                  case WEBPUSH -> {
+                    d.setWebPush(null);
+                    d.setWebPushActivation(null);
+                  }
                   case FCM -> d.setGcmId(null);
                   case APN -> d.setApnId(null);
                 }

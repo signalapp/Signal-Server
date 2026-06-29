@@ -1292,7 +1292,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, phoneNumberRecoveryPasswordsManager,
-            usernameHashZkProofVerifier),
+            usernameHashZkProofVerifier, pushNotificationManager),
         new AccountControllerV2(accountsManager, changeNumberManager),
         new AttachmentControllerV4(rateLimiters, gcsAttachmentGenerator, tusAttachmentGenerator,
             experimentEnrollmentManager, config.getAttachments().maxAttachmentUploadSizeInBytes()),

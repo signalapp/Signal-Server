@@ -13,6 +13,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.whispersystems.textsecuregcm.grpc.GrpcTestUtils.assertStatusException;
 
@@ -35,7 +36,10 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.signal.chat.device.ActivatePushTokenRequest;
+import org.signal.chat.device.ActivatePushTokenResponse;
 import org.signal.chat.device.ClearPushTokenRequest;
 import org.signal.chat.device.ClearPushTokenResponse;
 import org.signal.chat.device.DevicesGrpc;
@@ -50,6 +54,7 @@ import org.signal.chat.device.SetDeviceNameResponse;
 import org.signal.chat.device.SetPushTokenRequest;
 import org.signal.chat.device.SetPushTokenResponse;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
+import org.whispersystems.textsecuregcm.push.WebPushActivation;
 import org.whispersystems.textsecuregcm.push.WebPushSubscription;
 import org.whispersystems.textsecuregcm.storage.Account;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
@@ -447,6 +452,62 @@ class DevicesGrpcServiceTest extends SimpleBaseGrpcTest<DevicesGrpcService, Devi
               .setAuth(userAuth)
               .build())
             .build())
+    );
+  }
+
+
+  @ParameterizedTest
+  @MethodSource
+  void activatePushToken(final byte deviceId,
+    @Nullable final WebPushActivation deviceActivation,
+    @Nullable final String tokenSent,
+    @Nullable final boolean expectedSet) {
+
+    mockAuthenticationInterceptor().setAuthenticatedDevice(AUTHENTICATED_ACI, deviceId);
+
+    final Device device = mock(Device.class);
+    final WebPushSubscription webPush = mock(WebPushSubscription.class);
+    when(device.getId()).thenReturn(deviceId);
+    when(device.isPrimary()).thenReturn(deviceId == Device.PRIMARY_ID);
+    when(device.getWebPush()).thenReturn(webPush);
+    when(device.getWebPushActivation()).thenReturn(deviceActivation);
+    when(authenticatedAccount.getDevice(deviceId)).thenReturn(Optional.of(device));
+
+    if (tokenSent != null) {
+      final ActivatePushTokenResponse ignored = authenticatedServiceStub().activatePushToken(
+        ActivatePushTokenRequest.newBuilder().setActivationToken(tokenSent).build()
+      );
+    } else {
+      final ActivatePushTokenResponse ignored = authenticatedServiceStub().activatePushToken(
+        ActivatePushTokenRequest.newBuilder().build()
+      );
+    }
+
+    if (expectedSet) {
+      ArgumentCaptor<WebPushActivation> captor = ArgumentCaptor.forClass(WebPushActivation.class);
+      verify(device).setWebPushActivation(captor.capture());
+      assertEquals(true, captor.getValue().activated());
+      assertEquals(null, captor.getValue().activationToken());
+    } else {
+      verify(device, never()).setWebPushActivation(any());;
+    }
+    verify(device).setFetchesMessages(true);
+  }
+
+  private static Stream<Arguments> activatePushToken() {
+    return Stream.of(
+        Arguments.of(Device.PRIMARY_ID, new WebPushActivation(true, null), "any", false),
+        Arguments.of(Device.PRIMARY_ID, new WebPushActivation(true, null), null, false),
+        Arguments.of(Device.PRIMARY_ID, new WebPushActivation(false, "valid"), null, false),
+        Arguments.of(Device.PRIMARY_ID, new WebPushActivation(false, "valid"), "invalid", false),
+        Arguments.of(Device.PRIMARY_ID, new WebPushActivation(false, "valid"), "invalid", false),
+        Arguments.of(Device.PRIMARY_ID, new WebPushActivation(false, "valid"), "valid", true),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), new WebPushActivation(true, null), "any", false),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), new WebPushActivation(true, null), null, false),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), new WebPushActivation(false, "valid"), null, false),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), new WebPushActivation(false, "valid"), "invalid", false),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), new WebPushActivation(false, "valid"), "invalid", false),
+        Arguments.of((byte) (Device.PRIMARY_ID + 1), new WebPushActivation(false, "valid"), "valid", true)
     );
   }
 

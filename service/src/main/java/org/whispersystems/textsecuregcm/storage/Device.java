@@ -25,6 +25,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.whispersystems.textsecuregcm.auth.SaltedTokenHash;
 import org.whispersystems.textsecuregcm.identity.IdentityType;
 import org.whispersystems.textsecuregcm.push.NotPushRegisteredException;
+import org.whispersystems.textsecuregcm.push.WebPushActivation;
 import org.whispersystems.textsecuregcm.push.PushNotification.PushToken;
 import org.whispersystems.textsecuregcm.push.PushNotification.TokenType;
 import org.whispersystems.textsecuregcm.push.WebPushSubscription;
@@ -72,6 +73,9 @@ public class Device {
   @Valid
   @JsonProperty
   private WebPushSubscription webPush;
+
+  @JsonProperty
+  private WebPushActivation webPushActivation;
 
   @JsonProperty
   private long pushTimestamp;
@@ -158,6 +162,18 @@ public class Device {
     if (webPush != null) {
       this.pushTimestamp = System.currentTimeMillis();
     }
+  }
+
+  public boolean getWebPushActivated() {
+    return webPushActivation != null && webPushActivation.activated();
+  }
+
+  public WebPushActivation getWebPushActivation() {
+    return webPushActivation;
+  }
+
+  public void setWebPushActivation(WebPushActivation webPushActivation) {
+    this.webPushActivation = webPushActivation;
   }
 
   public byte getId() {
@@ -293,7 +309,7 @@ public class Device {
     } else if (StringUtils.isNotBlank(apnId)) {
       return new PushToken.APN(apnId);
     } else if (webPushSub != null) {
-      return new PushToken.WEBPUSH(webPushSub);
+      return new PushToken.WEBPUSH(webPushSub, device.getWebPushActivated());
     } else {
       throw new NotPushRegisteredException();
     }
@@ -301,7 +317,7 @@ public class Device {
 
   public static @Nullable PushToken<?> getPushToken(final Device device, final TokenType tokenType) {
     return switch (tokenType) {
-      case TokenType.WEBPUSH -> new PushToken.WEBPUSH(device.getWebPush());
+      case TokenType.WEBPUSH -> new PushToken.WEBPUSH(device.getWebPush(), device.getWebPushActivated());
       case TokenType.FCM -> new PushToken.FCM(device.getGcmId());
       case TokenType.APN -> new PushToken.APN(device.getApnId());
     };

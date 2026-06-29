@@ -39,6 +39,10 @@ service Devices {
   // to the authenticated device.
   rpc SetPushToken(SetPushTokenRequest) returns (SetPushTokenResponse) {}
 
+  // Activate push token to allow the server to send push notification with the current
+  // subscription. Required and used only for Web Push subscriptions
+  rpc ActivatePushToken(ActivatePushTokenRequest) returns (ActivatePushTokenResponse) {}
+
   // Removes any push tokens associated with the authenticated device. After
   // calling this method, the server will assume that the authenticated device
   // will periodically poll for new messages.
@@ -149,6 +153,15 @@ message SetPushTokenRequest {
 }
 
 message SetPushTokenResponse {}
+
+message ActivatePushTokenRequest {
+  /**
+   * Token sent via a push notification to validate the subscription
+   */
+  string activationToken = 1;
+}
+
+message ActivatePushTokenResponse {}
 
 message ClearPushTokenRequest {}
 

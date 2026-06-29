@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.dropwizard.lifecycle.Managed;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -29,6 +30,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.whispersystems.textsecuregcm.configuration.ApnConfiguration;
+import org.whispersystems.textsecuregcm.push.PushNotification.NotificationType;
+import org.whispersystems.textsecuregcm.push.PushNotification.UnsupportedNotificationType;
 
 public class APNSender implements Managed, PushNotificationSender {
 
@@ -81,43 +84,51 @@ public class APNSender implements Managed, PushNotificationSender {
 
   @Override
   public CompletableFuture<SendPushNotificationResult> sendNotification(final PushNotification notification) {
-    final String payload = switch (notification.notificationType()) {
-      case NOTIFICATION -> notification.urgent() ? APN_NSE_NOTIFICATION_PAYLOAD : APN_BACKGROUND_PAYLOAD;
+    final String payload;
+    final PushType pushType;
+    try {
+     payload = switch (notification.notificationType()) {
+        case NOTIFICATION -> notification.urgent() ? APN_NSE_NOTIFICATION_PAYLOAD : APN_BACKGROUND_PAYLOAD;
 
-      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> new SimpleApnsPayloadBuilder()
-          .setMutableContent(true)
-          .setLocalizedAlertMessage("APN_Message")
-          .addCustomProperty("attemptLoginContext", notification.data())
-          .build();
+        case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> new SimpleApnsPayloadBuilder()
+            .setMutableContent(true)
+            .setLocalizedAlertMessage("APN_Message")
+            .addCustomProperty("attemptLoginContext", notification.data())
+            .build();
 
-      case CHALLENGE -> new SimpleApnsPayloadBuilder()
-          .setContentAvailable(true)
-          .addCustomProperty("challenge", notification.data())
-          .build();
+        case CHALLENGE -> new SimpleApnsPayloadBuilder()
+            .setContentAvailable(true)
+            .addCustomProperty("challenge", notification.data())
+            .build();
 
-      case RATE_LIMIT_CHALLENGE -> new SimpleApnsPayloadBuilder()
-          .setContentAvailable(true)
-          .addCustomProperty("rateLimitChallenge", notification.data())
-          .build();
+        case RATE_LIMIT_CHALLENGE -> new SimpleApnsPayloadBuilder()
+            .setContentAvailable(true)
+            .addCustomProperty("rateLimitChallenge", notification.data())
+            .build();
 
-      case VERIFICATION_CODE_REQUESTED -> {
-        if (!(notification.data() instanceof VerificationCodeRequestData(long timestamp))) {
-          throw new IllegalArgumentException("Notification did not have VerificationCodeRequestData");
+        case VERIFICATION_CODE_REQUESTED -> {
+          if (!(notification.data() instanceof VerificationCodeRequestData(long timestamp))) {
+            throw new IllegalArgumentException("Notification did not have VerificationCodeRequestData");
+          }
+
+          yield new SimpleApnsPayloadBuilder()
+            .setMutableContent(true)
+            .setLocalizedAlertMessage("APN_Message")
+            .addCustomProperty("verificationCodeRequested", Map.of("timestamp", timestamp))
+            .build();
         }
+        case ACTIVATION_TOKEN -> throw new UnsupportedNotificationType(NotificationType.ACTIVATION_TOKEN);
+      };
 
-        yield new SimpleApnsPayloadBuilder()
-          .setMutableContent(true)
-          .setLocalizedAlertMessage("APN_Message")
-          .addCustomProperty("verificationCodeRequested", Map.of("timestamp", timestamp))
-          .build();
-      }
-    };
-
-    final PushType pushType = switch (notification.notificationType()) {
-      case NOTIFICATION -> notification.urgent() ? PushType.ALERT : PushType.BACKGROUND;
-      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, VERIFICATION_CODE_REQUESTED -> PushType.ALERT;
-      case CHALLENGE, RATE_LIMIT_CHALLENGE -> PushType.BACKGROUND;
-    };
+      pushType = switch (notification.notificationType()) {
+        case NOTIFICATION -> notification.urgent() ? PushType.ALERT : PushType.BACKGROUND;
+        case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY, VERIFICATION_CODE_REQUESTED -> PushType.ALERT;
+        case CHALLENGE, RATE_LIMIT_CHALLENGE -> PushType.BACKGROUND;
+        case ACTIVATION_TOKEN -> throw new UnsupportedNotificationType(NotificationType.ACTIVATION_TOKEN);
+      };
+    } catch (UnsupportedNotificationType e) {
+      return CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.of(e.getMessage()), false, Optional.empty()));
+    }
 
     final DeliveryPriority deliveryPriority;
 

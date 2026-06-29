@@ -88,7 +88,7 @@ class WebPushSenderTest {
           "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
         }
       """, WebPushSubscription.class);
-    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub), PushNotification.NotificationType.NOTIFICATION, null, null, null, true, null);
+    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, null, null, true, null);
 
     // Redis must be mocked before sendNotification
     final RedisStringCommands<String, String> cmd = mockRedis(redisClient);
@@ -108,6 +108,25 @@ class WebPushSenderTest {
   }
 
   @Test
+  void testSendMessageInactive() throws JsonProcessingException {
+    final WebPushSubscription webPushSub = SystemMapper.jsonMapper().readValue("""
+        {
+          "endpoint": "https://domain.tld/random1",
+          "auth": "BTBZMqHH6r4Tts7J_aSIgg",
+          "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
+        }
+      """, WebPushSubscription.class);
+    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, false), PushNotification.NotificationType.NOTIFICATION, null, null, null, true);
+
+    final SendPushNotificationResult result = webPushSender.sendNotification(pushNotification).join();
+
+    verifyNoInteractions(httpClient);
+    assertFalse(result.accepted());
+    assertFalse(result.errorCode().isEmpty());
+    assertFalse(result.unregistered());
+  }
+
+  @Test
   void testSendMessageRejected() throws JsonProcessingException {
     final WebPushSubscription webPushSub = SystemMapper.jsonMapper().readValue("""
         {
@@ -116,7 +135,7 @@ class WebPushSenderTest {
           "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
         }
       """, WebPushSubscription.class);
-    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub), PushNotification.NotificationType.NOTIFICATION, null, null, null, true, null);
+    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, null, null, true, null);
 
     // Redis must be mocked before sendNotification
     final RedisStringCommands<String, String> cmd = mockRedis(redisClient);
@@ -145,7 +164,7 @@ class WebPushSenderTest {
           "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
         }
       """, WebPushSubscription.class);
-    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub), PushNotification.NotificationType.NOTIFICATION, null, null, null, true, null);
+    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, null, null, true, null);
 
     // Redis must be mocked before sendNotification
     final RedisStringCommands<String, String> cmd = mockRedis(redisClient);
@@ -174,7 +193,7 @@ class WebPushSenderTest {
           "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
         }
       """, WebPushSubscription.class);
-    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub), PushNotification.NotificationType.NOTIFICATION, null, null, null, true);
+    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, null, null, true);
 
     // Redis must be mocked before sendNotification
     final RedisStringCommands<String, String> cmd = mockRedis(redisClient);
@@ -205,7 +224,7 @@ class WebPushSenderTest {
           "publicKey": "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
         }
       """, WebPushSubscription.class);
-    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub), PushNotification.NotificationType.NOTIFICATION, null, null, null, true);
+    final PushNotification pushNotification = new PushNotification(new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, null, null, true);
 
     final RedisStringCommands<String, String> cmd = mockRedis(redisClient);
     when(cmd.get(any())).thenReturn(WebPushSender.RATE_LIMITED);

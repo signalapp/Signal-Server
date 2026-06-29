@@ -141,7 +141,7 @@ class PushNotificationManagerTest {
     final PushToken<?> deviceToken = switch(tokenType) {
       case TokenType.APN -> new PushToken.APN("token");
       case TokenType.FCM -> new PushToken.FCM("token");
-      case TokenType.WEBPUSH -> new PushToken.WEBPUSH(webPushSub);
+      case TokenType.WEBPUSH -> new PushToken.WEBPUSH(webPushSub, true);
     };
 
     when(device.getId()).thenReturn(Device.PRIMARY_ID);
@@ -158,6 +158,7 @@ class PushNotificationManagerTest {
       }
       case TokenType.WEBPUSH -> {
         when(device.getWebPush()).thenReturn((WebPushSubscription) deviceToken.value());
+        when(device.getWebPushActivated()).thenReturn(true);
         when(webPushSender.sendNotification(any()))
             .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(true, Optional.empty(), false, Optional.empty())));
       }
@@ -238,7 +239,7 @@ class PushNotificationManagerTest {
     final PushToken<?> deviceToken = switch(tokenType) {
       case TokenType.APN -> new PushToken.APN("token");
       case TokenType.FCM -> new PushToken.FCM("token");
-      case TokenType.WEBPUSH -> new PushToken.WEBPUSH(webPushSub);
+      case TokenType.WEBPUSH -> new PushToken.WEBPUSH(webPushSub, true);
     };
 
     final PushNotification pushNotification = new PushNotification(
@@ -345,7 +346,7 @@ class PushNotificationManagerTest {
     when(accountsManager.getByAccountIdentifier(aci)).thenReturn(Optional.of(account));
 
     final PushNotification pushNotification = new PushNotification(
-        new PushToken.WEBPUSH(webPushSub), PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
+        new PushToken.WEBPUSH(webPushSub, true), PushNotification.NotificationType.NOTIFICATION, null, account, device, true, null);
 
     when(webPushSender.sendNotification(pushNotification))
         .thenReturn(CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.empty(), true, Optional.empty())));

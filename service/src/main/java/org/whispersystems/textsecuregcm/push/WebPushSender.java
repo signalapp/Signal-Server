@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.http.FaultTolerantHttpClient;
+import org.whispersystems.textsecuregcm.push.PushNotification.PushToken;
 import org.whispersystems.textsecuregcm.redis.FaultTolerantRedisClusterClient;
 import org.whispersystems.textsecuregcm.util.ResilienceUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -86,7 +87,15 @@ public class WebPushSender implements PushNotificationSender {
 
   @Override
   public CompletableFuture<SendPushNotificationResult> sendNotification(PushNotification pushNotification) {
-    final WebPushSubscription sub = (WebPushSubscription) pushNotification.pushToken().value();
+    final PushToken.WEBPUSH pushToken = (PushToken.WEBPUSH) pushNotification.pushToken();
+    final WebPushSubscription sub = pushToken.value();
+
+    if (!pushToken.activated()) {
+      return CompletableFuture.completedFuture(
+        new SendPushNotificationResult(false, Optional.of("Subscription not yet activated"), false, Optional.empty())
+      );
+    }
+
     final String aud = String.format("https://%s", sub.endpoint().getAuthority());
 
     String authorization;
@@ -117,6 +126,7 @@ public class WebPushSender implements PushNotificationSender {
       case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> "attemptLoginContext";
       case CHALLENGE -> "challenge";
       case RATE_LIMIT_CHALLENGE -> "rateLimitChallenge";
+      case ACTIVATION_TOKEN -> "activationToken";
     };
 
     map.put(key, pushNotification.data() != null ? pushNotification.data() : "");

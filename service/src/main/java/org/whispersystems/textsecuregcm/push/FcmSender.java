@@ -32,6 +32,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.whispersystems.textsecuregcm.push.PushNotification.NotificationType;
+import org.whispersystems.textsecuregcm.push.PushNotification.UnsupportedNotificationType;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.GoogleApiUtil;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
@@ -92,13 +94,19 @@ public class FcmSender implements PushNotificationSender {
             .setTtl(pushNotification.ttl() != null ? pushNotification.ttl().toMillis() : DEFAULT_TTL_MILLIS)
             .build());
 
-    final String key = switch (pushNotification.notificationType()) {
-      case NOTIFICATION -> "newMessageAlert";
-      case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> "attemptLoginContext";
-      case CHALLENGE -> "challenge";
-      case RATE_LIMIT_CHALLENGE -> "rateLimitChallenge";
-      case VERIFICATION_CODE_REQUESTED -> "verificationCodeRequested";
-    };
+    final String key;
+    try {
+      key = switch (pushNotification.notificationType()) {
+        case NOTIFICATION -> "newMessageAlert";
+        case ATTEMPT_LOGIN_NOTIFICATION_HIGH_PRIORITY -> "attemptLoginContext";
+        case CHALLENGE -> "challenge";
+        case RATE_LIMIT_CHALLENGE -> "rateLimitChallenge";
+        case VERIFICATION_CODE_REQUESTED -> "verificationCodeRequested";
+        case ACTIVATION_TOKEN -> throw new UnsupportedNotificationType(NotificationType.ACTIVATION_TOKEN);
+      };
+    } catch (UnsupportedNotificationType e) {
+      return CompletableFuture.completedFuture(new SendPushNotificationResult(false, Optional.of(e.getMessage()), false, Optional.empty()));
+    }
 
     final String data = switch (pushNotification.notificationType()) {
       case VERIFICATION_CODE_REQUESTED -> {
