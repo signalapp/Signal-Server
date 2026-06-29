@@ -365,8 +365,6 @@ badges:
       svgs:
         - light: example-light.svg
           dark: example-dark.svg
-  badgeIdsEnabledForAll:
-    - TEST
   receiptLevels:
     '1': TEST
 

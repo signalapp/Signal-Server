@@ -21,16 +21,13 @@ import java.util.stream.Collectors;
 
 public class BadgesConfiguration {
   private final List<BadgeConfiguration> badges;
-  private final List<String> badgeIdsEnabledForAll;
   private final Map<Long, String> receiptLevels;
 
   @JsonCreator
   public BadgesConfiguration(
       @JsonProperty("badges") @JsonSetter(nulls = Nulls.AS_EMPTY) final List<BadgeConfiguration> badges,
-      @JsonProperty("badgeIdsEnabledForAll") @JsonSetter(nulls = Nulls.AS_EMPTY) final List<String> badgeIdsEnabledForAll,
       @JsonProperty("receiptLevels") @JsonSetter(nulls = Nulls.AS_EMPTY) final Map<Long, String> receiptLevels) {
     this.badges = Objects.requireNonNull(badges);
-    this.badgeIdsEnabledForAll = Objects.requireNonNull(badgeIdsEnabledForAll);
     this.receiptLevels = Objects.requireNonNull(receiptLevels);
   }
 
@@ -38,12 +35,6 @@ public class BadgesConfiguration {
   @NotNull
   public List<BadgeConfiguration> getBadges() {
     return badges;
-  }
-
-  @Valid
-  @NotNull
-  public List<String> getBadgeIdsEnabledForAll() {
-    return badgeIdsEnabledForAll;
   }
 
   @Valid

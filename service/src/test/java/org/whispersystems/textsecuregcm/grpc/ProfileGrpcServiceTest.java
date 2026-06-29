@@ -174,7 +174,6 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
                 new BadgeSvg("ll", "ld")
             )
         )),
-        List.of("TEST1"),
         Map.of(1L, "TEST1", 2L, "TEST2", 3L, "TEST3")
     );
     final RateLimiters rateLimiters = mock(RateLimiters.class);
