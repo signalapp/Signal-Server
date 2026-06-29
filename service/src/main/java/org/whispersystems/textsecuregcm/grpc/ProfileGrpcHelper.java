@@ -10,14 +10,11 @@ import com.google.protobuf.ByteString;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
-import java.util.UUID;
-import org.signal.chat.common.Badge;
-import org.signal.chat.common.BadgeSvg;
 import org.signal.chat.common.S3UploadForm;
 import org.signal.chat.profile.DataEtag;
 import org.signal.chat.profile.GetExpiringProfileKeyCredentialResult;
@@ -33,6 +30,7 @@ import org.signal.libsignal.zkgroup.profiles.ProfileKeyCredentialRequest;
 import org.signal.libsignal.zkgroup.profiles.ServerZkProfileOperations;
 import org.whispersystems.textsecuregcm.auth.UnidentifiedAccessChecksum;
 import org.whispersystems.textsecuregcm.badges.ProfileBadgeConverter;
+import org.whispersystems.textsecuregcm.entities.Badge;
 import org.whispersystems.textsecuregcm.identity.ServiceIdentifier;
 import org.whispersystems.textsecuregcm.s3.PostPolicyGenerator;
 import org.whispersystems.textsecuregcm.storage.Account;
@@ -130,23 +128,6 @@ public class ProfileGrpcHelper {
   }
 
   @VisibleForTesting
-  static List<Badge> buildBadges(final List<org.whispersystems.textsecuregcm.entities.Badge> badges) {
-    final ArrayList<Badge> grpcBadges = new ArrayList<>();
-    for (final org.whispersystems.textsecuregcm.entities.Badge badge : badges) {
-      grpcBadges.add(Badge.newBuilder()
-          .setId(badge.getId())
-          .setCategory(badge.getCategory())
-          .setName(badge.getName())
-          .setDescription(badge.getDescription())
-          .addAllSprites6(badge.getSprites6())
-          .setSvg(badge.getSvg())
-          .addAllSvgs(buildBadgeSvgs(badge.getSvgs()))
-          .build());
-    }
-    return grpcBadges;
-  }
-
-  @VisibleForTesting
   static List<org.signal.chat.common.DeviceCapability> buildAccountCapabilities(final Account account) {
     return Arrays.stream(DeviceCapability.values())
         .filter(DeviceCapability::includeInProfile)
@@ -155,20 +136,8 @@ public class ProfileGrpcHelper {
         .toList();
   }
 
-  private static List<BadgeSvg> buildBadgeSvgs(final List<org.whispersystems.textsecuregcm.entities.BadgeSvg> badgeSvgs) {
-    ArrayList<BadgeSvg> grpcBadgeSvgs = new ArrayList<>();
-    for (final org.whispersystems.textsecuregcm.entities.BadgeSvg badgeSvg : badgeSvgs) {
-      grpcBadgeSvgs.add(BadgeSvg.newBuilder()
-          .setDark(badgeSvg.getDark())
-          .setLight(badgeSvg.getLight())
-          .build());
-    }
-    return grpcBadgeSvgs;
-  }
-
   static GetUnversionedProfileResult buildUnversionedProfileResult(
       final ServiceIdentifier targetIdentifier,
-      final UUID requesterUuid,
       final Account targetAccount,
       final ProfileBadgeConverter profileBadgeConverter) {
     final GetUnversionedProfileResult.Builder resultBuilder = GetUnversionedProfileResult.newBuilder()
@@ -177,11 +146,13 @@ public class ProfileGrpcHelper {
 
     switch (targetIdentifier.identityType()) {
       case ACI -> {
-        resultBuilder.setUnrestrictedUnidentifiedAccess(targetAccount.isUnrestrictedUnidentifiedAccess())
-            .addAllBadges(
-                buildBadges(profileBadgeConverter.convert(RequestAttributesUtil.getAvailableAcceptedLocales(),
-                targetAccount.getBadges(),
-                ProfileHelper.isSelfProfileRequest(requesterUuid, targetIdentifier))));
+        final List<Locale> acceptedLocales = RequestAttributesUtil.getAvailableAcceptedLocales();
+        final List<Badge> badges =
+            profileBadgeConverter.convert(acceptedLocales, targetAccount.getBadges(), false);
+
+        resultBuilder
+            .setUnrestrictedUnidentifiedAccess(targetAccount.isUnrestrictedUnidentifiedAccess())
+            .addAllBadges(badges.stream().map(BadgeGrpcHelper::toGrpcBadge).toList());
 
         targetAccount.getUnidentifiedAccessKey()
             .map(UnidentifiedAccessChecksum::generateFor)

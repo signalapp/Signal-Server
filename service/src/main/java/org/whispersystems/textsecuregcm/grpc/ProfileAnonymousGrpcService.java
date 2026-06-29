@@ -129,7 +129,6 @@ public class ProfileAnonymousGrpcService extends SimpleProfileAnonymousGrpc.Prof
     return targetAccount.map(account ->
             GetUnversionedProfileAnonymousResponse.newBuilder()
                 .setResult(ProfileGrpcHelper.buildUnversionedProfileResult(targetIdentifier,
-                    null,
                     account,
                     profileBadgeConverter))
                 .build())

@@ -5,6 +5,7 @@
 
 package org.whispersystems.textsecuregcm.grpc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,6 +22,7 @@ import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.protobuf.ByteString;
 import io.grpc.Status;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +48,8 @@ import org.signal.chat.account.DeleteUsernameHashRequest;
 import org.signal.chat.account.DeleteUsernameLinkRequest;
 import org.signal.chat.account.GetAccountIdentityRequest;
 import org.signal.chat.account.GetAccountIdentityResponse;
+import org.signal.chat.account.GetEntitlementsRequest;
+import org.signal.chat.account.GetEntitlementsResponse;
 import org.signal.chat.account.ReserveUsernameHashRequest;
 import org.signal.chat.account.ReserveUsernameHashResponse;
 import org.signal.chat.account.SetDiscoverableByPhoneNumberRequest;
@@ -73,12 +77,14 @@ import org.whispersystems.textsecuregcm.identity.PniServiceIdentifier;
 import org.whispersystems.textsecuregcm.limits.RateLimiter;
 import org.whispersystems.textsecuregcm.limits.RateLimiters;
 import org.whispersystems.textsecuregcm.storage.Account;
+import org.whispersystems.textsecuregcm.storage.AccountBadge;
 import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
 import org.whispersystems.textsecuregcm.storage.UsernameHashNotAvailableException;
 import org.whispersystems.textsecuregcm.storage.UsernameReservationNotFoundException;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
+import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.UsernameHashZkProofVerifier;
@@ -97,6 +103,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
   @Mock
   private RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
 
+  private final TestClock testClock = TestClock.pinned(Instant.now());
+
   @Override
   protected AccountsGrpcService createServiceBeforeEachTest() {
     AccountsHelper.setupMockUpdate(accountsManager);
@@ -111,7 +119,8 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
     return new AccountsGrpcService(accountsManager,
         rateLimiters,
         usernameHashZkProofVerifier,
-        registrationRecoveryPasswordsManager);
+        registrationRecoveryPasswordsManager,
+        testClock);
   }
 
   @Test
@@ -764,5 +773,42 @@ class AccountsGrpcServiceTest extends SimpleBaseGrpcTest<AccountsGrpcService, Ac
 
     verify(accountsManager, never()).update(any(UUID.class), any());
     verify(account, never()).setZkCredentialKey(any());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void getEntitlements(final boolean expired) {
+    final Account account = mock(Account.class);
+    final Instant expiration = expired
+        ? testClock.instant().minus(Duration.ofDays(1))
+        : testClock.instant().plus(Duration.ofMillis(1));
+    final AccountBadge badge1 = new AccountBadge("badge1", expiration, true);
+    final AccountBadge badge2 = new AccountBadge("badge2", expiration, true);
+
+    when(account.getBackupVoucher()).thenReturn(new Account.BackupVoucher(100, expiration));
+    when(account.getBadges()).thenReturn(List.of(badge1, badge2));
+    when(account.getUuid()).thenReturn(AUTHENTICATED_ACI);
+    when(accountsManager.getByAccountIdentifier(AUTHENTICATED_ACI)).thenReturn(Optional.of(account));
+
+    final GetEntitlementsResponse entitlements = authenticatedServiceStub()
+        .getEntitlements(GetEntitlementsRequest.newBuilder().build());
+
+    if (expired) {
+      assertThat(entitlements.getBadgesCount()).isEqualTo(0);
+      assertThat(entitlements.hasBackup()).isFalse();
+    } else {
+      assertThat(entitlements.getBadges(0)).isEqualTo(toBadgeEntitlement(badge1));
+      assertThat(entitlements.getBadges(1)).isEqualTo(toBadgeEntitlement(badge2));
+      assertThat(entitlements.getBackup().getLevel()).isEqualTo(100);
+      assertThat(entitlements.getBackup().getExpirationEpochSeconds()).isEqualTo(expiration.getEpochSecond());
+    }
+  }
+
+  private static GetEntitlementsResponse.BadgeEntitlement toBadgeEntitlement(AccountBadge badge) {
+    return GetEntitlementsResponse.BadgeEntitlement.newBuilder()
+        .setExpirationEpochSeconds(badge.expiration().getEpochSecond())
+        .setBadgeId(badge.id())
+        .setVisible(badge.visible())
+        .build();
   }
 }

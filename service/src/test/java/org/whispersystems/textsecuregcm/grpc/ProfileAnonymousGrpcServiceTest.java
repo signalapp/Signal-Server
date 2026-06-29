@@ -219,7 +219,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
             .setUnidentifiedAccess(ByteString.copyFrom(unidentifiedAccessChecksum))
             .setUnrestrictedUnidentifiedAccess(false)
             .addCapabilities(org.signal.chat.common.DeviceCapability.DEVICE_CAPABILITY_SPARSE_POST_QUANTUM_RATCHET)
-            .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
+            .addAllBadges(badges.stream().map(BadgeGrpcHelper::toGrpcBadge).toList())
             .build()
         )
         .build();
@@ -273,7 +273,7 @@ public class ProfileAnonymousGrpcServiceTest extends SimpleBaseGrpcTest<ProfileA
             .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
             .setUnrestrictedUnidentifiedAccess(false)
             .addAllCapabilities(ProfileGrpcHelper.buildAccountCapabilities(account))
-            .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
+            .addAllBadges(badges.stream().map(BadgeGrpcHelper::toGrpcBadge).toList())
             .build();
 
     verify(accountsManager).getByServiceIdentifier(serviceIdentifier);

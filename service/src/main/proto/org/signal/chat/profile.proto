@@ -292,13 +292,16 @@ message GetUnversionedProfileAnonymousRequest {
 message GetUnversionedProfileResult {
   // The identity key of the targeted account/identity type.
   bytes identity_key = 1;
-  // A checksum of the unidentified access key for the targeted account.
+  // A checksum of the unidentified access key for the targeted account. Absent
+  // if the request was for a PNI.
   bytes unidentified_access = 2;
-  // Whether the account has enabled sealed sender from anyone.
+  // Whether the account has enabled sealed sender from anyone. Always false
+  // if the request was for a PNI.
   bool unrestricted_unidentified_access = 3;
   // A list of capabilities enabled on the account.
   repeated common.DeviceCapability capabilities = 4;
-  // A list of badges associated with the account.
+  // A list of badges associated with the account. Absent if the request was for
+  // a PNI.
   repeated common.Badge badges = 5;
 }
 

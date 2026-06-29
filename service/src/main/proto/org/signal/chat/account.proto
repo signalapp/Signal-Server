@@ -14,6 +14,9 @@ service Accounts {
   // Returns basic identifiers for the authenticated account.
   rpc GetAccountIdentity(GetAccountIdentityRequest) returns (GetAccountIdentityResponse) {}
 
+  // Returns entitlements for the authenticated account.
+  rpc GetEntitlements(GetEntitlementsRequest) returns (GetEntitlementsResponse) {}
+
   // Deletes the authenticated account, purging all associated data in the
   // process.
   rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse) {}
@@ -82,6 +85,35 @@ message GetAccountIdentityRequest {
 message GetAccountIdentityResponse {
   // A set of account identifiers for the authenticated account.
   common.AccountIdentifiers account_identifiers = 1;
+}
+
+message GetEntitlementsRequest {
+}
+
+message GetEntitlementsResponse {
+  message BadgeEntitlement {
+    // The id of the badge the account is entitled. Metadata to display for
+    // badges may be obtained by cross-referencing badge ids with
+    // ProductConfiguration.GetConfiguration.
+    string badge_id = 1;
+    // When the badge expires, in number of seconds since epoch
+    uint64 expiration_epoch_seconds = 2;
+    // Whether the badge is currently configured to be visible
+    bool visible = 3;
+  }
+
+  message BackupEntitlement {
+    // The backup level of the account
+    uint64 level = 1;
+    // When the backup entitlement expires, in number of seconds since epoch
+    uint64 expiration_epoch_seconds = 2;
+  }
+
+  // Active badges added via Donations.redeemReceipt
+  repeated BadgeEntitlement badges = 1;
+
+  // If present, the backup level set via Backups.redeemReceipt
+  BackupEntitlement backup = 2;
 }
 
 message DeleteAccountRequest {

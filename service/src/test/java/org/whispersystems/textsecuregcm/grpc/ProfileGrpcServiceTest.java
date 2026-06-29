@@ -655,7 +655,7 @@ public class ProfileGrpcServiceTest extends SimpleBaseGrpcTest<ProfileGrpcServic
         .setIdentityKey(ByteString.copyFrom(identityKey.serialize()))
         .setUnidentifiedAccess(ByteString.copyFrom(unidentifiedAccessChecksum))
         .setUnrestrictedUnidentifiedAccess(true)
-        .addAllBadges(ProfileGrpcHelper.buildBadges(badges))
+        .addAllBadges(badges.stream().map(BadgeGrpcHelper::toGrpcBadge).toList())
         .build();
 
     final GetUnversionedProfileResult expectedResponse;

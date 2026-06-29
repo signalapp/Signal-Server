@@ -13,8 +13,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import org.signal.chat.common.Badge;
-import org.signal.chat.common.BadgeSvg;
 import org.signal.chat.purchase.AmountList;
 import org.signal.chat.purchase.BackupConfiguration;
 import org.signal.chat.purchase.BackupLevelConfiguration;
@@ -158,22 +156,12 @@ public class ProductConfigurationGrpcService extends SimpleProductConfigurationG
 
   private static LevelConfiguration toProtoLevelConfiguration(
       final org.whispersystems.textsecuregcm.subscriptions.LevelConfiguration levelConfiguration) {
-    final org.whispersystems.textsecuregcm.entities.Badge badge = levelConfiguration.badge();
-    final Badge commonBadge = Badge.newBuilder()
-        .setId(badge.getId())
-        .setCategory(badge.getCategory())
-        .setName(badge.getName())
-        .setDescription(badge.getDescription())
-        .addAllSprites6(badge.getSprites6())
-        .setSvg(badge.getSvg())
-        .addAllSvgs(badge.getSvgs().stream()
-            .map(s -> BadgeSvg.newBuilder().setLight(s.getLight()).setDark(s.getDark()).build())
-            .toList())
-        .build();
-    final LevelConfiguration.Builder builder = LevelConfiguration.newBuilder().setBadge(commonBadge);
-    if (badge instanceof final PurchasableBadge purchasableBadge) {
+    final LevelConfiguration.Builder builder = LevelConfiguration.newBuilder();
+    if (levelConfiguration.badge() instanceof final PurchasableBadge purchasableBadge) {
       builder.setBadgeDurationSeconds(purchasableBadge.getDuration().toSeconds());
     }
-    return builder.build();
+    return builder
+        .setBadge(BadgeGrpcHelper.toGrpcBadge(levelConfiguration.badge()))
+        .build();
   }
 }

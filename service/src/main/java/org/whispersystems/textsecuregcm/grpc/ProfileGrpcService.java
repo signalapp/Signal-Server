@@ -260,7 +260,6 @@ public class ProfileGrpcService extends SimpleProfileGrpc.ProfileImplBase {
 
     return maybeAccount.map(account -> GetUnversionedProfileResponse.newBuilder()
         .setResult(ProfileGrpcHelper.buildUnversionedProfileResult(targetIdentifier,
-            authenticatedDevice.accountIdentifier(),
             account,
             profileBadgeConverter))
         .build()).orElseGet(() -> GetUnversionedProfileResponse.newBuilder()

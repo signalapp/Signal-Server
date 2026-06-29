@@ -7,6 +7,8 @@ package org.whispersystems.textsecuregcm.grpc;
 
 import com.google.protobuf.ByteString;
 import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -26,6 +28,8 @@ import org.signal.chat.account.DeleteUsernameLinkRequest;
 import org.signal.chat.account.DeleteUsernameLinkResponse;
 import org.signal.chat.account.GetAccountIdentityRequest;
 import org.signal.chat.account.GetAccountIdentityResponse;
+import org.signal.chat.account.GetEntitlementsRequest;
+import org.signal.chat.account.GetEntitlementsResponse;
 import org.signal.chat.account.ReserveUsernameHashRequest;
 import org.signal.chat.account.ReserveUsernameHashResponse;
 import org.signal.chat.account.SetDiscoverableByPhoneNumberRequest;
@@ -70,16 +74,19 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
   private final RateLimiters rateLimiters;
   private final UsernameHashZkProofVerifier usernameHashZkProofVerifier;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
+  private final Clock clock;
 
   public AccountsGrpcService(final AccountsManager accountsManager,
       final RateLimiters rateLimiters,
       final UsernameHashZkProofVerifier usernameHashZkProofVerifier,
-      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager) {
+      final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
+      final Clock clock) {
 
     this.accountsManager = accountsManager;
     this.rateLimiters = rateLimiters;
     this.usernameHashZkProofVerifier = usernameHashZkProofVerifier;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
+    this.clock = clock;
   }
 
   @Override
@@ -101,6 +108,32 @@ public class AccountsGrpcService extends SimpleAccountsGrpc.AccountsImplBase {
     return GetAccountIdentityResponse.newBuilder()
         .setAccountIdentifiers(accountIdentifiersBuilder)
         .build();
+  }
+
+  @Override
+  public GetEntitlementsResponse getEntitlements(final GetEntitlementsRequest request) {
+    final Account account = getAuthenticatedAccount();
+    final GetEntitlementsResponse.Builder builder = GetEntitlementsResponse.newBuilder();
+
+    final Instant now = clock.instant();
+
+    final Account.BackupVoucher backupVoucher = account.getBackupVoucher();
+    if (backupVoucher != null && backupVoucher.expiration().isAfter(now)) {
+      builder.setBackup(GetEntitlementsResponse.BackupEntitlement.newBuilder()
+          .setExpirationEpochSeconds(backupVoucher.expiration().getEpochSecond())
+          .setLevel(backupVoucher.receiptLevel()));
+    }
+
+    builder.addAllBadges(account.getBadges().stream()
+        .filter(badge -> badge.expiration().isAfter(now))
+        .map(badge -> GetEntitlementsResponse.BadgeEntitlement.newBuilder()
+            .setBadgeId(badge.id())
+            .setExpirationEpochSeconds(badge.expiration().getEpochSecond())
+            .setVisible(badge.visible())
+            .build())
+        .toList());
+
+    return builder.build();
   }
 
   @Override
