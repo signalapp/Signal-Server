@@ -97,6 +97,78 @@
     
       
       <p>
+        <a href="#message-org.signal.chat.profile.DeleteAvatarRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteAvatarRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.DeleteAvatarResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteAvatarResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.ExtendAvatarTTLRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ExtendAvatarTTLRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.ExtendAvatarTTLResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ExtendAvatarTTLResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.GetAvatarCredentialsRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetAvatarCredentialsRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.GetAvatarCredentialsResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetAvatarCredentialsResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.GetAvatarUploadFormRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetAvatarUploadFormRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.profile.GetAvatarUploadFormResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetAvatarUploadFormResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
         <a href="#message-org.signal.chat.profile.GetExpiringProfileKeyCredentialAnonymousRequest">
           <span class="tag" style="min-width: 6em">Message</span>
           <code>GetExpiringProfileKeyCredentialAnonymousRequest</code> 
@@ -388,6 +460,27 @@ should use the version of this method in <code>ProfileAnonymous</code> instead.<
   </div>
   
 </div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.profile.Profile-GetAvatarCredentials">
+      <a href="#service-org.signal.chat.profile.Profile-GetAvatarCredentials">
+        rpc <code>GetAvatarCredentials</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetAvatarCredentialsRequest"><span title="org.signal.chat.profile.GetAvatarCredentialsRequest">org.signal.chat.profile.GetAvatarCredentialsRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetAvatarCredentialsResponse"><span title="org.signal.chat.profile.GetAvatarCredentialsResponse">org.signal.chat.profile.GetAvatarCredentialsResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns anonymous credentials that may be presented with avatar operations in ProfilesAnonymous</p>
+<p>Note: <code>Accounts.SetZkCredentialKey</code> is a pre-requisite for this RPC</p></p>
+  </div>
+  
+</div>
  
     </div>
     
@@ -468,6 +561,72 @@ methods in <code>Profile</code> instead.</p></p>
   </div>
   
 </div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.profile.ProfileAnonymous-GetAvatarUploadForm">
+      <a href="#service-org.signal.chat.profile.ProfileAnonymous-GetAvatarUploadForm">
+        rpc <code>GetAvatarUploadForm</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetAvatarUploadFormRequest"><span title="org.signal.chat.profile.GetAvatarUploadFormRequest">org.signal.chat.profile.GetAvatarUploadFormRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.GetAvatarUploadFormResponse"><span title="org.signal.chat.profile.GetAvatarUploadFormResponse">org.signal.chat.profile.GetAvatarUploadFormResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns credentials to upload a v2 avatar. After uploading the avatar, the client
+must call SetProfile with the new avatar URL in the encrypted <code>data</code>.</p>
+<p>Because avatars are uploaded anonymously, they have an expiration equal to the
+idle account expiration. Clients must periodically (recommended: every 90 days)
+call ExtendAvatarTTL to extend the TTl.</p>
+<p>Note: any existing avatar associated with these credentials will be deleted immediately</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.profile.ProfileAnonymous-ExtendAvatarTTL">
+      <a href="#service-org.signal.chat.profile.ProfileAnonymous-ExtendAvatarTTL">
+        rpc <code>ExtendAvatarTTL</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.ExtendAvatarTTLRequest"><span title="org.signal.chat.profile.ExtendAvatarTTLRequest">org.signal.chat.profile.ExtendAvatarTTLRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.ExtendAvatarTTLResponse"><span title="org.signal.chat.profile.ExtendAvatarTTLResponse">org.signal.chat.profile.ExtendAvatarTTLResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Extends the TTL of the avatar currently associated with the request’s avatar auth credential</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.profile.ProfileAnonymous-DeleteAvatar">
+      <a href="#service-org.signal.chat.profile.ProfileAnonymous-DeleteAvatar">
+        rpc <code>DeleteAvatar</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.DeleteAvatarRequest"><span title="org.signal.chat.profile.DeleteAvatarRequest">org.signal.chat.profile.DeleteAvatarRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.profile.html#message-org.signal.chat.profile.DeleteAvatarResponse"><span title="org.signal.chat.profile.DeleteAvatarResponse">org.signal.chat.profile.DeleteAvatarResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Deletes the avatar currently associated with the request’s avatar auth credential.</p>
+<p>Clients must also call SetProfile to remove the avatar from the encrypted <code>data</code>.</p></p>
+  </div>
+  
+</div>
  
     </div>
     
@@ -543,6 +702,583 @@ the SHA-256 digest of <code>data</code>.</p></td>
       
     </tr>
     
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.DeleteAvatarRequest">
+  <span>
+    <a href="#message-org.signal.chat.profile.DeleteAvatarRequest" title="org.signal.chat.profile.DeleteAvatarRequest">message DeleteAvatarRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        avatar_credentials_presentation
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.DeleteAvatarResponse">
+  <span>
+    <a href="#message-org.signal.chat.profile.DeleteAvatarResponse" title="org.signal.chat.profile.DeleteAvatarResponse">message DeleteAvatarResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            invalid_credentials_presentation
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.ExtendAvatarTTLRequest">
+  <span>
+    <a href="#message-org.signal.chat.profile.ExtendAvatarTTLRequest" title="org.signal.chat.profile.ExtendAvatarTTLRequest">message ExtendAvatarTTLRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        avatar_credentials_presentation
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.ExtendAvatarTTLResponse">
+  <span>
+    <a href="#message-org.signal.chat.profile.ExtendAvatarTTLResponse" title="org.signal.chat.profile.ExtendAvatarTTLResponse">message ExtendAvatarTTLResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            path
+          </td>
+          <td>
+            <code title="string">
+              
+              <span>string</span>
+            </code>
+          </td>
+          <td class="content"><p>The avatar that was extended. May be used as a check against state de-synchronization.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            invalid_credentials_presentation
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>the identity does not have an active avatar</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetAvatarCredentialsRequest">
+  <span>
+    <a href="#message-org.signal.chat.profile.GetAvatarCredentialsRequest" title="org.signal.chat.profile.GetAvatarCredentialsRequest">message GetAvatarCredentialsRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        avatar_credentials_request
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetAvatarCredentialsResponse">
+  <span>
+    <a href="#message-org.signal.chat.profile.GetAvatarCredentialsResponse" title="org.signal.chat.profile.GetAvatarCredentialsResponse">message GetAvatarCredentialsResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            avatar_credentials
+          </td>
+          <td>
+            <code title="bytes">
+              
+              <span>bytes</span>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            missing_zk_credential_key
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>the client must call Accounts.SetZkCredentialKey to call this method</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetAvatarUploadFormRequest">
+  <span>
+    <a href="#message-org.signal.chat.profile.GetAvatarUploadFormRequest" title="org.signal.chat.profile.GetAvatarUploadFormRequest">message GetAvatarUploadFormRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        avatar_credentials_presentation
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        upload_length
+      </td>
+      <td>
+        <code title="uint32">
+          
+          <span>uint32</span>
+        </code>
+      </td>
+      <td class="content"><p>The length of the attachment for the requested upload form. Uploads
+performed with this form will be limited to the provided length.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.profile.GetAvatarUploadFormResponse">
+  <span>
+    <a href="#message-org.signal.chat.profile.GetAvatarUploadFormResponse" title="org.signal.chat.profile.GetAvatarUploadFormResponse">message GetAvatarUploadFormResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            avatar_upload_form
+          </td>
+          <td>
+            <code title="org.signal.chat.common.S3UploadForm">
+              
+              <a href="org.signal.chat.common.html#message-org.signal.chat.common.S3UploadForm"><span title="org.signal.chat.common.S3UploadForm">org.signal.chat.common.S3UploadForm</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            invalid_credentials_presentation
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
     
   </tbody>
 </table>
