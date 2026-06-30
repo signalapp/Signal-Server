@@ -18,6 +18,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -79,6 +80,9 @@ class FoundationDbMessagePublisher {
 
   /// A future for refreshing the connected client's presence value at regular intervals.
   @Nullable private ScheduledFuture<?> renewPresenceFuture;
+
+  private final AtomicLong totalRequested = new  AtomicLong(0);
+  private final AtomicLong totalEmitted = new AtomicLong(0);
 
   private static final AtomicInteger NEXT_STREAM_ID = new AtomicInteger();
 
@@ -148,7 +152,12 @@ class FoundationDbMessagePublisher {
 
     this.messagePublisher = Flux.<FoundationDbMessageStreamEntry.Message>create(emitter -> {
       this.emitter = emitter;
-      emitter.onRequest(_ -> transitionStateOnEvent(Event.DEMAND_REQUESTED));
+      emitter.onRequest(n -> {
+        final long totalRequestedCount = totalRequested.addAndGet(n);
+        if (totalRequestedCount > totalEmitted.get()) {
+          transitionStateOnEvent(Event.DEMAND_REQUESTED);
+        }
+      });
       emitter.onDispose(this::onDispose);
     }).doOnSubscribe(_ -> {
       if (!terminateOnQueueEmpty) {
@@ -381,6 +390,7 @@ class FoundationDbMessagePublisher {
     getMessagesBatch()
         .thenAccept(messageStreamEntries -> {
           messageStreamEntries.forEach(emitter::next);
+          totalEmitted.addAndGet(messageStreamEntries.size());
           transitionStateOnEvent(Event.PUBLISHED_MESSAGES);
         })
         .exceptionally(t -> {

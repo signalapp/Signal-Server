@@ -2,10 +2,12 @@ package org.whispersystems.textsecuregcm.storage.foundationdb;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
@@ -415,6 +418,74 @@ class FoundationDbMessagePublisherTest {
         ),
         stateTransitions
     );
+  }
+
+  @Test
+  void onRequestFlowControl() {
+    final MessageProtos.Envelope message1 = FoundationDbMessageStoreTest.generateRandomMessage(false);
+    final MessageProtos.Envelope message2 = FoundationDbMessageStoreTest.generateRandomMessage(false);
+    final MessageProtos.Envelope message3 = FoundationDbMessageStoreTest.generateRandomMessage(false);
+
+    final KeyValue keyValue1 = mockKeyValue((byte) 5, message1);
+    final KeyValue keyValue2 = mockKeyValue((byte) 6, message2);
+    final KeyValue keyValue3 = mockKeyValue((byte) 7, message3);
+
+    final AsyncIterable<KeyValue> batch1 = mock(AsyncIterable.class);
+    when(batch1.asList()).thenReturn(CompletableFuture.completedFuture(List.of(keyValue1, keyValue2)));
+
+    final AsyncIterable<KeyValue> batch2 = mock(AsyncIterable.class);
+    when(batch2.asList()).thenReturn(CompletableFuture.completedFuture(List.of(keyValue3)));
+
+    final Transaction transaction = mock(Transaction.class);
+    when(transaction.getRange(any(KeySelector.class), any(KeySelector.class), anyInt(), anyBoolean(), any(
+        StreamingMode.class)))
+        .thenReturn(batch1)
+        .thenReturn(batch2);
+
+    when(database.runAsync(any(Function.class))).thenAnswer(
+        (Answer<CompletableFuture<List<? extends MessageStreamEntry>>>) invocationOnMock -> {
+          final Function<Transaction, CompletableFuture<List<? extends MessageStreamEntry>>> f = invocationOnMock.getArgument(
+              0);
+          return f.apply(transaction);
+        });
+
+    final CountDownLatch latch = new CountDownLatch(1);
+    final FoundationDbMessagePublisher finitePublisher = new FoundationDbMessagePublisher(
+        database,
+        CLOCK,
+        KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
+        KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),
+        2,
+        null,
+        null,
+        null,
+        (oldState, newState) -> {
+          if (oldState == FoundationDbMessagePublisher.State.FETCHING_MESSAGES
+              && newState == FoundationDbMessagePublisher.State.MESSAGES_AVAILABLE) {
+            latch.countDown();
+          }
+        },
+        NOOP_ON_PAGE_FETCH
+    );
+
+    // Request two messages one at a time and verify that we only fetch a single batch (batch size = 2) and not two batches
+    StepVerifier.create(finitePublisher.getMessages(), 1)
+        .expectNext(getExpectedMessageStreamEntry(keyValue1))
+        .then(() -> {
+          // Wait for the whole batch to have completed publishing before requesting the next message
+          try {
+            assertTrue(latch.await(500, TimeUnit.MILLISECONDS));
+          } catch (final InterruptedException e) {
+            fail(e);
+          }
+        })
+        .thenRequest(1)
+        .expectNext(getExpectedMessageStreamEntry(keyValue2))
+        .verifyTimeout(Duration.ofMillis(500));
+
+    verify(transaction, times(1)).getRange(any(KeySelector.class), any(KeySelector.class), anyInt(), anyBoolean(),
+        any());
+
   }
 
   private FoundationDbMessageStreamEntry.Message getExpectedMessageStreamEntry(final KeyValue keyValue) {
