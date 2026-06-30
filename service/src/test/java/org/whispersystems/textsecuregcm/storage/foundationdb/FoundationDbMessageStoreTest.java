@@ -494,6 +494,36 @@ class FoundationDbMessageStoreTest {
   }
 
   @Test
+  void delete() {
+    final AciServiceIdentifier deletedMessageAci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte deletedMessageDeviceId = Device.PRIMARY_ID;
+    final MessageProtos.Envelope deletedMessage = generateRandomMessage(false);
+
+    final AciServiceIdentifier retainedMessageAci = new AciServiceIdentifier(UUID.randomUUID());
+    final byte retainedMessageDeviceId = Device.PRIMARY_ID;
+    final MessageProtos.Envelope retainedMessage = generateRandomMessage(false);
+
+    final UUID deletedMessageGuid =
+        foundationDbMessageStore.insert(deletedMessageAci, Map.of(deletedMessageDeviceId, deletedMessage)).join()
+            .get(deletedMessageDeviceId).messageGuid().orElseThrow();
+
+    foundationDbMessageStore.insert(retainedMessageAci, Map.of(retainedMessageDeviceId, retainedMessage)).join();
+
+    assertArrayEquals(deletedMessage.toByteArray(),
+        getItemsInDeviceQueue(deletedMessageAci, deletedMessageDeviceId).getFirst().getValue());
+
+    assertArrayEquals(retainedMessage.toByteArray(),
+        getItemsInDeviceQueue(retainedMessageAci, retainedMessageDeviceId).getFirst().getValue());
+
+    foundationDbMessageStore.delete(deletedMessageAci, deletedMessageDeviceId, deletedMessageGuid).join();
+
+    assertTrue(getItemsInDeviceQueue(deletedMessageAci, deletedMessageDeviceId).isEmpty());
+
+    assertArrayEquals(retainedMessage.toByteArray(),
+        getItemsInDeviceQueue(retainedMessageAci, retainedMessageDeviceId).getFirst().getValue());
+  }
+
+  @Test
   void clearAllForAccount() {
     final AciServiceIdentifier deletedAccountIdentifier = new AciServiceIdentifier(UUID.randomUUID());
     final byte deletedPrimaryDeviceId = Device.PRIMARY_ID;

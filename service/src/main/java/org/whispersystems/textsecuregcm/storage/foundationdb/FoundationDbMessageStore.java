@@ -84,6 +84,12 @@ public class FoundationDbMessageStore {
   private static final Timer INSERT_MESSAGE_BATCH_TIMER =
       Metrics.timer(MetricsUtil.name(FoundationDbMessageStore.class, "insertMessageBatchTimer"));
 
+  private static final Counter DELETE_MESSAGE_COUNTER =
+      Metrics.counter(MetricsUtil.name(FoundationDbMessageStore.class, "deleteMessage"));
+
+  private static final Timer DELETE_MESSAGE_TIMER =
+      Metrics.timer(MetricsUtil.name(FoundationDbMessageStore.class, "deleteMessageTimer"));
+
   /// Result of inserting a message for a particular device
   ///
   /// @param versionstamp the versionstamp of the transaction in which this device's message was inserted, empty
@@ -340,6 +346,27 @@ public class FoundationDbMessageStore {
           }
 
           return presenceByDeviceId;
+        });
+  }
+
+  // Note that this method is intended only for initial migration support; in general, callers should clear messages
+  // by acknowledging messages via a `FoundationDbMessageStream`.
+  public CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final UUID messageGuid) {
+    return delete(aci, deviceId, versionstampUUIDCipher.decryptVersionstamp(messageGuid, aci.uuid(), deviceId));
+  }
+
+  private CompletableFuture<Void> delete(final AciServiceIdentifier aci, final byte deviceId, final Versionstamp versionstamp) {
+    final Timer.Sample sample = Timer.start();
+
+    final byte[] messageKey = getDeviceQueueSubspace(aci, deviceId).pack(Tuple.from(versionstamp));
+
+    return databasesByEpoch[getConfigurationEpoch(versionstamp)][getShardId(versionstamp)].runAsync(transaction -> {
+          transaction.clear(messageKey);
+          return CompletableFuture.completedFuture(null);
+        })
+        .thenRun(() -> {
+          sample.stop(DELETE_MESSAGE_TIMER);
+          DELETE_MESSAGE_COUNTER.increment();
         });
   }
 
