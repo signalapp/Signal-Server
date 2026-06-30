@@ -65,7 +65,7 @@ public class FoundationDbMessageStream implements MessageStream {
   private final Counter staleEphemeralMessagesCounter =
       Metrics.counter(name(FoundationDbMessageStream.class, "staleEphemeralMessages"));
 
-  static final int DEFAULT_MAX_MESSAGES_PER_SCAN = 1024;
+  static final int DEFAULT_MAX_MESSAGES_PER_SCAN = 100;
   @VisibleForTesting
   static final int DEFAULT_MAX_UNACKNOWLEDGED_MESSAGES = 16_384;
 
