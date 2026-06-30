@@ -2,6 +2,7 @@ package org.whispersystems.textsecuregcm.storage.foundationdb;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -18,9 +19,11 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import io.dropwizard.util.DataSize;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -34,6 +37,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -43,6 +49,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -50,6 +58,7 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
@@ -60,7 +69,6 @@ import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.FoundationDbClusterExtension;
 import org.whispersystems.textsecuregcm.storage.MessageStream;
 import org.whispersystems.textsecuregcm.storage.MessageStreamEntry;
-import org.whispersystems.textsecuregcm.util.Conversions;
 import org.whispersystems.textsecuregcm.util.TestClock;
 import org.whispersystems.textsecuregcm.util.TestRandomUtil;
 import org.whispersystems.textsecuregcm.util.UUIDUtil;
@@ -77,10 +85,19 @@ class FoundationDbMessageStoreTest {
   private VersionstampUUIDCipher versionstampUUIDCipher;
   private FoundationDbMessageStore foundationDbMessageStore;
 
+  private static ScheduledExecutorService presenceRenewalExecutorService;
+
   private static final TestClock CLOCK = TestClock.pinned(Instant.ofEpochSecond(500));
 
   private static final int DEFAULT_EPOCH = 0;
   private static final int FUTURE_EPOCH = 2;
+
+  private static final int STREAM_ID = ThreadLocalRandom.current().nextInt();
+
+  @BeforeAll
+  static void setUpBeforeAll() {
+    presenceRenewalExecutorService = Executors.newSingleThreadScheduledExecutor();
+  }
 
   @BeforeEach
   void setup() {
@@ -101,7 +118,15 @@ class FoundationDbMessageStoreTest {
         ),
         DEFAULT_EPOCH,
         versionstampUUIDCipher,
+        presenceRenewalExecutorService,
         CLOCK);
+  }
+
+  @AfterAll
+  static void tearDownAfterAll() throws InterruptedException {
+    presenceRenewalExecutorService.shutdown();
+    //noinspection ResultOfMethodCallIgnored
+    presenceRenewalExecutorService.awaitTermination(1, TimeUnit.SECONDS);
   }
 
   @ParameterizedTest
@@ -117,7 +142,7 @@ class FoundationDbMessageStoreTest {
         .mapToObj(i -> (byte) i)
         .toList();
 
-    deviceIds.forEach(deviceId -> writePresenceKey(aci, deviceId, 1, presenceUpdatedBeforeSeconds));
+    deviceIds.forEach(deviceId -> writePresenceKey(aci, deviceId, presenceUpdatedBeforeSeconds));
 
     final Map<Byte, MessageProtos.Envelope> messagesByDeviceId = deviceIds.stream()
         .collect(Collectors.toMap(Function.identity(), _ -> generateRandomMessage(ephemeral)));
@@ -221,13 +246,12 @@ class FoundationDbMessageStoreTest {
   @Test
   void versionstampCorrectlyUpdatedOnMultipleInserts() {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
-    writePresenceKey(aci, Device.PRIMARY_ID, 1, 10L);
+    writePresenceKey(aci, Device.PRIMARY_ID, 10L);
     foundationDbMessageStore.insert(Map.of(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false)))).join();
     final Map<Byte, FoundationDbMessageStore.InsertResult> secondMessageInsertResult = foundationDbMessageStore.insert(aci,
         Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join();
 
     final Optional<Versionstamp> messagesAvailableWatchVersionstamp = getMessagesAvailableWatch(aci);
-    assertTrue(messagesAvailableWatchVersionstamp.isPresent());
     assertEquals(
         secondMessageInsertResult.get(Device.PRIMARY_ID).versionstamp(),
         messagesAvailableWatchVersionstamp);
@@ -241,7 +265,7 @@ class FoundationDbMessageStoreTest {
         .mapToObj(i -> (byte) i)
         .toList();
     // Only 1 device has a recent presence, the others do not have presence keys present.
-    writePresenceKey(aci, Device.PRIMARY_ID, 1, 10L);
+    writePresenceKey(aci, Device.PRIMARY_ID, 10L);
     final Map<Byte, MessageProtos.Envelope> messagesByDeviceId = deviceIds.stream()
         .collect(Collectors.toMap(Function.identity(), _ -> generateRandomMessage(ephemeral)));
     final Map<Byte, FoundationDbMessageStore.InsertResult> result = foundationDbMessageStore.insert(aci, messagesByDeviceId).join();
@@ -271,7 +295,24 @@ class FoundationDbMessageStoreTest {
                 "Non-ephemeral messages must always be stored");
           });
     }
+  }
 
+  @Test
+  void getPresenceServerId() {
+    assertArrayEquals(FoundationDbMessageStore.getServerId(),
+        FoundationDbMessageStore.getPresenceServerId(FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID)));
+  }
+
+  @Test
+  void getPresenceStreamId() {
+    assertEquals(STREAM_ID,
+        FoundationDbMessageStore.getPresenceStreamId(FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID)));
+  }
+
+  @Test
+  void getPresenceTimestamp() {
+    assertEquals(CLOCK.instant().truncatedTo(ChronoUnit.MILLIS),
+        FoundationDbMessageStore.getPresenceTimestamp(FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID)));
   }
 
   @ParameterizedTest
@@ -285,14 +326,14 @@ class FoundationDbMessageStoreTest {
         Arguments.argumentSet("Presence value doesn't exist",
             null, false),
         Arguments.argumentSet("Presence updated recently",
-            Conversions.longToByteArray(constructPresenceValue(42, getEpochSecondsBeforeClock(5))), true),
+            FoundationDbMessageStore.getPresenceValue(CLOCK.instant().minusSeconds(5), STREAM_ID), true),
         Arguments.argumentSet("Presence updated same second as current time",
-            Conversions.longToByteArray(constructPresenceValue(42, getEpochSecondsBeforeClock(0))), true),
+            FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID), true),
         Arguments.argumentSet(
             "Presence updated exactly at the second before which it would have been considered offline",
-            Conversions.longToByteArray(constructPresenceValue(42, getEpochSecondsBeforeClock(300))), true),
+            FoundationDbMessageStore.getPresenceValue(CLOCK.instant().minus(FoundationDbMessageStore.PRESENCE_STALE_THRESHOLD), STREAM_ID), true),
         Arguments.argumentSet("Presence expired",
-            Conversions.longToByteArray(constructPresenceValue(42, getEpochSecondsBeforeClock(400))), false)
+            FoundationDbMessageStore.getPresenceValue(CLOCK.instant().minus(FoundationDbMessageStore.PRESENCE_STALE_THRESHOLD.plusSeconds(1)), STREAM_ID), false)
     );
   }
 
@@ -336,7 +377,7 @@ class FoundationDbMessageStoreTest {
       final List<AciServiceIdentifier> acis = acisByConfig.get(i);
       final MultiRecipientTestConfig testConfig = testConfigs.get(i);
       if (testConfig.devicePresent()) {
-        acis.forEach(aci -> writePresenceKey(aci, Device.PRIMARY_ID, 1, 10L));
+        acis.forEach(aci -> writePresenceKey(aci, Device.PRIMARY_ID, 10L));
       }
     }
 
@@ -514,7 +555,6 @@ class FoundationDbMessageStoreTest {
   @MethodSource
   void getMessages(final int numMessages, final int batchSize) {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
-    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
 
     final List<Versionstamp> expectedVersionstamps = IntStream.range(0, numMessages)
         .mapToObj(_ -> foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join()
@@ -591,9 +631,6 @@ class FoundationDbMessageStoreTest {
       }
     });
 
-    writePresenceKey(aci, deviceId, 1, 5L, DEFAULT_EPOCH);
-    writePresenceKey(aci, deviceId, 1, 5L, FUTURE_EPOCH);
-
     StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()))
         .recordWith(() -> retrievedEntries)
         .expectNextCount(existingDefaultEpochMessages.size() + existingFutureEpochMessages.size())
@@ -622,7 +659,6 @@ class FoundationDbMessageStoreTest {
     final MessageGuidCodec messageGuidCodec =
         new MessageGuidCodec(aci.uuid(), Device.PRIMARY_ID, versionstampUUIDCipher);
 
-    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
     final MessageProtos.Envelope message1 = generateRandomMessage(false);
     final Versionstamp versionstamp1 = foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message1)).join()
         .get(Device.PRIMARY_ID)
@@ -678,7 +714,7 @@ class FoundationDbMessageStoreTest {
   @Test
   void getMessagesPublishMoreAfterSubscriptionStarts() {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
-    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
+
     for (int i = 0; i < 16; i++) {
       final MessageProtos.Envelope message = generateRandomMessage(false);
       assertNotNull(foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, message)).join());
@@ -687,7 +723,7 @@ class FoundationDbMessageStoreTest {
     final CountDownLatch latch = new CountDownLatch(1);
     Thread.ofVirtual().start(() -> {
       try {
-        // Wait until queue is empty
+        // Wait for a first message to get consumed
         assertTrue(latch.await(1000, TimeUnit.MILLISECONDS));
         // Then publish more messages
         for (int i = 0; i < 16; i++) {
@@ -713,6 +749,116 @@ class FoundationDbMessageStoreTest {
         .verifyTimeout(Duration.ofSeconds(3));
   }
 
+  @Test
+  void getMessagesPresence() {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+
+    for (int i = 0; i < 16; i++) {
+      foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join();
+    }
+
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID);
+
+    assertFalse(isPresent(aci, Device.PRIMARY_ID));
+
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()), 16)
+        .expectNextCount(16)
+        .then(() -> assertFalse(isPresent(aci, Device.PRIMARY_ID),
+            "Client should not be present until infinite stream begins"))
+        .thenRequest(1)
+        .expectNext(new MessageStreamEntry.QueueEmpty())
+        .then(() -> foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join())
+        .thenRequest(1)
+        .expectNextCount(1)
+        .then(() -> assertTrue(isPresent(aci, Device.PRIMARY_ID),
+            "Client should be present after infinite stream begins"))
+        .verifyTimeout(Duration.ofSeconds(3));
+
+    final Instant deadline = Instant.now().plus(Duration.ofSeconds(1));
+    boolean presenceCleared = false;
+
+    while (!presenceCleared && Instant.now().isBefore(deadline)) {
+      presenceCleared = foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).runAsync(transaction ->
+              transaction.get(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID)))
+          .thenApply(Objects::isNull)
+          .join();
+    }
+
+    assertTrue(presenceCleared,
+        "Presence should be cleared after subscription disposal");
+  }
+
+  private enum PresenceConflictType {
+    SERVER_ID,
+    STREAM_ID
+  }
+
+  @ParameterizedTest
+  @EnumSource
+  void getMessagesPresenceConflictAtDisposal(final PresenceConflictType presenceConflictType) {
+    final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
+
+    for (int i = 0; i < 16; i++) {
+      foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join();
+    }
+
+    final MessageStream messageStream = foundationDbMessageStore.getMessages(aci, Device.PRIMARY_ID);
+
+    assertFalse(isPresent(aci, Device.PRIMARY_ID));
+
+    StepVerifier.create(JdkFlowAdapter.flowPublisherToFlux(messageStream.getMessages()), 16)
+        .expectNextCount(16)
+        .then(() -> assertFalse(isPresent(aci, Device.PRIMARY_ID),
+            "Client should not be present until infinite stream begins"))
+        .thenRequest(1)
+        .expectNext(new MessageStreamEntry.QueueEmpty())
+        .then(() -> foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join())
+        .thenRequest(1)
+        .expectNextCount(1)
+        .then(() -> assertTrue(isPresent(aci, Device.PRIMARY_ID),
+            "Client should be present after infinite stream begins"))
+        .then(() -> {
+          // Overwrite some part of the presence value to simulate a conflict with another server or stream
+          final byte [] presenceValue = switch (presenceConflictType) {
+            case SERVER_ID -> ByteBuffer.wrap(FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID))
+                .putLong(0, ThreadLocalRandom.current().nextLong())
+                .putLong(8, ThreadLocalRandom.current().nextLong())
+                .array();
+
+            case STREAM_ID -> ByteBuffer.wrap(FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID))
+                .putInt(16, STREAM_ID + 1)
+                .array();
+          };
+
+          foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).run(transaction -> {
+            transaction.set(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID), presenceValue);
+            return null;
+          });
+        })
+        .thenCancel()
+        .verify();
+
+    final Instant deadline = Instant.now().plus(Duration.ofSeconds(1));
+    boolean presenceCleared = false;
+
+    while (!presenceCleared && Instant.now().isBefore(deadline)) {
+      presenceCleared = foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).runAsync(transaction ->
+              transaction.get(FoundationDbMessageStore.getPresenceKey(aci, Device.PRIMARY_ID)))
+          .thenApply(Objects::isNull)
+          .join();
+    }
+
+    assertFalse(presenceCleared,
+        "Presence should not be cleared if presence was established on another instance");
+  }
+
+  private boolean isPresent(final AciServiceIdentifier aci, final byte deviceId) {
+    return foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).run(transaction ->
+            transaction.get(FoundationDbMessageStore.getPresenceKey(aci, deviceId))
+                .thenApply(foundationDbMessageStore::isClientPresent))
+        .join();
+  }
+
   @ParameterizedTest
   @MethodSource
   void acknowledgeMessages(final int numMessages, final Set<Integer> unacknowledgedMessages)
@@ -720,7 +866,6 @@ class FoundationDbMessageStoreTest {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final MessageGuidCodec messageGuidCodec =
         new MessageGuidCodec(aci.uuid(), Device.PRIMARY_ID, versionstampUUIDCipher);
-    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
 
     final List<Versionstamp> versionstamps = IntStream.range(0, numMessages)
         .mapToObj(
@@ -851,7 +996,6 @@ class FoundationDbMessageStoreTest {
     final int maxUnacknowledgedMessages = 3;
 
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
-    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
 
     for (int i = 0; i < numMessages; i++) {
       foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(false))).join();
@@ -873,7 +1017,7 @@ class FoundationDbMessageStoreTest {
     final AciServiceIdentifier aci = new AciServiceIdentifier(UUID.randomUUID());
     final MessageGuidCodec messageGuidCodec =
         new MessageGuidCodec(aci.uuid(), Device.PRIMARY_ID, versionstampUUIDCipher);
-    writePresenceKey(aci, Device.PRIMARY_ID, 1, 5L);
+    writePresenceKey(aci, Device.PRIMARY_ID, 5L);
 
     // Insert an ephemeral message that will be read by the finite publisher and immediately acknowledged and discarded
     final Versionstamp acknowledgedVersionstamp = foundationDbMessageStore.insert(aci, Map.of(Device.PRIMARY_ID, generateRandomMessage(true)))
@@ -1068,33 +1212,14 @@ class FoundationDbMessageStoreTest {
 
   private void writePresenceKey(final AciServiceIdentifier aci,
       final byte deviceId,
-      final int serverId,
       final long secondsBeforeCurrentTime) {
 
-    writePresenceKey(aci, deviceId, serverId, secondsBeforeCurrentTime, DEFAULT_EPOCH);
-  }
-
-  private void writePresenceKey(final AciServiceIdentifier aci,
-      final byte deviceId,
-      final int serverId,
-      final long secondsBeforeCurrentTime,
-      final int epoch) {
-
-    foundationDbMessageStore.getShardForAci(aci, epoch).run(transaction -> {
-      final byte[] presenceKey = foundationDbMessageStore.getPresenceKey(aci, deviceId);
-      final long presenceUpdateEpochSeconds = getEpochSecondsBeforeClock(secondsBeforeCurrentTime);
-      final long presenceValue = constructPresenceValue(serverId, presenceUpdateEpochSeconds);
-      transaction.set(presenceKey, Conversions.longToByteArray(presenceValue));
+    foundationDbMessageStore.getShardForAci(aci, DEFAULT_EPOCH).run(transaction -> {
+      final byte[] presenceKey = FoundationDbMessageStore.getPresenceKey(aci, deviceId);
+      final byte[] presenceValue = FoundationDbMessageStore.getPresenceValue(CLOCK.instant().minusSeconds(secondsBeforeCurrentTime), STREAM_ID);
+      transaction.set(presenceKey, presenceValue);
       return null;
     });
-  }
-
-  private static long getEpochSecondsBeforeClock(final long secondsBefore) {
-    return CLOCK.instant().minusSeconds(secondsBefore).getEpochSecond();
-  }
-
-  private static long constructPresenceValue(final int serverId, final long presenceUpdateEpochSeconds) {
-    return (long) (serverId & 0x0ffff) << 48 | (presenceUpdateEpochSeconds & 0x0000ffffffffffffL);
   }
 
   private AciServiceIdentifier generateRandomAciForShard(final int shardNumber) {

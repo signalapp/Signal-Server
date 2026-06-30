@@ -13,10 +13,12 @@ import io.dropwizard.util.DataSize;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Timer;
+import java.nio.ByteBuffer;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -24,14 +26,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import javax.annotation.Nullable;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
 import org.whispersystems.textsecuregcm.identity.AciServiceIdentifier;
 import org.whispersystems.textsecuregcm.metrics.MetricsUtil;
-import org.whispersystems.textsecuregcm.util.Conversions;
+import org.whispersystems.textsecuregcm.util.UUIDUtil;
 import org.whispersystems.textsecuregcm.util.Util;
 
 /// An implementation of a message store backed by FoundationDB.
@@ -52,10 +56,16 @@ public class FoundationDbMessageStore {
   private final int[] liveEpochs;
   private final int activeEpoch;
   private final VersionstampUUIDCipher versionstampUUIDCipher;
+  private final ScheduledExecutorService presenceRenewalExecutorService;
   private final Clock clock;
 
+  private static final byte[] SERVER_ID = UUIDUtil.toBytes(UUID.randomUUID());
+  private static final int PRESENCE_VALUE_LENGTH = 28;
+
   private static final Subspace MESSAGES_SUBSPACE = new Subspace(Tuple.from("M"));
-  private static final Duration PRESENCE_STALE_THRESHOLD = Duration.ofMinutes(5);
+
+  @VisibleForTesting
+  static final Duration PRESENCE_STALE_THRESHOLD = Duration.ofMinutes(5);
 
   /// The (approximate) transaction size beyond which we do not add more messages in a transaction. The estimated size
   /// includes only message payloads (and not key reads/writes) which we assume will dominate the total
@@ -88,6 +98,7 @@ public class FoundationDbMessageStore {
   public FoundationDbMessageStore(final Map<Integer, List<Database>> databasesByEpochMap,
       final int activeEpoch,
       final VersionstampUUIDCipher versionstampUUIDCipher,
+      final ScheduledExecutorService presenceRenewalExecutorService,
       final Clock clock) {
 
     final Database[][] databasesByEpochArray = new Database[MAX_EPOCHS][];
@@ -99,6 +110,7 @@ public class FoundationDbMessageStore {
     this.liveEpochs = IntStream.range(0, MAX_EPOCHS).filter(e -> databasesByEpochArray[e] != null).toArray();
     this.activeEpoch = activeEpoch;
     this.versionstampUUIDCipher = versionstampUUIDCipher;
+    this.presenceRenewalExecutorService = presenceRenewalExecutorService;
     this.versionstampClocks = databasesByEpochMap.values().stream()
         .flatMap(List::stream)
         .distinct()
@@ -373,12 +385,15 @@ public class FoundationDbMessageStore {
     }
 
     return new FoundationDbMessageStream(getDeviceQueueSubspace(aci, deviceId),
+        getPresenceKey(aci, deviceId),
         getMessagesAvailableWatchKey(aci),
         databasesForQueueByEpoch,
         new MessageGuidCodec(aci.uuid(), deviceId, versionstampUUIDCipher),
         maxMessagesPerScan,
         maxUnacknowledgedMessages,
-        doAfterCleanup);
+        doAfterCleanup,
+        presenceRenewalExecutorService,
+        clock);
   }
 
   /// Record the versionstamp for the current time in each database's versionstamp clock.
@@ -501,19 +516,56 @@ public class FoundationDbMessageStore {
   }
 
   @VisibleForTesting
-  byte[] getPresenceKey(final AciServiceIdentifier aci, final byte deviceId) {
-    return getDeviceSubspace(aci, deviceId).pack("p");
+  static byte[] getServerId() {
+    return SERVER_ID;
   }
 
   @VisibleForTesting
-  boolean isClientPresent(final byte[] presenceValueBytes) {
-    if (presenceValueBytes == null) {
+  static byte[] getPresenceKey(final AciServiceIdentifier aci, final byte deviceId) {
+    return getDeviceSubspace(aci, deviceId).pack("p");
+  }
+
+  static byte[] getPresenceValue(final Instant timestamp, final int streamId) {
+    return ByteBuffer.allocate(PRESENCE_VALUE_LENGTH)
+        .put(SERVER_ID)
+        .putInt(streamId)
+        .putLong(timestamp.toEpochMilli())
+        .array();
+  }
+
+  @VisibleForTesting
+  static byte[] getPresenceServerId(final byte[] presenceValue) {
+    if (presenceValue.length != PRESENCE_VALUE_LENGTH) {
+      throw new IllegalArgumentException("Unexpected presence value length: " + presenceValue.length);
+    }
+
+    return Arrays.copyOfRange(presenceValue, 0, 16);
+  }
+
+  @VisibleForTesting
+  static int getPresenceStreamId(final byte[] presenceValue) {
+    if (presenceValue.length != PRESENCE_VALUE_LENGTH) {
+      throw new IllegalArgumentException("Unexpected presence value length: " + presenceValue.length);
+    }
+
+    return ByteBuffer.wrap(presenceValue).getInt(16);
+  }
+
+  @VisibleForTesting
+  static Instant getPresenceTimestamp(final byte[] presenceValue) {
+    if (presenceValue.length != PRESENCE_VALUE_LENGTH) {
+      throw new IllegalArgumentException("Unexpected presence value length: " + presenceValue.length);
+    }
+
+    return Instant.ofEpochMilli(ByteBuffer.wrap(presenceValue).getLong(20));
+  }
+
+  @VisibleForTesting
+  boolean isClientPresent(@Nullable final byte[] presenceValue) {
+    if (presenceValue == null) {
       return false;
     }
-    final long presenceValue = Conversions.byteArrayToLong(presenceValueBytes);
-    // The presence value is a long with the higher order 16 bits containing a server id, and the lower 48 bits
-    // containing the timestamp (seconds since epoch) that the client updates periodically.
-    final long lastSeenSecondsSinceEpoch = presenceValue & 0x0000ffffffffffffL;
-    return (clock.instant().getEpochSecond() - lastSeenSecondsSinceEpoch) <= PRESENCE_STALE_THRESHOLD.toSeconds();
+
+    return Duration.between(getPresenceTimestamp(presenceValue), clock.instant()).compareTo(PRESENCE_STALE_THRESHOLD) <= 0;
   }
 }

@@ -221,6 +221,8 @@ public record CommandDependencies(
       .threads(1).build();
     final ScheduledExecutorService retryExecutor = ScheduledExecutorServiceBuilder.of(environment, "retry")
       .threads(1).build();
+    final ScheduledExecutorService presenceRenewalExecutor =
+        ScheduledExecutorServiceBuilder.of(environment, "presenceRenewal").threads(1).build();
 
     ExternalServiceCredentialsGenerator storageCredentialsGenerator = SecureStorageController.credentialsGenerator(
         configuration.getSecureStorageServiceConfiguration());
@@ -316,6 +318,7 @@ public record CommandDependencies(
         configuration.getFoundationDbMessagesConfiguration().activeEpoch(),
         new VersionstampUUIDCipher(configuration.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey(),
             configuration.getFoundationDbMessagesConfiguration().versionstampCipherKeys().get(configuration.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey()).value()),
+        presenceRenewalExecutor,
         Clock.systemUTC());
     ProfilesManager profilesManager = new ProfilesManager(profilesV1, profiles, profileAvatars, cacheCluster, retryExecutor, asyncCdnS3Client,
         configuration.getCdnConfiguration().bucket());

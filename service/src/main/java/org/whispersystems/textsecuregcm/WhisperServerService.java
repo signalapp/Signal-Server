@@ -621,6 +621,8 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         .threads(16).build();
     final ScheduledExecutorService registrationIdentityTokenRefreshExecutor =
       ScheduledExecutorServiceBuilder.of(environment, "registrationIdentityTokenRefresh").threads(1).build();
+    final ScheduledExecutorService presenceRenewalExecutor =
+        ScheduledExecutorServiceBuilder.of(environment, "presenceRenewal").threads(4).build();
 
     Scheduler messageDeliveryScheduler = Schedulers.fromExecutorService(
         ExecutorServiceBuilder.of(environment, "messageDelivery")
@@ -751,6 +753,7 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         config.getFoundationDbMessagesConfiguration().activeEpoch(),
         new VersionstampUUIDCipher(config.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey(),
             config.getFoundationDbMessagesConfiguration().versionstampCipherKeys().get(config.getFoundationDbMessagesConfiguration().currentVersionstampCipherKey()).value()),
+        presenceRenewalExecutor,
         Clock.systemUTC());
     ClientReleaseManager clientReleaseManager = new ClientReleaseManager(clientReleases,
         recurringJobExecutor,

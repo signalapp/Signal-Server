@@ -16,20 +16,27 @@ import com.apple.foundationdb.Range;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.AsyncIterable;
+import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.Versionstamp;
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.Versionstamp;
-import com.google.protobuf.InvalidProtocolBufferException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
@@ -46,6 +53,8 @@ class FoundationDbMessagePublisherTest {
   private Database database;
   private List<FoundationDbMessagePublisher.State> stateTransitions;
 
+  private static ScheduledExecutorService presenceRenewalExecutorService;
+
   private static final AciServiceIdentifier SERVICE_IDENTIFIER = new AciServiceIdentifier(UUID.randomUUID());
 
   private static final Range SUBSPACE_RANGE =
@@ -56,6 +65,15 @@ class FoundationDbMessagePublisherTest {
 
   private static final Supplier<Consumer<Transaction>> NOOP_ON_PAGE_FETCH = () -> _ -> {};
 
+  private static final Clock CLOCK = Clock.systemUTC();
+
+  private static final int STREAM_ID = ThreadLocalRandom.current().nextInt();
+
+  @BeforeAll
+  static void setUpBeforeAll() {
+    presenceRenewalExecutorService = Executors.newSingleThreadScheduledExecutor();
+  }
+
   @BeforeEach
   void setUp() {
     database = mock(Database.class);
@@ -65,8 +83,15 @@ class FoundationDbMessagePublisherTest {
     new SecureRandom().nextBytes(messageGuidCodecKey);
   }
 
+  @AfterAll
+  static void tearDownAfterAll() throws InterruptedException {
+    presenceRenewalExecutorService.shutdown();
+    //noinspection ResultOfMethodCallIgnored
+    presenceRenewalExecutorService.awaitTermination(1, TimeUnit.SECONDS);
+  }
+
   @Test
-  void finitePublisherMultipleBatches() throws InvalidProtocolBufferException {
+  void finitePublisherMultipleBatches() {
     final MessageProtos.Envelope message1 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message2 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message3 = FoundationDbMessageStoreTest.generateRandomMessage(false);
@@ -95,10 +120,13 @@ class FoundationDbMessagePublisherTest {
         });
 
     final FoundationDbMessagePublisher finitePublisher = new FoundationDbMessagePublisher(
+        database,
+        CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.end),
-        database,
         2, // With 3 messages and batch size set to 2, we'll need to grab 2 batches.
+        null,
+        null,
         null,
         (_, newState) -> stateTransitions.add(newState),
         NOOP_ON_PAGE_FETCH
@@ -166,10 +194,13 @@ class FoundationDbMessagePublisherTest {
         .thenReturn(watchFuture3);
 
     final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
+        database,
+        CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
-        database,
         2,
+        FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
+        presenceRenewalExecutorService,
         MESSAGES_AVAILABLE_WATCH_KEY,
         (oldState, newState) -> {
           stateTransitions.add(newState);
@@ -215,7 +246,7 @@ class FoundationDbMessagePublisherTest {
   }
 
   @Test
-  void messageAvailableWatchSignalBuffered() throws InvalidProtocolBufferException {
+  void messageAvailableWatchSignalBuffered() {
     final MessageProtos.Envelope message1 = FoundationDbMessageStoreTest.generateRandomMessage(false);
     final MessageProtos.Envelope message2 = FoundationDbMessageStoreTest.generateRandomMessage(false);
 
@@ -248,10 +279,13 @@ class FoundationDbMessagePublisherTest {
         .thenReturn(watchFuture2);
 
     final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
+        database,
+        CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
-        database,
         2,
+        FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
+        presenceRenewalExecutorService,
         MESSAGES_AVAILABLE_WATCH_KEY,
         (oldState, newState) -> {
           stateTransitions.add(newState);
@@ -292,12 +326,15 @@ class FoundationDbMessagePublisherTest {
 
   @Test
   @SuppressWarnings({"unchecked", "resource"})
-  void watchCanceledOnSubscriptionCancel() throws InvalidProtocolBufferException {
+  void watchCanceledOnSubscriptionCancel() {
     final FoundationDbMessagePublisher infinitePublisher = FoundationDbMessagePublisher.createInfinitePublisher(
+        database,
+        CLOCK,
         KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
         KeySelector.firstGreaterThan(SUBSPACE_RANGE.end),
-        database,
         100,
+        FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
+        presenceRenewalExecutorService,
         MESSAGES_AVAILABLE_WATCH_KEY,
         () -> _ -> {});
     final MessageProtos.Envelope message = FoundationDbMessageStoreTest.generateRandomMessage(false);
@@ -323,6 +360,61 @@ class FoundationDbMessagePublisherTest {
         .verify(Duration.ofMillis(100));
 
     verify(watchFuture).cancel(true);
+  }
+
+  @Test
+  @SuppressWarnings({"unchecked", "resource"})
+  void terminateWithError() {
+    final MessageProtos.Envelope message = FoundationDbMessageStoreTest.generateRandomMessage(false);
+
+    final KeyValue keyValue = mockKeyValue((byte) 5, message);
+
+    final AsyncIterable<KeyValue> keyValues = mock(AsyncIterable.class);
+    when(keyValues.asList()).thenReturn(CompletableFuture.completedFuture(List.of(keyValue)));
+
+    final Transaction transaction = mock(Transaction.class);
+    when(transaction.getRange(any(KeySelector.class), any(KeySelector.class), anyInt(), anyBoolean(), any(StreamingMode.class)))
+        .thenReturn(keyValues);
+    when(transaction.get(FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID)))
+        .thenAnswer(_ -> CompletableFuture.completedFuture(FoundationDbMessageStore.getPresenceValue(CLOCK.instant(), STREAM_ID)));
+    when(transaction.watch(any()))
+        .thenReturn(new CompletableFuture<>());
+
+    when(database.runAsync(any(Function.class))).thenAnswer(
+        (Answer<CompletableFuture<List<? extends MessageStreamEntry>>>) invocationOnMock -> {
+          final Function<Transaction, CompletableFuture<List<? extends MessageStreamEntry>>> f = invocationOnMock.getArgument(
+              0);
+          return f.apply(transaction);
+        });
+
+    final FoundationDbMessagePublisher infinitePublisher = new FoundationDbMessagePublisher(
+        database,
+        CLOCK,
+        KeySelector.firstGreaterOrEqual(SUBSPACE_RANGE.begin),
+        KeySelector.firstGreaterOrEqual(new byte[]{(byte) 10}),
+        2,
+        FoundationDbMessageStore.getPresenceKey(SERVICE_IDENTIFIER, Device.PRIMARY_ID),
+        presenceRenewalExecutorService,
+        MESSAGES_AVAILABLE_WATCH_KEY,
+        (_, newState) -> stateTransitions.add(newState),
+        NOOP_ON_PAGE_FETCH
+    );
+
+    final RuntimeException streamTerminationException = new RuntimeException("Stream terminated");
+
+    StepVerifier.create(infinitePublisher.getMessages())
+        .expectNext(getExpectedMessageStreamEntry(keyValue))
+        .then(() -> infinitePublisher.terminateWithError(streamTerminationException))
+        .verifyErrorMatches(throwable -> throwable.equals(streamTerminationException));
+
+    assertEquals(List.of(
+            FoundationDbMessagePublisher.State.FETCHING_MESSAGES,
+            FoundationDbMessagePublisher.State.QUEUE_EMPTY,
+            FoundationDbMessagePublisher.State.AWAITING_NEW_MESSAGES,
+            FoundationDbMessagePublisher.State.ERROR
+        ),
+        stateTransitions
+    );
   }
 
   private FoundationDbMessageStreamEntry.Message getExpectedMessageStreamEntry(final KeyValue keyValue) {

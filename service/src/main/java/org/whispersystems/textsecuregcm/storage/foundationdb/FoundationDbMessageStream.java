@@ -13,6 +13,7 @@ import com.apple.foundationdb.tuple.Versionstamp;
 import com.google.common.annotations.VisibleForTesting;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -41,6 +43,7 @@ import reactor.util.function.Tuples;
 public class FoundationDbMessageStream implements MessageStream {
 
   private final Subspace deviceQueueSubspace;
+  private final byte[] presenceKey;
   private final byte[] messagesAvailableWatchKey;
   private final Database[] databasesByEpoch;
   private final MessageGuidCodec messageGuidCodec;
@@ -48,6 +51,8 @@ public class FoundationDbMessageStream implements MessageStream {
   private final int maxMessagesPerScan;
   private final Flow.Publisher<MessageStreamEntry> messageStreamPublisher;
   private final Runnable doAfterCleanup;
+  private final ScheduledExecutorService presenceRenewalExecutorService;
+  private final Clock clock;
 
   private final Map<Database, AcknowledgedMessageBuffer> acknowledgedMessageBuffersByDatabase;
 
@@ -70,19 +75,25 @@ public class FoundationDbMessageStream implements MessageStream {
   private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessageStream.class);
 
   FoundationDbMessageStream(final Subspace deviceQueueSubspace,
+      final byte[] presenceKey,
       final byte[] messagesAvailableWatchKey,
       final Database[] databasesByEpoch,
       final MessageGuidCodec messageGuidCodec,
       final int maxMessagesPerScan,
       final int maxUnacknowledgedMessages,
-      final Runnable doAfterCleanup) {
+      final Runnable doAfterCleanup,
+      final ScheduledExecutorService presenceRenewalExecutorService,
+      final Clock clock) {
     this.deviceQueueSubspace = deviceQueueSubspace;
+    this.presenceKey = presenceKey;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
     this.databasesByEpoch = databasesByEpoch;
     this.messageGuidCodec = messageGuidCodec;
     this.maxMessagesPerScan = maxMessagesPerScan;
     this.messageStreamPublisher = JdkFlowAdapter.publisherToFlowPublisher(createMessagePublisher());
     this.doAfterCleanup = doAfterCleanup;
+    this.presenceRenewalExecutorService = presenceRenewalExecutorService;
+    this.clock = clock;
 
     // Not all epochs may be in use (this is true most of the time) and if we DO have multiple epochs in play, it's
     // possible/likely that a given queue will be on the same shard in multiple epochs. We only want acknowledgement
@@ -161,9 +172,10 @@ public class FoundationDbMessageStream implements MessageStream {
 
                     return maybeEndOfQueueKeyExclusive
                         .map(endOfQueueKeyExclusive -> FoundationDbMessagePublisher.createFinitePublisher(
+                                database,
+                                clock,
                                 KeySelector.firstGreaterOrEqual(deviceQueueSubspace.range().begin),
                                 endOfQueueKeyExclusive,
-                                database,
                                 maxMessagesPerScan,
                                 () -> this.clearAcknowledgedMessages(database))
                             .getMessages())
@@ -190,10 +202,13 @@ public class FoundationDbMessageStream implements MessageStream {
                         .orElseGet(() -> KeySelector.firstGreaterOrEqual(deviceQueueSubspace.range().begin));
 
                     return FoundationDbMessagePublisher.createInfinitePublisher(
+                        database,
+                        clock,
                         infinitePublisherBeginKey,
                         KeySelector.firstGreaterThan(deviceQueueSubspace.range().end),
-                        database,
                         maxMessagesPerScan,
+                        presenceKey,
+                        presenceRenewalExecutorService,
                         messagesAvailableWatchKey,
                         () -> clearAcknowledgedMessages(database)).getMessages();
                   })

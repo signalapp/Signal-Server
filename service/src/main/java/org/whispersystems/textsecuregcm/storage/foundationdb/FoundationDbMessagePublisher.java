@@ -5,7 +5,23 @@ import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.tuple.Versionstamp;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.InvalidProtocolBufferException;
+import java.io.UncheckedIOException;
+import java.time.Clock;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.textsecuregcm.entities.MessageProtos;
@@ -13,28 +29,60 @@ import org.whispersystems.textsecuregcm.util.Pair;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
-import javax.annotation.Nullable;
-import java.io.UncheckedIOException;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
-
 /// Publishes a message stream from a device queue in FoundationDB. Capable of publishing both a finite stream for
 /// catching up to end-of-queue,and an infinite stream for live updates.
 class FoundationDbMessagePublisher {
 
   private final Database database;
-  /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
-  private final int maxMessagesPerScan;
+  private final Clock clock;
+  /// Keeps track of the key from which to start reading on the next iteration
+  private volatile KeySelector beginKeyCursor;
   /// The end key at which we stop reading messages. For finite publisher, this is just past the end-of-queue key at the
   /// time the publisher was created. For an infinite publisher, this is the end of subspace range.
   private final KeySelector endKeyExclusive;
 
-  /// Keeps track of the key from which to start reading on the next iteration
-  private volatile KeySelector beginKeyCursor;
+  /// The maximum number of messages we will fetch per range query operation to avoid excessive memory consumption
+  private final int maxMessagesPerScan;
+
+  /// The key that stores the server ID/timestamp indicating when/where the connected client was last known to be
+  /// present. Active publishers refresh this key at regular intervals (see [#renewPresenceFuture]).
+  @Nullable private final byte[] presenceKey;
+
+  // An ID for this specific stream for use when checking "ownership" of a presence value.
+  private final int streamId = NEXT_STREAM_ID.getAndIncrement();
+
+  /// The key that is updated whenever new messages are available in the queue. If null, it is inferred that the publisher
+  /// is finite and will terminate when the end-of-queue at time of publisher creation is reached. Otherwise, the publisher
+  /// is "infinite" and will continue to wait for new messages and publish them in a loop.
+  @Nullable private final byte[] messagesAvailableWatchKey;
+
+  /// Listener to watch for state machine transitions; used for testing.
+  private final BiConsumer<State, State> stateChangeListener;
+
+  /// A supplier that returns a function to execute before we begin fetching a page; it is passed the transaction that
+  /// is started for the page fetch operations.
+  private final Supplier<Consumer<Transaction>> beforePageFetch;
+
+  /// Whether the publisher is finite or infinite.
+  private final boolean terminateOnQueueEmpty;
+
+  /// Tracks the current state of the publisher state machine. Initial state presumes that messages are available in the queue.
+  private State state = State.MESSAGES_AVAILABLE;
+
+  private final Flux<FoundationDbMessageStreamEntry.Message> messagePublisher;
+
+  /// Reference to the sink we publish messages to.
+  private volatile FluxSink<FoundationDbMessageStreamEntry.Message> emitter;
+
+  /// Future that completes when the watch for {@link #messagesAvailableWatchKey} triggers.
+  private CompletableFuture<Void> watchFuture;
+
+  /// A future for refreshing the connected client's presence value at regular intervals.
+  @Nullable private ScheduledFuture<?> renewPresenceFuture;
+
+  private static final AtomicInteger NEXT_STREAM_ID = new AtomicInteger();
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessagePublisher.class);
 
   enum State {
     /// Messages are likely available in the queue. Initial state.
@@ -70,49 +118,52 @@ class FoundationDbMessagePublisher {
     FETCH_OR_PUBLISH_ERROR_OCCURRED
   }
 
-  /// The key that is updated whenever new messages are available in the queue. If null, it is inferred that the publisher
-  /// is finite and will terminate when the end-of-queue at time of publisher creation is reached. Otherwise, the publisher
-  /// is "infinite" and will continue to wait for new messages and publish them in a loop.
-  @Nullable private final byte[] messagesAvailableWatchKey;
-  /// Listener to watch for state machine transitions; used for testing.
-  private final BiConsumer<State, State> stateChangeListener;
-  private final Flux<FoundationDbMessageStreamEntry.Message> messagePublisher;
-  /// Whether the publisher is finite or infinite.
-  private final boolean terminateOnQueueEmpty;
-  /// A supplier that returns a function to execute before we begin fetching a page; it is passed the transaction that
-  /// is started for the page fetch operations.
-  private final Supplier<Consumer<Transaction>> beforePageFetch;
-
-  /// Tracks the current state of the publisher state machine. Initial state presumes that messages are available in the queue.
-  private State state = State.MESSAGES_AVAILABLE;
-  /// Reference to the sink we publish messages to.
-  private volatile FluxSink<FoundationDbMessageStreamEntry.Message> emitter;
-  /// Future that completes when the watch for {@link #messagesAvailableWatchKey} triggers.
-  private CompletableFuture<Void> watchFuture;
-
-  private static final Logger LOGGER = LoggerFactory.getLogger(FoundationDbMessagePublisher.class);
-
   FoundationDbMessagePublisher(
+      final Database database,
+      final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
-      final Database database,
       final int maxMessagesPerScan,
+      @Nullable final byte[] presenceKey,
+      @Nullable final ScheduledExecutorService presenceRenewalExecutorService,
       @Nullable final byte[] messagesAvailableWatchKey,
       @Nullable final BiConsumer<State, State> stateChangeListener,
       final Supplier<Consumer<Transaction>> beforePageFetch) {
 
+    this.database = database;
+    this.clock = clock;
     this.beginKeyCursor = beginKeyInclusive;
     this.endKeyExclusive = endKeyExclusive;
-    this.database = database;
     this.maxMessagesPerScan = maxMessagesPerScan;
+    this.presenceKey = presenceKey;
     this.messagesAvailableWatchKey = messagesAvailableWatchKey;
     this.terminateOnQueueEmpty = messagesAvailableWatchKey == null;
     this.stateChangeListener = stateChangeListener != null ? stateChangeListener : (_, _) -> {};
     this.beforePageFetch = beforePageFetch;
-    this.messagePublisher = Flux.create(emitter -> {
+
+    if (!terminateOnQueueEmpty) {
+      Objects.requireNonNull(presenceKey);
+      Objects.requireNonNull(presenceRenewalExecutorService);
+    }
+
+    this.messagePublisher = Flux.<FoundationDbMessageStreamEntry.Message>create(emitter -> {
       this.emitter = emitter;
       emitter.onRequest(_ -> transitionStateOnEvent(Event.DEMAND_REQUESTED));
       emitter.onDispose(this::onDispose);
+    }).doOnSubscribe(_ -> {
+      if (!terminateOnQueueEmpty) {
+        // Establish presence immediately and block until we do. We must establish presence for watches to work as
+        // expected. If we fail to establish presence, then this non-terminating stream will never learn about new
+        // messages. If establishing presence throws an exception, then the whole publisher will terminate with that
+        // exception.
+        database.run(transaction -> {
+          setPresence(transaction);
+          return null;
+        });
+
+        // Refresh presence at regular intervals
+        startPresenceRenewal(presenceRenewalExecutorService);
+      }
     });
   }
 
@@ -121,16 +172,20 @@ class FoundationDbMessagePublisher {
   /// cases when callers need to "catch up" on stored messages without following fresh updates (for example, when a
   /// client first connects and needs to load stored messages before receiving a "live" stream of new messages).
   public static FoundationDbMessagePublisher createFinitePublisher(
+      final Database database,
+      final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
-      final Database database,
       final int maxMessagesPerScan,
       final Supplier<Consumer<Transaction>> beforePageFetch) {
 
-    return new FoundationDbMessagePublisher(beginKeyInclusive,
+    return new FoundationDbMessagePublisher(database,
+        clock,
+        beginKeyInclusive,
         endKeyExclusive,
-        database,
         maxMessagesPerScan,
+        null,
+        null,
         null,
         null,
         beforePageFetch);
@@ -140,17 +195,23 @@ class FoundationDbMessagePublisher {
   /// It waits for new messages and publishes them in a loop. Useful when a client has finished receiving its stored
   /// messages and is now waiting for a live stream of new messages.
   public static FoundationDbMessagePublisher createInfinitePublisher(
+      final Database database,
+      final Clock clock,
       final KeySelector beginKeyInclusive,
       final KeySelector endKeyExclusive,
-      final Database database,
       final int maxMessagesPerScan,
+      final byte[] presenceKey,
+      final ScheduledExecutorService presenceRenewalExecutorService,
       final byte[] messagesAvailableWatchKey,
       final Supplier<Consumer<Transaction>> beforePageFetch) {
 
-    return new FoundationDbMessagePublisher(beginKeyInclusive,
+    return new FoundationDbMessagePublisher(database,
+        clock,
+        beginKeyInclusive,
         endKeyExclusive,
-        database,
         maxMessagesPerScan,
+        presenceKey,
+        presenceRenewalExecutorService,
         messagesAvailableWatchKey,
         null,
         beforePageFetch);
@@ -345,15 +406,6 @@ class FoundationDbMessagePublisher {
     watchFuture.thenRun(() -> transitionStateOnEvent(Event.MESSAGE_AVAILABLE_WATCH_TRIGGERED));
   }
 
-  private synchronized void onDispose() {
-    // Unless the state machine is an already terminal state, directly set state to "terminated", since there's no point
-    // in evaluating the state machine when there's no live subscription.
-    if (state != State.TERMINATED && state != State.ERROR) {
-      setState(State.TERMINATED, Event.INTERNAL_TRIGGER);
-    }
-    cancelWatch();
-  }
-
   /// Cancel the watch (if any). Although inactive watches are automatically timed-out, we explicitly cancel when the
   /// subscription is disposed to clean up associated resources and to avoid having too many watches open at once.
   private synchronized void cancelWatch() {
@@ -362,4 +414,76 @@ class FoundationDbMessagePublisher {
     }
   }
 
+  private synchronized void startPresenceRenewal(final ScheduledExecutorService presenceRenewalExecutorService) {
+    final long renewalIntervalMillis =
+        FoundationDbMessageStore.PRESENCE_STALE_THRESHOLD.multipliedBy(4).dividedBy(5).toMillis();
+
+    renewPresenceFuture = presenceRenewalExecutorService.scheduleWithFixedDelay(this::renewPresence,
+        renewalIntervalMillis,
+        renewalIntervalMillis,
+        TimeUnit.MILLISECONDS);
+  }
+
+  private synchronized void renewPresence() {
+    if (state == State.TERMINATED || state == State.ERROR) {
+      return;
+    }
+
+    database.runAsync(transaction -> {
+      setPresence(transaction);
+      return CompletableFuture.completedFuture(null);
+    })
+    .whenComplete((_, throwable) -> {
+      if (throwable != null) {
+        LOGGER.warn("Failed to renew presence; will terminate publisher", throwable);
+        terminateWithError(throwable);
+      }
+    });
+  }
+
+  private void setPresence(final Transaction transaction) {
+    transaction.set(presenceKey, FoundationDbMessageStore.getPresenceValue(clock.instant(), streamId));
+  }
+
+  @VisibleForTesting
+  synchronized void clearPresence() {
+    if (renewPresenceFuture != null) {
+      renewPresenceFuture.cancel(true);
+    }
+
+    if (!terminateOnQueueEmpty) {
+      database.runAsync(transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
+            final byte[] presenceServerId = FoundationDbMessageStore.getPresenceServerId(presenceValue);
+            final int presenceStreamId = FoundationDbMessageStore.getPresenceStreamId(presenceValue);
+
+            if (Arrays.equals(presenceServerId, FoundationDbMessageStore.getServerId()) && streamId == presenceStreamId) {
+              transaction.clear(presenceKey);
+            }
+          }))
+          .whenComplete((_, throwable) -> {
+            if (throwable != null) {
+              LOGGER.warn("Failed to clear presence on disposal", throwable);
+            }
+          });
+    }
+  }
+
+  @VisibleForTesting
+  synchronized void terminateWithError(final Throwable throwable) {
+    if (state != State.TERMINATED && state != State.ERROR) {
+      setState(State.ERROR, Event.INTERNAL_TRIGGER);
+    }
+
+    emitter.error(throwable);
+  }
+
+  private synchronized void onDispose() {
+    // Unless the state machine is an already terminal state, directly set state to "terminated", since there's no point
+    // in evaluating the state machine when there's no live subscription.
+    if (state != State.TERMINATED && state != State.ERROR) {
+      setState(State.TERMINATED, Event.INTERNAL_TRIGGER);
+    }
+    cancelWatch();
+    clearPresence();
+  }
 }
