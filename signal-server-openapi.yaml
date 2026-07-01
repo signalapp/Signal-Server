@@ -2647,17 +2647,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
+                $ref: "#/components/schemas/ConfirmPayPalBoostResponse"
       security:
       - authenticatedAccount: []
       - {}
@@ -2734,19 +2724,7 @@ paths:
         default:
           description: default response
           content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
+            application/json: {}
       security:
       - authenticatedAccount: []
       - {}
@@ -2767,17 +2745,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  done:
-                    type: boolean
-                  cancelled:
-                    type: boolean
-                  completedExceptionally:
-                    type: boolean
-                  numberOfDependents:
-                    type: integer
-                    format: int32
+                $ref: "#/components/schemas/CreatePayPalBoostResponse"
       security:
       - authenticatedAccount: []
       - {}
@@ -5639,6 +5607,11 @@ components:
         rawUUID:
           type: string
           format: uuid
+    ConfirmPayPalBoostResponse:
+      type: object
+      properties:
+        paymentId:
+          type: string
     ConfirmPayPalBoostRequest:
       required:
       - amount
@@ -5761,6 +5734,13 @@ components:
           - BRAINTREE
           - GOOGLE_PLAY_BILLING
           - APPLE_APP_STORE
+    CreatePayPalBoostResponse:
+      type: object
+      properties:
+        approvalUrl:
+          type: string
+        paymentId:
+          type: string
     CreatePayPalBoostRequest:
       required:
       - amount

@@ -1,0 +1,6458 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protobuf module documentation</title>
+    <link rel="stylesheet" href="static/mystyles.css" />
+    <script src="static/fontawesome.js"></script>
+    <script src="static/lunr.js"></script>
+    <script src="static/theme.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="level pt-6 mb-5 pb-2 bottom-border">
+        <div class="level-left">
+          <p class="level-item has-text-centered is-size-3 has-text-weight-medium">
+            <a class="link is-info" href="index.html">
+              Protobuf module documentation
+            </a>
+          </p>
+        </div>
+
+        <div class="level-right">
+          
+          <form action="search.html" class="mr-2 has-text-centered">
+            <input type="text" name="query" class="input mr-3 navbar-search-query-input" placeholder="Search">
+            <input type="submit" class="button is-primary mr-5" value="Search" />
+          </form>
+          
+
+          <p class="level-item has-text-centered is-size-5">
+            <a href="" class="link is-info mr-5" target="_blank">
+              
+              <span>Source</span>
+            </a>
+
+            <button class="theme-toggle" id="theme-toggle" title="Toggles light & dark" aria-label="auto" aria-live="polite" type="button">
+              <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+                <mask class="moon" id="moon-mask">
+                  <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                  <circle cx="24" cy="10" r="6" fill="black" />
+                </mask>
+                <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+                <g class="sun-beams" stroke="currentColor">
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </g>
+              </svg>
+            </button>
+          </p>
+        </div>
+      </nav>
+    </div>
+
+    <div id="main-content" class="container mb-6">
+  <p class="mb-2">
+    <a style="font-size: 0.9em" href="index.html">← Back to packages</a>
+  </p>
+  <h3 class="title is-3">
+    
+    Package <code>org.signal.chat.purchase</code>
+    
+  </h3>
+
+  <div class="block">
+    
+    <p>
+      <a href="#service-org.signal.chat.purchase.OneTimeDonations">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>OneTimeDonations</code> 
+      </a>
+    </p>
+    
+    <p>
+      <a href="#service-org.signal.chat.purchase.ProductConfiguration">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>ProductConfiguration</code> 
+      </a>
+    </p>
+    
+    <p>
+      <a href="#service-org.signal.chat.purchase.Subscriptions">
+        <span class="tag" style="min-width: 6em">Service</span>
+        <code>Subscriptions</code> 
+      </a>
+    </p>
+    
+
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.AmountAboveSepaLimitError">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>AmountAboveSepaLimitError</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.AmountBelowMinimumError">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>AmountBelowMinimumError</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.AmountList">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>AmountList</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetIapSubscriptionRequest.AppStorePurchase">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>AppStorePurchase</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.BackupConfiguration">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>BackupConfiguration</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.BackupLevelConfiguration">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>BackupLevelConfiguration</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.BraintreePaymentMethod">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>BraintreePaymentMethod</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.ChargeFailure">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ChargeFailure</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.Configuration">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>Configuration</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.ConfirmPayPalBoostRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ConfirmPayPalBoostRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.ConfirmPayPalBoostResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ConfirmPayPalBoostResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>ConfirmPayPalBoostResult</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreateBoostReceiptCredentialsRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreateBoostReceiptCredentialsResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse.CreateBoostReceiptCredentialsResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreateBoostReceiptCredentialsResult</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreateBoostRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreateBoostRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreateBoostResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreateBoostResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreatePayPalBoostRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreatePayPalBoostRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreatePayPalBoostResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreatePayPalBoostResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreatePayPalBoostResponse.CreatePayPalBoostResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreatePayPalBoostResult</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreatePayPalPaymentMethodRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreatePayPalPaymentMethodRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreatePayPalPaymentMethodResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreatePayPalPaymentMethodResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreatePayPalPaymentMethodResult</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreatePaymentMethodRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreatePaymentMethodRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreatePaymentMethodResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreatePaymentMethodResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CreatePaymentMethodResult</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.CurrencyConfiguration">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>CurrencyConfiguration</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.DeleteSubscriberRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteSubscriberRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.DeleteSubscriberResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>DeleteSubscriberResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetBankMandateRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetBankMandateRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetBankMandateResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetBankMandateResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetConfigurationRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetConfigurationRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetConfigurationResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetConfigurationResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetReceiptCredentialsRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetReceiptCredentialsRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetReceiptCredentialsResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetReceiptCredentialsResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetReceiptCredentialsResponse.GetReceiptCredentialsResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetReceiptCredentialsResult</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetSubscriptionInformationRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetSubscriptionInformationRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetSubscriptionInformationResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>GetSubscriptionInformationResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.LevelConfiguration">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>LevelConfiguration</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.PaymentRequired">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>PaymentRequired</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetIapSubscriptionRequest.PlayBillingPurchase">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>PlayBillingPurchase</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.SepaPaymentMethod">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SepaPaymentMethod</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetDefaultPaymentMethodRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetDefaultPaymentMethodResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetIapSubscriptionRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetIapSubscriptionRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetIapSubscriptionResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetIapSubscriptionResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetIapSubscriptionResponse.SetIapSubscriptionResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetIapSubscriptionResult</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetSubscriptionLevelRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetSubscriptionLevelRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetSubscriptionLevelResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetSubscriptionLevelResponse</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>SetSubscriptionLevelResult</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.StripePaymentMethod">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>StripePaymentMethod</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.GetSubscriptionInformationResponse.Subscription">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>Subscription</code> 
+        </a>
+      </p>
+      
+    
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.TaggedConfiguration">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>TaggedConfiguration</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.UpdateSubscriberRequest">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>UpdateSubscriberRequest</code> 
+        </a>
+      </p>
+      
+    
+      
+      <p>
+        <a href="#message-org.signal.chat.purchase.UpdateSubscriberResponse">
+          <span class="tag" style="min-width: 6em">Message</span>
+          <code>UpdateSubscriberResponse</code> 
+        </a>
+      </p>
+      
+    
+
+    
+      <p>
+        <a href="#enum-org.signal.chat.purchase.BankTransferType">
+          <span class="tag" style="min-width: 6em">Enum</span>
+          <code>BankTransferType</code> 
+        </a>
+      </p>
+    
+      <p>
+        <a href="#enum-org.signal.chat.purchase.PaymentMethod">
+          <span class="tag" style="min-width: 6em">Enum</span>
+          <code>PaymentMethod</code> 
+        </a>
+      </p>
+    
+      <p>
+        <a href="#enum-org.signal.chat.purchase.PaymentProvider">
+          <span class="tag" style="min-width: 6em">Enum</span>
+          <code>PaymentProvider</code> 
+        </a>
+      </p>
+    
+      <p>
+        <a href="#enum-org.signal.chat.purchase.SubscriptionStatus">
+          <span class="tag" style="min-width: 6em">Enum</span>
+          <code>SubscriptionStatus</code> 
+        </a>
+      </p>
+    
+  </div>
+
+  <div class="block">
+      
+  </div>
+
+  
+
+  <div class="block">
+    <h3 class="title is-3">
+      Services
+    </h3>
+
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.purchase.OneTimeDonations">
+  <a href="#service-org.signal.chat.purchase.OneTimeDonations" title="org.signal.chat.purchase.OneTimeDonations">service OneTimeDonations</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Service for making one-time donation payments (boost and gift)</p>
+<p>Configuration for one-time donations can be found in ProductConfiguration.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.OneTimeDonations-CreateBoost">
+      <a href="#service-org.signal.chat.purchase.OneTimeDonations-CreateBoost">
+        rpc <code>CreateBoost</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateBoostRequest"><span title="org.signal.chat.purchase.CreateBoostRequest">org.signal.chat.purchase.CreateBoostRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateBoostResponse"><span title="org.signal.chat.purchase.CreateBoostResponse">org.signal.chat.purchase.CreateBoostResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Create a Stripe payment intent and return a client secret that can be used to complete the payment.
+Once the payment is complete, the paymentIntentId can be used with CreateBoostReceiptCredentials</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.OneTimeDonations-CreatePayPalBoost">
+      <a href="#service-org.signal.chat.purchase.OneTimeDonations-CreatePayPalBoost">
+        rpc <code>CreatePayPalBoost</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePayPalBoostRequest"><span title="org.signal.chat.purchase.CreatePayPalBoostRequest">org.signal.chat.purchase.CreatePayPalBoostRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePayPalBoostResponse"><span title="org.signal.chat.purchase.CreatePayPalBoostResponse">org.signal.chat.purchase.CreatePayPalBoostResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Create a PayPal one-time payment.
+Once the payment is complete, call ConfirmPayPalBoost with the payment ID and token</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.OneTimeDonations-ConfirmPayPalBoost">
+      <a href="#service-org.signal.chat.purchase.OneTimeDonations-ConfirmPayPalBoost">
+        rpc <code>ConfirmPayPalBoost</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ConfirmPayPalBoostRequest"><span title="org.signal.chat.purchase.ConfirmPayPalBoostRequest">org.signal.chat.purchase.ConfirmPayPalBoostRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ConfirmPayPalBoostResponse"><span title="org.signal.chat.purchase.ConfirmPayPalBoostResponse">org.signal.chat.purchase.ConfirmPayPalBoostResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Confirm a PayPal one-time payment</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.OneTimeDonations-CreateBoostReceiptCredentials">
+      <a href="#service-org.signal.chat.purchase.OneTimeDonations-CreateBoostReceiptCredentials">
+        rpc <code>CreateBoostReceiptCredentials</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsRequest"><span title="org.signal.chat.purchase.CreateBoostReceiptCredentialsRequest">org.signal.chat.purchase.CreateBoostReceiptCredentialsRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse"><span title="org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse">org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Obtain a ZK receipt credential for a completed one-time donation payment.
+The receipt credential can then be used to redeem the one-time donation entitlement
+via Donations.RedeemReceipt</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.purchase.ProductConfiguration">
+  <a href="#service-org.signal.chat.purchase.ProductConfiguration" title="org.signal.chat.purchase.ProductConfiguration">service ProductConfiguration</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Retrieve product metadata for one-time donations, subscriptions, and backups</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.ProductConfiguration-GetConfiguration">
+      <a href="#service-org.signal.chat.purchase.ProductConfiguration-GetConfiguration">
+        rpc <code>GetConfiguration</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetConfigurationRequest"><span title="org.signal.chat.purchase.GetConfigurationRequest">org.signal.chat.purchase.GetConfigurationRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetConfigurationResponse"><span title="org.signal.chat.purchase.GetConfigurationResponse">org.signal.chat.purchase.GetConfigurationResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns all configuration for badges, donation subscriptions, backup subscriptions, and one-time donation (
+"boost" and "gift") minimum and suggested amounts.</p>
+<p>Product descriptions may contain localized strings. Callers should set
+their language preferences via an "Accept-Language" header on the request
+https://datatracker.ietf.org/doc/html/rfc3282#section-3</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+    <div>
+      
+
+<h4 class="title is-4 type-heading" id="service-org.signal.chat.purchase.Subscriptions">
+  <a href="#service-org.signal.chat.purchase.Subscriptions" title="org.signal.chat.purchase.Subscriptions">service Subscriptions</a>
+  
+</h4>
+
+<div class="block content">
+  <p><p>Service for creating donation subscriptions</p>
+<p>Configuration for subscription levels can be found in ProductConfiguration.</p></p>
+</div>
+
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-UpdateSubscriber">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-UpdateSubscriber">
+        rpc <code>UpdateSubscriber</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.UpdateSubscriberRequest"><span title="org.signal.chat.purchase.UpdateSubscriberRequest">org.signal.chat.purchase.UpdateSubscriberRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.UpdateSubscriberResponse"><span title="org.signal.chat.purchase.UpdateSubscriberResponse">org.signal.chat.purchase.UpdateSubscriberResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Subscribers MUST periodically hit this endpoint to update the access time on the subscription record. Subscribers
+ SHOULD attempt to make an update call approximately every 3 days. Not accessing this endpoint for an extended
+ period of time will result in the subscription being canceled.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-DeleteSubscriber">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-DeleteSubscriber">
+        rpc <code>DeleteSubscriber</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.DeleteSubscriberRequest"><span title="org.signal.chat.purchase.DeleteSubscriberRequest">org.signal.chat.purchase.DeleteSubscriberRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.DeleteSubscriberResponse"><span title="org.signal.chat.purchase.DeleteSubscriberResponse">org.signal.chat.purchase.DeleteSubscriberResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Cancels any current subscription at the end of the current subscription period.</p>
+<p>Note: Apple IAP subscriptions do not support server-side cancellation, so this method should only be called after
+cancelling a subscription from storekit to keep server data up to date.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-CreatePaymentMethod">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-CreatePaymentMethod">
+        rpc <code>CreatePaymentMethod</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePaymentMethodRequest"><span title="org.signal.chat.purchase.CreatePaymentMethodRequest">org.signal.chat.purchase.CreatePaymentMethodRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePaymentMethodResponse"><span title="org.signal.chat.purchase.CreatePaymentMethodResponse">org.signal.chat.purchase.CreatePaymentMethodResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns a client secret that can be used to set up a new payment method with the payment processor.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-CreatePayPalPaymentMethod">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-CreatePayPalPaymentMethod">
+        rpc <code>CreatePayPalPaymentMethod</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePayPalPaymentMethodRequest"><span title="org.signal.chat.purchase.CreatePayPalPaymentMethodRequest">org.signal.chat.purchase.CreatePayPalPaymentMethodRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePayPalPaymentMethodResponse"><span title="org.signal.chat.purchase.CreatePayPalPaymentMethodResponse">org.signal.chat.purchase.CreatePayPalPaymentMethodResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns a PayPal billing agreement approval URL and token that can be used to set up PayPal as a payment method.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-SetDefaultPaymentMethod">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-SetDefaultPaymentMethod">
+        rpc <code>SetDefaultPaymentMethod</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest"><span title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest">org.signal.chat.purchase.SetDefaultPaymentMethodRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetDefaultPaymentMethodResponse"><span title="org.signal.chat.purchase.SetDefaultPaymentMethodResponse">org.signal.chat.purchase.SetDefaultPaymentMethodResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets the default payment method for a subscriber.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-SetSubscriptionLevel">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-SetSubscriptionLevel">
+        rpc <code>SetSubscriptionLevel</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetSubscriptionLevelRequest"><span title="org.signal.chat.purchase.SetSubscriptionLevelRequest">org.signal.chat.purchase.SetSubscriptionLevelRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetSubscriptionLevelResponse"><span title="org.signal.chat.purchase.SetSubscriptionLevelResponse">org.signal.chat.purchase.SetSubscriptionLevelResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Sets the subscription level and currency for a subscriber.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-GetSubscriptionInformation">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-GetSubscriptionInformation">
+        rpc <code>GetSubscriptionInformation</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetSubscriptionInformationRequest"><span title="org.signal.chat.purchase.GetSubscriptionInformationRequest">org.signal.chat.purchase.GetSubscriptionInformationRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetSubscriptionInformationResponse"><span title="org.signal.chat.purchase.GetSubscriptionInformationResponse">org.signal.chat.purchase.GetSubscriptionInformationResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns information about the current subscription associated with the provided subscriberId if one exists.</p>
+<p>Although it uses <a href="https://stripe.com/docs/billing/subscriptions/overview#subscription-statuses">Stripe's values</a>,
+the status field in the response is generic, with <a href="https://developer.paypal.com/braintree/docs/guides/recurring-billing/overview#subscription-statuses">Braintree-specific values</a> mapped
+to Stripe's. Since we don't support trials or unpaid subscriptions, the associated statuses will never be returned
+by the API.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-GetReceiptCredentials">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-GetReceiptCredentials">
+        rpc <code>GetReceiptCredentials</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetReceiptCredentialsRequest"><span title="org.signal.chat.purchase.GetReceiptCredentialsRequest">org.signal.chat.purchase.GetReceiptCredentialsRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetReceiptCredentialsResponse"><span title="org.signal.chat.purchase.GetReceiptCredentialsResponse">org.signal.chat.purchase.GetReceiptCredentialsResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Create a receipt from a valid payment invoice that can be used to obtain an entitlement</p>
+<p>This request is repeatable so long as the ReceiptCredentialRequest remains the same. Clients should use the same
+ReceiptCredentialRequest value until they attempt to redeem the resulting ReceiptCredentialPresentation. After
+this point, the ReceiptCredentialRequest MUST NOT be reused or you may not be able to redeem a valid payment
+invoice. Clients SHOULD retry requests at this endpoint with the same ReceiptCredentialRequest value until
+receiving a response. After receiving a response, clients should then compute the ReceiptCredentialPresentation
+and redeem it at the receipt redemption endpoint. Once the first attempt is made there, the same
+ReceiptCredentialRequest MUST NOT be used again to request receipt credentials.</p>
+<p>Note that you may in fact redeem TWO or more invoices for the same ReceiptCredentialRequest while retrying this
+operation if a later invoice gets paid while you are retrying. However, the returned receipt is always for the
+latest invoice, so it will have the latest expiration possible and no entitlement time will be lost. The important
+thing is not to reuse ReceiptCredentialRequest after you have started attempting to redeem the associated
+ReceiptCredentialPresentation. Then you may produce a ReceiptCredentialPresentation for a later invoice that
+cannot be redeemed.</p>
+<p>Clients MUST validate that the generated receipt credential's level and expiration matches their expectations.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-SetIapSubscription">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-SetIapSubscription">
+        rpc <code>SetIapSubscription</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetIapSubscriptionRequest"><span title="org.signal.chat.purchase.SetIapSubscriptionRequest">org.signal.chat.purchase.SetIapSubscriptionRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetIapSubscriptionResponse"><span title="org.signal.chat.purchase.SetIapSubscriptionResponse">org.signal.chat.purchase.SetIapSubscriptionResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Set a token that represents an IAP subscription made with App Store/Google Play Billing.</p>
+<p>To set up an App Store subscription:
+1. Create a subscriber with UpdateSubscriber (you must regularly refresh this subscriber)
+2. <a href="https://developer.apple.com/documentation/storekit/in-app_purchase/">Create a subscription</a> with the App Store
+   directly via StoreKit and obtain a originalTransactionId.
+3. Call this RPC with the originalTransactionId
+4. Obtain a receipt via GetReceiptCredentials which can then be used to obtain the
+   entitlement</p>
+<p>Play Billing: Set a purchaseToken that represents an IAP subscription made with Google Play Billing.</p>
+<p>To set up a subscription with Google Play Billing:
+1. Create a subscriber with UpdateSubscriber (you must regularly refresh this subscriber)
+2. <a href="https://developer.android.com/google/play/billing/integrate">Create a subscription</a> with Google Play Billing
+   directly and obtain a purchaseToken. Do not <a href="https://developer.android.com/google/play/billing/integrate#subscriptions">acknowledge</a>
+   the purchaseToken.
+3. Call this RPC with the purchaseToken
+4. Obtain a receipt via GetReceiptCredentials which can then be used to obtain the
+   entitlement</p>
+<p>After calling this method, the payment is confirmed. Callers must durably store their subscriberId before calling
+this method to ensure their payment is tracked.</p>
+<p>Once a purchaseToken to is posted to a subscriberId, the same subscriberId must not be used with another payment
+method. A different playbilling purchaseToken can be posted to the same subscriberId, in this case the subscription
+associated with the old purchaseToken will be cancelled.</p></p>
+  </div>
+  
+</div>
+
+<div class="box">
+  <div class="block">
+    <h5 class="title is-5" id="service-org.signal.chat.purchase.Subscriptions-GetBankMandate">
+      <a href="#service-org.signal.chat.purchase.Subscriptions-GetBankMandate">
+        rpc <code>GetBankMandate</code>
+      </a>
+    </h5>
+    Request: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetBankMandateRequest"><span title="org.signal.chat.purchase.GetBankMandateRequest">org.signal.chat.purchase.GetBankMandateRequest</span>
+    </a></code><br>
+    Response: <code><a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetBankMandateResponse"><span title="org.signal.chat.purchase.GetBankMandateResponse">org.signal.chat.purchase.GetBankMandateResponse</span>
+    </a></code><br>
+  </div>
+
+  
+  <div class="block">
+    <p><p>Returns a localized bank mandate for the specified bank transfer type</p></p>
+  </div>
+  
+</div>
+ 
+    </div>
+    
+  </div>
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Messages
+    </h3>
+
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.AmountAboveSepaLimitError">
+  <span>
+    <a href="#message-org.signal.chat.purchase.AmountAboveSepaLimitError" title="org.signal.chat.purchase.AmountAboveSepaLimitError">message AmountAboveSepaLimitError</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>The SEPA Direct Debit amount exceeds the allowed maximum.</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        maximum
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The maximum amount for a SEPA transaction</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.AmountBelowMinimumError">
+  <span>
+    <a href="#message-org.signal.chat.purchase.AmountBelowMinimumError" title="org.signal.chat.purchase.AmountBelowMinimumError">message AmountBelowMinimumError</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>The amount is below the minimum for the currency.</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        minimum
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The minimum amount for the currency</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.AmountList">
+  <span>
+    <a href="#message-org.signal.chat.purchase.AmountList" title="org.signal.chat.purchase.AmountList">message AmountList</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        amounts
+      </td>
+      <td>
+        <code title="string">
+          
+            repeated
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>NOTE: this is a string instead of a numeric type because it is intended
+for display purposes only</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetIapSubscriptionRequest.AppStorePurchase">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetIapSubscriptionRequest.AppStorePurchase" title="org.signal.chat.purchase.SetIapSubscriptionRequest.AppStorePurchase">message AppStorePurchase</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetIapSubscriptionRequest"><span title="org.signal.chat.purchase.SetIapSubscriptionRequest">org.signal.chat.purchase.SetIapSubscriptionRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        original_transaction_id
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.BackupConfiguration">
+  <span>
+    <a href="#message-org.signal.chat.purchase.BackupConfiguration" title="org.signal.chat.purchase.BackupConfiguration">message BackupConfiguration</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        levels
+      </td>
+      <td>
+        <code title="map&lt;uint64, BackupLevelConfiguration&gt;">
+          
+          <span>map&lt;uint64, BackupLevelConfiguration&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>A map of numeric backup level IDs to level-specific backup configuration</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        free_tier_media_days
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The number of days of media a free tier backup user gets</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.BackupLevelConfiguration">
+  <span>
+    <a href="#message-org.signal.chat.purchase.BackupLevelConfiguration" title="org.signal.chat.purchase.BackupLevelConfiguration">message BackupLevelConfiguration</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>Configuration for a backup level - use to present appropriate client interfaces</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        storage_allowance_bytes
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The amount of media storage in bytes that a paying subscriber may store</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        play_product_id
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>The play billing productID associated with this backup level</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        media_ttl_days
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The duration, in days, for which your backed up media is retained on the server after you stop refreshing with a paid credential</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.BraintreePaymentMethod">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.BraintreePaymentMethod" title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest.BraintreePaymentMethod">message BraintreePaymentMethod</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest"><span title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest">org.signal.chat.purchase.SetDefaultPaymentMethodRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        paymentMethodToken
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.ChargeFailure">
+  <span>
+    <a href="#message-org.signal.chat.purchase.ChargeFailure" title="org.signal.chat.purchase.ChargeFailure">message ChargeFailure</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  <p>Meaningfully interpreting chargeFailure response fields requires inspecting the processor field first.</p>
+<p>For Stripe, code will be one of the <a href="https://stripe.com/docs/api/charges/object#charge_object-failure_code">codes defined here</a>,
+while message <a href="https://stripe.com/docs/api/charges/object#charge_object-failure_message">may contain a further textual description</a>.
+The outcome fields are optional, but present values will directly map to Stripe <a href="https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status">response properties</a></p>
+<p>For Braintree, the outcome fields will be null. The code and message will contain one of
+  - a processor decline code (as a string) in code, and associated text in message, as defined this <a href="https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses">table</a>
+  - <code>gateway</code> in code, with a <a href="https://developer.paypal.com/braintree/articles/control-panel/transactions/gateway-rejections">reason</a> in message
+  - <code>code</code> = "unknown", message = "unknown"</p>
+<p>IAP payment processors will never include charge failure information, and detailed order information should be
+retrieved from the payment processor directly</p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        processor
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.PaymentProvider">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentProvider"><span title="org.signal.chat.purchase.PaymentProvider">org.signal.chat.purchase.PaymentProvider</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        code
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>See <a href="https://stripe.com/docs/api/charges/object#charge_object-failure_code">Stripe failure codes</a> or
+<a href="https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes">Braintree decline codes</a>
+depending on which processor was used</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        message
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>See <a href="https://stripe.com/docs/api/charges/object#charge_object-failure_code">Stripe failure codes</a> or
+<a href="https://developer.paypal.com/braintree/docs/reference/general/processor-responses/authorization-responses#decline-codes">Braintree decline codes</a>
+depending on which processor was used</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        outcome_network_status
+      </td>
+      <td>
+        <code title="string">
+          
+            optional
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>See <a href="https://stripe.com/docs/api/charges/object#charge_object-outcome-network_status">Outcome Network Status</a></p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        outcome_reason
+      </td>
+      <td>
+        <code title="string">
+          
+            optional
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>See <a href="https://stripe.com/docs/api/charges/object#charge_object-outcome-reason">Outcome Reason</a></p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>6</td>
+      <td>
+        outcome_type
+      </td>
+      <td>
+        <code title="string">
+          
+            optional
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>See <a href="https://stripe.com/docs/api/charges/object#charge_object-outcome-type">Outcome Type</a></p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.Configuration">
+  <span>
+    <a href="#message-org.signal.chat.purchase.Configuration" title="org.signal.chat.purchase.Configuration">message Configuration</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        currencies
+      </td>
+      <td>
+        <code title="map&lt;string, CurrencyConfiguration&gt;">
+          
+          <span>map&lt;string, CurrencyConfiguration&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>Map of lower-cased ISO 3 currency codes to currency-specific configuration</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        badge_levels
+      </td>
+      <td>
+        <code title="map&lt;uint64, LevelConfiguration&gt;">
+          
+          <span>map&lt;uint64, LevelConfiguration&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>Map of numeric donation level IDs to level-specific badge configuration</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        backup
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.BackupConfiguration">
+          
+          <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.BackupConfiguration"><span title="org.signal.chat.purchase.BackupConfiguration">org.signal.chat.purchase.BackupConfiguration</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>Configuration for backup subscription options</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        sepa_maximum_euros
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>Maximum value of a one-time SEPA donation</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.ConfirmPayPalBoostRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.ConfirmPayPalBoostRequest" title="org.signal.chat.purchase.ConfirmPayPalBoostRequest">message ConfirmPayPalBoostRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        currency
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>ISO 4217 currency code, case-insensitive (e.g. "usd", "EUR")</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        amount
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>Amount in the currency's minor unit, must be &gt;= 1</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        level
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>Donation level.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        payer_id
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>PayPal payer ID from the approval redirect</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        payment_id
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>PayPal payment ID (PAYID-…) from CreatePayPalBoost</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>6</td>
+      <td>
+        payment_token
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>PayPal payment token (EC-…) from the approval redirect</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.ConfirmPayPalBoostResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.ConfirmPayPalBoostResponse" title="org.signal.chat.purchase.ConfirmPayPalBoostResponse">message ConfirmPayPalBoostResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            result
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult"><span title="org.signal.chat.purchase.ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult">org.signal.chat.purchase.ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            amount_below_minimum
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.AmountBelowMinimumError">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.AmountBelowMinimumError"><span title="org.signal.chat.purchase.AmountBelowMinimumError">org.signal.chat.purchase.AmountBelowMinimumError</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The amount is below the minimum for the currency</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            unsupported_currency
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested currency is not supported for PayPal</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            unsupported_level
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested level is not a valid one-time donation level</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            charge_failure
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.ChargeFailure">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ChargeFailure"><span title="org.signal.chat.purchase.ChargeFailure">org.signal.chat.purchase.ChargeFailure</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The payment failed; see charge failure details</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult">
+  <span>
+    <a href="#message-org.signal.chat.purchase.ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult" title="org.signal.chat.purchase.ConfirmPayPalBoostResponse.ConfirmPayPalBoostResult">message ConfirmPayPalBoostResult</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ConfirmPayPalBoostResponse"><span title="org.signal.chat.purchase.ConfirmPayPalBoostResponse">org.signal.chat.purchase.ConfirmPayPalBoostResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        payment_id
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateBoostReceiptCredentialsRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsRequest" title="org.signal.chat.purchase.CreateBoostReceiptCredentialsRequest">message CreateBoostReceiptCredentialsRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        payment_intent_id
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>a payment ID from the processor</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        receipt_credential_request
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>ZK blind-signature receipt credential request bytes</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        processor
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.PaymentProvider">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentProvider"><span title="org.signal.chat.purchase.PaymentProvider">org.signal.chat.purchase.PaymentProvider</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The processor that handled the payment</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse" title="org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse">message CreateBoostReceiptCredentialsResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            result
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse.CreateBoostReceiptCredentialsResult">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse.CreateBoostReceiptCredentialsResult"><span title="org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse.CreateBoostReceiptCredentialsResult">org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse.CreateBoostReceiptCredentialsResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            payment_still_processing
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Payment is still processing; client should retry</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            payment_required
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.PaymentRequired">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.PaymentRequired"><span title="org.signal.chat.purchase.PaymentRequired">org.signal.chat.purchase.PaymentRequired</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Payment failed</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            payment_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Payment intent not found</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            receipt_already_issued
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>A receipt credential was already issued for this payment</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse.CreateBoostReceiptCredentialsResult">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse.CreateBoostReceiptCredentialsResult" title="org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse.CreateBoostReceiptCredentialsResult">message CreateBoostReceiptCredentialsResult</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse"><span title="org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse">org.signal.chat.purchase.CreateBoostReceiptCredentialsResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        receipt_credential_response
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateBoostRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreateBoostRequest" title="org.signal.chat.purchase.CreateBoostRequest">message CreateBoostRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        currency
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>ISO 4217 currency code, case-insensitive (e.g. "usd", "EUR")</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        amount
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The amount to pay in the <a href="https://docs.stripe.com/currencies#minor-units">currency's minor unit</a></p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        level
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The level for the boost payment</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        payment_method
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.PaymentMethod">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentMethod"><span title="org.signal.chat.purchase.PaymentMethod">org.signal.chat.purchase.PaymentMethod</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The payment method</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        donation_permit
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A donation permit retrieved from Donations.createDonationPermit</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreateBoostResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreateBoostResponse" title="org.signal.chat.purchase.CreateBoostResponse">message CreateBoostResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            client_secret
+          </td>
+          <td>
+            <code title="string">
+              
+              <span>string</span>
+            </code>
+          </td>
+          <td class="content"><p>A client secret that can be used to complete a stripe PaymentIntent</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            amount_below_minimum
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.AmountBelowMinimumError">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.AmountBelowMinimumError"><span title="org.signal.chat.purchase.AmountBelowMinimumError">org.signal.chat.purchase.AmountBelowMinimumError</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The amount is below the minimum for the currency</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            amount_above_sepa_limit
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.AmountAboveSepaLimitError">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.AmountAboveSepaLimitError"><span title="org.signal.chat.purchase.AmountAboveSepaLimitError">org.signal.chat.purchase.AmountAboveSepaLimitError</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The amount exceeds the maximum for SEPA Direct Debit</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            unsupported_currency
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested currency is not supported for the given payment method</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            unsupported_level
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested level is not a valid one-time donation level</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            6
+          </td>
+          <td>
+            permit_rejected
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Donation permit was invalid or already spent</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            7
+          </td>
+          <td>
+            invalid_amount
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The amount in the specified currency is not supported by the payment provider</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePayPalBoostRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreatePayPalBoostRequest" title="org.signal.chat.purchase.CreatePayPalBoostRequest">message CreatePayPalBoostRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        currency
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>ISO 4217 currency code, case-insensitive (e.g. "usd", "EUR")</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        amount
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>Amount in the currency's minor unit (e.g. cents for USD), must be &gt;= 1</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        level
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>Donation level.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        return_url
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>URL to redirect the user to after PayPal approval</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        cancel_url
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>URL to redirect the user to if they cancel</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePayPalBoostResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreatePayPalBoostResponse" title="org.signal.chat.purchase.CreatePayPalBoostResponse">message CreatePayPalBoostResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            result
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.CreatePayPalBoostResponse.CreatePayPalBoostResult">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePayPalBoostResponse.CreatePayPalBoostResult"><span title="org.signal.chat.purchase.CreatePayPalBoostResponse.CreatePayPalBoostResult">org.signal.chat.purchase.CreatePayPalBoostResponse.CreatePayPalBoostResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            amount_below_minimum
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.AmountBelowMinimumError">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.AmountBelowMinimumError"><span title="org.signal.chat.purchase.AmountBelowMinimumError">org.signal.chat.purchase.AmountBelowMinimumError</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The amount is below the minimum for the currency</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            unsupported_currency
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested currency is not supported for PayPal</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            unsupported_level
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested level is not a valid one-time donation level</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePayPalBoostResponse.CreatePayPalBoostResult">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreatePayPalBoostResponse.CreatePayPalBoostResult" title="org.signal.chat.purchase.CreatePayPalBoostResponse.CreatePayPalBoostResult">message CreatePayPalBoostResult</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePayPalBoostResponse"><span title="org.signal.chat.purchase.CreatePayPalBoostResponse">org.signal.chat.purchase.CreatePayPalBoostResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        approval_url
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        payment_id
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePayPalPaymentMethodRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreatePayPalPaymentMethodRequest" title="org.signal.chat.purchase.CreatePayPalPaymentMethodRequest">message CreatePayPalPaymentMethodRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        subscriberId
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        returnUrl
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>a callback URL (e.g. an in-client URL handler) for when the user approved the payment</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        cancelUrl
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>a callback URL (e.g. an in-client URL handler) for when the user did not approve the payment</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePayPalPaymentMethodResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreatePayPalPaymentMethodResponse" title="org.signal.chat.purchase.CreatePayPalPaymentMethodResponse">message CreatePayPalPaymentMethodResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            result
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult"><span title="org.signal.chat.purchase.CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult">org.signal.chat.purchase.CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            subscriber_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            subscriber_id_mismatch
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>subscriberId authentication failure</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            subscription_processor_conflict
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>New payment processor does not match existing processor associated with the subscription</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult" title="org.signal.chat.purchase.CreatePayPalPaymentMethodResponse.CreatePayPalPaymentMethodResult">message CreatePayPalPaymentMethodResult</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePayPalPaymentMethodResponse"><span title="org.signal.chat.purchase.CreatePayPalPaymentMethodResponse">org.signal.chat.purchase.CreatePayPalPaymentMethodResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        approvalUrl
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>a URL to open where the user may approve the payment</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        token
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>an opaque PayPal payment identifier to use with SetDefaultPaymentMethodRequest</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePaymentMethodRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreatePaymentMethodRequest" title="org.signal.chat.purchase.CreatePaymentMethodRequest">message CreatePaymentMethodRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        subscriber_id
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>Only PAYMENT_METHOD_CARD, PAYMENT_METHOD_SEPA_DEBIT, and PAYMENT_METHOD_IDEAL are supported;
+other values will result in an INVALID_ARGUMENT error.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        payment_method
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.PaymentMethod">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentMethod"><span title="org.signal.chat.purchase.PaymentMethod">org.signal.chat.purchase.PaymentMethod</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        donation_permit
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>a libsignal DonationPermit from rpc Donations.CreateDonationPermit</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePaymentMethodResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreatePaymentMethodResponse" title="org.signal.chat.purchase.CreatePaymentMethodResponse">message CreatePaymentMethodResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            result
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult"><span title="org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            subscriber_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            subscriber_id_mismatch
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>subscriberId authentication failure</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            subscription_processor_conflict
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>New payment processor does not match existing processor associated with the subscription</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            permit_rejected
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The donation permit was expired or already spent</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult" title="org.signal.chat.purchase.CreatePaymentMethodResponse.CreatePaymentMethodResult">message CreatePaymentMethodResult</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.CreatePaymentMethodResponse"><span title="org.signal.chat.purchase.CreatePaymentMethodResponse">org.signal.chat.purchase.CreatePaymentMethodResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        clientSecret
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        paymentProvider
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.PaymentProvider">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentProvider"><span title="org.signal.chat.purchase.PaymentProvider">org.signal.chat.purchase.PaymentProvider</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.CurrencyConfiguration">
+  <span>
+    <a href="#message-org.signal.chat.purchase.CurrencyConfiguration" title="org.signal.chat.purchase.CurrencyConfiguration">message CurrencyConfiguration</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        minimum
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>Minimum one-time donation
+NOTE: this is a string instead of a numeric type because it is intended
+for display purposes only</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        one_time
+      </td>
+      <td>
+        <code title="map&lt;uint64, AmountList&gt;">
+          
+          <span>map&lt;uint64, AmountList&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>Map of one-time donation level IDs to suggested amounts</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        subscription
+      </td>
+      <td>
+        <code title="map&lt;uint64, string&gt;">
+          
+          <span>map&lt;uint64, string&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>Map of subscription level IDs to the amount charged</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        backup_subscription
+      </td>
+      <td>
+        <code title="map&lt;uint64, string&gt;">
+          
+          <span>map&lt;uint64, string&gt;</span>
+        </code>
+      </td>
+      <td class="content"><p>Map of backup subscription level IDs to the amount charged</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        supported_payment_methods
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.PaymentMethod">
+          
+            repeated
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentMethod"><span title="org.signal.chat.purchase.PaymentMethod">org.signal.chat.purchase.PaymentMethod</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.DeleteSubscriberRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.DeleteSubscriberRequest" title="org.signal.chat.purchase.DeleteSubscriberRequest">message DeleteSubscriberRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        subscriberId
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.DeleteSubscriberResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.DeleteSubscriberResponse" title="org.signal.chat.purchase.DeleteSubscriberResponse">message DeleteSubscriberResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            subscriber_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            cannot_cancel_subscription
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The associated subscription is not a type that can be cancelled by the server. Cancel client-side, and then retry.</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetBankMandateRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetBankMandateRequest" title="org.signal.chat.purchase.GetBankMandateRequest">message GetBankMandateRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        bank_transfer_type
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.BankTransferType">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.BankTransferType"><span title="org.signal.chat.purchase.BankTransferType">org.signal.chat.purchase.BankTransferType</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetBankMandateResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetBankMandateResponse" title="org.signal.chat.purchase.GetBankMandateResponse">message GetBankMandateResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        mandate
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetConfigurationRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetConfigurationRequest" title="org.signal.chat.purchase.GetConfigurationRequest">message GetConfigurationRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        etag
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>If present, the etag from a prior GetConfigurationResponse. If the
+provided etag matches the current configuration etag, the server may elide
+the configuration response.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetConfigurationResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetConfigurationResponse" title="org.signal.chat.purchase.GetConfigurationResponse">message GetConfigurationResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            tagged_configuration
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.TaggedConfiguration">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.TaggedConfiguration"><span title="org.signal.chat.purchase.TaggedConfiguration">org.signal.chat.purchase.TaggedConfiguration</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The full configuration and corresponding ETag.</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            etag_matched
+          </td>
+          <td>
+            <code title="bool">
+              
+              <span>bool</span>
+            </code>
+          </td>
+          <td class="content"><p>The etag in the request matched the current configuration ETag</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetReceiptCredentialsRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetReceiptCredentialsRequest" title="org.signal.chat.purchase.GetReceiptCredentialsRequest">message GetReceiptCredentialsRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        subscriberId
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        receiptCredentialRequest
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetReceiptCredentialsResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetReceiptCredentialsResponse" title="org.signal.chat.purchase.GetReceiptCredentialsResponse">message GetReceiptCredentialsResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.GetReceiptCredentialsResponse.GetReceiptCredentialsResult">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetReceiptCredentialsResponse.GetReceiptCredentialsResult"><span title="org.signal.chat.purchase.GetReceiptCredentialsResponse.GetReceiptCredentialsResult">org.signal.chat.purchase.GetReceiptCredentialsResponse.GetReceiptCredentialsResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            subscriber_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            subscriber_id_mismatch
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>subscriberId authentication failure</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            no_paid_invoice
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>No invoice has been issued for this subscription OR invoice is in 'draft' or 'open' state</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            payment_required
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.PaymentRequired">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.PaymentRequired"><span title="org.signal.chat.purchase.PaymentRequired">org.signal.chat.purchase.PaymentRequired</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Invoice is in any state other than 'draft', 'open', or 'paid'; Charge failure details may be present</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            6
+          </td>
+          <td>
+            already_redeemed
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Latest paid receipt on subscription was already redeemed for a receipt credential but with a different GetReceiptCredentialRequest</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetReceiptCredentialsResponse.GetReceiptCredentialsResult">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetReceiptCredentialsResponse.GetReceiptCredentialsResult" title="org.signal.chat.purchase.GetReceiptCredentialsResponse.GetReceiptCredentialsResult">message GetReceiptCredentialsResult</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetReceiptCredentialsResponse"><span title="org.signal.chat.purchase.GetReceiptCredentialsResponse">org.signal.chat.purchase.GetReceiptCredentialsResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        receiptCredentialResponse
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetSubscriptionInformationRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetSubscriptionInformationRequest" title="org.signal.chat.purchase.GetSubscriptionInformationRequest">message GetSubscriptionInformationRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        subscriberId
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetSubscriptionInformationResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetSubscriptionInformationResponse" title="org.signal.chat.purchase.GetSubscriptionInformationResponse">message GetSubscriptionInformationResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.GetSubscriptionInformationResponse.Subscription">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetSubscriptionInformationResponse.Subscription"><span title="org.signal.chat.purchase.GetSubscriptionInformationResponse.Subscription">org.signal.chat.purchase.GetSubscriptionInformationResponse.Subscription</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            no_subscription
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            subscriber_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            subscriber_id_mismatch
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>subscriberId authentication failure</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.LevelConfiguration">
+  <span>
+    <a href="#message-org.signal.chat.purchase.LevelConfiguration" title="org.signal.chat.purchase.LevelConfiguration">message LevelConfiguration</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        badge
+      </td>
+      <td>
+        <code title="org.signal.chat.common.Badge">
+          
+          <a href="org.signal.chat.common.html#message-org.signal.chat.common.Badge"><span title="org.signal.chat.common.Badge">org.signal.chat.common.Badge</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        badge_duration_seconds
+      </td>
+      <td>
+        <code title="uint64">
+          
+            optional
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The duration for which a badge is valid. Present only for
+one-time (boost, gift) badges</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.PaymentRequired">
+  <span>
+    <a href="#message-org.signal.chat.purchase.PaymentRequired" title="org.signal.chat.purchase.PaymentRequired">message PaymentRequired</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        charge_failure
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.ChargeFailure">
+          
+            optional
+          
+          <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ChargeFailure"><span title="org.signal.chat.purchase.ChargeFailure">org.signal.chat.purchase.ChargeFailure</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetIapSubscriptionRequest.PlayBillingPurchase">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetIapSubscriptionRequest.PlayBillingPurchase" title="org.signal.chat.purchase.SetIapSubscriptionRequest.PlayBillingPurchase">message PlayBillingPurchase</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetIapSubscriptionRequest"><span title="org.signal.chat.purchase.SetIapSubscriptionRequest">org.signal.chat.purchase.SetIapSubscriptionRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        purchase_token
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.SepaPaymentMethod">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.SepaPaymentMethod" title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest.SepaPaymentMethod">message SepaPaymentMethod</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest"><span title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest">org.signal.chat.purchase.SetDefaultPaymentMethodRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        setupIntentId
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest" title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest">message SetDefaultPaymentMethodRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        subscriberId
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof request</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            stripe
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest.StripePaymentMethod">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.StripePaymentMethod"><span title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest.StripePaymentMethod">org.signal.chat.purchase.SetDefaultPaymentMethodRequest.StripePaymentMethod</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            braintree
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest.BraintreePaymentMethod">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.BraintreePaymentMethod"><span title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest.BraintreePaymentMethod">org.signal.chat.purchase.SetDefaultPaymentMethodRequest.BraintreePaymentMethod</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            sepa
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest.SepaPaymentMethod">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.SepaPaymentMethod"><span title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest.SepaPaymentMethod">org.signal.chat.purchase.SetDefaultPaymentMethodRequest.SepaPaymentMethod</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetDefaultPaymentMethodResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodResponse" title="org.signal.chat.purchase.SetDefaultPaymentMethodResponse">message SetDefaultPaymentMethodResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            subscriber_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            subscriber_id_mismatch
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>subscriberId authentication failure</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            payment_method_not_set_up
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            subscription_processor_conflict
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Payment processor does not match existing processor associated with the subscription</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetIapSubscriptionRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetIapSubscriptionRequest" title="org.signal.chat.purchase.SetIapSubscriptionRequest">message SetIapSubscriptionRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        subscriberId
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof request</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            app_store
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.SetIapSubscriptionRequest.AppStorePurchase">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetIapSubscriptionRequest.AppStorePurchase"><span title="org.signal.chat.purchase.SetIapSubscriptionRequest.AppStorePurchase">org.signal.chat.purchase.SetIapSubscriptionRequest.AppStorePurchase</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            play_billing
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.SetIapSubscriptionRequest.PlayBillingPurchase">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetIapSubscriptionRequest.PlayBillingPurchase"><span title="org.signal.chat.purchase.SetIapSubscriptionRequest.PlayBillingPurchase">org.signal.chat.purchase.SetIapSubscriptionRequest.PlayBillingPurchase</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetIapSubscriptionResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetIapSubscriptionResponse" title="org.signal.chat.purchase.SetIapSubscriptionResponse">message SetIapSubscriptionResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.SetIapSubscriptionResponse.SetIapSubscriptionResult">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetIapSubscriptionResponse.SetIapSubscriptionResult"><span title="org.signal.chat.purchase.SetIapSubscriptionResponse.SetIapSubscriptionResult">org.signal.chat.purchase.SetIapSubscriptionResponse.SetIapSubscriptionResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            subscriber_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            subscriber_id_mismatch
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>subscriberId authentication failure</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            subscription_processor_conflict
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>New payment processor does not match existing processor associated with the subscription</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            payment_required
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            6
+          </td>
+          <td>
+            invalid_transaction
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetIapSubscriptionResponse.SetIapSubscriptionResult">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetIapSubscriptionResponse.SetIapSubscriptionResult" title="org.signal.chat.purchase.SetIapSubscriptionResponse.SetIapSubscriptionResult">message SetIapSubscriptionResult</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetIapSubscriptionResponse"><span title="org.signal.chat.purchase.SetIapSubscriptionResponse">org.signal.chat.purchase.SetIapSubscriptionResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        level
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetSubscriptionLevelRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetSubscriptionLevelRequest" title="org.signal.chat.purchase.SetSubscriptionLevelRequest">message SetSubscriptionLevelRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        subscriberId
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        level
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        currency
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        idempotencyKey
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetSubscriptionLevelResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetSubscriptionLevelResponse" title="org.signal.chat.purchase.SetSubscriptionLevelResponse">message SetSubscriptionLevelResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult"><span title="org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            subscriber_not_found
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.NotFound">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.NotFound"><span title="org.signal.chat.errors.NotFound">org.signal.chat.errors.NotFound</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            subscriber_id_mismatch
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>subscriberId authentication failure</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            4
+          </td>
+          <td>
+            subscription_processor_conflict
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>New payment processor does not match existing processor associated with the subscription</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            5
+          </td>
+          <td>
+            payment_method_not_set_up
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            6
+          </td>
+          <td>
+            unsupported_operation
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The payment processor does not support this operation</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            7
+          </td>
+          <td>
+            unsupported_level
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested level was invalid</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            8
+          </td>
+          <td>
+            unsupported_currency
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The requested currency was invalid</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            9
+          </td>
+          <td>
+            payment_requires_action
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The card could not be charged</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            10
+          </td>
+          <td>
+            invalid_level_transition
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>Cannot transition from existing level to the requested level</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            11
+          </td>
+          <td>
+            invalid_idempotency_key
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedPrecondition">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedPrecondition"><span title="org.signal.chat.errors.FailedPrecondition">org.signal.chat.errors.FailedPrecondition</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The idempotency key was invalid or re-used with a modified request</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            12
+          </td>
+          <td>
+            charge_failure
+          </td>
+          <td>
+            <code title="org.signal.chat.purchase.ChargeFailure">
+              
+              <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ChargeFailure"><span title="org.signal.chat.purchase.ChargeFailure">org.signal.chat.purchase.ChargeFailure</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The payment failed; see charge failure details</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult" title="org.signal.chat.purchase.SetSubscriptionLevelResponse.SetSubscriptionLevelResult">message SetSubscriptionLevelResult</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetSubscriptionLevelResponse"><span title="org.signal.chat.purchase.SetSubscriptionLevelResponse">org.signal.chat.purchase.SetSubscriptionLevelResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        level
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.StripePaymentMethod">
+  <span>
+    <a href="#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest.StripePaymentMethod" title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest.StripePaymentMethod">message StripePaymentMethod</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.SetDefaultPaymentMethodRequest"><span title="org.signal.chat.purchase.SetDefaultPaymentMethodRequest">org.signal.chat.purchase.SetDefaultPaymentMethodRequest</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        paymentMethodToken
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.GetSubscriptionInformationResponse.Subscription">
+  <span>
+    <a href="#message-org.signal.chat.purchase.GetSubscriptionInformationResponse.Subscription" title="org.signal.chat.purchase.GetSubscriptionInformationResponse.Subscription">message Subscription</a>
+  
+    <br /><span style="font-size: 0.7em; font-weight: normal">(Nested in <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.GetSubscriptionInformationResponse"><span title="org.signal.chat.purchase.GetSubscriptionInformationResponse">org.signal.chat.purchase.GetSubscriptionInformationResponse</span>
+    </a>)</span>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        level
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The subscription level</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        billing_cycle_anchor
+      </td>
+      <td>
+        <code title="uint64">
+          
+            optional
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>If present, UNIX Epoch Timestamp in seconds, can be used to calculate next billing date.</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>3</td>
+      <td>
+        end_of_current_period
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>UNIX Epoch Timestamp in seconds, when the current subscription period ends</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>
+        active
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Whether there is a currently active subscription</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>5</td>
+      <td>
+        cancel_at_period_end
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>If true, an active subscription will not auto-renew at the end of the current period</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>6</td>
+      <td>
+        currency
+      </td>
+      <td>
+        <code title="string">
+          
+          <span>string</span>
+        </code>
+      </td>
+      <td class="content"><p>A three-letter ISO 4217 currency code for currency used in the subscription</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>7</td>
+      <td>
+        amount
+      </td>
+      <td>
+        <code title="uint64">
+          
+          <span>uint64</span>
+        </code>
+      </td>
+      <td class="content"><p>The amount paid for the subscription in the currency's smallest unit</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>8</td>
+      <td>
+        status
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.SubscriptionStatus">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.SubscriptionStatus"><span title="org.signal.chat.purchase.SubscriptionStatus">org.signal.chat.purchase.SubscriptionStatus</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The subscription's status, mapped to Stripe's statuses. trialing will never be returned</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>9</td>
+      <td>
+        processor
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.PaymentProvider">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentProvider"><span title="org.signal.chat.purchase.PaymentProvider">org.signal.chat.purchase.PaymentProvider</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The payment provider associated with the subscription</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>10</td>
+      <td>
+        payment_method
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.PaymentMethod">
+          
+          <a href="org.signal.chat.purchase.html#enum-org.signal.chat.purchase.PaymentMethod"><span title="org.signal.chat.purchase.PaymentMethod">org.signal.chat.purchase.PaymentMethod</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>The payment method associated with the subscription</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>11</td>
+      <td>
+        payment_processing
+      </td>
+      <td>
+        <code title="bool">
+          
+          <span>bool</span>
+        </code>
+      </td>
+      <td class="content"><p>Whether the latest charge for the subscription is in a non-terminal state</p></td>
+      
+    </tr>
+    
+    <tr>
+      <td>12</td>
+      <td>
+        charge_failure
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.ChargeFailure">
+          
+            optional
+          
+          <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.ChargeFailure"><span title="org.signal.chat.purchase.ChargeFailure">org.signal.chat.purchase.ChargeFailure</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"><p>if present, contains information that may be interpreted to help the user fix a failure</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.TaggedConfiguration">
+  <span>
+    <a href="#message-org.signal.chat.purchase.TaggedConfiguration" title="org.signal.chat.purchase.TaggedConfiguration">message TaggedConfiguration</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        configuration
+      </td>
+      <td>
+        <code title="org.signal.chat.purchase.Configuration">
+          
+          <a href="org.signal.chat.purchase.html#message-org.signal.chat.purchase.Configuration"><span title="org.signal.chat.purchase.Configuration">org.signal.chat.purchase.Configuration</span>
+    </a>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        etag
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>An entity tag for <code>configuration</code>. This may be used in subsequent
+requests for the configuration version to optimize bandwidth.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.UpdateSubscriberRequest">
+  <span>
+    <a href="#message-org.signal.chat.purchase.UpdateSubscriberRequest" title="org.signal.chat.purchase.UpdateSubscriberRequest">message UpdateSubscriberRequest</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>1</td>
+      <td>
+        subscriber_id
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"></td>
+      
+    </tr>
+    
+    <tr>
+      <td>2</td>
+      <td>
+        donation_permit
+      </td>
+      <td>
+        <code title="bytes">
+          
+          <span>bytes</span>
+        </code>
+      </td>
+      <td class="content"><p>A libsignal DonationPermit from rpc Donations.CreateDonationPermit.
+Not required if the subscriber already exists.</p></td>
+      
+    </tr>
+    
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+      
+      <div class="block">
+        
+
+<h4 class="title is-4 type-heading" id="message-org.signal.chat.purchase.UpdateSubscriberResponse">
+  <span>
+    <a href="#message-org.signal.chat.purchase.UpdateSubscriberResponse" title="org.signal.chat.purchase.UpdateSubscriberResponse">message UpdateSubscriberResponse</a>
+  
+  </span>
+  
+</h4>
+
+<div class="block content">
+  
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Field</th>
+      <th>Type</th>
+      <th>Description</th>
+      
+    </tr>
+  </thead>
+  <tbody>
+    
+    
+      
+        
+          <tr class="nohover"><td style="border: 0px"></td></tr>
+          <tr class="nohover">
+            <td class="oneof-heading" colspan="4">
+              <div class="oneof-heading">
+                <strong>oneof response</strong>
+              </div>
+            </td>
+          </tr>
+        
+
+        <tr>
+          <td>
+            1
+          </td>
+          <td>
+            success
+          </td>
+          <td>
+            <code title="google.protobuf.Empty">
+              
+              <span>google.protobuf.Empty</span>
+            </code>
+          </td>
+          <td class="content"></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            2
+          </td>
+          <td>
+            subscriber_id_mismatch
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedUnidentifiedAuthorization">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedUnidentifiedAuthorization"><span title="org.signal.chat.errors.FailedUnidentifiedAuthorization">org.signal.chat.errors.FailedUnidentifiedAuthorization</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>subscriberId authentication failure</p></td>
+          
+        </tr>
+      
+        
+
+        <tr>
+          <td>
+            3
+          </td>
+          <td>
+            permit_rejected
+          </td>
+          <td>
+            <code title="org.signal.chat.errors.FailedZkAuthentication">
+              
+              <a href="org.signal.chat.errors.html#message-org.signal.chat.errors.FailedZkAuthentication"><span title="org.signal.chat.errors.FailedZkAuthentication">org.signal.chat.errors.FailedZkAuthentication</span>
+    </a>
+            </code>
+          </td>
+          <td class="content"><p>The donation permit was expired or already spent</p></td>
+          
+        </tr>
+      
+    
+  </tbody>
+</table>
+ 
+      </div>
+      
+    
+
+  
+
+  
+
+    <h3 class="title is-3">
+      Enums
+    </h3>
+
+    
+    <div class="block">
+      <h4 class="title is-4 type-heading" id="enum-org.signal.chat.purchase.BankTransferType">
+  <a href="#enum-org.signal.chat.purchase.BankTransferType" title="org.signal.chat.purchase.BankTransferType">enum BankTransferType</a>
+  
+</h4>
+
+<div class="block content">
+  <p></p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Number</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><code>BANK_TRANSFER_TYPE_UNKNOWN</code></td>
+      <td>0</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>BANK_TRANSFER_TYPE_SEPA_DEBIT</code></td>
+      <td>1</td>
+      <td class="content"></td>
+    </tr>
+    
+  </tbody>
+</table> 
+    </div>
+    
+    <div class="block">
+      <h4 class="title is-4 type-heading" id="enum-org.signal.chat.purchase.PaymentMethod">
+  <a href="#enum-org.signal.chat.purchase.PaymentMethod" title="org.signal.chat.purchase.PaymentMethod">enum PaymentMethod</a>
+  
+</h4>
+
+<div class="block content">
+  <p></p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Number</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><code>PAYMENT_METHOD_UNKNOWN</code></td>
+      <td>0</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_METHOD_CARD</code></td>
+      <td>1</td>
+      <td class="content"><p>A credit card or debit card, including those from Apple Pay and Google Pay</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_METHOD_SEPA_DEBIT</code></td>
+      <td>2</td>
+      <td class="content"><p>A SEPA debit account</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_METHOD_IDEAL</code></td>
+      <td>3</td>
+      <td class="content"><p>An iDEAL account</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_METHOD_PAYPAL</code></td>
+      <td>4</td>
+      <td class="content"><p>A PayPal account</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_METHOD_GOOGLE_PLAY_BILLING</code></td>
+      <td>5</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_METHOD_APPLE_APP_STORE</code></td>
+      <td>6</td>
+      <td class="content"></td>
+    </tr>
+    
+  </tbody>
+</table> 
+    </div>
+    
+    <div class="block">
+      <h4 class="title is-4 type-heading" id="enum-org.signal.chat.purchase.PaymentProvider">
+  <a href="#enum-org.signal.chat.purchase.PaymentProvider" title="org.signal.chat.purchase.PaymentProvider">enum PaymentProvider</a>
+  
+</h4>
+
+<div class="block content">
+  <p></p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Number</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><code>PAYMENT_PROVIDER_UNKNOWN</code></td>
+      <td>0</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_PROVIDER_STRIPE</code></td>
+      <td>1</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_PROVIDER_BRAINTREE</code></td>
+      <td>2</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_PROVIDER_GOOGLE_PLAY_BILLING</code></td>
+      <td>3</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>PAYMENT_PROVIDER_APPLE_APP_STORE</code></td>
+      <td>4</td>
+      <td class="content"></td>
+    </tr>
+    
+  </tbody>
+</table> 
+    </div>
+    
+    <div class="block">
+      <h4 class="title is-4 type-heading" id="enum-org.signal.chat.purchase.SubscriptionStatus">
+  <a href="#enum-org.signal.chat.purchase.SubscriptionStatus" title="org.signal.chat.purchase.SubscriptionStatus">enum SubscriptionStatus</a>
+  
+</h4>
+
+<div class="block content">
+  <p></p>
+</div>
+
+<table class="table is-fullwidth is-hoverable is-bordered">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Number</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><code>SUBSCRIPTION_STATUS_UNKNOWN</code></td>
+      <td>0</td>
+      <td class="content"></td>
+    </tr>
+    
+    <tr>
+      <td><code>SUBSCRIPTION_STATUS_ACTIVE</code></td>
+      <td>1</td>
+      <td class="content"><p>The subscription is in good standing and the most recent payment was successful.</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>SUBSCRIPTION_STATUS_INCOMPLETE</code></td>
+      <td>2</td>
+      <td class="content"><p>Payment failed when creating the subscription, or the subscription's start date is in the future.</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>SUBSCRIPTION_STATUS_PAST_DUE</code></td>
+      <td>3</td>
+      <td class="content"><p>Payment on the latest renewal failed but there are processor retries left, or payment wasn't attempted.</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>SUBSCRIPTION_STATUS_CANCELED</code></td>
+      <td>4</td>
+      <td class="content"><p>The subscription has been canceled.</p></td>
+    </tr>
+    
+    <tr>
+      <td><code>SUBSCRIPTION_STATUS_UNPAID</code></td>
+      <td>5</td>
+      <td class="content"><p>The latest renewal hasn't been paid but the subscription remains in place.</p></td>
+    </tr>
+    
+  </tbody>
+</table> 
+    </div>
+    
+
+  
+
+</div>
+
+    <footer class="footer">
+      <div class="content has-text-centered">
+        
+        <p>Built with <strong><a href="https://github.com/markvincze/sabledocs" target="_blank">sabledocs</a></strong>.</p>
+      </div>
+    </footer>
+  </body>
+</html>
