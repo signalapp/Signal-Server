@@ -114,7 +114,7 @@ public class AcknowledgementMirroringMessageStream implements MessageStream {
         JdkFlowAdapter.flowPublisherToFlux(redisDynamoDbMessageStream.getMessages())
             // Mirror demand and termination signals to the FoundationDB message stream
             .doOnNext(subscriber::handleRedisDynamoDbMessageStreamEntry)
-            .doOnComplete(subscriber::dispose));
+            .doFinally(_ -> subscriber.dispose()));
   }
 
   @Override
