@@ -390,4 +390,29 @@ public class MessagesManager {
       final SealedSenderMultiRecipientMessage sealedSenderMultiRecipientMessage) {
     return messagesCache.insertSharedMultiRecipientMessagePayload(sealedSenderMultiRecipientMessage);
   }
+
+  /// Record versionstamps for the current time in the FoundationDB database(s).
+  public void recordFoundationDbVersionstamps() {
+    foundationDbMessageStore.recordVersionstamps();
+  }
+
+  /// Clean up expired entries in the FoundationDB versionstamp clock.
+  ///
+  /// @param oldestRetainedEntryTimestamp the earliest time for which we still want to be able to obtain a versionstamp
+  public void expireOldFoundationDbVersionstamps(final Instant oldestRetainedEntryTimestamp) {
+    foundationDbMessageStore.expireOldVersionstamps(oldestRetainedEntryTimestamp);
+  }
+
+  /// Delete messages in FoundationDB for the given devices that were inserted before the given
+  /// time. (Expiration of messages from Redis and Dynamo is handled automatically and do not
+  /// require any interaction with this class.)
+  ///
+  /// @param accountDeviceIdentifiers a map from ACI to the list of device IDs for which expired messages should be
+  /// trimmed.
+  ///
+  /// @param cutoffTime the expiration threshold. Messages inserted before this time may be deleted; messages inserted
+  /// after it will not be.
+  public void deleteFoundationDbMessagesBefore(final Map<AciServiceIdentifier, List<Byte>> accountDeviceIdentifiers, final Instant cutoffTime) {
+    foundationDbMessageStore.deleteMessagesBefore(accountDeviceIdentifiers, cutoffTime);
+  }
 }

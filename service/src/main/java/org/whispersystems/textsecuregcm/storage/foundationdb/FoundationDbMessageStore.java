@@ -430,6 +430,15 @@ public class FoundationDbMessageStore {
     }
   }
 
+  /// Remove any entries from each database's versionstamp-clock namespace that are strictly older than the given timestamp.
+  ///
+  /// @param oldestRetainedEntryTimestamp the earliest time for which we still want to be able to obtain a versionstamp
+  public void expireOldVersionstamps(final Instant oldestRetainedEntryTimestamp) {
+    for (VersionstampClock versionstampClock : versionstampClocks.values()) {
+      versionstampClock.clearExpiredEntries(oldestRetainedEntryTimestamp);
+    }
+  }
+
   /// Delete messages for the given devices that were inserted before the given time.
   ///
   /// This issues one range delete for every account/device pair in the map for each actual underlying FoundationDB
@@ -447,7 +456,6 @@ public class FoundationDbMessageStore {
   /// @param cutoffTime the expiration threshold. Messages inserted before this time may be deleted; messages inserted
   /// after it will not be. Deletion depends on the underlying [versionstamp clocks][VersionstampClock] being kept up to
   /// date.
-  @VisibleForTesting
   public void deleteMessagesBefore(final Map<AciServiceIdentifier, List<Byte>> accountDeviceIdentifiers, final Instant cutoffTime) {
     final Map<Database, List<Subspace>> queueSubspacesToTrimByDatabase = new IdentityHashMap<>();
 
