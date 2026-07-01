@@ -463,6 +463,10 @@ class FoundationDbMessagePublisher {
 
     if (!terminateOnQueueEmpty) {
       database.runAsync(transaction -> transaction.get(presenceKey).thenAccept(presenceValue -> {
+            if (presenceValue == null) {
+              return;
+            }
+
             final byte[] presenceServerId = FoundationDbMessageStore.getPresenceServerId(presenceValue);
             final int presenceStreamId = FoundationDbMessageStore.getPresenceStreamId(presenceValue);
 
